@@ -42,8 +42,9 @@ If the PR covers only part of the requirement, the body must say which criteria 
   texts or merchant names stored in the journal (ARC-11).
 - Module card not updated when the public interface or events changed.
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
-  implements, and the change matches that decision; a PR changing deploy/infrastructure workflows or access/trust settings has an approval comment
-  from the owner's own GitHub account — otherwise blocking.
+  implements, and the change matches that decision; a PR changing deploy or infrastructure workflows or
+  access/trust settings (OIDC, secrets store, KMS, DNS) has an approval comment from the owner's own GitHub
+  account on that PR — otherwise blocking.
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - New dependencies or services without justification.
 
