@@ -19,7 +19,7 @@ requirement, following the architecture requirements (ARC) and delivery requirem
 | Architecture decisions (written while building) | `docs/adr/` — do not contradict an accepted ADR; propose a new one |
 
 Requirement files are self-contained: you never need another source to implement one. A requirement
-changes only through a PR to its file, approved by the owner.
+changes only through a PR to its file that records the owner's decision.
 
 ## Planned code layout
 
@@ -110,8 +110,9 @@ errors) lives only in `packages/domain-kernel`.
    money calculations, database schema, pipeline and infrastructure also need a security review.
 6. All CI checks green. Never skip, disable or weaken a test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
-   session gave «Ready» (plus the security review for sensitive areas). If the owner commented «stop» or
-   asked a question on the PR, do not merge until they answer. Production releases still need the
+   session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or
+   skills are merged only when the PR body records the owner's decision they implement. If the owner
+   commented «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
 
