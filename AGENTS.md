@@ -111,8 +111,10 @@ errors) lives only in `packages/domain-kernel`.
 6. All CI checks green. Never skip, disable or weaken a test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
    session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or
-   skills are merged only when the PR body records the owner's decision they implement. If the owner
-   commented «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
+   skills are merged only when the PR body records the owner's decision they implement. PRs that change deploy or
+   infrastructure workflows or access/trust settings (OIDC trust, secrets store, KMS, DNS) are merged only
+   after the owner comments approval on that PR from their own GitHub account. If the owner commented
+   «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
 
