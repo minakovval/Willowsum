@@ -1,0 +1,19 @@
+# DAT — module requirements
+
+Scope: Universal list, global search, bulk actions, shared data rules. Source: tab 5 of the Willowsum product specification.
+
+## Module intro (from the specification tab)
+
+Модуль охоплює сховище документів і їх типи, страхові поліси й аналіз покриття, сповіщення і тригери, універсальний список, глобальний пошук, масові дії, єдиний імпорт даних, стани екранів, підтримку, стандартні й заплановані звіти, а також імпорт банківських виписок: рушій розпізнавання, рецепти й шаблони, мультивалютність, парування, контрольні суми, PDF і OCR.
+
+Shared text of this tab (title, intro, common sections) is kept in [../doc/README.md](../doc/README.md).
+
+## Requirements
+
+| ID | Title | Release | Priority |
+| --- | --- | --- | --- |
+| [DAT-01](DAT-01.md) | Універсальний список | MVP | M |
+| [DAT-02](DAT-02.md) | Глобальний пошук | MVP | S |
+| [DAT-03](DAT-03.md) | Масові дії | MVP | S |
+| [DAT-04](DAT-04.md) | Єдиний імпорт і майстер міграції | MVP | M |
+| [DAT-05](DAT-05.md) | Стани екранів і віджетів | MVP | M |

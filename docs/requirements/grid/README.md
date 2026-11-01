@@ -1,0 +1,22 @@
+# GRID — module requirements
+
+Scope: Layout grid, navigation shell and page templates. Source: tab 6 of the Willowsum product specification.
+
+## Module intro (from the specification tab)
+
+Модуль описує досвід користувача Willowsum: онбординг, рівні складності й режим «Тільки бюджет», навігацію, головний екран, приховування сум, командний рядок, персоналізацію, підсумки, навчання, мобільні віджети й інші платформи, сітку інтерфейсу та шаблони всіх сторінок, локалізацію, а також юридичні документи, згоду й налаштування приватності в застосунку.
+
+Shared text of this tab (title, intro, common sections) is kept in [../ux/README.md](../ux/README.md).
+
+## Requirements
+
+| ID | Title | Release | Priority |
+| --- | --- | --- | --- |
+| [GRID-00](GRID-00.md) | Основа сітки, оболонка навігації і загальні правила інтерфейсу | MVP | M |
+| [GRID-01](GRID-01.md) | Сітки сторінок розділу «Головна» (Огляд і Net worth) | MVP | M |
+| [GRID-02](GRID-02.md) | Сітки сторінок розділу «Гроші» | MVP | M |
+| [GRID-03](GRID-03.md) | Сітки сторінок розділу «Активи» | MVP | M |
+| [GRID-04](GRID-04.md) | Сітки сторінок розділу «Планування» | MVP | M |
+| [GRID-05](GRID-05.md) | Сітки сторінок розділу «Ще» (акаунт) | MVP | M |
+| [GRID-06](GRID-06.md) | Сітки сторінок входу і онбордингу | MVP | M |
+| [GRID-07](GRID-07.md) | Сітки сторінок адмін-панелі | MVP | M |
