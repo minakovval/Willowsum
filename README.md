@@ -7,7 +7,7 @@ budget, documents and a client-side encrypted vault. Built from scratch.
 
 Requirements complete; implementation not started.
 
-- Requirements: [docs/requirements/](docs/requirements/README.md) — 396 requirements, one file each.
+- Requirements: [docs/requirements/](docs/requirements/README.md) — 397 requirements, one file each.
 - Rules for agents and contributors: [AGENTS.md](AGENTS.md).
 - Agent skills: `.claude/skills/implement-requirement`, `.claude/skills/review-pr`.
 

@@ -18,7 +18,7 @@ Each module folder has a `README.md` with the module intro and a table of its re
 (ID, title, release, priority). Text from a specification tab that is not part of any single
 requirement is kept in the README of that module.
 
-## Modules (396 requirements)
+## Modules (397 requirements)
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
@@ -55,7 +55,7 @@ requirement is kept in the README of that module.
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | MVP 4, Сейф 1, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | MVP 11 |
-| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 11 | MVP 10, v1-mobile 1 |
+| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | MVP 11, v1-mobile 1 |
 
 ## Folders
 

@@ -41,6 +41,10 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Ledger: any write to journal tables outside `ledger`, unbalanced entries, edits instead of reversals,
   texts or merchant names stored in the journal (ARC-11).
 - Module card not updated when the public interface or events changed.
+- Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
+  implements, and the change matches that decision; a PR changing deploy or infrastructure workflows or
+  access/trust settings (OIDC, secrets store, KMS, DNS) has an approval comment from the owner's own GitHub
+  account on that PR — otherwise blocking.
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - New dependencies or services without justification.
 
@@ -57,6 +61,6 @@ Post one PR review:
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear.
 
-Verdict: «Changes requested» if anything is blocking, otherwise «Ready for owner». Never approve-merge:
-the owner merges. Changes to auth, permissions, encryption, money, schema, pipeline or infrastructure also
-need a security review — say so if the PR has not had one.
+Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
+The authoring agent merges only after «Ready». Changes to auth, permissions, encryption, money, schema,
+pipeline or infrastructure also need a separate security review — say so if the PR has not had one.
