@@ -1,0 +1,28 @@
+# UX — module requirements
+
+Scope: Onboarding, complexity levels, navigation, home screen, hide amounts, personalisation. Source: tab 6 of the Willowsum product specification.
+
+## Text from the specification tab (outside individual requirements)
+
+<!-- spec-text:begin -->
+## 6. Досвід, навігація, мови, юридичні вимоги
+
+Модуль описує досвід користувача Willowsum: онбординг, рівні складності й режим «Тільки бюджет», навігацію, головний екран, приховування сум, командний рядок, персоналізацію, підсумки, навчання, мобільні віджети й інші платформи, сітку інтерфейсу та шаблони всіх сторінок, локалізацію, а також юридичні документи, згоду й налаштування приватності в застосунку.
+
+Вимоги модуля: UX-01, UX-02, UX-03, UX-04, UX-05, UX-06, UX-07, UX-08, UX-09, PLT-01, PLT-02, GRID-00, GRID-01, GRID-02, GRID-03, GRID-04, GRID-05, GRID-06, GRID-07, L10N-01, L10N-02, LEG-01.
+
+<!-- spec-text:end -->
+
+## Requirements
+
+| ID | Title | Release | Priority |
+| --- | --- | --- | --- |
+| [UX-01](UX-01.md) | Онбординг | MVP | M |
+| [UX-02](UX-02.md) | Приховування сум | MVP | S |
+| [UX-03](UX-03.md) | Налаштовуваний головний екран | MVP | S |
+| [UX-04](UX-04.md) | Командний рядок і скорочення | MVP | S |
+| [UX-05](UX-05.md) | Персоналізація | v2 | C |
+| [UX-06](UX-06.md) | Підсумки й поширення | v2 | C |
+| [UX-07](UX-07.md) | Навчання | v2 | C |
+| [UX-08](UX-08.md) | Режим «Тільки бюджет» на старті | MVP | S |
+| [UX-09](UX-09.md) | Навігація і рівні меню | MVP | M |

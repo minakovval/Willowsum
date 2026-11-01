@@ -1,0 +1,31 @@
+# ACC — module requirements
+
+Scope: Account, sign-in, 2FA, sessions, profile, household space, roles, scope, audit log. Source: tab 1 of the Willowsum product specification.
+
+## Text from the specification tab (outside individual requirements)
+
+<!-- spec-text:begin -->
+## 1. Акаунт, доступ, підписки, адмін-панель
+
+Модуль охоплює обліковий запис користувача (реєстрація, вхід, двофакторна автентифікація, сесії, профіль, валюта звітності, експорт і закриття акаунта), робочий простір родини з ролями, обмеженням доступу і журналом аудиту, а також плани, підписки, оплату й адмін-панель, через яку персонал керує складом планів без релізу.
+
+Вимоги модуля: ACC-01, ACC-02, ACC-03, ACC-04, ACC-05, ACC-06, ACC-07, ACC-08, ACC-09, ACC-10, ACC-11, ACC-12, SUB-01, SUB-02, SUB-03, SUB-04, SUB-05, SUB-06, SUB-07, SUB-08, ADM-01, ADM-02, ADM-03, ADM-04, ADM-05, ADM-06, ADM-07, ADM-08, ADM-09.
+
+<!-- spec-text:end -->
+
+## Requirements
+
+| ID | Title | Release | Priority |
+| --- | --- | --- | --- |
+| [ACC-01](ACC-01.md) | Реєстрація та вхід | MVP | M |
+| [ACC-02](ACC-02.md) | Реєстрація та оплата в мобільному застосунку | v1-mobile | S |
+| [ACC-03](ACC-03.md) | Двофакторна автентифікація | MVP | M |
+| [ACC-04](ACC-04.md) | Керування сесіями і тайм-аут | MVP | M |
+| [ACC-05](ACC-05.md) | Профіль, локалізація і зміна email | MVP | M |
+| [ACC-06](ACC-06.md) | Валюта звітності | MVP | M |
+| [ACC-07](ACC-07.md) | Експорт даних і закриття акаунта | MVP | M |
+| [ACC-08](ACC-08.md) | Робочий простір (Household), передача власності і видалення простору | MVP | M |
+| [ACC-09](ACC-09.md) | Ролі та запрошення | MVP | M |
+| [ACC-10](ACC-10.md) | Область доступу (scope) | MVP | S |
+| [ACC-11](ACC-11.md) | Журнал аудиту | MVP | M |
+| [ACC-12](ACC-12.md) | Аварійний доступ (digital legacy) | v2 | C |

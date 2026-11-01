@@ -1,0 +1,39 @@
+name: PR checks
+
+# Minimal checks until the code skeleton exists (CICD-01, CICD-02 add the full pipeline).
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  traceability:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR title starts with a requirement ID
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          if echo "$TITLE" | grep -Eq '^(ACC|SUB|ADM|AST|VAL|FIN|INV|CRY|BUD|IMP|DAT|DOC|INS|NOT|RPT|SUP|UX|GRID|L10N|LEG|PLT|VLT|AI|INT|PLN|ADV|NFR|DS|CMP|FLW|JRN|SCR|ARC|CICD)-[0-9]{2}[a-z]?\b'; then
+            echo "ok"
+          else
+            echo "::error::PR title must start with a requirement ID from docs/requirements/ (e.g. BUD-03: ...)"; exit 1
+          fi
+
+  requirements:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every requirement file has a matching heading and a unique ID
+        run: |
+          set -e
+          fail=0
+          for f in docs/requirements/*/*-[0-9]*.md; do
+            id=$(basename "$f" .md)
+            head -1 "$f" | grep -q "^# $id · " || { echo "::error file=$f::first line must be '# $id · <title>'"; fail=1; }
+          done
+          dups=$(ls docs/requirements/*/*-[0-9]*.md | xargs -n1 basename | sort | uniq -d)
+          [ -z "$dups" ] || { echo "::error::duplicate requirement IDs: $dups"; fail=1; }
+          exit $fail

@@ -1,0 +1,62 @@
+---
+name: review-pr
+description: Review a Willowsum pull request against its requirement file in docs/requirements/ and the hard rules in AGENTS.md. Use when asked to review a PR or branch that implements a requirement ID. Must run in a different session from the one that wrote the code.
+---
+
+# Review a requirement PR
+
+You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
+missing, not to confirm the author's summary.
+
+## 1. Load
+
+1. `AGENTS.md` (hard rules, Definition of Done).
+2. The PR: title, body, diff, CI status (GitHub tools). Take the requirement ID from the title.
+3. The requirement file `docs/requirements/<module>/<ID>.md` and only the sections of
+   `docs/requirements/00-general.md` it relies on.
+
+Read the requirement **before** the PR body, so the author's framing does not anchor you.
+
+## 2. Check coverage
+
+Build a table: every acceptance criterion and edge case in the requirement → the test that covers it →
+does the test actually assert the behaviour (not just render)? Missing or weak rows are findings.
+If the PR covers only part of the requirement, the body must say which criteria are left.
+
+## 3. Check the hard rules
+
+- Money: any `number`, `parseFloat`, `Math.round` or float arithmetic on amounts; currency conversion
+  without a dated rate.
+- Plans: plan names or numeric limits in code; missing entitlement check; a limit that hides or
+  deletes data; wrong error (`402 PLAN_LIMIT_REACHED`).
+- Scope and roles: queries without household/role/scope filter; counts, sums, totals, search results,
+  exports or error messages that reveal out-of-scope records; missing permission tests per role.
+- Audit: data changes without an audit entry.
+- Privacy: personal data in logs, analytics, errors; real data or secrets in fixtures.
+- Vault: plaintext of highly sensitive items reaching the server; CVV/PIN stored.
+- Security: own crypto, injection, missing step-up where the requirement asks for it, unsafe file handling.
+- Module boundaries: imports of another module's internals or tables; provider SDKs outside adapters;
+  domain layer depending on database, HTTP or file system.
+- UI: empty/loading/error states, «Приховати суми», breakpoints, i18n uk/en, accessibility.
+- Ledger: any write to journal tables outside `ledger`, unbalanced entries, edits instead of reversals,
+  texts or merchant names stored in the journal (ARC-11).
+- Module card not updated when the public interface or events changed.
+- Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
+- New dependencies or services without justification.
+
+## 4. Verify, do not speculate
+
+For each suspected defect, trace a concrete path (input or caller → wrong result). Run the relevant tests
+locally if needed. Drop findings you cannot support.
+
+## 5. Report
+
+Post one PR review:
+- **Blocking** — violates a requirement criterion or a hard rule; each with file:line and the failing path.
+- **Non-blocking** — clarity, naming, small improvements.
+- The coverage table.
+- Questions for the owner where the requirement itself is unclear.
+
+Verdict: «Changes requested» if anything is blocking, otherwise «Ready for owner». Never approve-merge:
+the owner merges. Changes to auth, permissions, encryption, money, schema, pipeline or infrastructure also
+need a security review — say so if the PR has not had one.
