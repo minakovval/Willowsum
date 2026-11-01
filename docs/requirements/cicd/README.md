@@ -24,3 +24,4 @@ Scope: CI/CD and operations requirements. Source: tab 13 of the Willowsum produc
 | [CICD-09](CICD-09.md) | Інциденти | MVP | M |
 | [CICD-10](CICD-10.md) | Мобільні застосунки | v1-mobile | M |
 | [CICD-11](CICD-11.md) | Метрики поставки | MVP | S |
+| [CICD-12](CICD-12.md) | Зберігання секретів і доступів | MVP | M |

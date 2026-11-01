@@ -109,8 +109,11 @@ errors) lives only in `packages/domain-kernel`.
 5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
    money calculations, database schema, pipeline and infrastructure also need a security review.
 6. All CI checks green. Never skip, disable or weaken a test to get green.
-7. Only the owner merges to `main` and approves production releases. Never push to `main` directly:
-   the free GitHub plan cannot block it, so the process is the protection.
+7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
+   session gave «Ready» (plus the security review for sensitive areas). If the owner commented «stop» or
+   asked a question on the PR, do not merge until they answer. Production releases still need the
+   owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
+   is the protection.
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.

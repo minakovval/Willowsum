@@ -76,4 +76,6 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 - open questions for the owner, if any;
 - tick the sensitive-areas box if auth, permissions, encryption, money, schema, pipeline or infrastructure changed.
 
-Then ask for review by a different agent session with the `review-pr` skill. Do not merge: the owner merges.
+Then ask for review by a different agent session with the `review-pr` skill. Merge (squash) yourself only
+when CI is green on the latest commit, the review verdict is «Ready» (and the security review, for sensitive
+areas), and the owner has not asked to hold the PR. Never merge your own PR without that independent review.
