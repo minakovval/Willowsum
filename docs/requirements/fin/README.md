@@ -30,7 +30,7 @@ Scope: Accounts, bank aggregation, transactions, journal, recurring payments. So
 | [FIN-11](FIN-11.md) | Стандарт інтеграцій | MVP | M |
 | [FIN-12](FIN-12.md) | Керування рахунками | MVP | M |
 | [FIN-13](FIN-13.md) | Звірка з банком | v1 | S |
-| [FIN-14](FIN-14.md) | Кредитні картки й кредити | v1 | S |
+| [FIN-14](FIN-14.md) | Кредитні картки | v1 | S |
 | [FIN-15](FIN-15.md) | Кредитний рейтинг | v2 | C |
 | [FIN-16](FIN-16.md) | Компенсація акціями | v1 (розбір документа гранту — v2) | S |
 | [FIN-17](FIN-17.md) | Аналіз фондів і портфеля | v2 | C |
