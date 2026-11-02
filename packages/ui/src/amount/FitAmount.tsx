@@ -25,7 +25,15 @@ export function FitAmount({
   const probe = useRef<HTMLSpanElement>(null);
   const full = keepNumbersTogether(value);
   const short = compact ? keepNumbersTogether(compact) : null;
-  const [choice, setChoice] = useState<FitChoice>({ text: full, scale: 1, abbreviated: false });
+  const key = `${full}|${short ?? ""}`;
+  const [fitted, setFitted] = useState<FitChoice & { key: string }>({
+    key,
+    text: full,
+    scale: 1,
+    abbreviated: false,
+  });
+  // A new value is shown at once at full size; the stored fit applies only to the value it measured.
+  const choice: FitChoice = fitted.key === key ? fitted : { text: full, scale: 1, abbreviated: false };
 
   useLayoutEffect(() => {
     const el = outer.current;
@@ -41,14 +49,16 @@ export function FitAmount({
         return p.getBoundingClientRect().width <= width + 0.5;
       };
       const next = chooseFit(full, short, fits);
-      setChoice((prev) => (prev.text === next.text && prev.scale === next.scale ? prev : next));
+      setFitted((prev) =>
+        prev.key === key && prev.text === next.text && prev.scale === next.scale ? prev : { key, ...next },
+      );
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(box);
     return () => ro.disconnect();
-  }, [full, short, hidden]);
+  }, [full, short, key, hidden]);
 
   if (hidden) return <Amount value={value} size={size} />;
   return (

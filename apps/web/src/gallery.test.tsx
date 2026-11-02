@@ -4,7 +4,7 @@ import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
 
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
-const norm = (s: string | null) => (s ?? "").replace(/\u00A0|\u202F/g, " ");
+const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
 
 describe("/gallery/tokens (DS-22)", () => {
   beforeEach(() => {
@@ -42,7 +42,7 @@ describe("/gallery/tokens (DS-22)", () => {
     const amounts = container.querySelector("#g-amounts")!.parentElement!;
     expect(norm(amounts.textContent)).toContain("284 650,00 ₴");
     act(() => screen.getByRole("switch", { name: "Приховати суми" }).click());
-    expect(amounts.innerHTML).not.toContain("284 650");
+    expect(norm(amounts.innerHTML)).not.toContain("284 650");
     expect(norm(amounts.textContent)).toContain("•••");
     expect(norm(amounts.textContent)).toContain("+2,4 %");
     expect(within(amounts as HTMLElement).getAllByRole("button", { name: "Сума прихована" }).length).toBe(4);

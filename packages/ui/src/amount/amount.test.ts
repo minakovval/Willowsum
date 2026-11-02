@@ -21,6 +21,15 @@ describe("formatCompactAmount (CMP-07)", () => {
   it("caps at 999+ qn", () => {
     expect(c("9".repeat(25))).toBe("€ 999+ qn");
   });
+  it("switches to one decimal when rounding reaches 100", () => {
+    expect(c("99995")).toBe("€ 100,0 k");
+    expect(c("99999.5")).toBe("€ 100,0 k");
+  });
+  it("returns null for anything that is not a plain decimal string", () => {
+    for (const bad of ["1 234", "1,234.56", "--5000", "abcd", "1e50", "Infinity1", ""]) {
+      expect(formatCompactAmount({ value: bad, currency: "€" })).toBeNull();
+    }
+  });
   it("returns null below 1 000", () => {
     expect(formatCompactAmount({ value: "999.99", currency: "€" })).toBeNull();
   });

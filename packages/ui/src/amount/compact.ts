@@ -33,6 +33,8 @@ export interface CompactInput {
 
 /** «€ 12,35 tn» style string, or null when the amount is below 1 000 and needs no abbreviation. */
 export function formatCompactAmount({ value, currency }: CompactInput): string | null {
+  // Only a plain decimal string is accepted; anything else (spaces, grouping, exponents) gives null.
+  if (!/^[-+]?\d+(\.\d+)?$/.test(value.trim())) return null;
   const negative = value.trim().startsWith("-");
   const [rawInt = "0", rawFrac = ""] = value.trim().replace(/^[-+]/, "").split(".");
   const intPart = rawInt.replace(/^0+(?=\d)/, "");
@@ -51,6 +53,11 @@ export function formatCompactAmount({ value, currency }: CompactInput): string |
     head = intPart.slice(0, split - 3) || "0";
     tail = intPart.slice(Math.max(split - 3, 0)) + rawFrac;
     places = 2;
+    r = roundDecimal(head, tail, places);
+  }
+  // Rounding up to 100 must switch to one decimal (99,995 k → 100,0 k).
+  if (r.int.length === 3 && places === 2) {
+    places = 1;
     r = roundDecimal(head, tail, places);
   }
   if (r.int.length > 3) return `${sign}${currency}${NBSP}999+${NBSP}qn`;
