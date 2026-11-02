@@ -34,17 +34,17 @@ describe("DS-06 reference ratios", () => {
   const r = (a: string, b: string) => Math.round(contrastRatio(a, b) * 10) / 10;
 
   it("matches the documented palette ratios (± 0.1)", () => {
-    expect(r(colors.brand.light, colors["surface-100"].light)).toBeCloseTo(13.7, 1);
-    expect(r(colors.ink.light, colors["surface-100"].light)).toBeCloseTo(14.2, 1);
-    expect(r(colors["brand-2"].light, colors["surface-100"].light)).toBeCloseTo(7.5, 1);
+    expect(r(colors.brand.light, colors["surface-100"].light)).toBeCloseTo(14.9, 1);
+    expect(r(colors.ink.light, colors["surface-100"].light)).toBeCloseTo(15.4, 1);
+    expect(r(colors["brand-2"].light, colors["surface-100"].light)).toBeCloseTo(8.1, 1);
     expect(r(colors.accent.dark, colors["surface-100"].dark)).toBeCloseTo(7.0, 1);
     expect(r(colors["ink-muted"].dark, colors["surface-100"].dark)).toBeCloseTo(7.1, 1);
     expect(r(colors["ink-muted"].dark, colors["surface-300"].dark)).toBeCloseTo(4.9, 1);
   });
 
-  it("light ink-muted #566174 gives 5.56:1 on surface-100 and 4.98:1 on surface-300 (DS-06 assumption)", () => {
-    expect(contrastRatio(colors["ink-muted"].light, colors["surface-100"].light)).toBeCloseTo(5.56, 2);
-    expect(contrastRatio(colors["ink-muted"].light, colors["surface-300"].light)).toBeCloseTo(4.98, 2);
+  it("light ink-muted #566174 gives 6.04:1 on surface-100 and 5.53:1 on surface-300 (DS-06)", () => {
+    expect(contrastRatio(colors["ink-muted"].light, colors["surface-100"].light)).toBeCloseTo(6.04, 2);
+    expect(contrastRatio(colors["ink-muted"].light, colors["surface-300"].light)).toBeCloseTo(5.53, 2);
   });
 
   it("amber on paper is below 3:1, so accent is never text or a border on light grounds", () => {

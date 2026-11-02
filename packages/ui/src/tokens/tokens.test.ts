@@ -52,7 +52,7 @@ describe("design tokens", () => {
 describe("exact DS values", () => {
   it("DS-06 table: both columns, e.g. light ink-muted #566174", () => {
     expect(colors["ink-muted"]).toMatchObject({ light: "#566174", dark: "#9DB2C8" });
-    expect(colors["surface-100"]).toMatchObject({ light: "#F6F1E8", dark: "#0B2545" });
+    expect(colors["surface-100"]).toMatchObject({ light: "#FBFBFA", dark: "#0B2545" });
     expect(colors.overlay).toMatchObject({ light: "rgba(11, 37, 69, 0.45)", dark: "rgba(0, 0, 0, 0.6)" });
   });
 

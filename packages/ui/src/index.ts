@@ -25,3 +25,7 @@ export {
 export { AppShell, MAIN_ID, NAV_ID, useNavForm } from "./shell/AppShell.tsx";
 export type { NavItem } from "./shell/AppShell.tsx";
 export { useMediaQuery } from "./useMediaQuery.ts";
+export { keepNumbersTogether } from "@willowsum/i18n";
+export { FitAmount } from "./amount/FitAmount.tsx";
+export { formatCompactAmount } from "./amount/compact.ts";
+export { chooseFit } from "./amount/fit.ts";

@@ -1,12 +1,13 @@
 import { render } from "@testing-library/react";
+import { House } from "lucide";
 import { Icon, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, IconSvg } from "./Icon.tsx";
 
 describe("icon set (DS-12)", () => {
-  it.each(ICON_NAMES)("%s: 24 px grid, 1.75 px round stroke, outline, currentColor", (name) => {
+  it.each(ICON_NAMES)("%s: 24 px grid, 1.5 px round stroke, outline, currentColor", (name) => {
     const { container } = render(<IconSvg name={name} px={24} />);
     const svg = container.querySelector("svg")!;
     expect(svg.getAttribute("viewBox")).toBe("0 0 24 24");
-    expect(svg.getAttribute("stroke-width")).toBe("1.75");
+    expect(svg.getAttribute("stroke-width")).toBe("1.5");
     expect(svg.getAttribute("stroke-linecap")).toBe("round");
     expect(svg.getAttribute("stroke-linejoin")).toBe("round");
     expect(svg.getAttribute("fill")).toBe("none");
@@ -16,6 +17,27 @@ describe("icon set (DS-12)", () => {
       if (el === svg) continue;
       expect(el.closest("mask"), `${name} has a filled shape`).not.toBeNull();
     }
+  });
+
+  it("keeps a 1.5 px line at every size (absolute stroke)", () => {
+    for (const px of [16, 20, 24, 32, 40]) {
+      const svg = render(<IconSvg name="home" px={px} />).container.querySelector("svg")!;
+      expect(Number(svg.getAttribute("stroke-width")) * (px / 24)).toBeCloseTo(1.5, 2);
+    }
+    const thin = render(<IconSvg name="property" px={96} stroke={1.1} absoluteStroke={false} />);
+    expect(thin.container.querySelector("svg")!.getAttribute("stroke-width")).toBe("1.1");
+  });
+
+  it.each(ICON_NAMES)("%s draws something", (name) => {
+    const svg = render(<IconSvg name={name} px={24} />).container.querySelector("svg")!;
+    expect(
+      svg.querySelectorAll("path, circle, rect, line, polyline, polygon, ellipse").length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("is based on the Lucide set", () => {
+    const html = render(<IconSvg name="home" px={24} />).container.innerHTML;
+    for (const [, attrs] of House) expect(html).toContain(String(attrs.d));
   });
 
   it("has the 22 section, 12 asset-type and 9 money-and-cover icons", () => {

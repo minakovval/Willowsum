@@ -87,6 +87,24 @@
   white-space: nowrap;
 }
 
+/* CMP-07, DS-08 item 11: one unbreakable run; after a label it moves to a new line as a whole. */
+.ws-amount-fit {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
+.ws-amount-fit__probe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  visibility: hidden;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
 .ws-amount-hidden {
   display: inline-flex;
   align-items: center;

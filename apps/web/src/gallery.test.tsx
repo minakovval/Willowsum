@@ -3,6 +3,9 @@ import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio } from "@willowsu
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
 
+/** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
+const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
+
 describe("/gallery/tokens (DS-22)", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -28,7 +31,7 @@ describe("/gallery/tokens (DS-22)", () => {
     }
     const inkOnPaper = formatRatio(contrastRatio(colors.ink.light, colors["surface-100"].light));
     expect(container.querySelector("#g-contrast")!.parentElement!.textContent).toContain(`${inkOnPaper} : 1`);
-    expect(container.textContent).not.toContain("✕ Помилка");
+    expect(norm(container.textContent)).not.toContain("✕ Помилка");
   });
 
   it("switches the page theme and hides amounts while keeping percentages", () => {
@@ -37,11 +40,11 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
 
     const amounts = container.querySelector("#g-amounts")!.parentElement!;
-    expect(amounts.textContent).toContain("284 650,00 ₴");
+    expect(norm(amounts.textContent)).toContain("284 650,00 ₴");
     act(() => screen.getByRole("switch", { name: "Приховати суми" }).click());
-    expect(amounts.innerHTML).not.toContain("284 650");
-    expect(amounts.textContent).toContain("•••");
-    expect(amounts.textContent).toContain("+2,4 %");
+    expect(norm(amounts.innerHTML)).not.toContain("284 650");
+    expect(norm(amounts.textContent)).toContain("•••");
+    expect(norm(amounts.textContent)).toContain("+2,4 %");
     expect(within(amounts as HTMLElement).getAllByRole("button", { name: "Сума прихована" }).length).toBe(4);
   });
 

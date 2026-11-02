@@ -26,24 +26,24 @@ requirement is kept in the README of that module.
 | SUB | [sub/](sub/README.md) | Plans, entitlements, subscription lifecycle, billing and payments | 8 | MVP 4, v1 1, v2 3 |
 | ADM | [adm/](adm/README.md) | Platform admin panel: feature catalogue, plan x feature matrix, versions, staff | 9 | MVP 5, v1 4 |
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
-| VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | MVP 7, v1 4 |
-| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 7, v1 8, v2 3, other 1 |
+| VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | MVP 8, v1 3 |
+| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 8, v1 7, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | v1 3 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | MVP 20 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
-| INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 1, v1 1 |
+| INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
 | NOT | [not/](not/README.md) | Reminders, notifications and notification triggers | 2 | MVP 1, v1 1 |
 | DAT | [dat/](dat/README.md) | Universal list, global search, bulk actions, shared data rules | 5 | MVP 5 |
 | SUP | [sup/](sup/README.md) | Support and help centre | 1 | MVP 1 |
-| RPT | [rpt/](rpt/README.md) | Standard reports and report schedules | 2 | v1 1, v2 1 |
+| RPT | [rpt/](rpt/README.md) | Standard reports and report schedules | 2 | MVP 1, v2 1 |
 | IMP | [imp/](imp/README.md) | File import engine: uploads, batches, multi-currency events, pairing, recipes | 19 | MVP 19 |
 | UX | [ux/](ux/README.md) | Onboarding, complexity levels, navigation, home screen, hide amounts, personalisation | 9 | MVP 6, v2 3 |
 | PLT | [plt/](plt/README.md) | Widgets, quick actions and other platforms | 2 | v1-mobile 1, v2 1 |
 | GRID | [grid/](grid/README.md) | Layout grid, navigation shell and page templates | 8 | MVP 8 |
 | L10N | [l10n/](l10n/README.md) | Localisation framework and translations | 2 | MVP 2 |
 | LEG | [leg/](leg/README.md) | Legal documents, consent and in-app privacy settings | 1 | MVP 1 |
-| VLT | [vlt/](vlt/README.md) | Personal documents vault: categories, encryption classes, sharing, emergency access | 21 | Сейф 18, v2 3 |
+| VLT | [vlt/](vlt/README.md) | Personal documents vault: categories, encryption classes, sharing, emergency access | 21 | MVP 18, v2 3 |
 | AI | [ai/](ai/README.md) | AI assistant, explanations and document parsing | 4 | v1 3, v2 1 |
 | INT | [int/](int/README.md) | Open data access (API) | 1 | v2 1 |
 | PLN | [pln/](pln/README.md) | Long-term forecast, retirement modelling, estate planning | 3 | v2 3 |
@@ -51,8 +51,8 @@ requirement is kept in the README of that module.
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | MVP 18, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts | 22 | MVP 22 |
 | CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 71 | MVP 66, v1 5 |
-| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | MVP 35, Сейф 8, v1 6, v2 9 |
-| JRN | [jrn/](jrn/README.md) | User journeys | 9 | MVP 4, Сейф 1, v2 2, n/a 2 |
+| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | MVP 43, v1 6, v2 9 |
+| JRN | [jrn/](jrn/README.md) | User journeys | 9 | MVP 5, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | MVP 11 |
 | CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | MVP 11, v1-mobile 1 |

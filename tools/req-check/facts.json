@@ -11,10 +11,6 @@
   "planOtherFeatures": "звіт|підключен|синхроніз|оцінк|розпізнав|Сейф|поширен|токен|історі|простор(?:и|ів)(?![\\p{L}])",
   "competing": [
     {
-      "fact": "rpo / rto",
-      "note": "Canonical RPO ≤ 15 min and RTO ≤ 4 h (NFR-03 FR 3, NFR-16, NFR-18; profile «Старт»). arc/README.md (deployment profiles table) also states RPO ≤ 5 min and RTO ≤ 1 h for the future profile «Комерційний», which no requirement file carries. Reported as fact-mismatch and baselined; the owner decides whether NFR-03 should state per-profile targets."
-    },
-    {
       "fact": "transfer-window",
       "note": "Not a conflict: own-account transfers pair within 3 days, 5 days when the description names the other account (IMP-03, stated as an assumption); crypto wallet/exchange transfers use a separate 72-hour window (CRY-02). Only the 3-day base value is registered."
     },
@@ -467,7 +463,7 @@
     {
       "id": "plan-members",
       "type": "plan",
-      "title": "Plan limit: household members (household.members)",
+      "title": "Plan limit: household members (household.members) — starting matrix values, applied from v1 (no plan limits in MVP)",
       "allowed": {
         "Free": "1",
         "Plus": "2",
@@ -476,7 +472,8 @@
       },
       "sources": [
         "00-general.md 0.4 plan matrix",
-        "ACC-09"
+        "ACC-09",
+        "00-general.md §0.4 «Ліміти в MVP»: limits are not applied in MVP, apply from v1"
       ],
       "context": "household\\.members|учасник",
       "exclude": "household\\.count|Додаткові простори|[Вв]ласн\\S* простор"
@@ -484,7 +481,7 @@
     {
       "id": "plan-assets",
       "type": "plan",
-      "title": "Plan limit: assets (assets.count)",
+      "title": "Plan limit: assets (assets.count) — starting matrix values, applied from v1 (no plan limits in MVP)",
       "allowed": {
         "Free": "25",
         "Plus": "∞",
@@ -493,7 +490,8 @@
       },
       "sources": [
         "00-general.md 0.4 plan matrix",
-        "AST-01"
+        "AST-01",
+        "00-general.md §0.4 «Ліміти в MVP»: limits are not applied in MVP, apply from v1"
       ],
       "context": "assets\\.count|актив(?:и|ів|ах|ам)?(?![\\p{L}])",
       "exclude": "custom_fields|[Вв]ласн\\S* пол|auto_count|автоматичн\\S* (?:ринков|оцінк)"
@@ -501,7 +499,7 @@
     {
       "id": "plan-budgets",
       "type": "plan",
-      "title": "Plan limit: budgets (budget.budgets)",
+      "title": "Plan limit: budgets (budget.budgets) — starting matrix values, applied from v1 (no plan limits in MVP)",
       "allowed": {
         "Free": "2",
         "Plus": "3",
@@ -510,14 +508,15 @@
       },
       "sources": [
         "00-general.md 0.4 plan matrix",
-        "BUD-09"
+        "BUD-09",
+        "00-general.md §0.4 «Ліміти в MVP»: limits are not applied in MVP, apply from v1"
       ],
       "context": "budget\\.budgets|бюджет(?:и|ів|ах|ам)?(?![\\p{L}])"
     },
     {
       "id": "plan-goals",
       "type": "plan",
-      "title": "Plan limit: savings goals (budget.goals)",
+      "title": "Plan limit: savings goals (budget.goals) — starting matrix values, applied from v1 (no plan limits in MVP)",
       "allowed": {
         "Free": "1",
         "Plus": "∞",
@@ -526,14 +525,15 @@
       },
       "sources": [
         "00-general.md 0.4 plan matrix",
-        "BUD-05"
+        "BUD-05",
+        "00-general.md §0.4 «Ліміти в MVP»: limits are not applied in MVP, apply from v1"
       ],
       "context": "budget\\.goals|ціл(?:ей|і|ь)(?![\\p{L}])|Цілі накопичення"
     },
     {
       "id": "plan-storage",
       "type": "plan",
-      "title": "Plan limit: document and media storage (documents.storage)",
+      "title": "Plan limit: document and media storage (documents.storage) — starting matrix values, applied from v1 (no plan limits in MVP)",
       "allowed": {
         "Free": "1 GB",
         "Plus": "25 GB",
@@ -542,20 +542,23 @@
       },
       "sources": [
         "00-general.md 0.4 plan matrix",
-        "DOC-01"
+        "DOC-01",
+        "00-general.md §0.4 «Ліміти в MVP»: limits are not applied in MVP, apply from v1"
       ],
       "context": "documents\\.storage|сховищ",
       "exclude": "documents\\.ocr|розпізнав"
     },
     {
       "id": "rpo",
-      "title": "Recovery point objective (RPO)",
+      "title": "Recovery point objective (RPO): 15 min on profile «Старт», 5 min on profile «Комерційний»",
       "allowed": [
-        "15 min"
+        "15 min",
+        "5 min"
       ],
       "sources": [
-        "NFR-03 FR 3",
-        "NFR-16"
+        "NFR-03 FR 3 (per deployment profile)",
+        "NFR-16",
+        "arc/README.md deployment profiles table"
       ],
       "patterns": [
         "RPO\\)?\\s*\\|?(?:(?!RTO)[^.;|\\d*]){0,25}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
@@ -563,13 +566,15 @@
     },
     {
       "id": "rto",
-      "title": "Recovery time objective (RTO)",
+      "title": "Recovery time objective (RTO): 4 h on profile «Старт», 1 h on profile «Комерційний»",
       "allowed": [
-        "4 h"
+        "4 h",
+        "1 h"
       ],
       "sources": [
-        "NFR-03 FR 3",
-        "NFR-16"
+        "NFR-03 FR 3 (per deployment profile)",
+        "NFR-16",
+        "arc/README.md deployment profiles table"
       ],
       "patterns": [
         "RTO\\)?\\s*\\|?(?:(?!RPO)[^.;|\\d*]){0,25}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
