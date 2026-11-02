@@ -17,7 +17,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if echo "$TITLE" | grep -Eq '^(ACC|SUB|ADM|AST|VAL|FIN|INV|CRY|BUD|IMP|DAT|DOC|INS|NOT|RPT|SUP|UX|GRID|L10N|LEG|PLT|VLT|AI|INT|PLN|ADV|NFR|DS|CMP|FLW|JRN|SCR|ARC|CICD|FCS)-[0-9]{2}[a-z]?\b'; then
+          if echo "$TITLE" | grep -Eq '^(ACC|SUB|ADM|AST|VAL|FIN|INV|CRY|BUD|IMP|DAT|DOC|INS|NOT|RPT|SUP|UX|GRID|L10N|LEG|PLT|VLT|AI|INT|PLN|ADV|NFR|DS|CMP|FLW|JRN|SCR|ARC|CICD|FCS|WGT|CHT)-[0-9]{2}[a-z]?\b'; then
             echo "ok"
           else
             echo "::error::PR title must start with a requirement ID from docs/requirements/ (e.g. BUD-03: ...)"; exit 1

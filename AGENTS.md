@@ -82,7 +82,10 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | AI | `ai-assistant` |
 | PLN | `planning` |
 | ADV | `advisor` |
+| FCS | `budget`, `cashflow` |
 | UX, GRID | `onboarding`, `dashboard`, `saved-views`, `bulk-actions`, `apps/web`, `packages/ui` |
+| WGT | `dashboard`, `apps/web`, `packages/ui` |
+| CHT | `packages/ui`, `apps/web` |
 | L10N, PLT, DS, CMP, FLW, JRN, SCR | `apps/web`, `apps/admin`, `packages/ui`, `packages/i18n` |
 | NFR, ARC, CICD | whole repo, `.github/workflows/`, `infra/` |
 
