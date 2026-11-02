@@ -1,0 +1,27 @@
+{
+  "$comment": [
+    "Known requirement findings accepted when the checker was introduced. Each entry is reported as a warning;",
+    "any error whose id is not listed fails CI. Remove an entry when its requirement file is fixed.",
+    "Regenerate only by a reviewed change: node tools/req-check/index.mjs --update-baseline"
+  ],
+  "findings": [
+    {
+      "id": "fact-mismatch:docs/requirements/arc/README.md:rpo=5 min",
+      "file": "docs/requirements/arc/README.md",
+      "line": 39,
+      "message": "Recovery point objective (RPO): found \"5 хв\" (5 min), canonical 15 min «…O ≤ 15 хв, RTO ≤ 4 год | 99,9 % із SLA; RPO ≤ 5 хв, RTO ≤ 1 год |»"
+    },
+    {
+      "id": "fact-mismatch:docs/requirements/arc/README.md:rto=1 h",
+      "file": "docs/requirements/arc/README.md",
+      "line": 39,
+      "message": "Recovery time objective (RTO): found \"1 год\" (1 h), canonical 4 h «…TO ≤ 4 год | 99,9 % із SLA; RPO ≤ 5 хв, RTO ≤ 1 год |»"
+    },
+    {
+      "id": "release-invalid:docs/requirements/fin/FIN-15.md",
+      "file": "docs/requirements/fin/FIN-15.md",
+      "line": 3,
+      "message": "release \"поза обсягом до виходу на ринок США (далі не раніше v2)\" does not start with one of v1-mobile, MVP, Сейф, v1, v2"
+    }
+  ]
+}

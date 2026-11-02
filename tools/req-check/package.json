@@ -1,0 +1,8 @@
+{
+  "name": "@willowsum/req-check",
+  "private": true,
+  "description": "Requirements checker for docs/requirements. Zero dependencies. `main` lets `node --test tools/req-check` run every test file.",
+  "type": "module",
+  "main": "test/all.mjs",
+  "bin": "index.mjs"
+}

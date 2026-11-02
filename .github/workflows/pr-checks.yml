@@ -25,15 +25,19 @@ jobs:
   requirements:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Every requirement file has a matching heading and a unique ID
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Requirements checker unit tests
+        run: node --test tools/req-check
+      # Structure, release/priority, self-containedness, acceptance criteria and the fact registry
+      # (tools/req-check/facts.json). Known findings are in tools/req-check/baseline.json; new ones fail.
+      - name: Check docs/requirements
+        run: node tools/req-check/index.mjs --report "$RUNNER_TEMP/req-check-report.md"
+      - name: Publish the report to the job summary
+        if: always()
         run: |
-          set -e
-          fail=0
-          for f in docs/requirements/*/*-[0-9]*.md; do
-            id=$(basename "$f" .md)
-            head -1 "$f" | grep -q "^# $id · " || { echo "::error file=$f::first line must be '# $id · <title>'"; fail=1; }
-          done
-          dups=$(ls docs/requirements/*/*-[0-9]*.md | xargs -n1 basename | sort | uniq -d)
-          [ -z "$dups" ] || { echo "::error::duplicate requirement IDs: $dups"; fail=1; }
-          exit $fail
+          if [ -f "$RUNNER_TEMP/req-check-report.md" ]; then cat "$RUNNER_TEMP/req-check-report.md" >> "$GITHUB_STEP_SUMMARY"; fi
