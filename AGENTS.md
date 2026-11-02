@@ -82,7 +82,10 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | AI | `ai-assistant` |
 | PLN | `planning` |
 | ADV | `advisor` |
+| FCS | `budget`, `cashflow` |
 | UX, GRID | `onboarding`, `dashboard`, `saved-views`, `bulk-actions`, `apps/web`, `packages/ui` |
+| WGT | `dashboard`, `apps/web`, `packages/ui` |
+| CHT | `packages/ui`, `apps/web` |
 | L10N, PLT, DS, CMP, FLW, JRN, SCR | `apps/web`, `apps/admin`, `packages/ui`, `packages/i18n` |
 | NFR, ARC, CICD | whole repo, `.github/workflows/`, `infra/` |
 
@@ -120,6 +123,29 @@ errors) lives only in `packages/domain-kernel`.
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.
+
+## Process: design before code
+
+Owner decisions of 2026-11-02 (design session):
+
+1. Design comes first, as mockups on the canvas; changes and clarifications happen there. Turning a
+   design into code is a separate step that starts only after every detail is approved.
+2. Desktop 1280 px first. The phone (390 px) and dark-theme versions are added only after that screen is
+   approved.
+3. The UI/UX is complete before development starts; the requirements are validated through the
+   prototype.
+4. A rule decided on the canvas is a general product rule, not a canvas-only note. Each rule goes into a
+   decision log at once. When a design step is approved, all its rules go into the requirements in
+   one PR, with a coverage table that maps every rule to the file that now holds it. A validation report
+   in `docs/validation/` is one such table.
+5. A rule changed or approved on one example applies to all analogous elements, for example every
+   insurance type or every widget in the catalogue.
+6. The canvas catalogue and gallery show the real widgets, with every approved element, not simplified
+   copies.
+7. Explanations on a mockup go into canvas notes beside the element, never inside UI elements.
+8. A design concept is not development. Status updates about design work do not talk about "code" until
+   development has started.
+9. No tests with real families for now.
 
 ## Hard rules
 

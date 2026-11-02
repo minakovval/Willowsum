@@ -18,7 +18,7 @@ Each module folder has a `README.md` with the module intro and a table of its re
 (ID, title, release, priority). Text from a specification tab that is not part of any single
 requirement is kept in the README of that module.
 
-## Modules (400 requirements)
+## Modules (429 requirements)
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
@@ -42,6 +42,8 @@ requirement is kept in the README of that module.
 | UX | [ux/](ux/README.md) | Onboarding, complexity levels, navigation, home screen, hide amounts, personalisation | 9 | MVP 6, v2 3 |
 | PLT | [plt/](plt/README.md) | Widgets, quick actions and other platforms | 2 | v1-mobile 1, v2 1 |
 | GRID | [grid/](grid/README.md) | Layout grid, navigation shell and page templates | 8 | MVP 8 |
+| WGT | [wgt/](wgt/README.md) | Home widgets: widget framework, registry, edit mode, one file per widget | 25 | MVP 25 |
+| CHT | [cht/](cht/README.md) | Charts: reusable chart components (time series, spending vs budget, composition) | 4 | MVP 4 |
 | L10N | [l10n/](l10n/README.md) | Localisation framework and translations | 2 | MVP 2 |
 | LEG | [leg/](leg/README.md) | Legal documents, consent and in-app privacy settings | 1 | MVP 1 |
 | VLT | [vlt/](vlt/README.md) | Personal documents vault: categories, encryption classes, sharing, emergency access | 21 | MVP 18, v2 3 |
@@ -80,6 +82,8 @@ requirement is kept in the README of that module.
 - [ux/](ux/README.md)
 - [plt/](plt/README.md)
 - [grid/](grid/README.md)
+- [wgt/](wgt/README.md)
+- [cht/](cht/README.md)
 - [l10n/](l10n/README.md)
 - [leg/](leg/README.md)
 - [vlt/](vlt/README.md)
