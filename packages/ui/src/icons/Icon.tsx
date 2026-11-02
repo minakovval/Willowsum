@@ -88,7 +88,8 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
  *   bottom-right 8 px box, the parent cut back around it); every insurance kind = the insured
  *   object (health = heart-pulse, life = person, home = house, vehicle = car, travel = plane)
  *   + a shield badge; plain «insurance» = Lucide shield-check;
- * - `metals` (gold bars), drawn here because Lucide has no bullion glyph.
+ * - `metals` (gold bars), drawn here because Lucide has no bullion glyph;
+ * - the shield badge of the insurance kinds, drawn here because Lucide's shield does not fit the 8 px box.
  * Custom drawing follows Lucide's rules: 24 px grid, 1 px padding, round joins, whole or half
  * pixel coordinates, no detail closer than 2 px to another.
  *
@@ -258,12 +259,12 @@ const withBadge =
     </>
   );
 
-/** Custom badge: the Lucide shield redrawn in the bottom-right 8 px box (14–22). */
+/** Custom badge: a shield in the Lucide manner, inside the bottom-right 8 px box (x 14.5–21.5, y 14–22), half-pixel grid. */
 const BADGE_SHIELD: IconNode = [
   [
     "path",
     {
-      d: "M21.5 18c0 2.1-1.5 3.2-3.2 3.8a.6.6 0 0 1-.6 0C16 21.2 14.5 20.1 14.5 18v-3a.5.5 0 0 1 .5-.5c.8 0 1.9-.5 2.6-1.1a.6.6 0 0 1 .8 0c.7.6 1.8 1.1 2.6 1.1a.5.5 0 0 1 .5.5z",
+      d: "M18 14c1 .5 2.5 1 3.5 1v3c0 2.5-1.5 3.5-3.5 4-2-.5-3.5-1.5-3.5-4v-3c1 0 2.5-.5 3.5-1z",
     },
   ],
 ];
@@ -453,7 +454,7 @@ export const ICON_PARENT_CHILD: readonly (readonly [IconName, IconName])[] = [
   ["debts", "mortgage"],
   ["investments", "investment-public"],
   ["investments", "investment-private"],
-  // Insurance kinds: object + shield badge; only the car has a parent icon in the set.
+  // Insurance kinds: object + shield badge; only the car is also an icon of its own (asset type `vehicle`).
   ["vehicle", "insurance-vehicle"],
 ];
 
