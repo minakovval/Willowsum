@@ -40,7 +40,7 @@ export interface ColorToken {
 /** DS-06 item 2, row for row. */
 export const colors: Readonly<Record<ColorTokenName, ColorToken>> = {
   "surface-100": {
-    light: "#F6F1E8",
+    light: "#FBFBFA",
     dark: "#0B2545",
     usage: "Page background. Text on it: ink, ink-muted, link.",
   },
@@ -50,7 +50,7 @@ export const colors: Readonly<Record<ColorTokenName, ColorToken>> = {
     usage: "Cards, inputs, bottom sheets on surface-100. Text: ink, ink-muted, link.",
   },
   "surface-300": {
-    light: "#EBE5D6",
+    light: "#F1F1EF",
     dark: "#1B3F6E",
     usage: "Sunken areas: progress tracks, table stripes, quiet button hover. Text: ink only.",
   },
@@ -65,7 +65,7 @@ export const colors: Readonly<Record<ColorTokenName, ColorToken>> = {
     usage: "Secondary text, captions, hints on surface-100 and surface-200.",
   },
   line: {
-    light: "#DDD5C3",
+    light: "#E5E5E2",
     dark: "#24456F",
     usage: "Hairline dividers and card borders; decorative, never the only edge of a control.",
   },

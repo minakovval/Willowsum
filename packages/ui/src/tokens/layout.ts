@@ -69,7 +69,7 @@ export const layout = {
 export const iconSizes = [16, 20, 24, 32, 40] as const;
 export type IconSize = (typeof iconSizes)[number];
 /** DS-12 item 2. */
-export const ICON_STROKE = 1.75;
+export const ICON_STROKE = 1.5;
 
 /** Media query strings for matchMedia; CSS cannot read custom properties inside @media. */
 export const mediaQueries = {

@@ -18,5 +18,5 @@ Shared text of this tab (title, intro, common sections) is kept in [../acc/READM
 | [SUB-04](SUB-04.md) | План радника | v2 | C |
 | [SUB-05](SUB-05.md) | Back office | v1 | S |
 | [SUB-06](SUB-06.md) | Промо-механіки | v2 | C |
-| [SUB-07](SUB-07.md) | Пропозиція апгрейду в продукті (upsell) | MVP | M |
+| [SUB-07](SUB-07.md) | Пропозиція апгрейду в продукті (upsell) | MVP (механізм прав плану без застосування лімітів); v1 (ліміти, попередження і пропозиції апгрейду) | M |
 | [SUB-08](SUB-08.md) | Подарунки, спеціальні програми і канали оплати | v2 | C |

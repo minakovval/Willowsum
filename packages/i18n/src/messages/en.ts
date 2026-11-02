@@ -106,4 +106,12 @@ export const en: Messages = {
   "gallery.amounts.change": "Change this month",
   "gallery.mark.light": "Mark for the light theme",
   "gallery.mark.dark": "Mark for the dark theme",
+  "gallery.fit.title": "Large amounts and abbreviation",
+  "gallery.fit.intro":
+    "An amount never breaks across lines. After a label it moves to a new line as a whole; if it still does not fit, it shrinks to 80 %, then is abbreviated, then shrinks down to 55 %. The full value is in the tooltip.",
+  "gallery.fit.width": "Width {width} px",
+  "gallery.fit.label": "Account balance:",
+  "gallery.fit.inline": "After a label in the same line",
+  "gallery.fit.own": "Own line",
+  "gallery.fit.small": "Ordinary amount in a narrow card",
 };

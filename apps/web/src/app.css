@@ -244,9 +244,24 @@
   overflow-wrap: anywhere;
 }
 
+.gallery-icons li > :first-child {
+  /* Icons keep their size; only the caption may wrap (icon overlapped text before). */
+  flex: none;
+}
+
 .gallery-icon-pair {
   display: inline-flex;
-  gap: var(--ws-space-1);
+  flex: none;
+  gap: var(--ws-space-2);
+}
+
+.gallery-icons--pairs {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+}
+
+.gallery-icons--pairs li {
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .gallery-marks {
@@ -260,4 +275,34 @@ code {
   font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   font-size: 0.9em;
   overflow-wrap: anywhere;
+}
+
+/* CMP-07 demo: boxes of fixed widths (may scroll sideways on a phone, inside their own row). */
+.gallery-fit__grid {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-4);
+  overflow-x: auto;
+  padding-block-end: var(--ws-space-2);
+}
+
+.gallery-fit__case {
+  display: grid;
+  flex: none;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.gallery-fit__box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+  border: 1px dashed var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.gallery-fit__box p {
+  margin: 0;
 }

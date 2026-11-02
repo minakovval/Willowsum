@@ -9,7 +9,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { useT } from "@willowsum/i18n";
+import { keepNumbersTogether, useT } from "@willowsum/i18n";
 import { Icon } from "../icons/Icon.tsx";
 import { motion } from "../tokens/motion.ts";
 import type { TypeStyleName } from "../tokens/typography.ts";
@@ -94,7 +94,7 @@ export function Amount({ value, size = "inherit" }: { value: string; size?: Amou
 
   const cls = ["ws-amount", size !== "inherit" && `ws-text-${size}`].filter(Boolean).join(" ");
 
-  if (!hidden) return <span className={cls}>{value}</span>;
+  if (!hidden) return <span className={cls}>{keepNumbersTogether(value)}</span>;
 
   const startHold = () => {
     clearTimeout(holdTimer.current);
@@ -121,14 +121,14 @@ export function Amount({ value, size = "inherit" }: { value: string; size?: Amou
       onKeyDown={onKeyDown}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {revealed ? value : <span aria-hidden="true">{HIDDEN_AMOUNT}</span>}
+      {revealed ? keepNumbersTogether(value) : <span aria-hidden="true">{HIDDEN_AMOUNT}</span>}
     </button>
   );
 }
 
 /** Percentages, shares and direction stay visible in hidden mode (DS-18 item 4). */
 export function Percent({ value }: { value: string }) {
-  return <span className="ws-percent ws-tabular">{value}</span>;
+  return <span className="ws-percent ws-tabular">{keepNumbersTogether(value)}</span>;
 }
 
 /** DS-18 item 1 / CMP-69: the eye icon button among the global actions, with a pressed state. */

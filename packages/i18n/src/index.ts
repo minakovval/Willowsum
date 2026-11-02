@@ -2,3 +2,4 @@ export { DEFAULT_LOCALE, FALLBACK_LOCALE, LANGUAGES, isLocale, type Locale } fro
 export { CATALOGUES, placeholdersOf, translate } from "./translate.ts";
 export { I18nProvider, useI18n, useT, type Translate } from "./I18nProvider.tsx";
 export type { MessageKey, MessageParams, Messages } from "./types.ts";
+export { keepNumbersTogether } from "./keepNumbersTogether.ts";

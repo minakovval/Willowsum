@@ -12,5 +12,5 @@ Shared text of this tab (title, intro, common sections) is kept in [../doc/READM
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [RPT-01](RPT-01.md) | Стандартні звіти | v1 | S |
+| [RPT-01](RPT-01.md) | Стандартні звіти | MVP | S |
 | [RPT-02](RPT-02.md) | Розклад звітів | v2 | C |

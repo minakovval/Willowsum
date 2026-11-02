@@ -168,12 +168,12 @@ exports[`design tokens > generated CSS snapshot 1`] = `
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --ws-surface-100: #F6F1E8;
+  --ws-surface-100: #FBFBFA;
   --ws-surface-200: #FFFFFF;
-  --ws-surface-300: #EBE5D6;
+  --ws-surface-300: #F1F1EF;
   --ws-ink: #1B2230;
   --ws-ink-muted: #566174;
-  --ws-line: #DDD5C3;
+  --ws-line: #E5E5E2;
   --ws-border-control: #7B8494;
   --ws-brand: #0B2545;
   --ws-brand-hover: #173A66;
@@ -327,12 +327,12 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   :root,
   [data-theme] {
     color-scheme: light;
-    --ws-surface-100: #F6F1E8;
+    --ws-surface-100: #FBFBFA;
     --ws-surface-200: #FFFFFF;
-    --ws-surface-300: #EBE5D6;
+    --ws-surface-300: #F1F1EF;
     --ws-ink: #1B2230;
     --ws-ink-muted: #566174;
-    --ws-line: #DDD5C3;
+    --ws-line: #E5E5E2;
     --ws-border-control: #7B8494;
     --ws-brand: #0B2545;
     --ws-brand-hover: #173A66;
@@ -598,7 +598,7 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
     },
     "line": {
       "dark": "#24456F",
-      "light": "#DDD5C3",
+      "light": "#E5E5E2",
       "usage": "Hairline dividers and card borders; decorative, never the only edge of a control.",
     },
     "link": {
@@ -628,7 +628,7 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
     },
     "surface-100": {
       "dark": "#0B2545",
-      "light": "#F6F1E8",
+      "light": "#FBFBFA",
       "usage": "Page background. Text on it: ink, ink-muted, link.",
     },
     "surface-200": {
@@ -638,7 +638,7 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
     },
     "surface-300": {
       "dark": "#1B3F6E",
-      "light": "#EBE5D6",
+      "light": "#F1F1EF",
       "usage": "Sunken areas: progress tracks, table stripes, quiet button hover. Text: ink only.",
     },
   },

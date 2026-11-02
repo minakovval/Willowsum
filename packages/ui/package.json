@@ -16,9 +16,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@willowsum/i18n": "workspace:*",
     "@fontsource/inter": "5.3.0",
-    "@fontsource/inter-tight": "5.3.0"
+    "@fontsource/inter-tight": "5.3.0",
+    "@willowsum/i18n": "workspace:*",
+    "lucide": "1.59.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

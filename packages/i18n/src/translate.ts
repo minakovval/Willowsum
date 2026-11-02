@@ -2,6 +2,7 @@ import { en } from "./messages/en.ts";
 import { uk } from "./messages/uk.ts";
 import { FALLBACK_LOCALE, type Locale } from "./languages.ts";
 import type { MessageKey, MessageParams, Messages } from "./types.ts";
+import { keepNumbersTogether } from "./keepNumbersTogether.ts";
 
 export const CATALOGUES: Readonly<Record<Locale, Messages>> = { uk, en };
 
@@ -14,12 +15,15 @@ export function placeholdersOf(message: string): string[] {
 
 /**
  * Looks up a message: the locale, then English, then the key itself (a missing key never breaks
- * the page, L10N-01 item 9), and substitutes `{placeholders}`.
+ * the page, L10N-01 item 9), and substitutes `{placeholders}`. Numbers in the result never break
+ * across lines (DS-08 item 11): no-break spaces join digit groups and a number with its unit.
  */
 export function translate(locale: Locale, key: MessageKey, params?: MessageParams): string {
   const template = CATALOGUES[locale][key] ?? CATALOGUES[FALLBACK_LOCALE][key] ?? key;
-  if (!params) return template;
-  return template.replace(PLACEHOLDER, (whole, name: string) =>
-    Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : whole,
-  );
+  const text = params
+    ? template.replace(PLACEHOLDER, (whole, name: string) =>
+        Object.prototype.hasOwnProperty.call(params, name) ? String(params[name]) : whole,
+      )
+    : template;
+  return keepNumbersTogether(text);
 }

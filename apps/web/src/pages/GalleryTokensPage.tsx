@@ -37,6 +37,7 @@ import {
   type TypeStyle,
   type WidthClass,
 } from "@willowsum/ui";
+import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -314,6 +315,10 @@ export function GalleryTokensPage() {
         </dl>
       </Section>
 
+      <Section id="g-fit" title={t("gallery.fit.title")}>
+        <AmountFitDemo />
+      </Section>
+
       <Section id="g-type" title={t("gallery.section.typography")}>
         <p className="ws-muted">
           <code>{fontFamilies.display}</code> · <code>{fontFamilies.sans}</code>
@@ -488,7 +493,7 @@ export function GalleryTokensPage() {
           </div>
         ))}
         <h3>{t("gallery.icons.parentChild")}</h3>
-        <ul className="gallery-icons">
+        <ul className="gallery-icons gallery-icons--pairs">
           {ICON_PARENT_CHILD.map(([parent, child]) => (
             <li key={child}>
               <span className="gallery-icon-pair">

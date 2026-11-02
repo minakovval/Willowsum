@@ -165,12 +165,12 @@
 :root,
 [data-theme="light"] {
   color-scheme: light;
-  --ws-surface-100: #F6F1E8;
+  --ws-surface-100: #FBFBFA;
   --ws-surface-200: #FFFFFF;
-  --ws-surface-300: #EBE5D6;
+  --ws-surface-300: #F1F1EF;
   --ws-ink: #1B2230;
   --ws-ink-muted: #566174;
-  --ws-line: #DDD5C3;
+  --ws-line: #E5E5E2;
   --ws-border-control: #7B8494;
   --ws-brand: #0B2545;
   --ws-brand-hover: #173A66;
@@ -324,12 +324,12 @@
   :root,
   [data-theme] {
     color-scheme: light;
-    --ws-surface-100: #F6F1E8;
+    --ws-surface-100: #FBFBFA;
     --ws-surface-200: #FFFFFF;
-    --ws-surface-300: #EBE5D6;
+    --ws-surface-300: #F1F1EF;
     --ws-ink: #1B2230;
     --ws-ink-muted: #566174;
-    --ws-line: #DDD5C3;
+    --ws-line: #E5E5E2;
     --ws-border-control: #7B8494;
     --ws-brand: #0B2545;
     --ws-brand-hover: #173A66;

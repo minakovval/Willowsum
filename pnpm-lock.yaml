@@ -111,6 +111,9 @@ importers:
       '@willowsum/i18n':
         specifier: workspace:*
         version: link:../i18n
+      lucide:
+        specifier: 1.59.0
+        version: 1.59.0
     devDependencies:
       '@testing-library/dom':
         specifier: 10.4.2
@@ -991,6 +994,9 @@ packages:
 
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
+
+  lucide@1.59.0:
+    resolution: {integrity: sha512-0KTOAFYlTuLHdJOqnRCuPhscU29xtx/QnlHyrOfK0FynDhuPm50O3BH/e4wRnOS67ph0z7uovveCVcXUPLTPBw==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -2147,6 +2153,8 @@ snapshots:
   lru-cache@5.1.1:
     dependencies:
       yallist: 3.1.1
+
+  lucide@1.59.0: {}
 
   lz-string@1.5.0: {}
 

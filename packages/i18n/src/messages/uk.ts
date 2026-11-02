@@ -107,4 +107,12 @@ export const uk = {
   "gallery.amounts.change": "Зміна за місяць",
   "gallery.mark.light": "Знак для світлої теми",
   "gallery.mark.dark": "Знак для темної теми",
+  "gallery.fit.title": "Великі суми і скорочення",
+  "gallery.fit.intro":
+    "Сума не розривається між рядками. Після підпису вона цілком переходить на новий рядок; якщо не вміщається й там — зменшується до 80 %, потім скорочується, потім зменшується до 55 %. Повне значення — у підказці.",
+  "gallery.fit.width": "Ширина {width} px",
+  "gallery.fit.label": "Залишок на рахунку:",
+  "gallery.fit.inline": "Після підпису в одному рядку",
+  "gallery.fit.own": "Окремий рядок",
+  "gallery.fit.small": "Звичайна сума у вузькій картці",
 } as const satisfies Record<string, string>;
