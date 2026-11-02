@@ -68,7 +68,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-363 files have a «Критерії приймання» section with 2978 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
+363 files have a «Критерії приймання» section with 2981 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
 
 ## Fact registry
 
