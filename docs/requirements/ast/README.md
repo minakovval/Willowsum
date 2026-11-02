@@ -29,7 +29,7 @@ Scope: Physical assets, liabilities and collateral, lots, locations, groups, med
 | [AST-08](AST-08.md) | Одиничні активи та лоти | MVP | M |
 | [AST-09](AST-09.md) | Локації | MVP | M |
 | [AST-10](AST-10.md) | Групи та теги | v1 | S |
-| [AST-11](AST-11.md) | Зобов'язання як окрема сутність | MVP (оновлення від банку — v1) | M |
+| [AST-11](AST-11.md) | Зобов'язання як окрема сутність | MVP | M |
 | [AST-12](AST-12.md) | Забезпечення і алокація | MVP | M |
 | [AST-13](AST-13.md) | Вибуття активу-застави | MVP | M |
 | [AST-14](AST-14.md) | Можливості окремих типів активів | MVP | M |

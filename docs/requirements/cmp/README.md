@@ -80,7 +80,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-53](CMP-53.md) | Card — Картка | MVP | M |
 | [CMP-54](CMP-54.md) | Widget — Віджет | MVP | M |
 | [CMP-55](CMP-55.md) | BudgetRow — Рядок бюджету | MVP | M |
-| [CMP-56](CMP-56.md) | ConnectionCard — Картка підключення | v1 | M |
+| [CMP-56](CMP-56.md) | ConnectionCard — Картка підключення | MVP | M |
 | [CMP-57](CMP-57.md) | PlanCard — Картка плану | MVP | M |
 | [CMP-58](CMP-58.md) | ViewSwitch — Перемикач вигляду | MVP | M |
 | [CMP-59](CMP-59.md) | IconButton — Кнопка-іконка | MVP | M |
