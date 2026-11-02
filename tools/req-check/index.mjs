@@ -64,8 +64,8 @@ export function main(argv = process.argv.slice(2), log = console.log) {
 
   const gha = process.env.GITHUB_ACTIONS === 'true';
   const print = (f, level) => {
+    log(`${level.toUpperCase()} ${f.file}:${f.line} [${f.rule}] ${f.message}`);
     if (gha) log(`::${level} file=${f.file},line=${Math.max(1, f.line)},title=req-check ${f.rule}::${f.message.replace(/\r?\n/g, ' ')}`);
-    else log(`${level.toUpperCase()} ${f.file}:${f.line} [${f.rule}] ${f.message}`);
   };
   for (const f of errors) print(f, 'error');
   if (!opts.quiet) for (const f of warnings) print(f, 'warning');
