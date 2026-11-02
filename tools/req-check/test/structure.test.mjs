@@ -92,3 +92,17 @@ test('index README rows are checked against folders and counts', () => {
   const r = rules(collect(checkStructure, c).list);
   assert.deepEqual(r, ['index-count', 'index-extra', 'index-missing', 'index-total']);
 });
+
+test('misnamed or nested markdown files are reported, not silently skipped', () => {
+  const c = corpus({
+    'bud/README.md': readme('BUD', [['BUD-01']]),
+    'bud/BUD-01.md': req('BUD-01'),
+    'bud/bud-99.md': req('BUD-99'),
+    'bud/sub/BUD-97.md': req('BUD-97'),
+  });
+  const { list } = collect(checkStructure, c);
+  const unexpected = list.filter((f) => f.rule === 'unexpected-file').map((f) => f.file).sort();
+  assert.equal(unexpected.length, 2);
+  assert.ok(unexpected.some((f) => f.endsWith('bud/bud-99.md')));
+  assert.ok(unexpected.some((f) => f.endsWith('bud/sub/BUD-97.md')));
+});

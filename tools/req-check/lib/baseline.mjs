@@ -33,7 +33,7 @@ export function makeBaseline(findings) {
   const errors = findings.filter((f) => f.severity === 'error');
   return {
     $comment: [
-      'Known requirement findings accepted when the checker was introduced. Each entry is reported as a warning;',
+      'Known requirement findings accepted when the checker was introduced. Each entry is listed in the report and job summary, not as a CLI error;',
       'any error whose id is not listed fails CI. Remove an entry when its requirement file is fixed.',
       'Regenerate only by a reviewed change: node tools/req-check/index.mjs --update-baseline',
     ],

@@ -13,6 +13,14 @@ const CHECK = 'structure';
  */
 export function checkStructure(corpus, out) {
   const reqs = corpus.docs.filter((d) => d.kind === 'requirement');
+  for (const d of corpus.docs.filter((x) => x.kind === 'other')) {
+    out.add({
+      check: CHECK,
+      rule: 'unexpected-file',
+      file: d.rel,
+      message: `"${d.rel}" is not a requirement file (<module>/<ID>.md, e.g. bud/BUD-03.md), a module README, 00-general.md or README.md`,
+    });
+  }
 
   // File names, headings, folder.
   const byId = new Map();
