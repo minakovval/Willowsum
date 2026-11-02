@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { House } from "lucide";
+import { Car, House } from "lucide";
 import { Icon, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, IconSvg } from "./Icon.tsx";
 
 describe("icon set (DS-12)", () => {
@@ -33,6 +33,13 @@ describe("icon set (DS-12)", () => {
     expect(
       svg.querySelectorAll("path, circle, rect, line, polyline, polygon, ellipse").length,
     ).toBeGreaterThan(0);
+  });
+
+  it("draws vehicle insurance as the Lucide car with a shield badge, not a car inside a shield", () => {
+    const svg = render(<IconSvg name="insurance-vehicle" px={24} />).container.querySelector("svg")!;
+    expect(svg.querySelector("mask"), "child icons cut the parent around the badge").not.toBeNull();
+    const html = svg.innerHTML;
+    for (const [, attrs] of Car) if (attrs.d) expect(html).toContain(String(attrs.d));
   });
 
   it("is based on the Lucide set", () => {

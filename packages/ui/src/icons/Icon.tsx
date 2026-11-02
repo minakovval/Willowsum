@@ -86,7 +86,8 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
  * - child icons, composed from the parent glyph: mortgage = debts + a house badge; public /
  *   private investment = investments + a globe / padlock badge (parent at 75 %, badge in the
  *   bottom-right 8 px box, the parent cut back around it); insurance kinds = the Lucide shield
- *   with a sign inside (health = Lucide shield-plus);
+ *   with a sign inside (health = Lucide shield-plus), except vehicle = the Lucide car + a shield
+ *   badge, because a car is unreadable inside the shield at 16–24 px;
  * - `metals` (gold bars), drawn here because Lucide has no bullion glyph.
  * Custom drawing follows Lucide's rules: 24 px grid, 1 px padding, round joins, whole or half
  * pixel coordinates, no detail closer than 2 px to another.
@@ -268,11 +269,14 @@ const inShield =
     </>
   );
 
-/** Custom: Lucide's car loses its wheels at shield-sign size, so a front-view car is drawn in the 8 px box. */
-const SIGN_CAR: IconNode = [
-  ["path", { d: "M8 15v-2.4a1.5 1.5 0 0 1 .44-1.06L9.5 10.5h5l1.06 1.04A1.5 1.5 0 0 1 16 12.6V15z" }],
-  ["path", { d: "M9.5 15v1M14.5 15v1" }],
-  ["path", { d: "M10 13h.01M14 13h.01" }],
+/** Custom badge: the Lucide shield redrawn in the bottom-right 8 px box (14–22). */
+const BADGE_SHIELD: IconNode = [
+  [
+    "path",
+    {
+      d: "M21.5 18c0 2.1-1.5 3.2-3.2 3.8a.6.6 0 0 1-.6 0C16 21.2 14.5 20.1 14.5 18v-3a.5.5 0 0 1 .5-.5c.8 0 1.9-.5 2.6-1.1a.6.6 0 0 1 .8 0c.7.6 1.8 1.1 2.6 1.1a.5.5 0 0 1 .5.5z",
+    },
+  ],
 ];
 
 const GLYPHS: Record<IconName, Glyph> = {
@@ -352,7 +356,7 @@ const GLYPHS: Record<IconName, Glyph> = {
   "insurance-health": lucide(ShieldPlus),
   "insurance-life": inShield(Heart, 0.42),
   "insurance-home": inShield(House, 0.44),
-  "insurance-vehicle": inShield(SIGN_CAR, 1),
+  "insurance-vehicle": withBadge(CarIcon, BADGE_SHIELD),
   "insurance-travel": inShield(Plane, 0.46),
   "investment-public": withBadge(TrendingUp, BADGE_GLOBE),
   "investment-private": withBadge(TrendingUp, BADGE_LOCK),
@@ -463,7 +467,7 @@ export const ICON_PARENT_CHILD: readonly (readonly [IconName, IconName])[] = [
   ["insurance", "insurance-health"],
   ["insurance", "insurance-life"],
   ["insurance", "insurance-home"],
-  ["insurance", "insurance-vehicle"],
+  ["vehicle", "insurance-vehicle"],
   ["insurance", "insurance-travel"],
 ];
 
