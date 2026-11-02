@@ -31,14 +31,14 @@ Main release = first release named on the «Реліз» line.
 | BUD | 20 | 20 |  |  |  |  |  |  |
 | CHT | 4 | 4 |  |  |  |  |  |  |
 | CICD | 12 | 11 |  | 1 |  |  |  |  |
-| CMP | 71 | 66 |  |  | 5 |  |  |  |
+| CMP | 71 | 67 |  |  | 4 |  |  |  |
 | CRY | 2 |  |  |  | 2 |  |  |  |
 | DAT | 5 | 5 |  |  |  |  |  |  |
 | DOC | 3 | 2 |  |  |  | 1 |  |  |
 | DS | 22 | 22 |  |  |  |  |  |  |
 | FCS | 3 | 3 |  |  |  |  |  |  |
-| FIN | 19 | 8 |  |  | 7 | 4 |  |  |
-| FLW | 58 | 43 |  |  | 6 | 9 |  |  |
+| FIN | 19 | 9 |  |  | 6 | 4 |  |  |
+| FLW | 58 | 44 |  |  | 5 | 9 |  |  |
 | GRID | 8 | 8 |  |  |  |  |  |  |
 | IMP | 19 | 19 |  |  |  |  |  |  |
 | INS | 2 | 2 |  |  |  |  |  |  |
@@ -59,7 +59,7 @@ Main release = first release named on the «Реліз» line.
 | VAL | 11 | 8 |  |  | 3 |  |  |  |
 | VLT | 21 | 18 |  |  |  | 3 |  |  |
 | WGT | 25 | 25 |  |  |  |  |  |  |
-| **Total** | **429** | **342** | **0** | **4** | **38** | **41** | **0** | **4** |
+| **Total** | **429** | **345** | **0** | **4** | **35** | **41** | **0** | **4** |
 
 ## Release/priority exemptions
 
@@ -71,7 +71,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-395 files have a «Критерії приймання» section with 3260 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
+395 files have a «Критерії приймання» section with 3325 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
 
 ## Fact registry
 
@@ -95,7 +95,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Login lockout counting window (`lockout-window`) | 15 min | 8 | 0 | 15 min ×8 |
 | Login / 2FA lockout duration (`lockout-duration`) | 15 min | 15 | 0 | 15 min ×15 |
 | Transfer pairing window between own accounts (`transfer-window`) | 3 d | 5 | 0 | 3 d ×5 |
-| Possible-duplicate / matching date window (±N days) (`date-match-window`) | 3 d | 18 | 0 | 3 d ×18 |
+| Possible-duplicate / matching date window (±N days) (`date-match-window`) | 3 d | 20 | 0 | 3 d ×20 |
 | Import technical ceiling: file size (`ceiling-file-size`) | 25 MB | 3 | 0 | 25 MB ×3 |
 | Import technical ceiling: rows per file (`ceiling-rows`) | 20 000 rows | 3 | 0 | 20000 rows ×3 |
 | Import technical ceiling: parse time per file (`ceiling-parse-time`) | 60 s | 3 | 0 | 60 s ×3 |

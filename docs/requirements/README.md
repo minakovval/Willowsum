@@ -27,7 +27,7 @@ requirement is kept in the README of that module.
 | ADM | [adm/](adm/README.md) | Platform admin panel: feature catalogue, plan x feature matrix, versions, staff | 9 | MVP 5, v1 4 |
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
 | VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | MVP 8, v1 3 |
-| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 8, v1 7, v2 4 |
+| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 9, v1 6, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | v1 3 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | MVP 20 |
@@ -53,8 +53,8 @@ requirement is kept in the README of that module.
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | MVP 18, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts | 22 | MVP 22 |
-| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 71 | MVP 66, v1 5 |
-| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | MVP 43, v1 6, v2 9 |
+| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 71 | MVP 67, v1 4 |
+| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | MVP 44, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | MVP 5, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | MVP 11 |
