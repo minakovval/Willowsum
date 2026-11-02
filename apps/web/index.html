@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>Willowsum</title>
+    <!--
+      DS-11 item 7: apply a stored manual theme before the first paint (no flash of the light theme).
+      The key and values must match THEME_STORAGE_KEY / THEME_ATTRIBUTE in @willowsum/ui (tested).
+    -->
+    <script>
+      try {
+        var t = localStorage.getItem("ws-theme");
+        if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./src/main.tsx"></script>
+  </body>
+</html>

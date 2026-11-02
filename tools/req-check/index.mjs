@@ -63,9 +63,13 @@ export function main(argv = process.argv.slice(2), log = console.log) {
   const warnings = findings.filter((f) => f.severity === 'warning');
 
   const gha = process.env.GITHUB_ACTIONS === 'true';
+  // GitHub workflow-command escaping: data encodes % CR LF; properties also encode : and ,
+  const escData = (v) => String(v).replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+  const escProp = (v) => escData(v).replace(/:/g, '%3A').replace(/,/g, '%2C');
   const print = (f, level) => {
-    log(`${level.toUpperCase()} ${f.file}:${f.line} [${f.rule}] ${f.message}`);
-    if (gha) log(`::${level} file=${f.file},line=${Math.max(1, f.line)},title=req-check ${f.rule}::${f.message.replace(/\r?\n/g, ' ')}`);
+    const file = String(f.file).replace(/[\r\n]/g, ' ');
+    log(`${level.toUpperCase()} ${file}:${f.line} [${f.rule}] ${String(f.message).replace(/[\r\n]+/g, ' ')}`);
+    if (gha) log(`::${level} file=${escProp(f.file)},line=${Math.max(1, f.line)},title=${escProp(`req-check ${f.rule}`)}::${escData(f.message)}`);
   };
   for (const f of errors) print(f, 'error');
   if (!opts.quiet) for (const f of warnings) print(f, 'warning');

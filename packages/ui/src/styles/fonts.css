@@ -1,0 +1,10 @@
+/*
+ * DS-08: Inter (400, 500, 600) and Inter Tight (600), self-hosted from the @fontsource packages —
+ * no third-party font service at runtime. Fontsource uses font-display: swap, so text is never
+ * invisible while a font loads (DS-08 acceptance 7). Unicode ranges keep downloads to the scripts
+ * on the page (Cyrillic and Latin).
+ */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter-tight/600.css";

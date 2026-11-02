@@ -1,0 +1,298 @@
+/* Foundation components. Only tokens — no colour, spacing, radius or z-index literals. */
+
+/* DS-12: icons follow the text colour; tones per item 3. */
+.ws-icon {
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+  color: inherit;
+}
+
+.ws-icon-muted {
+  color: var(--ws-ink-muted);
+}
+
+.ws-icon-brand {
+  color: var(--ws-brand);
+}
+
+.ws-icon-on-brand {
+  color: var(--ws-on-brand);
+}
+
+[dir="rtl"] .ws-dir-flip svg {
+  transform: scaleX(-1);
+}
+
+/* DS-02: the mark and the wordmark. */
+.ws-mark {
+  flex: none;
+  display: block;
+}
+
+.ws-mark-large {
+  fill: var(--ws-mark-large);
+}
+
+.ws-mark-middle {
+  fill: var(--ws-mark-middle);
+}
+
+.ws-mark-small {
+  fill: var(--ws-mark-small);
+}
+
+.ws-wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  color: var(--ws-ink);
+}
+
+.ws-wordmark-name {
+  font-family: var(--ws-font-display);
+  font-weight: 600;
+  font-size: var(--ws-text-heading-3-size);
+  line-height: var(--ws-text-heading-3-line);
+  letter-spacing: -0.02em;
+}
+
+/* Icon-only button: 44 × 44 touch target (DS-14 item 7), quiet hover (DS-14 item 2). */
+.ws-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--ws-touch-target);
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ws-radius-sm);
+  background: transparent;
+  color: var(--ws-ink-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--ws-duration-interaction) var(--ws-easing-out),
+    color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-icon-button:hover,
+.ws-icon-button[aria-pressed="true"] {
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+}
+
+/* DS-18: amounts and their hidden form. */
+.ws-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ws-amount-hidden {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* DS-11 item 3: segmented three-way choice built on native radios. */
+.ws-segmented {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.ws-segmented-legend {
+  padding: 0;
+  margin-block-end: var(--ws-space-2);
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-transform: uppercase;
+  color: var(--ws-ink-muted);
+}
+
+.ws-segmented-options {
+  display: flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-surface-200);
+  width: fit-content;
+  max-width: 100%;
+}
+
+.ws-segmented-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  padding: 0 var(--ws-space-4);
+  cursor: pointer;
+  color: var(--ws-ink-muted);
+}
+
+.ws-segmented-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ws-segmented-option:has(input:checked) {
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
+}
+
+.ws-segmented-option:has(input:focus-visible) {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/* Switch (DS-13 item 1: thumb moves in 150 ms). */
+.ws-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+  cursor: pointer;
+}
+
+.ws-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ws-switch-track {
+  position: relative;
+  flex: none;
+  width: var(--ws-space-7);
+  height: var(--ws-space-5);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-200);
+}
+
+.ws-switch-track::after {
+  content: "";
+  position: absolute;
+  inset-block-start: var(--ws-space-1);
+  inset-inline-start: var(--ws-space-1);
+  width: var(--ws-space-4);
+  height: var(--ws-space-4);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-border-control);
+  transition: transform var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-switch input:checked + .ws-switch-track {
+  background: var(--ws-brand);
+  border-color: var(--ws-brand);
+}
+
+.ws-switch input:checked + .ws-switch-track::after {
+  background: var(--ws-on-brand);
+  transform: translateX(var(--ws-space-5));
+}
+
+[dir="rtl"] .ws-switch input:checked + .ws-switch-track::after {
+  transform: translateX(calc(-1 * var(--ws-space-5)));
+}
+
+.ws-switch input:focus-visible + .ws-switch-track {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/* Card: level 0 is a line border; one raised card per screen (DS-01 item 5, DS-09 item 5). */
+.ws-card {
+  min-width: 0;
+  padding: var(--ws-card-padding);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.ws-card-raised {
+  border-color: transparent;
+  box-shadow: var(--ws-shadow-raised);
+}
+
+/* DS-10 item 7: a table becomes a stack of cards when its container is narrower than 520 px. */
+.ws-table-wrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.ws-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ws-table th,
+.ws-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+  text-align: start;
+  vertical-align: top;
+}
+
+.ws-table th {
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-transform: uppercase;
+  color: var(--ws-ink-muted);
+}
+
+@container (max-width: 519px) {
+  .ws-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ws-table,
+  .ws-table tbody,
+  .ws-table tr,
+  .ws-table td {
+    display: block;
+  }
+
+  .ws-table tr {
+    padding-block: var(--ws-space-2);
+    border-block-end: 1px solid var(--ws-line);
+  }
+
+  .ws-table td {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: var(--ws-space-2);
+    padding: var(--ws-space-1) 0;
+    border: 0;
+  }
+
+  .ws-table td::before {
+    content: attr(data-label);
+    color: var(--ws-ink-muted);
+  }
+}

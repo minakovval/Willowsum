@@ -30,7 +30,7 @@ export function checkSelfContained(corpus, out) {
           out.add({ check: CHECK, rule: 'forbidden-word', file: d.rel, line: lineNo, key: word, message: `forbidden word ${word} ("${context(line, m.index)}")` });
         }
       }
-      const spans = codeSpanRanges(line);
+      const spans = line.includes('$') ? codeSpanRanges(line) : [];
       for (const m of line.matchAll(/\$/g)) {
         const inCode = inRanges(spans, m.index);
         out.add({
