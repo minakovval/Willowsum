@@ -18,7 +18,7 @@ Each module folder has a `README.md` with the module intro and a table of its re
 (ID, title, release, priority). Text from a specification tab that is not part of any single
 requirement is kept in the README of that module.
 
-## Modules (397 requirements)
+## Modules (400 requirements)
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
@@ -31,6 +31,7 @@ requirement is kept in the README of that module.
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | v1 3 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | MVP 20 |
+| FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | MVP 3 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
 | INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
 | NOT | [not/](not/README.md) | Reminders, notifications and notification triggers | 2 | MVP 1, v1 1 |
@@ -68,6 +69,7 @@ requirement is kept in the README of that module.
 - [inv/](inv/README.md)
 - [cry/](cry/README.md)
 - [bud/](bud/README.md)
+- [fcs/](fcs/README.md)
 - [doc/](doc/README.md)
 - [ins/](ins/README.md)
 - [not/](not/README.md)
