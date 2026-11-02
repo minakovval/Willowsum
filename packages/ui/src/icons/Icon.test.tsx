@@ -1,5 +1,5 @@
 import { render } from "@testing-library/react";
-import { Car, House } from "lucide";
+import { Car, HeartPulse, House, Plane, UserRound } from "lucide";
 import { Icon, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, IconSvg } from "./Icon.tsx";
 
 describe("icon set (DS-12)", () => {
@@ -35,12 +35,25 @@ describe("icon set (DS-12)", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("draws vehicle insurance as the Lucide car with a shield badge, not a car inside a shield", () => {
-    const svg = render(<IconSvg name="insurance-vehicle" px={24} />).container.querySelector("svg")!;
-    expect(svg.querySelector("mask"), "child icons cut the parent around the badge").not.toBeNull();
-    const html = svg.innerHTML;
-    for (const [, attrs] of Car) if (attrs.d) expect(html).toContain(String(attrs.d));
-  });
+  it.each([
+    ["insurance-health", HeartPulse],
+    ["insurance-life", UserRound],
+    ["insurance-home", House],
+    ["insurance-vehicle", Car],
+    ["insurance-travel", Plane],
+  ] as const)(
+    "%s = the insured object + a shield badge (one rule for every insurance kind)",
+    (name, object) => {
+      const svg = render(<IconSvg name={name} px={24} />).container.querySelector("svg")!;
+      expect(svg.querySelector("mask"), "the object is cut back around the badge").not.toBeNull();
+      const html = svg.innerHTML;
+      for (const [, attrs] of object) if (attrs.d) expect(html).toContain(String(attrs.d));
+      const badge = render(<IconSvg name="insurance-vehicle" px={24} />)
+        .container.querySelector("svg > path:last-of-type")!
+        .getAttribute("d");
+      expect(html).toContain(badge!);
+    },
+  );
 
   it("is based on the Lucide set", () => {
     const html = render(<IconSvg name="home" px={24} />).container.innerHTML;
