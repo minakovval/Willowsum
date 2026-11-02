@@ -18,4 +18,17 @@ describe("keepNumbersTogether (DS-08 item 11)", () => {
   it("leaves ordinary words untouched", () => {
     expect(keepNumbersTogether("Тут поки нічого немає")).toBe("Тут поки нічого немає");
   });
+  it("joins only a standalone three-letter code, not the end of a longer word", () => {
+    expect(keepNumbersTogether("ABCD 5")).toBe("ABCD 5");
+    expect(keepNumbersTogether("Сума EUR 5")).toBe(`Сума EUR${NB}5`);
+  });
+  it("does not touch a placeholder left in text or spaces next to braces", () => {
+    expect(keepNumbersTogether("{count} днів, {amount} €")).toBe("{count} днів, {amount} €");
+  });
+  it("only changes spaces in text that merely contains digits", () => {
+    const input = "Windows 10 Pro, PIN 1234, Крок 1 з 3";
+    const out = keepNumbersTogether(input);
+    expect(out.replaceAll(NB, " ")).toBe(input);
+    expect(out).toBe(`Windows 10${NB}Pro, PIN${NB}1234, Крок 1${NB}з 3`);
+  });
 });

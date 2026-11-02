@@ -238,7 +238,7 @@
 | S-113 | screen | Картка поліса (дані, застраховані активи) | `/assets/insurance/:id` | Активи | MVP | INS-01, FLW-24 | L ERR NA HID | Ow Ad Ed Vw |
 | S-114 | dialog | Новий поліс | — (оверлей) | Активи | MVP | INS-01, FLW-24 | ERR; дубль номера | Ow Ad Ed |
 | S-115 | dialog | Додати активи до поліса | — (оверлей) | Активи | MVP | INS-01, FLW-24 | ERR | Ow Ad Ed |
-| S-116 | screen | Страховий розклад і чек-лист прогалин | `/assets/insurance/:id/schedule` | Активи | v1 | INS-02, RPT-01, FLW-24 | L ERR UPG; формується | Ow Ad Ed Vw |
+| S-116 | screen | Страховий розклад і чек-лист прогалин | `/assets/insurance/:id/schedule` | Активи | MVP (фото — v1) | INS-02, RPT-01, FLW-24 | L ERR UPG; формується | Ow Ad Ed Vw |
 | S-117 | drawer | Медіа і фотогалерея активу | `/assets/:id/media` | Активи | v1 | AST-16, CMP-37 | E L ERR; перевіряється, відхилено | Ow Ad Ed Vw Sc |
 | S-118 | dialog | Доходи і витрати активу (yield) | — (оверлей) | Активи | v1 | AST-06 | E L ERR HID | Ow Ad Ed Vw |
 | S-119 | screen | Список бажаних покупок (Wishlist) | `/assets/wishlist` | Активи | v2 | AST-15 | E L ERR UPG | Ow Ad Ed Vw |

@@ -7,7 +7,7 @@ const NBSP = " ";
 const CURRENCY = "€₴$£¥₽";
 const groupSpace = /(\d)[ \u202F](?=\d{3}(?!\d))/g; // "12 345" becomes "12<nbsp>345"
 const numberThenUnit = new RegExp(`(\\d)[ ](?=[%${CURRENCY}]|[\\p{L}]{1,12}(?![\\p{L}]))`, "gu"); // "30 днів", "15 %", "12 €"
-const currencyThenNumber = new RegExp(`([${CURRENCY}]|[A-Z]{3})[ ](?=[−\\-+]?\\d)`, "gu"); // "€ 12", "UAH 5"
+const currencyThenNumber = new RegExp(`([${CURRENCY}]|(?<![\\p{L}])[A-Z]{3})[ ](?=[−\\-+]?\\d)`, "gu"); // "€ 12", "UAH 5"
 
 export function keepNumbersTogether(text: string): string {
   let out = text;

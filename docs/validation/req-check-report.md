@@ -68,7 +68,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-363 files have a «Критерії приймання» section with 2976 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
+363 files have a «Критерії приймання» section with 2977 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
 
 ## Fact registry
 
@@ -98,7 +98,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Import technical ceiling: parse time per file (`ceiling-parse-time`) | 60 s | 3 | 0 | 60 s ×3 |
 | Stale market price threshold (`stale-price`) | 3 bd | 15 | 0 | 3 bd ×15 |
 | Incomplete record threshold (completeness below N %) (`incomplete-record`) | 70 % | 9 | 0 | 70 % ×9 |
-| Approximate location zone radius for non-admin roles (`map-zone`) | 1500 m | 35 | 0 | 1500 m ×35 |
+| Approximate location zone radius for non-admin roles (`map-zone`) | 1500 m | 36 | 0 | 1500 m ×36 |
 | Plan limit: household members (household.members) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-members`) | Free 1, Plus 2, Family 6, Trial 6 | 14 | 0 | Free 1 ×4, Plus 2 ×4, Family 6 ×4, Trial 6 ×2 |
 | Plan limit: assets (assets.count) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-assets`) | Free 25, Plus ∞, Family ∞, Trial ∞ | 29 | 0 | Free 25 ×12, Plus ∞ ×6, Family ∞ ×6, Trial ∞ ×5 |
 | Plan limit: budgets (budget.budgets) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-budgets`) | Free 2, Plus 3, Family 7, Trial 7 | 26 | 0 | Free 2 ×8, Plus 3 ×7, Family 7 ×7, Trial 7 ×4 |
