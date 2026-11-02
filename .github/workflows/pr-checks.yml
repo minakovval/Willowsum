@@ -1,6 +1,6 @@
 name: PR checks
 
-# Minimal checks until the code skeleton exists (CICD-01, CICD-02 add the full pipeline).
+# PR checks (CICD-02). More checks are added as the code grows.
 
 on:
   pull_request:
@@ -11,6 +11,7 @@ permissions:
 jobs:
   traceability:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: PR title starts with a requirement ID
         env:
@@ -24,6 +25,7 @@ jobs:
 
   requirements:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -41,3 +43,22 @@ jobs:
         if: always()
         run: |
           if [ -f "$RUNNER_TEMP/req-check-report.md" ]; then cat "$RUNNER_TEMP/req-check-report.md" >> "$GITHUB_STEP_SUMMARY"; fi
+
+  web:
+    # Front-end packages: types, lint, formatting, unit tests and the static build.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Enable pnpm (version from package.json via corepack)
+        run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build

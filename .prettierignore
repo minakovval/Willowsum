@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+pnpm-lock.yaml
+docs
+tools
+.github
+.claude
+**/*.md
+packages/ui/src/styles/tokens.css

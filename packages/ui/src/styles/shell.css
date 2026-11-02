@@ -1,0 +1,221 @@
+/* CMP-69 / UX-09 / DS-10: the application shell. The nav form comes from data-nav on .ws-shell. */
+
+.ws-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.ws-shell-body {
+  min-width: 0;
+}
+
+.ws-shell[data-nav="rail"] .ws-shell-body {
+  margin-inline-start: var(--ws-rail-width);
+}
+
+.ws-shell[data-nav="sidebar"] .ws-shell-body {
+  margin-inline-start: var(--ws-sidebar-width);
+}
+
+.ws-shell[data-nav="bottom"] .ws-shell-body {
+  padding-block-end: calc(var(--ws-bottom-bar-height) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Top row with global actions: sticky (layer 10). */
+.ws-topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--ws-layer-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-top-bar-height);
+  padding-inline: var(--ws-page-margin);
+  background: var(--ws-surface-100);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.ws-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  margin-inline-start: auto;
+}
+
+.ws-main {
+  display: block;
+  min-width: 0;
+  scroll-margin-block-start: var(--ws-top-bar-height);
+}
+
+.ws-main-inner {
+  max-width: var(--ws-content-max);
+  margin-inline: auto;
+  padding: var(--ws-space-6) var(--ws-page-margin) var(--ws-band-gap);
+}
+
+/* Navigation, shared. */
+.ws-nav {
+  z-index: var(--ws-layer-nav);
+  position: fixed;
+}
+
+.ws-nav-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-nav-item {
+  display: flex;
+  align-items: center;
+  color: var(--ws-ink-muted);
+  text-decoration: none;
+  font-family: var(--ws-font-sans);
+  transition:
+    background-color var(--ws-duration-interaction) var(--ws-easing-out),
+    color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-nav-item:hover {
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+}
+
+/* DS-12 item 7: current = darker icon and label on a tinted background, not another icon. */
+.ws-nav-item[aria-current="page"] {
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-weight: 600;
+}
+
+/* Bottom bar < 600 px: 56 px + safe area, surface-200, top line. */
+.ws-nav-bottom {
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding-block-end: env(safe-area-inset-bottom, 0px);
+  background: var(--ws-surface-200);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.ws-nav-bottom .ws-nav-list {
+  display: flex;
+  height: var(--ws-bottom-bar-height);
+}
+
+.ws-nav-bottom li {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.ws-nav-bottom .ws-nav-item {
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(var(--ws-space-1) / 2);
+  height: 100%;
+  min-height: var(--ws-touch-target);
+  font-size: var(--ws-text-nav-bottom-size);
+  line-height: var(--ws-text-nav-bottom-line);
+  font-weight: var(--ws-text-nav-bottom-weight);
+}
+
+.ws-nav-bottom .ws-nav-item[aria-current="page"] {
+  font-weight: 600;
+}
+
+.ws-nav-bottom .ws-nav-label,
+.ws-nav-rail .ws-nav-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Rail 600–1279 px: 64 px, surface-100, right line, 56 × 56 items, 24 px mark at the top. */
+.ws-nav-rail {
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--ws-rail-width);
+  background: var(--ws-surface-100);
+  border-inline-end: 1px solid var(--ws-line);
+  overflow-y: auto;
+}
+
+.ws-nav-rail .ws-nav-brand {
+  display: flex;
+  justify-content: center;
+  padding-block: var(--ws-space-4);
+}
+
+.ws-nav-rail .ws-nav-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ws-space-1);
+}
+
+.ws-nav-rail .ws-nav-item {
+  flex-direction: column;
+  justify-content: center;
+  gap: calc(var(--ws-space-1) / 2);
+  width: var(--ws-rail-item);
+  height: var(--ws-rail-item);
+  border-radius: var(--ws-radius-md);
+  font-size: var(--ws-text-nav-rail-size);
+  line-height: var(--ws-text-nav-rail-line);
+  font-weight: var(--ws-text-nav-rail-weight);
+}
+
+.ws-nav-rail .ws-nav-item[aria-current="page"] {
+  font-weight: 600;
+}
+
+/* Sidebar ≥ 1280 px: 212 px, mark and name (64 px), 40 px items, 0 × 12 px, radius 8, icon 20. */
+.ws-nav-sidebar {
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--ws-sidebar-width);
+  padding-inline: var(--ws-space-3);
+  background: var(--ws-surface-100);
+  border-inline-end: 1px solid var(--ws-line);
+  overflow-y: auto;
+}
+
+.ws-nav-sidebar .ws-nav-brand {
+  display: flex;
+  align-items: center;
+  height: var(--ws-sidebar-header-height);
+  padding-inline: var(--ws-space-3);
+}
+
+.ws-nav-sidebar .ws-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+}
+
+.ws-nav-sidebar .ws-nav-item {
+  gap: var(--ws-space-3);
+  min-height: var(--ws-sidebar-item-height);
+  padding: 0 var(--ws-space-3);
+  border-radius: var(--ws-radius-md);
+  font-size: var(--ws-text-nav-sidebar-size);
+  line-height: var(--ws-text-nav-sidebar-line);
+  font-weight: var(--ws-text-nav-sidebar-weight);
+}
+
+.ws-nav-sidebar .ws-nav-item[aria-current="page"] {
+  font-weight: 600;
+}
+
+/* Sidebar items are 40 px tall; a 44 px hit area is kept with an invisible extension. */
+.ws-nav-sidebar .ws-nav-item {
+  position: relative;
+}
+
+.ws-nav-sidebar .ws-nav-item::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) / -2);
+}

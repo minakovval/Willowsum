@@ -1,0 +1,52 @@
+import { render } from "@testing-library/react";
+import { Icon, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, IconSvg } from "./Icon.tsx";
+
+describe("icon set (DS-12)", () => {
+  it.each(ICON_NAMES)("%s: 24 px grid, 1.75 px round stroke, outline, currentColor", (name) => {
+    const { container } = render(<IconSvg name={name} px={24} />);
+    const svg = container.querySelector("svg")!;
+    expect(svg.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(svg.getAttribute("stroke-width")).toBe("1.75");
+    expect(svg.getAttribute("stroke-linecap")).toBe("round");
+    expect(svg.getAttribute("stroke-linejoin")).toBe("round");
+    expect(svg.getAttribute("fill")).toBe("none");
+    expect(svg.getAttribute("stroke")).toBe("currentColor");
+    // Outline only: nothing drawn with a fill except the luminance masks of child icons.
+    for (const el of svg.querySelectorAll("[fill]")) {
+      if (el === svg) continue;
+      expect(el.closest("mask"), `${name} has a filled shape`).not.toBeNull();
+    }
+  });
+
+  it("has the 22 section, 12 asset-type and 9 money-and-cover icons", () => {
+    expect(ICON_GROUPS.sections).toHaveLength(22);
+    expect(ICON_GROUPS.assetTypes).toHaveLength(12);
+    expect(ICON_GROUPS.moneyAndCover).toHaveLength(9);
+  });
+
+  it("child icons contain the parent glyph (DS-12 item 5)", () => {
+    for (const [parent, child] of ICON_PARENT_CHILD) {
+      const p = render(<IconSvg name={parent} px={24} />)
+        .container.querySelector("path")!
+        .getAttribute("d");
+      const c = render(<IconSvg name={child} px={24} />).container.innerHTML;
+      expect(c, `${child} ⊃ ${parent}`).toContain(p!);
+    }
+  });
+
+  it("is decorative next to a word and a named image when it carries meaning", () => {
+    const decorative = render(<Icon name="home" />).container.firstElementChild!;
+    expect(decorative.getAttribute("aria-hidden")).toBe("true");
+    const named = render(<Icon name="search" label="Пошук" />).getByRole("img");
+    expect(named.getAttribute("aria-label")).toBe("Пошук");
+  });
+
+  it("mirrors only directional icons", () => {
+    expect(render(<Icon name="chevron-left" />).container.firstElementChild!.className).toContain(
+      "ws-dir-flip",
+    );
+    expect(render(<Icon name="property" />).container.firstElementChild!.className).not.toContain(
+      "ws-dir-flip",
+    );
+  });
+});
