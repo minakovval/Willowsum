@@ -1,0 +1,757 @@
+{
+  "$comment": [
+    "Canonical product facts checked by tools/req-check (check 5). Values come from 00-general.md and the requirement files; see each fact's \"sources\".",
+    "Scalar fact: every regex in \"patterns\" must capture the number in group (?<v>...) and may capture the unit in (?<u>...). Flags: giu.",
+    "A pattern may be an object {re, files, context}: \"files\" limits it to matching paths, \"context\" must match near the mention.",
+    "Fact-level \"context\"/\"exclude\" are tested against the text within \"window\" characters (default 100) around the mention.",
+    "Plan fact (type \"plan\"): plan names followed by values (Free 1 / Plus 2 …, and plan-matrix tables) are bound to the fact whose \"context\" matches nearest before them.",
+    "Allowed values are normalised: d, bd (business days), h, min, s, MB, GB, m, %, rows, attempts; \"∞\" = без ліміту.",
+    "Changing an allowed value is a product decision: change the requirement files first, then this registry, in the same PR."
+  ],
+  "planOtherFeatures": "звіт|підключен|синхроніз|оцінк|розпізнав|Сейф|поширен|токен|історі|простор(?:и|ів)(?![\\p{L}])",
+  "competing": [
+    {
+      "fact": "rpo / rto",
+      "note": "Canonical RPO ≤ 15 min and RTO ≤ 4 h (NFR-03 FR 3, NFR-16, NFR-18; profile «Старт»). arc/README.md (deployment profiles table) also states RPO ≤ 5 min and RTO ≤ 1 h for the future profile «Комерційний», which no requirement file carries. Reported as fact-mismatch and baselined; the owner decides whether NFR-03 should state per-profile targets."
+    },
+    {
+      "fact": "transfer-window",
+      "note": "Not a conflict: own-account transfers pair within 3 days, 5 days when the description names the other account (IMP-03, stated as an assumption); crypto wallet/exchange transfers use a separate 72-hour window (CRY-02). Only the 3-day base value is registered."
+    },
+    {
+      "fact": "past-due-grace",
+      "note": "Not a conflict: the 90-day grace period in ACC-12 belongs to emergency household access, not to unpaid subscriptions (14 days). It is not matched by the registry."
+    },
+    {
+      "fact": "ceiling-rows / ceiling-file-size",
+      "note": "Not a conflict: the asset/table import (DAT-04, FLW-10) has its own limits (10 000 rows, 500 MB of attachments); the registry checks only the bank-statement import ceilings (IMP-01, IMP-19)."
+    }
+  ],
+  "facts": [
+    {
+      "id": "import-rollback",
+      "title": "Import batch rollback / «Скасувати імпорт» window",
+      "allowed": [
+        "7 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Відкат імпорту 7 днів",
+        "IMP-04 FR 8",
+        "IMP-16 FR 1",
+        "DAT-04 FR 18",
+        "INV-01"
+      ],
+      "patterns": [
+        "відкат\\S*[^.;|\\d*]{0,60}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Відкат імпорту\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "«Відкотити»[^.;|\\d*]{0,40}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "відкотити[^.;|\\d*]{0,60}?протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "скасува\\S*\\s+імпорт\\S*»?[^.;|\\d*]{0,40}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "bulk-undo",
+      "title": "Bulk-action undo window",
+      "allowed": [
+        "24 h"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Скасування масової дії 24 год",
+        "DAT-03 FR 12",
+        "ARC-01 module catalogue",
+        "SCR-02"
+      ],
+      "patterns": [
+        "масов\\S*\\s+ді\\S*[^.;|\\d*]{0,60}?(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*|хв[\\p{L}]*)",
+        "Скасування масової дії\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)",
+        {
+          "re": "скасуван\\S*\\s+протягом\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)",
+          "files": "/(DAT-03|FLW-13)\\.md$"
+        },
+        {
+          "re": "«Скасувати» з таймером\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)"
+        }
+      ]
+    },
+    {
+      "id": "rule-undo",
+      "title": "Undo of rule application to past transactions",
+      "allowed": [
+        "7 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: 7 днів",
+        "BUD-01 FR 5",
+        "BUD-14 FR"
+      ],
+      "patterns": [
+        "до минулих[^.;|\\d*]{0,100}?скасува\\S*[^.;|\\d*]{0,20}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "застосування правила до минулих транзакцій\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        {
+          "re": "скасувати»?\\s+протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+          "files": "/(BUD-14|FLW-41)\\.md$"
+        }
+      ]
+    },
+    {
+      "id": "trash",
+      "title": "Trash (кошик) retention for assets and documents",
+      "allowed": [
+        "30 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Кошик документів і активів 30 днів",
+        "AST-04",
+        "DOC-01 FR 13"
+      ],
+      "patterns": [
+        "кошик\\S*\\s+на\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "буде\\s+[ву]\\s+кошику\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "пробу\\S*\\s+[ву]\\s+кошику\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Кошик[^|]*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+у кошику",
+        "з кошика протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "account-recovery",
+      "title": "Closed account / deleted household recovery window",
+      "allowed": [
+        "30 d"
+      ],
+      "sources": [
+        "NFR-12 FR 6 and «Строки зберігання»",
+        "ACC-07 FR 13",
+        "ACC-08"
+      ],
+      "patterns": [
+        "(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+на відновлення",
+        "з\\s+(?<v>\\d+)\\s*днями на відновлення",
+        "[Пп]ротягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+(?:після закриття|вхід)",
+        "протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)[^.;|]{0,40}?«Відновити акаунт»",
+        "відновити видалений простір протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "відновлення простору в межах\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "простір можна відновити протягом\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Після закінчення\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+відновлення",
+        "остаточного видалення встановлюється на\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        {
+          "re": "(?:[Чч]ерез|[Пп]ісля)\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)[^.;|\\d*]{0,50}?остаточн",
+          "context": "закрит|простір|акаунт"
+        }
+      ]
+    },
+    {
+      "id": "unconfirmed-deletion",
+      "title": "Unconfirmed account deletion",
+      "allowed": [
+        "30 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Непідтверджений акаунт 30 днів",
+        "ACC-01 FR 6"
+      ],
+      "patterns": [
+        "[Нн]епідтверджен\\S*\\s+акаунт\\S*[^.;|\\d*]{0,60}?(?:через|\\|)\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Непідтверджені акаунти\\s*\\|\\s*Видалення через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "export-file",
+      "title": "Full export file availability",
+      "allowed": [
+        "7 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Файл повного експорту 7 днів",
+        "ACC-07"
+      ],
+      "patterns": [
+        "архів\\S*\\s+доступн\\S*[^.;|\\d*]{0,30}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Файл повного експорту\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "готовності архіву минуло\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "backups",
+      "title": "Backup retention",
+      "allowed": [
+        "35 d"
+      ],
+      "sources": [
+        "NFR-03 FR 5",
+        "NFR-12 «Строки зберігання»: Резервні копії 35 днів"
+      ],
+      "patterns": [
+        "резервн\\S*\\s+копі\\S*[^.;|\\d*]{0,80}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Резервні копії\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "з усіх копій не пізніше ніж через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        {
+          "re": "зберігання\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+          "context": "[Рр]езервн"
+        },
+        "на будь-який момент за\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "з жодної копії не пізніше ніж через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        {
+          "re": "термін\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+          "context": "[Рр]езервн|копі"
+        }
+      ]
+    },
+    {
+      "id": "2fa-grace",
+      "title": "2FA grace period from email confirmation",
+      "allowed": [
+        "7 d"
+      ],
+      "sources": [
+        "00-general.md 0.3 «Двофакторна автентифікація»",
+        "NFR-01 FR 8",
+        "ACC-03"
+      ],
+      "context": "2FA|двофактор|автентифікац|підтвердження email|Нагадати пізніше",
+      "exclude": "оплат|Past due|довіреної особи|підписк",
+      "window": 120,
+      "patterns": [
+        "пільгов\\S*\\s+період\\S*(?:\\s+2FA)?[^.;|\\d*]{0,30}?(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+пільгового\\s+періоду",
+        "лишилося\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+від\\s+підтвердження\\s+(?:його\\s+)?email",
+        "без 2FA після\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "web-inactivity",
+      "title": "Web session inactivity timeout (default)",
+      "allowed": [
+        "15 min"
+      ],
+      "sources": [
+        "NFR-01 FR 11",
+        "ACC-04"
+      ],
+      "exclude": "Сейф",
+      "patterns": [
+        "(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*)\\s+бездіяльност",
+        "[Бб]ездіяльніст\\S*\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*)",
+        "тайм-аут бездіяльності\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*)",
+        "за замовчуванням\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*)\\)?\\s*для всіх учасників"
+      ]
+    },
+    {
+      "id": "absolute-session",
+      "title": "Absolute web session lifetime",
+      "allowed": [
+        "12 h"
+      ],
+      "sources": [
+        "NFR-01 FR 11",
+        "ACC-04"
+      ],
+      "patterns": [
+        "[Аа]бсолютн\\S*\\s+(?:строк\\S*\\s+)?(?:життя\\s+)?(?:веб-)?(?:сесії\\s+)?(?:—\\s*)?(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|хв[\\p{L}]*|дн[\\p{L}]*)",
+        "(?<v>\\d+)\\s*(?<u>год[\\p{L}]*)\\s+абсолютн"
+      ]
+    },
+    {
+      "id": "signed-url",
+      "title": "Signed file URL lifetime (15 min; 2 min for a scoped member)",
+      "allowed": [
+        "15 min",
+        "2 min"
+      ],
+      "sources": [
+        "NFR-01 FR 4",
+        "NFR-12 «Строки зберігання»",
+        "00-general.md 0.3 «Область доступу»"
+      ],
+      "patterns": [
+        "підписан\\S*\\s+посилан\\S*[^.;|\\d*]{0,50}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "Підписані посилання\\s*\\|\\s*Строк дії\\s*≤?\\s*(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "Підписане посилання на файл\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "[Пп]осилання на файли[^.;|\\d*]{0,40}?діють\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        {
+          "re": "посилання(?:\\s+\\S+)?\\s+діє\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+          "context": "підписан"
+        },
+        "для (?:учасника з обмеженим (?:доступом|scope)|обмеженого учасника)\\s*(?:—\\s*)?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        {
+          "re": "діють\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)\\s+для обмеженого",
+          "context": "посилан"
+        },
+        {
+          "re": "\\((?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)\\s+для інших\\)",
+          "context": "посилан"
+        }
+      ]
+    },
+    {
+      "id": "lockout-attempts",
+      "title": "Login / 2FA lockout threshold (failed attempts)",
+      "allowed": [
+        "5 attempts"
+      ],
+      "sources": [
+        "NFR-01 FR 10",
+        "ACC-01"
+      ],
+      "patterns": [
+        "(?<v>\\d+)\\s+(?<u>невдалих|невірних)\\s+(?:спроб|код)",
+        "(?<v>\\d+)\\s+(?<u>невірних)\\s+код\\S*\\s+поспіль"
+      ]
+    },
+    {
+      "id": "lockout-window",
+      "title": "Login lockout counting window",
+      "allowed": [
+        "15 min"
+      ],
+      "sources": [
+        "NFR-01 FR 10",
+        "ACC-01"
+      ],
+      "patterns": [
+        "невдалих\\s+спроб(?:\\s+входу)?\\s+за\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "lockout-duration",
+      "title": "Login / 2FA lockout duration",
+      "allowed": [
+        "15 min"
+      ],
+      "sources": [
+        "NFR-01 FR 10",
+        "ACC-01"
+      ],
+      "context": "спроб|вход|код|CAPTCHA",
+      "exclude": "Сейф|у фоні|біометр|розблок",
+      "patterns": [
+        "блок\\S*[^.;|\\d*]{0,30}?на\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "→\\s*блок\\S*\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "Спробуйте через\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "transfer-window",
+      "title": "Transfer pairing window between own accounts",
+      "allowed": [
+        "3 d"
+      ],
+      "sources": [
+        "IMP-03 FR 5 (5 days when the description names the other account)",
+        "FIN-03"
+      ],
+      "patterns": [
+        "переказ\\S*\\s*—\\s*до\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "[Пп]ереказ\\S*[^.;|\\d*]{0,80}?в межах\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "зарахування на іншому\\S*»?\\s*(?:\\([^)]*\\)\\s*)?в межах\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "в межах вікна\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "date-match-window",
+      "title": "Possible-duplicate / matching date window (±N days)",
+      "allowed": [
+        "3 d"
+      ],
+      "sources": [
+        "IMP-04 FR (possible duplicates)",
+        "FIN-03",
+        "BUD-07 FR 8"
+      ],
+      "patterns": [
+        "±\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|день|робоч[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "ceiling-file-size",
+      "title": "Import technical ceiling: file size",
+      "allowed": [
+        "25 MB"
+      ],
+      "sources": [
+        "IMP-01 FR 13",
+        "IMP-19 FR 2"
+      ],
+      "context": "стел",
+      "patterns": [
+        "стел\\S*\\s+(?<v>\\d[\\d  ]*?)\\s*(?<u>МБ|ГБ)(?![\\p{L}])",
+        "(?<![\\p{L}])файл\\S*\\s+до\\s+(?<v>\\d[\\d  ]*?)\\s*(?<u>МБ|ГБ)(?![\\p{L}])"
+      ]
+    },
+    {
+      "id": "ceiling-rows",
+      "title": "Import technical ceiling: rows per file",
+      "allowed": [
+        "20 000 rows"
+      ],
+      "sources": [
+        "IMP-01 FR 13",
+        "IMP-19 FR 2"
+      ],
+      "patterns": [
+        "(?<v>\\d[\\d  ]*?)\\s*(?<u>рядк[\\p{L}]*)\\s+у\\s+файлі",
+        "стел\\S*\\s+(?<v>\\d[\\d  ]*?)\\s*(?<u>рядк[\\p{L}]*)",
+        "файл\\s+до\\s+\\d+\\s*МБ\\s+і\\s+(?<v>\\d[\\d  ]*?)\\s*(?<u>рядк[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "ceiling-parse-time",
+      "title": "Import technical ceiling: parse time per file",
+      "allowed": [
+        "60 s"
+      ],
+      "sources": [
+        "IMP-01 FR 13",
+        "IMP-19 FR 2"
+      ],
+      "patterns": [
+        "(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)\\s+на\\s+розбір\\s+файлу",
+        "розбір\\S*\\s+файлу\\s+до\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "стел\\S*\\s+розбору\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "stale-price",
+      "title": "Stale market price threshold",
+      "allowed": [
+        "3 bd"
+      ],
+      "sources": [
+        "VAL-02 business rule",
+        "INV-02 FR 6",
+        "FIN-05 FR 21"
+      ],
+      "context": "цін|застар|свіж",
+      "window": 120,
+      "patterns": [
+        "понад\\s+(?<v>\\d+)\\s*(?<u>робоч[\\p{L}]*)\\s+дн",
+        "старша за\\s+(?<v>\\d+)\\s*(?<u>робоч[\\p{L}]*)",
+        "ринкова ціна\\s+(?<v>\\d+)\\s*(?<u>робоч[\\p{L}]*)",
+        "застарілості до\\s+(?<v>\\d+)\\s*(?<u>робоч[\\p{L}]*)",
+        "доки не мине\\s+(?<v>\\d+)\\s*(?<u>робоч[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "incomplete-record",
+      "title": "Incomplete record threshold (completeness below N %)",
+      "allowed": [
+        "70 %"
+      ],
+      "sources": [
+        "AST-02 business rule"
+      ],
+      "patterns": [
+        "повнот\\S*\\s*(?:<|нижче)\\s*(?<v>\\d+)\\s*(?<u>%)",
+        "заповнені щонайменше на\\s+(?<v>\\d+)\\s*(?<u>%)",
+        "повнотою рівно\\s+(?<v>\\d+)\\s*(?<u>%)",
+        "до повноти\\s+(?<v>\\d+)\\s*(?<u>%)"
+      ]
+    },
+    {
+      "id": "map-zone",
+      "title": "Approximate location zone radius for non-admin roles",
+      "allowed": [
+        "1500 m"
+      ],
+      "sources": [
+        "00-general.md 0.3 roles matrix",
+        "AST-09",
+        "VAL-11"
+      ],
+      "patterns": [
+        "зон\\S*\\s+(?:радіусом\\s+)?(?<v>\\d[\\d  ]*?)\\s*(?<u>м|км)(?![\\p{L}])",
+        "радіус\\S*\\s*(?:—\\s*)?(?<v>\\d[\\d  ]*?)\\s*(?<u>м|км)(?![\\p{L}])"
+      ]
+    },
+    {
+      "id": "plan-members",
+      "type": "plan",
+      "title": "Plan limit: household members (household.members)",
+      "allowed": {
+        "Free": "1",
+        "Plus": "2",
+        "Family": "6",
+        "Trial": "6"
+      },
+      "sources": [
+        "00-general.md 0.4 plan matrix",
+        "ACC-09"
+      ],
+      "context": "household\\.members|учасник",
+      "exclude": "household\\.count|Додаткові простори|[Вв]ласн\\S* простор"
+    },
+    {
+      "id": "plan-assets",
+      "type": "plan",
+      "title": "Plan limit: assets (assets.count)",
+      "allowed": {
+        "Free": "25",
+        "Plus": "∞",
+        "Family": "∞",
+        "Trial": "∞"
+      },
+      "sources": [
+        "00-general.md 0.4 plan matrix",
+        "AST-01"
+      ],
+      "context": "assets\\.count|актив(?:и|ів|ах|ам)?(?![\\p{L}])",
+      "exclude": "custom_fields|[Вв]ласн\\S* пол|auto_count|автоматичн\\S* (?:ринков|оцінк)"
+    },
+    {
+      "id": "plan-budgets",
+      "type": "plan",
+      "title": "Plan limit: budgets (budget.budgets)",
+      "allowed": {
+        "Free": "2",
+        "Plus": "3",
+        "Family": "7",
+        "Trial": "7"
+      },
+      "sources": [
+        "00-general.md 0.4 plan matrix",
+        "BUD-09"
+      ],
+      "context": "budget\\.budgets|бюджет(?:и|ів|ах|ам)?(?![\\p{L}])"
+    },
+    {
+      "id": "plan-goals",
+      "type": "plan",
+      "title": "Plan limit: savings goals (budget.goals)",
+      "allowed": {
+        "Free": "1",
+        "Plus": "∞",
+        "Family": "∞",
+        "Trial": "∞"
+      },
+      "sources": [
+        "00-general.md 0.4 plan matrix",
+        "BUD-05"
+      ],
+      "context": "budget\\.goals|ціл(?:ей|і|ь)(?![\\p{L}])|Цілі накопичення"
+    },
+    {
+      "id": "plan-storage",
+      "type": "plan",
+      "title": "Plan limit: document and media storage (documents.storage)",
+      "allowed": {
+        "Free": "1 GB",
+        "Plus": "25 GB",
+        "Family": "100 GB",
+        "Trial": "100 GB"
+      },
+      "sources": [
+        "00-general.md 0.4 plan matrix",
+        "DOC-01"
+      ],
+      "context": "documents\\.storage|сховищ",
+      "exclude": "documents\\.ocr|розпізнав"
+    },
+    {
+      "id": "rpo",
+      "title": "Recovery point objective (RPO)",
+      "allowed": [
+        "15 min"
+      ],
+      "sources": [
+        "NFR-03 FR 3",
+        "NFR-16"
+      ],
+      "patterns": [
+        "RPO\\)?\\s*\\|?(?:(?!RTO)[^.;|\\d*]){0,25}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "rto",
+      "title": "Recovery time objective (RTO)",
+      "allowed": [
+        "4 h"
+      ],
+      "sources": [
+        "NFR-03 FR 3",
+        "NFR-16"
+      ],
+      "patterns": [
+        "RTO\\)?\\s*\\|?(?:(?!RPO)[^.;|\\d*]){0,25}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "email-confirm-link",
+      "title": "Email confirmation link validity",
+      "allowed": [
+        "24 h"
+      ],
+      "sources": [
+        "ACC-01 FR 4"
+      ],
+      "patterns": [
+        "посилан\\S*\\s+підтвердження[^.;|\\d*]{0,40}?(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*|хв[\\p{L}]*)",
+        {
+          "re": "Воно діє\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*|хв[\\p{L}]*)",
+          "context": "підтвердження"
+        }
+      ]
+    },
+    {
+      "id": "magic-link",
+      "title": "One-time sign-in link (email) validity",
+      "allowed": [
+        "15 min"
+      ],
+      "sources": [
+        "ACC-01 FR 2"
+      ],
+      "exclude": "пароля|скидання",
+      "patterns": [
+        "одноразов\\S*\\s+посилан\\S*(?:\\s+входу)?(?:\\s+на\\s+email)?[^.;|\\d*]{0,20}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        {
+          "re": "посилання діє\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)\\s+і використовується один раз",
+          "context": "одноразов"
+        }
+      ]
+    },
+    {
+      "id": "password-reset",
+      "title": "Password reset link validity",
+      "allowed": [
+        "60 min"
+      ],
+      "sources": [
+        "ACC-01 FR 10",
+        "NFR-12 «Строки зберігання»",
+        "NFR-15 FR 3"
+      ],
+      "context": "парол",
+      "exclude": "одноразовим посиланням на email|посиланням входу",
+      "patterns": [
+        "(?:скидання|[Вв]ідновлення)\\s+пароля[^.;|\\d*]{0,60}?(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "скидання пароля\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "[Пп]осилання діє\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)\\s+і одноразове",
+        "посиланням на\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)",
+        "друге посилання діє\\s+(?<v>\\d+)\\s*(?<u>хв[\\p{L}]*|год[\\p{L}]*|с(?![\\p{L}])|сек[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "invitation",
+      "title": "Household invitation validity",
+      "allowed": [
+        "7 d"
+      ],
+      "sources": [
+        "NFR-12 «Строки зберігання»: Запрошення до простору 7 днів",
+        "FLW-03"
+      ],
+      "patterns": [
+        "[Зз]апрошен\\S*[^.;|\\d*]{0,30}?(?:дійсн\\S*|діє|прострочен\\S*\\s*\\(?)\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Запрошення до простору\\s*\\|\\s*(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        {
+          "re": "посилання(?:м)?,?\\s+(?:діє|дійсним)\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+          "context": "[Зз]апрош"
+        }
+      ]
+    },
+    {
+      "id": "email-change-undo",
+      "title": "Email change undo link (sent to the old address)",
+      "allowed": [
+        "72 h"
+      ],
+      "sources": [
+        "ACC-05 FR 10",
+        "NFR-12 «Строки зберігання»"
+      ],
+      "patterns": [
+        "скасуван\\S*,?\\s+дійсн\\S*\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)",
+        "скасувати зміну протягом\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)",
+        "зміни email[^|]*\\|\\s*(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)",
+        "зміни email минуло понад\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "staff-session",
+      "title": "Platform staff session lifetime",
+      "allowed": [
+        "8 h"
+      ],
+      "sources": [
+        "00-general.md 0.3 «Персонал платформи»",
+        "NFR-01 FR 19",
+        "ADM-05"
+      ],
+      "context": "персонал|співробітник|адмін|SSO|Сесія завершилась",
+      "exclude": "веб-сесі|абсолютн",
+      "patterns": [
+        "[Сс]есі\\S*(?:\\s+персоналу|\\s+співробітника)?(?:\\s+діє|\\s+триває)?\\s*(?:не довше|не довша за|до|≤)\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|хв[\\p{L}]*)",
+        "Сесія завершилась \\((?<v>\\d+)\\s*(?<u>год[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "break-glass",
+      "title": "Support break-glass access maximum",
+      "allowed": [
+        "72 h"
+      ],
+      "sources": [
+        "00-general.md 0.3 «Персонал платформи» and glossary",
+        "SUB-05"
+      ],
+      "patterns": [
+        "[Bb]reak-glass[^.;|\\d*]{0,100}?не довше\\s+(?<v>\\d+)\\s*(?<u>год[\\p{L}]*|дн[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "trial",
+      "title": "Trial length",
+      "allowed": [
+        "14 d"
+      ],
+      "sources": [
+        "00-general.md 0.4",
+        "SUB-02"
+      ],
+      "patterns": [
+        "Trial дає права Family на\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Спробувати(?:\\s+безкоштовно)?\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Пробний період · лишилося\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    },
+    {
+      "id": "past-due-grace",
+      "title": "Past-due payment grace period",
+      "allowed": [
+        "14 d"
+      ],
+      "sources": [
+        "SUB-02 FR (Past due)",
+        "FLW-07"
+      ],
+      "context": "оплат|Past due|підписк|Прострочен",
+      "window": 120,
+      "patterns": [
+        "Прострочена оплата»\\s+на\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Past due\\s+на\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "Пільгові\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "пільгового періоду\\s*\\((?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "пільговий період\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*),?\\s+як для",
+        "(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)\\s+пільгового\\s+періоду"
+      ]
+    },
+    {
+      "id": "free-narrowing",
+      "title": "Plan narrowing for Free users takes effect after",
+      "allowed": [
+        "14 d"
+      ],
+      "sources": [
+        "00-general.md 0.4 «Поведінка ліміту» rule 5",
+        "ADM-04"
+      ],
+      "patterns": [
+        "Free\\s*—\\s*(?:«Застосувати\\s+)?через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "«Застосувати через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)»",
+        "для безкоштовного\\s*—\\s*не раніше ніж через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)",
+        "для Free\\s*—\\s*через\\s+(?<v>\\d+)\\s*(?<u>дн[\\p{L}]*|год[\\p{L}]*|тиж[\\p{L}]*|міс[\\p{L}]*)"
+      ]
+    }
+  ]
+}
