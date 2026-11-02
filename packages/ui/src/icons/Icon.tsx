@@ -29,6 +29,7 @@ import {
   Flag,
   Gem,
   Heart,
+  HeartPulse,
   House,
   Image as ImageIcon,
   Info,
@@ -52,9 +53,7 @@ import {
   Search,
   Settings,
   Share,
-  Shield,
   ShieldCheck,
-  ShieldPlus,
   Sparkles,
   Star,
   Table,
@@ -64,6 +63,7 @@ import {
   TriangleAlert,
   Umbrella,
   Upload,
+  UserRound,
   Users,
   Vault,
   Wallet,
@@ -85,9 +85,11 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
  * Every name maps to one Lucide glyph, except:
  * - child icons, composed from the parent glyph: mortgage = debts + a house badge; public /
  *   private investment = investments + a globe / padlock badge (parent at 75 %, badge in the
- *   bottom-right 8 px box, the parent cut back around it); insurance kinds = the Lucide shield
- *   with a sign inside (health = Lucide shield-plus);
- * - `metals` (gold bars), drawn here because Lucide has no bullion glyph.
+ *   bottom-right 8 px box, the parent cut back around it); every insurance kind = the insured
+ *   object (health = heart-pulse, life = person, home = house, vehicle = car, travel = plane)
+ *   + a shield badge; plain «insurance» = Lucide shield-check;
+ * - `metals` (gold bars), drawn here because Lucide has no bullion glyph;
+ * - the shield badge of the insurance kinds, drawn here because Lucide's shield does not fit the 8 px box.
  * Custom drawing follows Lucide's rules: 24 px grid, 1 px padding, round joins, whole or half
  * pixel coordinates, no detail closer than 2 px to another.
  *
@@ -257,22 +259,14 @@ const withBadge =
     </>
   );
 
-/* Signs inside the insurance shield: drawn in the shield's 6–7 px inner box centred on (12, 12). */
-const SHIELD_PATH = Shield[0]!;
-const inShield =
-  (sign: IconNode, scale: number): Glyph =>
-  ({ sw }) => (
-    <>
-      {draw([SHIELD_PATH], sw)}
-      {scaled(scale, 12 - 12 * scale, 12 - 12 * scale, sw, draw(sign, sw / scale))}
-    </>
-  );
-
-/** Custom: Lucide's car loses its wheels at shield-sign size, so a front-view car is drawn in the 8 px box. */
-const SIGN_CAR: IconNode = [
-  ["path", { d: "M8 15v-2.4a1.5 1.5 0 0 1 .44-1.06L9.5 10.5h5l1.06 1.04A1.5 1.5 0 0 1 16 12.6V15z" }],
-  ["path", { d: "M9.5 15v1M14.5 15v1" }],
-  ["path", { d: "M10 13h.01M14 13h.01" }],
+/** Custom badge: a shield in the Lucide manner, inside the bottom-right 8 px box (x 14.5–21.5, y 14–22), half-pixel grid. */
+const BADGE_SHIELD: IconNode = [
+  [
+    "path",
+    {
+      d: "M18 14c1 .5 2.5 1 3.5 1v3c0 2.5-1.5 3.5-3.5 4-2-.5-3.5-1.5-3.5-4v-3c1 0 2.5-.5 3.5-1z",
+    },
+  ],
 ];
 
 const GLYPHS: Record<IconName, Glyph> = {
@@ -349,11 +343,11 @@ const GLYPHS: Record<IconName, Glyph> = {
   trend: lucide(ChartLine),
   card: lucide(CreditCard),
   mortgage: withBadge(CirclePercent, BADGE_HOUSE),
-  "insurance-health": lucide(ShieldPlus),
-  "insurance-life": inShield(Heart, 0.42),
-  "insurance-home": inShield(House, 0.44),
-  "insurance-vehicle": inShield(SIGN_CAR, 1),
-  "insurance-travel": inShield(Plane, 0.46),
+  "insurance-health": withBadge(HeartPulse, BADGE_SHIELD),
+  "insurance-life": withBadge(UserRound, BADGE_SHIELD),
+  "insurance-home": withBadge(House, BADGE_SHIELD),
+  "insurance-vehicle": withBadge(CarIcon, BADGE_SHIELD),
+  "insurance-travel": withBadge(Plane, BADGE_SHIELD),
   "investment-public": withBadge(TrendingUp, BADGE_GLOBE),
   "investment-private": withBadge(TrendingUp, BADGE_LOCK),
   list: lucide(List),
@@ -460,11 +454,8 @@ export const ICON_PARENT_CHILD: readonly (readonly [IconName, IconName])[] = [
   ["debts", "mortgage"],
   ["investments", "investment-public"],
   ["investments", "investment-private"],
-  ["insurance", "insurance-health"],
-  ["insurance", "insurance-life"],
-  ["insurance", "insurance-home"],
-  ["insurance", "insurance-vehicle"],
-  ["insurance", "insurance-travel"],
+  // Insurance kinds: object + shield badge; only the car is also an icon of its own (asset type `vehicle`).
+  ["vehicle", "insurance-vehicle"],
 ];
 
 export const isIconName = (v: unknown): v is IconName =>
