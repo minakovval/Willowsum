@@ -27,12 +27,12 @@ requirement is kept in the README of that module.
 | ADM | [adm/](adm/README.md) | Platform admin panel: feature catalogue, plan x feature matrix, versions, staff | 9 | MVP 5, v1 4 |
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
 | VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | MVP 8, v1 3 |
-| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 7, v1 8, v2 4 |
+| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | MVP 8, v1 7, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | v1 3 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | MVP 20 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
-| INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 1, v1 1 |
+| INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
 | NOT | [not/](not/README.md) | Reminders, notifications and notification triggers | 2 | MVP 1, v1 1 |
 | DAT | [dat/](dat/README.md) | Universal list, global search, bulk actions, shared data rules | 5 | MVP 5 |
 | SUP | [sup/](sup/README.md) | Support and help centre | 1 | MVP 1 |
