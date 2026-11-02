@@ -68,6 +68,13 @@ export function Amount({ value, size = "inherit" }: { value: string; size?: Amou
   const t = useT();
   const { hidden } = useHideAmounts();
   const [revealed, setRevealed] = useState(false);
+  // Turning hiding off and on again must not keep an earlier reveal (it would show the value without a
+  // hold). Adjusting state during render when an input changes is React's recommended pattern.
+  const [prevHidden, setPrevHidden] = useState(hidden);
+  if (prevHidden !== hidden) {
+    setPrevHidden(hidden);
+    setRevealed(false);
+  }
   const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 

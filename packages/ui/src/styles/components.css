@@ -90,7 +90,9 @@
 .ws-amount-hidden {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: var(--ws-touch-target);
+  min-width: var(--ws-touch-target);
   padding: 0;
   border: 0;
   background: transparent;
