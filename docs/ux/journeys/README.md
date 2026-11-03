@@ -248,7 +248,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-AST-01 | Переглянути список «Активи» | MVP | [UJ-11](UJ-11-family-net-worth.md) |
 | UC-AST-02 | Швидко додати актив мінімальною формою | MVP | [UJ-01](UJ-01-onboarding.md), [UJ-11](UJ-11-family-net-worth.md) |
 | UC-AST-03 | Доповнити запис за індикатором повноти | MVP | [UJ-11](UJ-11-family-net-worth.md) |
-| UC-AST-04 | Заповнити актив повною формою з вкладками | MVP | [UJ-07](UJ-07-migration.md), [UJ-11](UJ-11-family-net-worth.md), [UJ-12](UJ-12-collector.md) |
+| UC-AST-04 | Заповнити актив повністю (кроки діалогу або вкладки редагування) | MVP | [UJ-07](UJ-07-migration.md), [UJ-11](UJ-11-family-net-worth.md), [UJ-12](UJ-12-collector.md) |
 | UC-AST-05 | Відредагувати актив і розв'язати конфлікт версій | MVP | [UJ-11](UJ-11-family-net-worth.md) |
 | UC-AST-06 | Продовжити чернетку активу на іншому пристрої | MVP | [UJ-11](UJ-11-family-net-worth.md) |
 | UC-AST-07 | Переглянути картку активу | MVP | [UJ-11](UJ-11-family-net-worth.md) |
