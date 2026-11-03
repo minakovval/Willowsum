@@ -25,4 +25,4 @@ Scope: Onboarding, complexity levels, navigation, home screen, hide amounts, per
 | [UX-06](UX-06.md) | Підсумки й поширення | v2 | C |
 | [UX-07](UX-07.md) | Навчання | v2 | C |
 | [UX-08](UX-08.md) | Режим «Тільки бюджет» на старті | MVP | S |
-| [UX-09](UX-09.md) | Навігація і рівні меню | MVP | M |
+| [UX-09](UX-09.md) | Навігація і рівні меню | PoC | M |

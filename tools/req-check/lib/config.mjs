@@ -1,7 +1,7 @@
 // Static rules of the requirements checker. Product facts live in ../facts.json.
 
-/** Valid main release values, longest first so that `v1-mobile` wins over `v1`. */
-export const RELEASES = ['v1-mobile', 'MVP', 'Сейф', 'v1', 'v2'];
+/** Valid main release values, longest first so that `v1-mobile` wins over `v1` and `PoC v2` over `PoC`. */
+export const RELEASES = ['PoC v2', 'PoC', 'v1-mobile', 'MVP', 'Сейф', 'v1', 'v2'];
 
 /** Valid priority values. */
 export const PRIORITIES = ['M', 'S', 'C'];

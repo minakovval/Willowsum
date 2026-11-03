@@ -63,7 +63,7 @@ test('CLI exits 1 on errors, 0 once they are baselined, and writes a report', ()
   assert.match(md, /^# Requirements check report/);
   assert.match(md, /\*\*Result: PASS\*\*/);
   assert.match(md, /Baselined errors \(1\)/);
-  assert.match(md, /\| BUD \| 2 \| 2 \|/);
+  assert.match(md, /\| BUD \| 2 \|  \|  \| 2 \|/);
 
   // A new error fails even with a baseline.
   fs.writeFileSync(path.join(root, 'docs/requirements/bud/BUD-02.md'), req('BUD-02').replace('# BUD-02', '# BUD-09'));

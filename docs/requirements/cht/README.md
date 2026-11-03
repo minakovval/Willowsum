@@ -27,7 +27,7 @@ Related library components (stay in CMP, listed in CHT-00 by name): CMP-42 LineC
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [CHT-00](CHT-00.md) | Принципи модуля «Графіки» | MVP | M |
-| [CHT-01](CHT-01.md) | Часовий ряд з кількома серіями | MVP | M |
-| [CHT-02](CHT-02.md) | Витрати проти бюджету | MVP | M |
-| [CHT-03](CHT-03.md) | Склад цілого | MVP | M |
+| [CHT-00](CHT-00.md) | Принципи модуля «Графіки» | PoC | M |
+| [CHT-01](CHT-01.md) | Часовий ряд з кількома серіями | PoC | M |
+| [CHT-02](CHT-02.md) | Витрати проти бюджету | PoC | M |
+| [CHT-03](CHT-03.md) | Склад цілого | PoC | M |

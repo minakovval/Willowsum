@@ -17,6 +17,6 @@ Scope: Forecasts: period spending forecast, pace check and warnings, pace and fo
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [FCS-01](FCS-01.md) | Прогноз витрат періоду | MVP | M |
-| [FCS-02](FCS-02.md) | Темп і попередження | MVP | M |
-| [FCS-03](FCS-03.md) | Графік темпу і прогнозу у віджеті | MVP | M |
+| [FCS-01](FCS-01.md) | Прогноз витрат періоду | PoC | M |
+| [FCS-02](FCS-02.md) | Темп і попередження | PoC | M |
+| [FCS-03](FCS-03.md) | Графік темпу і прогнозу у віджеті | PoC | M |

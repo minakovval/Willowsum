@@ -120,5 +120,5 @@ export function renderReport({ corpus, result, findings, stale, baselineSize, fa
 }
 
 function order(r) {
-  return ['MVP', 'Сейф', 'v1-mobile', 'v1', 'v2'].indexOf(r);
+  return ['PoC', 'PoC v2', 'MVP', 'Сейф', 'v1-mobile', 'v1', 'v2'].indexOf(r);
 }
