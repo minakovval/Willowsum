@@ -43,7 +43,7 @@ requirement is kept in the README of that module.
 | PLT | [plt/](plt/README.md) | Widgets, quick actions and other platforms | 2 | v1-mobile 1, v2 1 |
 | GRID | [grid/](grid/README.md) | Layout grid, navigation shell and page templates | 8 | PoC 5, MVP 3 |
 | WGT | [wgt/](wgt/README.md) | Home widgets: widget framework, registry, edit mode, one file per widget | 25 | MVP 25 |
-| CHT | [cht/](cht/README.md) | Charts: reusable chart components (time series, spending vs budget, composition) | 4 | PoC 4 |
+| CHT | [cht/](cht/README.md) | Charts: reusable chart components (time series, spending vs budget, composition) | 4 | PoC 3, MVP 1 |
 | L10N | [l10n/](l10n/README.md) | Localisation framework and translations | 2 | MVP 2 |
 | LEG | [leg/](leg/README.md) | Legal documents, consent and in-app privacy settings | 1 | MVP 1 |
 | VLT | [vlt/](vlt/README.md) | Personal documents vault: categories, encryption classes, sharing, emergency access | 21 | MVP 18, v2 3 |
