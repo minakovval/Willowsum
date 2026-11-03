@@ -20,6 +20,10 @@ test('main release is the first token; v1-mobile is not v1; quotes are stripped'
   assert.equal(mainRelease('v1 (дані з пристрою iPhone — v1-mobile)'), 'v1');
   assert.equal(mainRelease('«Сейф» (веб); офлайн — v1-mobile.'), 'Сейф');
   assert.equal(mainRelease('v2.'), 'v2');
+  assert.equal(mainRelease('PoC'), 'PoC');
+  assert.equal(mainRelease('PoC v2 (фото камерою — v1-mobile)'), 'PoC v2');
+  assert.equal(mainRelease('PoC (лише CSV); решта — MVP'), 'PoC');
+  assert.equal(mainRelease('PoCx'), null);
   assert.equal(mainRelease('MVPx'), null);
   assert.equal(mainRelease('поза обсягом (далі не раніше v2)'), null);
   assert.equal(mainPriority('M (критичний для запуску)'), 'M');

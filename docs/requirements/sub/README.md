@@ -12,7 +12,7 @@ Shared text of this tab (title, intro, common sections) is kept in [../acc/READM
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [SUB-01](SUB-01.md) | Плани та права плану (entitlements) | MVP | M |
+| [SUB-01](SUB-01.md) | Плани та права плану (entitlements) | MVP; основа в архітектурі й моделі даних — PoC (функції вмикаються лише через механізм прав плану; у PoC усе ввімкнено, тарифів і оплати немає) | M |
 | [SUB-02](SUB-02.md) | Життєвий цикл підписки | MVP | M |
 | [SUB-03](SUB-03.md) | Самообслуговування підписки | MVP | M |
 | [SUB-04](SUB-04.md) | План радника | v2 | C |
