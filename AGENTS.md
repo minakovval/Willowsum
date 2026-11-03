@@ -12,7 +12,7 @@ requirement, following the architecture requirements (ARC) and delivery requirem
 | What | Where |
 | --- | --- |
 | Product requirements (single source of truth) | `docs/requirements/` — one file per requirement ID, index per module |
-| Product, releases, roles, plan matrix, general rules П-1…П-25, glossary | `docs/requirements/00-general.md` |
+| Product, releases, roles, plan matrix, general rules П-1…П-26, glossary | `docs/requirements/00-general.md` |
 | Architecture and delivery requirements | `docs/requirements/arc/`, `docs/requirements/cicd/` |
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |

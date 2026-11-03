@@ -56,5 +56,5 @@ Scope: Architecture requirements. Source: tab 13 of the Willowsum product specif
 | [ARC-07](ARC-07.md) | API і клієнти | PoC | M |
 | [ARC-08](ARC-08.md) | Переносимість між профілями розгортання | PoC | M |
 | [ARC-09](ARC-09.md) | Спостережуваність | PoC | M |
-| [ARC-10](ARC-10.md) | Масштаб і продуктивність | PoC | M |
+| [ARC-10](ARC-10.md) | Масштаб і продуктивність | MVP; основа в архітектурі й моделі даних — PoC (горизонтальне масштабування API і воркерів, знімки підсумків); навантажувальний тест — MVP | M |
 | [ARC-11](ARC-11.md) | Бухгалтерський журнал (модуль ledger) | PoC | M |

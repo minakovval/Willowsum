@@ -3,14 +3,14 @@
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
 [00-general.md](00-general.md) with the product overview, releases, roles matrix, plan matrix, general
-rules П-1…П-25, glossary and assumptions that apply to every requirement. Requirement IDs (for example
+rules П-1…П-26, glossary and assumptions that apply to every requirement. Requirement IDs (for example
 `BUD-03`, `AST-14a`) are stable: they are never renumbered or reused. Cite requirements by ID — start
 branch names and PR titles with the ID (`BUD-03-safe-to-spend`, `BUD-03: safe-to-spend widget`).
 A requirement changes only through a reviewed change to its file here, approved by the product owner.
 
 **Українською.** Ця папка — єдине джерело правди щодо вимог до продукту Willowsum. Кожна вимога
 лежить в окремому файлі; [00-general.md](00-general.md) містить загальні положення (продукт, релізи,
-ролі, плани, загальні правила П-1…П-25, глосарій, припущення), що діють для всіх вимог. Ідентифікатори
+ролі, плани, загальні правила П-1…П-26, глосарій, припущення), що діють для всіх вимог. Ідентифікатори
 вимог стабільні й ніколи не змінюються. Посилайтеся на вимогу за ідентифікатором — з нього починаються
 назва гілки і назва PR.
 
@@ -53,11 +53,11 @@ requirement is kept in the README of that module.
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 16, MVP 2, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 17, MVP 6 |
-| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 72 | PoC 54, MVP 15, v1 3 |
+| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 72 | PoC 43, MVP 26, v1 3 |
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 14, PoC v2 1, MVP 29, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
-| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 11 |
+| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 10, MVP 1 |
 | CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
 
 ## Folders

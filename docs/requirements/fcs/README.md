@@ -13,10 +13,12 @@ Scope: Forecasts: period spending forecast, pace check and warnings, pace and fo
 
 <!-- spec-text:end -->
 
+Реліз PoC: частина вимог модуля входить у PoC або PoC v2 — актуальний реліз кожної вимоги наведено в таблиці нижче і в рядку «Реліз» її файлу.
+
 ## Requirements
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
 | [FCS-01](FCS-01.md) | Прогноз витрат періоду | PoC | M |
 | [FCS-02](FCS-02.md) | Темп і попередження | PoC | M |
-| [FCS-03](FCS-03.md) | Графік темпу і прогнозу у віджеті | PoC | M |
+| [FCS-03](FCS-03.md) | Графік темпу і прогнозу у віджеті | PoC (лише картка «Темп і прогноз» на сторінці «Бюджет», світла тема, десктоп); віджет — MVP | M |

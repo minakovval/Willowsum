@@ -13,6 +13,8 @@ Scope: Charts: reusable chart components that hold the complex visualisation log
 
 <!-- spec-text:end -->
 
+Реліз PoC: частина вимог модуля входить у PoC або PoC v2 — актуальний реліз кожної вимоги наведено в таблиці нижче і в рядку «Реліз» її файлу.
+
 ## Traceability
 
 | Component | Used by | Data from | Visual rules | Moved here from |
