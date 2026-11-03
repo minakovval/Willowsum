@@ -1,6 +1,6 @@
 # DS — module requirements
 
-Scope: Design system foundations: principles, brand, tokens, charts. Source: tab 10 of the Willowsum product specification.
+Scope: Design system foundations: principles, brand, tokens, charts, status dictionary («Планування»). Source: tab 10 of the Willowsum product specification.
 
 ## Text from the specification tab (outside individual requirements)
 
@@ -9,7 +9,7 @@ Scope: Design system foundations: principles, brand, tokens, charts. Source: tab
 
 Розділ описує спільні основи дизайн-системи Willowsum для вебзастосунку, адмін-панелі та майбутніх мобільних застосунків: принципи UX, бренд, тон і мікротекст, формати чисел і дат, дизайн-токени обох тем (кольори, типографіка, відступи, радіуси, тіні, шари, точки переходу), теми, іконки, рух, правила візуалізації даних, стиль мапи і адаптивну поведінку. Окремі компоненти тут не описуються, лише правила, на яких вони будуються. Усі значення токенів наведено точно; у коді функцій кольори, розміри й відступи беруться лише з токенів, ніколи не літералами.
 
-Вимоги розділу: DS-01, DS-02, DS-03, DS-04, DS-05, DS-06, DS-07, DS-08, DS-09, DS-10, DS-11, DS-12, DS-13, DS-14, DS-15, DS-16, DS-17, DS-18, DS-19, DS-20, DS-21, DS-22.
+Вимоги розділу: DS-01, DS-02, DS-03, DS-04, DS-05, DS-06, DS-07, DS-08, DS-09, DS-10, DS-11, DS-12, DS-13, DS-14, DS-15, DS-16, DS-17, DS-18, DS-19, DS-20, DS-21, DS-22, DS-23.
 
 <!-- spec-text:end -->
 
@@ -39,3 +39,4 @@ Scope: Design system foundations: principles, brand, tokens, charts. Source: tab
 | [DS-20](DS-20.md) | Стиль мапи: підкладка в обох темах | MVP | M |
 | [DS-21](DS-21.md) | Мапа: маркери, кластери, приблизні зони і керування | MVP | M |
 | [DS-22](DS-22.md) | Сторінка-зразок дизайн-системи і перевірка відповідності | MVP | S |
+| [DS-23](DS-23.md) | Словник статусів «Планування» | MVP | M |

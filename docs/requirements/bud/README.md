@@ -35,5 +35,5 @@ Scope: Budget, categories, safe-to-spend, savings goals, spending reports. Sourc
 | [BUD-16](BUD-16.md) | Методи бюджетування | MVP | S |
 | [BUD-17](BUD-17.md) | Керування планом | MVP | S |
 | [BUD-18](BUD-18.md) | Цільові суми категорій | MVP | S |
-| [BUD-19](BUD-19.md) | Погашення боргів | MVP | S |
+| [BUD-19](BUD-19.md) | Погашення боргів | MVP (поширення прогресу картинкою — v2) | S |
 | [BUD-20](BUD-20.md) | Конструктор звітів | MVP | S |

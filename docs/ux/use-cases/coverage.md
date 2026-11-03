@@ -13,10 +13,10 @@
 
 | Показник | Кількість |
 | --- | --- |
-| Вимог у `docs/requirements` | 429 |
-| Сценаріїв використання | 847 |
+| Вимог у `docs/requirements` | 431 |
+| Сценаріїв використання | 857 |
 | Тип «сценарій» | 213 |
-| Тип «наскрізна» | 118 |
+| Тип «наскрізна» | 120 |
 | Тип «технічна, без сценарію» | 31 |
 | Тип «потік/шлях» | 67 |
 | Функціональних вимог без сценарію | 0 |
@@ -151,23 +151,23 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
-| BUD-01 | Категорії витрат і доходів | MVP | UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-78 | сценарій |
-| BUD-02 | Бюджет періоду | MVP | UC-BUD-07, UC-BUD-08, UC-BUD-09, UC-BUD-10, UC-BUD-11, UC-BUD-12, UC-BUD-13, UC-BUD-21, UC-BUD-46, UC-BUD-87 | сценарій |
-| BUD-03 | «Можна витратити» | MVP | UC-BUD-14, UC-BUD-15, UC-BUD-16, UC-BUD-17, UC-BUD-18, UC-BUD-27, UC-BUD-51, UC-BUD-98, UC-BUD-99, UC-BUD-103, UC-FCS-05, UC-FCS-06 | сценарій |
+| BUD-01 | Категорії витрат і доходів | MVP | UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-78, UC-BUD-112 | сценарій |
+| BUD-02 | Бюджет періоду | MVP | UC-BUD-07, UC-BUD-08, UC-BUD-09, UC-BUD-10, UC-BUD-11, UC-BUD-12, UC-BUD-13, UC-BUD-21, UC-BUD-46, UC-BUD-87, UC-BUD-113, UC-BUD-114, UC-BUD-120 | сценарій |
+| BUD-03 | «Можна витратити» | MVP | UC-BUD-14, UC-BUD-15, UC-BUD-16, UC-BUD-17, UC-BUD-18, UC-BUD-27, UC-BUD-51, UC-BUD-98, UC-BUD-99, UC-BUD-103, UC-BUD-112, UC-BUD-117, UC-FCS-05, UC-FCS-06 | сценарій |
 | BUD-04 | «Чи можу я собі дозволити?» | MVP | UC-BUD-19, UC-BUD-20, UC-BUD-21, UC-BUD-22, UC-BUD-33 | сценарій |
-| BUD-05 | Цілі накопичення | MVP | UC-BUD-19, UC-BUD-21, UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-28, UC-BUD-29, UC-BUD-30, UC-BUD-33 | сценарій |
-| BUD-06 | Порівняння періодів | MVP | UC-BUD-31, UC-BUD-32, UC-BUD-33 | сценарій |
-| BUD-07 | Регулярні платежі та підписки | MVP | UC-BUD-14, UC-BUD-34, UC-BUD-35, UC-BUD-36, UC-BUD-37, UC-BUD-38, UC-BUD-39, UC-BUD-40, UC-BUD-41 | сценарій |
-| BUD-08 | Грошовий потік і норма заощаджень | MVP | UC-BUD-42, UC-BUD-43, UC-BUD-44, UC-BUD-72 | сценарій |
-| BUD-09 | Спільний бюджет родини | MVP | UC-BUD-21, UC-BUD-22, UC-BUD-23, UC-BUD-45, UC-BUD-46, UC-BUD-47, UC-BUD-48, UC-BUD-49, UC-BUD-89, UC-BUD-95 | сценарій |
-| BUD-10 | Сповіщення бюджету | MVP | UC-BUD-26, UC-BUD-50, UC-BUD-51, UC-BUD-52, UC-BUD-53, UC-BUD-54, UC-BUD-98 | сценарій |
+| BUD-05 | Цілі накопичення | MVP | UC-BUD-19, UC-BUD-21, UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-28, UC-BUD-29, UC-BUD-30, UC-BUD-33, UC-BUD-114, UC-BUD-118, UC-BUD-119 | сценарій |
+| BUD-06 | Порівняння періодів | MVP | UC-BUD-31, UC-BUD-32, UC-BUD-33, UC-BUD-115 | сценарій |
+| BUD-07 | Регулярні платежі та підписки | MVP | UC-BUD-14, UC-BUD-34, UC-BUD-35, UC-BUD-36, UC-BUD-37, UC-BUD-38, UC-BUD-39, UC-BUD-40, UC-BUD-41, UC-BUD-117 | сценарій |
+| BUD-08 | Грошовий потік і норма заощаджень | MVP | UC-BUD-42, UC-BUD-43, UC-BUD-44, UC-BUD-72, UC-BUD-119 | сценарій |
+| BUD-09 | Спільний бюджет родини | MVP | UC-BUD-21, UC-BUD-22, UC-BUD-23, UC-BUD-45, UC-BUD-46, UC-BUD-47, UC-BUD-48, UC-BUD-49, UC-BUD-89, UC-BUD-95, UC-BUD-116, UC-BUD-120 | сценарій |
+| BUD-10 | Сповіщення бюджету | MVP | UC-BUD-26, UC-BUD-50, UC-BUD-51, UC-BUD-52, UC-BUD-53, UC-BUD-54, UC-BUD-98, UC-BUD-116, UC-BUD-117 | сценарій |
 | BUD-11 | Ручний режим без підключення банку | MVP | UC-BUD-55, UC-BUD-56, UC-BUD-57, UC-BUD-58, UC-BUD-59, UC-BUD-60, UC-BUD-61, UC-BUD-62 | сценарій |
 | BUD-12 | Розбір транзакцій | MVP | UC-BUD-63, UC-BUD-64, UC-BUD-65, UC-BUD-66, UC-BUD-67, UC-BUD-68, UC-BUD-69, UC-BUD-80 | сценарій |
 | BUD-13 | Атрибути транзакцій | MVP | UC-BUD-03, UC-BUD-70, UC-BUD-71, UC-BUD-72, UC-BUD-73, UC-BUD-74, UC-BUD-79, UC-BUD-80 | сценарій |
 | BUD-14 | Мерчанти і правила | MVP | UC-BUD-75, UC-BUD-76, UC-BUD-77, UC-BUD-78, UC-BUD-79, UC-BUD-80, UC-BUD-81 | сценарій |
 | BUD-15 | Чеки й замовлення | MVP | UC-BUD-82, UC-BUD-83, UC-BUD-84, UC-BUD-85, UC-BUD-86 | сценарій |
-| BUD-16 | Методи бюджетування | MVP | UC-BUD-87, UC-BUD-88, UC-BUD-89, UC-BUD-90, UC-BUD-91 | сценарій |
-| BUD-17 | Керування планом | MVP | UC-BUD-21, UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98 | сценарій |
+| BUD-16 | Методи бюджетування | MVP | UC-BUD-87, UC-BUD-88, UC-BUD-89, UC-BUD-90, UC-BUD-91, UC-BUD-112 | сценарій |
+| BUD-17 | Керування планом | MVP | UC-BUD-21, UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98, UC-BUD-113, UC-BUD-114 | сценарій |
 | BUD-18 | Цільові суми категорій | MVP | UC-BUD-15, UC-BUD-99, UC-BUD-100, UC-BUD-101 | сценарій |
 | BUD-19 | Погашення боргів | MVP | UC-BUD-102, UC-BUD-103, UC-BUD-104, UC-BUD-105 | сценарій |
 | BUD-20 | Конструктор звітів | MVP | UC-BUD-106, UC-BUD-107, UC-BUD-108, UC-BUD-109, UC-BUD-110, UC-BUD-111 | сценарій |
@@ -176,9 +176,9 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
-| FCS-01 | Прогноз витрат періоду | MVP | UC-FCS-01, UC-FCS-02, UC-FCS-03 | сценарій |
-| FCS-02 | Темп і попередження | MVP | UC-FCS-04, UC-FCS-05 | сценарій |
-| FCS-03 | Графік темпу і прогнозу у віджеті | MVP | UC-FCS-02, UC-FCS-05, UC-FCS-06, UC-FCS-07 | сценарій |
+| FCS-01 | Прогноз витрат періоду | MVP | UC-BUD-112, UC-FCS-01, UC-FCS-02, UC-FCS-03 | сценарій |
+| FCS-02 | Темп і попередження | MVP | UC-BUD-112, UC-FCS-04, UC-FCS-05 | сценарій |
+| FCS-03 | Графік темпу і прогнозу у віджеті | MVP | UC-BUD-121, UC-FCS-02, UC-FCS-05, UC-FCS-06, UC-FCS-07 | сценарій |
 
 ## DOC (3)
 
@@ -274,7 +274,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
-| WGT-00 | Каркас віджетів і спільний контракт | MVP | UC-WGT-01, UC-WGT-02, UC-WGT-03, UC-WGT-04, UC-WGT-05, UC-WGT-06, UC-WGT-07, UC-WGT-12 | сценарій |
+| WGT-00 | Каркас віджетів і спільний контракт | MVP | UC-WGT-01, UC-WGT-02, UC-WGT-03, UC-WGT-04, UC-WGT-05, UC-WGT-06, UC-WGT-07, UC-WGT-12, UC-BUD-121 | сценарій |
 | WGT-01 | Реєстр віджетів | MVP | UC-WGT-01, UC-WGT-04, UC-WGT-05, UC-WGT-06, UC-WGT-08, UC-WGT-12 | сценарій |
 | WGT-02 | Режим редагування Головної | MVP | UC-WGT-08, UC-WGT-09, UC-WGT-10, UC-WGT-11, UC-WGT-12 | сценарій |
 | WGT-10 | Плитка «Net worth» | MVP | UC-WGT-13 | сценарій |
@@ -471,7 +471,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | GRID-06 | Сітки сторінок входу і онбордингу | MVP | UC-ACC-01, UC-ACC-02, UC-ACC-03, UC-ACC-05, UC-ACC-06, UC-ACC-07, UC-ACC-08, UC-ACC-09, UC-ACC-18, UC-ACC-19 … усього 22 | наскрізна |
 | GRID-07 | Сітки сторінок адмін-панелі | MVP | UC-ADM-01, UC-ADM-02, UC-ADM-03, UC-ADM-04, UC-ADM-05, UC-ADM-06, UC-ADM-07, UC-ADM-11, UC-ADM-12, UC-ADM-13 … усього 30 | наскрізна |
 
-## CMP (71)
+## CMP (72)
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
@@ -524,7 +524,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | CMP-47 | BarChart — Стовпчиковий графік | MVP | UC-AI-02, UC-BUD-32, UC-BUD-43, UC-WGT-02, UC-WGT-21 | наскрізна |
 | CMP-48 | DonutChart — Кільцева діаграма | MVP | UC-FIN-58, UC-WGT-21 | наскрізна |
 | CMP-49 | RingProgress — Кільце прогресу | MVP | UC-ADM-26, UC-AST-41, UC-BUD-08, UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-52, UC-BUD-63, UC-BUD-64 … усього 33 | наскрізна |
-| CMP-50 | Waterfall — Каскадна діаграма | v1 | UC-VAL-27 | наскрізна |
+| CMP-50 | Waterfall — Каскадна діаграма | MVP | UC-VAL-27 | наскрізна |
 | CMP-51 | Heatmap — Теплова карта | v1 | UC-BUD-32, UC-BUD-42, UC-BUD-71, UC-BUD-72, UC-BUD-82 | наскрізна |
 | CMP-52 | AllocationBar — Смуга розподілу | MVP | UC-AST-07, UC-AST-15, UC-AST-36, UC-AST-38, UC-AST-40, UC-FIN-58, UC-VAL-33 | наскрізна |
 | CMP-53 | Card — Картка | MVP | UC-ACC-11, UC-ACC-12, UC-ACC-59, UC-ACC-64, UC-ADM-01, UC-ADM-03, UC-ADM-04, UC-ADM-18, UC-ADM-19, UC-ADM-20 … усього 191 | наскрізна |
@@ -546,6 +546,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | CMP-69 | AppNavigation — Навігація застосунку | MVP | UC-UX-43 | наскрізна |
 | CMP-70 | KpiTile — Плитка показника | MVP | UC-AST-42, UC-BUD-106, UC-DAT-15, UC-FIN-14, UC-WGT-01, UC-WGT-02, UC-WGT-12, UC-WGT-13, UC-WGT-21, UC-WGT-22 | наскрізна |
 | CMP-71 | BrandMark — Знак і назва продукту | MVP | UC-ADV-27, UC-ADV-28, UC-BUD-75, UC-BUD-76, UC-BUD-77, UC-BUD-84, UC-FIN-22, UC-FIN-27, UC-FIN-34, UC-FIN-81 … усього 11 | наскрізна |
+| CMP-72 | PeriodPicker — Вибір періоду аналітичної таблиці | MVP | UC-BUD-115 | наскрізна |
 
 ## CHT (4)
 
@@ -556,11 +557,11 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | CHT-02 | Витрати проти бюджету | MVP | UC-BUD-09, UC-BUD-14, UC-BUD-16, UC-BUD-19, UC-BUD-89, UC-BUD-96, UC-BUD-99, UC-FCS-01, UC-FCS-04, UC-FCS-05 … усього 15 | наскрізна |
 | CHT-03 | Склад цілого | MVP | UC-ACC-32, UC-ACC-33, UC-ACC-34, UC-AST-38, UC-FIN-67, UC-FIN-70, UC-FIN-71, UC-INS-09, UC-INV-06, UC-INV-08 … усього 25 | наскрізна |
 
-## DS (22)
+## DS (23)
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
-| DS-01 | Принципи UX | MVP | UC-BUD-56, UC-BUD-77, UC-BUD-79, UC-BUD-80, UC-BUD-82, UC-FIN-02, UC-FIN-03, UC-FIN-04, UC-FIN-05, UC-FIN-06 … усього 15 | наскрізна |
+| DS-01 | Принципи UX | MVP | UC-BUD-56, UC-BUD-77, UC-BUD-79, UC-BUD-80, UC-BUD-82, UC-FIN-02, UC-FIN-03, UC-FIN-04, UC-FIN-05, UC-FIN-06 … усього 19 | наскрізна |
 | DS-02 | Бренд: назва, слоган, знак і логотип | MVP | UC-ADV-27, UC-ADV-28, UC-AST-04, UC-AST-42, UC-AST-45, UC-AST-46, UC-BUD-75, UC-BUD-76, UC-BUD-77, UC-BUD-84 … усього 16 | наскрізна |
 | DS-03 | Тон голосу і правила мікротексту | MVP | UC-ACC-06, UC-AI-03, UC-AST-15, UC-BUD-08, UC-BUD-100, UC-FCS-05, UC-LEG-02, UC-LEG-07, UC-PLN-12, UC-SUB-15 … усього 13 | наскрізна |
 | DS-04 | Формати сум, чисел, відсотків, дат і часу | MVP | UC-ACC-57, UC-ACC-59, UC-ADV-07, UC-AI-14, UC-AST-01, UC-AST-02, UC-AST-03, UC-AST-04, UC-AST-05, UC-AST-07 … усього 147 | наскрізна |
@@ -582,6 +583,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | DS-20 | Стиль мапи: підкладка в обох темах | MVP | UC-ACC-60, UC-AST-07, UC-AST-25, UC-AST-27, UC-AST-45, UC-FIN-97, UC-UX-08, UC-UX-33, UC-VAL-19, UC-VAL-25 … усього 16 | наскрізна |
 | DS-21 | Мапа: маркери, кластери, приблизні зони і керування | MVP | UC-ACC-60, UC-AST-04, UC-AST-07, UC-AST-25, UC-AST-27, UC-AST-45, UC-BUD-16, UC-FCS-05, UC-FCS-06, UC-FIN-97 … усього 30 | наскрізна |
 | DS-22 | Сторінка-зразок дизайн-системи і перевірка відповідності | MVP | — (службова сторінка-зразок для перевірки дизайн-системи командою) | технічна, без сценарію |
+| DS-23 | Словник статусів «Планування» | MVP | UC-BUD-116, UC-BUD-117 | наскрізна |
 
 ## NFR (19)
 
