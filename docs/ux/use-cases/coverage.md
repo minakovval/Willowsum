@@ -524,7 +524,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | CMP-47 | BarChart — Стовпчиковий графік | MVP | UC-AI-02, UC-BUD-32, UC-BUD-43, UC-WGT-02, UC-WGT-21 | наскрізна |
 | CMP-48 | DonutChart — Кільцева діаграма | MVP | UC-FIN-58, UC-WGT-21 | наскрізна |
 | CMP-49 | RingProgress — Кільце прогресу | MVP | UC-ADM-26, UC-AST-41, UC-BUD-08, UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-52, UC-BUD-63, UC-BUD-64 … усього 33 | наскрізна |
-| CMP-50 | Waterfall — Каскадна діаграма | v1 | UC-VAL-27 | наскрізна |
+| CMP-50 | Waterfall — Каскадна діаграма | MVP | UC-VAL-27 | наскрізна |
 | CMP-51 | Heatmap — Теплова карта | v1 | UC-BUD-32, UC-BUD-42, UC-BUD-71, UC-BUD-72, UC-BUD-82 | наскрізна |
 | CMP-52 | AllocationBar — Смуга розподілу | MVP | UC-AST-07, UC-AST-15, UC-AST-36, UC-AST-38, UC-AST-40, UC-FIN-58, UC-VAL-33 | наскрізна |
 | CMP-53 | Card — Картка | MVP | UC-ACC-11, UC-ACC-12, UC-ACC-59, UC-ACC-64, UC-ADM-01, UC-ADM-03, UC-ADM-04, UC-ADM-18, UC-ADM-19, UC-ADM-20 … усього 191 | наскрізна |

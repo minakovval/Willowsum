@@ -53,7 +53,7 @@ requirement is kept in the README of that module.
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | MVP 18, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | MVP 23 |
-| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 72 | MVP 68, v1 4 |
+| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 72 | MVP 69, v1 3 |
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | MVP 44, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | MVP 5, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |

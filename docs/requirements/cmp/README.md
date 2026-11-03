@@ -74,7 +74,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-47](CMP-47.md) | BarChart — Стовпчиковий графік | MVP | M |
 | [CMP-48](CMP-48.md) | DonutChart — Кільцева діаграма | MVP | M |
 | [CMP-49](CMP-49.md) | RingProgress — Кільце прогресу | MVP | M |
-| [CMP-50](CMP-50.md) | Waterfall — Каскадна діаграма | v1 | S |
+| [CMP-50](CMP-50.md) | Waterfall — Каскадна діаграма | MVP | S |
 | [CMP-51](CMP-51.md) | Heatmap — Теплова карта | v1 | C |
 | [CMP-52](CMP-52.md) | AllocationBar — Смуга розподілу | MVP | M |
 | [CMP-53](CMP-53.md) | Card — Картка | MVP | M |
