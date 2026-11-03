@@ -1,6 +1,6 @@
 # DS — module requirements
 
-Scope: Design system foundations: principles, brand, tokens, charts. Source: tab 10 of the Willowsum product specification.
+Scope: Design system foundations: principles, brand, tokens, charts, status dictionary («Планування»). Source: tab 10 of the Willowsum product specification.
 
 ## Text from the specification tab (outside individual requirements)
 
