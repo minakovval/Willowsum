@@ -331,7 +331,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-BUD-35 | Додати, змінити або видалити регулярний платіж вручну | MVP | [UJ-05](UJ-05-goals-month-close.md) |
 | UC-BUD-36 | Переглянути календар регулярних платежів | MVP | [UJ-05](UJ-05-goals-month-close.md) |
 | UC-BUD-37 | Зіставити списання з регулярним платежем і оновити очікувану суму | MVP | [UJ-05](UJ-05-goals-month-close.md) |
-| UC-BUD-38 | Обробити пропущені списання: «можливо, скасований» | MVP | [UJ-05](UJ-05-goals-month-close.md) |
+| UC-BUD-38 | Обробити пропущені списання: «Можливо, скасований» | MVP | [UJ-05](UJ-05-goals-month-close.md) |
 | UC-BUD-39 | Призупинити, позначити скасованим або відновити регулярний платіж | MVP | [UJ-05](UJ-05-goals-month-close.md) |
 | UC-BUD-40 | Вести спільну витрату з компенсацією | MVP | [UJ-05](UJ-05-goals-month-close.md) |
 | UC-BUD-41 | Отримати нагадування «Наближається платіж» | MVP | [UJ-05](UJ-05-goals-month-close.md), [UJ-06](UJ-06-notifications.md) |
