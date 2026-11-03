@@ -53,13 +53,13 @@ Main release = first release named on the «Реліз» line.
 | PLT | 2 |  |  | 1 |  | 1 |  |  |
 | RPT | 2 | 1 |  |  |  | 1 |  |  |
 | SCR | 2 |  |  |  |  |  |  | 2 |
-| SUB | 8 | 4 |  |  | 1 | 3 |  |  |
+| SUB | 8 | 5 |  |  |  | 3 |  |  |
 | SUP | 1 | 1 |  |  |  |  |  |  |
 | UX | 9 | 6 |  |  |  | 3 |  |  |
 | VAL | 11 | 8 |  |  | 3 |  |  |  |
 | VLT | 21 | 18 |  |  |  | 3 |  |  |
 | WGT | 25 | 25 |  |  |  |  |  |  |
-| **Total** | **431** | **348** | **0** | **4** | **34** | **41** | **0** | **4** |
+| **Total** | **431** | **349** | **0** | **4** | **33** | **41** | **0** | **4** |
 
 ## Release/priority exemptions
 
@@ -71,7 +71,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-397 files have a «Критерії приймання» section with 3487 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
+397 files have a «Критерії приймання» section with 3515 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
 
 ## Fact registry
 
@@ -79,15 +79,15 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 
 | Fact | Canonical | Mentions | Mismatches | Values seen |
 | --- | --- | ---: | ---: | --- |
-| Import batch rollback / «Скасувати імпорт» window (`import-rollback`) | 7 d | 16 | 0 | 7 d ×16 |
+| Import batch rollback / «Скасувати імпорт» window (`import-rollback`) | 7 d | 17 | 0 | 7 d ×17 |
 | Bulk-action undo window (`bulk-undo`) | 24 h | 6 | 0 | 24 h ×6 |
 | Undo of rule application to past transactions (`rule-undo`) | 7 d | 6 | 0 | 7 d ×6 |
-| Trash (кошик) retention for assets and documents (`trash`) | 30 d | 12 | 0 | 30 d ×12 |
+| Trash (кошик) retention for assets and documents (`trash`) | 30 d | 14 | 0 | 30 d ×14 |
 | Closed account / deleted household recovery window (`account-recovery`) | 30 d | 22 | 0 | 30 d ×22 |
 | Unconfirmed account deletion (`unconfirmed-deletion`) | 30 d | 6 | 0 | 30 d ×6 |
 | Full export file availability (`export-file`) | 7 d | 5 | 0 | 7 d ×5 |
 | Backup retention (`backups`) | 35 d | 13 | 0 | 35 d ×13 |
-| 2FA grace period from email confirmation (`2fa-grace`) | 7 d | 40 | 0 | 7 d ×40 |
+| 2FA grace period from email confirmation (`2fa-grace`) | 7 d | 42 | 0 | 7 d ×42 |
 | Web session inactivity timeout (default) (`web-inactivity`) | 15 min | 5 | 0 | 15 min ×5 |
 | Absolute web session lifetime (`absolute-session`) | 12 h | 7 | 0 | 12 h ×7 |
 | Signed file URL lifetime (15 min; 2 min for a scoped member) (`signed-url`) | 15 min / 2 min | 21 | 0 | 15 min ×12, 2 min ×9 |
@@ -98,10 +98,10 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Possible-duplicate / matching date window (±N days) (`date-match-window`) | 3 d | 29 | 0 | 3 d ×29 |
 | Import technical ceiling: file size (`ceiling-file-size`) | 25 MB | 3 | 0 | 25 MB ×3 |
 | Import technical ceiling: rows per file (`ceiling-rows`) | 20 000 rows | 3 | 0 | 20000 rows ×3 |
-| Import technical ceiling: parse time per file (`ceiling-parse-time`) | 60 s | 3 | 0 | 60 s ×3 |
+| Import technical ceiling: parse time per file (`ceiling-parse-time`) | 60 s | 2 | 0 | 60 s ×2 |
 | Stale market price threshold (`stale-price`) | 3 bd | 15 | 0 | 3 bd ×15 |
 | Incomplete record threshold (completeness below N %) (`incomplete-record`) | 70 % | 9 | 0 | 70 % ×9 |
-| Approximate location zone radius for non-admin roles (`map-zone`) | 1500 m | 36 | 0 | 1500 m ×36 |
+| Approximate location zone radius for non-admin roles (`map-zone`) | 1500 m | 37 | 0 | 1500 m ×37 |
 | Plan limit: household members (household.members) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-members`) | Free 1, Plus 2, Family 6, Trial 6 | 14 | 0 | Free 1 ×4, Plus 2 ×4, Family 6 ×4, Trial 6 ×2 |
 | Plan limit: assets (assets.count) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-assets`) | Free 25, Plus ∞, Family ∞, Trial ∞ | 29 | 0 | Free 25 ×12, Plus ∞ ×6, Family ∞ ×6, Trial ∞ ×5 |
 | Plan limit: budgets (budget.budgets) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-budgets`) | Free 2, Plus 3, Family 7, Trial 7 | 26 | 0 | Free 2 ×8, Plus 3 ×7, Family 7 ×7, Trial 7 ×4 |
