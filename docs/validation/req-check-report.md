@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-520 files (requirement and slice files) have a «Критерії приймання» section with 4839 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 9, `scr/` 1.
+520 files (requirement and slice files) have a «Критерії приймання» section with 4849 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 9, `scr/` 1.
 
 ## Fact registry
 
@@ -93,9 +93,9 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Web session inactivity timeout (default) (`web-inactivity`) | 15 min | 11 | 0 | 15 min ×11 |
 | Absolute web session lifetime (`absolute-session`) | 12 h | 13 | 0 | 12 h ×13 |
 | Signed file URL lifetime (15 min; 2 min for a scoped member) (`signed-url`) | 15 min / 2 min | 32 | 0 | 15 min ×21, 2 min ×11 |
-| Login / 2FA lockout threshold (failed attempts) (`lockout-attempts`) | 5 attempts | 24 | 0 | 5 attempts ×24 |
+| Login / 2FA lockout threshold (failed attempts) (`lockout-attempts`) | 5 attempts | 32 | 0 | 5 attempts ×32 |
 | Login lockout counting window (`lockout-window`) | 15 min | 14 | 0 | 15 min ×14 |
-| Login / 2FA lockout duration (`lockout-duration`) | 15 min | 22 | 0 | 15 min ×22 |
+| Login / 2FA lockout duration (`lockout-duration`) | 15 min | 42 | 0 | 15 min ×42 |
 | Transfer pairing window between own accounts (`transfer-window`) | 3 d | 10 | 0 | 3 d ×10 |
 | Possible-duplicate / matching date window (±N days) (`date-match-window`) | 3 d | 62 | 0 | 3 d ×62 |
 | Import technical ceiling: file size (`ceiling-file-size`) | 25 MB | 6 | 0 | 25 MB ×6 |
