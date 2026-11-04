@@ -41,7 +41,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 153 slices without design links (links are unknown until migration).
+Not migrated in PoC: 151 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -57,7 +57,7 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 20 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 19 slices without design links (links are unknown until migration).
 
 ## MVP
 
@@ -263,7 +263,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 218 slices without design links (links are unknown until migration).
+Not migrated in MVP: 217 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
