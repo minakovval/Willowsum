@@ -10,8 +10,45 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (2)
+### Migrated slices without design (39)
 
+- CMP-01@PoC
+- CMP-02@PoC
+- CMP-03@PoC
+- CMP-04@PoC
+- CMP-05@PoC
+- CMP-07@PoC
+- CMP-08@PoC
+- CMP-09@PoC
+- CMP-10@PoC
+- CMP-11@PoC
+- CMP-12@PoC
+- CMP-14@PoC
+- CMP-18@PoC
+- CMP-19@PoC
+- CMP-20@PoC
+- CMP-21@PoC
+- CMP-22@PoC
+- CMP-23@PoC
+- CMP-24@PoC
+- CMP-25@PoC
+- CMP-26@PoC
+- CMP-27@PoC
+- CMP-33@PoC
+- CMP-42@PoC
+- CMP-47@PoC
+- CMP-48@PoC
+- CMP-49@PoC
+- CMP-53@PoC
+- CMP-55@PoC
+- CMP-59@PoC
+- CMP-60@PoC
+- CMP-61@PoC
+- CMP-62@PoC
+- CMP-63@PoC
+- CMP-64@PoC
+- CMP-69@PoC
+- CMP-71@PoC
 - PRC-01@PoC
 - PRC-02@PoC
 
@@ -41,7 +78,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 125 slices without design links (links are unknown until migration).
+Not migrated in PoC: 82 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -49,19 +86,20 @@ Not migrated in PoC: 125 slices without design links (links are unknown until mi
 
 None.
 
-### Migrated slices without design (0)
+### Migrated slices without design (2)
 
-None.
+- CMP-24@PoC v2
+- CMP-69@PoC v2
 
 ### Slices without acceptance criteria (1)
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 14 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 12 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (136 of 229)
+### Screens without a slice (131 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -86,7 +124,6 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 | S-019 | Банер cookie (лише необхідні / прийняти аналітику) | LEG-01 | migration |
 | S-020 | Плани (публічна сторінка цін) | SUB-01, FLW-05 | migration |
 | S-023 | Клавіатурні скорочення | UX-04 | migration |
-| S-024 | Центр сповіщень (позначити все прочитаним) | NOT-01, CMP-29, FLW-25 | migration |
 | S-026 | Меню профілю і перемикач простору | UX-09, ACC-08, SUP-01 | migration |
 | S-027 | Створити простір | ACC-08 | migration |
 | S-030 | Пропозиція апгрейду (модаль / нижній аркуш / на місці модуля; «Попросити власника») | SUB-07, SUB-01, UX-03, FLW-06 | migration |
@@ -117,22 +154,18 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 | S-088 | Картка зобов'язання (залишок, наступний платіж, графік, застава з LTV) | AST-11, AST-12, FLW-12, FLW-44 | migration |
 | S-089 | Нове зобов'язання | AST-11, FLW-12 | migration |
 | S-090 | Алокація застав (додати актив забезпечення) | AST-12, FLW-12 | migration |
-| S-091 | Локації (агрегат, мапа + дерево, таблиця) | AST-09, VAL-11, GRID-03, CMP-35, FLW-13 | migration |
 | S-092 | Сторінка локації | AST-09, VAL-11, GRID-03, FLW-13 | migration |
 | S-093 | Нова локація (адреса з автодоповненням, вкладеність до 5 рівнів) | AST-09 | migration |
 | S-109 | Документи (експорт і квота, фільтри, список + перегляд) | DOC-01, DOC-02, VLT-01, GRID-03, FLW-23 | migration |
 | S-110 | Картка документа (прев'ю, поля типу, версії, «Пов'язано з») | DOC-01, DOC-02, FLW-23 | migration |
-| S-111 | Завантажити документ (зона завантаження, перевірка на віруси) | DOC-01, CMP-06, FLW-23 | migration |
 | S-112 | Страхування (попередження, покриття, поліси, календар) | INS-01, INS-02, GRID-03, FLW-24 | migration |
 | S-113 | Картка поліса (дані, застраховані активи) | INS-01, FLW-24 | migration |
 | S-114 | Новий поліс | INS-01, FLW-24 | migration |
 | S-115 | Додати активи до поліса | INS-01, FLW-24 | migration |
 | S-116 | Страховий розклад і чек-лист прогалин | INS-02, RPT-01, FLW-24 | migration |
 | S-149 | Стандартний звіт: параметри і переглядач (8 звітів, експорт PDF/XLSX) | RPT-01, FLW-26 | migration |
-| S-155 | Меню розділу «Ще» (нижній аркуш на Compact) | CMP-69, UX-09 | migration |
 | S-156 | Сповіщення (нові, прочитані, вирішені) | NOT-01, GRID-05, FLW-25 | migration |
 | S-157 | Плани і підписка (поточний план, використання, плани, рахунки, оплата) | SUB-01, SUB-02, SUB-03, GRID-05, FLW-05, FLW-07 | migration |
-| S-158 | Порівняння планів (матриця функцій, «Оплатити», «Спробувати 14 днів») | SUB-01, SUB-07, CMP-57, FLW-05, FLW-06 | migration |
 | S-159 | Оплата (Stripe) → «Підписку оформлено» / «Оплату не завершено» | SUB-02, SUB-03, FLW-05 | migration |
 | S-160 | Скасування підписки з опитуванням | SUB-03, FLW-07 | migration |
 | S-161 | Вибір активних об'єктів після пониження плану | SUB-02, ADM-04, FLW-07 | migration |
@@ -202,9 +235,64 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 | S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
 
-### Migrated slices without design (0)
+### Migrated slices without design (56)
 
-None.
+- CMP-01@MVP
+- CMP-02@MVP
+- CMP-03@MVP
+- CMP-04@MVP
+- CMP-05@MVP
+- CMP-07@MVP
+- CMP-08@MVP
+- CMP-09@MVP
+- CMP-10@MVP
+- CMP-11@MVP
+- CMP-12@MVP
+- CMP-14@MVP
+- CMP-15@MVP
+- CMP-17@MVP
+- CMP-19@MVP
+- CMP-20@MVP
+- CMP-21@MVP
+- CMP-22@MVP
+- CMP-24@MVP
+- CMP-25@MVP
+- CMP-26@MVP
+- CMP-27@MVP
+- CMP-30@MVP
+- CMP-31@MVP
+- CMP-33@MVP
+- CMP-34@MVP
+- CMP-36@MVP
+- CMP-38@MVP
+- CMP-39@MVP
+- CMP-40@MVP
+- CMP-41@MVP
+- CMP-42@MVP
+- CMP-44@MVP
+- CMP-45@MVP
+- CMP-46@MVP
+- CMP-47@MVP
+- CMP-48@MVP
+- CMP-49@MVP
+- CMP-50@MVP
+- CMP-52@MVP
+- CMP-53@MVP
+- CMP-54@MVP
+- CMP-55@MVP
+- CMP-58@MVP
+- CMP-59@MVP
+- CMP-60@MVP
+- CMP-61@MVP
+- CMP-62@MVP
+- CMP-63@MVP
+- CMP-64@MVP
+- CMP-65@MVP
+- CMP-66@MVP
+- CMP-67@MVP
+- CMP-68@MVP
+- CMP-70@MVP
+- CMP-71@MVP
 
 ### Slices without acceptance criteria (11)
 
@@ -220,7 +308,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 197 slices without design links (links are unknown until migration).
+Not migrated in MVP: 170 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -246,7 +334,7 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 
 ## v1
 
-### Screens without a slice (16 of 26)
+### Screens without a slice (15 of 26)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -257,7 +345,6 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 | S-094 | Групи (картки-папки, склад групи) | AST-10, FLW-13 | migration |
 | S-100 | Невпізнані інструменти | INV-01 | migration |
 | S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
-| S-117 | Медіа і фотогалерея активу | AST-16, CMP-37 | migration |
 | S-118 | Доходи і витрати активу (yield) | AST-06 | migration |
 | S-195 | Сповіщення → Тригери | NOT-02, FLW-25 | migration |
 | S-213 | AI (для простору, для мене, журнал звернень) | AI-01, AI-04, FLW-45 | migration |
@@ -267,16 +354,20 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 | S-274 | Back office: пошук і картка користувача (trial, купон, план) | SUB-05 | migration |
 | S-275 | Довідники (типи активів, стилі, установи, категорії документів) | SUB-05 | migration |
 
-### Migrated slices without design (0)
+### Migrated slices without design (5)
 
-None.
+- CMP-38@v1
+- CMP-40@v1
+- CMP-41@v1
+- CMP-43@v1
+- CMP-51@v1
 
 ### Slices without acceptance criteria (2)
 
 - JRN-02@v1 (не мігровано)
 - JRN-06@v1 (не мігровано)
 
-Not migrated in v1: 41 slices without design links (links are unknown until migration).
+Not migrated in v1: 38 slices without design links (links are unknown until migration).
 
 ## v2
 
