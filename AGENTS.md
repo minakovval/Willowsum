@@ -13,6 +13,8 @@ requirement, following the architecture requirements (ARC) and delivery requirem
 | --- | --- |
 | Product requirements (single source of truth) | `docs/requirements/` — one file per requirement ID, index per module |
 | Product, releases, roles, plan matrix, general rules П-1…П-26, glossary | `docs/requirements/00-general.md` |
+| Requirement process: release slices, links, traceability; change process | `docs/requirements/prc/` (PRC-01, PRC-02); format in `docs/requirements/README.md` |
+| Traceability matrix, per-release build sequence, coverage (generated) | `docs/traceability/` — regenerate with `node tools/req-check/index.mjs --traceability` |
 | Architecture and delivery requirements | `docs/requirements/arc/`, `docs/requirements/cicd/` |
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |
@@ -20,6 +22,18 @@ requirement, following the architecture requirements (ARC) and delivery requirem
 
 Requirement files are self-contained: you never need another source to implement one. A requirement
 changes only through a PR to its file that records the owner's decision.
+
+Migrated requirements are a card (`bud/BUD-16.md`) plus one **release slice** per release
+(`bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, …; ID `BUD-16@PoC`). A slice is complete for its release: to
+build a release, read only the slices of that release (and the latest earlier slice of each requirement
+that has none in it). Links to other requirements, screens, П-rules, use cases, modules and tests live
+only in the fixed «Зв'язки» header at the top of a card or slice; IDs are allowed there and nowhere else
+in the text. Requirements not migrated yet keep the old one-file format. Format and rules:
+`docs/requirements/README.md`, «Release slices and links».
+
+Before changing a requirement, a screen or a shared rule, run
+`node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n>` and update every dependent slice in the
+same PR or list it as follow-up in the PR body (PRC-02). Regenerate `docs/traceability/` in the same PR.
 
 ## Planned code layout
 
@@ -88,6 +102,7 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | CHT | `packages/ui`, `apps/web` |
 | L10N, PLT, DS, CMP, FLW, JRN, SCR | `apps/web`, `apps/admin`, `packages/ui`, `packages/i18n` |
 | NFR, ARC, CICD | whole repo, `.github/workflows/`, `infra/` |
+| PRC | `docs/requirements/`, `docs/traceability/`, `tools/req-check/`, `.github/workflows/` |
 
 Transaction flow: source (`bank-sync` + a bank adapter, `import-sessions`, `receipts`, manual entry) →
 `transactions` → `merchants` → `categorization` → `duplicate-matching` → `transfer-matching` → `ledger` →
@@ -104,7 +119,8 @@ errors) lives only in `packages/domain-kernel`.
 ## Process: one requirement = one session = one branch = one PR
 
 1. A task names one requirement ID (or a small group in one module). No ID → do not start.
-2. Load only the requirement file, the sections of `00-general.md` it relies on, the module card and
+2. Load only the requirement file (for a migrated requirement: its card and the slice of the target
+   release, plus what its «Зв'язки» header names), the sections of `00-general.md` it relies on, the module card and
    the code of that module. For wide searches use a read-only subagent and keep only its conclusion.
 3. Follow the `implement-requirement` skill. Tests first: one automated test per acceptance criterion
    and per edge case.

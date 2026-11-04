@@ -12,8 +12,9 @@ missing, not to confirm the author's summary.
 
 1. `AGENTS.md` (hard rules, Definition of Done).
 2. The PR: title, body, diff, CI status (GitHub tools). Take the requirement ID from the title.
-3. The requirement file `docs/requirements/<module>/<ID>.md` and only the sections of
-   `docs/requirements/00-general.md` it relies on.
+3. The requirement file `docs/requirements/<module>/<ID>.md` (for a card: the slice of the target
+   release, `<ID>.<release key>.md`) and only the sections of `docs/requirements/00-general.md` it
+   relies on.
 
 Read the requirement **before** the PR body, so the author's framing does not anchor you.
 

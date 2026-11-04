@@ -14,11 +14,70 @@ A requirement changes only through a reviewed change to its file here, approved 
 вимог стабільні й ніколи не змінюються. Посилайтеся на вимогу за ідентифікатором — з нього починаються
 назва гілки і назва PR.
 
+## Release slices and links
+
+Owner decision of 2026-11-04; the process is requirement PRC-01, the change process PRC-02.
+
+Requirements are being migrated, in batches, from one file per requirement to a **card plus release slices**:
+
+| File | Contents |
+| --- | --- |
+| `bud/BUD-16.md` — card | Heading, «Реліз» line naming every slice's release, link header with «Зрізи» and «Модуль», purpose, table of slices. No functional requirements and no criteria |
+| `bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, `BUD-16.mvp.md`, `BUD-16.v1-mobile.md`, `BUD-16.v1.md`, `BUD-16.v2.md` — slices | One per release in which the requirement's scope changes. Heading `# BUD-16@PoC v2 · <title>`, `**Реліз:** PoC v2 · **Пріоритет:** S`, link header, then the full requirement text for that release |
+
+A slice ID is written `BUD-16@PoC`, `BUD-16@PoC v2`, `BUD-16@MVP`. Release order: PoC → PoC v2 → MVP →
+v1-mobile → v1 → v2 («Сейф» is part of MVP). A slice is **complete for its release**: every functional
+requirement, rule, state, permission and acceptance criterion that holds there, with no «У релізі …»
+override blocks; a later slice restates what it keeps. A slice stays in effect until the requirement's
+next slice. A slice exists for each release on the «Реліз» line, and also for a release from which
+behaviour that the general rules exclude from earlier releases starts (П-25 and П-26 for PoC and PoC v2;
+plan limits from v1).
+
+**Link header.** Right after the «Реліз» line, one field per line, fields in this fixed order; values are
+comma-separated IDs, `—` for an empty list:
+
+```markdown
+**Зв'язки**
+- Розширює: BUD-16@PoC
+- Залежить від: BUD-01@PoC, BUD-02@PoC v2, BUD-05@PoC v2
+- Дизайн: S-121, S-125
+- Спільні правила: П-10, П-17, П-24, DS-01
+- Сценарії: UC-BUD-87, UC-BUD-88
+- Модуль: budget
+- Перевіряється: —
+```
+
+| Field | Values | Rule |
+| --- | --- | --- |
+| Розширює | the same requirement's previous slice | exactly the slice of the previous release in which the requirement has a slice; `—` for the first slice |
+| Залежить від | slices of other requirements (`FIN-01@PoC`); a plain ID only for a requirement without a release | same or earlier release, and the slice in effect in this slice's release; no cycles |
+| Дизайн | screen IDs from `docs/ux/screen-map.md` (`S-121`) and canvas board names (`PocPlanBudget`) | screens must exist; board names are checked for shape only |
+| Спільні правила | `П-n` from 00-general.md; IDs of DS, CMP, GRID, CHT, ARC, NFR, CICD, PRC, L10N, SCR | must exist and start no later than the slice |
+| Сценарії | use-case IDs from `docs/ux/use-cases` (`UC-BUD-87`) | must exist |
+| Модуль | module names from the ARC-01 catalogue | at least one, except for ARC, NFR, CICD, PRC and other shared areas |
+| Перевіряється | repository paths of tests | must exist |
+
+A card's link header has only «Зрізи» (its slices, in release order, matching the files) and «Модуль».
+
+**Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
+slice stays self-contained: no other requirement IDs (the checker enforces it).
+
+**Not yet migrated.** A file without a link header keeps working as before: it counts as one implicit
+slice per release on its «Реліз» line (`решта — MVP` included; «основа … — PoC» is not a slice), without
+links, shown as «не мігровано» in the matrix. Other slices may depend on these implicit slices.
+
+**Traceability.** `node tools/req-check/index.mjs --traceability` writes
+[docs/traceability/](../traceability/README.md): `matrix.md` (one row per slice), `release-<key>.md` per
+release (slices, Mermaid dependency graph, build sequence in waves) and `coverage.md` (screens without a
+slice, slices without design, slices without criteria). The files are committed; CI regenerates them and
+fails on any difference. `--impact <ID | slice | S-id | board | П-n | UC-id | module>` lists everything
+that depends on a target, transitively (PRC-02).
+
 Each module folder has a `README.md` with the module intro and a table of its requirements
 (ID, title, release, priority). Text from a specification tab that is not part of any single
 requirement is kept in the README of that module.
 
-## Modules (431 requirements)
+## Modules (433 requirements)
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
@@ -59,6 +118,7 @@ requirement is kept in the README of that module.
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 10, MVP 1 |
 | CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
+| PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 
 ## Folders
 
@@ -99,3 +159,4 @@ requirement is kept in the README of that module.
 - [scr/](scr/README.md)
 - [arc/](arc/README.md)
 - [cicd/](cicd/README.md)
+- [prc/](prc/README.md)
