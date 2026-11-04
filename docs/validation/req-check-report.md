@@ -38,7 +38,7 @@ Main release = first release named on the «Реліз» line.
 | DS | 23 | 17 |  | 6 |  |  |  |  |  |  |
 | FCS | 3 | 3 |  |  |  |  |  |  |  |  |
 | FIN | 19 | 6 |  | 3 |  |  | 6 | 4 |  |  |
-| FLW | 58 | 14 | 2 | 28 |  |  | 5 | 9 |  |  |
+| FLW | 58 | 13 | 3 | 28 |  |  | 5 | 9 |  |  |
 | GRID | 8 | 5 |  | 3 |  |  |  |  |  |  |
 | IMP | 19 | 16 |  | 3 |  |  |  |  |  |  |
 | INS | 2 |  |  | 2 |  |  |  |  |  |  |
@@ -59,7 +59,7 @@ Main release = first release named on the «Реліз» line.
 | VAL | 11 | 2 |  | 6 |  |  | 3 |  |  |  |
 | VLT | 21 |  |  | 18 |  |  |  | 3 |  |  |
 | WGT | 25 |  |  | 25 |  |  |  |  |  |  |
-| **Total** | **431** | **171** | **4** | **174** | **0** | **4** | **33** | **41** | **0** | **4** |
+| **Total** | **431** | **170** | **5** | **174** | **0** | **4** | **33** | **41** | **0** | **4** |
 
 ## Release/priority exemptions
 
@@ -71,7 +71,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-397 files have a «Критерії приймання» section with 3550 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
+397 files have a «Критерії приймання» section with 3553 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `arc/` 11, `cicd/` 12, `jrn/` 9, `nfr/` 1, `scr/` 1.
 
 ## Fact registry
 
