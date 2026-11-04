@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: BUD-11@PoC
-- Залежить від: BUD-01@MVP, BUD-12@MVP, BUD-14@MVP, FIN-01@MVP, FIN-03@MVP, FIN-12@PoC v2, IMP-08@MVP, NOT-01@MVP, UX-01@MVP
+- Залежить від: BUD-01@MVP, BUD-12@MVP, BUD-14@MVP, FIN-01@MVP, FIN-03@MVP, FIN-12@MVP, IMP-08@MVP, NOT-01@MVP, UX-01@MVP
 - Дизайн: S-025, S-048, S-053, S-055a
 - Спільні правила: П-10, П-12, П-17, NFR-01
 - Сценарії: UC-BUD-56, UC-BUD-58, UC-BUD-59, UC-BUD-60, UC-BUD-62, UC-BUD-55, UC-BUD-61
