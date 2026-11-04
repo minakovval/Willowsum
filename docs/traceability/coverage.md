@@ -6,11 +6,9 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (1 of 2)
+### Screens without a slice (0 of 2)
 
-| Screen | Title | Requirements in the screen map | Waiting for |
-| --- | --- | --- | --- |
-| S-055a | Оновити залишок (поточний залишок, різниця, транзакція «Коригування залишку»; для підключе… | FIN-12, FIN-04 | migration |
+None.
 
 ### Migrated slices without design (2)
 
@@ -43,7 +41,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 155 slices without design links (links are unknown until migration).
+Not migrated in PoC: 153 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -59,11 +57,11 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 21 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 20 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (191 of 229)
+### Screens without a slice (179 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -91,7 +89,6 @@ Not migrated in PoC v2: 21 slices without design links (links are unknown until 
 | S-022 | Усі результати пошуку | DAT-02, UX-04, FLW-27 | migration |
 | S-023 | Клавіатурні скорочення | UX-04 | migration |
 | S-024 | Центр сповіщень (позначити все прочитаним) | NOT-01, CMP-29, FLW-25 | migration |
-| S-025 | Меню «+ Додати» («Додати транзакцію» з пунктом «Імпортувати виписку», актив, зобов'язання,… | UX-09, BUD-11, FIN-03, IMP-08, FLW-08, FLW-12, FLW-17, FLW-19, FLW-23 | migration |
 | S-026 | Меню профілю і перемикач простору | UX-09, ACC-08, SUP-01 | migration |
 | S-027 | Створити простір | ACC-08 | migration |
 | S-028 | Розділ «\<назва>» вимкнено | UX-09, DAT-05, SUB-07 | migration |
@@ -105,23 +102,16 @@ Not migrated in PoC v2: 21 slices without design links (links are unknown until 
 | S-036 | Масова дія: підсумок, прогрес, банер «Скасувати» 24 год | DAT-03, SCR-02, FLW-13 | migration |
 | S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
-| S-048 | Нова транзакція (діалог-форма 560 px: тип, Сума*, Рахунок*, Дата*, Контрагент, Категорія, … | FIN-03, UX-04, DS-01, FLW-19 | migration |
 | S-050 | Рахунки («Гроші разом» з розбивкою за валютами, «Джерела даних», «Готівкові», «Кредитні»; … | FIN-01, FIN-12, GRID-02, FLW-17 | migration |
 | S-051 | Додати рахунок: вибір способу («Підключити банк» — рекомендовано / «Імпортувати виписку» /… | FIN-01, FIN-02, UX-01, FLW-17, FLW-34 | migration |
 | S-052 | Новий рахунок (діалог-форма 560 px: Тип рахунку*, Назва*, Банк, Залишок* + Валюта*, На дат… | FIN-01, FIN-12, DS-01, FLW-17 | migration |
-| S-053 | Картка рахунку (заголовок «…» · шестерня «Налаштування рахунку» · «Імпортувати виписку»; б… | FIN-01, FIN-12, GRID-02, SCR-02, CHT-01 | migration |
 | S-054 | Рахунок → Налаштування (Основне, Показ, Реквізити, Джерело даних, Об'єднати / Закрити) | FIN-12 | migration |
 | S-055 | Закрити рахунок / Об'єднати рахунки | FIN-12 | migration |
-| S-058 | Вкладка «До розбору · N» сторінки «Транзакції» (черга, групи за мерчантом, «Лишилось N», «… | BUD-12, GRID-02, FLW-35 | migration |
 | S-059 | Вкладка «Пари · N» сторінки «Транзакції» (пропозиції переказів і обмінів, односторонні пер… | IMP-03 | migration |
 | S-060 | Вкладка «Підключення» сторінки «Рахунки» (картки за статусами) | FIN-02, FIN-11, CMP-56, FLW-17, FLW-18 | migration |
 | S-061 | Підключення банку: 1 Що отримаємо → 2 Згода → 3 Банк (сторінка банку) → 4 Рахунки → 5 Синх… | FIN-02, FIN-11, FLW-17 | migration |
 | S-062 | «Перепідключити <банк>», «Зіставте рахунки <банку>», відключення | FIN-02, FIN-11, FLW-18 | migration |
 | S-063 | Джерело даних (крихти «Гроші › Рахунки › Підключення › \<банк>»): підключений банк або «Ли… | FIN-18 | migration |
-| S-065 | Додати чек (файл, адреса пересилання, розпізнавання) | BUD-15, FLW-42 | migration |
-| S-066 | Розпізнаний чек: фото оригіналу, позиції, «Лише прикріпити» / «Розділити за категоріями», … | BUD-15, FLW-42 | migration |
-| S-067 | Незіставлені чеки (крихти «Гроші › Транзакції › Незіставлені чеки»; мініатюра, мерчант, дж… | BUD-15, FLW-42 | migration |
-| S-068 | Імпорт замовлень магазину: вибір магазину → інструкція → завантаження файлу → підсумок | BUD-15, FLW-42 | migration |
 | S-286 | Поєднати вручну — окрема сторінка (хлібні крихти «Гроші › Транзакції › Пари › Поєднати вру… | IMP-03 | migration |
 | S-070 | Активи (таблиця / картки / галерея, підсумок з мапою, фільтри «Вибулі», «Неповні») | AST-01, AST-02, AST-04, AST-14, DAT-01, DAT-03, GRID-03, UX-08, UX-09, CMP-23, FLW-13 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
@@ -159,8 +149,6 @@ Not migrated in PoC v2: 21 slices without design links (links are unknown until 
 | S-114 | Новий поліс | INS-01, FLW-24 | migration |
 | S-115 | Додати активи до поліса | INS-01, FLW-24 | migration |
 | S-116 | Страховий розклад і чек-лист прогалин | INS-02, RPT-01, FLW-24 | migration |
-| S-147 | Звіти (стандартні звіти, архів, збережені звіти конструктора) | BUD-20, RPT-01, GRID-04, FLW-26 | migration |
-| S-148 | Звіти → Новий звіт (конструктор: Sankey, тренд, treemap, drill-down) | BUD-20 | migration |
 | S-149 | Стандартний звіт: параметри і переглядач (8 звітів, експорт PDF/XLSX) | RPT-01, FLW-26 | migration |
 | S-155 | Меню розділу «Ще» (нижній аркуш на Compact) | CMP-69, UX-09 | migration |
 | S-156 | Сповіщення (нові, прочитані, вирішені) | NOT-01, GRID-05, FLW-25 | migration |
@@ -201,8 +189,6 @@ Not migrated in PoC v2: 21 slices without design links (links are unknown until 
 | S-191 | Приватність (приховати суми, аналітика, згоди, демо для показу) | UX-02, LEG-01, IMP-11, VLT-18 | migration |
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | migration |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | migration |
-| S-194 | Налаштування сповіщень (канали за типами, тихі години, деталі, бюджет) | NOT-01, BUD-10, GRID-05, FLW-25 | migration |
-| S-199 | Розбір транзакцій (налаштування черги) | BUD-12 | migration |
 | S-200 | Простір: загальне (назва, валюта звітності, тайм-аут, передати, видалити) | ACC-04, ACC-06, ACC-08 | migration |
 | S-201 | Передати власність простору | ACC-08, FLW-28 | migration |
 | S-202 | Видалити простір (ввести назву) | ACC-08 | migration |
@@ -277,17 +263,16 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 223 slices without design links (links are unknown until migration).
+Not migrated in MVP: 218 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
-### Screens without a slice (5 of 5)
+### Screens without a slice (4 of 5)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-279 | Плани і покупка в App Store / Google Play | ACC-02, FLW-05 | migration |
 | S-280 | Віджети домашнього екрана і швидкі дії | PLT-01, FLW-35 | migration |
-| S-281 | Сканування камерою (документ, виписка, чек, документ Сейфу) | VLT-03, IMP-13, FLW-23, FLW-42, FLW-51 | migration |
 | S-282 | Швидка інвентаризація активів камерою | AST-16, FLW-08 | migration |
 | S-283 | Офлайн-пакет подорожі і Сейф без мережі | VLT-05, VLT-08, VLT-09, FLW-52, FLW-54, FLW-55 | migration |
 
