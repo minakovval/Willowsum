@@ -10,7 +10,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (39)
+### Migrated slices without design (54)
 
 - CMP-01@PoC
 - CMP-02@PoC
@@ -49,6 +49,21 @@ None.
 - CMP-64@PoC
 - CMP-69@PoC
 - CMP-71@PoC
+- DS-02@PoC
+- DS-03@PoC
+- DS-04@PoC
+- DS-05@PoC
+- DS-06@PoC
+- DS-07@PoC
+- DS-08@PoC
+- DS-09@PoC
+- DS-12@PoC
+- DS-13@PoC
+- DS-14@PoC
+- DS-15@PoC
+- DS-16@PoC
+- DS-17@PoC
+- DS-22@PoC
 - PRC-01@PoC
 - PRC-02@PoC
 
@@ -78,7 +93,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 82 slices without design links (links are unknown until migration).
+Not migrated in PoC: 65 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -86,16 +101,17 @@ Not migrated in PoC: 82 slices without design links (links are unknown until mig
 
 None.
 
-### Migrated slices without design (2)
+### Migrated slices without design (3)
 
 - CMP-24@PoC v2
 - CMP-69@PoC v2
+- DS-03@PoC v2
 
 ### Slices without acceptance criteria (1)
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 12 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 10 slices without design links (links are unknown until migration).
 
 ## MVP
 
@@ -235,7 +251,7 @@ Not migrated in PoC v2: 12 slices without design links (links are unknown until 
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 | S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
 
-### Migrated slices without design (56)
+### Migrated slices without design (77)
 
 - CMP-01@MVP
 - CMP-02@MVP
@@ -293,6 +309,27 @@ Not migrated in PoC v2: 12 slices without design links (links are unknown until 
 - CMP-68@MVP
 - CMP-70@MVP
 - CMP-71@MVP
+- DS-02@MVP
+- DS-03@MVP
+- DS-04@MVP
+- DS-05@MVP
+- DS-06@MVP
+- DS-07@MVP
+- DS-08@MVP
+- DS-09@MVP
+- DS-10@MVP
+- DS-11@MVP
+- DS-12@MVP
+- DS-13@MVP
+- DS-14@MVP
+- DS-15@MVP
+- DS-16@MVP
+- DS-17@MVP
+- DS-18@MVP
+- DS-19@MVP
+- DS-20@MVP
+- DS-21@MVP
+- DS-22@MVP
 
 ### Slices without acceptance criteria (11)
 
@@ -308,7 +345,7 @@ Not migrated in PoC v2: 12 slices without design links (links are unknown until 
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 170 slices without design links (links are unknown until migration).
+Not migrated in MVP: 161 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -321,9 +358,11 @@ Not migrated in MVP: 170 slices without design links (links are unknown until mi
 | S-282 | Швидка інвентаризація активів камерою | AST-16, FLW-08 | migration |
 | S-283 | Офлайн-пакет подорожі і Сейф без мережі | VLT-05, VLT-08, VLT-09, FLW-52, FLW-54, FLW-55 | migration |
 
-### Migrated slices without design (0)
+### Migrated slices without design (3)
 
-None.
+- DS-10@v1-mobile
+- DS-11@v1-mobile
+- DS-18@v1-mobile
 
 ### Slices without acceptance criteria (2)
 
