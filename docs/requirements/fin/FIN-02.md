@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Зрізи: FIN-02@PoC, FIN-02@MVP, FIN-02@v1
-- Модуль: accounts, bank-consents, bank-monobank, bank-saltedge, bank-sync, notification-delivery, usage-limits
+- Модуль: accounts, bank-consents, bank-enablebanking, bank-monobank, bank-saltedge, bank-sync, notification-delivery, usage-limits
 
 **Мета.** Як користувач, я хочу підключити банк за хвилину і більше не вводити залишки вручну, щоб дані були актуальними без зусиль.
 

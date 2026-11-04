@@ -8,7 +8,7 @@
 - Дизайн: S-051, S-060, S-061, S-062
 - Спільні правила: П-8, П-9, П-10, П-18, П-20, П-22, П-23, П-24, П-25, П-26, NFR-01
 - Сценарії: UC-FIN-02, UC-FIN-14, UC-FIN-15, UC-FIN-17, UC-FIN-18, UC-FIN-20, UC-FIN-21, UC-FIN-22
-- Модуль: bank-consents, bank-sync, bank-monobank, accounts
+- Модуль: bank-consents, bank-sync, bank-monobank, bank-enablebanking, accounts
 - Перевіряється: —
 
 **Мета.** Як користувач, я хочу підключити банк за хвилину і більше не вводити залишки вручну, щоб дані були актуальними без зусиль.
