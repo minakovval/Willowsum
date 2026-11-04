@@ -43,7 +43,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 167 slices without design links (links are unknown until migration).
+Not migrated in PoC: 162 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -59,11 +59,11 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 25 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 24 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (224 of 229)
+### Screens without a slice (210 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -106,10 +106,7 @@ Not migrated in PoC v2: 25 slices without design links (links are unknown until 
 | S-040 | Головна · Огляд (чек-лист, «Що потребує уваги», віджети) | VAL-09, UX-01, UX-03, UX-08, BUD-03, SUB-02, GRID-01, FLW-14, WGT-00, WGT-01, WGT-10, CHT-01 | migration |
 | S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
-| S-046 | Транзакції (корінь «Гроші»; заголовок «Імпортувати виписку» · «Нова транзакція» · «…»; «Фі… | FIN-03, BUD-13, DAT-01, DAT-03, GRID-02, FLW-19 | migration |
-| S-047 | Деталь транзакції (панель master-detail; на Compact — окремий екран; меню «…», чек з позиц… | FIN-03, BUD-01, BUD-12, BUD-13, BUD-14, BUD-15, FLW-19, FLW-35 | migration |
 | S-048 | Нова транзакція (діалог-форма 560 px: тип, Сума*, Рахунок*, Дата*, Контрагент, Категорія, … | FIN-03, UX-04, DS-01, FLW-19 | migration |
-| S-049 | Розділення транзакції (режими «За категоріями» і «На кілька місяців») | BUD-13, FLW-19, FLW-35 | migration |
 | S-050 | Рахунки («Гроші разом» з розбивкою за валютами, «Джерела даних», «Готівкові», «Кредитні»; … | FIN-01, FIN-12, GRID-02, FLW-17 | migration |
 | S-051 | Додати рахунок: вибір способу («Підключити банк» — рекомендовано / «Імпортувати виписку» /… | FIN-01, FIN-02, UX-01, FLW-17, FLW-34 | migration |
 | S-052 | Новий рахунок (діалог-форма 560 px: Тип рахунку*, Назва*, Банк, Залишок* + Валюта*, На дат… | FIN-01, FIN-12, DS-01, FLW-17 | migration |
@@ -126,11 +123,7 @@ Not migrated in PoC v2: 25 slices without design links (links are unknown until 
 | S-066 | Розпізнаний чек: фото оригіналу, позиції, «Лише прикріпити» / «Розділити за категоріями», … | BUD-15, FLW-42 | migration |
 | S-067 | Незіставлені чеки (крихти «Гроші › Транзакції › Незіставлені чеки»; мініатюра, мерчант, дж… | BUD-15, FLW-42 | migration |
 | S-068 | Імпорт замовлень магазину: вибір магазину → інструкція → завантаження файлу → підсумок | BUD-15, FLW-42 | migration |
-| S-069 | Мерчант (логотип або ініціали, олівець «Перейменувати», «…»: об'єднати, роз'єднати, логоти… | BUD-14, UX-05, FLW-41 | migration |
-| S-285 | Прив'язати до активу (пошук; групи «Активи · <тип>» і «Зобов'язання»; «Прив'язувати так ус… | FIN-03 | migration |
 | S-286 | Поєднати вручну — окрема сторінка (хлібні крихти «Гроші › Транзакції › Пари › Поєднати вру… | IMP-03 | migration |
-| S-197 | Правила категорій (крихти «Гроші › Транзакції › Правила»; таблиця: #, умова, категорія або… | BUD-14, FLW-41 | migration |
-| S-198 | Правило категорії (умови*, категорія*, «Додатково»: теги, лише для рахунків, прив'язка до … | BUD-14, FLW-41, DS-01 | migration |
 | S-070 | Активи (таблиця / картки / галерея, підсумок з мапою, фільтри «Вибулі», «Неповні») | AST-01, AST-02, AST-04, AST-14, DAT-01, DAT-03, GRID-03, UX-08, UX-09, CMP-23, FLW-13 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
 | S-072 | Новий актив (діалог з кроками): «1 Основне · 2 Придбання і локація · 3 Атрибути · 4 Власні… | AST-02, AST-03, SUB-07, FLW-08 | migration |
@@ -176,12 +169,6 @@ Not migrated in PoC v2: 25 slices without design links (links are unknown until 
 | S-132 | Порівняння періодів (вибір періоду: тип, потім конкретний період; «Порівняти з: <база> ˅»,… | BUD-06, CMP-72, FLW-38 | migration |
 | S-134 | Бюджет → вкладка «Грошовий потік» і норма заощаджень (типи періоду «Місяць», «Квартал», «З… | BUD-08, FLW-38 | migration |
 | S-135 | Підсумок періоду (порівняння з середнім, категорії) | BUD-06, BUD-10, FLW-38 | migration |
-| S-136 | Цілі (список; master-detail) | BUD-05, GRID-04, FLW-37 | migration |
-| S-137 | Картка цілі (проєкція, внески, «Зробити головною», «Витратити») | BUD-05, UX-03, FLW-37 | migration |
-| S-138 | Нова ціль (шаблони, форма, автовнесок) | BUD-05, SUB-07, FLW-36, FLW-37 | migration |
-| S-139 | Витратити з цілі (створити актив) | BUD-05, FLW-37 | migration |
-| S-140 | Архів цілей | BUD-05, FLW-37 | migration |
-| S-141 | Регулярні платежі (календар, найближчі, деталі) | BUD-07, GRID-04 | migration |
 | S-142 | Чи можу я дозволити (форма, результат, розстрочка) | BUD-04, GRID-04, FLW-36 | migration |
 | S-143 | Борги (список зобов'язань, прогрес; іконка «›» «Редагувати в «Активи › Зобов'язання»») | BUD-19, FLW-44 | migration |
 | S-144 | Борги → План погашення (сценарій) | BUD-19, FLW-44 | migration |
@@ -234,7 +221,6 @@ Not migrated in PoC v2: 25 slices without design links (links are unknown until 
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | migration |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | migration |
 | S-194 | Налаштування сповіщень (канали за типами, тихі години, деталі, бюджет) | NOT-01, BUD-10, GRID-05, FLW-25 | migration |
-| S-196 | Категорії (дерево, перейменування, об'єднання) | BUD-01, UX-01, UX-05, FLW-34 | migration |
 | S-199 | Розбір транзакцій (налаштування черги) | BUD-12 | migration |
 | S-200 | Простір: загальне (назва, валюта звітності, тайм-аут, передати, видалити) | ACC-04, ACC-06, ACC-08 | migration |
 | S-201 | Передати власність простору | ACC-08, FLW-28 | migration |
@@ -310,7 +296,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 227 slices without design links (links are unknown until migration).
+Not migrated in MVP: 225 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
