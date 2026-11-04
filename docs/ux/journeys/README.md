@@ -353,7 +353,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-BUD-57 | Додати витрату в мобільному застосунку, зокрема без мережі | v1-mobile | [UJ-25](UJ-25-mobile-devices.md) |
 | UC-BUD-58 | Імпортувати виписку CSV / XLSX у ручний рахунок | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-BUD-59 | Злити імпортовану транзакцію з ручною і роз'єднати | MVP | [UJ-04](UJ-04-daily-review.md) |
-| UC-BUD-60 | Вирівняти залишок рахунку | MVP | [UJ-03](UJ-03-first-budget.md) |
+| UC-BUD-60 | Оновити залишок рахунку | MVP | [UJ-03](UJ-03-first-budget.md) |
 | UC-BUD-61 | Увімкнути нагадування «Внести витрати» | MVP | [UJ-03](UJ-03-first-budget.md) |
 | UC-BUD-62 | Зв'язати ручний рахунок із підключеним банком | MVP | [UJ-09](UJ-09-bank-connections.md) |
 | UC-BUD-63 | Розібрати чергу «До розбору» по одній транзакції | MVP | [UJ-04](UJ-04-daily-review.md) |
@@ -520,7 +520,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-FIN-44 | Обробити банківську транзакцію «Очікує» | MVP | [UJ-04](UJ-04-daily-review.md) |
 | UC-FIN-45 | Записати збалансовані проводки події | MVP | [UJ-10](UJ-10-accounts.md), [UJ-13](UJ-13-landlord.md) |
 | UC-FIN-46 | Перевірити цілісність журналу щодня | MVP | [UJ-10](UJ-10-accounts.md) |
-| UC-FIN-47 | Вирівняти залишок за пропозицією | MVP | [UJ-10](UJ-10-accounts.md) |
+| UC-FIN-47 | Оновити залишок з банера про розбіжність | MVP | [UJ-10](UJ-10-accounts.md) |
 | UC-FIN-48 | Змінити ціну придбання активу | MVP | [UJ-13](UJ-13-landlord.md) |
 | UC-FIN-49 | Створити портфель | MVP | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-FIN-50 | Переглянути портфель і позиції | MVP | [UJ-15](UJ-15-investor-crypto.md) |
@@ -586,7 +586,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-IMP-13 | Підтвердити позначки партії | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-IMP-14 | Підтвердити рахунок при ознаках чужого рахунку | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-IMP-15 | Застосувати виписку з розбіжністю залишку | MVP | [UJ-08](UJ-08-statement-import.md) |
-| UC-IMP-16 | Вирівняти залишок рахунку пізніше або видалити коригування | MVP | [UJ-08](UJ-08-statement-import.md) |
+| UC-IMP-16 | Оновити залишок рахунку пізніше або видалити коригування | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-IMP-17 | Застосувати партію і переглянути результат | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-IMP-18 | Скасувати або видалити незастосовану партію | MVP | [UJ-08](UJ-08-statement-import.md) |
 | UC-IMP-19 | Відкотити застосовану партію | MVP | [UJ-08](UJ-08-statement-import.md) |
