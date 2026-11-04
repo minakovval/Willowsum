@@ -12,8 +12,9 @@ missing, not to confirm the author's summary.
 
 1. `AGENTS.md` (hard rules, Definition of Done).
 2. The PR: title, body, diff, CI status (GitHub tools). Take the requirement ID from the title.
-3. The requirement file `docs/requirements/<module>/<ID>.md` and only the sections of
-   `docs/requirements/00-general.md` it relies on.
+3. The requirement file `docs/requirements/<module>/<ID>.md` (for a card: the slice of the target
+   release, `<ID>.<release key>.md`) and only the sections of `docs/requirements/00-general.md` it
+   relies on.
 
 Read the requirement **before** the PR body, so the author's framing does not anchor you.
 
@@ -46,6 +47,12 @@ If the PR covers only part of the requirement, the body must say which criteria 
   access/trust settings (OIDC, secrets store, KMS, DNS) has an approval comment from the owner's own GitHub
   account on that PR — otherwise blocking.
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
+- Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
+  each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
+  listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. For a
+  changed card, its «Реліз» line matches its row in the module README (PRC-01 FR 3), its slices are
+  complete for their release, and `docs/traceability/` and `docs/validation/req-check-report.md` were
+  regenerated.
 - New dependencies or services without justification.
 
 ## 4. Verify, do not speculate

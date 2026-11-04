@@ -12,7 +12,11 @@ the ID, CI green, every acceptance criterion covered by a test.
 
 1. Read `AGENTS.md` (hard rules) if it is not already in context.
 2. Read the requirement file `docs/requirements/<module>/<ID>.md`. Find it with
-   `ls docs/requirements/*/<ID>.md`. No file → stop and tell the owner.
+   `ls docs/requirements/*/<ID>.md`. No file → stop and tell the owner. If the file is a card (it has a
+   «Зв'язки» block with «Зрізи»), read the slice of the target release (`<ID>.<poc|poc-v2|mvp|…>.md`;
+   the latest slice at or before that release) instead of a single file; it is complete on its own.
+   Use its «Зв'язки» header for dependencies, screens, П-rules and tests; add the test paths to
+   «Перевіряється» and regenerate `docs/traceability/` in the same PR.
 3. From `docs/requirements/00-general.md` read only the sections the requirement depends on
    (roles matrix, plan matrix, general rules П-…, glossary terms it uses). Use grep, not a full read.
 4. If the requirement has UI, read the design files it names by topic in `docs/requirements/ds/` and

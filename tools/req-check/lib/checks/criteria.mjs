@@ -1,6 +1,7 @@
 // Check 4: acceptance criteria format and numbering; functional-requirement numbering (warning).
 import { SECTION } from '../config.mjs';
 import { findSection, numberedItems, tableCells } from '../markdown.mjs';
+import { parseLinkBlock } from '../links.mjs';
 
 const CHECK = 'criteria';
 
@@ -37,8 +38,12 @@ export function checkCriteria(corpus, out) {
   let sections = 0;
   let criteria = 0;
   const without = new Map();
+  let slices = 0;
   for (const d of corpus.docs) {
-    if (d.kind !== 'requirement') continue;
+    if (d.kind !== 'requirement' && d.kind !== 'slice') continue;
+    if (d.kind === 'slice') slices++;
+    // A card (requirement file with a «Зв'язки» block) holds no criteria; its slices do.
+    const isCard = d.kind === 'requirement' && parseLinkBlock(d.lines);
 
     const sec = findSection(d.lines, SECTION.criteria);
     if (sec) {
@@ -76,7 +81,7 @@ export function checkCriteria(corpus, out) {
       }
     }
 
-    if (!sec) without.set(d.folder, (without.get(d.folder) ?? 0) + 1);
+    if (!sec && d.kind === 'requirement' && !isCard) without.set(d.folder, (without.get(d.folder) ?? 0) + 1);
 
     const fr = findSection(d.lines, SECTION.functional);
     if (fr) {
@@ -94,5 +99,5 @@ export function checkCriteria(corpus, out) {
       }
     }
   }
-  return { sections, criteria, without };
+  return { sections, criteria, without, slices };
 }
