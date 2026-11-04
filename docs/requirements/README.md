@@ -54,7 +54,7 @@ requirement is kept in the README of that module.
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 16, MVP 2, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 17, MVP 6 |
 | CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 72 | PoC 43, MVP 26, v1 3 |
-| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 14, PoC v2 1, MVP 29, v1 5, v2 9 |
+| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 14, PoC v2 2, MVP 28, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 10, MVP 1 |

@@ -12,4 +12,4 @@ Shared text of this tab (title, intro, common sections) is kept in [../doc/READM
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [SUP-01](SUP-01.md) | Підтримка і довідка | PoC v2 | M |
+| [SUP-01](SUP-01.md) | Підтримка і довідка | PoC v2 (база знань однією мовою; без сповіщень і email — статус звернення видно в «Ще › Довідка»; кожне звернення — SLA 12 год і пріоритет P2, як у MVP); решта — MVP | M |
