@@ -12,4 +12,4 @@ Shared text of this tab (title, intro, common sections) is kept in [../doc/READM
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [SUP-01](SUP-01.md) | Підтримка і довідка | MVP | M |
+| [SUP-01](SUP-01.md) | Підтримка і довідка | PoC v2 | M |

@@ -36,7 +36,7 @@ requirement is kept in the README of that module.
 | INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
 | NOT | [not/](not/README.md) | Reminders, notifications and notification triggers | 2 | MVP 1, v1 1 |
 | DAT | [dat/](dat/README.md) | Universal list, global search, bulk actions, shared data rules | 5 | PoC 4, MVP 1 |
-| SUP | [sup/](sup/README.md) | Support and help centre | 1 | MVP 1 |
+| SUP | [sup/](sup/README.md) | Support and help centre | 1 | PoC v2 1 |
 | RPT | [rpt/](rpt/README.md) | Standard reports and report schedules | 2 | MVP 1, v2 1 |
 | IMP | [imp/](imp/README.md) | File import engine: uploads, batches, multi-currency events, pairing, recipes | 19 | PoC 16, MVP 3 |
 | UX | [ux/](ux/README.md) | Onboarding, complexity levels, navigation, home screen, hide amounts, personalisation | 9 | PoC 1, MVP 5, v2 3 |
