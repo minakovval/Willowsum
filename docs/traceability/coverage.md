@@ -245,7 +245,7 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 | S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
 
-### Migrated slices without design (20)
+### Migrated slices without design (22)
 
 - ARC-01@MVP
 - ARC-10@MVP
@@ -263,8 +263,10 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 - NFR-09@MVP
 - NFR-11@MVP
 - NFR-12@MVP
+- NFR-14@MVP
 - NFR-15@MVP
 - NFR-16@MVP
+- NFR-17@MVP
 - NFR-18@MVP
 - NFR-19@MVP
 
