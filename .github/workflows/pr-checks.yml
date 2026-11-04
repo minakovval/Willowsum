@@ -17,7 +17,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          if echo "$TITLE" | grep -Eq '^(ACC|SUB|ADM|AST|VAL|FIN|INV|CRY|BUD|IMP|DAT|DOC|INS|NOT|RPT|SUP|UX|GRID|L10N|LEG|PLT|VLT|AI|INT|PLN|ADV|NFR|DS|CMP|FLW|JRN|SCR|ARC|CICD|FCS|WGT|CHT)-[0-9]{2}[a-z]?\b'; then
+          if echo "$TITLE" | grep -Eq '^(ACC|SUB|ADM|AST|VAL|FIN|INV|CRY|BUD|IMP|DAT|DOC|INS|NOT|RPT|SUP|UX|GRID|L10N|LEG|PLT|VLT|AI|INT|PLN|ADV|NFR|DS|CMP|FLW|JRN|SCR|ARC|CICD|FCS|WGT|CHT|PRC)-[0-9]{2}[a-z]?\b'; then
             echo "ok"
           else
             echo "::error::PR title must start with a requirement ID from docs/requirements/ (e.g. BUD-03: ...)"; exit 1
@@ -35,10 +35,21 @@ jobs:
           node-version: 22
       - name: Requirements checker unit tests
         run: node --test tools/req-check
-      # Structure, release/priority, self-containedness, acceptance criteria and the fact registry
-      # (tools/req-check/facts.json). Known findings are in tools/req-check/baseline.json; new ones fail.
+      # Structure, release/priority, self-containedness, acceptance criteria, the fact registry
+      # (tools/req-check/facts.json) and release slices with their link headers. Known findings are in tools/req-check/baseline.json; new ones fail.
       - name: Check docs/requirements
         run: node tools/req-check/index.mjs --report "$RUNNER_TEMP/req-check-report.md"
+      # Release slices and link headers (check 6) feed docs/traceability/ (PRC-01): regenerate it and fail
+      # when the committed files differ.
+      - name: Traceability files are up to date
+        run: |
+          node tools/req-check/index.mjs --quiet --traceability
+          if [ -n "$(git status --porcelain -- docs/traceability)" ]; then
+            git status --porcelain -- docs/traceability
+            git --no-pager diff --stat -- docs/traceability
+            echo "::error::docs/traceability is out of date. Run: node tools/req-check/index.mjs --traceability and commit the result."
+            exit 1
+          fi
       - name: Publish the report to the job summary
         if: always()
         run: |
