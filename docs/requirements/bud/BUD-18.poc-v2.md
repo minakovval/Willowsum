@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: BUD-18@PoC
-- Залежить від: BUD-01@PoC v2, BUD-02@PoC v2, BUD-03@PoC, BUD-05@PoC v2, BUD-16@PoC v2, BUD-17@PoC v2
+- Залежить від: BUD-01@PoC v2, BUD-02@PoC v2, BUD-05@PoC v2, BUD-16@PoC v2, BUD-17@PoC v2
 - Дизайн: S-121, S-129, S-130, S-131
 - Спільні правила: П-10, П-17, П-18, П-24, П-26, DS-01
 - Сценарії: UC-BUD-15, UC-BUD-99, UC-BUD-100, UC-BUD-101
