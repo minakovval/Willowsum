@@ -381,13 +381,15 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 | S-274 | Back office: пошук і картка користувача (trial, купон, план) | SUB-05 | migration |
 | S-275 | Довідники (типи активів, стилі, установи, категорії документів) | SUB-05 | migration |
 
-### Migrated slices without design (5)
+### Migrated slices without design (7)
 
 - CMP-38@v1
+- CMP-39@v1
 - CMP-40@v1
 - CMP-41@v1
 - CMP-43@v1
 - CMP-51@v1
+- CMP-70@v1
 
 ### Slices without acceptance criteria (2)
 
