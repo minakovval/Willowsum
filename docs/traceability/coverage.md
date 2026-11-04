@@ -41,7 +41,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 151 slices without design links (links are unknown until migration).
+Not migrated in PoC: 147 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -57,11 +57,11 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 19 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 17 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (179 of 229)
+### Screens without a slice (161 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -85,21 +85,16 @@ Not migrated in PoC v2: 19 slices without design links (links are unknown until 
 | S-018 | Умови використання | LEG-01, L10N-02 | migration |
 | S-019 | Банер cookie (лише необхідні / прийняти аналітику) | LEG-01 | migration |
 | S-020 | Плани (публічна сторінка цін) | SUB-01, FLW-05 | migration |
-| S-021 | Палітра пошуку і командний рядок (Cmd/Ctrl+K) | UX-04, DAT-02, CMP-16, FLW-27 | migration |
-| S-022 | Усі результати пошуку | DAT-02, UX-04, FLW-27 | migration |
 | S-023 | Клавіатурні скорочення | UX-04 | migration |
 | S-024 | Центр сповіщень (позначити все прочитаним) | NOT-01, CMP-29, FLW-25 | migration |
 | S-026 | Меню профілю і перемикач простору | UX-09, ACC-08, SUP-01 | migration |
 | S-027 | Створити простір | ACC-08 | migration |
-| S-028 | Розділ «\<назва>» вимкнено | UX-09, DAT-05, SUB-07 | migration |
-| S-029 | Немає доступу | UX-09, ACC-10, DAT-05 | migration |
 | S-030 | Пропозиція апгрейду (модаль / нижній аркуш / на місці модуля; «Попросити власника») | SUB-07, SUB-01, UX-03, FLW-06 | migration |
 | S-031 | Сторінка не знайдена | SCR-01 | migration |
 | S-032 | Step-up: повторне підтвердження особи | ACC-03, SCR-02, FLW-03, FLW-04, FLW-28 | migration |
 | S-033 | Зберегти зміни? (Зберегти / Не зберігати / Скасувати) | SCR-02, UX-09 | migration |
 | S-034 | Конфлікт редагування (порівняння полів) | AST-03, FLW-08 | migration |
 | S-035 | Попередження про завершення сесії | ACC-04, FLW-04 | migration |
-| S-036 | Масова дія: підсумок, прогрес, банер «Скасувати» 24 год | DAT-03, SCR-02, FLW-13 | migration |
 | S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
 | S-050 | Рахунки («Гроші разом» з розбивкою за валютами, «Джерела даних», «Готівкові», «Кредитні»; … | FIN-01, FIN-12, GRID-02, FLW-17 | migration |
@@ -113,7 +108,6 @@ Not migrated in PoC v2: 19 slices without design links (links are unknown until 
 | S-062 | «Перепідключити <банк>», «Зіставте рахунки <банку>», відключення | FIN-02, FIN-11, FLW-18 | migration |
 | S-063 | Джерело даних (крихти «Гроші › Рахунки › Підключення › \<банк>»): підключений банк або «Ли… | FIN-18 | migration |
 | S-286 | Поєднати вручну — окрема сторінка (хлібні крихти «Гроші › Транзакції › Пари › Поєднати вру… | IMP-03 | migration |
-| S-070 | Активи (таблиця / картки / галерея, підсумок з мапою, фільтри «Вибулі», «Неповні») | AST-01, AST-02, AST-04, AST-14, DAT-01, DAT-03, GRID-03, UX-08, UX-09, CMP-23, FLW-13 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
 | S-072 | Новий актив (діалог з кроками): «1 Основне · 2 Придбання і локація · 3 Атрибути · 4 Власні… | AST-02, AST-03, SUB-07, FLW-08 | migration |
 | S-073 | Редагування активу з вкладками (Основне, Придбання і локація, Атрибути, Власність і бенефі… | AST-03, AST-07, AST-08, VAL-07, FLW-08 | migration |
@@ -157,25 +151,13 @@ Not migrated in PoC v2: 19 slices without design links (links are unknown until 
 | S-159 | Оплата (Stripe) → «Підписку оформлено» / «Оплату не завершено» | SUB-02, SUB-03, FLW-05 | migration |
 | S-160 | Скасування підписки з опитуванням | SUB-03, FLW-07 | migration |
 | S-161 | Вибір активних об'єктів після пониження плану | SUB-02, ADM-04, FLW-07 | migration |
-| S-162 | Імпорт (вибір джерела: виписка, дані, міграція, журнал криптобіржі, документи; майстер вип… | DAT-04, IMP-01, IMP-08, GRID-05, FLW-10, FLW-17 | migration |
 | S-294 | Імпорт → вкладка «Шаблони» (шаблони імпорту простору) | IMP-07 | migration |
-| S-163 | Історія імпорту (партії, «Відкотити» 7 днів, файл помилок) | DAT-04, IMP-01, IMP-04, IMP-14, IMP-16, IMP-19, FLW-10 | migration |
-| S-164 | Імпорт даних: тип і файл | DAT-04, FLW-10 | migration |
-| S-165 | Імпорт даних: зіставлення колонок (зберегти схему) | DAT-04, FLW-10, FLW-49 | migration |
-| S-166 | Імпорт даних: режим («Створити нові» / «Оновити існуючі») | DAT-04, FLW-10 | migration |
-| S-167 | Імпорт даних: перевірка (кількості, помилки, ліміт плану) | DAT-04, FLW-10 | migration |
-| S-168 | Імпорт даних: прогрес | DAT-04, FLW-10, FLW-49 | migration |
-| S-169 | Імпорт даних: результат | DAT-04, FLW-10 | migration |
 | S-170 | Імпорт виписок: рахунок і файли (підбір шаблону, пароль PDF) | IMP-01, IMP-07, IMP-08, IMP-12, IMP-13, IMP-15, FLW-17 | migration |
 | S-171 | Імпорт виписок: перевірка розпізнавання (оригінал ↔ рядки, банери партії) | IMP-04, IMP-05, IMP-06, IMP-08, IMP-15, IMP-17, IMP-18, FLW-17 | migration |
 | S-172 | Редактор правил розпізнавання (рецепт, сирі клітинки) | IMP-06, IMP-07, IMP-09 | migration |
 | S-173 | Підтвердити розбіжність залишку | IMP-17 | migration |
 | S-174 | Імпорт виписок: результат (створено, замінено, пари, без категорії) | IMP-08, IMP-14, FLW-17 | migration |
-| S-175 | Міграція: вибір сервісу | DAT-04, FLW-49 | migration |
-| S-176 | Міграція: інструкція експорту і файл | DAT-04, FLW-49 | migration |
-| S-177 | Міграція: передперегляд | DAT-04, FLW-49 | migration |
 | S-178 | Міграція: вибір методу бюджету | BUD-16, FLW-49 | migration |
-| S-179 | Міграція: підсумок з поясненням відмінностей | DAT-04, FLW-49 | migration |
 | S-180 | Довідка (категорії, пошук по базі знань) | SUP-01, GRID-05, FLW-29 | migration |
 | S-181 | Стаття довідки | SUP-01, GRID-05 | migration |
 | S-182 | Нове звернення (і з екрана входу з CAPTCHA) | SUP-01, FLW-29, FLW-02 | migration |
@@ -263,7 +245,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 217 slices without design links (links are unknown until migration).
+Not migrated in MVP: 213 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
