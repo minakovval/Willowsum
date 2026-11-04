@@ -81,4 +81,6 @@ when CI is green on the latest commit, the review verdict is «Ready» (and the 
 areas), and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
 AGENTS.md or skills states in its body the owner decision it implements. A PR that changes deploy or
 infrastructure workflows or access/trust settings (OIDC, secrets store, KMS, DNS) also needs an approval
-comment from the owner's own GitHub account on that PR. Never merge your own PR without that independent review. Do not ask the owner to confirm the merge: once these conditions hold, merge at once and report it.
+comment from the owner's own GitHub account on that PR. Never merge your own PR without that independent review.
+Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the owner
+it is merged.
