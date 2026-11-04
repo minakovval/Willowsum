@@ -10,7 +10,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (22)
+### Migrated slices without design (40)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -32,6 +32,24 @@ None.
 - CICD-07@PoC
 - CICD-08@PoC
 - CICD-12@PoC
+- NFR-01@PoC
+- NFR-02@PoC
+- NFR-03@PoC
+- NFR-04@PoC
+- NFR-05@PoC
+- NFR-06@PoC
+- NFR-07@PoC
+- NFR-08@PoC
+- NFR-09@PoC
+- NFR-10@PoC
+- NFR-11@PoC
+- NFR-12@PoC
+- NFR-14@PoC
+- NFR-15@PoC
+- NFR-16@PoC
+- NFR-17@PoC
+- NFR-18@PoC
+- NFR-19@PoC
 - PRC-01@PoC
 - PRC-02@PoC
 
@@ -59,10 +77,10 @@ None.
 - CICD-12@PoC
 - JRN-05@PoC (не мігровано)
 - JRN-06@PoC (не мігровано)
-- NFR-18@PoC (не мігровано)
-- NFR-19@PoC (не мігровано)
+- NFR-09@PoC
+- NFR-19@PoC
 
-Not migrated in PoC: 106 slices without design links (links are unknown until migration).
+Not migrated in PoC: 90 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -70,14 +88,16 @@ Not migrated in PoC: 106 slices without design links (links are unknown until mi
 
 None.
 
-### Migrated slices without design (1)
+### Migrated slices without design (2)
 
 - ARC-01@PoC v2
+- NFR-19@PoC v2
 
-### Slices without acceptance criteria (2)
+### Slices without acceptance criteria (3)
 
 - ARC-01@PoC v2
 - JRN-06@PoC v2 (не мігровано)
+- NFR-19@PoC v2
 
 Not migrated in PoC v2: 14 slices without design links (links are unknown until migration).
 
@@ -224,7 +244,7 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 | S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
 
-### Migrated slices without design (6)
+### Migrated slices without design (20)
 
 - ARC-01@MVP
 - ARC-10@MVP
@@ -232,6 +252,20 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 - CICD-05@MVP
 - CICD-09@MVP
 - CICD-11@MVP
+- NFR-01@MVP
+- NFR-02@MVP
+- NFR-03@MVP
+- NFR-04@MVP
+- NFR-06@MVP
+- NFR-07@MVP
+- NFR-08@MVP
+- NFR-09@MVP
+- NFR-11@MVP
+- NFR-12@MVP
+- NFR-15@MVP
+- NFR-16@MVP
+- NFR-18@MVP
+- NFR-19@MVP
 
 ### Slices without acceptance criteria (14)
 
@@ -247,10 +281,10 @@ Not migrated in PoC v2: 14 slices without design links (links are unknown until 
 - JRN-05@MVP (не мігровано)
 - JRN-06@MVP (не мігровано)
 - JRN-07@MVP (не мігровано)
-- NFR-18@MVP (не мігровано)
-- NFR-19@MVP (не мігровано)
+- NFR-18@MVP
+- NFR-19@MVP
 
-Not migrated in MVP: 194 slices without design links (links are unknown until migration).
+Not migrated in MVP: 185 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -263,16 +297,22 @@ Not migrated in MVP: 194 slices without design links (links are unknown until mi
 | S-282 | Швидка інвентаризація активів камерою | AST-16, FLW-08 | migration |
 | S-283 | Офлайн-пакет подорожі і Сейф без мережі | VLT-05, VLT-08, VLT-09, FLW-52, FLW-54, FLW-55 | migration |
 
-### Migrated slices without design (1)
+### Migrated slices without design (7)
 
 - CICD-10@v1-mobile
+- NFR-01@v1-mobile
+- NFR-04@v1-mobile
+- NFR-07@v1-mobile
+- NFR-08@v1-mobile
+- NFR-11@v1-mobile
+- NFR-13@v1-mobile
 
 ### Slices without acceptance criteria (2)
 
 - CICD-10@v1-mobile
 - JRN-07@v1-mobile (не мігровано)
 
-Not migrated in v1-mobile: 8 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 7 slices without design links (links are unknown until migration).
 
 ## v1
 
@@ -297,9 +337,10 @@ Not migrated in v1-mobile: 8 slices without design links (links are unknown unti
 | S-274 | Back office: пошук і картка користувача (trial, купон, план) | SUB-05 | migration |
 | S-275 | Довідники (типи активів, стилі, установи, категорії документів) | SUB-05 | migration |
 
-### Migrated slices without design (1)
+### Migrated slices without design (2)
 
 - ARC-01@v1
+- NFR-17@v1
 
 ### Slices without acceptance criteria (3)
 
