@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: BUD-05@MVP
-- Залежить від: AST-01@MVP, FIN-01@MVP, FIN-03@MVP, NOT-01@MVP, SUB-07@v1
+- Залежить від: AST-01@MVP, FIN-01@v1, FIN-03@v1, NOT-01@MVP, SUB-07@v1
 - Дизайн: S-136, S-137, S-138, S-140, S-139
 - Спільні правила: П-10, П-17, П-18, П-21, DS-01, NFR-01
 - Сценарії: UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-29, UC-BUD-30, UC-BUD-118, UC-BUD-119, UC-BUD-21, UC-BUD-28

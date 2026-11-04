@@ -41,7 +41,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 131 slices without design links (links are unknown until migration).
+Not migrated in PoC: 125 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -57,11 +57,11 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 17 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 14 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (148 of 229)
+### Screens without a slice (136 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -97,14 +97,6 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-035 | Попередження про завершення сесії | ACC-04, FLW-04 | migration |
 | S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
-| S-050 | Рахунки («Гроші разом» з розбивкою за валютами, «Джерела даних», «Готівкові», «Кредитні»; … | FIN-01, FIN-12, GRID-02, FLW-17 | migration |
-| S-051 | Додати рахунок: вибір способу («Підключити банк» — рекомендовано / «Імпортувати виписку» /… | FIN-01, FIN-02, UX-01, FLW-17, FLW-34 | migration |
-| S-052 | Новий рахунок (діалог-форма 560 px: Тип рахунку*, Назва*, Банк, Залишок* + Валюта*, На дат… | FIN-01, FIN-12, DS-01, FLW-17 | migration |
-| S-055 | Закрити рахунок / Об'єднати рахунки | FIN-12 | migration |
-| S-060 | Вкладка «Підключення» сторінки «Рахунки» (картки за статусами) | FIN-02, FIN-11, CMP-56, FLW-17, FLW-18 | migration |
-| S-061 | Підключення банку: 1 Що отримаємо → 2 Згода → 3 Банк (сторінка банку) → 4 Рахунки → 5 Синх… | FIN-02, FIN-11, FLW-17 | migration |
-| S-062 | «Перепідключити <банк>», «Зіставте рахунки <банку>», відключення | FIN-02, FIN-11, FLW-18 | migration |
-| S-063 | Джерело даних (крихти «Гроші › Рахунки › Підключення › \<банк>»): підключений банк або «Ли… | FIN-18 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
 | S-072 | Новий актив (діалог з кроками): «1 Основне · 2 Придбання і локація · 3 Атрибути · 4 Власні… | AST-02, AST-03, SUB-07, FLW-08 | migration |
 | S-073 | Редагування активу з вкладками (Основне, Придбання і локація, Атрибути, Власність і бенефі… | AST-03, AST-07, AST-08, VAL-07, FLW-08 | migration |
@@ -128,10 +120,6 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-091 | Локації (агрегат, мапа + дерево, таблиця) | AST-09, VAL-11, GRID-03, CMP-35, FLW-13 | migration |
 | S-092 | Сторінка локації | AST-09, VAL-11, GRID-03, FLW-13 | migration |
 | S-093 | Нова локація (адреса з автодоповненням, вкладеність до 5 рівнів) | AST-09 | migration |
-| S-095 | Портфель (графік, розподіл, позиції, дивіденди) | FIN-05, FIN-06, GRID-03, FLW-20 | migration |
-| S-096 | Картка портфеля | FIN-05, FLW-20 | migration |
-| S-097 | Позиція (інструмент, операції, собівартість) | FIN-05, INV-03, FLW-20 | migration |
-| S-098 | Нова операція портфеля | FIN-05, FLW-20 | migration |
 | S-109 | Документи (експорт і квота, фільтри, список + перегляд) | DOC-01, DOC-02, VLT-01, GRID-03, FLW-23 | migration |
 | S-110 | Картка документа (прев'ю, поля типу, версії, «Пов'язано з») | DOC-01, DOC-02, FLW-23 | migration |
 | S-111 | Завантажити документ (зона завантаження, перевірка на віруси) | DOC-01, CMP-06, FLW-23 | migration |
@@ -232,7 +220,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 204 slices without design links (links are unknown until migration).
+Not migrated in MVP: 197 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -254,11 +242,11 @@ None.
 - CICD-10@v1-mobile (не мігровано)
 - JRN-07@v1-mobile (не мігровано)
 
-Not migrated in v1-mobile: 10 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 9 slices without design links (links are unknown until migration).
 
 ## v1
 
-### Screens without a slice (26 of 26)
+### Screens without a slice (16 of 26)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -266,19 +254,9 @@ Not migrated in v1-mobile: 10 slices without design links (links are unknown unt
 | S-038 | Згода на AI | AI-01, AI-04, FLW-45 | migration |
 | S-039 | AI-пояснення «Поясни» (графік, транзакція) | AI-02 | migration |
 | S-043 | Історія net worth і розклад змін | VAL-08, FLW-14 | migration |
-| S-056 | Звірка з банком (залишок у банку, різниця, коригування) | FIN-13, FLW-40 | migration |
-| S-057 | Історія звірок (сортування в заголовках, дати «31 жовт. 2026», суми праворуч, «Хто звірив»… | FIN-13, FLW-40 | migration |
-| S-064 | Рахунки → Кредитні картки (лише картки; підсумок «Заборгованість за картками», смуги викор… | FIN-14 | migration |
 | S-094 | Групи (картки-папки, склад групи) | AST-10, FLW-13 | migration |
-| S-099 | Дохідність (перемикач рівня «Портфель · Власник · Увесь простір», TWR / MWR, бенчмарки) | FIN-06, FLW-20 | migration |
 | S-100 | Невпізнані інструменти | INV-01 | migration |
-| S-101 | Криптоактиви (гаманці, біржі, журнали; «Імпортувати журнал» на картці біржі відкриває спіл… | FIN-07, CRY-01 | migration |
 | S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
-| S-103 | Оновити баланс пенсійного рахунку / поліса життя | FIN-09 | migration |
-| S-104 | Приватна інвестиція (commitment, paid-in, NAV, потоки) | FIN-08, FLW-21 | migration |
-| S-105 | Новий capital call / розподіл | FIN-08, FLW-21 | migration |
-| S-106 | Компенсація акціями: картка гранту (вестовано / невестовано) | FIN-16, FLW-46 | migration |
-| S-107 | Додати грант → графік вестингу → оцінка (з документа — v2) | FIN-16, FLW-46 | migration |
 | S-117 | Медіа і фотогалерея активу | AST-16, CMP-37 | migration |
 | S-118 | Доходи і витрати активу (yield) | AST-06 | migration |
 | S-195 | Сповіщення → Тригери | NOT-02, FLW-25 | migration |
@@ -298,21 +276,19 @@ None.
 - JRN-02@v1 (не мігровано)
 - JRN-06@v1 (не мігровано)
 
-Not migrated in v1: 50 slices without design links (links are unknown until migration).
+Not migrated in v1: 41 slices without design links (links are unknown until migration).
 
 ## v2
 
-### Screens without a slice (36 of 36)
+### Screens without a slice (34 of 36)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-044 | «Ваш \<місяць> у підсумках» (слайди) і річний підсумок | UX-06 | migration |
 | S-045 | Поширення підсумку зображенням | UX-06, FLW-38 | migration |
-| S-108 | Аналіз фондів і портфеля («Інвестиції → Аналіз») | FIN-17 | migration |
 | S-119 | Список бажаних покупок (Wishlist) | AST-15 | migration |
 | S-120 | Імпорт з документів — вхід з «Ще → Імпорт» у той самий потік розбору, що й «Розпізнати» пі… | DOC-03, AI-03, FLW-09 | migration |
 | S-150 | Розклад звіту | RPT-02, FLW-26 | migration |
-| S-151 | Cash flow і ліквідність (календар, таблиця, сценарії) | FIN-10, FLW-22 | migration |
 | S-152 | Прогноз (сценарії, припущення, життєві події) | PLN-01, FLW-47 | migration |
 | S-153 | Пенсія і порядок вилучення | PLN-02, FLW-47 | migration |
 | S-154 | Спадок (спадкове планування з партнером) | PLN-03 | migration |
@@ -343,13 +319,14 @@ Not migrated in v1: 50 slices without design links (links are unknown until migr
 | S-277 | Подарунки і спеціальні програми | SUB-08 | migration |
 | S-278 | Контент навчання (гайди, відео, глосарій, події) | UX-07 | migration |
 
-### Migrated slices without design (0)
+### Migrated slices without design (2)
 
-None.
+- FIN-15@v2
+- FIN-19@v2
 
 ### Slices without acceptance criteria (2)
 
 - JRN-03@v2 (не мігровано)
 - JRN-04@v2 (не мігровано)
 
-Not migrated in v2: 44 slices without design links (links are unknown until migration).
+Not migrated in v2: 40 slices without design links (links are unknown until migration).

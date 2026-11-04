@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: BUD-20@v1-mobile
-- Залежить від: BUD-01@MVP, BUD-08@v1, BUD-13@v1, BUD-14@v1, FIN-03@MVP, SUB-07@v1
+- Залежить від: BUD-01@MVP, BUD-08@v1, BUD-13@v1, BUD-14@v1, FIN-03@v1, SUB-07@v1
 - Дизайн: S-147, S-148
 - Спільні правила: П-6, П-10, П-21, CHT-00, CHT-01, CHT-03, DS-01, NFR-01
 - Сценарії: UC-BUD-106, UC-BUD-107, UC-BUD-108, UC-BUD-109, UC-BUD-110, UC-BUD-111
