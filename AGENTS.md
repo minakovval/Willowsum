@@ -120,6 +120,10 @@ errors) lives only in `packages/domain-kernel`.
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
+8. Never ask the owner to confirm a merge. When the conditions in step 7 hold, merge at once and tell
+   the owner it is merged. Decisions the agent makes itself while fixing review findings are listed in
+   the PR body; the owner changes them later through a new PR if needed. The only owner approvals are
+   the ones step 7 names (deploy, infrastructure, access/trust settings, production releases).
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.
