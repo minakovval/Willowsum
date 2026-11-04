@@ -43,7 +43,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 162 slices without design links (links are unknown until migration).
+Not migrated in PoC: 155 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -59,11 +59,11 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 24 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 21 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (210 of 229)
+### Screens without a slice (191 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -103,7 +103,6 @@ Not migrated in PoC v2: 24 slices without design links (links are unknown until 
 | S-034 | Конфлікт редагування (порівняння полів) | AST-03, FLW-08 | migration |
 | S-035 | Попередження про завершення сесії | ACC-04, FLW-04 | migration |
 | S-036 | Масова дія: підсумок, прогрес, банер «Скасувати» 24 год | DAT-03, SCR-02, FLW-13 | migration |
-| S-040 | Головна · Огляд (чек-лист, «Що потребує уваги», віджети) | VAL-09, UX-01, UX-03, UX-08, BUD-03, SUB-02, GRID-01, FLW-14, WGT-00, WGT-01, WGT-10, CHT-01 | migration |
 | S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
 | S-048 | Нова транзакція (діалог-форма 560 px: тип, Сума*, Рахунок*, Дата*, Контрагент, Категорія, … | FIN-03, UX-04, DS-01, FLW-19 | migration |
@@ -160,24 +159,6 @@ Not migrated in PoC v2: 24 slices without design links (links are unknown until 
 | S-114 | Новий поліс | INS-01, FLW-24 | migration |
 | S-115 | Додати активи до поліса | INS-01, FLW-24 | migration |
 | S-116 | Страховий розклад і чек-лист прогалин | INS-02, RPT-01, FLW-24 | migration |
-| S-122 | Майстер бюджету: спосіб («За моїми витратами» / «Почати з нуля») | BUD-02, FLW-34 | migration |
-| S-123 | Майстер бюджету: період; блок «Ви починаєте посеред періоду» розкривається під обраним тип… | BUD-02, UX-01, FLW-34 | migration |
-| S-124 | Майстер бюджету: ліміти категорій (позначка «обов'язкова»; нижня смуга «не розподілено € N… | BUD-02, BUD-18, FLW-34 | migration |
-| S-126 | Бюджет → вкладка «План» (розділи «Надходження», «Витрати», «Цілі й заощадження», «Погашенн… | BUD-17 | migration |
-| S-127 | Налаштування бюджету → вкладка «Період» | BUD-02 | migration |
-| S-128 | Налаштування бюджету → вкладка «Рахунки бюджету» (приватні рахунки) | BUD-02, BUD-09 | migration |
-| S-132 | Порівняння періодів (вибір періоду: тип, потім конкретний період; «Порівняти з: <база> ˅»,… | BUD-06, CMP-72, FLW-38 | migration |
-| S-134 | Бюджет → вкладка «Грошовий потік» і норма заощаджень (типи періоду «Місяць», «Квартал», «З… | BUD-08, FLW-38 | migration |
-| S-135 | Підсумок періоду (порівняння з середнім, категорії) | BUD-06, BUD-10, FLW-38 | migration |
-| S-142 | Чи можу я дозволити (форма, результат, розстрочка) | BUD-04, GRID-04, FLW-36 | migration |
-| S-143 | Борги (список зобов'язань, прогрес; іконка «›» «Редагувати в «Активи › Зобов'язання»») | BUD-19, FLW-44 | migration |
-| S-144 | Борги → План погашення (сценарій) | BUD-19, FLW-44 | migration |
-| S-145 | Борги → Стратегія (avalanche / snowball) | BUD-19, FLW-44 | migration |
-| S-146 | Борги → Прогрес («Поділитися» прибрано з MVP, перенесено у v2) | BUD-19, FLW-44 | migration |
-| S-287 | Майстер бюджету: розподіл (профіцит → цілі / погашення боргів / заощадження / лишити; дефі… | BUD-02, FLW-34 | migration |
-| S-288 | Налаштування бюджету → вкладка «Загальне» («Режим без бюджету», «Новий старт», «Сповіщення… | BUD-02, BUD-10, BUD-17 | migration |
-| S-289 | Бюджет · майбутній місяць (лише план: банер «Це план на <місяць> — витрат ще немає», колон… | BUD-02, BUD-17 | migration |
-| S-290 | Порівняння → сегментований перемикач «З порівнянням / Рік: план і факт» у рядку інструмент… | BUD-06, CMP-72 | migration |
 | S-147 | Звіти (стандартні звіти, архів, збережені звіти конструктора) | BUD-20, RPT-01, GRID-04, FLW-26 | migration |
 | S-148 | Звіти → Новий звіт (конструктор: Sankey, тренд, treemap, drill-down) | BUD-20 | migration |
 | S-149 | Стандартний звіт: параметри і переглядач (8 звітів, експорт PDF/XLSX) | RPT-01, FLW-26 | migration |
@@ -296,7 +277,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 225 slices without design links (links are unknown until migration).
+Not migrated in MVP: 223 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 

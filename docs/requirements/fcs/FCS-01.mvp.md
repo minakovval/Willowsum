@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FCS-01@PoC
-- Залежить від: AST-11@MVP, BUD-01@MVP, BUD-02@MVP, BUD-04@PoC, BUD-07@MVP, BUD-10@MVP, BUD-18@MVP, FIN-01@MVP, FIN-03@MVP, INS-01@MVP
+- Залежить від: AST-11@MVP, BUD-01@MVP, BUD-02@MVP, BUD-04@MVP, BUD-07@MVP, BUD-10@MVP, BUD-18@MVP, FIN-01@MVP, FIN-03@MVP, INS-01@MVP
 - Дизайн: S-121
 - Спільні правила: П-1, П-2, П-3, П-10, П-14, П-17, П-21, ARC-01, NFR-01
 - Сценарії: UC-FCS-01, UC-FCS-02, UC-FCS-03

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: BUD-18@MVP
-- Залежить від: BUD-01@MVP, BUD-02@MVP, BUD-03@MVP, BUD-05@v1, BUD-09@MVP, BUD-16@v1, BUD-17@PoC, SUB-07@v1
+- Залежить від: BUD-01@MVP, BUD-02@v1, BUD-03@v1-mobile, BUD-05@v1, BUD-09@MVP, BUD-16@v1, BUD-17@v1, SUB-07@v1
 - Дизайн: S-121, S-129, S-130, S-131
 - Спільні правила: П-10, П-17, П-18, П-21, DS-01, NFR-01
 - Сценарії: UC-BUD-15, UC-BUD-99, UC-BUD-100, UC-BUD-101
