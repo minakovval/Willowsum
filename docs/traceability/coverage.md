@@ -41,7 +41,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 147 slices without design links (links are unknown until migration).
+Not migrated in PoC: 131 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -61,7 +61,7 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 
 ## MVP
 
-### Screens without a slice (161 of 229)
+### Screens without a slice (148 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -100,14 +100,11 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-050 | Рахунки («Гроші разом» з розбивкою за валютами, «Джерела даних», «Готівкові», «Кредитні»; … | FIN-01, FIN-12, GRID-02, FLW-17 | migration |
 | S-051 | Додати рахунок: вибір способу («Підключити банк» — рекомендовано / «Імпортувати виписку» /… | FIN-01, FIN-02, UX-01, FLW-17, FLW-34 | migration |
 | S-052 | Новий рахунок (діалог-форма 560 px: Тип рахунку*, Назва*, Банк, Залишок* + Валюта*, На дат… | FIN-01, FIN-12, DS-01, FLW-17 | migration |
-| S-054 | Рахунок → Налаштування (Основне, Показ, Реквізити, Джерело даних, Об'єднати / Закрити) | FIN-12 | migration |
 | S-055 | Закрити рахунок / Об'єднати рахунки | FIN-12 | migration |
-| S-059 | Вкладка «Пари · N» сторінки «Транзакції» (пропозиції переказів і обмінів, односторонні пер… | IMP-03 | migration |
 | S-060 | Вкладка «Підключення» сторінки «Рахунки» (картки за статусами) | FIN-02, FIN-11, CMP-56, FLW-17, FLW-18 | migration |
 | S-061 | Підключення банку: 1 Що отримаємо → 2 Згода → 3 Банк (сторінка банку) → 4 Рахунки → 5 Синх… | FIN-02, FIN-11, FLW-17 | migration |
 | S-062 | «Перепідключити <банк>», «Зіставте рахунки <банку>», відключення | FIN-02, FIN-11, FLW-18 | migration |
 | S-063 | Джерело даних (крихти «Гроші › Рахунки › Підключення › \<банк>»): підключений банк або «Ли… | FIN-18 | migration |
-| S-286 | Поєднати вручну — окрема сторінка (хлібні крихти «Гроші › Транзакції › Пари › Поєднати вру… | IMP-03 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
 | S-072 | Новий актив (діалог з кроками): «1 Основне · 2 Придбання і локація · 3 Атрибути · 4 Власні… | AST-02, AST-03, SUB-07, FLW-08 | migration |
 | S-073 | Редагування активу з вкладками (Основне, Придбання і локація, Атрибути, Власність і бенефі… | AST-03, AST-07, AST-08, VAL-07, FLW-08 | migration |
@@ -151,12 +148,6 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-159 | Оплата (Stripe) → «Підписку оформлено» / «Оплату не завершено» | SUB-02, SUB-03, FLW-05 | migration |
 | S-160 | Скасування підписки з опитуванням | SUB-03, FLW-07 | migration |
 | S-161 | Вибір активних об'єктів після пониження плану | SUB-02, ADM-04, FLW-07 | migration |
-| S-294 | Імпорт → вкладка «Шаблони» (шаблони імпорту простору) | IMP-07 | migration |
-| S-170 | Імпорт виписок: рахунок і файли (підбір шаблону, пароль PDF) | IMP-01, IMP-07, IMP-08, IMP-12, IMP-13, IMP-15, FLW-17 | migration |
-| S-171 | Імпорт виписок: перевірка розпізнавання (оригінал ↔ рядки, банери партії) | IMP-04, IMP-05, IMP-06, IMP-08, IMP-15, IMP-17, IMP-18, FLW-17 | migration |
-| S-172 | Редактор правил розпізнавання (рецепт, сирі клітинки) | IMP-06, IMP-07, IMP-09 | migration |
-| S-173 | Підтвердити розбіжність залишку | IMP-17 | migration |
-| S-174 | Імпорт виписок: результат (створено, замінено, пари, без категорії) | IMP-08, IMP-14, FLW-17 | migration |
 | S-178 | Міграція: вибір методу бюджету | BUD-16, FLW-49 | migration |
 | S-180 | Довідка (категорії, пошук по базі знань) | SUP-01, GRID-05, FLW-29 | migration |
 | S-181 | Стаття довідки | SUP-01, GRID-05 | migration |
@@ -168,7 +159,6 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-188 | Мова і формати | ACC-05, L10N-01, L10N-02 | migration |
 | S-189 | Безпека (пароль, 2FA, passkey, активні сесії, історія входів) | ACC-03, ACC-04, ACC-11, FLW-04 | migration |
 | S-190 | Налаштування 2FA (passkey / QR і секрет / коди відновлення) | ACC-03, FLW-04 | migration |
-| S-191 | Приватність (приховати суми, аналітика, згоди, демо для показу) | UX-02, LEG-01, IMP-11, VLT-18 | migration |
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | migration |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | migration |
 | S-200 | Простір: загальне (назва, валюта звітності, тайм-аут, передати, видалити) | ACC-04, ACC-06, ACC-08 | migration |
@@ -220,9 +210,6 @@ Not migrated in PoC v2: 17 slices without design links (links are unknown until 
 | S-265 | Персонал (співробітники і ролі) | ADM-05, GRID-07 | migration |
 | S-266 | Простори (фільтри, бічна панель, доступ підтримки) | SUP-01, SUB-05, GRID-07 | migration |
 | S-267 | Черга підтримки (звернення, запит доступу до 72 год) | SUP-01, GRID-07, FLW-29 | migration |
-| S-268 | Бібліотека шаблонів банків (список, версії) | IMP-10 | migration |
-| S-269 | Шаблон: версія, «Перевірити на зразку», «чотири ока» | IMP-10 | migration |
-| S-270 | Покриття шаблонів і звіт про невдалі розпізнавання | IMP-10, IMP-11 | migration |
 | S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 | S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
@@ -245,7 +232,7 @@ None.
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 213 slices without design links (links are unknown until migration).
+Not migrated in MVP: 204 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 

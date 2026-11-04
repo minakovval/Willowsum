@@ -119,7 +119,7 @@ flowchart LR
   DAT_05_v1_mobile --> UX_01_MVP
   DAT_05_v1_mobile -.-> DAT_05_MVP
   classDef notMigrated fill:#eee,stroke:#999,color:#555
-  class ACC_10_MVP,AST_11_MVP,FIN_01_MVP,FIN_03_MVP,FIN_12_PoC_v2,IMP_08_MVP,INS_01_MVP,NOT_01_MVP,SUP_01_MVP,UX_01_MVP,UX_02_MVP notMigrated
+  class ACC_10_MVP,AST_11_MVP,FIN_01_MVP,FIN_03_MVP,FIN_12_PoC_v2,INS_01_MVP,NOT_01_MVP,SUP_01_MVP,UX_01_MVP,UX_02_MVP notMigrated
 ```
 
 ## Build sequence

@@ -110,7 +110,7 @@ flowchart LR
   FCS_03_PoC_v2 --> FCS_02_PoC
   FCS_03_PoC_v2 -.-> FCS_03_PoC
   classDef notMigrated fill:#eee,stroke:#999,color:#555
-  class FIN_01_PoC_v2,FIN_03_PoC_v2,IMP_08_PoC,SUP_01_PoC_v2 notMigrated
+  class FIN_01_PoC_v2,FIN_03_PoC_v2,SUP_01_PoC_v2 notMigrated
 ```
 
 ## Build sequence
