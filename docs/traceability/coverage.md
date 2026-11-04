@@ -333,7 +333,7 @@ None.
 - CICD-10@v1-mobile (не мігровано)
 - JRN-07@v1-mobile (не мігровано)
 
-Not migrated in v1-mobile: 7 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 10 slices without design links (links are unknown until migration).
 
 ## v1
 
@@ -377,7 +377,7 @@ None.
 - JRN-02@v1 (не мігровано)
 - JRN-06@v1 (не мігровано)
 
-Not migrated in v1: 48 slices without design links (links are unknown until migration).
+Not migrated in v1: 50 slices without design links (links are unknown until migration).
 
 ## v2
 
@@ -431,4 +431,4 @@ None.
 - JRN-03@v2 (не мігровано)
 - JRN-04@v2 (не мігровано)
 
-Not migrated in v2: 42 slices without design links (links are unknown until migration).
+Not migrated in v2: 44 slices without design links (links are unknown until migration).

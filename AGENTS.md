@@ -32,8 +32,9 @@ in the text. Requirements not migrated yet keep the old one-file format. Format 
 `docs/requirements/README.md`, «Release slices and links».
 
 Before changing a requirement, a screen or a shared rule, run
-`node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n>` and update every dependent slice in the
-same PR or list it as follow-up in the PR body (PRC-02). Regenerate `docs/traceability/` in the same PR.
+`node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n|UC-id|module>` and update every
+dependent slice in the same PR or list it as follow-up with an issue in the PR body (PRC-02).
+Regenerate `docs/traceability/` and `docs/validation/req-check-report.md` in the same PR.
 
 ## Planned code layout
 

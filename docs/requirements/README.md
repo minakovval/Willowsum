@@ -54,24 +54,44 @@ comma-separated IDs, `—` for an empty list:
 | Дизайн | screen IDs from `docs/ux/screen-map.md` (`S-121`) and canvas board names (`PocPlanBudget`) | screens must exist; board names are checked for shape only |
 | Спільні правила | `П-n` from 00-general.md; IDs of DS, CMP, GRID, CHT, ARC, NFR, CICD, PRC, L10N, SCR | must exist and start no later than the slice |
 | Сценарії | use-case IDs from `docs/ux/use-cases` (`UC-BUD-87`) | must exist |
-| Модуль | module names from the ARC-01 catalogue | at least one, except for ARC, NFR, CICD, PRC and other shared areas |
+| Модуль | module names from the ARC-01 catalogue | at least one, except in the shared areas DS, CMP, GRID, CHT, ARC, NFR, CICD, PRC, L10N, SCR (may be `—`) |
 | Перевіряється | repository paths of tests | must exist |
 
-A card's link header has only «Зрізи» (its slices, in release order, matching the files) and «Модуль».
+A card's link header has only «Зрізи» (its slices, in release order, matching the files) and «Модуль» (exactly the union of its slices' modules).
 
 **Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
 slice stays self-contained: no other requirement IDs (the checker enforces it).
 
 **Not yet migrated.** A file without a link header keeps working as before: it counts as one implicit
-slice per release on its «Реліз» line (`решта — MVP` included; «основа … — PoC» is not a slice), without
-links, shown as «не мігровано» in the matrix. Other slices may depend on these implicit slices.
+slice per release on its «Реліз» line, without links, shown as «не мігровано» in the matrix. Only
+top-level segments create implicit slices: the line is split on `;` and `·` outside parentheses, and a
+segment counts when it starts with a release (`MVP (…)`) or ends with one (`решта — MVP`). A release
+named only inside parentheses (`PoC (…; push — v1-mobile)`) and «основа в архітектурі й моделі даних — PoC»
+create no slice. Other slices may depend on these implicit slices.
 
 **Traceability.** `node tools/req-check/index.mjs --traceability` writes
 [docs/traceability/](../traceability/README.md): `matrix.md` (one row per slice), `release-<key>.md` per
 release (slices, Mermaid dependency graph, build sequence in waves) and `coverage.md` (screens without a
 slice, slices without design, slices without criteria). The files are committed; CI regenerates them and
-fails on any difference. `--impact <ID | slice | S-id | board | П-n | UC-id | module>` lists everything
-that depends on a target, transitively (PRC-02).
+fails on any difference; the same CI step also regenerates `docs/validation/req-check-report.md`.
+
+**Change process (PRC-02).** Before changing a requirement, a slice, a screen, a canvas board or a
+shared rule, run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>`:
+it lists every dependent slice transitively, with the files, screens, use cases, docs/ux mentions,
+tests and modules to update. Update dependent slices in the same PR or list each one in the PR body as
+follow-up with an issue; regenerate the traceability files and the report; record the owner's decision
+in the PR body. Merge conditions are those of AGENTS.md step 7:
+
+- CI green on the latest commit and «Ready» from a review in a separate session; changes to auth,
+  permissions, encryption, money calculations, database schema, pipeline or infrastructure also need a
+  separate security review;
+- PRs that change requirements, AGENTS.md or skills: the PR body records the owner's decision;
+- PRs that change deploy or infrastructure workflows or access/trust settings (OIDC trust, secrets store,
+  KMS, DNS): only after the owner comments approval on that PR from their own GitHub account;
+- no merge while the owner has said «stop» or has an open question on the PR;
+- production releases and production actions need the owner's approval; never push to `main` directly.
+
+When these hold, the authoring agent merges without asking the owner again.
 
 Each module folder has a `README.md` with the module intro and a table of its requirements
 (ID, title, release, priority). Text from a specification tab that is not part of any single
