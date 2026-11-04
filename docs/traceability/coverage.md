@@ -10,7 +10,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (54)
+### Migrated slices without design (55)
 
 - CMP-01@PoC
 - CMP-02@PoC
@@ -64,6 +64,7 @@ None.
 - DS-16@PoC
 - DS-17@PoC
 - DS-22@PoC
+- GRID-00@PoC
 - PRC-01@PoC
 - PRC-02@PoC
 
@@ -93,7 +94,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 65 slices without design links (links are unknown until migration).
+Not migrated in PoC: 60 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -111,30 +112,24 @@ None.
 
 - JRN-06@PoC v2 (не мігровано)
 
-Not migrated in PoC v2: 10 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 9 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (131 of 229)
+### Screens without a slice (115 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
-| S-001 | Реєстрація | ACC-01, LEG-01, GRID-06, FLW-01 | migration |
 | S-002 | Перевірте пошту (змінити email, надіслати ще раз) | ACC-01, FLW-01 | migration |
 | S-003 | Посилання недійсне / прострочене | ACC-01, FLW-01 | migration |
-| S-004 | Вхід (пароль або passkey, CAPTCHA) | ACC-01, ACC-04, GRID-06, FLW-02 | migration |
-| S-005 | Другий фактор (код, довіряти пристрою 30 днів) | ACC-03, GRID-06, FLW-02 | migration |
 | S-006 | Код відновлення / «Немає ні пристрою, ні кодів» | ACC-03, SUP-01, FLW-02 | migration |
 | S-007 | Відновлення пароля (запит, лист надіслано, новий пароль) | ACC-01, FLW-02 | migration |
 | S-008 | Акаунт закрито (відновити / вийти) | ACC-07, FLW-02, FLW-28 | migration |
 | S-009 | Умови оновлено (погоджуюсь / не погоджуюсь) | LEG-01 | migration |
 | S-010 | Вас запрошено до \<простір> (прийняття запрошення) | ACC-09, FLW-01, FLW-03 | migration |
 | S-011 | У вас поки немає простору | ACC-08, FLW-01 | migration |
-| S-012 | Інтро: 3 слайди (Далі / Пропустити / Спробувати демо) | UX-01, GRID-06, FLW-01 | migration |
-| S-013 | Питання про мету «Що для вас найважливіше зараз?» | UX-01, UX-08, GRID-06, FLW-01 | migration |
 | S-014 | Валюта звітності (крок 1 з 2) | ACC-06, UX-01, FLW-01 | migration |
 | S-015 | Захистіть акаунт (крок 2 з 2: passkey, TOTP, коди відновлення) | ACC-03, FLW-01 | migration |
-| S-016 | Демо-простір (банер «Демо-режим · дані вигадані» на всіх екранах) | UX-01, UX-02, GRID-06, FLW-01 | migration |
 | S-017 | Політика приватності | LEG-01, L10N-02 | migration |
 | S-018 | Умови використання | LEG-01, L10N-02 | migration |
 | S-019 | Банер cookie (лише необхідні / прийняти аналітику) | LEG-01 | migration |
@@ -148,13 +143,11 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 | S-033 | Зберегти зміни? (Зберегти / Не зберігати / Скасувати) | SCR-02, UX-09 | migration |
 | S-034 | Конфлікт редагування (порівняння полів) | AST-03, FLW-08 | migration |
 | S-035 | Попередження про завершення сесії | ACC-04, FLW-04 | migration |
-| S-041 | Головна · Net worth (графік, активи і зобов'язання, драйвери, «Усі позиції») | VAL-09, VAL-04, VAL-07, GRID-01, FLW-14, FLW-16, CHT-01, CHT-03 | migration |
 | S-042 | Режим редагування «Огляду» і каталог «Додати віджет» (порядок, видимість, «Скинути до типо… | WGT-02, UX-03, UX-08, FLW-14 | migration |
 | S-071 | Вибір типу активу | AST-01, FLW-08 | migration |
 | S-072 | Новий актив (діалог з кроками): «1 Основне · 2 Придбання і локація · 3 Атрибути · 4 Власні… | AST-02, AST-03, SUB-07, FLW-08 | migration |
 | S-073 | Редагування активу з вкладками (Основне, Придбання і локація, Атрибути, Власність і бенефі… | AST-03, AST-07, AST-08, VAL-07, FLW-08 | migration |
 | S-074 | Чернетки активів | AST-03, FLW-08 | migration |
-| S-075 | Картка активу · Огляд (фото, підписний вигляд типу, вартість, власники, документи, страхув… | AST-01, AST-02, AST-11, AST-14, AST-14a, INS-01, GRID-03, FLW-08, FLW-12 | migration |
 | S-076 | Картка активу · Вартість (спостереження, графік, джерела, свіжість) | VAL-01, VAL-02, VAL-03, VAL-06, VAL-10, FLW-15 | migration |
 | S-077 | Додати оцінку | VAL-01, FLW-15 | migration |
 | S-078 | Картка активу · Документи | DOC-01, DOC-02, FLW-23 | migration |
@@ -180,18 +173,13 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 | S-115 | Додати активи до поліса | INS-01, FLW-24 | migration |
 | S-116 | Страховий розклад і чек-лист прогалин | INS-02, RPT-01, FLW-24 | migration |
 | S-149 | Стандартний звіт: параметри і переглядач (8 звітів, експорт PDF/XLSX) | RPT-01, FLW-26 | migration |
-| S-156 | Сповіщення (нові, прочитані, вирішені) | NOT-01, GRID-05, FLW-25 | migration |
-| S-157 | Плани і підписка (поточний план, використання, плани, рахунки, оплата) | SUB-01, SUB-02, SUB-03, GRID-05, FLW-05, FLW-07 | migration |
 | S-159 | Оплата (Stripe) → «Підписку оформлено» / «Оплату не завершено» | SUB-02, SUB-03, FLW-05 | migration |
 | S-160 | Скасування підписки з опитуванням | SUB-03, FLW-07 | migration |
 | S-161 | Вибір активних об'єктів після пониження плану | SUB-02, ADM-04, FLW-07 | migration |
 | S-178 | Міграція: вибір методу бюджету | BUD-16, FLW-49 | migration |
-| S-180 | Довідка (категорії, пошук по базі знань) | SUP-01, GRID-05, FLW-29 | migration |
-| S-181 | Стаття довідки | SUP-01, GRID-05 | migration |
 | S-182 | Нове звернення (і з екрана входу з CAPTCHA) | SUP-01, FLW-29, FLW-02 | migration |
 | S-183 | Мої звернення (відкрите, з відповіддю, закрите) | SUP-01, FLW-29 | migration |
 | S-184 | Запит доступу підтримки: погодити / відхилити / відкликати | SUP-01, SUB-05, FLW-29 | migration |
-| S-186 | Налаштування (список розділів; на Compact — окремий екран) | GRID-05, SCR-01 | migration |
 | S-187 | Профіль (ім'я, аватар, телефон, зміна email) | ACC-05, L10N-01 | migration |
 | S-188 | Мова і формати | ACC-05, L10N-01, L10N-02 | migration |
 | S-189 | Безпека (пароль, 2FA, passkey, активні сесії, історія входів) | ACC-03, ACC-04, ACC-11, FLW-04 | migration |
@@ -239,8 +227,6 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 | S-244 | Документи \<Ім'я> (екстрений доступ у довіреної особи: запит, відлік, перегляд) | VLT-12, FLW-57 | migration |
 | S-245 | Історія доступу до записів | VLT-13, FLW-57 | migration |
 | S-259 | Вхід персоналу (SSO, 2FA, дозволені IP) | ADM-05, GRID-07 | migration |
-| S-260 | Каталог функцій (ключі, прапорці, тексти апгрейду) | ADM-01, GRID-07, FLW-39 | migration |
-| S-261 | Плани → Матриця (версія, ліміти, чернетка) | ADM-02, ADM-04, ADM-07, GRID-07, FLW-39 | migration |
 | S-262 | Перевірка впливу і правило для поточних користувачів | ADM-03, ADM-04, FLW-39 | migration |
 | S-263 | Підтвердження другою людиною → публікація або розклад | ADM-03, FLW-39 | migration |
 | S-264 | Історія версій, різниця, відкат | ADM-03, GRID-07, FLW-39 | migration |
@@ -249,9 +235,8 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 | S-267 | Черга підтримки (звернення, запит доступу до 72 год) | SUP-01, GRID-07, FLW-29 | migration |
 | S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
-| S-297 | Журнал дій (фільтри, записи з IP; вхід — пункт меню адмін-панелі) | ADM-05, GRID-07 | migration |
 
-### Migrated slices without design (77)
+### Migrated slices without design (78)
 
 - CMP-01@MVP
 - CMP-02@MVP
@@ -330,6 +315,7 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 - DS-20@MVP
 - DS-21@MVP
 - DS-22@MVP
+- GRID-00@MVP
 
 ### Slices without acceptance criteria (11)
 
@@ -345,7 +331,7 @@ Not migrated in PoC v2: 10 slices without design links (links are unknown until 
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 161 slices without design links (links are unknown until migration).
+Not migrated in MVP: 155 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
