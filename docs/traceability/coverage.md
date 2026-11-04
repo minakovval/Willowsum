@@ -88,9 +88,10 @@ Not migrated in PoC: 90 slices without design links (links are unknown until mig
 
 None.
 
-### Migrated slices without design (2)
+### Migrated slices without design (3)
 
 - ARC-01@PoC v2
+- NFR-01@PoC v2
 - NFR-19@PoC v2
 
 ### Slices without acceptance criteria (3)
