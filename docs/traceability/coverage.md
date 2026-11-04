@@ -10,8 +10,9 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (55)
+### Migrated slices without design (56)
 
+- CHT-00@PoC
 - CMP-01@PoC
 - CMP-02@PoC
 - CMP-03@PoC
@@ -94,7 +95,7 @@ None.
 - NFR-18@PoC (не мігровано)
 - NFR-19@PoC (не мігровано)
 
-Not migrated in PoC: 60 slices without design links (links are unknown until migration).
+Not migrated in PoC: 57 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -236,8 +237,9 @@ Not migrated in PoC v2: 9 slices without design links (links are unknown until m
 | S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 
-### Migrated slices without design (78)
+### Migrated slices without design (79)
 
+- CHT-00@MVP
 - CMP-01@MVP
 - CMP-02@MVP
 - CMP-03@MVP
@@ -331,7 +333,7 @@ Not migrated in PoC v2: 9 slices without design links (links are unknown until m
 - NFR-18@MVP (не мігровано)
 - NFR-19@MVP (не мігровано)
 
-Not migrated in MVP: 155 slices without design links (links are unknown until migration).
+Not migrated in MVP: 154 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
