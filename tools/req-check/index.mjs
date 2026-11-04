@@ -4,9 +4,13 @@
 //   node tools/req-check/index.mjs                       check, print findings, exit 1 on new errors
 //   node tools/req-check/index.mjs --report <file.md>    also write a Markdown report
 //   node tools/req-check/index.mjs --update-baseline     accept all current errors into baseline.json
+//   node tools/req-check/index.mjs --traceability        also write docs/traceability/ (matrix, releases, coverage)
+//   node tools/req-check/index.mjs --impact <target>     list what depends on a requirement, slice, screen, board,
+//                                                        П-rule, use case or module (transitively), then exit
 //
 // Options: --root <dir> (repository root, default cwd), --requirements <dir> (default docs/requirements),
-// --baseline <file> (default tools/req-check/baseline.json), --no-baseline, --quiet.
+// --baseline <file> (default tools/req-check/baseline.json), --no-baseline, --quiet,
+// --traceability-dir <dir> (default docs/traceability).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,11 +19,14 @@ import { runChecks } from './lib/run.mjs';
 import { readBaseline, applyBaseline, makeBaseline } from './lib/baseline.mjs';
 import { renderReport } from './lib/report.mjs';
 import { CHECKS } from './lib/findings.mjs';
+import { loadRegistries } from './lib/registries.mjs';
+import { renderTraceability } from './lib/traceability.mjs';
+import { computeImpact, renderImpact } from './lib/impact.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, updateBaseline: false, useBaseline: true, quiet: false };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -31,6 +38,9 @@ export function parseArgs(argv) {
     else if (a === '--baseline') opts.baseline = next();
     else if (a === '--facts') opts.facts = next();
     else if (a === '--report') opts.report = next();
+    else if (a === '--traceability') opts.traceability = true;
+    else if (a === '--impact') opts.impact = next();
+    else if (a === '--traceability-dir') opts.traceabilityDir = next();
     else if (a === '--update-baseline') opts.updateBaseline = true;
     else if (a === '--no-baseline') opts.useBaseline = false;
     else if (a === '--quiet') opts.quiet = true;
@@ -43,12 +53,20 @@ export function parseArgs(argv) {
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
-    log('usage: node tools/req-check/index.mjs [--report file.md] [--update-baseline] [--no-baseline] [--root dir]');
+    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--update-baseline] [--no-baseline] [--root dir]');
     return 0;
   }
   const corpus = loadCorpus(opts.root, opts.requirements);
   const factsSpec = JSON.parse(fs.readFileSync(opts.facts, 'utf8'));
-  const result = runChecks(corpus, factsSpec);
+  const registries = loadRegistries(opts.root);
+  const result = runChecks(corpus, factsSpec, registries);
+
+  if (opts.impact) {
+    const impact = computeImpact(result.model, registries, opts.impact);
+    if (!impact) throw new Error(`--impact: "${opts.impact}" is not a known requirement, slice, screen, board name, П-rule, use case or module`);
+    log(renderImpact(impact));
+    return 0;
+  }
 
   if (opts.updateBaseline) {
     const doc = makeBaseline(result.findings);
@@ -90,8 +108,17 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     log(`req-check: report written to ${path.relative(process.cwd(), out)}`);
   }
 
+  if (opts.traceability) {
+    const dir = path.resolve(opts.root, opts.traceabilityDir);
+    const files = renderTraceability(result.model, registries, opts.traceabilityDir.split(path.sep).join('/'));
+    fs.mkdirSync(dir, { recursive: true });
+    for (const name of fs.readdirSync(dir)) if (name.endsWith('.md') && !files.has(name)) fs.rmSync(path.join(dir, name));
+    for (const [name, text] of files) fs.writeFileSync(path.join(dir, name), text);
+    log(`req-check: traceability written to ${path.relative(process.cwd(), dir) || '.'} (${files.size} files)`);
+  }
+
   const perCheck = CHECKS.map((c) => `${c} ${findings.filter((f) => f.check === c && f.severity === 'error' && !f.baselined).length}`).join(', ');
-  log(`req-check: ${corpus.docs.filter((d) => d.kind === 'requirement').length} requirement files; ${errors.length} new errors (${perCheck}); ${baselined.length} baselined; ${warnings.length} warnings; baseline ${baseline.findings.length} entries${stale.length ? `, ${stale.length} stale` : ''}.`);
+  log(`req-check: ${corpus.docs.filter((d) => d.kind === 'requirement').length} requirement files, ${corpus.docs.filter((d) => d.kind === 'slice').length} slice files; ${errors.length} new errors (${perCheck}); ${baselined.length} baselined; ${warnings.length} warnings; baseline ${baseline.findings.length} entries${stale.length ? `, ${stale.length} stale` : ''}.`);
   if (stale.length && !opts.quiet) log(`req-check: stale baseline entries (fixed, remove them): ${stale.join(', ')}`);
   return errors.length ? 1 : 0;
 }

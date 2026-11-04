@@ -3,7 +3,7 @@
 /**
  * @typedef {object} Finding
  * @property {string} id         stable identifier used by the baseline (no line numbers)
- * @property {string} check      check group: structure | release | self-contained | criteria | facts
+ * @property {string} check      check group: structure | release | self-contained | criteria | facts | links
  * @property {string} rule       rule name inside the group
  * @property {'error'|'warning'} severity
  * @property {string} file       repository-relative path
@@ -12,7 +12,7 @@
  * @property {boolean} [baselined]
  */
 
-export const CHECKS = ['structure', 'release', 'self-contained', 'criteria', 'facts'];
+export const CHECKS = ['structure', 'release', 'self-contained', 'criteria', 'facts', 'links'];
 
 export const CHECK_TITLES = {
   structure: '1. File name, heading, unique IDs, module READMEs',
@@ -20,6 +20,7 @@ export const CHECK_TITLES = {
   'self-contained': '3. Self-containedness and forbidden words',
   criteria: '4. Acceptance criteria and numbered lists',
   facts: '5. Fact registry',
+  links: '6. Release slices, cards and link headers',
 };
 
 /** Collects findings and makes their ids unique (`#2`, `#3` … for repeats). */

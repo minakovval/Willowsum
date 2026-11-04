@@ -51,3 +51,55 @@ export const SECTION = {
  * or an «Припущення:» paragraph.
  */
 export const SECTION_END_RE = /^(#|\*\*(?!(Given|When|Then|And)\*\*)|Припущення:)/u;
+
+// ---------------------------------------------------------------------------------------------
+// Release slices and link headers (docs/requirements/README.md, «Релізні зрізи і зв'язки»).
+
+/** Releases that have slices, in build order. «Сейф» is part of MVP, not a release of its own. */
+export const SLICE_RELEASES = ['PoC', 'PoC v2', 'MVP', 'v1-mobile', 'v1', 'v2'];
+
+/** Release → file-name key: BUD-16.poc.md, BUD-16.poc-v2.md … */
+export const RELEASE_KEY = { PoC: 'poc', 'PoC v2': 'poc-v2', MVP: 'mvp', 'v1-mobile': 'v1-mobile', v1: 'v1', v2: 'v2' };
+
+/** Slice file name: `<ID>.<release key>.md`. */
+export const SLICE_FILE_RE = /^([A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?)\.(poc|poc-v2|mvp|v1-mobile|v1|v2)\.md$/;
+
+/** Order of a release in SLICE_RELEASES («Сейф» counts as MVP); -1 when unknown. */
+export function releaseIndex(r) {
+  return SLICE_RELEASES.indexOf(r === 'Сейф' ? 'MVP' : r);
+}
+
+/** Label of the link header block. The apostrophe may be ' or ʼ or ’. */
+export const LINK_BLOCK_RE = /^\*\*Зв['ʼ’]язки\*\*\s*$/u;
+
+/** Fixed fields of a slice link header, in this order. */
+export const SLICE_FIELDS = ['Розширює', 'Залежить від', 'Дизайн', 'Спільні правила', 'Сценарії', 'Модуль', 'Перевіряється'];
+
+/** Fixed fields of a card link header, in this order. */
+export const CARD_FIELDS = ['Зрізи', 'Модуль'];
+
+/** The empty value of a link field. */
+export const EMPTY_VALUE = '—';
+
+/**
+ * Areas whose requirements are shared rules that a slice may cite in «Спільні правила»
+ * (design system, components, layout, charts, architecture, NFR, delivery, process, localisation, screens).
+ */
+export const SHARED_AREAS = ['DS', 'CMP', 'GRID', 'CHT', 'ARC', 'NFR', 'CICD', 'PRC', 'L10N', 'SCR'];
+
+/** Where the cross-reference registries live, relative to the repository root. */
+export const REGISTRY_PATHS = {
+  screenMap: 'docs/ux/screen-map.md',
+  useCases: 'docs/ux/use-cases',
+};
+
+/** Shapes of the IDs a link header may hold. */
+export const REF_RE = {
+  slice: /^([A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?)@(PoC v2|PoC|MVP|v1-mobile|v1|v2)$/,
+  requirement: /^[A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?$/,
+  rule: /^П-(\d+)$/u,
+  screen: /^S-\d{3}[a-z]?$/,
+  useCase: /^UC-[A-Z0-9]+-\d{2,3}[a-z]?$/,
+  module: /^[a-z][a-z0-9-]*$/,
+  board: /^[A-Z][A-Za-z0-9]+$/,
+};

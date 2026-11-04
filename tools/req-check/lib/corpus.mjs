@@ -1,15 +1,18 @@
 // Loads docs/requirements into an in-memory corpus. Pure data, no checks.
 import fs from 'node:fs';
 import path from 'node:path';
-import { ID_FILE_RE } from './config.mjs';
+import { ID_FILE_RE, SLICE_FILE_RE, RELEASE_KEY } from './config.mjs';
+
+const RELEASE_OF_KEY = Object.fromEntries(Object.entries(RELEASE_KEY).map(([r, k]) => [k, r]));
 
 /**
  * @typedef {object} Doc
  * @property {string} rel      path relative to the repository root, with forward slashes
  * @property {string} name     file name
  * @property {string} folder   module folder name ('' for files at the top of the requirements dir)
- * @property {'general'|'index'|'readme'|'requirement'|'other'} kind
- * @property {string|null} id  requirement ID for kind 'requirement'
+ * @property {'general'|'index'|'readme'|'requirement'|'slice'|'other'} kind
+ * @property {string|null} id  requirement ID for kind 'requirement' and 'slice'
+ * @property {string} [release] release of a slice ('PoC', 'PoC v2' …)
  * @property {string[]} lines
  */
 
@@ -28,7 +31,13 @@ export function buildCorpus(files, prefix = 'docs/requirements') {
     const folder = parts.length > 1 ? parts[0] : '';
     let kind = 'other';
     let id = null;
-    if (folder === '' && name === '00-general.md') kind = 'general';
+    let release;
+    const slice = SLICE_FILE_RE.exec(name);
+    if (folder !== '' && parts.length === 2 && slice) {
+      kind = 'slice';
+      id = slice[1];
+      release = RELEASE_OF_KEY[slice[2]];
+    } else if (folder === '' && name === '00-general.md') kind = 'general';
     else if (folder === '' && name === 'README.md') kind = 'index';
     else if (folder !== '' && parts.length === 2 && name === 'README.md') kind = 'readme';
     else if (folder !== '' && parts.length === 2 && /^[A-Z][A-Z0-9]*-/.test(name)) {
@@ -42,6 +51,7 @@ export function buildCorpus(files, prefix = 'docs/requirements') {
       folder,
       kind,
       id,
+      ...(release ? { release } : {}),
       lines: text.replace(/\r\n?/g, '\n').split('\n'),
     });
   }
