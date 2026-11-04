@@ -62,5 +62,7 @@ Post one PR review:
 - Questions for the owner where the requirement itself is unclear.
 
 Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
-The authoring agent merges only after «Ready». Changes to auth, permissions, encryption, money, schema,
+The authoring agent merges only after «Ready».
+Once the merge conditions in AGENTS.md step 7 hold: do not ask the owner to confirm the merge; merge
+at once and tell the owner it is merged. Changes to auth, permissions, encryption, money, schema,
 pipeline or infrastructure also need a separate security review — say so if the PR has not had one.

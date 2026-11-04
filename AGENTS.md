@@ -120,6 +120,8 @@ errors) lives only in `packages/domain-kernel`.
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
+   Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the
+   owner it is merged.
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.
