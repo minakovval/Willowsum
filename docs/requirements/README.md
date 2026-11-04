@@ -136,7 +136,7 @@ requirement is kept in the README of that module.
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 13, PoC v2 3, MVP 28, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
-| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 10, MVP 1 |
+| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 11 |
 | CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
 | PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 
