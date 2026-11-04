@@ -30,6 +30,9 @@ test('releases of a «Реліз» line: segments, «решта — MVP», found
   assert.deepEqual(releasesOf('MVP (ручні); v1 — решта back office').releases, ['MVP', 'v1']);
   assert.deepEqual(releasesOf('PoC; PDF і скани — MVP').releases, ['PoC', 'MVP']);
   assert.deepEqual(releasesOf('Сейф').releases, ['MVP']);
+  assert.deepEqual(releasesOf('MVP (поліси) · v1 (переплата)').releases, ['MVP', 'v1']);
+  assert.deepEqual(releasesOf('MVP (центр сповіщень) · v1 (тригери; push — v1-mobile)').releases, ['MVP', 'v1']);
+  assert.deepEqual(releasesOf('PoC (а · б; в — MVP)').releases, ['PoC']);
   assert.deepEqual(releasesOf('').releases, []);
 });
 
@@ -66,7 +69,7 @@ test('unknown IDs in every field are errors', () => {
       Перевіряється: ['missing.test.mjs'],
     }),
   });
-  assert.deepEqual(rules(list), ['depends-needs-release', 'link-unknown-id', 'link-unknown-id', 'link-unknown-module', 'link-unknown-rule', 'link-unknown-screen', 'link-unknown-test', 'link-unknown-use-case', 'link-wrong-field'].sort());
+  assert.deepEqual(rules(list), ['card-module', 'depends-needs-release', 'link-unknown-id', 'link-unknown-id', 'link-unknown-module', 'link-unknown-rule', 'link-unknown-screen', 'link-unknown-test', 'link-unknown-use-case', 'link-wrong-field'].sort());
 });
 
 test('a slice must not depend on a later release, nor on a superseded slice', () => {
@@ -139,8 +142,8 @@ test('«Модуль» may be empty only in shared areas', () => {
     'prc/PRC-01.md': card('PRC-01', ['PoC'], { module: '—' }),
     'prc/PRC-01.poc.md': slice('PRC-01', 'PoC', { Модуль: [] }),
   });
-  assert.deepEqual(rules(list), ['link-module-missing']);
-  assert.match(list[0].file, /BUD-16\.poc\.md$/);
+  assert.deepEqual(rules(list), ['card-module', 'link-module-missing']);
+  assert.match(list.find((f) => f.rule === 'link-module-missing').file, /BUD-16\.poc\.md$/);
 });
 
 test('IDs are allowed in the link header but not in the body of cards and slices', () => {
@@ -164,4 +167,20 @@ test('not-migrated files become implicit slices; slice files are not requirement
   assert.equal(m.slices.get('BUD-16@PoC').explicit, true);
   assert.equal(m.slices.get('BUD-16@PoC').criteria, 1);
   assert.equal(m.features.get('SCR-01').releases.length, 0);
+});
+
+test("a card's «Модуль» must equal the union of its slices' modules", () => {
+  const list = run({
+    'bud/BUD-16.md': card('BUD-16', ['PoC', 'PoC v2'], { module: 'budget, accounts' }),
+    'bud/BUD-16.poc.md': slice('BUD-16', 'PoC'),
+    'bud/BUD-16.poc-v2.md': slice('BUD-16', 'PoC v2', { Розширює: ['BUD-16@PoC'], Модуль: ['budget', 'cashflow'] }),
+  });
+  assert.deepEqual(rules(list), ['card-module']);
+  assert.match(list[0].message, /budget, cashflow; found accounts, budget/);
+  const ok = run({
+    'bud/BUD-16.md': card('BUD-16', ['PoC', 'PoC v2'], { module: 'budget, cashflow' }),
+    'bud/BUD-16.poc.md': slice('BUD-16', 'PoC'),
+    'bud/BUD-16.poc-v2.md': slice('BUD-16', 'PoC v2', { Розширює: ['BUD-16@PoC'], Модуль: ['budget', 'cashflow'] }),
+  });
+  assert.deepEqual(ok, []);
 });

@@ -183,6 +183,18 @@ export function checkLinks(corpus, out, registries, model = buildModel(corpus)) 
     });
   }
 
+  // A card's «Модуль» is exactly the union of its slices' modules.
+  for (const f of model.features.values()) {
+    if (!f.card || !f.slices.length) continue;
+    const fl = field(f.block, 'Модуль');
+    if (!fl) continue;
+    const used = [...new Set(f.slices.flatMap((s) => s.links.modules))].sort();
+    const listed = [...new Set(fl.values)].sort();
+    if (used.join('|') !== listed.join('|')) {
+      add('card-module', f.doc, fl.index, 'modules', `the card's «Модуль» must be the modules of its slices: ${used.join(', ') || '—'}; found ${listed.join(', ') || '—'}`);
+    }
+  }
+
   // Dependency cycles over explicit slices.
   for (const cycle of findCycles(model)) {
     const first = model.slices.get(cycle[0]);

@@ -69,7 +69,7 @@ export function field(block, name) {
   return block?.fields.find((f) => f.name === name);
 }
 
-/** Split on `;` outside parentheses. */
+/** Split on `;` and `·` outside parentheses (the «Пріоритет» part is already stripped). */
 function topLevelSegments(text) {
   const segs = [];
   let depth = 0;
@@ -77,7 +77,7 @@ function topLevelSegments(text) {
   for (const ch of text) {
     if (ch === '(') depth++;
     if (ch === ')') depth = Math.max(0, depth - 1);
-    if (ch === ';' && depth === 0) {
+    if ((ch === ';' || ch === '·') && depth === 0) {
       segs.push(cur);
       cur = '';
     } else cur += ch;
@@ -89,10 +89,11 @@ function topLevelSegments(text) {
 const TAIL_RELEASE_RE = /—\s*«?(PoC v2|PoC|MVP|Сейф|v1-mobile|v1|v2)»?\.?$/u;
 
 /**
- * Releases a «Реліз» text names, in build order: every `;`-separated segment that starts with a
- * release («PoC (…)», «v1 — …») or ends with one («решта — MVP», «PDF і скани — MVP»). A segment
+ * Releases a «Реліз» text names, in build order: every top-level segment (separated by `;` or `·`
+ * outside parentheses) that starts with a release («PoC (…)», «v1 — …») or ends with one («решта — MVP», «PDF і скани — MVP»). A segment
  * «основа в архітектурі й моделі даних — PoC» is the architectural foundation (П-24), not a slice;
- * it is returned as `foundation`. «Сейф» is part of MVP.
+ * it is returned as `foundation`. «Сейф» is part of MVP. A release named only inside parentheses
+ * («PoC (… push — v1-mobile)») does not create a slice.
  * @returns {{releases: string[], foundation: string|null}}
  */
 export function releasesOf(releaseText) {

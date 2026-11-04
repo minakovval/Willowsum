@@ -25,6 +25,47 @@ import { computeImpact, renderImpact } from './lib/impact.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+/** Names of the files --traceability generates; only these are ever removed from the output folder. */
+export const GENERATED_RE = /^(README|matrix|coverage|release-[a-z0-9-]+)\.md$/;
+
+const inside = (parent, child) => {
+  const rel = path.relative(parent, child);
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+};
+
+/**
+ * Resolve and create the --traceability output folder. It must lie inside the repository root (not the
+ * root itself), outside the requirements folder, and must not be a symbolic link (also after resolving
+ * links in its parents).
+ */
+export function traceabilityDir(root, reqDir, outDir) {
+  const rootAbs = path.resolve(root);
+  const reqAbs = path.resolve(root, reqDir);
+  const abs = path.resolve(root, outDir);
+  const check = (r, d, req) => {
+    if (d === r || !inside(r, d)) throw new Error(`--traceability-dir must be a folder inside the repository root: ${outDir}`);
+    if (inside(req, d)) throw new Error(`--traceability-dir must not be inside the requirements folder: ${outDir}`);
+  };
+  check(rootAbs, abs, reqAbs);
+  if (fs.existsSync(abs) || isLink(abs)) {
+    const st = fs.lstatSync(abs);
+    if (st.isSymbolicLink()) throw new Error(`--traceability-dir is a symbolic link; refusing to write: ${outDir}`);
+    if (!st.isDirectory()) throw new Error(`--traceability-dir is not a folder: ${outDir}`);
+  }
+  fs.mkdirSync(abs, { recursive: true });
+  const real = (p) => (fs.existsSync(p) ? fs.realpathSync(p) : p);
+  check(real(rootAbs), real(abs), real(reqAbs));
+  return abs;
+}
+
+function isLink(p) {
+  try {
+    return fs.lstatSync(p).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 export function parseArgs(argv) {
   const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false };
   for (let i = 0; i < argv.length; i++) {
@@ -109,11 +150,18 @@ export function main(argv = process.argv.slice(2), log = console.log) {
   }
 
   if (opts.traceability) {
-    const dir = path.resolve(opts.root, opts.traceabilityDir);
+    const dir = traceabilityDir(opts.root, opts.requirements, opts.traceabilityDir);
     const files = renderTraceability(result.model, registries, opts.traceabilityDir.split(path.sep).join('/'));
-    fs.mkdirSync(dir, { recursive: true });
-    for (const name of fs.readdirSync(dir)) if (name.endsWith('.md') && !files.has(name)) fs.rmSync(path.join(dir, name));
-    for (const [name, text] of files) fs.writeFileSync(path.join(dir, name), text);
+    for (const name of fs.readdirSync(dir)) {
+      if (!GENERATED_RE.test(name) || files.has(name)) continue;
+      if (!fs.lstatSync(path.join(dir, name)).isFile()) continue; // never follow or remove links and folders
+      fs.rmSync(path.join(dir, name));
+    }
+    for (const [name, text] of files) {
+      const p = path.join(dir, name);
+      if (fs.existsSync(p) && !fs.lstatSync(p).isFile()) throw new Error(`--traceability: ${p} is not a regular file; refusing to overwrite it`);
+      fs.writeFileSync(p, text);
+    }
     log(`req-check: traceability written to ${path.relative(process.cwd(), dir) || '.'} (${files.size} files)`);
   }
 

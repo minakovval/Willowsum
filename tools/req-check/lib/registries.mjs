@@ -89,12 +89,14 @@ export function parseModuleCatalogue(lines) {
 export function loadRegistries(root) {
   const sm = path.resolve(root, REGISTRY_PATHS.screenMap);
   const ucDir = path.resolve(root, REGISTRY_PATHS.useCases);
-  const screens = fs.existsSync(sm) ? parseScreenMap(fs.readFileSync(sm, 'utf8').split('\n')) : null;
+  const isFile = (p) => fs.existsSync(p) && fs.lstatSync(p).isFile();
+  const screens = isFile(sm) ? parseScreenMap(fs.readFileSync(sm, 'utf8').split('\n')) : null;
   let useCases = null;
   if (fs.existsSync(ucDir)) {
     const texts = fs
-      .readdirSync(ucDir)
-      .filter((n) => /^UC-.*\.md$/.test(n))
+      .readdirSync(ucDir, { withFileTypes: true })
+      .filter((e) => e.isFile() && /^UC-.*\.md$/.test(e.name)) // symbolic links are skipped
+      .map((e) => e.name)
       .sort()
       .map((n) => fs.readFileSync(path.join(ucDir, n), 'utf8'));
     useCases = parseUseCases(texts);
@@ -108,8 +110,9 @@ export function loadRegistries(root) {
   const walk = (dir) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
       const p = path.join(dir, e.name);
+      if (e.isSymbolicLink()) continue; // never follow links out of docs/ux
       if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.md')) uxDocs.push({ rel: path.relative(root, p).split(path.sep).join('/'), lines: fs.readFileSync(p, 'utf8').split('\n') });
+      else if (e.isFile() && e.name.endsWith('.md')) uxDocs.push({ rel: path.relative(root, p).split(path.sep).join('/'), lines: fs.readFileSync(p, 'utf8').split('\n') });
     }
   };
   if (fs.existsSync(uxRoot)) walk(uxRoot);

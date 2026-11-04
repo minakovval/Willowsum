@@ -86,3 +86,21 @@ test('CLI --impact prints the report and fails on an unknown target', () => {
   assert.throws(() => main(['--root', root, '--impact', 'BUD-99'], () => {}), /not a known/);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('docs/ux registries skip symbolic links', async () => {
+  const { loadRegistries } = await import('../lib/registries.mjs');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'req-ux-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'req-ux-out-'));
+  fs.writeFileSync(path.join(outside, 'secret.md'), 'BUD-16 secret');
+  fs.writeFileSync(path.join(outside, 'UC-X.md'), '## UC-BUD-500 · x');
+  fs.mkdirSync(path.join(root, 'docs/ux/use-cases'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'docs/ux/use-cases/UC-BUD.md'), '## UC-BUD-99 · y');
+  fs.symlinkSync(path.join(outside, 'UC-X.md'), path.join(root, 'docs/ux/use-cases/UC-X.md'));
+  fs.symlinkSync(path.join(outside, 'secret.md'), path.join(root, 'docs/ux/secret.md'));
+  fs.symlinkSync(outside, path.join(root, 'docs/ux/dir'));
+  const r = loadRegistries(root);
+  assert.deepEqual([...r.useCases], ['UC-BUD-99']);
+  assert.deepEqual(r.uxDocs.map((d) => d.rel), ['docs/ux/use-cases/UC-BUD.md']);
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(outside, { recursive: true, force: true });
+});

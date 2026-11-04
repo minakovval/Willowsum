@@ -78,3 +78,42 @@ test('--traceability writes the files and removes stale ones; output is stable',
   assert.equal(fs.readFileSync(path.join(dir, 'matrix.md'), 'utf8'), first);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('--traceability-dir: inside the root, outside docs/requirements, never a symbolic link', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'req-trace-safe-'));
+  const all = { ...files(), 'bud/README.md': readme('BUD', [['BUD-01'], ['BUD-02'], ['BUD-16'], ['BUD-18']]) };
+  for (const [rel, text] of Object.entries(all)) {
+    const p = path.join(root, 'docs/requirements', rel);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, text);
+  }
+  const run = (dir) => main(['--root', root, '--no-baseline', '--quiet', '--traceability', '--traceability-dir', dir], () => {});
+  assert.throws(() => run('../outside'), /inside the repository root/);
+  assert.throws(() => run('.'), /inside the repository root/);
+  assert.throws(() => run('docs/requirements/trace'), /requirements folder/);
+
+  // A symbolic link as the output folder, or as a parent that points elsewhere, is refused.
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'req-trace-target-'));
+  fs.writeFileSync(path.join(target, 'matrix.md'), 'victim');
+  fs.mkdirSync(path.join(root, 'docs/links'), { recursive: true });
+  fs.symlinkSync(target, path.join(root, 'docs/links/trace'));
+  assert.throws(() => run('docs/links/trace'), /symbolic link/);
+  fs.symlinkSync(target, path.join(root, 'docs/linked'));
+  assert.throws(() => run('docs/linked/sub'), /inside the repository root/);
+  assert.equal(fs.readFileSync(path.join(target, 'matrix.md'), 'utf8'), 'victim');
+
+  // Only generated names are removed; other files stay; a symlinked generated file is not overwritten.
+  const dir = path.join(root, 'docs/traceability');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'notes.md'), 'keep');
+  fs.writeFileSync(path.join(dir, 'release-old.md'), 'stale');
+  run('docs/traceability');
+  assert.equal(fs.readFileSync(path.join(dir, 'notes.md'), 'utf8'), 'keep');
+  assert.ok(!fs.existsSync(path.join(dir, 'release-old.md')));
+  fs.rmSync(path.join(dir, 'matrix.md'));
+  fs.symlinkSync(path.join(target, 'matrix.md'), path.join(dir, 'matrix.md'));
+  assert.throws(() => run('docs/traceability'), /not a regular file/);
+  assert.equal(fs.readFileSync(path.join(target, 'matrix.md'), 'utf8'), 'victim');
+  fs.rmSync(root, { recursive: true, force: true });
+  fs.rmSync(target, { recursive: true, force: true });
+});
