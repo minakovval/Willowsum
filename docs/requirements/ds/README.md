@@ -17,7 +17,7 @@ Scope: Design system foundations: principles, brand, tokens, charts, status dict
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [DS-01](DS-01.md) | Принципи UX | PoC | M |
+| [DS-01](DS-01.md) | Принципи UX | PoC (графіки й віджети — лише типовий вигляд, кнопка вигляду неактивна); PoC v2 (інші вигляди графіків і віджетів) | M |
 | [DS-02](DS-02.md) | Бренд: назва, слоган, знак і логотип | PoC | M |
 | [DS-03](DS-03.md) | Тон голосу і правила мікротексту | PoC | M |
 | [DS-04](DS-04.md) | Формати сум, чисел, відсотків, дат і часу | PoC | M |
