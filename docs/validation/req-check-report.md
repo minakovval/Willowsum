@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-725 files (requirement and slice files) have a «Критерії приймання» section with 6662 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+725 files (requirement and slice files) have a «Критерії приймання» section with 6674 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
@@ -106,8 +106,8 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Approximate location zone radius for non-admin roles (`map-zone`) | 1500 m | 48 | 0 | 1500 m ×48 |
 | Plan limit: household members (household.members) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-members`) | Free 1, Plus 2, Family 6, Trial 6 | 27 | 0 | Free 1 ×8, Plus 2 ×8, Family 6 ×8, Trial 6 ×3 |
 | Plan limit: assets (assets.count) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-assets`) | Free 25, Plus ∞, Family ∞, Trial ∞ | 41 | 0 | Free 25 ×18, Plus ∞ ×9, Family ∞ ×9, Trial ∞ ×5 |
-| Plan limit: budgets (budget.budgets) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-budgets`) | Free 2, Plus 3, Family 7, Trial 7 | 74 | 0 | Free 2 ×23, Plus 3 ×20, Family 7 ×20, Trial 7 ×11 |
-| Plan limit: savings goals (budget.goals) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-goals`) | Free 1, Plus ∞, Family ∞, Trial ∞ | 59 | 0 | Free 1 ×17, Plus ∞ ×17, Family ∞ ×17, Trial ∞ ×8 |
+| Plan limit: budgets (budget.budgets) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-budgets`) | Free 2, Plus 3, Family 7, Trial 7 | 52 | 0 | Free 2 ×17, Plus 3 ×14, Family 7 ×14, Trial 7 ×7 |
+| Plan limit: savings goals (budget.goals) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-goals`) | Free 1, Plus ∞, Family ∞, Trial ∞ | 41 | 0 | Free 1 ×12, Plus ∞ ×12, Family ∞ ×12, Trial ∞ ×5 |
 | Plan limit: document and media storage (documents.storage) — starting matrix values, applied from v1 (no plan limits in MVP) (`plan-storage`) | Free 1 GB, Plus 25 GB, Family 100 GB, Trial 100 GB | 76 | 0 | Free 1 GB ×21, Plus 25 GB ×21, Family 100 GB ×21, Trial 100 GB ×13 |
 | Recovery point objective (RPO): 15 min on profile «Старт», 5 min on profile «Комерційний» (`rpo`) | 15 min / 5 min | 14 | 0 | 15 min ×9, 5 min ×5 |
 | Recovery time objective (RTO): 4 h on profile «Старт», 1 h on profile «Комерційний» (`rto`) | 4 h / 1 h | 14 | 0 | 4 h ×9, 1 h ×5 |
