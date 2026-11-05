@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-794 files (requirement and slice files) have a «Критерії приймання» section with 7212 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+794 files (requirement and slice files) have a «Критерії приймання» section with 7215 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
