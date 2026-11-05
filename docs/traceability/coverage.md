@@ -334,7 +334,7 @@ Not migrated in v1-mobile: 1 slices without design links (links are unknown unti
 | S-100 | Невпізнані інструменти | INV-01 | migration |
 | S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
 
-### Migrated slices without design (10)
+### Migrated slices without design (12)
 
 - ARC-01@v1
 - CMP-38@v1
@@ -343,7 +343,9 @@ Not migrated in v1-mobile: 1 slices without design links (links are unknown unti
 - CMP-41@v1
 - CMP-43@v1
 - CMP-51@v1
+- CMP-54@v1
 - CMP-70@v1
+- NFR-12@v1
 - NFR-17@v1
 - VAL-05@v1
 
