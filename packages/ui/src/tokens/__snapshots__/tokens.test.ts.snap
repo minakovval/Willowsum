@@ -77,8 +77,8 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-text-tooltip-weight: 400;
   --ws-text-tooltip-tracking: 0em;
   --ws-text-badge-family: var(--ws-font-sans);
-  --ws-text-badge-size: 0.8125rem;
-  --ws-text-badge-line: 1.25rem;
+  --ws-text-badge-size: 0.6875rem;
+  --ws-text-badge-line: 1rem;
   --ws-text-badge-weight: 500;
   --ws-text-badge-tracking: 0em;
   --ws-text-map-cluster-family: var(--ws-font-sans);
@@ -118,6 +118,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-radius-sm: 4px;
   --ws-radius-md: 8px;
   --ws-radius-lg: 14px;
+  --ws-radius-xl: 16px;
   --ws-radius-pill: 999px;
   --ws-layer-content: 0;
   --ws-layer-local-1: 1;
@@ -157,6 +158,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-focus-ring-offset: 2px;
   --ws-table-stack-below: 520px;
   --ws-chart-area-opacity: 0.14;
+  --ws-scrim-blur: 2px;
   --ws-columns: 4;
   --ws-page-margin: 16px;
   --ws-gutter: 16px;
@@ -189,12 +191,54 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-disabled-bg: #E7E1D3;
   --ws-disabled-ink: #8A8F99;
   --ws-overlay: rgba(11, 37, 69, 0.45);
+  --ws-surface-inset: #FAFAF8;
+  --ws-tint-info: #EEF2F7;
+  --ws-tint-warning: #FBF3E8;
+  --ws-on-warning: #7A4505;
+  --ws-tint-positive: #E9F3EE;
+  --ws-tint-negative: #F8ECEC;
+  --ws-skeleton: #ECEEF1;
+  --ws-chart-cat-1: #5872D2;
+  --ws-chart-cat-2: #0E9161;
+  --ws-chart-cat-3: #9C7305;
+  --ws-chart-cat-4: #097FCD;
+  --ws-chart-cat-5: #C35047;
+  --ws-chart-cat-6: #9B5BB6;
+  --ws-chart-cat-7: #0F899B;
+  --ws-chart-cat-8: #678800;
+  --ws-chart-group-income-1: #BA4E84;
+  --ws-chart-group-income-2: #BE590F;
+  --ws-chart-transfer: #9DB2C8;
+  --ws-chart-other: #9AA3AF;
+  --ws-chart-reference: rgba(27, 34, 48, 0.6);
+  --ws-usage-0: #0E7A3B;
+  --ws-usage-30: #34A853;
+  --ws-usage-55: #7CC242;
+  --ws-usage-75: #C9C21A;
+  --ws-usage-95: #FBBC05;
+  --ws-over-1: #E3A39B;
+  --ws-over-2: #DE7A6F;
+  --ws-over-3: #E5584A;
+  --ws-over-4: #F2281A;
+  --ws-over-5: #D21C10;
+  --ws-over-6: #B5180C;
+  --ws-over-7: #94130A;
+  --ws-over-8: #7A0F08;
+  --ws-goal-0: #FFD000;
+  --ws-goal-25: #E6CF1A;
+  --ws-goal-55: #9ACD32;
+  --ws-goal-80: #4CAF50;
+  --ws-goal-100: #2E7D32;
+  --ws-goal-paused: #C5CAD1;
+  --ws-scrim: rgba(11, 37, 69, 0.36);
   --ws-shadow-raised: 0 1px 2px rgba(11, 37, 69, 0.10), 0 4px 12px rgba(11, 37, 69, 0.06);
+  --ws-shadow-popover: 0 8px 24px rgba(11, 37, 69, 0.16);
+  --ws-shadow-dialog: 0 2px 4px rgba(11, 37, 69, 0.06), 0 24px 48px rgba(11, 37, 69, 0.20);
   --ws-chart-1: var(--ws-brand);
   --ws-chart-2: var(--ws-brand-2);
   --ws-chart-3: var(--ws-ink-muted);
   --ws-chart-4: var(--ws-border-control);
-  --ws-chart-other: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
+  --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
   --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
   --ws-heat-0: var(--ws-surface-300);
   --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
@@ -231,12 +275,54 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-disabled-bg: #1B3F6E;
   --ws-disabled-ink: #6F86A6;
   --ws-overlay: rgba(0, 0, 0, 0.6);
+  --ws-surface-inset: #0F2B50;
+  --ws-tint-info: #1B3F6E;
+  --ws-tint-warning: #3A3122;
+  --ws-on-warning: #F2C27A;
+  --ws-tint-positive: #173F36;
+  --ws-tint-negative: #4A2532;
+  --ws-skeleton: #1B3F6E;
+  --ws-chart-cat-1: #5872D2;
+  --ws-chart-cat-2: #0E9161;
+  --ws-chart-cat-3: #9C7305;
+  --ws-chart-cat-4: #097FCD;
+  --ws-chart-cat-5: #C35047;
+  --ws-chart-cat-6: #9B5BB6;
+  --ws-chart-cat-7: #0F899B;
+  --ws-chart-cat-8: #678800;
+  --ws-chart-group-income-1: #BA4E84;
+  --ws-chart-group-income-2: #BE590F;
+  --ws-chart-transfer: #9DB2C8;
+  --ws-chart-other: #9AA3AF;
+  --ws-chart-reference: rgba(246, 241, 232, 0.6);
+  --ws-usage-0: #0E7A3B;
+  --ws-usage-30: #34A853;
+  --ws-usage-55: #7CC242;
+  --ws-usage-75: #C9C21A;
+  --ws-usage-95: #FBBC05;
+  --ws-over-1: #E3A39B;
+  --ws-over-2: #DE7A6F;
+  --ws-over-3: #E5584A;
+  --ws-over-4: #F2281A;
+  --ws-over-5: #D21C10;
+  --ws-over-6: #B5180C;
+  --ws-over-7: #94130A;
+  --ws-over-8: #7A0F08;
+  --ws-goal-0: #FFD000;
+  --ws-goal-25: #E6CF1A;
+  --ws-goal-55: #9ACD32;
+  --ws-goal-80: #4CAF50;
+  --ws-goal-100: #2E7D32;
+  --ws-goal-paused: #C5CAD1;
+  --ws-scrim: rgba(0, 0, 0, 0.55);
   --ws-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.40);
+  --ws-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --ws-shadow-dialog: 0 24px 48px rgba(0, 0, 0, 0.55);
   --ws-chart-1: var(--ws-brand);
   --ws-chart-2: var(--ws-brand-2);
   --ws-chart-3: var(--ws-ink-muted);
   --ws-chart-4: var(--ws-border-control);
-  --ws-chart-other: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
+  --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
   --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
   --ws-heat-0: var(--ws-surface-300);
   --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
@@ -274,12 +360,54 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-disabled-bg: #1B3F6E;
     --ws-disabled-ink: #6F86A6;
     --ws-overlay: rgba(0, 0, 0, 0.6);
+    --ws-surface-inset: #0F2B50;
+    --ws-tint-info: #1B3F6E;
+    --ws-tint-warning: #3A3122;
+    --ws-on-warning: #F2C27A;
+    --ws-tint-positive: #173F36;
+    --ws-tint-negative: #4A2532;
+    --ws-skeleton: #1B3F6E;
+    --ws-chart-cat-1: #5872D2;
+    --ws-chart-cat-2: #0E9161;
+    --ws-chart-cat-3: #9C7305;
+    --ws-chart-cat-4: #097FCD;
+    --ws-chart-cat-5: #C35047;
+    --ws-chart-cat-6: #9B5BB6;
+    --ws-chart-cat-7: #0F899B;
+    --ws-chart-cat-8: #678800;
+    --ws-chart-group-income-1: #BA4E84;
+    --ws-chart-group-income-2: #BE590F;
+    --ws-chart-transfer: #9DB2C8;
+    --ws-chart-other: #9AA3AF;
+    --ws-chart-reference: rgba(246, 241, 232, 0.6);
+    --ws-usage-0: #0E7A3B;
+    --ws-usage-30: #34A853;
+    --ws-usage-55: #7CC242;
+    --ws-usage-75: #C9C21A;
+    --ws-usage-95: #FBBC05;
+    --ws-over-1: #E3A39B;
+    --ws-over-2: #DE7A6F;
+    --ws-over-3: #E5584A;
+    --ws-over-4: #F2281A;
+    --ws-over-5: #D21C10;
+    --ws-over-6: #B5180C;
+    --ws-over-7: #94130A;
+    --ws-over-8: #7A0F08;
+    --ws-goal-0: #FFD000;
+    --ws-goal-25: #E6CF1A;
+    --ws-goal-55: #9ACD32;
+    --ws-goal-80: #4CAF50;
+    --ws-goal-100: #2E7D32;
+    --ws-goal-paused: #C5CAD1;
+    --ws-scrim: rgba(0, 0, 0, 0.55);
     --ws-shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --ws-shadow-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --ws-shadow-dialog: 0 24px 48px rgba(0, 0, 0, 0.55);
     --ws-chart-1: var(--ws-brand);
     --ws-chart-2: var(--ws-brand-2);
     --ws-chart-3: var(--ws-ink-muted);
     --ws-chart-4: var(--ws-border-control);
-    --ws-chart-other: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
+    --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
     --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
     --ws-heat-0: var(--ws-surface-300);
     --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
@@ -348,12 +476,54 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-disabled-bg: #E7E1D3;
     --ws-disabled-ink: #8A8F99;
     --ws-overlay: rgba(11, 37, 69, 0.45);
+    --ws-surface-inset: #FAFAF8;
+    --ws-tint-info: #EEF2F7;
+    --ws-tint-warning: #FBF3E8;
+    --ws-on-warning: #7A4505;
+    --ws-tint-positive: #E9F3EE;
+    --ws-tint-negative: #F8ECEC;
+    --ws-skeleton: #ECEEF1;
+    --ws-chart-cat-1: #5872D2;
+    --ws-chart-cat-2: #0E9161;
+    --ws-chart-cat-3: #9C7305;
+    --ws-chart-cat-4: #097FCD;
+    --ws-chart-cat-5: #C35047;
+    --ws-chart-cat-6: #9B5BB6;
+    --ws-chart-cat-7: #0F899B;
+    --ws-chart-cat-8: #678800;
+    --ws-chart-group-income-1: #BA4E84;
+    --ws-chart-group-income-2: #BE590F;
+    --ws-chart-transfer: #9DB2C8;
+    --ws-chart-other: #9AA3AF;
+    --ws-chart-reference: rgba(27, 34, 48, 0.6);
+    --ws-usage-0: #0E7A3B;
+    --ws-usage-30: #34A853;
+    --ws-usage-55: #7CC242;
+    --ws-usage-75: #C9C21A;
+    --ws-usage-95: #FBBC05;
+    --ws-over-1: #E3A39B;
+    --ws-over-2: #DE7A6F;
+    --ws-over-3: #E5584A;
+    --ws-over-4: #F2281A;
+    --ws-over-5: #D21C10;
+    --ws-over-6: #B5180C;
+    --ws-over-7: #94130A;
+    --ws-over-8: #7A0F08;
+    --ws-goal-0: #FFD000;
+    --ws-goal-25: #E6CF1A;
+    --ws-goal-55: #9ACD32;
+    --ws-goal-80: #4CAF50;
+    --ws-goal-100: #2E7D32;
+    --ws-goal-paused: #C5CAD1;
+    --ws-scrim: rgba(11, 37, 69, 0.36);
     --ws-shadow-raised: 0 1px 2px rgba(11, 37, 69, 0.10), 0 4px 12px rgba(11, 37, 69, 0.06);
+    --ws-shadow-popover: 0 8px 24px rgba(11, 37, 69, 0.16);
+    --ws-shadow-dialog: 0 2px 4px rgba(11, 37, 69, 0.06), 0 24px 48px rgba(11, 37, 69, 0.20);
     --ws-chart-1: var(--ws-brand);
     --ws-chart-2: var(--ws-brand-2);
     --ws-chart-3: var(--ws-ink-muted);
     --ws-chart-4: var(--ws-border-control);
-    --ws-chart-other: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
+    --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
     --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
     --ws-heat-0: var(--ws-surface-300);
     --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
@@ -566,6 +736,71 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "light": "#061833",
       "usage": "Primary button fill when pressed.",
     },
+    "chart-cat-1": {
+      "dark": "#5872D2",
+      "light": "#5872D2",
+      "usage": "Chart palette tone 1 (DS-07 item 15): «Житло» group and categorical series 1.",
+    },
+    "chart-cat-2": {
+      "dark": "#0E9161",
+      "light": "#0E9161",
+      "usage": "Chart palette tone 2: «Харчування» group and categorical series 2.",
+    },
+    "chart-cat-3": {
+      "dark": "#9C7305",
+      "light": "#9C7305",
+      "usage": "Chart palette tone 3: «Транспорт і авто» group and categorical series 3.",
+    },
+    "chart-cat-4": {
+      "dark": "#097FCD",
+      "light": "#097FCD",
+      "usage": "Chart palette tone 4: «Зв'язок і підписки» group and categorical series 4.",
+    },
+    "chart-cat-5": {
+      "dark": "#C35047",
+      "light": "#C35047",
+      "usage": "Chart palette tone 5: «Здоров'я і догляд» group and categorical series 5.",
+    },
+    "chart-cat-6": {
+      "dark": "#9B5BB6",
+      "light": "#9B5BB6",
+      "usage": "Chart palette tone 6: «Родина» group and categorical series 6.",
+    },
+    "chart-cat-7": {
+      "dark": "#0F899B",
+      "light": "#0F899B",
+      "usage": "Chart palette tone 7: «Відпочинок» group and categorical series 7.",
+    },
+    "chart-cat-8": {
+      "dark": "#678800",
+      "light": "#678800",
+      "usage": "Chart palette tone 8: «Фінанси і податки» group and categorical series 8.",
+    },
+    "chart-group-income-1": {
+      "dark": "#BA4E84",
+      "light": "#BA4E84",
+      "usage": "Income group «Дохід від роботи»; not in the series palette.",
+    },
+    "chart-group-income-2": {
+      "dark": "#BE590F",
+      "light": "#BE590F",
+      "usage": "Income group «Інші доходи»; not in the series palette.",
+    },
+    "chart-other": {
+      "dark": "#9AA3AF",
+      "light": "#9AA3AF",
+      "usage": "«Інші · N» and «Коригування» on charts; always last.",
+    },
+    "chart-reference": {
+      "dark": "rgba(246, 241, 232, 0.6)",
+      "light": "rgba(27, 34, 48, 0.6)",
+      "usage": "Reference lines: plan and goal target dash 4/4, budget dash 12/4 (ink at 60 %).",
+    },
+    "chart-transfer": {
+      "dark": "#9DB2C8",
+      "light": "#9DB2C8",
+      "usage": "Service category «Переказ» (BUD-01); dark text on it.",
+    },
     "disabled-bg": {
       "dark": "#1B3F6E",
       "light": "#E7E1D3",
@@ -585,6 +820,36 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "dark": "#58C38F",
       "light": "#27704C",
       "usage": "Positive change, text on surface-100 and surface-200; always with sign and arrow.",
+    },
+    "goal-0": {
+      "dark": "#FFD000",
+      "light": "#FFD000",
+      "usage": "Goal progress gradient stop 0 % (oklch).",
+    },
+    "goal-100": {
+      "dark": "#2E7D32",
+      "light": "#2E7D32",
+      "usage": "Goal progress gradient stop 100 %; an achieved goal and above target.",
+    },
+    "goal-25": {
+      "dark": "#E6CF1A",
+      "light": "#E6CF1A",
+      "usage": "Goal progress gradient stop 25 %.",
+    },
+    "goal-55": {
+      "dark": "#9ACD32",
+      "light": "#9ACD32",
+      "usage": "Goal progress gradient stop 55 %.",
+    },
+    "goal-80": {
+      "dark": "#4CAF50",
+      "light": "#4CAF50",
+      "usage": "Goal progress gradient stop 80 %.",
+    },
+    "goal-paused": {
+      "dark": "#C5CAD1",
+      "light": "#C5CAD1",
+      "usage": "Goal bar «На паузі».",
     },
     "ink": {
       "dark": "#F6F1E8",
@@ -621,10 +886,65 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "light": "#F6F1E8",
       "usage": "Text and icons on brand, brand-hover, brand-pressed.",
     },
+    "on-warning": {
+      "dark": "#F2C27A",
+      "light": "#7A4505",
+      "usage": "Text and «!» marker on tint-warning; also «! Відстає» on goals.",
+    },
+    "over-1": {
+      "dark": "#E3A39B",
+      "light": "#E3A39B",
+      "usage": "Overspend level 1: below 5 %; also «вичерпано» of an optional category.",
+    },
+    "over-2": {
+      "dark": "#DE7A6F",
+      "light": "#DE7A6F",
+      "usage": "Overspend level 2: 5–10 %.",
+    },
+    "over-3": {
+      "dark": "#E5584A",
+      "light": "#E5584A",
+      "usage": "Overspend level 3: 10–20 %.",
+    },
+    "over-4": {
+      "dark": "#F2281A",
+      "light": "#F2281A",
+      "usage": "Overspend level 4: 20–50 %.",
+    },
+    "over-5": {
+      "dark": "#D21C10",
+      "light": "#D21C10",
+      "usage": "Overspend level 5: 50–100 %.",
+    },
+    "over-6": {
+      "dark": "#B5180C",
+      "light": "#B5180C",
+      "usage": "Overspend level 6: 100–200 %.",
+    },
+    "over-7": {
+      "dark": "#94130A",
+      "light": "#94130A",
+      "usage": "Overspend level 7: 200–500 %.",
+    },
+    "over-8": {
+      "dark": "#7A0F08",
+      "light": "#7A0F08",
+      "usage": "Overspend level 8: from 500 %; also when no optional limits exist.",
+    },
     "overlay": {
       "dark": "rgba(0, 0, 0, 0.6)",
       "light": "rgba(11, 37, 69, 0.45)",
-      "usage": "Scrim under dialogs, bottom sheets and the drawer.",
+      "usage": "Scrim under bottom sheets and the drawer.",
+    },
+    "scrim": {
+      "dark": "rgba(0, 0, 0, 0.55)",
+      "light": "rgba(11, 37, 69, 0.36)",
+      "usage": "Scrim under a modal dialog, with a 2 px backdrop blur.",
+    },
+    "skeleton": {
+      "dark": "#1B3F6E",
+      "light": "#ECEEF1",
+      "usage": "Skeleton fill while loading.",
     },
     "surface-100": {
       "dark": "#0B2545",
@@ -641,14 +961,64 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "light": "#F1F1EF",
       "usage": "Sunken areas: progress tracks, table stripes, quiet button hover. Text: ink only.",
     },
+    "surface-inset": {
+      "dark": "#0F2B50",
+      "light": "#FAFAF8",
+      "usage": "Inset area inside a card: dialog action bar, banner, halves of a pair.",
+    },
+    "tint-info": {
+      "dark": "#1B3F6E",
+      "light": "#EEF2F7",
+      "usage": "Info badge, active sort, selected row, filter chip, current step. Text: link or ink.",
+    },
+    "tint-negative": {
+      "dark": "#4A2532",
+      "light": "#F8ECEC",
+      "usage": "Negative badge ground and danger button hover. Text: loss.",
+    },
+    "tint-positive": {
+      "dark": "#173F36",
+      "light": "#E9F3EE",
+      "usage": "Positive badge ground. Text: gain.",
+    },
+    "tint-warning": {
+      "dark": "#3A3122",
+      "light": "#FBF3E8",
+      "usage": "Attention badge and warning banner ground. Text: on-warning.",
+    },
+    "usage-0": {
+      "dark": "#0E7A3B",
+      "light": "#0E7A3B",
+      "usage": "Limit usage gradient stop 0 % (oklch); a fill, never text.",
+    },
+    "usage-30": {
+      "dark": "#34A853",
+      "light": "#34A853",
+      "usage": "Limit usage gradient stop 30 %.",
+    },
+    "usage-55": {
+      "dark": "#7CC242",
+      "light": "#7CC242",
+      "usage": "Limit usage gradient stop 55 %.",
+    },
+    "usage-75": {
+      "dark": "#C9C21A",
+      "light": "#C9C21A",
+      "usage": "Limit usage gradient stop 75 %.",
+    },
+    "usage-95": {
+      "dark": "#FBBC05",
+      "light": "#FBBC05",
+      "usage": "Limit usage gradient stop 95–100 %; not the accent amber.",
+    },
   },
   "componentTypeScale": {
     "badge": {
       "family": "sans",
-      "lineHeight": 20,
-      "size": 13,
+      "lineHeight": 16,
+      "size": 11,
       "tracking": 0,
-      "usage": "Status badge text",
+      "usage": "Status badge text (20 px flat tag)",
       "weight": 500,
     },
     "chart-axis": {
@@ -762,8 +1132,17 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
     "radius-none": 0,
     "radius-pill": 999,
     "radius-sm": 4,
+    "radius-xl": 16,
   },
   "shadows": {
+    "shadow-dialog": {
+      "dark": "0 24px 48px rgba(0, 0, 0, 0.55)",
+      "light": "0 2px 4px rgba(11, 37, 69, 0.06), 0 24px 48px rgba(11, 37, 69, 0.20)",
+    },
+    "shadow-popover": {
+      "dark": "0 8px 24px rgba(0, 0, 0, 0.45)",
+      "light": "0 8px 24px rgba(11, 37, 69, 0.16)",
+    },
     "shadow-raised": {
       "dark": "0 1px 2px rgba(0, 0, 0, 0.40)",
       "light": "0 1px 2px rgba(11, 37, 69, 0.10), 0 4px 12px rgba(11, 37, 69, 0.06)",

@@ -164,7 +164,7 @@ function ContrastTable({ theme }: { theme: ThemeName }) {
 function ChartPalette() {
   const tokens = [
     ...CHART_FILL_STEPS.map((_, i) => `chart-${i + 1}`),
-    "chart-other",
+    "chart-other-hatch",
     "chart-area-5",
     "heat-0",
     "heat-1",

@@ -30,7 +30,7 @@
   padding: var(--ws-space-6) var(--ws-page-margin) var(--ws-band-gap);
 }
 
-/* Sidebar: 212 px, surface-100, right line; 40 px items, 0 × 12 px, radius 8, icon 20. */
+/* Sidebar (canvas P0): 212 px, white surface-200, right line; 44 px items, 0 × 10 px, radius 4, icon 20. */
 .ws-nav {
   z-index: var(--ws-layer-nav);
   position: fixed;
@@ -44,7 +44,7 @@
   width: var(--ws-nav-width);
   padding-inline: var(--ws-space-3);
   padding-block-end: var(--ws-space-3);
-  background: var(--ws-surface-100);
+  background: var(--ws-surface-200);
   border-inline-end: 1px solid var(--ws-line);
 }
 
@@ -73,7 +73,7 @@
   cursor: pointer;
 }
 
-/* CMP-71@PoC: 28 px mark with an 18/24 px name in the sidebar. */
+/* CMP-71@PoC: 24 px mark with an 18/24 px name in the sidebar (canvas P0). */
 .ws-nav-brand-link .ws-wordmark-name {
   font-size: var(--ws-text-heading-3-size);
   line-height: var(--ws-text-heading-3-line);
@@ -110,9 +110,9 @@
   display: flex;
   align-items: center;
   gap: var(--ws-space-3);
-  min-height: var(--ws-sidebar-item-height);
-  padding: 0 var(--ws-space-3);
-  border-radius: var(--ws-radius-md);
+  min-height: var(--ws-touch-target);
+  padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-sm);
   color: var(--ws-ink-muted);
   text-decoration: none;
   font-family: var(--ws-font-sans);
@@ -124,12 +124,12 @@
     color var(--ws-duration-interaction) var(--ws-easing-out);
 }
 
-/* Items are 40 / 36 px tall; a 44 px hit area is kept with an invisible extension (GRID-00 item 14). */
+/* L1 items are 44 px; L2 items are 36 px with a 44 px hit area kept by an invisible extension (GRID-00 item 14). */
 .ws-nav-item::after {
   content: "";
   position: absolute;
   inset-inline: 0;
-  inset-block: calc(var(--ws-space-1) / -2);
+  inset-block: 0;
 }
 
 .ws-nav-subitem::after {
@@ -141,18 +141,23 @@
   color: var(--ws-ink);
 }
 
-/* DS-12 item 7: current = darker icon and label on a tinted background, not another icon. */
+/* CMP-69 (canvas P0): current L1 = brand text on surface-300; current L2 = brand 600 on surface-100. */
 .ws-nav-item[aria-current="page"] {
   background: var(--ws-surface-300);
-  color: var(--ws-ink);
-  font-weight: 600;
+  color: var(--ws-brand);
 }
 
-/* L2 pages of the current section: 32 px indent, 36 px tall, weight 400, own 16 px icon. */
+/* L2 pages of the current section: 22 px indent, 36 px tall, weight 400, own 16 px icon. */
 .ws-nav-subitem {
   min-height: calc(var(--ws-sidebar-item-height) - var(--ws-space-1));
-  padding-inline-start: var(--ws-space-6);
+  padding-inline-start: calc(var(--ws-space-5) - var(--ws-space-1) / 2);
   font-weight: 400;
+}
+
+.ws-nav-subitem[aria-current="page"] {
+  background: var(--ws-surface-100);
+  color: var(--ws-brand);
+  font-weight: 600;
 }
 
 .ws-nav-label {
@@ -162,21 +167,13 @@
   white-space: nowrap;
 }
 
-/* Count badge: 16 px pill, 11/14 px weight 600, brand-2 on on-brand; never amber (UX-09 item 11). */
+/* Count (canvas P0): a plain 13 px ink-muted number on the right, no pill; never amber (UX-09 item 11). */
 .ws-nav-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--ws-space-4);
-  height: var(--ws-space-4);
   margin-inline-start: auto;
-  padding-inline: var(--ws-space-1);
-  border-radius: var(--ws-radius-pill);
-  background: var(--ws-brand-2);
-  color: var(--ws-on-brand);
-  font-size: var(--ws-text-nav-count-size);
-  line-height: var(--ws-text-nav-count-line);
-  font-weight: var(--ws-text-nav-count-weight);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 
@@ -270,9 +267,11 @@
   inset-inline-start: calc(100% + var(--ws-space-2));
   z-index: var(--ws-layer-tooltip);
   padding: var(--ws-space-1) var(--ws-space-2);
-  border-radius: var(--ws-radius-sm);
-  background: var(--ws-ink);
-  color: var(--ws-surface-200);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  color: var(--ws-ink);
   font-size: var(--ws-text-tooltip-size);
   line-height: var(--ws-text-tooltip-line);
   font-weight: 400;
@@ -355,7 +354,7 @@
   border: 1px solid var(--ws-line);
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-200);
-  box-shadow: var(--ws-shadow-raised);
+  box-shadow: var(--ws-shadow-popover);
 }
 
 .ws-menu-down {

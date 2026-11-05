@@ -318,7 +318,7 @@ describe("CMP-71@PoC brand mark link", () => {
     const brand = within(nav()).getByRole("link", { name: "Willowsum, Бюджет" });
     expect(brand.getAttribute("href")).toBe("#/planning/budget");
     expect(brand.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
-    expect(brand.querySelector("svg")!.getAttribute("width")).toBe("28");
+    expect(brand.querySelector("svg")!.getAttribute("width")).toBe("24");
     expect(brand.textContent).toBe("Willowsum");
   });
 });

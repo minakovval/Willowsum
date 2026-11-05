@@ -96,7 +96,7 @@ export function AppShell({
                 <WillowsumMark size={24} decorative />
               ) : (
                 <span className="ws-wordmark">
-                  <WillowsumMark size={28} decorative />
+                  <WillowsumMark size={24} decorative />
                   <span className="ws-wordmark-name">{t("brand.name")}</span>
                 </span>
               )}

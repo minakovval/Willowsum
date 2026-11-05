@@ -81,40 +81,62 @@
   color: var(--ws-ink);
 }
 
-/* Text button and the filled primary button (one per area, GRID-00 item 15). */
+/*
+ * CMP-01 (canvas P0): 40 px visible, radius 8, 14/20 px 600. Secondary is white with a 1 px
+ * border-control border (3:1, DS-14) and ink text; the hit area stays 44 px (an invisible extension).
+ */
 .ws-button {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--ws-space-2);
-  min-height: var(--ws-touch-target);
-  padding: 0 var(--ws-space-4);
-  border: 1px solid var(--ws-line);
+  min-height: calc(var(--ws-touch-target) - var(--ws-space-1));
+  padding: 0 calc(var(--ws-space-4) - var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-border-control);
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-200);
   color: var(--ws-ink);
-  font-family: var(--ws-text-action-family);
-  font-size: var(--ws-text-action-size);
-  line-height: var(--ws-text-action-line);
-  font-weight: var(--ws-text-action-weight);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 600;
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) / -2);
 }
 
 .ws-button:hover {
   background: var(--ws-surface-300);
 }
 
+.ws-button:active {
+  background: var(--ws-line);
+}
+
 .ws-button-primary {
+  padding: 0 var(--ws-space-4);
   border-color: var(--ws-brand);
   background: var(--ws-brand);
   color: var(--ws-on-brand);
 }
 
 .ws-button-primary:hover {
-  background: var(--ws-brand-2);
+  border-color: var(--ws-brand-hover);
+  background: var(--ws-brand-hover);
   color: var(--ws-on-brand);
+}
+
+.ws-button-primary:active {
+  border-color: var(--ws-brand-pressed);
+  background: var(--ws-brand-pressed);
 }
 
 /* DS-18: amounts and their hidden form. */
@@ -163,52 +185,59 @@
   min-width: 0;
 }
 
+/* CMP-02: a form label is 13/16 px 500 in normal case. */
 .ws-segmented-legend {
   padding: 0;
   margin-block-end: var(--ws-space-2);
-  font-family: var(--ws-text-label-family);
+  font-family: var(--ws-font-sans);
   font-size: var(--ws-text-label-size);
   line-height: var(--ws-text-label-line);
-  font-weight: var(--ws-text-label-weight);
-  letter-spacing: var(--ws-text-label-tracking);
-  text-transform: uppercase;
-  color: var(--ws-ink-muted);
+  font-weight: 500;
+  color: var(--ws-ink);
 }
 
+/* CMP-12 (canvas P0): grey surface-300 track, radius 8, 3 px inset, 2 px gap; the chosen segment is a raised white tile. */
 .ws-segmented-options {
   display: flex;
   flex-wrap: wrap;
-  border: 1px solid var(--ws-border-control);
-  border-radius: var(--ws-radius-sm);
-  background: var(--ws-surface-200);
+  gap: calc(var(--ws-space-1) / 2);
+  padding: calc(var(--ws-space-1) * 0.75);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
   width: fit-content;
   max-width: 100%;
 }
 
+/* 32 px visible segment, radius 6, 13/18 px 500; the native radio extends the hit area to 44 px. */
 .ws-segmented-option {
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: var(--ws-touch-target);
-  padding: 0 var(--ws-space-4);
+  min-height: var(--ws-space-6);
+  padding: 0 var(--ws-space-3);
+  border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);
   cursor: pointer;
   color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: 500;
 }
 
 .ws-segmented-option input {
   position: absolute;
-  inset: 0;
+  inset-inline: 0;
+  inset-block: calc((var(--ws-touch-target) - var(--ws-space-6)) / -2);
+  z-index: var(--ws-layer-local-1);
   margin: 0;
   opacity: 0;
   cursor: pointer;
 }
 
 .ws-segmented-option:has(input:checked) {
-  background: var(--ws-surface-300);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-raised);
   color: var(--ws-ink);
   font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 0.3em;
 }
 
 .ws-segmented-option:has(input:focus-visible) {

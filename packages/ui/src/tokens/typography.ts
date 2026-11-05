@@ -136,7 +136,14 @@ export const componentTypeScale = {
     usage: "Chart axis and scale labels",
   },
   tooltip: { family: "sans", size: 13, lineHeight: 18, weight: 400, tracking: 0, usage: "Tooltip text" },
-  badge: { family: "sans", size: 13, lineHeight: 20, weight: 500, tracking: 0, usage: "Status badge text" },
+  badge: {
+    family: "sans",
+    size: 11,
+    lineHeight: 16,
+    weight: 500,
+    tracking: 0,
+    usage: "Status badge text (20 px flat tag)",
+  },
   "map-cluster": {
     family: "sans",
     size: 14,

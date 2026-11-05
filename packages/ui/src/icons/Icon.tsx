@@ -83,9 +83,9 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
 /**
  * The Willowsum icon set — DS-12. Based on the open-source Lucide set (lucide.dev, ISC licence,
  * pinned in package.json): 24 px grid, round caps and joins, outline only, `currentColor`, so
- * icons follow the theme without separate files. The stroke is 1.5 px *absolute*: the SVG
+ * icons follow the theme without separate files. The stroke is 1.8 px *absolute* (canvas P0): the SVG
  * stroke width is scaled by 24 / size, so 16, 20, 24, 32 and 40 px icons all draw the same
- * 1.5 px line (Lucide's `absoluteStrokeWidth`).
+ * 1.8 px line (Lucide's `absoluteStrokeWidth`).
  *
  * Every name maps to one Lucide glyph, except:
  * - child icons, composed from the parent glyph: mortgage = debts + a house badge; public /
@@ -99,7 +99,7 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
  * pixel coordinates, no detail closer than 2 px to another.
  *
  * Lucide draws a few dots as tiny filled circles; the fill is dropped (outline only) — with a
- * 1.5 px stroke a 0.5-radius circle still reads as a solid dot.
+ * 1.8 px stroke a 0.5-radius circle still reads as a solid dot.
  */
 
 export type IconName =
@@ -195,7 +195,7 @@ const camel = (attr: string) => attr.replace(/-([a-z])/g, (_, c: string) => c.to
 /**
  * Lucide node → React elements. `fill` is dropped so the set stays outline only. A dot (circle of
  * radius ≤ 1) is redrawn as a circle whose own stroke covers its centre: Lucide sizes dots for a
- * 2 px stroke, and at 1.5 px they would otherwise show a pinhole. The dot keeps its outer size.
+ * 2 px stroke, and at 1.8 px they would otherwise show a pinhole. The dot keeps its outer size.
  * Zero-length dot segments get the same 2.5 px weight, so every dot in the set reads alike.
  */
 /** Lucide's other dot form: zero-length segments ("M3 5h.01"), widened to the same 2.5 px dot. */

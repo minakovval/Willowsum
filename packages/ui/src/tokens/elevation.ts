@@ -1,12 +1,26 @@
 /** Shadows and layers — DS-09 items 5–7. */
 
-/** Level 1 (raised card). Level 0 is a 1 px `line` border; level 2 is the `overlay` scrim. */
+/**
+ * Level 0 is a 1 px `line` border; level 1 the raised card; menus and popovers use
+ * `shadow-popover`; a dialog uses `shadow-dialog` over the `scrim` (canvas P0, 2026-11-05).
+ */
 export const shadows = {
   "shadow-raised": {
     light: "0 1px 2px rgba(11, 37, 69, 0.10), 0 4px 12px rgba(11, 37, 69, 0.06)",
     dark: "0 1px 2px rgba(0, 0, 0, 0.40)",
   },
+  "shadow-popover": {
+    light: "0 8px 24px rgba(11, 37, 69, 0.16)",
+    dark: "0 8px 24px rgba(0, 0, 0, 0.45)",
+  },
+  "shadow-dialog": {
+    light: "0 2px 4px rgba(11, 37, 69, 0.06), 0 24px 48px rgba(11, 37, 69, 0.20)",
+    dark: "0 24px 48px rgba(0, 0, 0, 0.55)",
+  },
 } as const;
+
+/** DS-09: backdrop blur behind a modal dialog, in px. */
+export const SCRIM_BLUR = 2;
 
 export type ShadowToken = keyof typeof shadows;
 

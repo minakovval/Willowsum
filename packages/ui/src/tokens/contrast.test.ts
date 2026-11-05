@@ -1,5 +1,13 @@
 // @vitest-environment node
-import { colors, CONTRAST_MINIMUM, CONTRAST_PAIRS, THEME_ONLY_PAIRS, THEMES } from "./color.ts";
+import {
+  CHART_CATEGORY_PALETTE,
+  CHART_FILL_STEPS,
+  colors,
+  CONTRAST_MINIMUM,
+  CONTRAST_PAIRS,
+  THEME_ONLY_PAIRS,
+  THEMES,
+} from "./color.ts";
 import { contrastRatio, relativeLuminance } from "./contrast.ts";
 
 /** DS-06 item 4: every text pair ≥ 4.5:1, control borders, focus rings and data graphics ≥ 3:1, both themes. */
@@ -49,6 +57,25 @@ describe("DS-06 reference ratios", () => {
 
   it("amber on paper is below 3:1, so accent is never text or a border on light grounds", () => {
     expect(contrastRatio(colors.accent.light, colors["surface-100"].light)).toBeLessThan(3);
+  });
+});
+
+describe("chart scheme (DS-07)", () => {
+  it("chart fill steps 1–4 stay brand, brand-2, ink-muted, border-control", () => {
+    expect(CHART_FILL_STEPS).toEqual(["brand", "brand-2", "ink-muted", "border-control"]);
+  });
+
+  it("the categorical palette keeps its fixed order", () => {
+    expect(CHART_CATEGORY_PALETTE.map((n) => colors[n].light)).toEqual([
+      "#5872D2",
+      "#0E9161",
+      "#9C7305",
+      "#097FCD",
+      "#C35047",
+      "#9B5BB6",
+      "#0F899B",
+      "#678800",
+    ]);
   });
 });
 
