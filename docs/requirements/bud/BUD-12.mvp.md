@@ -6,7 +6,7 @@
 - Розширює: BUD-12@PoC
 - Залежить від: BUD-01@MVP, BUD-14@MVP, DAT-03@MVP, FIN-03@MVP, NOT-01@MVP
 - Дизайн: S-046, S-047, S-058, S-199
-- Спільні правила: П-6, П-10, П-11, NFR-01
+- Спільні правила: П-6, П-10, П-11, CMP-03, NFR-01
 - Сценарії: UC-BUD-63, UC-BUD-64, UC-BUD-66, UC-BUD-68, UC-BUD-65, UC-BUD-67
 - Модуль: transactions, categorization
 - Перевіряється: —

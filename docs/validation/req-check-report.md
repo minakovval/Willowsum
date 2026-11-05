@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-797 files (requirement and slice files) have a «Критерії приймання» section with 7298 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+797 files (requirement and slice files) have a «Критерії приймання» section with 7306 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
@@ -82,7 +82,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Fact | Canonical | Mentions | Mismatches | Values seen |
 | --- | --- | ---: | ---: | --- |
 | Import batch rollback / «Скасувати імпорт» window (`import-rollback`) | 7 d | 39 | 0 | 7 d ×39 |
-| Bulk-action undo window (`bulk-undo`) | 24 h | 13 | 0 | 24 h ×13 |
+| Bulk-action undo window (`bulk-undo`) | 24 h | 11 | 0 | 24 h ×11 |
 | Undo of rule application to past transactions (`rule-undo`) | 7 d | 13 | 0 | 7 d ×13 |
 | Trash (кошик) retention for assets and documents (`trash`) | 30 d | 31 | 0 | 30 d ×31 |
 | Closed account / deleted household recovery window (`account-recovery`) | 30 d | 57 | 0 | 30 d ×57 |
