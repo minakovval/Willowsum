@@ -78,7 +78,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-51](CMP-51.md) | Heatmap — Теплова карта | v1 | C |
 | [CMP-52](CMP-52.md) | AllocationBar — Смуга розподілу | MVP | M |
 | [CMP-53](CMP-53.md) | Card — Картка | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, сенсорні екрани, темна тема) | M |
-| [CMP-54](CMP-54.md) | Widget — Віджет | MVP | M |
+| [CMP-54](CMP-54.md) | Widget — Віджет | MVP; v1 (стан «вимкнено планом» із застосуванням лімітів плану) | M |
 | [CMP-55](CMP-55.md) | BudgetRow — Рядок бюджету | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, темна тема, режим «Приховати суми») | M |
 | [CMP-56](CMP-56.md) | ConnectionCard — Картка підключення | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-57](CMP-57.md) | PlanCard — Картка плану | MVP | M |
