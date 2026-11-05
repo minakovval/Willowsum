@@ -101,7 +101,7 @@ requirement is kept in the README of that module.
 
 | Code | Folder | Scope | Requirements | Release mix |
 | --- | --- | --- | --- | --- |
-| ACC | [acc/](acc/README.md) | Account, sign-in, 2FA, sessions, profile, household space, roles, scope, audit log | 12 | PoC 4, MVP 6, v1-mobile 1, v2 1 |
+| ACC | [acc/](acc/README.md) | Account, sign-in, 2FA, sessions, profile, household space, roles, scope, audit log | 12 | PoC 5, MVP 5, v1-mobile 1, v2 1 |
 | SUB | [sub/](sub/README.md) | Plans, entitlements, subscription lifecycle, billing and payments | 8 | MVP 5, v2 3 |
 | ADM | [adm/](adm/README.md) | Platform admin panel: feature catalogue, plan x feature matrix, versions, staff | 9 | MVP 5, v1 4 |
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
