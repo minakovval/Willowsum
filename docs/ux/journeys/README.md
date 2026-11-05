@@ -423,7 +423,7 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-CRY-06 | Підтвердити або відхилити пару переміщення | v1 | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-CRY-07 | Розібрати непарне переміщення | v1 | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-DAT-01 | Переглянути, відсортувати і відфільтрувати список | MVP | [UJ-12](UJ-12-collector.md), [UJ-24](UJ-24-home-search-bulk.md) |
-| UC-DAT-02 | Зберегти представлення списку і поділитися ним | MVP | [UJ-24](UJ-24-home-search-bulk.md) |
+| UC-DAT-02 | Зберегти вигляд списку і поділитися ним | MVP | [UJ-24](UJ-24-home-search-bulk.md) |
 | UC-DAT-03 | Повернутися до списку з відновленим станом | MVP | [UJ-24](UJ-24-home-search-bulk.md) |
 | UC-DAT-04 | Працювати зі списком як учасник з обмеженим scope | MVP | [UJ-19](UJ-19-household-admin.md) |
 | UC-DAT-05 | Знайти запис глобальним пошуком | MVP | [UJ-24](UJ-24-home-search-bulk.md) |
