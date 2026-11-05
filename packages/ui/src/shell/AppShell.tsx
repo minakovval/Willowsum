@@ -1,26 +1,34 @@
-import type { MouseEvent, ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
-import { WillowsumMark, Wordmark } from "../brand/Mark.tsx";
+import { WillowsumMark } from "../brand/Mark.tsx";
 import { Icon, type IconName } from "../icons/Icon.tsx";
-import { mediaQueries, type NavForm } from "../tokens/layout.ts";
-import { useMediaQuery } from "../useMediaQuery.ts";
+import { readStorage, writeStorage } from "../storage.ts";
+import { MenuButton, type MenuItem } from "./MenuButton.tsx";
 
-export interface NavItem {
+/** An L2 page of a section (UX-09@PoC item 2). */
+export interface NavPage {
   id: string;
   label: string;
   icon: IconName;
   href: string;
+  /** A count (e.g. the «До розбору» queue); hidden at 0. `label` is read as part of the item name. */
+  badge?: { count: number; label: string };
 }
 
-/** DS-10 acceptance 1 / CMP-69: bottom bar < 600 px, 64 px rail 600–1279 px, 212 px sidebar ≥ 1280 px. */
-export function useNavForm(): NavForm {
-  const medium = useMediaQuery(mediaQueries.medium);
-  const sidebar = useMediaQuery(mediaQueries.sidebar);
-  return sidebar ? "sidebar" : medium ? "rail" : "bottom";
+/** An L1 section (UX-09@PoC item 1). */
+export interface NavSection {
+  id: string;
+  label: string;
+  icon: IconName;
+  href: string;
+  pages: readonly NavPage[];
+  onClick?: ((e: MouseEvent<HTMLAnchorElement>) => void) | undefined;
 }
 
 export const MAIN_ID = "ws-main";
 export const NAV_ID = "ws-nav";
+/** CMP-69@PoC: the collapsed / expanded choice. On this device until the profile API exists. */
+export const NAV_COLLAPSED_STORAGE_KEY = "ws-nav-collapsed";
 
 /** Moves focus without changing the URL (the app routes on the hash). */
 const focusTarget = (id: string) => (e: MouseEvent<HTMLAnchorElement>) => {
@@ -31,28 +39,48 @@ const focusTarget = (id: string) => (e: MouseEvent<HTMLAnchorElement>) => {
   focusable?.focus();
 };
 
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+
 /**
- * The application shell (CMP-69, UX-09 item 5, DS-10): skip links, primary navigation in the form
- * that fits the window width, a top row with global (L0) actions, and the main area. The page
- * never scrolls sideways: the content column is `min-width: 0` and capped at 1200 px.
+ * The PoC application shell (CMP-69@PoC, UX-09@PoC items 4, 13–17, GRID-00@PoC items 10–11):
+ * skip links, a 212 px sidebar (from 1280 px) that the user can collapse to a 64 px icon rail,
+ * the brand link, «+ Додати», the L1 sections with the L2 pages of the current one, the profile
+ * at the bottom, and the main area. No top row, bottom bar or width-driven rail.
  */
 export function AppShell({
-  items,
-  currentId,
-  actions,
+  sections,
+  currentSectionId,
+  currentPageId,
+  brand,
+  add,
+  profile,
   children,
 }: {
-  items: readonly NavItem[];
-  currentId: string | null;
-  /** Global actions (search, add, «Приховати суми», notifications, profile). */
-  actions?: ReactNode;
+  sections: readonly NavSection[];
+  currentSectionId: string | null;
+  currentPageId: string | null;
+  /** CMP-71@PoC: the mark links here; `label` is the accessible name («Willowsum, Бюджет»). */
+  brand: { href: string; label: string };
+  add: { label: string; items: readonly MenuItem[] };
+  profile: { name: string; space: string; menuLabel: string; items: readonly MenuItem[] };
   children: ReactNode;
 }) {
   const t = useT();
-  const form = useNavForm();
+  const [collapsed, setCollapsedState] = useState(() => readStorage(NAV_COLLAPSED_STORAGE_KEY) === "1");
+  const setCollapsed = (value: boolean) => {
+    setCollapsedState(value);
+    writeStorage(NAV_COLLAPSED_STORAGE_KEY, value ? "1" : null);
+  };
+  const tip = (label: string) => (collapsed ? label : undefined);
 
   return (
-    <div className="ws-shell" data-nav={form}>
+    <div className="ws-shell" data-nav="sidebar" data-collapsed={collapsed}>
       <a className="ws-skip" href={`#${MAIN_ID}`} onClick={focusTarget(MAIN_ID)}>
         {t("shell.skipToContent")}
       </a>
@@ -60,47 +88,176 @@ export function AppShell({
         {t("shell.skipToNav")}
       </a>
 
-      <nav id={NAV_ID} className={`ws-nav ws-nav-${form}`} aria-label={t("shell.mainNav")}>
-        {form === "sidebar" ? (
+      <nav id={NAV_ID} className="ws-nav ws-nav-sidebar" aria-label={t("shell.mainNav")}>
+        <div className="ws-nav-top">
           <div className="ws-nav-brand">
-            <Wordmark markSize={24} />
+            <a className="ws-nav-brand-link" href={brand.href} aria-label={brand.label}>
+              {collapsed ? (
+                <WillowsumMark size={24} decorative />
+              ) : (
+                <span className="ws-wordmark">
+                  <WillowsumMark size={28} decorative />
+                  <span className="ws-wordmark-name">{t("brand.name")}</span>
+                </span>
+              )}
+            </a>
+            {collapsed ? null : (
+              <button
+                type="button"
+                className="ws-icon-button"
+                aria-label={t("shell.nav.collapse")}
+                title={t("shell.nav.collapse")}
+                onClick={() => setCollapsed(true)}
+              >
+                <Icon name="collapse" size={20} />
+              </button>
+            )}
           </div>
-        ) : form === "rail" ? (
-          <div className="ws-nav-brand">
-            <WillowsumMark size={24} />
-          </div>
-        ) : null}
+          <MenuButton
+            menuLabel={add.label}
+            items={add.items}
+            placement="down"
+            className={
+              collapsed
+                ? "ws-icon-button ws-button-primary ws-nav-add"
+                : "ws-button ws-button-primary ws-nav-add"
+            }
+            ariaLabel={collapsed ? add.label : undefined}
+            title={tip(add.label)}
+          >
+            <Icon name="plus" size={20} />
+            {collapsed ? null : <span>{add.label}</span>}
+          </MenuButton>
+        </div>
+
         <ul className="ws-nav-list">
-          {items.map((item) => {
-            const current = item.id === currentId;
+          {sections.map((section) => {
+            const current = section.id === currentSectionId;
             return (
-              <li key={item.id}>
+              <li key={section.id} className="ws-nav-section">
                 <a
                   className="ws-nav-item"
-                  href={item.href}
+                  href={section.href}
                   aria-current={current ? "page" : undefined}
-                  title={form === "rail" ? item.label : undefined}
+                  onClick={section.onClick}
                 >
-                  <Icon name={item.icon} size={form === "sidebar" ? 20 : 24} />
-                  <span className="ws-nav-label">{item.label}</span>
+                  <Icon name={section.icon} size={20} />
+                  <span className="ws-nav-label">{section.label}</span>
                 </a>
+                {current && section.pages.length > 0 ? (
+                  <ul className="ws-nav-pages">
+                    {section.pages.map((page) => {
+                      const badge = page.badge && page.badge.count > 0 ? page.badge : null;
+                      return (
+                        <li key={page.id} className="ws-nav-page">
+                          <a
+                            className="ws-nav-item ws-nav-subitem"
+                            href={page.href}
+                            aria-current={page.id === currentPageId ? "page" : undefined}
+                          >
+                            <Icon name={page.icon} size={16} />
+                            <span className="ws-nav-label">
+                              {page.label}
+                              {badge ? <span className="ws-visually-hidden">, {badge.label}</span> : null}
+                            </span>
+                            {badge ? (
+                              <span className="ws-nav-badge" aria-hidden="true">
+                                {badge.count}
+                              </span>
+                            ) : null}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
               </li>
             );
           })}
         </ul>
+
+        <div className="ws-nav-bottom-area">
+          <MenuButton
+            menuLabel={profile.menuLabel}
+            items={profile.items}
+            placement="up"
+            className="ws-nav-profile"
+            ariaLabel={collapsed ? profile.menuLabel : undefined}
+            title={tip(profile.name)}
+          >
+            <span className="ws-avatar" aria-hidden="true">
+              {initials(profile.name)}
+            </span>
+            {collapsed ? null : (
+              <span className="ws-nav-profile-text">
+                <span className="ws-nav-profile-name">{profile.name}</span>
+                <span className="ws-visually-hidden">, </span>
+                <span className="ws-nav-profile-space">{profile.space}</span>
+                <span className="ws-visually-hidden">, {profile.menuLabel}</span>
+              </span>
+            )}
+          </MenuButton>
+        </div>
+
+        {collapsed ? (
+          <div className="ws-nav-edge">
+            <button
+              type="button"
+              className="ws-nav-expand"
+              aria-label={t("shell.nav.expand")}
+              title={t("shell.nav.expand")}
+              onClick={() => setCollapsed(false)}
+            >
+              ›
+            </button>
+          </div>
+        ) : null}
       </nav>
 
       <div className="ws-shell-body">
-        <header className="ws-topbar">
-          {form === "bottom" ? <WillowsumMark size={24} /> : null}
-          <div className="ws-topbar-actions" role="group" aria-label={t("shell.globalActions")}>
-            {actions}
-          </div>
-        </header>
         <main id={MAIN_ID} className="ws-main" tabIndex={-1}>
           <div className="ws-main-inner">{children}</div>
         </main>
       </div>
+    </div>
+  );
+}
+
+/** Focus mode (UX-09@PoC item 10, GRID-00@PoC item 12): no navigation, a title and «×». */
+export function FocusShell({
+  title,
+  closeLabel,
+  onClose,
+  children,
+}: {
+  title: string;
+  closeLabel: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const t = useT();
+  return (
+    <div className="ws-shell ws-focus" data-nav="none">
+      <a className="ws-skip" href={`#${MAIN_ID}`} onClick={focusTarget(MAIN_ID)}>
+        {t("shell.skipToContent")}
+      </a>
+      <main id={MAIN_ID} className="ws-main" tabIndex={-1}>
+        <div className="ws-focus-inner">
+          <div className="ws-focus-head">
+            <h1>{title}</h1>
+            <button
+              type="button"
+              className="ws-icon-button"
+              aria-label={closeLabel}
+              title={closeLabel}
+              onClick={onClose}
+            >
+              <Icon name="close" size={20} />
+            </button>
+          </div>
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

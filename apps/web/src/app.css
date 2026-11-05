@@ -8,6 +8,34 @@
   max-width: 60ch;
 }
 
+/* Page header: one h1 with the page actions beside it (GRID-00 items 13, 15). */
+.app-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.app-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.app-quiet-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.app-quiet-link:hover {
+  color: var(--ws-ink);
+}
+
 /* Gallery (DS-22). */
 .gallery {
   display: block;

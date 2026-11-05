@@ -1,51 +1,27 @@
-/* CMP-69 / UX-09 / DS-10: the application shell. The nav form comes from data-nav on .ws-shell. */
+/*
+ * CMP-69@PoC / UX-09@PoC / GRID-00@PoC: the application shell. One form from 1280 px: a 212 px
+ * sidebar with labels, collapsible to a 64 px icon rail (data-collapsed on .ws-shell). No top row,
+ * no bottom bar.
+ */
 
 .ws-shell {
+  --ws-nav-width: var(--ws-sidebar-width);
   min-height: 100vh;
   min-height: 100dvh;
 }
 
+.ws-shell[data-collapsed="true"] {
+  --ws-nav-width: var(--ws-rail-width);
+}
+
 .ws-shell-body {
   min-width: 0;
-}
-
-.ws-shell[data-nav="rail"] .ws-shell-body {
-  margin-inline-start: var(--ws-rail-width);
-}
-
-.ws-shell[data-nav="sidebar"] .ws-shell-body {
-  margin-inline-start: var(--ws-sidebar-width);
-}
-
-.ws-shell[data-nav="bottom"] .ws-shell-body {
-  padding-block-end: calc(var(--ws-bottom-bar-height) + env(safe-area-inset-bottom, 0px));
-}
-
-/* Top row with global actions: sticky (layer 10). */
-.ws-topbar {
-  position: sticky;
-  inset-block-start: 0;
-  z-index: var(--ws-layer-sticky);
-  display: flex;
-  align-items: center;
-  gap: var(--ws-space-2);
-  min-height: var(--ws-top-bar-height);
-  padding-inline: var(--ws-page-margin);
-  background: var(--ws-surface-100);
-  border-block-end: 1px solid var(--ws-line);
-}
-
-.ws-topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--ws-space-1);
-  margin-inline-start: auto;
+  margin-inline-start: var(--ws-nav-width);
 }
 
 .ws-main {
   display: block;
   min-width: 0;
-  scroll-margin-block-start: var(--ws-top-bar-height);
 }
 
 .ws-main-inner {
@@ -54,27 +30,110 @@
   padding: var(--ws-space-6) var(--ws-page-margin) var(--ws-band-gap);
 }
 
-/* Navigation, shared. */
+/* Sidebar: 212 px, surface-100, right line; 40 px items, 0 × 12 px, radius 8, icon 20. */
 .ws-nav {
   z-index: var(--ws-layer-nav);
   position: fixed;
 }
 
-.ws-nav-list {
+.ws-nav-sidebar {
+  display: flex;
+  flex-direction: column;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: var(--ws-nav-width);
+  padding-inline: var(--ws-space-3);
+  padding-block-end: var(--ws-space-3);
+  background: var(--ws-surface-100);
+  border-inline-end: 1px solid var(--ws-line);
+}
+
+.ws-nav-top {
+  display: grid;
+  gap: var(--ws-space-3);
+  padding-block-end: var(--ws-space-4);
+}
+
+.ws-nav-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-1);
+  height: var(--ws-sidebar-header-height);
+}
+
+.ws-nav-brand-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  padding-inline: var(--ws-space-1);
+  border-radius: var(--ws-radius-md);
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* CMP-71@PoC: 28 px mark with an 18/24 px name in the sidebar. */
+.ws-nav-brand-link .ws-wordmark-name {
+  font-size: var(--ws-text-heading-3-size);
+  line-height: var(--ws-text-heading-3-line);
+}
+
+.ws-nav-add {
+  width: 100%;
+}
+
+.ws-nav-list,
+.ws-nav-pages {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.ws-nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  flex: 1 1 auto;
+  overflow-y: auto;
+}
+
+.ws-nav-pages {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ws-space-1) / 2);
+  margin-block-start: calc(var(--ws-space-1) / 2);
+}
+
 .ws-nav-item {
+  position: relative;
   display: flex;
   align-items: center;
+  gap: var(--ws-space-3);
+  min-height: var(--ws-sidebar-item-height);
+  padding: 0 var(--ws-space-3);
+  border-radius: var(--ws-radius-md);
   color: var(--ws-ink-muted);
   text-decoration: none;
   font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-nav-sidebar-size);
+  line-height: var(--ws-text-nav-sidebar-line);
+  font-weight: var(--ws-text-nav-sidebar-weight);
   transition:
     background-color var(--ws-duration-interaction) var(--ws-easing-out),
     color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+/* Items are 40 / 36 px tall; a 44 px hit area is kept with an invisible extension (GRID-00 item 14). */
+.ws-nav-item::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) / -2);
+}
+
+.ws-nav-subitem::after {
+  inset-block: calc(var(--ws-space-1) / -1);
 }
 
 .ws-nav-item:hover {
@@ -89,133 +148,278 @@
   font-weight: 600;
 }
 
-/* Bottom bar < 600 px: 56 px + safe area, surface-200, top line. */
-.ws-nav-bottom {
-  inset-inline: 0;
-  inset-block-end: 0;
-  padding-block-end: env(safe-area-inset-bottom, 0px);
-  background: var(--ws-surface-200);
-  border-block-start: 1px solid var(--ws-line);
+/* L2 pages of the current section: 32 px indent, 36 px tall, weight 400, own 16 px icon. */
+.ws-nav-subitem {
+  min-height: calc(var(--ws-sidebar-item-height) - var(--ws-space-1));
+  padding-inline-start: var(--ws-space-6);
+  font-weight: 400;
 }
 
-.ws-nav-bottom .ws-nav-list {
-  display: flex;
-  height: var(--ws-bottom-bar-height);
-}
-
-.ws-nav-bottom li {
-  flex: 1 1 0;
+.ws-nav-label {
   min-width: 0;
-}
-
-.ws-nav-bottom .ws-nav-item {
-  flex-direction: column;
-  justify-content: center;
-  gap: calc(var(--ws-space-1) / 2);
-  height: 100%;
-  min-height: var(--ws-touch-target);
-  font-size: var(--ws-text-nav-bottom-size);
-  line-height: var(--ws-text-nav-bottom-line);
-  font-weight: var(--ws-text-nav-bottom-weight);
-}
-
-.ws-nav-bottom .ws-nav-item[aria-current="page"] {
-  font-weight: 600;
-}
-
-.ws-nav-bottom .ws-nav-label,
-.ws-nav-rail .ws-nav-label {
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Rail 600–1279 px: 64 px, surface-100, right line, 56 × 56 items, 24 px mark at the top. */
-.ws-nav-rail {
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: var(--ws-rail-width);
-  background: var(--ws-surface-100);
-  border-inline-end: 1px solid var(--ws-line);
-  overflow-y: auto;
-}
-
-.ws-nav-rail .ws-nav-brand {
-  display: flex;
-  justify-content: center;
-  padding-block: var(--ws-space-4);
-}
-
-.ws-nav-rail .ws-nav-list {
-  display: flex;
-  flex-direction: column;
+/* Count badge: 16 px pill, 11/14 px weight 600, brand-2 on on-brand; never amber (UX-09 item 11). */
+.ws-nav-badge {
+  display: inline-flex;
   align-items: center;
-  gap: var(--ws-space-1);
-}
-
-.ws-nav-rail .ws-nav-item {
-  flex-direction: column;
   justify-content: center;
-  gap: calc(var(--ws-space-1) / 2);
-  width: var(--ws-rail-item);
-  height: var(--ws-rail-item);
-  border-radius: var(--ws-radius-md);
-  font-size: var(--ws-text-nav-rail-size);
-  line-height: var(--ws-text-nav-rail-line);
-  font-weight: var(--ws-text-nav-rail-weight);
+  min-width: var(--ws-space-4);
+  height: var(--ws-space-4);
+  margin-inline-start: auto;
+  padding-inline: var(--ws-space-1);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-brand-2);
+  color: var(--ws-on-brand);
+  font-size: var(--ws-text-nav-count-size);
+  line-height: var(--ws-text-nav-count-line);
+  font-weight: var(--ws-text-nav-count-weight);
+  font-variant-numeric: tabular-nums;
 }
 
-.ws-nav-rail .ws-nav-item[aria-current="page"] {
-  font-weight: 600;
+/* Profile at the bottom: avatar, name and space; the menu opens upwards. */
+.ws-nav-bottom-area {
+  padding-block-start: var(--ws-space-3);
+  border-block-start: 1px solid var(--ws-line);
 }
 
-/* Sidebar ≥ 1280 px: 212 px, mark and name (64 px), 40 px items, 0 × 12 px, radius 8, icon 20. */
-.ws-nav-sidebar {
-  inset-block: 0;
-  inset-inline-start: 0;
-  width: var(--ws-sidebar-width);
-  padding-inline: var(--ws-space-3);
-  background: var(--ws-surface-100);
-  border-inline-end: 1px solid var(--ws-line);
-  overflow-y: auto;
-}
-
-.ws-nav-sidebar .ws-nav-brand {
+.ws-nav-profile {
   display: flex;
   align-items: center;
-  height: var(--ws-sidebar-header-height);
-  padding-inline: var(--ws-space-3);
-}
-
-.ws-nav-sidebar .ws-nav-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ws-space-1);
-}
-
-.ws-nav-sidebar .ws-nav-item {
   gap: var(--ws-space-3);
-  min-height: var(--ws-sidebar-item-height);
-  padding: 0 var(--ws-space-3);
+  width: 100%;
+  min-height: var(--ws-touch-target);
+  padding: var(--ws-space-1) var(--ws-space-2);
+  border: 0;
   border-radius: var(--ws-radius-md);
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-nav-profile:hover,
+.ws-nav-profile[aria-expanded="true"] {
+  background: var(--ws-surface-300);
+}
+
+.ws-nav-profile-text {
+  display: grid;
+  min-width: 0;
+}
+
+.ws-nav-profile-name,
+.ws-nav-profile-space {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-nav-profile-name {
   font-size: var(--ws-text-nav-sidebar-size);
   line-height: var(--ws-text-nav-sidebar-line);
-  font-weight: var(--ws-text-nav-sidebar-weight);
-}
-
-.ws-nav-sidebar .ws-nav-item[aria-current="page"] {
   font-weight: 600;
 }
 
-/* Sidebar items are 40 px tall; a 44 px hit area is kept with an invisible extension. */
-.ws-nav-sidebar .ws-nav-item {
-  position: relative;
+.ws-nav-profile-space {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
 }
 
-.ws-nav-sidebar .ws-nav-item::after {
-  content: "";
+.ws-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--ws-space-6);
+  height: var(--ws-space-6);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-brand);
+  color: var(--ws-on-brand);
+  font-size: var(--ws-text-label-size);
+  font-weight: 600;
+}
+
+/* Collapsed: a 64 px rail with icons only; names show as tooltips on hover and focus. */
+.ws-shell[data-collapsed="true"] .ws-nav-sidebar {
+  align-items: center;
+  padding-inline: var(--ws-space-2);
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-brand {
+  justify-content: center;
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-list {
+  overflow: visible;
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-item {
+  justify-content: center;
+  width: var(--ws-touch-target);
+  padding: 0;
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-label {
   position: absolute;
-  inset-inline: 0;
-  inset-block: calc(var(--ws-space-1) / -2);
+  inset-inline-start: calc(100% + var(--ws-space-2));
+  z-index: var(--ws-layer-tooltip);
+  padding: var(--ws-space-1) var(--ws-space-2);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-ink);
+  color: var(--ws-surface-200);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: 400;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-item:hover .ws-nav-label,
+.ws-shell[data-collapsed="true"] .ws-nav-item:focus-visible .ws-nav-label {
+  opacity: 1;
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-badge {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+}
+
+.ws-shell[data-collapsed="true"] .ws-nav-profile {
+  justify-content: center;
+  width: var(--ws-touch-target);
+  padding: 0;
+}
+
+/* The edge between the rail and the content: highlighted on hover, with the round «›» handle. */
+.ws-nav-edge {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: calc(var(--ws-space-2) * -1);
+  width: var(--ws-space-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-inline-start: 2px solid transparent;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-nav-edge:hover,
+.ws-nav-edge:focus-within {
+  border-inline-start-color: var(--ws-brand-2);
+}
+
+.ws-nav-expand {
+  min-width: var(--ws-touch-target);
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-heading-3-size);
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-nav-edge:hover .ws-nav-expand,
+.ws-nav-expand:focus-visible {
+  opacity: 1;
+}
+
+/* Menus (+ Додати, profile). */
+.ws-menu-root {
+  position: relative;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.ws-menu {
+  position: absolute;
+  inset-inline-start: 0;
+  z-index: var(--ws-layer-tooltip);
+  min-width: calc(var(--ws-sidebar-width) - var(--ws-space-5));
+  margin: 0;
+  padding: var(--ws-space-1);
+  list-style: none;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-raised);
+}
+
+.ws-menu-down {
+  inset-block-start: calc(100% + var(--ws-space-1));
+}
+
+.ws-menu-up {
+  inset-block-end: calc(100% + var(--ws-space-1));
+}
+
+.ws-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: var(--ws-touch-target);
+  padding: 0 var(--ws-space-3);
+  border-radius: var(--ws-radius-sm);
+  color: var(--ws-ink);
+  text-decoration: none;
+}
+
+.ws-menu-item:hover,
+.ws-menu-item:focus-visible {
+  background: var(--ws-surface-300);
+}
+
+.ws-menu-shortcut {
+  margin-inline-start: auto;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-label-size);
+}
+
+/* Focus mode (UX-09 item 10): no navigation, one step per screen. */
+.ws-focus-inner {
+  max-width: var(--ws-content-max);
+  margin-inline: auto;
+  padding: var(--ws-space-6) var(--ws-page-margin) var(--ws-band-gap);
+}
+
+.ws-focus-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+/* UX-09 item 8: breadcrumbs. */
+.ws-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+  margin: 0 0 var(--ws-space-3);
+  padding: 0;
+  list-style: none;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.ws-breadcrumbs li + li::before {
+  content: "›";
+  margin-inline-end: var(--ws-space-2);
+}
+
+.ws-breadcrumbs a {
+  color: inherit;
 }
