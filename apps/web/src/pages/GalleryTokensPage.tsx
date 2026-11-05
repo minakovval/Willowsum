@@ -303,12 +303,12 @@ export function GalleryTokensPage() {
           <div>
             <dt className="ws-text-label ws-muted">{t("gallery.amounts.row")}</dt>
             <dd>
-              <Amount value={SAMPLE.row} size="amount-m" />
+              <Amount value={SAMPLE.row} size="amount-s" />
             </dd>
           </div>
           <div>
             <dt className="ws-text-label ws-muted">{t("gallery.amounts.change")}</dt>
-            <dd className="ws-gain ws-text-amount-m">
+            <dd className="ws-gain ws-text-amount-s">
               <span aria-hidden="true">▲ </span>
               <Percent value={SAMPLE.changePercent} /> (<Amount value={SAMPLE.change} />)
             </dd>

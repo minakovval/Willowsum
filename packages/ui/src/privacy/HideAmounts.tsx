@@ -57,7 +57,7 @@ export function useHideAmounts(): HideAmountsValue {
   return value;
 }
 
-type AmountStyle = Extract<TypeStyleName, "amount-xl" | "amount-l" | "amount-m"> | "inherit";
+type AmountStyle = Extract<TypeStyleName, "amount-xl" | "amount-l" | "amount-m" | "amount-s"> | "inherit";
 
 /**
  * The one place where an amount reaches the screen (DS-18 item 3). `value` is already formatted
