@@ -4,9 +4,9 @@
 
 **Зв'язки**
 - Розширює: FIN-03@PoC v2
-- Залежить від: AST-01@MVP, AST-11@MVP, DAT-01@MVP, DAT-03@MVP, FIN-01@MVP, FIN-04@MVP, SUP-01@MVP
+- Залежить від: AST-01@MVP, AST-11@MVP, CMP-73@MVP, DAT-01@MVP, DAT-03@MVP, FIN-01@MVP, FIN-04@MVP, SUP-01@MVP
 - Дизайн: S-025, S-046, S-047, S-048, S-285
-- Спільні правила: П-5, П-6, П-10, П-12, П-13, П-17, П-18, CMP-26, CMP-28, CMP-32, CMP-60, CMP-63, CMP-73, NFR-01
+- Спільні правила: П-5, П-6, П-10, П-12, П-13, П-17, П-18, CMP-26, CMP-28, CMP-32, CMP-60, CMP-63, NFR-01
 - Сценарії: UC-FIN-24, UC-FIN-33, UC-FIN-34, UC-FIN-35, UC-FIN-36, UC-FIN-37, UC-FIN-38, UC-FIN-39, UC-FIN-41, UC-FIN-42, UC-FIN-44, UC-FIN-40, UC-FIN-43
 - Модуль: transactions, ledger, categorization, duplicate-matching, transfer-matching, bulk-actions, receipts, saved-views
 - Перевіряється: —
