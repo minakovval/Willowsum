@@ -20,6 +20,6 @@ Shared text of this tab (title, intro, common sections) is kept in [../ast/READM
 | [VAL-06](VAL-06.md) | Автоматичні ринкові оцінки | v1 | S |
 | [VAL-07](VAL-07.md) | Частки володіння та власницькі структури | MVP | M |
 | [VAL-08](VAL-08.md) | Історія net worth і розклад змін | v1 | S |
-| [VAL-09](VAL-09.md) | Головний огляд net worth і список дій | MVP | M |
+| [VAL-09](VAL-09.md) | Головний огляд net worth і список дій | MVP; v1 (перехід з показника Net worth на сторінку історії) | M |
 | [VAL-10](VAL-10.md) | Нереалізований прибуток | v1 | S |
-| [VAL-11](VAL-11.md) | Мапа портфеля | MVP | S |
+| [VAL-11](VAL-11.md) | Мапа портфеля | MVP (веб); v1-mobile (мапа в мобільному застосунку) | S |

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-13@MVP
-- Залежить від: AST-04@MVP, AST-09@MVP, AST-10@v1, DAT-03@v1, VAL-11@MVP
+- Залежить від: AST-04@v1, AST-09@v1, AST-10@v1, DAT-03@v1, VAL-11@v1-mobile
 - Дизайн: S-036, S-070, S-091, S-092, S-093, S-094
 - Спільні правила: П-5, П-6, П-10, SCR-02
 - Сценарії: UC-ACC-61, UC-AST-01, UC-AST-25, UC-AST-26, UC-AST-27, UC-AST-28, UC-AST-29, UC-AST-30, UC-AST-31, UC-AST-41, UC-AST-42, UC-DAT-01, UC-DAT-02, UC-DAT-09, UC-DAT-10, UC-DAT-11, UC-DAT-12, UC-DAT-13, UC-VAL-36, UC-VAL-37, UC-VAL-38, UC-WGT-22

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FIN-03@MVP
-- Залежить від: AST-01@MVP, AST-06@v1, AST-11@MVP, DAT-01@v1-mobile, DAT-03@v1, FIN-01@v1, FIN-04@MVP, FIN-13@v1, SUP-01@v1
+- Залежить від: AST-01@v1, AST-06@v1, AST-11@MVP, DAT-01@v1-mobile, DAT-03@v1, FIN-01@v1, FIN-04@MVP, FIN-13@v1, SUP-01@v1
 - Дизайн: S-025, S-046, S-047, S-048, S-285
 - Спільні правила: П-5, П-6, П-10, П-12, П-13, П-17, П-18, CMP-26, CMP-28, CMP-32, NFR-01
 - Сценарії: UC-FIN-24, UC-FIN-33, UC-FIN-34, UC-FIN-35, UC-FIN-36, UC-FIN-37, UC-FIN-38, UC-FIN-39, UC-FIN-41, UC-FIN-42, UC-FIN-44, UC-FIN-40, UC-FIN-43

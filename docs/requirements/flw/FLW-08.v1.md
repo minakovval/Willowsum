@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-08@v1-mobile
-- Залежить від: ACC-02@v1-mobile, AST-01@MVP, AST-02@MVP, AST-03@MVP, AST-05@v1, AST-07@MVP, SUB-07@v1, UX-08@v1, VAL-02@MVP
+- Залежить від: ACC-02@v1-mobile, AST-01@v1, AST-02@v1, AST-03@v1, AST-05@v1, AST-07@MVP, SUB-07@v1, UX-08@v1, VAL-02@MVP
 - Дизайн: S-025, S-030, S-034, S-071, S-072, S-073, S-074, S-075, S-282
 - Спільні правила: П-10, П-13, П-21, SCR-02
 - Сценарії: UC-AST-01, UC-AST-02, UC-AST-03, UC-AST-04, UC-AST-05, UC-AST-06, UC-AST-07, UC-AST-08, UC-AST-11, UC-AST-17, UC-AST-22, UC-AST-47, UC-AST-49, UC-DAT-07, UC-FIN-48, UC-SUB-32, UC-SUB-34, UC-UX-34, UC-UX-39, UC-UX-40, UC-VAL-07

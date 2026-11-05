@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-54@MVP
-- Залежить від: ACC-02@v1-mobile, BUD-05@MVP, VLT-08@MVP, VLT-09@MVP
+- Залежить від: ACC-02@v1-mobile, BUD-05@MVP, VLT-08@v1-mobile, VLT-09@v1-mobile
 - Дизайн: S-137, S-236, S-237, S-283
 - Спільні правила: П-5, П-6, П-8, П-10, П-23, SCR-02
 - Сценарії: UC-VLT-37, UC-VLT-38, UC-VLT-39, UC-VLT-40

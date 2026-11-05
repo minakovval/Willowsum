@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: DAT-04@MVP
-- Залежить від: AST-01@MVP, AST-11@MVP, DOC-01@v1, FIN-01@v1, FIN-03@v1, FIN-05@v1, IMP-04@MVP, NOT-01@v1-mobile, SUB-07@v1
+- Залежить від: AST-01@v1, AST-11@MVP, DOC-01@v1, FIN-01@v1, FIN-03@v1, FIN-05@v1, IMP-04@MVP, NOT-01@v1-mobile, SUB-07@v1
 - Дизайн: S-162, S-166, S-175, S-176, S-177, S-179, S-163, S-164, S-165, S-167, S-168, S-169
 - Спільні правила: П-10, П-12, П-21, NFR-01
 - Сценарії: UC-DAT-14, UC-DAT-15, UC-DAT-16, UC-DAT-17, UC-DAT-18, UC-DAT-19

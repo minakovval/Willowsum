@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: DOC-01@v1-mobile
-- Залежить від: ACC-10@MVP, AST-01@MVP, PLT-01@v1-mobile, SUB-07@v1
+- Залежить від: ACC-10@MVP, AST-01@v1, PLT-01@v1-mobile, SUB-07@v1
 - Дизайн: S-078, S-085, S-086, S-109, S-110, S-111, S-207
 - Спільні правила: П-5, П-6, П-8, П-10, П-21, NFR-01
 - Сценарії: UC-DOC-01, UC-DOC-02, UC-DOC-03, UC-DOC-04, UC-DOC-06, UC-DOC-07, UC-DOC-09, UC-DOC-10, UC-DOC-11, UC-DOC-12, UC-DOC-13, UC-DOC-14, UC-DOC-15, UC-DOC-16
