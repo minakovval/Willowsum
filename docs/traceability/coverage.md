@@ -335,7 +335,7 @@ Not migrated in v1-mobile: 2 slices without design links (links are unknown unti
 | S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
 | S-118 | Доходи і витрати активу (yield) | AST-06 | migration |
 
-### Migrated slices without design (9)
+### Migrated slices without design (11)
 
 - ARC-01@v1
 - CMP-38@v1
@@ -344,7 +344,9 @@ Not migrated in v1-mobile: 2 slices without design links (links are unknown unti
 - CMP-41@v1
 - CMP-43@v1
 - CMP-51@v1
+- CMP-54@v1
 - CMP-70@v1
+- NFR-12@v1
 - NFR-17@v1
 
 ### Slices without acceptance criteria (3)
