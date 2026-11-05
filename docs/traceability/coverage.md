@@ -164,7 +164,7 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 
 ## MVP
 
-### Screens without a slice (6 of 229)
+### Screens without a slice (5 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
@@ -173,7 +173,6 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 | S-033 | Зберегти зміни? (Зберегти / Не зберігати / Скасувати) | SCR-02, UX-09 | migration |
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | a «Дизайн» link |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | a «Дизайн» link |
-| S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 
 ### Migrated slices without design (102)
 
@@ -323,16 +322,13 @@ None.
 - CICD-10@v1-mobile
 - JRN-07@v1-mobile
 
-Not migrated in v1-mobile: 1 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 0 slices without design links (links are unknown until migration).
 
 ## v1
 
-### Screens without a slice (2 of 26)
+### Screens without a slice (0 of 26)
 
-| Screen | Title | Requirements in the screen map | Waiting for |
-| --- | --- | --- | --- |
-| S-100 | Невпізнані інструменти | INV-01 | migration |
-| S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
+None.
 
 ### Migrated slices without design (12)
 
@@ -355,26 +351,25 @@ Not migrated in v1-mobile: 1 slices without design links (links are unknown unti
 - JRN-02@v1
 - JRN-06@v1
 
-Not migrated in v1: 8 slices without design links (links are unknown until migration).
+Not migrated in v1: 0 slices without design links (links are unknown until migration).
 
 ## v2
 
-### Screens without a slice (6 of 36)
+### Screens without a slice (4 of 36)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-044 | «Ваш \<місяць> у підсумках» (слайди) і річний підсумок | UX-06 | a «Дизайн» link |
-| S-154 | Спадок (спадкове планування з партнером) | PLN-03 | migration |
 | S-185 | Навчання (гайди, відео, глосарій, події) | UX-07 | a «Дизайн» link |
 | S-219 | Вигляд (кольори учасників, порядок сторінок) | UX-05 | a «Дизайн» link |
-| S-292 | Стрічка активності радника (правки радника, пакети фіду) | ADV-06 | migration |
 | S-278 | Контент навчання (гайди, відео, глосарій, події) | UX-07 | a «Дизайн» link |
 
-### Migrated slices without design (6)
+### Migrated slices without design (7)
 
 - ARC-01@v2
 - FIN-15@v2
 - FIN-19@v2
+- PLT-02@v2
 - UX-05@v2
 - UX-06@v2
 - UX-07@v2
@@ -386,4 +381,4 @@ Not migrated in v1: 8 slices without design links (links are unknown until migra
 - JRN-03@v2
 - JRN-04@v2
 
-Not migrated in v2: 13 slices without design links (links are unknown until migration).
+Not migrated in v2: 0 slices without design links (links are unknown until migration).
