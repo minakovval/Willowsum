@@ -107,7 +107,7 @@ requirement is kept in the README of that module.
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
 | VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | PoC 2, MVP 6, v1 3 |
 | FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | PoC 6, MVP 3, v1 6, v2 4 |
-| INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | v1 3 |
+| INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | MVP 1, v1 2 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 16, PoC v2 1, MVP 3 |
 | FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | PoC 3 |
