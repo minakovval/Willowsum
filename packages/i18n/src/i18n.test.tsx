@@ -37,7 +37,7 @@ describe("I18nProvider", () => {
     const { t, setLocale } = useI18n();
     return (
       <button type="button" onClick={() => setLocale("en")}>
-        {t("shell.nav.home")}
+        {t("shell.nav.money")}
       </button>
     );
   }
@@ -48,10 +48,10 @@ describe("I18nProvider", () => {
         <Probe />
       </I18nProvider>,
     );
-    expect(screen.getByRole("button").textContent).toBe("Головна");
+    expect(screen.getByRole("button").textContent).toBe("Гроші");
     expect(document.documentElement.lang).toBe("uk");
     act(() => screen.getByRole("button").click());
-    expect(screen.getByRole("button").textContent).toBe("Home");
+    expect(screen.getByRole("button").textContent).toBe("Money");
     expect(document.documentElement.lang).toBe("en");
   });
 });

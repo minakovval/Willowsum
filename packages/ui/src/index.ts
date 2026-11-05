@@ -22,8 +22,10 @@ export {
   Percent,
   useHideAmounts,
 } from "./privacy/HideAmounts.tsx";
-export { AppShell, MAIN_ID, NAV_ID, useNavForm } from "./shell/AppShell.tsx";
-export type { NavItem } from "./shell/AppShell.tsx";
+export { AppShell, FocusShell, MAIN_ID, NAV_COLLAPSED_STORAGE_KEY, NAV_ID } from "./shell/AppShell.tsx";
+export type { NavPage, NavSection } from "./shell/AppShell.tsx";
+export { MenuButton } from "./shell/MenuButton.tsx";
+export type { MenuItem } from "./shell/MenuButton.tsx";
 export { useMediaQuery } from "./useMediaQuery.ts";
 export { keepNumbersTogether } from "@willowsum/i18n";
 export { FitAmount } from "./amount/FitAmount.tsx";

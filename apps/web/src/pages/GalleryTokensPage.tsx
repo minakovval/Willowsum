@@ -58,6 +58,7 @@ const ICON_GROUP_LABEL: Record<IconGroup, MessageKey> = {
   assetTypes: "gallery.icons.group.assetTypes",
   moneyAndCover: "gallery.icons.group.moneyAndCover",
   actions: "gallery.icons.group.actions",
+  navigation: "gallery.icons.group.navigation",
   status: "gallery.icons.group.status",
 };
 

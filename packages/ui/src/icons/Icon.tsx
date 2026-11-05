@@ -6,6 +6,7 @@ import {
   Bell,
   Bitcoin,
   Briefcase,
+  CalendarRange,
   Building2,
   Camera,
   Car as CarIcon,
@@ -17,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
+  Coins,
   CirclePercent,
   CreditCard,
   Download,
@@ -44,12 +46,15 @@ import {
   Maximize,
   Minus,
   Palette,
+  PanelLeftClose,
   Pencil,
   Plane,
   Play,
   Plug,
   Plus,
+  Repeat,
   Sailboat,
+  Scale,
   Search,
   Settings,
   Share,
@@ -99,6 +104,11 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
 
 export type IconName =
   | "home"
+  | "money"
+  | "planning"
+  | "recurring"
+  | "afford"
+  | "collapse"
   | "accounts"
   | "transactions"
   | "budget"
@@ -354,6 +364,11 @@ const GLYPHS: Record<IconName, Glyph> = {
   star: lucide(Star),
   minus: lucide(Minus),
   target: lucide(Target),
+  money: lucide(Coins),
+  planning: lucide(CalendarRange),
+  recurring: lucide(Repeat),
+  afford: lucide(Scale),
+  collapse: lucide(PanelLeftClose),
 };
 
 /** Every icon name, in the design board's order. */
@@ -443,7 +458,10 @@ export const ICON_GROUPS = {
     "lock",
     "star",
     "target",
+    "collapse",
   ],
+  /** UX-09@PoC / DS-12 item 4: PoC L1 sections and L2 pages without an icon in the sections group. */
+  navigation: ["money", "planning", "recurring", "afford"],
   status: ["check", "warning", "close", "info"],
 } as const satisfies Record<string, readonly IconName[]>;
 

@@ -81,6 +81,42 @@
   color: var(--ws-ink);
 }
 
+/* Text button and the filled primary button (one per area, GRID-00 item 15). */
+.ws-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+  padding: 0 var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-text-action-family);
+  font-size: var(--ws-text-action-size);
+  line-height: var(--ws-text-action-line);
+  font-weight: var(--ws-text-action-weight);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-button:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-button-primary {
+  border-color: var(--ws-brand);
+  background: var(--ws-brand);
+  color: var(--ws-on-brand);
+}
+
+.ws-button-primary:hover {
+  background: var(--ws-brand-2);
+  color: var(--ws-on-brand);
+}
+
 /* DS-18: amounts and their hidden form. */
 .ws-amount {
   font-variant-numeric: tabular-nums;
