@@ -144,10 +144,11 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 None.
 
-### Migrated slices without design (6)
+### Migrated slices without design (7)
 
 - ARC-01@PoC v2
 - CMP-24@PoC v2
+- CMP-58@PoC v2
 - CMP-69@PoC v2
 - DS-03@PoC v2
 - NFR-01@PoC v2

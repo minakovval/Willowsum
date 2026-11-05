@@ -21,18 +21,27 @@ function Router() {
     window.scrollTo(0, 0);
   }, [path]);
 
-  if (path === GALLERY_TOKENS_PATH) return <GalleryTokensPage />;
+  // The design-system gallery demonstrates «Приховати суми» (kept for MVP); the PoC app has no such
+  // mode (UX-09@PoC), so its pages always show amounts, whatever the gallery stored on this device.
+  if (path === GALLERY_TOKENS_PATH)
+    return (
+      <HideAmountsProvider>
+        <GalleryTokensPage />
+      </HideAmountsProvider>
+    );
   const section = sectionForPath(path);
-  return section ? <SectionPage section={section} /> : <NotFoundPage />;
+  return (
+    <HideAmountsProvider initialHidden={false}>
+      {section ? <SectionPage section={section} /> : <NotFoundPage />}
+    </HideAmountsProvider>
+  );
 }
 
 export function App() {
   return (
     <I18nProvider>
       <ThemeProvider>
-        <HideAmountsProvider>
-          <Router />
-        </HideAmountsProvider>
+        <Router />
       </ThemeProvider>
     </I18nProvider>
   );

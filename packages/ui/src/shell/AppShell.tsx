@@ -44,7 +44,7 @@ export function AppShell({
 }: {
   items: readonly NavItem[];
   currentId: string | null;
-  /** Global actions (search, add, «Приховати суми», notifications, profile). */
+  /** Global (L0) actions; the group is left out when there are none. */
   actions?: ReactNode;
   children: ReactNode;
 }) {
@@ -93,9 +93,11 @@ export function AppShell({
       <div className="ws-shell-body">
         <header className="ws-topbar">
           {form === "bottom" ? <WillowsumMark size={24} /> : null}
-          <div className="ws-topbar-actions" role="group" aria-label={t("shell.globalActions")}>
-            {actions}
-          </div>
+          {actions ? (
+            <div className="ws-topbar-actions" role="group" aria-label={t("shell.globalActions")}>
+              {actions}
+            </div>
+          ) : null}
         </header>
         <main id={MAIN_ID} className="ws-main" tabIndex={-1}>
           <div className="ws-main-inner">{children}</div>

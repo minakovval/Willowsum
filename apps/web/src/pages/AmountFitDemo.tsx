@@ -1,17 +1,20 @@
-import { useT } from "@willowsum/i18n";
+import { useI18n } from "@willowsum/i18n";
 import { FitAmount, formatCompactAmount } from "@willowsum/ui";
 
-/** DS-22 gallery: CMP-07 «Великі значення» at several widths (synthetic values). */
-const HUGE = { value: "12345678901234.00", text: "€ 12 345 678 901 234,00" };
-const BIG = { value: "1234567.89", text: "₴ 1 234 567,89" };
-const ORDINARY = { value: "48250.40", text: "€ 48 250,40" };
+/**
+ * DS-22 gallery: CMP-07 «Великі значення» at several widths (synthetic values). The full values use
+ * the uk-UA format; the abbreviation units follow the interface language (DS-04 item 11).
+ */
+const HUGE = { value: "12345678901234.00", text: "12 345 678 901 234,00 €" };
+const BIG = { value: "1234567.89", text: "1 234 567,89 ₴" };
+const ORDINARY = { value: "48250.40", text: "48 250,40 €" };
 const WIDTHS = [360, 240, 160, 110] as const;
 
 export function AmountFitDemo() {
-  const t = useT();
-  const huge = formatCompactAmount({ value: HUGE.value, currency: "€" });
-  const big = formatCompactAmount({ value: BIG.value, currency: "₴" });
-  const ordinary = formatCompactAmount({ value: ORDINARY.value, currency: "€" });
+  const { t, locale } = useI18n();
+  const huge = formatCompactAmount({ value: HUGE.value, currency: "€", locale });
+  const big = formatCompactAmount({ value: BIG.value, currency: "₴", locale });
+  const ordinary = formatCompactAmount({ value: ORDINARY.value, currency: "€", locale });
   return (
     <div className="gallery-fit">
       <p className="ws-muted">{t("gallery.fit.intro")}</p>

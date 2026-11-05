@@ -13,6 +13,7 @@ describe("/gallery/tokens (DS-22)", () => {
     installMatchMedia({ width: 390 });
     window.location.hash = "#/gallery/tokens";
   });
+  afterEach(() => vi.restoreAllMocks());
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
     render(<App />);
@@ -46,6 +47,22 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(norm(amounts.textContent)).toContain("•••");
     expect(norm(amounts.textContent)).toContain("+2,4 %");
     expect(within(amounts as HTMLElement).getAllByRole("button", { name: "Сума прихована" }).length).toBe(4);
+  });
+
+  it("abbreviates large amounts with units of the interface language (DS-04 item 11)", () => {
+    // jsdom has no layout: every box is 40 px wide and text is 10 px per character, so the large
+    // amounts do not fit and switch to the abbreviated form.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(40);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { width: (this.textContent ?? "").length * 10 } as DOMRect;
+    });
+    const { container } = render(<App />);
+    const fit = () => norm(container.querySelector(".gallery-fit")!.innerHTML);
+    expect(fit()).toContain("12,35 трлн €");
+    expect(fit()).toContain("1,23 млн ₴");
+    act(() => screen.getByLabelText("English").click());
+    expect(fit()).toContain("12,35 tn €");
+    expect(fit()).toContain("1,23 M ₴");
   });
 
   it("switches language to English", () => {

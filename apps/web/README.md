@@ -22,7 +22,7 @@ rewrites.
 | DS-11 | Item 7 | `index.html` applies the stored theme before the first paint |
 | DS-02 | Item 12 | Tab title «Willowsum · <page>», the mark as favicon |
 | DS-14 | Item 8 | Focus moves to `main` after navigation |
-| CMP-69 / UX-09 | Partly | Uses `AppShell` from `@willowsum/ui` with Головна, Гроші, Активи, Планування, Ще and the «Приховати суми» action |
+| CMP-69 / UX-09 | Partly | Uses `AppShell` from `@willowsum/ui` with Головна, Гроші, Активи, Планування, Ще. No «Приховати суми» action: the mode is not in PoC (owner decision 2026-11-05); the app pages always show amounts, only the gallery demonstrates the mode |
 
 ## Scripts
 

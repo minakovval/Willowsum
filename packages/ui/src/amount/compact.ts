@@ -1,10 +1,19 @@
+import type { Locale } from "@willowsum/i18n";
+
 /**
- * CMP-07 «Великі значення»: the abbreviated form of an amount. Pure string arithmetic on the decimal
- * value (no floating point, AGENTS.md money rule). Units: k, M, bn, tn, qd, qn; above 999 qn —
- * «999+ qn». Two decimals below 100 and one from 100 (12,35 tn; 128,4 k); decimal comma; the minus
- * and the currency stay in front: «−€ 12,3 bn».
+ * CMP-07 «Великі значення», DS-04 item 11: the abbreviated form of an amount. Pure string arithmetic
+ * on the decimal value (no floating point, AGENTS.md money rule). The units follow the interface
+ * language: uk — тис., млн, млрд, трлн, квдрлн, квінтлн; en — k, M, bn, tn, qd, qn. Above 999 of the
+ * largest unit — «999+ квінтлн» / «999+ qn». Two decimals below 100 and one from 100 (12,35 трлн;
+ * 128,4 тис.). The number layout follows the uk-UA format (the only format so far): decimal comma,
+ * the minus in front, the currency symbol after the unit: «128,4 тис. €», «−1,24 млн ₴».
  */
-const UNITS = ["", "k", "M", "bn", "tn", "qd", "qn"] as const;
+const COMPACT_UNITS: Record<Locale, readonly string[]> = {
+  uk: ["", "тис.", "млн", "млрд", "трлн", "квдрлн", "квінтлн"],
+  en: ["", "k", "M", "bn", "tn", "qd", "qn"],
+};
+/** Units per language: none, thousand, million, billion, trillion, quadrillion, quintillion. */
+const UNIT_COUNT = 7;
 const MINUS = "−";
 const NBSP = " ";
 
@@ -27,28 +36,34 @@ function roundDecimal(intPart: string, frac: string, places: number): { int: str
 export interface CompactInput {
   /** Decimal amount as a string, e.g. "-12345678901234.00". */
   value: string;
-  /** Currency symbol or code shown in front, e.g. "€", "₴", "UAH". */
+  /** Currency symbol or code, e.g. "€", "₴", "UAH". */
   currency: string;
+  /** Interface language; picks the unit names. */
+  locale: Locale;
 }
 
-/** «€ 12,35 tn» style string, or null when the amount is below 1 000 and needs no abbreviation. */
-export function formatCompactAmount({ value, currency }: CompactInput): string | null {
+/** «12,35 трлн €» style string, or null when the amount is below 1 000 and needs no abbreviation. */
+export function formatCompactAmount({ value, currency, locale }: CompactInput): string | null {
+  const units = COMPACT_UNITS[locale];
+  const top = units[UNIT_COUNT - 1] ?? "";
+  const show = (sign: string, number: string, unit: string) =>
+    `${sign}${number}${NBSP}${unit}${NBSP}${currency}`;
   // Only a plain decimal string is accepted; anything else (spaces, grouping, exponents) gives null.
   if (!/^[-+]?\d+(\.\d+)?$/.test(value.trim())) return null;
   const negative = value.trim().startsWith("-");
   const [rawInt = "0", rawFrac = ""] = value.trim().replace(/^[-+]/, "").split(".");
   const intPart = rawInt.replace(/^0+(?=\d)/, "");
   if (intPart.length <= 3) return null;
-  let unit = Math.min(Math.floor((intPart.length - 1) / 3), UNITS.length - 1);
+  let unit = Math.min(Math.floor((intPart.length - 1) / 3), UNIT_COUNT - 1);
   const sign = negative ? MINUS : "";
-  if (intPart.length > 3 * (UNITS.length - 1) + 3) return `${sign}${currency}${NBSP}999+${NBSP}qn`;
+  if (intPart.length > 3 * (UNIT_COUNT - 1) + 3) return show(sign, "999+", top);
   const split = intPart.length - unit * 3;
   let head = intPart.slice(0, split);
   let tail = intPart.slice(split) + rawFrac;
   let places = head.length >= 3 ? 1 : 2;
   let r = roundDecimal(head, tail, places);
   // Rounding can carry into a new thousand (999,96 k → 1,00 M).
-  if (r.int.length > 3 && unit < UNITS.length - 1) {
+  if (r.int.length > 3 && unit < UNIT_COUNT - 1) {
     unit += 1;
     head = intPart.slice(0, split - 3) || "0";
     tail = intPart.slice(Math.max(split - 3, 0)) + rawFrac;
@@ -60,6 +75,6 @@ export function formatCompactAmount({ value, currency }: CompactInput): string |
     places = 1;
     r = roundDecimal(head, tail, places);
   }
-  if (r.int.length > 3) return `${sign}${currency}${NBSP}999+${NBSP}qn`;
-  return `${sign}${currency}${NBSP}${r.int},${r.frac}${NBSP}${UNITS[unit]}`;
+  if (r.int.length > 3) return show(sign, "999+", top);
+  return show(sign, `${r.int},${r.frac}`, units[unit] ?? "");
 }
