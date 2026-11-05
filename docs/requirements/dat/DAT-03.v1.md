@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: DAT-03@MVP
-- Залежить від: AST-01@MVP, AST-12@MVP, DAT-01@v1-mobile, SUB-07@v1, VAL-07@MVP
+- Залежить від: AST-01@MVP, AST-10@v1, AST-12@MVP, DAT-01@v1-mobile, SUB-07@v1, VAL-07@MVP
 - Дизайн: S-036, S-046, S-070
 - Спільні правила: П-5, П-6, П-10, П-11, П-21
 - Сценарії: UC-DAT-09, UC-DAT-10, UC-DAT-11, UC-DAT-12, UC-DAT-13

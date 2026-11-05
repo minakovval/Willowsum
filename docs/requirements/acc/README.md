@@ -17,7 +17,7 @@ Scope: Account, sign-in, 2FA, sessions, profile, household space, roles, scope, 
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [ACC-01](ACC-01.md) | Реєстрація та вхід | PoC (лише email і пароль, підтвердження email, відновлення пароля); решта — MVP | M |
+| [ACC-01](ACC-01.md) | Реєстрація та вхід | PoC (лише email і пароль, підтвердження email, відновлення пароля, CAPTCHA; вхід лише з підтвердженим email); решта — MVP | M |
 | [ACC-02](ACC-02.md) | Реєстрація та оплата в мобільному застосунку | v1-mobile | S |
 | [ACC-03](ACC-03.md) | Двофакторна автентифікація | MVP | M |
 | [ACC-04](ACC-04.md) | Керування сесіями і тайм-аут | MVP | M |
