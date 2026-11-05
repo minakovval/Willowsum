@@ -73,7 +73,7 @@
 | Бюджет | cashflow | Грошовий потік і прогноз |
 | Бюджет | debt-payoff | Калькулятор погашення боргів |
 | Документи | file-storage | Сховище файлів, шифрування, підписані посилання, антивірус |
-| Сервіс | notification-delivery | Доставка: email, push, in-app |
+| Сервіс | notification-delivery | Доставка: email, in-app (push — v1-mobile) |
 
 | Критерій | Поріг | Перевірка |
 | --- | --- | --- |

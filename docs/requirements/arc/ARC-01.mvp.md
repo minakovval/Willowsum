@@ -109,7 +109,7 @@
 | Документи | vault-items | Записи Сейфу і шифрування на пристрої |
 | Документи | vault-sharing | Тимчасове поширення записів Сейфу |
 | Документи | vault-emergency-access | Екстрений доступ до Сейфу |
-| Сервіс | notification-delivery | Доставка: email, push, in-app |
+| Сервіс | notification-delivery | Доставка: email, in-app (push — v1-mobile) |
 | Сервіс | notification-preferences | Налаштування сповіщень учасників |
 | Сервіс | weekly-digest | Тижневий підсумок |
 | Сервіс | dashboard | Головна: віджети і розкладка (лише збирає дані інших модулів) |
