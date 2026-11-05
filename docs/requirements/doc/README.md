@@ -19,6 +19,6 @@ Scope: Document storage, document types, expiry dates and links, OCR migration. 
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [DOC-01](DOC-01.md) | Сховище документів | MVP | M |
+| [DOC-01](DOC-01.md) | Сховище документів | MVP; v1-mobile (сканування камерою і продовження обірваного завантаження в мобільному застосунку); v1 (застосування ліміту сховища) | M |
 | [DOC-02](DOC-02.md) | Типи документів, дати дії та зв'язки | MVP | M |
 | [DOC-03](DOC-03.md) | Міграція зі звичайних документів (OCR) | v2 | C |

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FIN-02@MVP
-- Залежить від: ACC-01@MVP, AST-11@MVP, FIN-01@v1, FIN-03@v1, FIN-11@v1, NOT-01@MVP, SUB-07@v1
+- Залежить від: ACC-01@MVP, AST-11@MVP, FIN-01@v1, FIN-03@v1, FIN-11@v1, NOT-01@v1-mobile, SUB-07@v1
 - Дизайн: S-051, S-060, S-061, S-062
 - Спільні правила: П-8, П-9, П-10, П-18, П-20, П-21, П-22, П-23, NFR-01
 - Сценарії: UC-FIN-02, UC-FIN-14, UC-FIN-15, UC-FIN-17, UC-FIN-18, UC-FIN-20, UC-FIN-21, UC-FIN-22, UC-FIN-16, UC-FIN-19, UC-FIN-30

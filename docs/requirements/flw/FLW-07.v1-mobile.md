@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-07@MVP
-- Залежить від: ACC-02@v1-mobile, ADM-04@MVP, NOT-01@MVP, SUB-01@MVP, SUB-02@MVP, SUB-03@MVP
+- Залежить від: ACC-02@v1-mobile, ADM-04@MVP, NOT-01@v1-mobile, SUB-01@v1-mobile, SUB-02@v1-mobile, SUB-03@v1-mobile
 - Дизайн: S-040, S-157, S-159, S-160, S-161
 - Спільні правила: П-21, SCR-02
 - Сценарії: UC-ACC-13, UC-ADM-16, UC-SUB-08, UC-SUB-09, UC-SUB-10, UC-SUB-11, UC-SUB-13, UC-SUB-14, UC-SUB-15, UC-SUB-16

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-35@v1-mobile
-- Залежить від: BUD-03@v1-mobile, BUD-10@v1-mobile, BUD-11@v1-mobile, BUD-12@v1, BUD-13@v1, BUD-14@v1, FIN-03@v1, NOT-01@MVP, PLT-01@v1-mobile, UX-01@v1
+- Залежить від: BUD-03@v1-mobile, BUD-10@v1-mobile, BUD-11@v1-mobile, BUD-12@v1, BUD-13@v1, BUD-14@v1, FIN-03@v1, NOT-01@v1-mobile, PLT-01@v1-mobile, UX-01@v1
 - Дизайн: S-040, S-047, S-049, S-058, S-280
 - Спільні правила: П-5, П-6, П-10, П-11, П-17, SCR-02
 - Сценарії: UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-14, UC-BUD-18, UC-BUD-57, UC-BUD-59, UC-BUD-63, UC-BUD-64, UC-BUD-65, UC-BUD-66, UC-BUD-67, UC-BUD-69, UC-BUD-72, UC-FIN-34, UC-FIN-39, UC-IMP-12, UC-IMP-30, UC-IMP-31, UC-IMP-32, UC-IMP-33, UC-IMP-34, UC-IMP-35, UC-NOT-01, UC-PLT-01, UC-PLT-02, UC-PLT-03, UC-PLT-04, UC-UX-12, UC-WGT-14, UC-WGT-17, UC-WGT-18

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-20@MVP
-- Залежить від: FIN-05@v1, FIN-06@v1, INV-01@v1, INV-02@v1, INV-03@v1, RPT-01@MVP, VAL-05@v1
+- Залежить від: FIN-05@v1, FIN-06@v1, INV-01@v1, INV-02@v1, INV-03@v1, RPT-01@v1, VAL-05@v1
 - Дизайн: S-095, S-096, S-097, S-098, S-099, S-162
 - Спільні правила: П-1, П-17, SCR-02
 - Сценарії: UC-FIN-45, UC-FIN-49, UC-FIN-50, UC-FIN-51, UC-FIN-52, UC-FIN-53, UC-FIN-54, UC-FIN-55, UC-FIN-56, UC-FIN-57, UC-FIN-58, UC-FIN-59, UC-INV-01, UC-INV-02, UC-INV-03, UC-INV-04, UC-INV-07, UC-INV-08, UC-INV-10, UC-INV-11, UC-INV-12, UC-RPT-10, UC-VAL-17, UC-VAL-18, UC-VAL-20, UC-WGT-23

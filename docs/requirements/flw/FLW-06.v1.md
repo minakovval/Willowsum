@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: —
-- Залежить від: SUB-01@MVP, SUB-02@MVP, SUB-03@MVP, SUB-07@v1, UX-09@v1
+- Залежить від: SUB-01@v1, SUB-02@v1, SUB-03@v1-mobile, SUB-07@v1, UX-09@v1
 - Дизайн: S-030, S-072, S-158, S-159
 - Спільні правила: П-7, П-21, SCR-02
 - Сценарії: UC-ACC-42, UC-ACC-57, UC-AST-02, UC-BUD-111, UC-BUD-21, UC-BUD-44, UC-BUD-74, UC-BUD-91, UC-DAT-18, UC-DAT-22, UC-FIN-16, UC-FIN-59, UC-RPT-14, UC-SUB-33, UC-SUB-34, UC-SUB-35, UC-UX-17, UC-UX-38, UC-WGT-05

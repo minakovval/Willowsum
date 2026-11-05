@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-39@MVP
-- Залежить від: ACC-02@v1-mobile, ADM-01@MVP, ADM-02@MVP, ADM-03@MVP, ADM-04@MVP, ADM-05@MVP
+- Залежить від: ACC-02@v1-mobile, ADM-01@MVP, ADM-02@v1-mobile, ADM-03@MVP, ADM-04@MVP, ADM-05@MVP
 - Дизайн: S-259, S-260, S-261, S-262, S-263, S-264, S-272, S-273
 - Спільні правила: П-10, П-21, SCR-02
 - Сценарії: UC-ADM-01, UC-ADM-02, UC-ADM-03, UC-ADM-04, UC-ADM-05, UC-ADM-06, UC-ADM-07, UC-ADM-09, UC-ADM-10, UC-ADM-11, UC-ADM-12, UC-ADM-13, UC-ADM-14, UC-ADM-15, UC-ADM-18, UC-ADM-30, UC-L10N-09, UC-SUB-02, UC-SUB-03, UC-SUB-04

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-37@MVP
-- Залежить від: AST-01@MVP, BUD-03@v1-mobile, BUD-04@v1, BUD-05@v1, NOT-01@MVP, SUB-07@v1, UX-01@v1
+- Залежить від: AST-01@MVP, BUD-03@v1-mobile, BUD-04@v1, BUD-05@v1, NOT-01@v1-mobile, SUB-07@v1, UX-01@v1
 - Дизайн: S-136, S-137, S-138, S-139, S-140
 - Спільні правила: П-17, П-18, П-21, SCR-02
 - Сценарії: UC-AST-17, UC-BUD-118, UC-BUD-119, UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-28, UC-BUD-29, UC-BUD-30, UC-UX-04, UC-UX-16, UC-WGT-15

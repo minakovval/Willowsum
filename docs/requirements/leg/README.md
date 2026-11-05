@@ -12,4 +12,4 @@ Shared text of this tab (title, intro, common sections) is kept in [../ux/README
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [LEG-01](LEG-01.md) | Юридичні документи, згода та приватність у застосунку | MVP | M |
+| [LEG-01](LEG-01.md) | Юридичні документи, згода та приватність у застосунку | MVP; v1 (окрема згода на AI-функції, провайдер AI серед обробників, дисклеймер біля відповідей AI-асистента) | M |

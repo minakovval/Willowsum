@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-23@MVP
-- Залежить від: ACC-02@v1-mobile, DOC-01@MVP, DOC-02@MVP, IMP-13@MVP
+- Залежить від: ACC-02@v1-mobile, DOC-01@v1-mobile, DOC-02@MVP, IMP-13@MVP
 - Дизайн: S-078, S-086, S-109, S-110, S-111, S-281
 - Спільні правила: П-5, П-6, П-8, П-10, SCR-02
 - Сценарії: UC-DOC-01, UC-DOC-02, UC-DOC-03, UC-DOC-04, UC-DOC-05, UC-DOC-06, UC-DOC-07, UC-DOC-08, UC-DOC-09, UC-DOC-10, UC-DOC-11, UC-DOC-12, UC-DOC-13, UC-DOC-14, UC-DOC-16, UC-VAL-04

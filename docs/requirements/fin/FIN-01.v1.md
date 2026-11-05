@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FIN-01@MVP
-- Залежить від: ACC-08@MVP, AST-11@MVP, FIN-04@MVP, NOT-01@MVP, VAL-04@MVP, VAL-05@v1, VAL-07@MVP
+- Залежить від: ACC-08@v1, AST-11@MVP, FIN-04@MVP, NOT-01@v1-mobile, VAL-04@MVP, VAL-05@v1, VAL-07@MVP
 - Дизайн: S-050, S-051, S-052, S-053
 - Спільні правила: П-5, П-6, П-8, П-10, NFR-01
 - Сценарії: UC-FIN-01, UC-FIN-02, UC-FIN-03, UC-FIN-04, UC-FIN-05, UC-FIN-06, UC-FIN-07, UC-FIN-09, UC-FIN-11, UC-FIN-13, UC-FIN-10
