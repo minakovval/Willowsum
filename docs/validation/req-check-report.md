@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-721 files (requirement and slice files) have a «Критерії приймання» section with 6689 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+721 files (requirement and slice files) have a «Критерії приймання» section with 6590 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
@@ -120,7 +120,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Support break-glass access maximum (`break-glass`) | 72 h | 6 | 0 | 72 h ×6 |
 | Trial length (`trial`) | 14 d | 18 | 0 | 14 d ×18 |
 | Past-due payment grace period (`past-due-grace`) | 14 d | 12 | 0 | 14 d ×12 |
-| Plan narrowing for Free users takes effect after (`free-narrowing`) | 14 d | 22 | 0 | 14 d ×22 |
+| Plan narrowing for Free users takes effect after (`free-narrowing`) | 14 d | 23 | 0 | 14 d ×23 |
 
 ### Competing values found while building the registry
 
