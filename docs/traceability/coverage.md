@@ -364,11 +364,13 @@ Not migrated in v1: 0 slices without design links (links are unknown until migra
 | S-219 | Вигляд (кольори учасників, порядок сторінок) | UX-05 | a «Дизайн» link |
 | S-278 | Контент навчання (гайди, відео, глосарій, події) | UX-07 | a «Дизайн» link |
 
-### Migrated slices without design (8)
+### Migrated slices without design (10)
 
 - ARC-01@v2
 - FIN-15@v2
 - FIN-19@v2
+- NFR-12@v2
+- NFR-15@v2
 - NFR-17@v2
 - PLT-02@v2
 - UX-05@v2
