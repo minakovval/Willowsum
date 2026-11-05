@@ -25,7 +25,7 @@ describe("FitAmount (CMP-07)", () => {
   });
 
   it("does not put the real value in the DOM while amounts are hidden", () => {
-    const { container } = render(wrap(<FitAmount value="€ 48 250,40" compact="48,25 тис. €" />, true));
+    const { container } = render(wrap(<FitAmount value="48 250,40 €" compact="48,25 тис. €" />, true));
     expect(norm(container.innerHTML)).not.toContain("48 250");
     expect(norm(container.innerHTML)).not.toContain("48,25");
   });
