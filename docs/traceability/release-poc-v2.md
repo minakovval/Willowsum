@@ -317,8 +317,6 @@ flowchart LR
   UX_09_PoC_v2 --> FIN_03_PoC_v2
   UX_09_PoC_v2 --> SUP_01_PoC_v2
   UX_09_PoC_v2 -.-> UX_09_PoC
-  classDef notMigrated fill:#eee,stroke:#999,color:#555
-  class VAL_04_PoC,VAL_05_PoC notMigrated
 ```
 
 ## Build sequence

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-24@MVP
-- Залежить від: AST-01@MVP, AST-05@v1, INS-01@MVP, INS-02@v1, NOT-01@v1-mobile, RPT-01@v1
+- Залежить від: AST-01@v1, AST-05@v1, INS-01@MVP, INS-02@v1, NOT-01@v1-mobile, RPT-01@v1
 - Дизайн: S-075, S-112, S-113, S-114, S-115, S-116
 - Спільні правила: П-17, SCR-02
 - Сценарії: UC-AST-27, UC-AST-47, UC-FIN-70, UC-INS-01, UC-INS-02, UC-INS-03, UC-INS-04, UC-INS-05, UC-INS-06, UC-INS-07, UC-INS-08, UC-INS-10, UC-INS-11, UC-INS-12, UC-INS-13, UC-INS-14, UC-INS-15, UC-INS-16, UC-NOT-11, UC-NOT-13, UC-RPT-08

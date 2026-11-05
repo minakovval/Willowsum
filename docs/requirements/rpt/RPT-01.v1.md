@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: RPT-01@MVP
-- Залежить від: AST-01@MVP, AST-11@MVP, FIN-06@v1, INS-01@MVP, NOT-01@v1-mobile, SUB-07@v1, VAL-01@MVP, VAL-04@MVP, VAL-05@v1
+- Залежить від: AST-01@v1, AST-11@MVP, FIN-06@v1, INS-01@MVP, NOT-01@v1-mobile, SUB-07@v1, VAL-01@MVP, VAL-04@MVP, VAL-05@v1
 - Дизайн: S-116, S-147, S-149
 - Спільні правила: П-4, П-6, П-10, П-17, П-19, П-21
 - Сценарії: UC-RPT-01, UC-RPT-02, UC-RPT-03, UC-RPT-04, UC-RPT-05, UC-RPT-06, UC-RPT-07, UC-RPT-08, UC-RPT-09, UC-RPT-10, UC-RPT-11, UC-RPT-12, UC-RPT-13, UC-RPT-14
