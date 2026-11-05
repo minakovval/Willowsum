@@ -51,7 +51,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | SUB-02 | Життєвий цикл підписки | MVP | UC-ACC-46, UC-SUB-07, UC-SUB-08, UC-SUB-09, UC-SUB-10, UC-SUB-11, UC-SUB-12 | сценарій |
 | SUB-03 | Самообслуговування підписки | MVP | UC-SUB-06, UC-SUB-08, UC-SUB-13, UC-SUB-14, UC-SUB-15, UC-SUB-16, UC-SUB-17 | сценарій |
 | SUB-04 | План радника | v2 | UC-SUB-18, UC-SUB-19, UC-SUB-20 | сценарій |
-| SUB-05 | Back office | MVP (доступ підтримки, п. 4–6); v1 — решта | UC-ACC-69, UC-ADM-23, UC-SUB-21, UC-SUB-22, UC-SUB-23, UC-SUB-24, UC-SUB-25, UC-SUB-26 | сценарій |
+| SUB-05@MVP | Back office | MVP (доступ підтримки, п. 1–3); v1 — решта | UC-ACC-69, UC-ADM-23, UC-SUB-21, UC-SUB-22, UC-SUB-23, UC-SUB-24, UC-SUB-25, UC-SUB-26 | сценарій |
 | SUB-06 | Промо-механіки | v2 | UC-SUB-27, UC-SUB-28, UC-SUB-29, UC-SUB-30, UC-SUB-31 | сценарій |
 | SUB-07 | Пропозиція апгрейду в продукті (upsell) | MVP (частково v1) | UC-SUB-32, UC-SUB-33, UC-SUB-34, UC-SUB-35, UC-SUB-36, UC-SUB-37 | сценарій |
 | SUB-08 | Подарунки, спеціальні програми і канали оплати | v2 | UC-ADM-05, UC-SUB-38, UC-SUB-39, UC-SUB-40, UC-SUB-41 | сценарій |
@@ -63,7 +63,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 | ADM-01 | Каталог функцій | MVP | UC-ADM-01, UC-ADM-02, UC-ADM-03, UC-ADM-04 | сценарій |
 | ADM-02 | Матриця «план × функція» | MVP | UC-ADM-05, UC-ADM-06, UC-ADM-07, UC-ADM-08 | сценарій |
 | ADM-03 | Версії й публікація | MVP | UC-ADM-09, UC-ADM-10, UC-ADM-11, UC-ADM-12, UC-ADM-13, UC-ADM-14 | сценарій |
-| ADM-04 | Захист існуючих користувачів | MVP (п. 1); v1 — п. 2–5 | UC-ADM-13, UC-ADM-14, UC-ADM-15, UC-ADM-16, UC-ADM-17 | сценарій |
+| ADM-04@v1 | Захист існуючих користувачів | MVP (п. 1); v1 — п. 2–5 | UC-ADM-13, UC-ADM-14, UC-ADM-15, UC-ADM-16, UC-ADM-17 | сценарій |
 | ADM-05 | Ролі та безпека адмін-панелі | MVP | UC-ADM-10, UC-ADM-18, UC-ADM-19, UC-ADM-20, UC-ADM-21, UC-ADM-22, UC-ADM-23, UC-L10N-09 | сценарій |
 | ADM-06 | Індивідуальні перевизначення | v1 | UC-ADM-24, UC-ADM-25, UC-ADM-26 | сценарій |
 | ADM-07 | Ринки і регіони | v1 | UC-ADM-27, UC-ADM-28 | сценарій |

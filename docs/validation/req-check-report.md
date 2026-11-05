@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-721 files (requirement and slice files) have a «Критерії приймання» section with 6599 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+721 files (requirement and slice files) have a «Критерії приймання» section with 6601 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
@@ -112,7 +112,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Recovery point objective (RPO): 15 min on profile «Старт», 5 min on profile «Комерційний» (`rpo`) | 15 min / 5 min | 14 | 0 | 15 min ×9, 5 min ×5 |
 | Recovery time objective (RTO): 4 h on profile «Старт», 1 h on profile «Комерційний» (`rto`) | 4 h / 1 h | 14 | 0 | 4 h ×9, 1 h ×5 |
 | Email confirmation link validity (`email-confirm-link`) | 24 h | 17 | 0 | 24 h ×17 |
-| One-time sign-in link (email) validity (`magic-link`) | 15 min | 3 | 0 | 15 min ×3 |
+| One-time sign-in link (email) validity (`magic-link`) | 15 min | 2 | 0 | 15 min ×2 |
 | Password reset link validity (`password-reset`) | 60 min | 11 | 0 | 60 min ×11 |
 | Household invitation validity (`invitation`) | 7 d | 15 | 0 | 7 d ×15 |
 | Email change undo link (sent to the old address) (`email-change-undo`) | 72 h | 12 | 0 | 72 h ×12 |
