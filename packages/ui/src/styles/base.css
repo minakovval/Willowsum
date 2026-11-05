@@ -148,7 +148,7 @@ a {
 
 .ws-skeleton {
   display: block;
-  height: var(--ws-space-4);
+  height: var(--ws-space-3);
   border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);
   background: var(--ws-skeleton);
   animation: ws-pulse var(--ws-duration-skeleton) var(--ws-easing-in-out) infinite;

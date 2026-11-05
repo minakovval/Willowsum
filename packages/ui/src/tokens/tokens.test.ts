@@ -140,6 +140,30 @@ describe("exact DS values", () => {
     expect(css).toMatch(/\.ws-text-label \{[^}]*uppercase/);
   });
 
+  it("CMP-07 amount sizes by role: Inter Tight totals 32/40, 24/30, 18/24; Inter rows 14/20", () => {
+    const pick = (name: keyof typeof typeScale) => {
+      const { family, size, lineHeight, weight } = typeScale[name];
+      return { family, size, lineHeight, weight };
+    };
+    expect(pick("amount-xl")).toEqual({ family: "display", size: 32, lineHeight: 40, weight: 600 });
+    expect(pick("amount-l")).toEqual({ family: "display", size: 24, lineHeight: 30, weight: 600 });
+    expect(pick("amount-m")).toEqual({ family: "display", size: 18, lineHeight: 24, weight: 600 });
+    expect(pick("amount-s")).toEqual({ family: "sans", size: 14, lineHeight: 20, weight: 600 });
+    for (const name of ["amount-xl", "amount-l", "amount-m", "amount-s"] as const) {
+      expect(buildTokensCss()).toMatch(new RegExp(`\\.ws-text-${name} \\{[^}]*tabular-nums`));
+    }
+  });
+
+  it("CMP-22 skeleton line is 12 px with a 6 px radius on the skeleton token, 1.6 s pass", () => {
+    const base = readFileSync(fileURLToPath(new URL("../styles/base.css", import.meta.url)), "utf8");
+    const rule = /\.ws-skeleton \{([^}]*)\}/.exec(base)?.[1] ?? "";
+    expect(rule).toContain("height: var(--ws-space-3);");
+    expect(rule).toContain("border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);");
+    expect(rule).toContain("background: var(--ws-skeleton);");
+    expect(space["space-3"]).toBe(12);
+    expect(motion["duration-skeleton"]).toBe(1600);
+  });
+
   it("DS-09 spacing, radii and layers", () => {
     expect(Object.values(space)).toEqual([4, 8, 12, 16, 24, 32, 48, 64]);
     expect(radii).toEqual({

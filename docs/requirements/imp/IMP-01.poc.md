@@ -6,7 +6,7 @@
 - Розширює: —
 - Залежить від: FIN-01@PoC, FIN-03@PoC
 - Дизайн: S-163, S-170
-- Спільні правила: П-8, П-10, П-21, П-24, П-25, П-26, NFR-01, NFR-12
+- Спільні правила: П-8, П-10, П-21, П-24, П-25, П-26, NFR-01, NFR-12, CMP-74
 - Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-10, UC-IMP-17, UC-IMP-18, UC-IMP-21, UC-IMP-24
 - Модуль: import-sessions, file-parsers, file-storage, transactions
 - Перевіряється: —

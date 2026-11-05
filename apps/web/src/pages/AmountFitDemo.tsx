@@ -26,7 +26,7 @@ export function AmountFitDemo() {
             <div className="gallery-fit__box" style={{ inlineSize: `${width}px` }}>
               <p className="ws-text-body-sm ws-muted">{t("gallery.fit.inline")}</p>
               <p className="ws-text-body">
-                {t("gallery.fit.label")} <FitAmount value={BIG.text} compact={big} size="amount-m" />
+                {t("gallery.fit.label")} <FitAmount value={BIG.text} compact={big} size="amount-s" />
               </p>
               <p className="ws-text-body-sm ws-muted">{t("gallery.fit.own")}</p>
               <div>

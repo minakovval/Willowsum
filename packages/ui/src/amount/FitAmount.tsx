@@ -3,7 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Amount, useHideAmounts } from "../privacy/HideAmounts.tsx";
 import { chooseFit, type FitChoice } from "./fit.ts";
 
-type FitSize = "amount-xl" | "amount-l" | "amount-m";
+type FitSize = "amount-xl" | "amount-l" | "amount-m" | "amount-s";
 
 /**
  * CMP-07 «Великі значення», DS-08 item 11. An amount that never breaks across lines. After a label in
@@ -14,7 +14,7 @@ type FitSize = "amount-xl" | "amount-l" | "amount-m";
 export function FitAmount({
   value,
   compact,
-  size = "amount-m",
+  size = "amount-s",
 }: {
   value: string;
   compact: string | null;
