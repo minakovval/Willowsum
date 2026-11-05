@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: IMP-03@PoC
-- Залежить від: FIN-03@MVP, FIN-04@MVP, FIN-05@MVP, IMP-01@MVP, IMP-02@PoC
+- Залежить від: FIN-03@MVP, FIN-04@MVP, FIN-05@MVP, IMP-01@MVP, IMP-02@MVP
 - Дизайн: S-059, S-286
 - Спільні правила: П-10, П-17, CMP-32, CMP-64, GRID-00
 - Сценарії: UC-IMP-30, UC-IMP-31, UC-IMP-32, UC-IMP-33, UC-IMP-34, UC-IMP-35
