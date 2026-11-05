@@ -49,7 +49,7 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(within(amounts as HTMLElement).getAllByRole("button", { name: "Сума прихована" }).length).toBe(4);
   });
 
-  it("abbreviates large amounts with units of the interface language (DS-04 item 11)", () => {
+  it("abbreviates large amounts with units and layout of the interface language (DS-04 item 11)", () => {
     // jsdom has no layout: every box is 40 px wide and text is 10 px per character, so the large
     // amounts do not fit and switch to the abbreviated form.
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(40);
@@ -61,8 +61,8 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(fit()).toContain("12,35 трлн €");
     expect(fit()).toContain("1,23 млн ₴");
     act(() => screen.getByLabelText("English").click());
-    expect(fit()).toContain("12,35 tn €");
-    expect(fit()).toContain("1,23 M ₴");
+    expect(fit()).toContain("€12.35tn");
+    expect(fit()).toContain("₴1.23M");
   });
 
   it("switches language to English", () => {

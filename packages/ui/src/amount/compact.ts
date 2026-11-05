@@ -5,8 +5,11 @@ import type { Locale } from "@willowsum/i18n";
  * on the decimal value (no floating point, AGENTS.md money rule). The units follow the interface
  * language: uk — тис., млн, млрд, трлн, квдрлн, квінтлн; en — k, M, bn, tn, qd, qn. Above 999 of the
  * largest unit — «999+ квінтлн» / «999+ qn». Two decimals below 100 and one from 100 (12,35 трлн;
- * 128,4 тис.). The number layout follows the uk-UA format (the only format so far): decimal comma,
- * the minus in front, the currency symbol after the unit: «128,4 тис. €», «−1,24 млн ₴».
+ * 128,4 тис.). The layout follows the interface language too (owner decision of 2026-11-05):
+ * uk — decimal comma, the minus in front, the currency symbol after the unit, no-break spaces between
+ * the parts: «128,4 тис. €», «−1,24 млн ₴»; en — the currency symbol first, decimal point, no spaces:
+ * «€128.4k», «−€1.24M» (a letter code keeps a no-break space: «CHF 128.4k»). The minus is always
+ * U+2212.
  */
 const COMPACT_UNITS: Record<Locale, readonly string[]> = {
   uk: ["", "тис.", "млн", "млрд", "трлн", "квдрлн", "квінтлн"],
@@ -42,12 +45,14 @@ export interface CompactInput {
   locale: Locale;
 }
 
-/** «12,35 трлн €» style string, or null when the amount is below 1 000 and needs no abbreviation. */
+/** «12,35 трлн €» (uk) or «€12.35tn» (en) style string, or null when the amount is below 1 000 and needs no abbreviation. */
 export function formatCompactAmount({ value, currency, locale }: CompactInput): string | null {
   const units = COMPACT_UNITS[locale];
   const top = units[UNIT_COUNT - 1] ?? "";
-  const show = (sign: string, number: string, unit: string) =>
-    `${sign}${number}${NBSP}${unit}${NBSP}${currency}`;
+  const show = (sign: string, int: string, frac: string, unit: string) =>
+    locale === "en"
+      ? `${sign}${currency}${/[A-Za-z]$/.test(currency) ? NBSP : ""}${frac ? `${int}.${frac}` : int}${unit}`
+      : `${sign}${frac ? `${int},${frac}` : int}${NBSP}${unit}${NBSP}${currency}`;
   // Only a plain decimal string is accepted; anything else (spaces, grouping, exponents) gives null.
   if (!/^[-+]?\d+(\.\d+)?$/.test(value.trim())) return null;
   const negative = value.trim().startsWith("-");
@@ -56,7 +61,7 @@ export function formatCompactAmount({ value, currency, locale }: CompactInput): 
   if (intPart.length <= 3) return null;
   let unit = Math.min(Math.floor((intPart.length - 1) / 3), UNIT_COUNT - 1);
   const sign = negative ? MINUS : "";
-  if (intPart.length > 3 * (UNIT_COUNT - 1) + 3) return show(sign, "999+", top);
+  if (intPart.length > 3 * (UNIT_COUNT - 1) + 3) return show(sign, "999+", "", top);
   const split = intPart.length - unit * 3;
   let head = intPart.slice(0, split);
   let tail = intPart.slice(split) + rawFrac;
@@ -75,6 +80,6 @@ export function formatCompactAmount({ value, currency, locale }: CompactInput): 
     places = 1;
     r = roundDecimal(head, tail, places);
   }
-  if (r.int.length > 3) return show(sign, "999+", top);
-  return show(sign, `${r.int},${r.frac}`, units[unit] ?? "");
+  if (r.int.length > 3) return show(sign, "999+", "", top);
+  return show(sign, r.int, r.frac, units[unit] ?? "");
 }

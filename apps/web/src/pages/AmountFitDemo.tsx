@@ -3,7 +3,8 @@ import { FitAmount, formatCompactAmount } from "@willowsum/ui";
 
 /**
  * DS-22 gallery: CMP-07 «Великі значення» at several widths (synthetic values). The full values use
- * the uk-UA format; the abbreviation units follow the interface language (DS-04 item 11).
+ * the uk-UA format; the abbreviation units and layout follow the interface language (DS-04 item 11):
+ * «12,35 трлн €» in Ukrainian, «€12.35tn» in English.
  */
 const HUGE = { value: "12345678901234.00", text: "12 345 678 901 234,00 €" };
 const BIG = { value: "1234567.89", text: "1 234 567,89 ₴" };

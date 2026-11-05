@@ -16,29 +16,43 @@ describe("formatCompactAmount (CMP-07, DS-04 item 11)", () => {
     expect(c("123456789012345678.00")).toBe("123,5 квдрлн €");
     expect(c("1234567890123456789")).toBe("1,23 квінтлн €");
   });
-  it("uses English units for the English interface", () => {
-    expect(c("128400", "€", "en")).toBe("128,4 k €");
-    expect(c("1240500", "₴", "en")).toBe("1,24 M ₴");
-    expect(c("12345678901.00", "€", "en")).toBe("12,35 bn €");
-    expect(c("12345678901234.00", "€", "en")).toBe("12,35 tn €");
-    expect(c("123456789012345678.00", "€", "en")).toBe("123,5 qd €");
-    expect(c("1234567890123456789", "€", "en")).toBe("1,23 qn €");
+  it("uses English units and the English layout for the English interface: symbol first, no space, dot", () => {
+    expect(c("128400", "€", "en")).toBe("€128.4k");
+    expect(c("1240500", "₴", "en")).toBe("₴1.24M");
+    expect(c("12345678901.00", "€", "en")).toBe("€12.35bn");
+    expect(c("12345678901234.00", "€", "en")).toBe("€12.35tn");
+    expect(c("123456789012345678.00", "€", "en")).toBe("€123.5qd");
+    expect(c("1234567890123456789", "€", "en")).toBe("€1.23qn");
+  });
+  it("keeps a no-break space after a letter currency code in English", () => {
+    expect(formatCompactAmount({ value: "128400", currency: "CHF", locale: "en" })).toBe(`CHF${NB}128.4k`);
+  });
+  it("has no space at all in the English form", () => {
+    expect(formatCompactAmount({ value: "128400", currency: "€", locale: "en" })).toBe("€128.4k");
   });
   it("puts the true minus in front", () => {
     expect(c("-1240500", "₴")).toBe("−1,24 млн ₴");
-    expect(c("-1240500", "₴", "en")).toBe("−1,24 M ₴");
+    expect(c("-1240500", "₴", "en")).toBe("−₴1.24M");
+    expect(c("-128400", "€", "en")).toBe("−€128.4k");
   });
   it("carries into the next unit when rounding reaches a thousand", () => {
     expect(c("999960")).toBe("1,00 млн €");
-    expect(c("999960", "€", "en")).toBe("1,00 M €");
+    expect(c("999960", "€", "en")).toBe("€1.00M");
   });
   it("caps at 999+ of the largest unit", () => {
     expect(c("9".repeat(25))).toBe("999+ квінтлн €");
-    expect(c("9".repeat(25), "€", "en")).toBe("999+ qn €");
+    expect(c("9".repeat(25), "€", "en")).toBe("€999+qn");
+  });
+  it("shows two decimals below 100 and one from 100", () => {
+    expect(c("12345678")).toBe("12,35 млн €");
+    expect(c("12450000")).toBe("12,45 млн €");
+    expect(c("-3600")).toBe("−3,60 тис. €");
+    expect(c("128450")).toBe("128,5 тис. €");
   });
   it("switches to one decimal when rounding reaches 100", () => {
     expect(c("99995")).toBe("100,0 тис. €");
     expect(c("99999.5")).toBe("100,0 тис. €");
+    expect(c("99995", "€", "en")).toBe("€100.0k");
   });
   it("returns null for anything that is not a plain decimal string", () => {
     for (const bad of ["1 234", "1,234.56", "--5000", "abcd", "1e50", "Infinity1", ""]) {
@@ -59,8 +73,8 @@ describe("formatCompactAmount (CMP-07, DS-04 item 11)", () => {
 describe("chooseFit (CMP-07 order)", () => {
   // Width grows with characters and scale; the box is `box` units wide.
   const fitsIn = (box: number) => (text: string, scale: number) => text.length * scale <= box;
-  const full = "€ 12 345 678 901 234,00"; // 23 chars
-  const compact = "€ 12,35 tn"; // 10 chars
+  const full = "12 345 678 901 234,00 €"; // 23 chars
+  const compact = "12,35 трлн"; // 10 chars (currency left out to keep the arithmetic simple)
   it("keeps the full value when it fits", () => {
     expect(chooseFit(full, compact, fitsIn(30))).toEqual({ text: full, scale: 1, abbreviated: false });
   });
