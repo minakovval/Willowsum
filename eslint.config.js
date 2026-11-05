@@ -21,6 +21,7 @@ export default tseslint.config(
       "**/coverage/**",
       "docs/**",
       "tools/**",
+      "design/**",
       ".claude/**",
       ".github/**",
     ],

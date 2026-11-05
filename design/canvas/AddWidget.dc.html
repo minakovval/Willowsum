@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Головна · додати віджет</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>
+body{margin:0}
+.ws-w{position:absolute;box-sizing:border-box;background:#FFFFFF;border:1.5px dashed #9DB2C8;border-radius:8px;padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px;transition:none}
+.ws-h{display:flex;align-items:center;gap:6px}
+.ws-t{flex:1;font:500 13px/16px Inter,sans-serif;letter-spacing:.08em;color:#566174;white-space:nowrap}
+.ws-g{width:28px;height:28px;margin:-4px 0 -4px -6px;display:grid;place-items:center;border:0;border-radius:6px;background:#F1F1EF;color:#566174;cursor:grab}
+.ws-x{width:28px;height:28px;margin:-4px -6px -4px 0;display:grid;place-items:center;border:0;border-radius:999px;background:#F1F1EF;color:#566174}
+.ws-b{flex:1;display:flex;flex-direction:column;gap:10px;opacity:.6;pointer-events:none}
+.ws-l{height:10px;border-radius:4px;background:#EEF1F4}
+.ws-big{font:600 22px/28px 'Inter Tight',Inter,sans-serif;color:#1B2230;font-variant-numeric:tabular-nums}
+/* 9 s loop: Цілі lifts, travels to slot 3, Розподіл and Рахунки slide left, drop; then back */
+@keyframes ws-drag{
+ 0%,8%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed}
+ 13%{transform:translate(0,-6px) scale(1.04) rotate(-1.5deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid}
+ 38%{transform:translate(685px,-6px) scale(1.04) rotate(1.2deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid}
+ 44%,58%{transform:translate(685px,0) scale(1) rotate(0);box-shadow:none;border-style:dashed}
+ 63%{transform:translate(685px,-6px) scale(1.04) rotate(1.5deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid}
+ 88%{transform:translate(0,-6px) scale(1.04) rotate(-1.2deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid}
+ 94%,100%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed}}
+@keyframes ws-s1{0%,20%{transform:translateX(0)}28%,72%{transform:translateX(-342.67px)}80%,100%{transform:translateX(0)}}
+@keyframes ws-s2{0%,28%{transform:translateX(0)}36%,64%{transform:translateX(-342.67px)}72%,100%{transform:translateX(0)}}
+@keyframes ws-ph{0%,10%{opacity:0;transform:translateX(0)}13%,20%{opacity:1;transform:translateX(0)}28%{transform:translateX(342.67px)}36%{opacity:1;transform:translateX(685.33px)}44%,58%{opacity:0;transform:translateX(685.33px)}61%{opacity:1;transform:translateX(685.33px)}64%{transform:translateX(685.33px)}72%{transform:translateX(342.67px)}80%,88%{opacity:1;transform:translateX(0)}94%,100%{opacity:0;transform:translateX(0)}}
+@keyframes ws-cur{0%,8%{transform:translate(0,0)}13%{transform:translate(0,-6px)}38%{transform:translate(685px,-6px)}44%,58%{transform:translate(685px,0)}63%{transform:translate(685px,-6px)}88%{transform:translate(0,-6px)}94%,100%{transform:translate(0,0)}}
+@keyframes ws-grab{0%,8%{opacity:0}11%,42%{opacity:1}46%,59%{opacity:0}61%,92%{opacity:1}96%,100%{opacity:0}}
+.ws-drag{animation:ws-drag 9s cubic-bezier(.45,.05,.25,1) infinite;z-index:3}
+.ws-s1{animation:ws-s1 9s cubic-bezier(.3,.7,.2,1) infinite}
+.ws-s2{animation:ws-s2 9s cubic-bezier(.3,.7,.2,1) infinite}
+.ws-ph{animation:ws-ph 9s cubic-bezier(.3,.7,.2,1) infinite}
+.ws-cur{animation:ws-cur 9s cubic-bezier(.45,.05,.25,1) infinite}
+.ws-grab{animation:ws-grab 9s linear infinite}
+@media (prefers-reduced-motion: reduce){.ws-drag,.ws-s1,.ws-s2,.ws-ph,.ws-cur,.ws-grab{animation-play-state:paused;animation-delay:-2.9s}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 1060px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="home" height="1060" hint-size="1280px,1060px"></dc-import></div>
+  <main style="position: absolute; left: 212px; top: 64px; width: 1068px; height: 996px; box-sizing: border-box; padding: 24px 32px 32px; background: #F4F5F6;">
+
+    <div role="toolbar" aria-label="Редагування «Огляду»" style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 8px 0 16px; background: #FFFFFF; border: 1px solid #E5E5E2; border-radius: 10px; box-shadow: 0 1px 2px rgba(11,37,69,.06);">
+      <span style="width: 32px; height: 32px; border-radius: 8px; background: #EEF2F7; color: #0B2545; display: grid; place-items: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg></span>
+      <span style="display: flex; flex-direction: column;"><b style="font-weight: 600;">Редагування «Огляду»</b><span style="color: #566174; font-size: 13px; line-height: 16px;">Перетягніть віджет за <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="vertical-align: -1px;"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg>, щоб змінити порядок</span></span>
+      <div style="flex: 1;"></div>
+      <button type="button" style="height: 40px; padding: 0 12px; border: 0; background: transparent; color: #566174; font: 500 14px Inter, sans-serif; white-space: nowrap;">Скинути до типового</button>
+      <button type="button" style="height: 40px; padding: 0 16px; border: 1px solid #7B8494; border-radius: 8px; background: #FFFFFF; color: #1B2230; font: 600 14px Inter, sans-serif;">Скасувати</button>
+      <button type="button" style="height: 40px; padding: 0 20px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 14px Inter, sans-serif;">Готово</button>
+    </div>
+
+    <div style="position: relative; margin-top: 24px; height: 860px;">
+      <!-- attention strip widget -->
+      <section class="ws-w" style="left: 0; top: 0; width: 1004px; height: 52px; padding: 0 16px; flex-direction: row; align-items: center;">
+        <button type="button" class="ws-g" aria-label="Перемістити «Потребує уваги»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button>
+        <span class="ws-t" style="flex: none;">ПОТРЕБУЄ УВАГИ · 3</span>
+        <span style="flex: 1; display: flex; gap: 8px; opacity: .6;"><span class="ws-l" style="width: 180px; height: 22px; border-radius: 999px;"></span><span class="ws-l" style="width: 160px; height: 22px; border-radius: 999px;"></span><span class="ws-l" style="width: 140px; height: 22px; border-radius: 999px;"></span></span>
+        <button type="button" class="ws-x" aria-label="Прибрати «Потребує уваги»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </section>
+
+      <sc-for list="{{top}}" as="w" hint-placeholder-count="2">
+        <section class="ws-w" style="left: {{w.x}}px; top: 76px; width: {{w.wd}}px; height: 300px;">
+          <div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «{{w.name}}»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">{{w.title}}</span><button type="button" class="ws-x" aria-label="Прибрати «{{w.name}}»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+          <div class="ws-b"><span class="ws-big">{{w.big}}</span><svg width="100%" height="150" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path d="{{w.path}}" fill="none" stroke="#9DB2C8" stroke-width="2" vector-effect="non-scaling-stroke"></path></svg><span class="ws-l" style="width: 60%;"></span></div>
+        </section>
+      </sc-for>
+
+      <sc-for list="{{row}}" as="w" hint-placeholder-count="3">
+        <section class="ws-w " style="left: {{w.x}}px; top: 400px; width: 318.67px; height: 220px;">
+          <div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «{{w.name}}»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">{{w.title}}</span><button type="button" class="ws-x" aria-label="Прибрати «{{w.name}}»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+          <div class="ws-b"><span class="ws-big">{{w.big}}</span><span class="ws-l" style="width: {{w.b1}}%;"></span><span class="ws-l" style="width: {{w.b2}}%;"></span><span class="ws-l" style="width: {{w.b3}}%;"></span></div>
+        </section>
+      </sc-for>
+
+      <section class="ws-w" style="left: 0; top: 644px; width: 318.67px; height: 216px;">
+        <div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Останні транзакції»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">ТРАНЗАКЦІЇ</span><button type="button" class="ws-x" aria-label="Прибрати «Останні транзакції»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+        <div class="ws-b"><span class="ws-l" style="width: 90%;"></span><span class="ws-l" style="width: 75%;"></span><span class="ws-l" style="width: 85%;"></span><span class="ws-l" style="width: 70%;"></span><span class="ws-l" style="width: 80%;"></span></div>
+      </section>
+
+      <button type="button" aria-expanded="true" aria-haspopup="dialog" style="position: absolute; left: 342.67px; top: 644px; width: 318.67px; height: 216px; box-sizing: border-box; border: 2px solid #1D4E89; border-radius: 8px; background: #F7F9FC; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: #1D4E89; font: 600 14px Inter, sans-serif;">
+        <span style="width: 40px; height: 40px; border-radius: 999px; background: #EEF2F7; display: grid; place-items: center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></span>
+        Додати віджет
+        <span style="color: #566174; font: 400 13px Inter, sans-serif;">Ще 7 доступно</span>
+      </button>
+    </div>
+  </main>
+  <div role="dialog" aria-label="Додати віджет" style="position: absolute; left: 587px; top: 360px; width: 400px; box-sizing: border-box; background: #FFFFFF; border: 1px solid #E5E5E2; border-radius: 12px; box-shadow: 0 2px 4px rgba(11,37,69,.06), 0 24px 48px rgba(11,37,69,.20); overflow: hidden; z-index: 5;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 16px 12px 12px 20px;"><h2 style="margin: 0; flex: 1; font: 600 16px/22px 'Inter Tight', Inter, sans-serif;">Додати віджет</h2><button type="button" aria-label="Закрити" style="width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: #566174;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div>
+    <label style="margin: 0 20px 8px; height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid #7B8494; border-radius: 6px; color: #566174;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.34-4.34"></path></svg><span>Знайти віджет</span></label>
+    <ul style="margin: 0; padding: 4px 8px 8px; list-style: none; display: flex; flex-direction: column; max-height: 312px; overflow-y: auto; scrollbar-width: thin; border-top: 1px solid #F1F1EF;">
+      <sc-for list="{{avail}}" as="a" hint-placeholder-count="7">
+        <li style="display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 12px; border-radius: 8px; background: {{a.bg}};">
+          <span style="width: 36px; height: 36px; flex: none; border-radius: 8px; background: #EEF2F7; color: #0B2545; display: grid; place-items: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{a.d1}}"></path><path d="{{a.d2}}"></path></svg></span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column;"><span style="font-weight: 600;">{{a.name}}</span><span style="color: #566174; font-size: 13px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{a.desc}}</span></span>
+          <button type="button" aria-label="Додати «{{a.name}}»" title="Додати" style="width: 32px; height: 32px; flex: none; display: grid; place-items: center; border: 1px solid #C9D3DE; border-radius: 8px; background: #FFFFFF; color: #1D4E89;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+        </li>
+      </sc-for>
+    </ul>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      top: [
+        { name: 'Net worth', title: 'NET WORTH', x: 0, wd: 661.33, big: '284 650,00 €', path: 'M0 110 L30 104 L60 108 L90 96 L120 100 L150 88 L180 92 L210 70 L240 66 L270 58 L300 52' },
+        { name: 'Можна витратити', title: 'МОЖНА ВИТРАТИТИ', x: 685.33, wd: 318.67, big: '540,00 €', path: 'M0 140 L25 120 L50 118 L75 104 L100 96 L125 92 L150 80 L175 76 L200 62' }
+      ],
+      row: [
+        { name: 'Цілі', title: 'ЦІЛІ', x: 0, cls: 'ws-drag', big: '62 %', b1: 62, b2: 35, b3: 48 },
+        { name: 'Розподіл активів', title: 'РОЗПОДІЛ АКТИВІВ', x: 342.67, cls: 'ws-s1', big: '344 200,00 €', b1: 90, b2: 70, b3: 50 },
+        { name: 'Рахунки', title: 'РАХУНКИ', x: 685.33, cls: 'ws-s2', big: '41 300,00 €', b1: 85, b2: 70, b3: 60 }
+      ],
+      avail: [
+        { name: 'Бюджет', desc: 'Витрати за категоріями проти плану', d1: 'M21.21 15.89A10 10 0 1 1 8 2.83', d2: 'M22 12A10 10 0 0 0 12 2v10z', bg: '#F1F1EF' },
+        { name: 'Регулярні платежі', desc: 'Найближчі списання на 14 днів', d1: 'M8 2v4M16 2v4M3 10h18', d2: 'M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z', bg: 'transparent' },
+        { name: 'Інвестиції', desc: 'Вартість портфелів і зміна за період', d1: 'M22 7 13.5 15.5 8.5 10.5 2 17', d2: 'M16 7h6v6', bg: 'transparent' },
+        { name: 'До розбору', desc: 'Транзакції без категорії', d1: 'M22 12h-6l-2 3h-4l-2-3H2', d2: 'M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z', bg: 'transparent' },
+        { name: 'Кредитний ліміт', desc: 'Використання кредитних карток', d1: 'M2 10h20', d2: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z', bg: 'transparent' },
+        { name: 'Підсумок тижня', desc: 'Доходи, витрати і головні зміни', d1: 'M3 3v16a2 2 0 0 0 2 2h16', d2: 'M7 16v-4M12 16V8M17 16v-7', bg: 'transparent' },
+        { name: 'Мапа портфеля', desc: 'Активи плитками за розміром і зміною', d1: 'M3 3h7v18H3z', d2: 'M14 3h7v9h-7zM14 16h7v5h-7z', bg: 'transparent' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

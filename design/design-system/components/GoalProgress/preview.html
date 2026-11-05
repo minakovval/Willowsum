@@ -1,0 +1,145 @@
+<!-- @dsCard group="Числа" height=779 width=900 subtitle="Смуга кольором шкали goal-* у точці відсотка; відстає, досягнуто, на паузі" -->
+<!doctype html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Inter+Tight:wght@600&amp;display=swap"><style>
+:root{--ctl:var(--border-control);--chk:var(--border-control);--tint:var(--tint-info);--warn-bg:var(--tint-warning);--warn:var(--on-warning);--pos-bg:var(--tint-positive);--neg-bg:var(--tint-negative);--skel:var(--skeleton);--inset:var(--surface-inset);--grid:var(--chart-grid);--ca:var(--series-1);--cb:var(--series-2);--cplan:var(--series-3);--cc:var(--series-4);--danger-line:var(--loss);--drop-line:var(--border-control);--drop-bg:var(--surface-inset);--elev:var(--shadow-popover);--dlg:var(--shadow-dialog);--scrim:var(--scrim);--seg-sh:0 1px 2px rgba(11,37,69,.12);--toast:var(--ink);--on-toast:var(--surface-100)}
+[data-theme="dark"]{--seg-sh:0 1px 2px rgba(0,0,0,.4)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--surface-100)}
+body{padding:24px;color:var(--ink);font:400 14px/20px Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+svg{flex:none}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--link);text-decoration:none}
+.tab{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink-muted)}
+.mk-l{fill:var(--mark-large)}.mk-m{fill:var(--mark-middle)}.mk-s{fill:var(--mark-small)}
+/* layout helpers */
+.stack{display:flex;flex-direction:column;gap:20px}
+.row{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-start}
+.row.c{align-items:center}
+.cell{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cap{font:500 12px/16px Inter,sans-serif;color:var(--ink-muted)}
+.sh{font:600 12px/16px Inter,sans-serif;color:var(--ink-muted);letter-spacing:.04em;text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px 24px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px 24px}
+.ring{outline:var(--focus-ring-width,3px) solid var(--focus);outline-offset:var(--focus-ring-offset,2px)}
+/* hit area: every control reaches 44 x 44 px (touch-target) even when it is drawn smaller */
+.btn,.ib,.ptab,.pt,.seg>span,.fchip,.tg,.st,.vs>span,.cs{position:relative}
+.btn::after,.ib::after,.ptab::after,.pt::after,.seg>span::after,.fchip::after,.tg::after,.vs>span::after,.cs::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,var(--touch-target,44px));height:max(100%,var(--touch-target,44px));transform:translate(-50%,-50%)}
+.ring-in{box-shadow:inset 0 0 0 2px var(--focus)}
+/* type */
+.h1{margin:0;font:600 28px/34px "Inter Tight",Inter,sans-serif;letter-spacing:-.02em}
+.h2{margin:0;font:600 22px/28px "Inter Tight",Inter,sans-serif;letter-spacing:-.015em}
+.h3{margin:0;font:600 18px/24px "Inter Tight",Inter,sans-serif;letter-spacing:-.01em}
+.lbl{font:500 13px/16px Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+.sub{font:400 12px/16px Inter,sans-serif;color:var(--ink-muted)}
+.big{font:600 32px/40px "Inter Tight",Inter,sans-serif;font-variant-numeric:tabular-nums}
+.amt{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+/* buttons (canvas: 40 px, radius 8, 1 px control line) */
+.btn{height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border:1px solid var(--ctl);border-radius:8px;background:var(--surface-200);color:var(--ink);font:600 14px/20px Inter,sans-serif;white-space:nowrap;cursor:pointer}
+.btn.pri{border:0;padding:0 16px;background:var(--brand);color:var(--on-brand)}
+.btn.pri.hov{background:var(--brand-hover)}.btn.pri.prs{background:var(--brand-pressed)}
+.btn.sec.hov{background:var(--surface-300)}.btn.sec.prs{background:var(--line)}
+.btn.quiet{border:0;padding:0 12px;background:transparent;color:var(--link)}
+.btn.quiet.hov{background:var(--surface-300);text-decoration:underline}
+.btn.danger{border-color:var(--danger-line);color:var(--loss)}
+.btn.danger.hov{background:var(--neg-bg)}
+.btn.dis{border:0;background:var(--disabled-bg);color:var(--disabled-ink);cursor:not-allowed}
+.btn.sm{height:32px;padding:0 12px;font-size:13px}
+.btn.lg{height:48px;border-radius:10px;font-size:15px}
+.btn.wide{width:100%}
+.spin{width:14px;height:14px;border-radius:999px;border:2px solid currentColor;border-right-color:transparent;display:inline-block}
+.ib{width:36px;height:36px;display:inline-grid;place-items:center;border:0;border-radius:8px;background:transparent;color:var(--ink-muted);position:relative;padding:0;cursor:pointer}
+.ib.c{width:28px;height:28px;border-radius:4px}
+.ib.hov,.ib.on{background:var(--surface-300);color:var(--ink)}
+.ib.dis{color:var(--disabled-ink)}
+.ib .dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:999px;background:var(--brand-2)}
+/* surfaces */
+.card{background:var(--surface-200);border:1px solid var(--line);border-radius:8px}
+.card.pad{padding:20px 24px}
+.card.raised{box-shadow:var(--shadow-raised)}
+.card.sunken{background:var(--surface-300);border-color:transparent}
+.inset{background:var(--inset);border-radius:8px;padding:12px 14px}
+.panel{background:var(--surface-200);border:1px solid var(--line);border-radius:8px;box-shadow:var(--elev);padding:4px}
+.hr{height:1px;background:var(--line);margin:4px 8px}
+/* tags / badges (canvas: 20 px, radius 4, 11 px 500) */
+.tag{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:4px;background:var(--surface-300);color:var(--ink-muted);font:500 11px/16px Inter,sans-serif;white-space:nowrap}
+.tag.info{background:var(--tint);color:var(--link)}
+.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.pos{background:var(--pos-bg);color:var(--gain)}
+.tag.neg{background:var(--neg-bg);color:var(--loss)}
+.tag.brand{background:var(--tint);color:var(--brand)}
+.cnt{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--brand);color:var(--on-brand);font:600 11px/18px Inter,sans-serif;text-align:center;font-variant-numeric:tabular-nums}
+/* page tabs (pills) */
+.ptabs{display:flex;gap:4px}
+.ptab{height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-radius:999px;color:var(--ink-muted);font:500 14px/20px Inter,sans-serif;white-space:nowrap}
+.ptab.on{background:var(--surface-300);color:var(--brand);font-weight:600}
+.ptab.hov{color:var(--ink)}
+.ptab.dis{color:var(--disabled-ink)}
+/* segmented */
+.seg{align-self:flex-start;display:inline-flex;gap:2px;padding:3px;border-radius:8px;background:var(--surface-300)}
+.seg>span,.seg>button{height:32px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border:0;border-radius:6px;background:transparent;color:var(--ink-muted);font:500 13px/18px Inter,sans-serif;white-space:nowrap}
+.seg>.on{background:var(--surface-200);box-shadow:var(--seg-sh);color:var(--ink);font-weight:600}
+.seg>.hov{color:var(--ink)}
+/* fields */
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld>.l{font:500 13px/16px Inter,sans-serif}
+.fld>.l .req{color:var(--loss)}
+.inp{height:40px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--ctl);border-radius:8px;background:var(--surface-200);color:var(--ink);white-space:nowrap;overflow:hidden;font:400 14px/20px Inter,sans-serif}
+.inp .ph{color:var(--ink-muted)}
+.inp.hov{border-color:var(--ink-muted)}
+.inp.foc{border-color:var(--ink);outline:3px solid var(--focus);outline-offset:2px}
+.inp.err{border-color:var(--loss)}
+.inp.dis{border-color:transparent;background:var(--disabled-bg);color:var(--disabled-ink)}
+.inp.ro{background:var(--surface-100)}
+.hint{font-size:13px;line-height:18px;color:var(--ink-muted)}
+.errt{font-size:13px;line-height:18px;color:var(--loss);display:flex;gap:6px;align-items:center}
+.search{height:36px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--ctl);border-radius:8px;background:var(--surface-200);color:var(--ink-muted);white-space:nowrap;overflow:hidden}
+.chk{width:16px;height:16px;flex:none;border-radius:4px;border:1.5px solid var(--chk);background:var(--surface-200);display:inline-grid;place-items:center;color:var(--on-brand)}
+.chk.on{background:var(--brand);border-color:var(--brand)}
+.chk.dis{background:var(--disabled-bg);border-color:transparent}
+/* menus */
+.mi{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:6px;color:var(--ink);font-size:14px;white-space:nowrap}
+.mi>.i{color:var(--ink-muted);display:grid}
+.mi.hov{background:var(--surface-300)}
+.mi.dz,.mi.dz>.i{color:var(--loss)}
+.mi.dis,.mi.dis>.i{color:var(--disabled-ink)}
+.mi .k{margin-left:auto;color:var(--ink-muted);font-size:12px}
+.mh{padding:8px 10px 4px;font:600 11px/16px Inter,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-muted)}
+/* table rows */
+.th{display:flex;align-items:center;gap:12px;height:40px;padding:0 16px;border-bottom:1px solid var(--line);color:var(--ink-muted);font:500 12px/16px Inter,sans-serif;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.tr{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;border-bottom:1px solid var(--surface-300)}
+.tr:last-child{border-bottom:0}
+.tr.hov{background:var(--surface-100)}
+.tr.sel{background:var(--tint)}
+.logo{width:32px;height:32px;flex:none;border-radius:8px;border:1px solid var(--line);background:var(--surface-200);display:grid;place-items:center}
+.logo>span{width:19px;height:19px;border-radius:6px;color:#FFFFFF;display:grid;place-items:center;font:700 11px Inter,sans-serif}
+.logo.ini{border:0;background:var(--surface-300);color:var(--ink);font:600 12px Inter,sans-serif}
+.catc{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px 0 4px;border-radius:999px;background:var(--surface-300);font-size:12px;white-space:nowrap}
+.catc>span{width:18px;height:18px;border-radius:999px;color:#FFFFFF;display:grid;place-items:center}
+.catc.none{background:transparent;border:1px dashed var(--ctl);padding:0 8px;color:var(--ink-muted)}
+.t1{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.t2{color:var(--ink-muted);font-size:12px;line-height:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* progress */
+.bar{position:relative;height:6px;border-radius:999px;background:var(--surface-300)}
+.bar>i{display:block;height:6px;border-radius:999px}
+.bar>.mark{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;border-radius:1px;background:var(--ink)}
+/* skeleton */
+.sk{display:block;background:var(--skel);border-radius:6px}
+/* nav */
+.nav-i{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 10px;border-radius:4px;color:var(--ink-muted);font-weight:500;white-space:nowrap}
+.nav-i.on{background:var(--surface-300);color:var(--brand)}
+.nav-s{display:flex;align-items:center;gap:10px;min-height:36px;padding:0 10px 0 22px;border-radius:4px;color:var(--ink-muted)}
+.nav-s.on{background:var(--surface-100);color:var(--brand);font-weight:600}
+.av{width:32px;height:32px;flex:none;border-radius:999px;background:var(--brand-2);color:#FFFFFF;display:grid;place-items:center;font:600 13px/1 Inter,sans-serif}
+[data-theme="dark"] .av{color:var(--surface-100)}
+/* chart text */
+.ax{font:400 11px Inter,sans-serif;fill:var(--ink-muted)}
+.gl{stroke:var(--grid);stroke-width:1}
+.leg{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px}
+.leg>span{display:inline-flex;align-items:center;gap:8px}
+.key{width:12px;height:12px;border-radius:2px;flex:none}
+.up{color:var(--gain);font-weight:500;white-space:nowrap}
+.dn{color:var(--loss);font-weight:500;white-space:nowrap}
+.hatch{background:repeating-linear-gradient(45deg,var(--ink-muted) 0 3px,var(--surface-200) 3px 6px)}
+.gp{display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid var(--surface-300)}.gp:last-child{border-bottom:0}.gi{width:36px;height:36px;flex:none;border-radius:8px;background:var(--surface-300);color:var(--brand);display:grid;place-items:center}:root{--k0:#045D2F;--kt0:#FFFFFF;--ki0:#FFFFFF;--k1:#099673;--kt1:#1B2230;--ki1:#FFFFFF;--k2:#73CF90;--kt2:#1B2230;--ki2:#1B2230;--k3:#494BAB;--kt3:#FFFFFF;--ki3:#FFFFFF;--k4:#3968C2;--kt4:#FFFFFF;--ki4:#FFFFFF;--k5:#5D2985;--kt5:#FFFFFF;--ki5:#FFFFFF;--k6:#8A4093;--kt6:#FFFFFF;--ki6:#FFFFFF;--k7:#9865C5;--kt7:#1B2230;--ki7:#FFFFFF;--k8:#CA7CD4;--kt8:#1B2230;--ki8:#1B2230;--k9:#774F00;--kt9:#FFFFFF;--ki9:#FFFFFF;--k10:#B99B3C;--kt10:#1B2230;--ki10:#1B2230;--k11:#005E8B;--kt11:#FFFFFF;--ki11:#FFFFFF;--k12:#59A0F9;--kt12:#1B2230;--ki12:#1B2230;--k13:#8D2B6D;--kt13:#FFFFFF;--ki13:#FFFFFF;--k14:#E8729B;--kt14:#1B2230;--ki14:#1B2230;--k15:#9DB2C8;--kt15:#1B2230;--ki15:#1B2230;}[data-theme="dark"]{--k0:#4C9765;--kt0:#0B2545;--ki0:#0B2545;--k1:#4FC29D;--kt1:#0B2545;--ki1:#0B2545;--k2:#8FEBAB;--kt2:#0B2545;--ki2:#0B2545;--k3:#7A82E7;--kt3:#0B2545;--ki3:#0B2545;--k4:#679AF8;--kt4:#0B2545;--ki4:#0B2545;--k5:#9865C5;--kt5:#0B2545;--ki5:#0B2545;--k6:#C073C9;--kt6:#0B2545;--ki6:#0B2545;--k7:#C490F4;--kt7:#0B2545;--ki7:#0B2545;--k8:#EF9EF9;--kt8:#0B2545;--ki8:#0B2545;--k9:#AF8444;--kt9:#0B2545;--ki9:#0B2545;--k10:#DDBE61;--kt10:#0B2545;--ki10:#0B2545;--k11:#4A95C5;--kt11:#0B2545;--ki11:#0B2545;--k12:#96C4FF;--kt12:#0B2545;--ki12:#0B2545;--k13:#C963A4;--kt13:#0B2545;--ki13:#0B2545;--k14:#FFA0BE;--kt14:#0B2545;--ki14:#0B2545;--k15:#9DB2C8;--kt15:#0B2545;--ki15:#0B2545;}</style></head><body>
+<section class="card" style="max-width:520px;overflow:hidden"><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Відпустка в Італії</b><span class="tag brand"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>Головна</span></span><span class="t2">2 100,00 € з 4 000,00 € · до 1 лип. 2027</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="52.5" style="flex:1"><i style="width:52.5%;background:#A1CD2E"></i></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">52,5 %</span></span></span></div><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Подушка безпеки</b></span><span class="t2">9 000,00 € з 12 600,00 € · без дати</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="71.4" style="flex:1"><i style="width:71.4%;background:#67BA49"></i></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">71,4 %</span></span></span></div><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Ремонт кухні</b><span style="color:var(--warn);font:500 12px/16px Inter,sans-serif;white-space:nowrap">! Відстає · 900,00 €</span></span><span class="t2">2 300,00 € з 8 000,00 € · до 1 бер. 2027</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="28.8" style="flex:1"><i style="width:28.8%;background:#DECF17"></i><span class="mark" style="left:40%" title="мало б бути на сьогодні"></span></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">28,8 %</span></span></span></div><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 5a2 2 0 0 1 2 2v8.526a2 2 0 0 0 .212.897l1.068 2.127a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45l1.068-2.127A2 2 0 0 0 4 15.526V7a2 2 0 0 1 2-2z"/><path d="M20.054 15.987H3.946"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Новий ноутбук</b></span><span class="t2">0,00 € з 1 200,00 € · до 1 січ. 2027</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="0" style="flex:1"><i style="width:0%;background:#FFD000"></i></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">0 %</span></span></span></div><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Машина</b><span class="tag pos">✓ Досягнуто</span></span><span class="t2">15 450,00 € з 15 000,00 € · + 450,00 € понад ціль</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="100" style="flex:1"><i style="width:100%;background:#2E7D32"></i></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">100 %</span></span></span></div><div class="gp"><span class="gi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5"/></svg></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px"><span style="display:flex;align-items:center;gap:6px"><b class="t1">Весілля</b><span class="tag">На паузі</span></span><span class="t2">3 000,00 € з 10 000,00 €</span><span style="display:flex;align-items:center;gap:10px;padding-top:2px"><span class="bar" role="progressbar" aria-valuenow="30" style="flex:1"><i style="width:30%;background:var(--goal-paused)"></i></span><span class="tab" style="width:52px;text-align:right;font-size:12px;font-weight:600">30 %</span></span></span></div></section><div class="card" style="max-width:520px;margin-top:20px;padding:16px 20px;display:flex;flex-direction:column;gap:8px"><span class="sh">Шкала прогресу цілі (DS-06)</span><div style="height:10px;border-radius:999px;background:linear-gradient(90deg in oklch,var(--goal-0) 0%,var(--goal-25) 25%,var(--goal-55) 55%,var(--goal-80) 80%,var(--goal-100) 100%)"></div><div style="display:flex;justify-content:space-between" class="sub tab"><span>0 %</span><span>25 %</span><span>55 %</span><span>80 %</span><span>100 %</span></div><span class="sub">Колір смуги — колір шкали в точці відсотка (інтерполяція OKLCH); «На паузі» — goal-paused.</span></div>
+</body></html>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Розділ вимкнено</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}a{color:#1D4E89}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="assets" page="Документи" height="800" hint-size="1280px,800px"></dc-import></div>
+  <main style="position: absolute; left: 212px; top: 64px; width: 1068px; height: 736px; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 24px;">
+    <nav aria-label="Хлібні крихти" style="color: #566174;">Активи › Документи</nav>
+    <div style="flex: 1; display: grid; place-items: center;">
+      <div style="width: 480px; display: flex; flex-direction: column; align-items: flex-start; gap: 16px;">
+        <span style="width: 56px; height: 56px; border-radius: 999px; background: #F1F1EF; display: grid; place-items: center; color: #0B2545;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M10 9H8M16 13H8M16 17H8"></path></svg>
+        </span>
+        <h1 style="margin: 0; font: 600 28px/34px 'Inter Tight', Inter, sans-serif; letter-spacing: -0.02em;">Розділ «Документи» вимкнено</h1>
+        <p style="margin: 0; font-size: 16px; line-height: 24px; color: #1B2230;">Тут зберігаються договори, свідоцтва й чеки, повʼязані з вашими активами. Розділ доступний на рівні складності «Розширений».</p>
+        <p style="margin: 0; display: flex; align-items: center; gap: 8px; color: #566174;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#27704C" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Дані збережено. Після ввімкнення ви одразу їх побачите.</p>
+        <div style="display: flex; gap: 12px; margin-top: 8px;">
+          <button type="button" style="height: 40px; padding: 0 16px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 14px Inter, sans-serif;">Увімкнути «Розширений»</button>
+          <a href="#" style="height: 40px; display: inline-flex; align-items: center; padding: 0 16px; border: 1px solid #7B8494; border-radius: 8px; color: #1B2230; text-decoration: none; font: 600 14px Inter, sans-serif; box-sizing: border-box;">На Головну</a>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

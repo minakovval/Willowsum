@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Оновити залишок</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230; background: #FBFBFA;">
+  <div style="position:absolute;inset:0;"><dc-import name="PocShell" active="money" page="Рахунки" height="800" hint-size="1280px,800px"></dc-import></div>
+  <div style="position:absolute;left:212px;top:64px;right:0;bottom:0;padding:28px 32px;"><h1 style="margin:0;font:600 28px/34px 'Inter Tight',Inter,sans-serif;">Поточний</h1></div>
+  <div style="position:absolute;inset:0;background:rgba(11,37,69,0.36);backdrop-filter:blur(2px);"></div>
+  <div role="dialog" aria-modal="true" aria-label="Оновити залишок" style="position:absolute;left:360px;top:48px;width:560px;box-sizing:border-box;background:#FFFFFF;border-radius:16px;box-shadow:0 2px 4px rgba(11,37,69,.06),0 24px 48px rgba(11,37,69,.20);">
+    <div style="padding:28px 32px 24px;display:flex;flex-direction:column;gap:16px;"><h2 style="margin:0;font:600 22px/28px 'Inter Tight',Inter,sans-serif;letter-spacing:-0.015em;">Оновити залишок</h2><span style="color:#566174;font-size:13px;line-height:18px;margin-top:-8px;">Поточний ··4417 · monobank</span><div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;background:#F4F5F6;font-size:13px;"><span style="color:#566174;">Зараз у Willowsum · на 2 листопада</span><b style="font-weight:600;font-variant-numeric:tabular-nums;">5 200,00 €</b></div><div style="display:flex;flex-direction:column;gap:6px;width:100%;"><span style="font-weight:500;font-size:13px;">Поточний залишок<span style="color:#B23A3A">*</span></span><span style="height:40px;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid #7B8494;border-radius:8px;background:#FFFFFF;white-space:nowrap;overflow:hidden;"><span>5 150,00</span><span style="margin-left:auto;color:#566174;">€</span></span><span style="color:#566174;font-size:12px;line-height:16px;">Залишок, який ви бачите в банку зараз</span></div><div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-radius:10px;border:1px dashed #C9CDD3;font-size:13px;"><span>Різниця стане транзакцією «Коригування залишку» · не входить у доходи й витрати</span><b style="font-weight:600;font-variant-numeric:tabular-nums;color:#1B2230;white-space:nowrap;margin-left:12px;">−50,00 €</b></div><div role="note" style="display:flex;gap:10px;padding:12px 14px;border:1px solid #E5E5E2;border-radius:8px;background:#FAFAF8;color:#1B2230;font-size:13px;line-height:18px;"><span style="display: grid; padding-top: 1px; color: #1D4E89;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg></span><span>Рахунок підключено. Під час наступної синхронізації коригування буде перераховано за залишком банку: якщо залишки збіжуться, його буде видалено, інакше — змінено на нову різницю.</span></div></div>
+    <div style="padding:20px 32px 24px;background:#FAFAF8;border-top:1px solid #F1F1EF;display:flex;align-items:center;gap:8px;"><a href="PocMoneyAccount.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Скасувати</a><span style="flex:1"></span><a href="PocMoneyAccount.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:0;background:#0B2545;color:#FFFFFF;">Оновити залишок</a></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

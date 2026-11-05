@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Відключити monobank?</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="money" page="Рахунки" height="800" hint-size="1280px,800px"></dc-import></div>
+  <div style="position: absolute; left: 212px; top: 64px; right: 0; bottom: 0; padding: 28px 32px;"></div>
+  <div style="position: absolute; inset: 0; background: rgba(11, 37, 69, 0.36); backdrop-filter: blur(2px);"></div>
+  <div role="dialog" aria-modal="true" aria-label="Відключити monobank?" style="position: absolute; left: 360px; top: 80px; width: 560px; box-sizing: border-box; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 4px rgba(11,37,69,.06), 0 24px 48px rgba(11,37,69,.20); overflow: hidden;">
+    <a href="MoneyConnections.dc.html" aria-label="Закрити" style="text-decoration: none; box-sizing: border-box; cursor: pointer; position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: #566174;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></a>
+    <div style="padding: 28px 32px 24px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
+      <h2 style="margin: 0 40px 0 0; font: 600 22px/28px 'Inter Tight', Inter, sans-serif; letter-spacing: -0.015em;"><a href="MoneyConnections.dc.html" style="color: inherit; text-decoration: none; cursor: pointer;">Відключити</a> monobank?</h2><p style="margin: 0; color: #566174; font-size: 15px; line-height: 22px;">Історія транзакцій лишиться з позначкою «джерело відключено». Нові дані не надходитимуть.</p>
+      <div style="display: flex; flex-direction: column; gap: 8px;"><div role="radio" aria-checked="true" style="display: flex; gap: 12px; align-items: flex-start; padding: 11px 13px; border: 2px solid #1D4E89; border-radius: 10px; background: #F7F9FC;"><span style="margin-top: 2px; width: 18px; height: 18px; flex: none; box-sizing: border-box; border-radius: 999px; border: 5px solid #1D4E89; background: #FFFFFF;"></span><span style="display: flex; flex-direction: column;"><b style="font-weight: 600;">Залишити рахунки вручну</b><span style="color: #566174; font-size: 13px;">Історія лишиться, рахунки можна оновлювати імпортом</span></span></div><div role="radio" aria-checked="false" style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid #E5E5E2; border-radius: 10px; background: #FFFFFF;"><span style="margin-top: 2px; width: 18px; height: 18px; flex: none; box-sizing: border-box; border-radius: 999px; border: 1.5px solid #7B8494; background: #FFFFFF;"></span><span style="display: flex; flex-direction: column;"><b style="font-weight: 600;">Видалити рахунки</b><span style="color: #566174; font-size: 13px;">Без ручних транзакцій — в архів, з ручними — приховати</span></span></div></div>
+    </div>
+    <div style="padding: 20px 32px 24px; background: #FAFAF8; border-top: 1px solid #F1F1EF;"><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;"><a href="MoneyConnections.dc.html"  style="text-decoration: none; box-sizing: border-box; cursor: pointer; height: 40px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid #7B8494; border-radius: 8px; background: #FFFFFF; color: #1B2230; font: 600 14px Inter, sans-serif; white-space: nowrap;">Скасувати</a><button type="button" style="height: 40px; display: flex; justify-content: center; align-items: center; justify-content: center; gap: 8px; padding: 0 14px; border: 1.5px solid #B23A3A; border-radius: 8px; background: #FFFFFF; color: #B23A3A; font: 600 14px Inter, sans-serif; white-space: nowrap;">Відключити</button></div></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Пошук і командний рядок</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="home" height="800" hint-size="1280px,800px"></dc-import></div>
+  <label style="position: absolute; left: 244px; top: 12px; width: 560px; height: 40px; box-sizing: border-box; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #1D4E89; border-radius: 4px; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(29,78,137,.14);">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#566174" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.34-4.34"></path></svg>
+    <input type="text" role="combobox" aria-expanded="true" aria-controls="sr" value="квар" aria-label="Пошук або команда" style="flex: 1; min-width: 0; border: 0; outline: none; padding: 0; font: 400 14px Inter, sans-serif; color: #1B2230; background: transparent;">
+    <button type="button" aria-label="Очистити" title="Очистити" style="width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 999px; background: #F1F1EF; color: #566174;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+  </label>
+  <div style="position: absolute; left: 244px; top: 58px; width: 560px; background: #FFFFFF; border: 1px solid #E5E5E2; border-radius: 8px; box-shadow: 0 1px 2px rgba(11,37,69,.10), 0 12px 32px rgba(11,37,69,.16); overflow: hidden;">
+    <div role="listbox" id="sr" aria-label="Результати" style="padding: 8px; display: flex; flex-direction: column;">
+      <span style="padding: 8px 10px 4px; font: 500 12px/16px Inter, sans-serif; letter-spacing: 0.08em; color: #566174;">АКТИВИ</span>
+      <div role="option" aria-selected="true" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border-radius: 4px; background: #F1F1EF;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0B2545" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4M10 10h4M10 14h4M10 18h4"></path></svg>
+        <span style="flex: 1;"><b style="font-weight: 600;">Квар</b>тира на Подолі</span>
+        <span style="font-weight: 600; font-variant-numeric: tabular-nums;">210 000,00 €</span>
+        <kbd style="font: 500 12px Inter, sans-serif; color: #566174;">↵</kbd>
+      </div>
+      <div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border-radius: 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#566174" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path></svg>
+        <span style="flex: 1;">Договір купівлі <b style="font-weight: 600;">квар</b>тири.pdf</span>
+        <span style="color: #566174;">Документи</span>
+      </div>
+      <span style="padding: 12px 10px 4px; font: 500 12px/16px Inter, sans-serif; letter-spacing: 0.08em; color: #566174;">ТРАНЗАКЦІЇ</span>
+      <div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border-radius: 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#566174" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 3 4 4-4 4"></path><path d="M20 7H4"></path><path d="m8 21-4-4 4-4"></path><path d="M4 17h16"></path></svg>
+        <span style="flex: 1;"><b style="font-weight: 600;">Квар</b>тплата · 28 жовт</span>
+        <span style="font-weight: 600; font-variant-numeric: tabular-nums;">−86,40 €</span>
+      </div>
+      <span style="padding: 12px 10px 4px; font: 500 12px/16px Inter, sans-serif; letter-spacing: 0.08em; color: #566174;">ДІЇ</span>
+      <div role="option" aria-selected="false" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 10px; border-radius: 4px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#566174" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>
+        <span style="flex: 1;">Додати актив «Квартира»</span>
+      </div>
+    </div>
+    <div style="display: flex; gap: 16px; padding: 10px 16px; border-top: 1px solid #E5E5E2; color: #566174; font-size: 12px;">
+      <span>↑↓ вибір</span><span>↵ відкрити</span><span>Esc закрити</span><div style="flex: 1;"></div><a href="#" style="color: #1D4E89; text-decoration: none; font-weight: 500;">Усі результати · 14</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Головна · обмін малого і великого віджета</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>
+body{margin:0}
+.ws-w{position:absolute;box-sizing:border-box;background:#FFFFFF;border:1.5px dashed #9DB2C8;border-radius:8px;padding:16px 16px 20px;display:flex;flex-direction:column;gap:12px;transition:none}
+.ws-h{display:flex;align-items:center;gap:6px}
+.ws-t{flex:1;font:500 13px/16px Inter,sans-serif;letter-spacing:.08em;color:#566174;white-space:nowrap}
+.ws-g{width:28px;height:28px;margin:-4px 0 -4px -6px;display:grid;place-items:center;border:0;border-radius:6px;background:#F1F1EF;color:#566174;cursor:grab}
+.ws-x{width:28px;height:28px;margin:-4px -6px -4px 0;display:grid;place-items:center;border:0;border-radius:999px;background:#F1F1EF;color:#566174}
+.ws-b{flex:1;display:flex;flex-direction:column;gap:10px;opacity:.6;pointer-events:none}
+.ws-l{height:10px;border-radius:4px;background:#EEF1F4}
+.ws-big{font:600 22px/28px 'Inter Tight',Inter,sans-serif;color:#1B2230;font-variant-numeric:tabular-nums}
+/* 20 s loop, one widget dragged at a time, the rest reflow (never under the dragged one for long):
+   A) small «Можна витратити» → before large «Net worth»;  B) «Net worth» back to first place;
+   C) small «Цілі» from row 2 → onto the «Net worth» chart (row 1, first place); D) «Цілі» back down */
+@keyframes sz-small{0%,1%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 3%{transform:translate(0px,-14px) scale(1.03) rotate(-1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 14%{transform:translate(-685.33px,-14px) scale(1.03) rotate(1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 16%,32%{transform:translate(-685.33px,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 37%,57%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 63%,80%{transform:translate(-685.33px,324px) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 86%,100%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1}}
+@keyframes sz-big{0%,6%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 12%,26%{transform:translate(342.67px,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 28%{transform:translate(342.67px,-14px) scale(1.03) rotate(-0.5deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 39%{transform:translate(0px,-14px) scale(1.03) rotate(0.5deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 41%,56%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 62%,82%{transform:translate(342.67px,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 88%,100%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1}}
+@keyframes sz-goal{0%,51%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 53%{transform:translate(0px,-14px) scale(1.03) rotate(-1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 64%{transform:translate(0px,-338px) scale(1.03) rotate(1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 66%,76%{transform:translate(0,-324px) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1} 78%{transform:translate(0px,-338px) scale(1.03) rotate(-1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 89%{transform:translate(0px,-14px) scale(1.03) rotate(1deg);box-shadow:0 24px 48px rgba(11,37,69,.22),0 2px 6px rgba(11,37,69,.10);border-style:solid;opacity:.92} 91%,100%{transform:translate(0,0) scale(1) rotate(0);box-shadow:none;border-style:dashed;opacity:1}}
+@keyframes sz-zs{0%,24%{z-index:3}25%,100%{z-index:2}}
+@keyframes sz-zb{0%,24%{z-index:2}25%,49%{z-index:3}50%,100%{z-index:2}}
+@keyframes sz-ph1{0%,2%{opacity:0;transform:translate(685.33px,0)}4%,6%{opacity:1;transform:translate(685.33px,0)}12%,14%{opacity:1;transform:translate(0,0)}16%,100%{opacity:0;transform:translate(0,0)}}
+@keyframes sz-ph2{0%,27%{opacity:0;transform:translate(342.67px,0)}29%,31%{opacity:1;transform:translate(342.67px,0)}37%,39%{opacity:1;transform:translate(0,0)}41%,100%{opacity:0;transform:translate(0,0)}}
+@keyframes sz-ph3{0%,52%{opacity:0;transform:translate(0,324px)}54%,56%{opacity:1;transform:translate(0,324px)}61%,64%{opacity:1;transform:translate(0,0)}66%,77%{opacity:0;transform:translate(0,0)}79%,81%{opacity:1;transform:translate(0,0)}86%,89%{opacity:1;transform:translate(0,324px)}91%,100%{opacity:0;transform:translate(0,324px)}}
+@keyframes sz-c1{0%,1%{transform:translate(0,0)}3%{transform:translate(0,-14px)}14%{transform:translate(-685.33px,-14px)}16%,100%{transform:translate(-685.33px,0)}}
+@keyframes sz-g1{0%,1%{opacity:0}2%,15%{opacity:1}17%,100%{opacity:0}}
+@keyframes sz-c2{0%,26%{transform:translate(342.67px,0)}28%{transform:translate(342.67px,-14px)}39%{transform:translate(0,-14px)}41%,100%{transform:translate(0,0)}}
+@keyframes sz-g2{0%,26%{opacity:0}27%,40%{opacity:1}42%,100%{opacity:0}}
+@keyframes sz-c3{0%,51%{transform:translate(0,0)}53%{transform:translate(0,-14px)}64%{transform:translate(0,-338px)}66%,76%{transform:translate(0,-324px)}78%{transform:translate(0,-338px)}89%{transform:translate(0,-14px)}91%,100%{transform:translate(0,0)}}
+@keyframes sz-g3{0%,51%{opacity:0}52%,65%{opacity:1}67%,76%{opacity:0}77%,90%{opacity:1}92%,100%{opacity:0}}
+.sz-small{animation:sz-small 20s cubic-bezier(.45,.05,.25,1) infinite,sz-zs 20s step-end infinite;z-index:3}
+.sz-big{animation:sz-big 20s cubic-bezier(.45,.05,.25,1) infinite,sz-zb 20s step-end infinite;z-index:2}
+@keyframes sz-zg{0%,49%{z-index:2}50%,100%{z-index:4}}
+.sz-goal{animation:sz-goal 20s cubic-bezier(.45,.05,.25,1) infinite,sz-zg 20s step-end infinite}
+.sz-ph1{animation:sz-ph1 20s cubic-bezier(.3,.7,.2,1) infinite}
+.sz-ph2{animation:sz-ph2 20s cubic-bezier(.3,.7,.2,1) infinite}
+.sz-ph3{animation:sz-ph3 20s cubic-bezier(.3,.7,.2,1) infinite}
+.sz-c1{animation:sz-c1 20s cubic-bezier(.45,.05,.25,1) infinite}
+.sz-g1{animation:sz-g1 20s linear infinite}
+.sz-c2{animation:sz-c2 20s cubic-bezier(.45,.05,.25,1) infinite}
+.sz-g2{animation:sz-g2 20s linear infinite}
+.sz-c3{animation:sz-c3 20s cubic-bezier(.45,.05,.25,1) infinite}
+.sz-g3{animation:sz-g3 20s linear infinite}
+@media (prefers-reduced-motion: reduce){.sz-small,.sz-big,.sz-goal,.sz-ph1,.sz-ph2,.sz-ph3,.sz-c1,.sz-g1,.sz-c2,.sz-g2,.sz-c3,.sz-g3{animation-play-state:paused;animation-delay:-12s}}
+</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 820px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="home" height="820" hint-size="1280px,820px"></dc-import></div>
+  <main style="position: absolute; left: 212px; top: 64px; width: 1068px; height: 756px; box-sizing: border-box; padding: 24px 32px 32px; background: #F4F5F6;">
+    <div role="toolbar" aria-label="Редагування «Огляду»" style="display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 8px 0 16px; background: #FFFFFF; border: 1px solid #E5E5E2; border-radius: 10px;">
+      <span style="display: flex; flex-direction: column;"><b style="font-weight: 600;">Редагування «Огляду»</b><span style="color: #566174; font-size: 13px; line-height: 16px;">Малий ↔ великий: у ряду і між рядами</span></span>
+      <div style="flex: 1;"></div>
+      <button type="button" style="height: 40px; padding: 0 12px; border: 0; background: transparent; color: #566174; font: 500 14px Inter, sans-serif; white-space: nowrap;">Скинути до типового</button>
+      <button type="button" style="height: 40px; padding: 0 16px; border: 1px solid #7B8494; border-radius: 8px; background: #FFFFFF; color: #1B2230; font: 600 14px Inter, sans-serif;">Скасувати</button>
+      <button type="button" style="height: 40px; padding: 0 20px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 14px Inter, sans-serif;">Готово</button>
+    </div>
+    <div style="position: relative; margin-top: 24px; height: 620px;">
+      <div class="sz-ph1" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 318.67px; height: 300px; box-sizing: border-box; border: 2px dashed #1D4E89; border-radius: 8px; background: rgba(29,78,137,.06); opacity: 0;"></div>
+      <div class="sz-ph3" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 318.67px; height: 300px; box-sizing: border-box; border: 2px dashed #1D4E89; border-radius: 8px; background: rgba(29,78,137,.06); opacity: 0;"></div>
+      <div class="sz-ph2" aria-hidden="true" style="position: absolute; left: 0; top: 0; width: 661.33px; height: 300px; box-sizing: border-box; border: 2px dashed #1D4E89; border-radius: 8px; background: rgba(29,78,137,.06); opacity: 0;"></div>
+      <section class="ws-w sz-big" style="left: 0px; top: 0px; width: 661.33px; height: 300px;"><div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Net worth»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">NET WORTH</span><button type="button" class="ws-x" aria-label="Прибрати «Net worth»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="ws-b"><span class="ws-big">284 650,00 €</span><svg width="100%" height="150" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path d="M0 110 L30 104 L60 108 L90 96 L120 100 L150 88 L180 92 L210 70 L240 66 L270 58 L300 52" fill="none" stroke="#9DB2C8" stroke-width="2" vector-effect="non-scaling-stroke"></path></svg><span class="ws-l" style="width: 60%;"></span></div></section>
+      <section class="ws-w sz-small" style="left: 685.33px; top: 0px; width: 318.67px; height: 300px;"><div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Можна витратити»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">МОЖНА ВИТРАТИТИ</span><button type="button" class="ws-x" aria-label="Прибрати «Можна витратити»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="ws-b"><span class="ws-big">540,00 €</span><svg width="100%" height="150" viewBox="0 0 300 150" preserveAspectRatio="none" aria-hidden="true"><path d="M0 140 L25 120 L50 118 L75 104 L100 96 L125 92 L150 80 L175 76 L200 62" fill="none" stroke="#9DB2C8" stroke-width="2" vector-effect="non-scaling-stroke"></path></svg><span class="ws-l" style="width: 60%;"></span></div></section>
+      <section class="ws-w sz-goal" style="left: 0px; top: 324px; width: 318.67px; height: 220px;"><div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Цілі»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">ЦІЛІ</span><button type="button" class="ws-x" aria-label="Прибрати «Цілі»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="ws-b"><span class="ws-big">62 %</span><span class="ws-l" style="width: 62%;"></span><span class="ws-l" style="width: 35%;"></span><span class="ws-l" style="width: 48%;"></span></div></section>
+      <section class="ws-w " style="left: 342.67px; top: 324px; width: 318.67px; height: 220px;"><div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Розподіл активів»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">РОЗПОДІЛ АКТИВІВ</span><button type="button" class="ws-x" aria-label="Прибрати «Розподіл активів»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="ws-b"><span class="ws-big">344 200,00 €</span><span class="ws-l" style="width: 90%;"></span><span class="ws-l" style="width: 70%;"></span><span class="ws-l" style="width: 50%;"></span></div></section>
+      <section class="ws-w " style="left: 685.33px; top: 324px; width: 318.67px; height: 220px;"><div class="ws-h"><button type="button" class="ws-g" aria-label="Перемістити «Рахунки»"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"></circle><circle cx="15" cy="6" r="1.8"></circle><circle cx="9" cy="12" r="1.8"></circle><circle cx="15" cy="12" r="1.8"></circle><circle cx="9" cy="18" r="1.8"></circle><circle cx="15" cy="18" r="1.8"></circle></svg></button><span class="ws-t">РАХУНКИ</span><button type="button" class="ws-x" aria-label="Прибрати «Рахунки»"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button></div><div class="ws-b"><span class="ws-big">41 300,00 €</span><span class="ws-l" style="width: 85%;"></span><span class="ws-l" style="width: 70%;"></span><span class="ws-l" style="width: 60%;"></span></div></section>
+
+      <div class="sz-c1" aria-hidden="true" style="position: absolute; left: 699px; top: 20px; z-index: 4; pointer-events: none;"><div class="sz-g1" style="opacity: 0;"><svg width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF" stroke="#1B2230" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-4 0v1.4"></path><path d="M14 10V8a2 2 0 0 0-4 0v2"></path><path d="M10 9.9V9a2 2 0 0 0-4 0v5"></path><path d="M6 14a2 2 0 0 0-2 2v0a8 8 0 0 0 8 6h0a6 6 0 0 0 6-6v-4.5a2 2 0 1 1 4 0V15"></path></svg></div></div>
+      <div class="sz-c3" aria-hidden="true" style="position: absolute; left: 14px; top: 344px; z-index: 5; pointer-events: none;"><div class="sz-g3" style="opacity: 0;"><svg width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF" stroke="#1B2230" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-4 0v1.4"></path><path d="M14 10V8a2 2 0 0 0-4 0v2"></path><path d="M10 9.9V9a2 2 0 0 0-4 0v5"></path><path d="M6 14a2 2 0 0 0-2 2v0a8 8 0 0 0 8 6h0a6 6 0 0 0 6-6v-4.5a2 2 0 1 1 4 0V15"></path></svg></div></div>
+      <div class="sz-c2" aria-hidden="true" style="position: absolute; left: 14px; top: 20px; z-index: 4; pointer-events: none;"><div class="sz-g2" style="opacity: 0;"><svg width="26" height="26" viewBox="0 0 24 24" fill="#FFFFFF" stroke="#1B2230" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11.5V9a2 2 0 0 0-4 0v1.4"></path><path d="M14 10V8a2 2 0 0 0-4 0v2"></path><path d="M10 9.9V9a2 2 0 0 0-4 0v5"></path><path d="M6 14a2 2 0 0 0-2 2v0a8 8 0 0 0 8 6h0a6 6 0 0 0 6-6v-4.5a2 2 0 1 1 4 0V15"></path></svg></div></div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

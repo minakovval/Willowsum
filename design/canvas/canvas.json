@@ -1,0 +1,4105 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Add.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "S-025 Меню «+ Додати»",
+      "w": 1280,
+      "x": 0,
+      "y": 920
+    },
+    "AddWidget.dc.html": {
+      "h": 1060,
+      "page": "home",
+      "title": "S-040 Головна · «Додати віджет»",
+      "w": 1280,
+      "x": 5440,
+      "y": 0
+    },
+    "Bulk.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-036 Масова дія",
+      "w": 1280,
+      "x": 2720,
+      "y": 1220
+    },
+    "Customize.dc.html": {
+      "h": 1060,
+      "page": "home",
+      "title": "S-040 Головна · режим редагування віджетів (анімація)",
+      "w": 1280,
+      "x": 2720,
+      "y": 0
+    },
+    "CustomizeSizes.dc.html": {
+      "h": 820,
+      "page": "home",
+      "title": "S-040 Головна · обмін малого і великого віджета (анімація)",
+      "w": 1280,
+      "x": 4080,
+      "y": 0
+    },
+    "Disabled.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-028 Розділ вимкнено",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "Main.dc.html": {
+      "h": 1560,
+      "page": "home",
+      "title": "S-040 Головна · Огляд",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "MainCollapsed.dc.html": {
+      "h": 1560,
+      "page": "home",
+      "title": "S-040 Головна · панель згорнута, чек-лист сховано",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "MoneyAccSettings.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-054 Рахунок · налаштування і реквізити",
+      "w": 1280,
+      "x": 2720,
+      "y": 8200
+    },
+    "MoneyAccount.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-053 Рахунок · меню «…»",
+      "w": 1280,
+      "x": 1360,
+      "y": 8200
+    },
+    "MoneyAccounts.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-050 Рахунки",
+      "w": 1280,
+      "x": 0,
+      "y": 8200
+    },
+    "MoneyAddAcc.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-051 Додати рахунок · вибір способу",
+      "w": 1280,
+      "x": 0,
+      "y": 9980
+    },
+    "MoneyAddReceipt.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-065 Додати чек",
+      "w": 1280,
+      "x": 2720,
+      "y": 6700
+    },
+    "MoneyBank1.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-061 Підключення банку · 1 що отримаємо",
+      "w": 1280,
+      "x": 4080,
+      "y": 15360
+    },
+    "MoneyBank2.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-061 Підключення банку · 2 згода",
+      "w": 1280,
+      "x": 5440,
+      "y": 15360
+    },
+    "MoneyBank3.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-061 Підключення банку · 3 банк",
+      "w": 1280,
+      "x": 6800,
+      "y": 15360
+    },
+    "MoneyBank5.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-061 Підключення банку · 5 синхронізація",
+      "w": 1280,
+      "x": 9520,
+      "y": 15360
+    },
+    "MoneyBankWizard.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-061 Підключення банку · 4 рахунки",
+      "w": 1280,
+      "x": 8160,
+      "y": 15360
+    },
+    "MoneyCloseAcc.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-055 Закрити рахунок · що зробити із залишком",
+      "w": 1280,
+      "x": 5440,
+      "y": 9980
+    },
+    "MoneyConnections.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-060 Підключення",
+      "w": 1280,
+      "x": 0,
+      "y": 15360
+    },
+    "MoneyCredit.dc.html": {
+      "h": 940,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-064 Кредитні картки (v1)",
+      "w": 1280,
+      "x": 4080,
+      "y": 8200
+    },
+    "MoneyDisconnect.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-062 Відключити банк",
+      "w": 1280,
+      "x": 2720,
+      "y": 15360
+    },
+    "MoneyImport1.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-170 Імпорт · файли, рахунок визначено",
+      "w": 1280,
+      "x": 0,
+      "y": 11800
+    },
+    "MoneyImport2.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-171 Імпорт · оригінал і розпізнане",
+      "w": 1280,
+      "x": 1360,
+      "y": 11800
+    },
+    "MoneyImport3.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-174 Імпорт · результат",
+      "w": 1280,
+      "x": 5440,
+      "y": 11800
+    },
+    "MoneyImportMismatch.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-173 Імпорт · залишки не збігаються",
+      "w": 1280,
+      "x": 4080,
+      "y": 11800
+    },
+    "MoneyImportRules.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-172 Імпорт · правила розбору",
+      "w": 1280,
+      "x": 2720,
+      "y": 11800
+    },
+    "MoneyLinkAsset.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-047 Прив’язати до активу",
+      "w": 1280,
+      "x": 8160,
+      "y": 300
+    },
+    "MoneyMerchant.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-069 Мерчант",
+      "w": 1280,
+      "x": 8160,
+      "y": 6700
+    },
+    "MoneyMergeAcc.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-055 Об’єднати рахунки",
+      "w": 1280,
+      "x": 6800,
+      "y": 9980
+    },
+    "MoneyNewAcc.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-052 Новий рахунок · дубль заблоковано",
+      "w": 1280,
+      "x": 1360,
+      "y": 9980
+    },
+    "MoneyNewAccOwners.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-052 Новий рахунок · вибір власників",
+      "w": 1280,
+      "x": 2720,
+      "y": 9980
+    },
+    "MoneyNewAccStep3.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "money",
+      "title": "Новий рахунок · крок 3 · Додатково",
+      "w": 1280,
+      "x": 4080,
+      "y": 9980
+    },
+    "MoneyNewTx.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-048 Нова транзакція · контрагент",
+      "w": 1280,
+      "x": 0,
+      "y": 4940
+    },
+    "MoneyNewTxAcc.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-048 Нова транзакція · рахунок",
+      "w": 1280,
+      "x": 6800,
+      "y": 4940
+    },
+    "MoneyNewTxCat.dc.html": {
+      "h": 1160,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-048 Нова транзакція · категорія",
+      "w": 1280,
+      "x": 4080,
+      "y": 4940
+    },
+    "MoneyNewTxDate.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-048 Нова транзакція · дата",
+      "w": 1280,
+      "x": 5440,
+      "y": 4940
+    },
+    "MoneyNewTxNoAcc.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-048 Нова транзакція · рахунків ще немає",
+      "w": 1280,
+      "x": 8160,
+      "y": 4940
+    },
+    "MoneyNewTxStep2.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "money",
+      "title": "Нова транзакція · крок 2 · Контрагент і категорія",
+      "w": 1280,
+      "x": 1360,
+      "y": 4940
+    },
+    "MoneyNewTxStep3.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "money",
+      "title": "Нова транзакція · крок 3 · Додатково",
+      "w": 1280,
+      "x": 2720,
+      "y": 4940
+    },
+    "MoneyOrders.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-068 Імпорт замовлень · вибір магазину і файл",
+      "w": 1280,
+      "x": 9520,
+      "y": 6700
+    },
+    "MoneyOrdersUnavail.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-068 Імпорт замовлень · магазин ще недоступний",
+      "w": 1280,
+      "x": 10880,
+      "y": 6700
+    },
+    "MoneyPairManual.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-286 Поєднати вручну (сторінка)",
+      "w": 1280,
+      "x": 4080,
+      "y": 13580
+    },
+    "MoneyPairs.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-059 Пари · з комісіями",
+      "w": 1280,
+      "x": 0,
+      "y": 13580
+    },
+    "MoneyReceipt.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-066 Розпізнаний чек · оригінал і позиції",
+      "w": 1280,
+      "x": 4080,
+      "y": 6700
+    },
+    "MoneyReceipts.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-067 Незіставлені чеки",
+      "w": 1280,
+      "x": 5440,
+      "y": 6700
+    },
+    "MoneyReconHistory.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-057 Історія звірок (v1)",
+      "w": 1280,
+      "x": 2720,
+      "y": 13580
+    },
+    "MoneyReconcile.dc.html": {
+      "h": 980,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-056 Звірка з банком (v1)",
+      "w": 1280,
+      "x": 1360,
+      "y": 13580
+    },
+    "MoneyReconnect.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-062 Перепідключити банк",
+      "w": 1280,
+      "x": 10880,
+      "y": 15360
+    },
+    "MoneyRemap.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-062 Зіставлення рахунків після перепідключення",
+      "w": 1280,
+      "x": 12240,
+      "y": 15360
+    },
+    "MoneyRetailer.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-068 Імпорт замовлень ритейлера · підсумок",
+      "w": 1280,
+      "x": 6800,
+      "y": 6700
+    },
+    "MoneyReview.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-058 До розбору · групи за мерчантом, вибір категорії",
+      "w": 1280,
+      "x": 0,
+      "y": 3480
+    },
+    "MoneyReviewDone.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-058 До розбору · усе розібрано",
+      "w": 1280,
+      "x": 1360,
+      "y": 3480
+    },
+    "MoneyRuleEdit.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Правило категорії · редагування",
+      "w": 1280,
+      "x": 10880,
+      "y": 300
+    },
+    "MoneyRuleEditStep2.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "Правило категорії · крок 2 · Додатково",
+      "w": 1280,
+      "x": 12240,
+      "y": 300
+    },
+    "MoneyRules.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Правила категорій",
+      "w": 1280,
+      "x": 9520,
+      "y": 300
+    },
+    "MoneySource.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-063 Джерело даних · підключений банк",
+      "w": 1280,
+      "x": 1360,
+      "y": 15360
+    },
+    "MoneySourceLetters.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-063 Джерело даних · листи від банку (запасне)",
+      "w": 1280,
+      "x": 13600,
+      "y": 15360
+    },
+    "MoneySplit.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-049 Розділити · за категоріями",
+      "w": 1280,
+      "x": 0,
+      "y": 6700
+    },
+    "MoneySplitMonths.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-049 Розділити · на кілька місяців",
+      "w": 1280,
+      "x": 1360,
+      "y": 6700
+    },
+    "MoneyTx.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · список, вибрано дві, меню «Ще»",
+      "w": 1280,
+      "x": 0,
+      "y": 300
+    },
+    "MoneyTxDetail.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 + S-047 Транзакції · деталь, меню «…»",
+      "w": 1280,
+      "x": 4080,
+      "y": 300
+    },
+    "MoneyTxDetailNoReceipt.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-047 Деталь · без чека",
+      "w": 1280,
+      "x": 6800,
+      "y": 300
+    },
+    "MoneyTxEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · порожньо",
+      "w": 1280,
+      "x": 0,
+      "y": 2080
+    },
+    "MoneyTxError.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · помилка",
+      "w": 1280,
+      "x": 4080,
+      "y": 2080
+    },
+    "MoneyTxFilters.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · панель фільтрів",
+      "w": 1280,
+      "x": 1360,
+      "y": 300
+    },
+    "MoneyTxLoading.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · завантаження",
+      "w": 1280,
+      "x": 2720,
+      "y": 2080
+    },
+    "MoneyTxMenu.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · меню «…»",
+      "w": 1280,
+      "x": 5440,
+      "y": 300
+    },
+    "MoneyTxNoResults.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · нічого не знайдено",
+      "w": 1280,
+      "x": 1360,
+      "y": 2080
+    },
+    "MoneyTxViews.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "money",
+      "title": "S-046 Транзакції · представлення",
+      "w": 1280,
+      "x": 2720,
+      "y": 300
+    },
+    "More.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "S-155 Розділ «Ще» · десктоп",
+      "w": 1280,
+      "x": 2720,
+      "y": 920
+    },
+    "NoAccess.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-029 Немає доступу",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "NotFound.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-031 Сторінку не знайдено",
+      "w": 1280,
+      "x": 2720,
+      "y": 0
+    },
+    "Notifications.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "S-024 Центр сповіщень",
+      "w": 1280,
+      "x": 4080,
+      "y": 0
+    },
+    "PlanAfford.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-142 Чи можу я дозволити",
+      "w": 1280,
+      "x": 1360,
+      "y": 23560
+    },
+    "PlanAffordEmpty.dc.html": {
+      "h": 640,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-142 Чи можу я дозволити · порожньо",
+      "w": 1280,
+      "x": 0,
+      "y": 23560
+    },
+    "PlanAffordInstalment.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-142 Чи можу я дозволити · розстрочка",
+      "w": 1280,
+      "x": 5440,
+      "y": 23560
+    },
+    "PlanAffordOk.dc.html": {
+      "h": 700,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-142 Чи можу я дозволити · в межах",
+      "w": 1280,
+      "x": 2720,
+      "y": 23560
+    },
+    "PlanAffordShort.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-142 Чи можу я дозволити · не вистачає",
+      "w": 1280,
+      "x": 4080,
+      "y": 23560
+    },
+    "PlanBudget.dc.html": {
+      "h": 2560,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет",
+      "w": 1280,
+      "x": 5440,
+      "y": 300
+    },
+    "PlanBudgetAccounts.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-128 Бюджет · Рахунки бюджету",
+      "w": 1280,
+      "x": 8160,
+      "y": 9520
+    },
+    "PlanBudgetAddCat.dc.html": {
+      "h": 2640,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Додати категорію до бюджету",
+      "w": 1280,
+      "x": 0,
+      "y": 11640
+    },
+    "PlanBudgetAssign.dc.html": {
+      "h": 1320,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Призначити до цільових сум",
+      "w": 1280,
+      "x": 1360,
+      "y": 11640
+    },
+    "PlanBudgetAssignShort.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Призначити до цільових сум",
+      "w": 1280,
+      "x": 2720,
+      "y": 11640
+    },
+    "PlanBudgetBreakdown.dc.html": {
+      "h": 2580,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · розбивка суми",
+      "w": 1280,
+      "x": 16320,
+      "y": 300
+    },
+    "PlanBudgetCatFilter.dc.html": {
+      "h": 2000,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · фільтр категорій",
+      "w": 1280,
+      "x": 10880,
+      "y": 300
+    },
+    "PlanBudgetEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · порожній",
+      "w": 1280,
+      "x": 19040,
+      "y": 300
+    },
+    "PlanBudgetFlex.dc.html": {
+      "h": 2380,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · Flex",
+      "w": 1280,
+      "x": 2720,
+      "y": 4640
+    },
+    "PlanBudgetHistory.dc.html": {
+      "h": 2140,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-130 Бюджет · Історія переміщень",
+      "w": 1280,
+      "x": 9520,
+      "y": 11640
+    },
+    "PlanBudgetIncome.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · багато джерел доходу",
+      "w": 1280,
+      "x": 13600,
+      "y": 300
+    },
+    "PlanBudgetMembers.dc.html": {
+      "h": 2680,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · за учасниками",
+      "w": 1280,
+      "x": 12240,
+      "y": 300
+    },
+    "PlanBudgetMethod.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Бюджет · Метод",
+      "w": 1280,
+      "x": 0,
+      "y": 9520
+    },
+    "PlanBudgetMethodExit.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Перейти на метод «Ліміти»? · крок 1",
+      "w": 1280,
+      "x": 5440,
+      "y": 9520
+    },
+    "PlanBudgetMethodSwitch.dc.html": {
+      "h": 740,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Перехід на Flex",
+      "w": 1280,
+      "x": 2720,
+      "y": 9520
+    },
+    "PlanBudgetMethodSwitchZbb.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Перехід на «Кожній копійці»",
+      "w": 1280,
+      "x": 4080,
+      "y": 9520
+    },
+    "PlanBudgetMove.dc.html": {
+      "h": 2160,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Перемістити гроші",
+      "w": 1280,
+      "x": 4080,
+      "y": 11640
+    },
+    "PlanBudgetMoveFrom.dc.html": {
+      "h": 2240,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Перемістити гроші",
+      "w": 1280,
+      "x": 5440,
+      "y": 11640
+    },
+    "PlanBudgetNext.dc.html": {
+      "h": 1620,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · наступний місяць",
+      "w": 1280,
+      "x": 6800,
+      "y": 300
+    },
+    "PlanBudgetOverspent.dc.html": {
+      "h": 2720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · перевитрата",
+      "w": 1280,
+      "x": 14960,
+      "y": 300
+    },
+    "PlanBudgetPaceDays.dc.html": {
+      "h": 2580,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · темп по днях",
+      "w": 1280,
+      "x": 8160,
+      "y": 300
+    },
+    "PlanBudgetPeriod.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-127 Бюджет · Період",
+      "w": 1280,
+      "x": 6800,
+      "y": 9520
+    },
+    "PlanBudgetPlan.dc.html": {
+      "h": 1520,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-126 Бюджет · План",
+      "w": 1280,
+      "x": 9520,
+      "y": 9520
+    },
+    "PlanBudgetPlanOver.dc.html": {
+      "h": 1520,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-126 Бюджет · План · Перевитрати",
+      "w": 1280,
+      "x": 10880,
+      "y": 9520
+    },
+    "PlanBudgetSettingsGeneral.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Налаштування бюджету · Загальне",
+      "w": 1280,
+      "x": 1360,
+      "y": 9520
+    },
+    "PlanBudgetShares.dc.html": {
+      "h": 2580,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · частки учасників",
+      "w": 1280,
+      "x": 9520,
+      "y": 300
+    },
+    "PlanBudgetSimple.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · простий вигляд",
+      "w": 1280,
+      "x": 17680,
+      "y": 300
+    },
+    "PlanBudgetTarget.dc.html": {
+      "h": 2420,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-131 Цільова сума",
+      "w": 1280,
+      "x": 10880,
+      "y": 11640
+    },
+    "PlanBudgetUnderfunded.dc.html": {
+      "h": 1320,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Бюджет · Недофінансовані",
+      "w": 1280,
+      "x": 6800,
+      "y": 11640
+    },
+    "PlanBudgetUnderfundedSnoozed.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-129 Бюджет · Недофінансовані · відкладено",
+      "w": 1280,
+      "x": 8160,
+      "y": 11640
+    },
+    "PlanBudgetWiz1.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-122 Новий бюджет",
+      "w": 1280,
+      "x": 0,
+      "y": 7620
+    },
+    "PlanBudgetWiz1NoHist.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-122 Новий бюджет",
+      "w": 1280,
+      "x": 1360,
+      "y": 7620
+    },
+    "PlanBudgetWiz2.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-123 Новий бюджет",
+      "w": 1280,
+      "x": 2720,
+      "y": 7620
+    },
+    "PlanBudgetWiz2Custom.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-123 Новий бюджет · власний період",
+      "w": 1280,
+      "x": 5440,
+      "y": 7620
+    },
+    "PlanBudgetWiz2Week.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-123 Новий бюджет · тиждень",
+      "w": 1280,
+      "x": 4080,
+      "y": 7620
+    },
+    "PlanBudgetWiz3.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-124 Новий бюджет",
+      "w": 1280,
+      "x": 6800,
+      "y": 7620
+    },
+    "PlanBudgetWiz4.dc.html": {
+      "h": 1060,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-124 Новий бюджет · розподіл надлишку",
+      "w": 1280,
+      "x": 8160,
+      "y": 7620
+    },
+    "PlanBudgetWiz4Deficit.dc.html": {
+      "h": 840,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-124 Новий бюджет · дефіцит",
+      "w": 1280,
+      "x": 9520,
+      "y": 7620
+    },
+    "PlanBudgetZbb.dc.html": {
+      "h": 2160,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · Кожній копійці — завдання",
+      "w": 1280,
+      "x": 0,
+      "y": 4640
+    },
+    "PlanBudgetZbbOver.dc.html": {
+      "h": 2240,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-121 Бюджет · призначено більше, ніж є",
+      "w": 1280,
+      "x": 1360,
+      "y": 4640
+    },
+    "PlanCompare.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-132 Порівняння",
+      "w": 1280,
+      "x": 0,
+      "y": 14880
+    },
+    "PlanCompareBase.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-132 Порівняння · база",
+      "w": 1280,
+      "x": 1360,
+      "y": 14880
+    },
+    "PlanComparePeriod.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-132 Порівняння · тип періоду",
+      "w": 1280,
+      "x": 2720,
+      "y": 14880
+    },
+    "PlanCompareYear.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-132 Порівняння · Рік: план і факт",
+      "w": 1280,
+      "x": 4080,
+      "y": 14880
+    },
+    "PlanDebtPlan.dc.html": {
+      "h": 980,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-144 План погашення",
+      "w": 1280,
+      "x": 2720,
+      "y": 25080
+    },
+    "PlanDebtPlanGrows.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-144 План погашення",
+      "w": 1280,
+      "x": 4080,
+      "y": 25080
+    },
+    "PlanDebtProgress.dc.html": {
+      "h": 1280,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-146 Прогрес погашення",
+      "w": 1280,
+      "x": 6800,
+      "y": 25080
+    },
+    "PlanDebtStrategy.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-145 Стратегія погашення",
+      "w": 1280,
+      "x": 5440,
+      "y": 25080
+    },
+    "PlanDebts.dc.html": {
+      "h": 880,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-143 Борги",
+      "w": 1280,
+      "x": 0,
+      "y": 25080
+    },
+    "PlanDebtsEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-143 Борги · порожньо",
+      "w": 1280,
+      "x": 1360,
+      "y": 25080
+    },
+    "PlanFlow.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-134 Грошовий потік",
+      "w": 1280,
+      "x": 8160,
+      "y": 14880
+    },
+    "PlanFlowWaterfall.dc.html": {
+      "h": 1380,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-134 Грошовий потік · водоспад",
+      "w": 1280,
+      "x": 9520,
+      "y": 14880
+    },
+    "PlanFlowYear.dc.html": {
+      "h": 1720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-134 Грошовий потік · рік",
+      "w": 1280,
+      "x": 10880,
+      "y": 14880
+    },
+    "PlanGoalCard.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-137 Цілі · картка цілі",
+      "w": 1280,
+      "x": 1360,
+      "y": 17380
+    },
+    "PlanGoalCardAchieved.dc.html": {
+      "h": 940,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-137 Цілі · досягнута ціль",
+      "w": 1280,
+      "x": 2720,
+      "y": 17380
+    },
+    "PlanGoalCardAuto.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-137 Автовнесок · «Відпустка в Італії»",
+      "w": 1280,
+      "x": 5440,
+      "y": 17380
+    },
+    "PlanGoalCardContribute.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-137 Внести у «Відпустка в Італії»",
+      "w": 1280,
+      "x": 4080,
+      "y": 17380
+    },
+    "PlanGoalNew.dc.html": {
+      "h": 600,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 0,
+      "y": 19440
+    },
+    "PlanGoalNewCushion.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 6800,
+      "y": 19440
+    },
+    "PlanGoalNewCushionStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "Нова ціль · подушка · крок 2",
+      "w": 1280,
+      "x": 8160,
+      "y": 19440
+    },
+    "PlanGoalNewEnvelope.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 9520,
+      "y": 19440
+    },
+    "PlanGoalNewForm.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 1360,
+      "y": 19440
+    },
+    "PlanGoalNewFormStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "Нова ціль · крок 2 · Де лежать гроші",
+      "w": 1280,
+      "x": 2720,
+      "y": 19440
+    },
+    "PlanGoalNewFormStep3.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "Нова ціль · крок 3 · Автовнесок і доступ",
+      "w": 1280,
+      "x": 4080,
+      "y": 19440
+    },
+    "PlanGoalNewWhere.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-138 Нова ціль · де лежать гроші",
+      "w": 1280,
+      "x": 5440,
+      "y": 19440
+    },
+    "PlanGoalSpend.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-139 Витратити з «Відпустка в Італії»",
+      "w": 1280,
+      "x": 10880,
+      "y": 19440
+    },
+    "PlanGoalSpendAsset.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-139 Витратити з «Ноутбук для Соні»",
+      "w": 1280,
+      "x": 13600,
+      "y": 19440
+    },
+    "PlanGoalSpendAssetStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "Витратити з «Ноутбук для Соні» · крок 2 · Актив",
+      "w": 1280,
+      "x": 14960,
+      "y": 19440
+    },
+    "PlanGoalSpendStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "Витратити з «Відпустка в Італії» · крок 2 · Після витрати",
+      "w": 1280,
+      "x": 12240,
+      "y": 19440
+    },
+    "PlanGoals.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-136 Цілі",
+      "w": 1280,
+      "x": 0,
+      "y": 17380
+    },
+    "PlanGoalsArchive.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-140 Цілі · архів",
+      "w": 1280,
+      "x": 6800,
+      "y": 17380
+    },
+    "PlanGoalsEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-136 Цілі · порожньо",
+      "w": 1280,
+      "x": 8160,
+      "y": 17380
+    },
+    "PlanPeriod.dc.html": {
+      "h": 1900,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-135 Підсумок періоду",
+      "w": 1280,
+      "x": 12240,
+      "y": 14880
+    },
+    "PlanRecurring.dc.html": {
+      "h": 2200,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-141 Регулярні платежі",
+      "w": 1280,
+      "x": 0,
+      "y": 20760
+    },
+    "PlanRecurringCancel.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-141 Позначити «Sport Life» скасованим?",
+      "w": 1280,
+      "x": 4080,
+      "y": 20760
+    },
+    "PlanRecurringEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-141 Регулярні платежі · порожньо",
+      "w": 1280,
+      "x": 5440,
+      "y": 20760
+    },
+    "PlanRecurringOverdue.dc.html": {
+      "h": 1060,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-141 Регулярні платежі · прострочено",
+      "w": 1280,
+      "x": 1360,
+      "y": 20760
+    },
+    "PlanRecurringPayment.dc.html": {
+      "h": 940,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-141 Регулярні платежі · деталі",
+      "w": 1280,
+      "x": 2720,
+      "y": 20760
+    },
+    "PlanReportNew.dc.html": {
+      "h": 980,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-148 Новий звіт · Sankey",
+      "w": 1280,
+      "x": 1360,
+      "y": 26960
+    },
+    "PlanReportNewTreemap.dc.html": {
+      "h": 1160,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-148 Новий звіт · treemap і drill-down",
+      "w": 1280,
+      "x": 4080,
+      "y": 26960
+    },
+    "PlanReportNewTrend.dc.html": {
+      "h": 1480,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-148 Новий звіт · тренд",
+      "w": 1280,
+      "x": 2720,
+      "y": 26960
+    },
+    "PlanReportView.dc.html": {
+      "h": 1780,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-149 Net worth на дату",
+      "w": 1280,
+      "x": 5440,
+      "y": 26960
+    },
+    "PlanReportViewExport.dc.html": {
+      "h": 1780,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-149 Net worth на дату · експорт",
+      "w": 1280,
+      "x": 6800,
+      "y": 26960
+    },
+    "PlanReports.dc.html": {
+      "h": 1380,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-147 Звіти",
+      "w": 1280,
+      "x": 0,
+      "y": 26960
+    },
+    "PlanTrend.dc.html": {
+      "h": 1360,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-133 Тренд витрат",
+      "w": 1280,
+      "x": 5440,
+      "y": 14880
+    },
+    "PlanTrendDiff.dc.html": {
+      "h": 1360,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-133 Тренд · відхилення від плану",
+      "w": 1280,
+      "x": 6800,
+      "y": 14880
+    },
+    "PocAdd.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-025 Меню «+ Додати»",
+      "w": 1280,
+      "x": 0,
+      "y": 1260
+    },
+    "PocCheckEmail.dc.html": {
+      "h": 700,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Перевірте пошту",
+      "w": 1280,
+      "x": 1360,
+      "y": 7090
+    },
+    "PocImportHistory.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-175 Імпорт · історія",
+      "w": 1280,
+      "x": 0,
+      "y": 33020
+    },
+    "PocMoneyAccBalance.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "Рахунок · оновити залишок вручну",
+      "w": 1280,
+      "x": 4080,
+      "y": 25030
+    },
+    "PocMoneyAccBalanceBank.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "Рахунок · оновити залишок з банера про розбіжність",
+      "w": 1280,
+      "x": 5440,
+      "y": 25030
+    },
+    "PocMoneyAccSettings.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-054 Рахунок · налаштування і реквізити",
+      "w": 1280,
+      "x": 2720,
+      "y": 25030
+    },
+    "PocMoneyAccount.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-053 Рахунок · меню «…»",
+      "w": 1280,
+      "x": 1360,
+      "y": 25030
+    },
+    "PocMoneyAccounts.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-050 Рахунки",
+      "w": 1280,
+      "x": 0,
+      "y": 25030
+    },
+    "PocMoneyAddAcc.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-051 Додати рахунок · вибір способу",
+      "w": 1280,
+      "x": 0,
+      "y": 26460
+    },
+    "PocMoneyBank1.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-061 Підключення банку · 1 що отримаємо",
+      "w": 1280,
+      "x": 0,
+      "y": 35560
+    },
+    "PocMoneyBank2.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-061 Підключення банку · 2 згода",
+      "w": 1280,
+      "x": 1360,
+      "y": 35560
+    },
+    "PocMoneyBank3.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-061 Підключення банку · 3 банк",
+      "w": 1280,
+      "x": 2720,
+      "y": 35560
+    },
+    "PocMoneyBank5.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-061 Підключення банку · 5 синхронізація",
+      "w": 1280,
+      "x": 5440,
+      "y": 35560
+    },
+    "PocMoneyBankWizard.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-061 Підключення банку · 4 рахунки",
+      "w": 1280,
+      "x": 4080,
+      "y": 35560
+    },
+    "PocMoneyCloseAcc.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-055 Закрити рахунок · що зробити із залишком",
+      "w": 1280,
+      "x": 0,
+      "y": 29180
+    },
+    "PocMoneyConnections.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-060 Підключення",
+      "w": 1280,
+      "x": 0,
+      "y": 34410
+    },
+    "PocMoneyDisconnect.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-062 Відключити банк",
+      "w": 1280,
+      "x": 0,
+      "y": 37720
+    },
+    "PocMoneyImport1.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-170 Імпорт · файли, рахунок визначено",
+      "w": 1280,
+      "x": 0,
+      "y": 31660
+    },
+    "PocMoneyImport2.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-171 Імпорт · оригінал і розпізнане",
+      "w": 1280,
+      "x": 1360,
+      "y": 31660
+    },
+    "PocMoneyImport3.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-174 Імпорт · результат",
+      "w": 1280,
+      "x": 5440,
+      "y": 31660
+    },
+    "PocMoneyImportMismatch.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-173 Імпорт · залишки не збігаються",
+      "w": 1280,
+      "x": 4080,
+      "y": 31660
+    },
+    "PocMoneyImportRules.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-172 Імпорт · правила розбору",
+      "w": 1280,
+      "x": 2720,
+      "y": 31660
+    },
+    "PocMoneyMerchant.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-069 Мерчант",
+      "w": 1280,
+      "x": 0,
+      "y": 22130
+    },
+    "PocMoneyMergeAcc.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-055 Об’єднати рахунки",
+      "w": 1280,
+      "x": 0,
+      "y": 30290
+    },
+    "PocMoneyNewAcc.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-052 Новий рахунок · дубль заблоковано",
+      "w": 1280,
+      "x": 1360,
+      "y": 26460
+    },
+    "PocMoneyNewAccLoan.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Новий рахунок · Кредит",
+      "w": 1280,
+      "x": 0,
+      "y": 27930
+    },
+    "PocMoneyNewAccStep3.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Новий рахунок · крок 3 · Додатково",
+      "w": 1280,
+      "x": 2720,
+      "y": 26460
+    },
+    "PocMoneyNewTx.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · контрагент",
+      "w": 1280,
+      "x": 0,
+      "y": 14770
+    },
+    "PocMoneyNewTxAcc.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · рахунок",
+      "w": 1280,
+      "x": 2720,
+      "y": 16140
+    },
+    "PocMoneyNewTxCat.dc.html": {
+      "h": 1160,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · категорія",
+      "w": 1280,
+      "x": 0,
+      "y": 16140
+    },
+    "PocMoneyNewTxDate.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · дата",
+      "w": 1280,
+      "x": 1360,
+      "y": 16140
+    },
+    "PocMoneyNewTxNoAcc.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · рахунків ще немає",
+      "w": 1280,
+      "x": 0,
+      "y": 17550
+    },
+    "PocMoneyNewTxStep2.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Нова транзакція · крок 2 · Контрагент і категорія",
+      "w": 1280,
+      "x": 1360,
+      "y": 14770
+    },
+    "PocMoneyNewTxStep3.dc.html": {
+      "h": 1120,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Нова транзакція · крок 3 · Додатково",
+      "w": 1280,
+      "x": 2720,
+      "y": 14770
+    },
+    "PocMoneyPairManual.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-059 Пари · поєднати вручну (сторінка)",
+      "w": 1280,
+      "x": 1360,
+      "y": 23280
+    },
+    "PocMoneyPairs.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-059 Пари · з комісіями",
+      "w": 1280,
+      "x": 0,
+      "y": 23280
+    },
+    "PocMoneyReconnect.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-062 Перепідключити банк",
+      "w": 1280,
+      "x": 0,
+      "y": 38770
+    },
+    "PocMoneyRemap.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-062 Зіставлення рахунків після перепідключення",
+      "w": 1280,
+      "x": 1360,
+      "y": 38770
+    },
+    "PocMoneyReview.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-058 До розбору · групи за мерчантом, вибір категорії",
+      "w": 1280,
+      "x": 0,
+      "y": 19870
+    },
+    "PocMoneyReviewDone.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-058 До розбору · усе розібрано",
+      "w": 1280,
+      "x": 1360,
+      "y": 19870
+    },
+    "PocMoneyRuleEdit.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Правило категорії · редагування",
+      "w": 1280,
+      "x": 1360,
+      "y": 20980
+    },
+    "PocMoneyRuleEditStep2.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Правило категорії · крок 2 · Додатково",
+      "w": 1280,
+      "x": 2720,
+      "y": 20980
+    },
+    "PocMoneyRules.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Правила категорій",
+      "w": 1280,
+      "x": 0,
+      "y": 20980
+    },
+    "PocMoneySource.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-063 Джерело даних · підключений банк",
+      "w": 1280,
+      "x": 1360,
+      "y": 34410
+    },
+    "PocMoneySplit.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-049 Розділити · за категоріями",
+      "w": 1280,
+      "x": 0,
+      "y": 18700
+    },
+    "PocMoneySplitMonths.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-049 Розділити · на кілька місяців",
+      "w": 1280,
+      "x": 1360,
+      "y": 18700
+    },
+    "PocMoneyTx.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · вибрано сторінку, «Дії з вибраними»",
+      "w": 1280,
+      "x": 0,
+      "y": 11990
+    },
+    "PocMoneyTxDetail.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 + S-047 Транзакції · деталь, меню «…»",
+      "w": 1280,
+      "x": 0,
+      "y": 13420
+    },
+    "PocMoneyTxDetailNoReceipt.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-047 Деталь · без чека",
+      "w": 1280,
+      "x": 1360,
+      "y": 13420
+    },
+    "PocMoneyTxEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · порожньо",
+      "w": 1280,
+      "x": 4080,
+      "y": 11990
+    },
+    "PocMoneyTxError.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · помилка",
+      "w": 1280,
+      "x": 8160,
+      "y": 11990
+    },
+    "PocMoneyTxFilters.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · панель фільтрів",
+      "w": 1280,
+      "x": 1360,
+      "y": 11990
+    },
+    "PocMoneyTxLoading.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · завантаження",
+      "w": 1280,
+      "x": 6800,
+      "y": 11990
+    },
+    "PocMoneyTxMenu.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · меню «…»",
+      "w": 1280,
+      "x": 2720,
+      "y": 11990
+    },
+    "PocMoneyTxNoResults.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · нічого не знайдено",
+      "w": 1280,
+      "x": 5440,
+      "y": 11990
+    },
+    "PocMonoToken.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Підключити monobank",
+      "w": 1280,
+      "x": 0,
+      "y": 36570
+    },
+    "PocNotFound.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-031 Сторінку не знайдено",
+      "w": 1280,
+      "x": 0,
+      "y": 3360
+    },
+    "PocPlanAfford.dc.html": {
+      "h": 820,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-142 Чи можу я дозволити",
+      "w": 1280,
+      "x": 1360,
+      "y": 80040
+    },
+    "PocPlanAffordEmpty.dc.html": {
+      "h": 640,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-142 Чи можу я дозволити · порожньо",
+      "w": 1280,
+      "x": 0,
+      "y": 80040
+    },
+    "PocPlanAffordInstalment.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-142 Чи можу я дозволити · розстрочка",
+      "w": 1280,
+      "x": 5440,
+      "y": 80040
+    },
+    "PocPlanAffordOk.dc.html": {
+      "h": 700,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-142 Чи можу я дозволити · в межах",
+      "w": 1280,
+      "x": 2720,
+      "y": 80040
+    },
+    "PocPlanAffordShort.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-142 Чи можу я дозволити · не вистачає",
+      "w": 1280,
+      "x": 4080,
+      "y": 80040
+    },
+    "PocPlanBudget.dc.html": {
+      "h": 2560,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет",
+      "w": 1280,
+      "x": 0,
+      "y": 40160
+    },
+    "PocPlanBudgetAccounts.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-128 Бюджет · Рахунки бюджету",
+      "w": 1280,
+      "x": 1360,
+      "y": 45890
+    },
+    "PocPlanBudgetAddCat.dc.html": {
+      "h": 2640,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Додати категорію до бюджету",
+      "w": 1280,
+      "x": 0,
+      "y": 49090
+    },
+    "PocPlanBudgetBreakdown.dc.html": {
+      "h": 2580,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · розбивка суми",
+      "w": 1280,
+      "x": 6800,
+      "y": 40160
+    },
+    "PocPlanBudgetCatFilter.dc.html": {
+      "h": 2000,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · фільтр категорій",
+      "w": 1280,
+      "x": 2720,
+      "y": 40160
+    },
+    "PocPlanBudgetEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · порожній",
+      "w": 1280,
+      "x": 8160,
+      "y": 40160
+    },
+    "PocPlanBudgetIncome.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · багато джерел доходу",
+      "w": 1280,
+      "x": 4080,
+      "y": 40160
+    },
+    "PocPlanBudgetNext.dc.html": {
+      "h": 1620,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · наступний місяць",
+      "w": 1280,
+      "x": 1360,
+      "y": 40160
+    },
+    "PocPlanBudgetOverspent.dc.html": {
+      "h": 2720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-121 Бюджет · перевитрата",
+      "w": 1280,
+      "x": 5440,
+      "y": 40160
+    },
+    "PocPlanBudgetPlan.dc.html": {
+      "h": 1520,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-126 Бюджет · План",
+      "w": 1280,
+      "x": 0,
+      "y": 47320
+    },
+    "PocPlanBudgetPlanOver.dc.html": {
+      "h": 1520,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-126 Бюджет · План · Перевитрати",
+      "w": 1280,
+      "x": 1360,
+      "y": 47320
+    },
+    "PocPlanBudgetSettingsGeneral.dc.html": {
+      "h": 920,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-125 Налаштування бюджету · Загальне",
+      "w": 1280,
+      "x": 0,
+      "y": 45890
+    },
+    "PocPlanBudgetTarget.dc.html": {
+      "h": 2560,
+      "page": "poc",
+      "title": "S-131 Бюджет · цільова сума категорії",
+      "w": 1280,
+      "x": 0,
+      "y": 51980
+    },
+    "PocPlanBudgetWiz1.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-122 Новий бюджет",
+      "w": 1280,
+      "x": 0,
+      "y": 43130
+    },
+    "PocPlanBudgetWiz1NoHist.dc.html": {
+      "h": 760,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-122 Новий бюджет",
+      "w": 1280,
+      "x": 0,
+      "y": 44680
+    },
+    "PocPlanBudgetWiz2.dc.html": {
+      "h": 960,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-123 Новий бюджет",
+      "w": 1280,
+      "x": 1360,
+      "y": 43130
+    },
+    "PocPlanBudgetWiz3.dc.html": {
+      "h": 1300,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-124 Новий бюджет",
+      "w": 1280,
+      "x": 2720,
+      "y": 43130
+    },
+    "PocPlanBudgetWiz4.dc.html": {
+      "h": 1060,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-124 Новий бюджет · розподіл надлишку",
+      "w": 1280,
+      "x": 4080,
+      "y": 43130
+    },
+    "PocPlanBudgetWiz4Deficit.dc.html": {
+      "h": 840,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-124 Новий бюджет · дефіцит",
+      "w": 1280,
+      "x": 4080,
+      "y": 44680
+    },
+    "PocPlanCompare.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-132 Порівняння",
+      "w": 1280,
+      "x": 0,
+      "y": 54910
+    },
+    "PocPlanCompareBase.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-132 Порівняння · база",
+      "w": 1280,
+      "x": 1360,
+      "y": 54910
+    },
+    "PocPlanComparePeriod.dc.html": {
+      "h": 1420,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-132 Порівняння · тип періоду",
+      "w": 1280,
+      "x": 2720,
+      "y": 54910
+    },
+    "PocPlanCompareYear.dc.html": {
+      "h": 1500,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-132 Порівняння · Рік: план і факт",
+      "w": 1280,
+      "x": 4080,
+      "y": 54910
+    },
+    "PocPlanDebtPlan.dc.html": {
+      "h": 980,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-144 План погашення",
+      "w": 1280,
+      "x": 0,
+      "y": 82660
+    },
+    "PocPlanDebtPlanGrows.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-144 План погашення",
+      "w": 1280,
+      "x": 1360,
+      "y": 82660
+    },
+    "PocPlanDebtProgress.dc.html": {
+      "h": 1280,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-146 Прогрес погашення",
+      "w": 1280,
+      "x": 0,
+      "y": 85200
+    },
+    "PocPlanDebtStrategy.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-145 Стратегія погашення",
+      "w": 1280,
+      "x": 0,
+      "y": 83910
+    },
+    "PocPlanDebts.dc.html": {
+      "h": 880,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-143 Борги",
+      "w": 1280,
+      "x": 0,
+      "y": 81530
+    },
+    "PocPlanDebtsEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-143 Борги · порожньо",
+      "w": 1280,
+      "x": 1360,
+      "y": 81530
+    },
+    "PocPlanFlow.dc.html": {
+      "h": 1220,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-134 Грошовий потік",
+      "w": 1280,
+      "x": 0,
+      "y": 58270
+    },
+    "PocPlanFlowYear.dc.html": {
+      "h": 1720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-134 Грошовий потік · рік",
+      "w": 1280,
+      "x": 1360,
+      "y": 58270
+    },
+    "PocPlanGoalCard.dc.html": {
+      "h": 1040,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-137 Цілі · картка цілі",
+      "w": 1280,
+      "x": 0,
+      "y": 65470
+    },
+    "PocPlanGoalCardAchieved.dc.html": {
+      "h": 940,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-137 Цілі · досягнута ціль",
+      "w": 1280,
+      "x": 1360,
+      "y": 65470
+    },
+    "PocPlanGoalCardAuto.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-137 Автовнесок · «Відпустка в Італії»",
+      "w": 1280,
+      "x": 0,
+      "y": 68470
+    },
+    "PocPlanGoalCardContribute.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-137 Внести у «Відпустка в Італії»",
+      "w": 1280,
+      "x": 0,
+      "y": 66760
+    },
+    "PocPlanGoalNew.dc.html": {
+      "h": 600,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 0,
+      "y": 70180
+    },
+    "PocPlanGoalNewCushion.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 0,
+      "y": 72120
+    },
+    "PocPlanGoalNewCushionStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Нова ціль · подушка · крок 2",
+      "w": 1280,
+      "x": 1360,
+      "y": 72120
+    },
+    "PocPlanGoalNewEnvelope.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 0,
+      "y": 73090
+    },
+    "PocPlanGoalNewForm.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-138 Нова ціль",
+      "w": 1280,
+      "x": 1360,
+      "y": 70180
+    },
+    "PocPlanGoalNewFormStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Нова ціль · крок 2 · Де лежать гроші",
+      "w": 1280,
+      "x": 2720,
+      "y": 70180
+    },
+    "PocPlanGoalNewFormStep3.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Нова ціль · крок 3 · Автовнесок і доступ",
+      "w": 1280,
+      "x": 4080,
+      "y": 70180
+    },
+    "PocPlanGoalNewWhere.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-138 Нова ціль · де лежать гроші",
+      "w": 1280,
+      "x": 0,
+      "y": 71150
+    },
+    "PocPlanGoalSpend.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-139 Витратити з «Відпустка в Італії»",
+      "w": 1280,
+      "x": 0,
+      "y": 74060
+    },
+    "PocPlanGoalSpendStep2.dc.html": {
+      "h": 720,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "Витратити з «Відпустка в Італії» · крок 2 · Після витрати",
+      "w": 1280,
+      "x": 1360,
+      "y": 74060
+    },
+    "PocPlanGoals.dc.html": {
+      "h": 1460,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-136 Цілі",
+      "w": 1280,
+      "x": 0,
+      "y": 62710
+    },
+    "PocPlanGoalsArchive.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-140 Цілі · архів",
+      "w": 1280,
+      "x": 0,
+      "y": 64420
+    },
+    "PocPlanGoalsEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-136 Цілі · порожньо",
+      "w": 1280,
+      "x": 1360,
+      "y": 62710
+    },
+    "PocPlanPeriod.dc.html": {
+      "h": 1900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-135 Підсумок періоду",
+      "w": 1280,
+      "x": 0,
+      "y": 60240
+    },
+    "PocPlanRecurring.dc.html": {
+      "h": 2200,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі",
+      "w": 1280,
+      "x": 0,
+      "y": 75350
+    },
+    "PocPlanRecurringCancel.dc.html": {
+      "h": 480,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-141 Позначити «Sport Life» скасованим?",
+      "w": 1280,
+      "x": 0,
+      "y": 78990
+    },
+    "PocPlanRecurringEmpty.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі · порожньо",
+      "w": 1280,
+      "x": 2720,
+      "y": 75350
+    },
+    "PocPlanRecurringOverdue.dc.html": {
+      "h": 1060,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі · прострочено",
+      "w": 1280,
+      "x": 1360,
+      "y": 75350
+    },
+    "PocPlanRecurringPayment.dc.html": {
+      "h": 940,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі · деталі",
+      "w": 1280,
+      "x": 0,
+      "y": 77800
+    },
+    "PocPlanTrend.dc.html": {
+      "h": 1360,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-133 Тренд витрат",
+      "w": 1280,
+      "x": 0,
+      "y": 56660
+    },
+    "PocProfile.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-026 Профіль і перемикач простору",
+      "w": 1280,
+      "x": 0,
+      "y": 2310
+    },
+    "PocResetPassword.dc.html": {
+      "h": 700,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Відновлення пароля",
+      "w": 1280,
+      "x": 0,
+      "y": 9250
+    },
+    "PocSettings.dc.html": {
+      "h": 900,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Налаштування (з меню профілю)",
+      "w": 1280,
+      "x": 0,
+      "y": 10520
+    },
+    "PocShell.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "Оболонка (спільний компонент)",
+      "w": 1280,
+      "x": 0,
+      "y": 210
+    },
+    "PocShellCollapsed.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "Оболонка · бічна панель згорнута",
+      "w": 1280,
+      "x": 1360,
+      "y": 210
+    },
+    "PocSignIn.dc.html": {
+      "h": 800,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Вхід",
+      "w": 1280,
+      "x": 0,
+      "y": 8200
+    },
+    "PocSignUp.dc.html": {
+      "h": 860,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "PoC · Реєстрація",
+      "w": 1280,
+      "x": 0,
+      "y": 7090
+    },
+    "PocStates.dc.html": {
+      "h": 1060,
+      "page": "poc",
+      "title": "PoC · Стани: порожній, завантаження, помилка",
+      "w": 1280,
+      "x": 0,
+      "y": 5460
+    },
+    "PocStepUp.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-032 Повторне підтвердження особи",
+      "w": 1280,
+      "x": 1360,
+      "y": 10520
+    },
+    "PocUnsaved.dc.html": {
+      "h": 800,
+      "page": "poc",
+      "title": "S-033 Зберегти зміни?",
+      "w": 1280,
+      "x": 0,
+      "y": 4410
+    },
+    "Profile.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "S-026 Профіль і перемикач простору",
+      "w": 1280,
+      "x": 1360,
+      "y": 920
+    },
+    "Search.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "S-021 Пошук і командний рядок",
+      "w": 1280,
+      "x": 2720,
+      "y": 0
+    },
+    "Shell.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "Оболонка (спільний компонент)",
+      "w": 1280,
+      "x": 0,
+      "y": 0
+    },
+    "ShellCollapsed.dc.html": {
+      "h": 800,
+      "page": "shell",
+      "title": "Оболонка · бічна панель згорнута",
+      "w": 1280,
+      "x": 1360,
+      "y": 0
+    },
+    "StepUp.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-032 Повторне підтвердження особи",
+      "w": 1280,
+      "x": 0,
+      "y": 1220
+    },
+    "Unsaved.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-033 Зберегти зміни?",
+      "w": 1280,
+      "x": 1360,
+      "y": 1220
+    },
+    "Upgrade.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-030 Пропозиція апгрейду",
+      "w": 1280,
+      "x": 4080,
+      "y": 0
+    },
+    "PlanPalette.dc.html": {
+      "h": 3520,
+      "page": "planning",
+      "title": "Шкала ліміту · затверджено",
+      "w": 1280,
+      "x": 0,
+      "y": 29340
+    },
+    "PlanChartColors.dc.html": {
+      "h": 3480,
+      "page": "planning",
+      "title": "Кольори графіків",
+      "w": 1280,
+      "x": 1360,
+      "y": 29340
+    },
+    "CatShades.dc.html": {
+      "h": 2440,
+      "page": "planning",
+      "title": "Кольори категорій · відтінки груп",
+      "w": 1280,
+      "x": 2720,
+      "y": 29340
+    },
+    "PocMoneyTxColumns.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · вибір колонок",
+      "w": 1280,
+      "x": 9520,
+      "y": 11990
+    },
+    "PocMoneyTxToast.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · спливне повідомлення «Відмінити»",
+      "w": 1280,
+      "x": 10880,
+      "y": 11990
+    },
+    "PocMoneyAccountsStale.dc.html": {
+      "h": 1180,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-050 Рахунки · частина даних не оновлена",
+      "w": 1280,
+      "x": 6800,
+      "y": 25030
+    },
+    "PocMoneyAccountMismatch.dc.html": {
+      "h": 1100,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-053 Рахунок · залишки не збігаються",
+      "w": 1280,
+      "x": 8160,
+      "y": 25030
+    },
+    "PlanBudgetMethodExitStep2.dc.html": {
+      "h": 1000,
+      "is_interactive": true,
+      "page": "planning",
+      "title": "S-125 Перейти на метод «Ліміти»? · крок 2",
+      "w": 1280,
+      "x": 12240,
+      "y": 9520
+    },
+    "SessionTimeout.dc.html": {
+      "h": 800,
+      "page": "system",
+      "title": "S-035 Попередження про завершення сесії · PoC v2",
+      "w": 1280,
+      "x": 4580,
+      "y": 1220
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-11-02T10:50:00Z",
+    "v": 1
+  },
+  "designSystems": [
+    {
+      "artifact": "https://claude.ai/artifact/Tk2bdNDkoLHUYnnbRTTfBw",
+      "copiedAt": "2026-11-02T10:50:00Z",
+      "namespace": "willowsum",
+      "title": "Willowsum",
+      "version": "1793616433-3abf"
+    }
+  ],
+  "launch": {
+    "page": "poc",
+    "view": "canvas"
+  },
+  "noteOrder": [
+    "t1",
+    "t2",
+    "t3",
+    "n1",
+    "n2",
+    "t4",
+    "n3",
+    "n4",
+    "n5",
+    "n6",
+    "t5",
+    "n7",
+    "t6",
+    "t13",
+    "t14",
+    "t15",
+    "t16",
+    "t17",
+    "t18",
+    "t19",
+    "t20",
+    "t21",
+    "t22",
+    "tp0",
+    "tp1",
+    "tp2",
+    "tp3",
+    "tp4",
+    "tp5",
+    "tp6",
+    "tp7",
+    "tp8",
+    "tp9",
+    "tp10",
+    "tp11",
+    "tp12",
+    "poc_n1",
+    "poc_n2",
+    "poc_n3",
+    "poc_n4",
+    "pocs_40",
+    "pocr_41",
+    "pocr_42",
+    "pocr_43",
+    "pocr_44",
+    "pocr_45",
+    "pocr_46",
+    "pocs_47",
+    "pocr_48",
+    "pocr_49",
+    "pocr_50",
+    "pocs_51",
+    "pocr_52",
+    "pocs_53",
+    "pocr_54",
+    "pocr_55",
+    "pocr_56",
+    "pocr_57",
+    "pocr_58",
+    "pocr_59",
+    "pocr_60",
+    "pocr_61",
+    "pocr_62",
+    "pocr_63",
+    "pocs_64",
+    "pocr_65",
+    "pocr_66",
+    "pocr_67",
+    "pocr_68",
+    "pocr_69",
+    "pocs_70",
+    "pocr_71",
+    "pocs_72",
+    "pocr_73",
+    "pocr_74",
+    "pocr_75",
+    "pocr_76",
+    "pocr_77",
+    "pocs_78",
+    "pocr_79",
+    "pocr_81",
+    "pocr_82",
+    "pocr_83",
+    "pocr_85",
+    "pocr_86",
+    "pocs_92",
+    "pocr_93",
+    "pocr_94",
+    "pocr_95",
+    "pocr_96",
+    "pocs_97",
+    "pocr_98",
+    "pocr_99",
+    "pocr_100",
+    "pocr_101",
+    "pocr_102",
+    "pocr_103",
+    "pocr_104",
+    "pocr_105",
+    "pocr_106",
+    "pocr_107",
+    "pocs_108",
+    "pocr_109",
+    "pocr_110",
+    "pocr_111",
+    "pocs_112",
+    "pocr_113",
+    "pocs_114",
+    "pocr_115",
+    "pocr_116",
+    "pocr_117",
+    "pocr_118",
+    "pocr_imphist",
+    "pocr_target",
+    "tp13"
+  ],
+  "notes": {
+    "n1": {
+      "fill": "orange",
+      "page": "shell",
+      "text": "Розділ «Ще» на десктопі: натискання розгортає список у бічній панелі й відкриває першу сторінку («Сповіщення») — див. «S-155 Розділ «Ще» · десктоп». На телефоні — нижній аркуш, з'явиться з мобільною версією.",
+      "w": 420,
+      "x": 4080,
+      "y": 920
+    },
+    "n2": {
+      "fill": "blue",
+      "page": "system",
+      "text": "Пропозиція апгрейду: у MVP ліміти планів вимкнені, вікно знадобиться з v1. Учасник без права змінювати план бачить «Попросити власника» замість «Переглянути плани». Ціни — заглушки.",
+      "w": 420,
+      "x": 4080,
+      "y": 1220
+    },
+    "n3": {
+      "fill": "blue",
+      "page": "home",
+      "text": "Деталізація графіка Net worth обирається автоматично — найдрібніша, за якої на графіку не більше ~120 точок:\n• кожна подія (транзакція, оцінка) → якщо їх забагато, зміни за день → за тиждень → за місяць → квартал → рік.\n• Лінія ламана, без згладжування: між подіями значення не змінюється.\n• Приклад: 1Р з щоденними змінами = 365 точок → по тижнях (53), як на макеті.\n• Підказка порівнює з попереднім кроком: «Δ д/д», «Δ т/т», «Δ м/м», «Δ к/к», «Δ р/р»; дата колонки — кінець кроку («на 16.08»).",
+      "w": 520,
+      "x": 0,
+      "y": 4300
+    },
+    "n4": {
+      "fill": "orange",
+      "page": "home",
+      "text": "ПРАВИЛА РЕДАГУВАННЯ «ОГЛЯДУ» (для імплементації)\nРОЗКЛАДКА\n1. Розкладка — упорядкований список віджетів (окремо для кожного учасника в кожному просторі; той самий порядок на всіх ширинах екрана). Розмір не зберігається: його задає тип віджета (XS 3, S 4, M 6, L 8, XL 12 колонок).\n2. Розміщення: сітка 12 колонок, віджети ставляться строго за порядком списку зліва направо. Якщо віджет не вміщується в залишок ряду — він починає новий ряд. Порядок ніколи не змінюється автоматично, щоб заповнити дірку.\n3. Якщо в ряду лишились вільні колонки, останній віджет ряду розтягується до кінця ряду. Дірок у сітці немає.\nПЕРЕТЯГУВАННЯ\n4. Почати можна лише за ⠿: миша — натиснути й зсунути ≥ 4 px; дотик — утримати 300 мс. Одночасно тягнеться рівно один віджет.\n5. Віджет, що тягнуть, іде за курсором, зберігає свій розмір, піднятий (тінь, ×1,03, непрозорість 92 %) і завжди над усім.\n6. Цільова позиція = місце віджета під курсором: курсор у лівій/верхній половині — вставка перед ним, у правій/нижній — після. Над порожнім місцем в кінці — в кінець. Позиція змінюється лише після 80 мс над новою ціллю (без «тремтіння»).\n7. Щойно ціль змінилась: список перераховується з віджетом на новій позиції, за правилами 2–3 розраховуються нові місця, на цільовому місці з'являється пунктирний слот розміру того віджета, що тягнуть, а всі інші віджети плавно переїжджають на нові місця (200 мс, ease-out). Жоден віджет не зникає: шар — віджет, що тягнуть > ті, що переїжджають > решта.\n8. Біля верхнього/нижнього краю вікна (48 px) сторінка прокручується автоматично.\n9. Відпустив — віджет за 150 мс сідає у слот. Esc або відпускання поза сіткою — повертається на вихідне місце.\nЗБЕРЕЖЕННЯ\n10. Зміни — чернетка: «Готово» зберігає, «Скасувати» повертає стан до входу, «Скинути до типового» — типовий порядок і набір (до «Готово» це теж чернетка). Вихід зі сторінки з незбереженими змінами → діалог «Зберегти зміни?».\n11. «×» прибирає віджет у приховані; «Додати віджет» додає в кінець списку.\nДОСТУПНІСТЬ\n12. Клавіатура: Tab на ⠿ → Пробіл бере, стрілки ←/→ рухають на одну позицію в списку (↑/↓ — на ряд), Пробіл кладе, Esc скасовує. Зчитувач озвучує «Цілі, позиція 3 з 7».\n13. prefers-reduced-motion: без підйому, нахилу й переїздів — місця змінюються миттєво, слот лишається.",
+      "w": 1240,
+      "x": 0,
+      "y": 2560
+    },
+    "n5": {
+      "fill": "blue",
+      "page": "home",
+      "text": "Переповнення в «Розподілі активів» (картка «Смуга · 8 класів»): у віджеті не більше 5 рядків. Якщо класів більше — показуємо 4 найбільші, решту зводимо в «Інші · N» (сірий, останній рядок) і так само на смузі, кільці й плитках, тож сума рядків = «Усього». Наведення на «Інші» показує склад; повний перелік — за «›» у заголовку віджета.",
+      "w": 520,
+      "x": 600,
+      "y": 4300
+    },
+    "n6": {
+      "fill": "orange",
+      "page": "home",
+      "text": "«Додати віджет»: плитка в режимі редагування відкриває поповер-каталог над собою (не модальне вікно, сторінку видно). У каталозі — лише приховані віджети, з пошуком, іконкою й описом в один рядок. «+» додає віджет у кінець сітки: поповер закривається, сторінка плавно прокручується до нового віджета, він з'являється з короткою підсвіткою рамки (~1 с). Далі його можна перетягнути за ⠿. Коли доступних немає — плитка зникає. Esc або клік поза поповером закриває його.",
+      "w": 520,
+      "x": 1200,
+      "y": 4300
+    },
+    "n7": {
+      "fill": "orange",
+      "page": "money",
+      "text": "Рішення на макетах «Гроші» після ревʼю 2 лист.:\n1. Валюта «−€ 42,80», як на всьому полотні (DS-04 для uk-UA — «−42,80 €», чекає рішення).\n2. Суми чорні; «+» лише для доходу.\n3. Підсумок списку — надходження / списання / різниця окремо.\n4. «Транзакції»: основна — «Імпортувати виписку», поруч «Нова транзакція» і «…» (додати чек, незіставлені чеки, імпорт замовлень, правила). Кнопки «+ Додати» з різною дією на різних сторінках немає.\n5. Фільтри — одна кнопка «Фільтри · N» з панеллю; активні фільтри — чипи з «×».\n6. Рахунки: баланс у валюті профілю, оригінальна валюта рядком нижче; розбивка «Гроші разом» за валютами; брокерські — в Активах; неактивні — окремим згорнутим рядком.\n7. Підключення банку — у MVP (S-060…S-063).\n8. «До розбору» групує транзакції за мерчантом.\n9. Імпорт: рахунок визначається з файлу; при уточненні завжди показуємо оригінал поруч із розпізнаним.",
+      "w": 1240,
+      "x": 15080,
+      "y": 300
+    },
+    "poc_n1": {
+      "fill": "orange",
+      "page": "poc",
+      "text": "Оболонка PoC: у бічній панелі лише «Гроші» і «Планування». «Налаштування» — з меню профілю, «Імпорт» — зі сторінки «Транзакції» і «+ Додати». Без Головної, Активів, «Ще», пошуку, сповіщень і приховування сум. Старт — «Планування → Бюджет».",
+      "w": 520,
+      "x": -640,
+      "y": 0
+    },
+    "poc_n2": {
+      "fill": "orange",
+      "page": "poc",
+      "text": "Банки PoC: monobank — персональний токен (екран «Підключити monobank» внизу); Revolut і BBVA — через Enable Banking (майстер нижче); Raiffeisen Україна — лише імпорт CSV і Excel.",
+      "w": 520,
+      "x": -640,
+      "y": 34200
+    },
+    "poc_n3": {
+      "fill": "orange",
+      "page": "poc",
+      "text": "У PoC один користувач у просторі й лише метод «Ліміти» з календарним місяцем: немає «Спільний / Мій», простого вигляду, Flex, «Кожній копійці — завдання», тижневого чи власного періоду і перенесення залишку (усе — PoC v2).",
+      "w": 520,
+      "x": -640,
+      "y": 39950
+    },
+    "poc_n4": {
+      "fill": "orange",
+      "page": "poc",
+      "text": "Рішення 2026-11-04: кредити й кредитні картки в PoC — рахунки в «Гроші» (тип «Кредит» або «Кредитна картка», група «Кредитні»); «Борги» беруть їх звідси. Форма кредиту — «Новий рахунок · Кредит» у групі «Нові екрани PoC».",
+      "w": 520,
+      "x": -640,
+      "y": 24820
+    },
+    "pocr_100": {
+      "page": "poc",
+      "text": "Картка цілі",
+      "w": 420,
+      "x": 0,
+      "y": 65380
+    },
+    "pocr_101": {
+      "page": "poc",
+      "text": "Внести в ціль",
+      "w": 420,
+      "x": 0,
+      "y": 66670
+    },
+    "pocr_102": {
+      "page": "poc",
+      "text": "Автовнесок",
+      "w": 420,
+      "x": 0,
+      "y": 68380
+    },
+    "pocr_103": {
+      "page": "poc",
+      "text": "Нова ціль · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 70090
+    },
+    "pocr_104": {
+      "page": "poc",
+      "text": "Нова ціль · де лежать гроші",
+      "w": 420,
+      "x": 0,
+      "y": 71060
+    },
+    "pocr_105": {
+      "page": "poc",
+      "text": "Нова ціль · подушка · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 72030
+    },
+    "pocr_106": {
+      "page": "poc",
+      "text": "Нова ціль · конверт",
+      "w": 420,
+      "x": 0,
+      "y": 73000
+    },
+    "pocr_107": {
+      "page": "poc",
+      "text": "Витратити з цілі · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 73970
+    },
+    "pocr_109": {
+      "page": "poc",
+      "text": "Регулярні платежі · стани",
+      "w": 420,
+      "x": 0,
+      "y": 75260
+    },
+    "pocr_110": {
+      "page": "poc",
+      "text": "Деталі платежу",
+      "w": 420,
+      "x": 0,
+      "y": 77710
+    },
+    "pocr_111": {
+      "page": "poc",
+      "text": "Позначити скасованим",
+      "w": 420,
+      "x": 0,
+      "y": 78900
+    },
+    "pocr_113": {
+      "page": "poc",
+      "text": "Чи можу я дозволити · стани",
+      "w": 420,
+      "x": 0,
+      "y": 79950
+    },
+    "pocr_115": {
+      "page": "poc",
+      "text": "Борги · стани",
+      "w": 420,
+      "x": 0,
+      "y": 81440
+    },
+    "pocr_116": {
+      "page": "poc",
+      "text": "План погашення",
+      "w": 420,
+      "x": 0,
+      "y": 82570
+    },
+    "pocr_117": {
+      "page": "poc",
+      "text": "Стратегія погашення",
+      "w": 420,
+      "x": 0,
+      "y": 83820
+    },
+    "pocr_118": {
+      "page": "poc",
+      "text": "Прогрес погашення",
+      "w": 420,
+      "x": 0,
+      "y": 85110
+    },
+    "pocr_41": {
+      "page": "poc",
+      "text": "Оболонка",
+      "w": 420,
+      "x": 0,
+      "y": 120
+    },
+    "pocr_42": {
+      "page": "poc",
+      "text": "Меню «+ Додати»",
+      "w": 420,
+      "x": 0,
+      "y": 1170
+    },
+    "pocr_43": {
+      "page": "poc",
+      "text": "Меню профілю",
+      "w": 420,
+      "x": 0,
+      "y": 2220
+    },
+    "pocr_44": {
+      "page": "poc",
+      "text": "Сторінку не знайдено",
+      "w": 420,
+      "x": 0,
+      "y": 3270
+    },
+    "pocr_45": {
+      "page": "poc",
+      "text": "Зберегти зміни?",
+      "w": 420,
+      "x": 0,
+      "y": 4320
+    },
+    "pocr_46": {
+      "page": "poc",
+      "text": "Стани: загальне правило",
+      "w": 420,
+      "x": 0,
+      "y": 5370
+    },
+    "pocr_48": {
+      "page": "poc",
+      "text": "Реєстрація",
+      "w": 420,
+      "x": 0,
+      "y": 7000
+    },
+    "pocr_49": {
+      "page": "poc",
+      "text": "Вхід",
+      "w": 420,
+      "x": 0,
+      "y": 8110
+    },
+    "pocr_50": {
+      "page": "poc",
+      "text": "Відновлення пароля",
+      "w": 420,
+      "x": 0,
+      "y": 9160
+    },
+    "pocr_52": {
+      "page": "poc",
+      "text": "Налаштування → зміна email або пароля",
+      "w": 420,
+      "x": 0,
+      "y": 10430
+    },
+    "pocr_54": {
+      "page": "poc",
+      "text": "Список транзакцій · стани",
+      "w": 420,
+      "x": 0,
+      "y": 11900
+    },
+    "pocr_55": {
+      "page": "poc",
+      "text": "Деталь транзакції",
+      "w": 420,
+      "x": 0,
+      "y": 13330
+    },
+    "pocr_56": {
+      "page": "poc",
+      "text": "Нова транзакція · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 14680
+    },
+    "pocr_57": {
+      "page": "poc",
+      "text": "Нова транзакція · вибір поля",
+      "w": 420,
+      "x": 0,
+      "y": 16050
+    },
+    "pocr_58": {
+      "page": "poc",
+      "text": "Нова транзакція · рахунків ще немає",
+      "w": 420,
+      "x": 0,
+      "y": 17460
+    },
+    "pocr_59": {
+      "page": "poc",
+      "text": "Розділити транзакцію",
+      "w": 420,
+      "x": 0,
+      "y": 18610
+    },
+    "pocr_60": {
+      "page": "poc",
+      "text": "До розбору",
+      "w": 420,
+      "x": 0,
+      "y": 19780
+    },
+    "pocr_61": {
+      "page": "poc",
+      "text": "Правила категорій · створення",
+      "w": 420,
+      "x": 0,
+      "y": 20890
+    },
+    "pocr_62": {
+      "page": "poc",
+      "text": "Мерчант",
+      "w": 420,
+      "x": 0,
+      "y": 22040
+    },
+    "pocr_63": {
+      "page": "poc",
+      "text": "Пари переказів",
+      "w": 420,
+      "x": 0,
+      "y": 23190
+    },
+    "pocr_65": {
+      "page": "poc",
+      "text": "Рахунки → рахунок → налаштування",
+      "w": 420,
+      "x": 0,
+      "y": 24940
+    },
+    "pocr_66": {
+      "page": "poc",
+      "text": "Додати рахунок · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 26370
+    },
+    "pocr_67": {
+      "page": "poc",
+      "text": "Новий рахунок · тип «Кредит»",
+      "w": 420,
+      "x": 0,
+      "y": 27840
+    },
+    "pocr_68": {
+      "page": "poc",
+      "text": "Закрити рахунок",
+      "w": 420,
+      "x": 0,
+      "y": 29090
+    },
+    "pocr_69": {
+      "page": "poc",
+      "text": "Об’єднати рахунки",
+      "w": 420,
+      "x": 0,
+      "y": 30200
+    },
+    "pocr_71": {
+      "page": "poc",
+      "text": "Імпорт виписки · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 31570
+    },
+    "pocr_73": {
+      "page": "poc",
+      "text": "Підключення · список і джерело",
+      "w": 420,
+      "x": 0,
+      "y": 34320
+    },
+    "pocr_74": {
+      "page": "poc",
+      "text": "Підключити Revolut або BBVA · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 35470
+    },
+    "pocr_75": {
+      "page": "poc",
+      "text": "Підключити monobank · токен",
+      "w": 420,
+      "x": 0,
+      "y": 36480
+    },
+    "pocr_76": {
+      "page": "poc",
+      "text": "Відключити банк",
+      "w": 420,
+      "x": 0,
+      "y": 37630
+    },
+    "pocr_77": {
+      "page": "poc",
+      "text": "Перепідключити банк · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 38680
+    },
+    "pocr_79": {
+      "page": "poc",
+      "text": "Бюджет · стани екрана",
+      "w": 420,
+      "x": 0,
+      "y": 40070
+    },
+    "pocr_81": {
+      "page": "poc",
+      "text": "Новий бюджет · кроки",
+      "w": 420,
+      "x": 0,
+      "y": 43040
+    },
+    "pocr_82": {
+      "page": "poc",
+      "text": "Новий бюджет · варіанти кроків",
+      "w": 420,
+      "x": 0,
+      "y": 44590
+    },
+    "pocr_83": {
+      "page": "poc",
+      "text": "Налаштування бюджету · вкладки",
+      "w": 420,
+      "x": 0,
+      "y": 45800
+    },
+    "pocr_85": {
+      "page": "poc",
+      "text": "План бюджету",
+      "w": 420,
+      "x": 0,
+      "y": 47230
+    },
+    "pocr_86": {
+      "page": "poc",
+      "text": "Додати категорію до бюджету",
+      "w": 420,
+      "x": 0,
+      "y": 49000
+    },
+    "pocr_93": {
+      "page": "poc",
+      "text": "Порівняння",
+      "w": 420,
+      "x": 0,
+      "y": 54820
+    },
+    "pocr_94": {
+      "page": "poc",
+      "text": "Тренд витрат",
+      "w": 420,
+      "x": 0,
+      "y": 56570
+    },
+    "pocr_95": {
+      "page": "poc",
+      "text": "Грошовий потік",
+      "w": 420,
+      "x": 0,
+      "y": 58180
+    },
+    "pocr_96": {
+      "page": "poc",
+      "text": "Підсумок періоду",
+      "w": 420,
+      "x": 0,
+      "y": 60150
+    },
+    "pocr_98": {
+      "page": "poc",
+      "text": "Цілі · стани",
+      "w": 420,
+      "x": 0,
+      "y": 62620
+    },
+    "pocr_99": {
+      "page": "poc",
+      "text": "Архів цілей",
+      "w": 420,
+      "x": 0,
+      "y": 64330
+    },
+    "pocr_imphist": {
+      "page": "poc",
+      "text": "Сторінка «Імпорт» · історія",
+      "w": 420,
+      "x": 0,
+      "y": 32930
+    },
+    "pocr_target": {
+      "page": "poc",
+      "text": "Цільова сума категорії",
+      "w": 420,
+      "x": 0,
+      "y": 51890
+    },
+    "pocs_108": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Регулярні платежі",
+      "w": 520,
+      "x": 0,
+      "y": 75140
+    },
+    "pocs_112": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Чи можу я дозволити",
+      "w": 520,
+      "x": 0,
+      "y": 79830
+    },
+    "pocs_114": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Борги",
+      "w": 520,
+      "x": 0,
+      "y": 81320
+    },
+    "pocs_40": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Оболонка і загальне",
+      "w": 520,
+      "x": 0,
+      "y": 0
+    },
+    "pocs_47": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Вхід і реєстрація",
+      "w": 520,
+      "x": 0,
+      "y": 6880
+    },
+    "pocs_51": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Налаштування",
+      "w": 520,
+      "x": 0,
+      "y": 10310
+    },
+    "pocs_53": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Транзакції",
+      "w": 520,
+      "x": 0,
+      "y": 11780
+    },
+    "pocs_64": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Рахунки",
+      "w": 520,
+      "x": 0,
+      "y": 24820
+    },
+    "pocs_70": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Імпорт CSV і Excel",
+      "w": 520,
+      "x": 0,
+      "y": 31450
+    },
+    "pocs_72": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Підключення банків",
+      "w": 520,
+      "x": 0,
+      "y": 34200
+    },
+    "pocs_78": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Бюджет",
+      "w": 520,
+      "x": 0,
+      "y": 39950
+    },
+    "pocs_92": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Аналіз бюджету",
+      "w": 520,
+      "x": 0,
+      "y": 54700
+    },
+    "pocs_97": {
+      "fill": "blue",
+      "page": "poc",
+      "text": "Цілі",
+      "w": 520,
+      "x": 0,
+      "y": 62500
+    },
+    "t1": {
+      "kind": "title1",
+      "maxW": 6720,
+      "page": "home",
+      "text": "Головна · десктоп 1280",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t13": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Транзакції",
+      "w": 240,
+      "x": 0,
+      "y": 0
+    },
+    "t14": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Стани списків",
+      "w": 240,
+      "x": 0,
+      "y": 1780
+    },
+    "t15": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "До розбору",
+      "w": 240,
+      "x": 0,
+      "y": 3180
+    },
+    "t16": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Нова транзакція",
+      "w": 240,
+      "x": 0,
+      "y": 4640
+    },
+    "t17": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Розділення, чеки, мерчант",
+      "w": 240,
+      "x": 0,
+      "y": 6400
+    },
+    "t18": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Рахунки",
+      "w": 240,
+      "x": 0,
+      "y": 7900
+    },
+    "t19": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Діалоги рахунків",
+      "w": 240,
+      "x": 0,
+      "y": 9680
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "system",
+      "text": "Системні екрани",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t20": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Імпорт виписки",
+      "w": 240,
+      "x": 0,
+      "y": 11500
+    },
+    "t21": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Пари і звірка",
+      "w": 240,
+      "x": 0,
+      "y": 13280
+    },
+    "t22": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "money",
+      "text": "Підключення банку",
+      "w": 240,
+      "x": 0,
+      "y": 15060
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 4000,
+      "page": "system",
+      "text": "Системні діалоги",
+      "w": 240,
+      "x": 0,
+      "y": 920
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 6720,
+      "page": "home",
+      "text": "Стани, віджети і правила Головної",
+      "w": 240,
+      "x": 0,
+      "y": 1680
+    },
+    "t5": {
+      "kind": "title1",
+      "maxW": 6720,
+      "page": "money",
+      "text": "Гроші · десктоп 1280",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t6": {
+      "kind": "title1",
+      "maxW": 5360,
+      "page": "shell",
+      "text": "Оболонка і глобальні оверлеї · десктоп 1280",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "tp0": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Планування · десктоп 1280",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "tp1": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Бюджет",
+      "w": 240,
+      "x": 0,
+      "y": 0
+    },
+    "tp10": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Чи можу я дозволити",
+      "w": 240,
+      "x": 0,
+      "y": 23260
+    },
+    "tp11": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Борги",
+      "w": 240,
+      "x": 0,
+      "y": 24780
+    },
+    "tp12": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Звіти",
+      "w": 240,
+      "x": 0,
+      "y": 26660
+    },
+    "tp2": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Бюджет · інші методи",
+      "w": 240,
+      "x": 0,
+      "y": 4340
+    },
+    "tp3": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Майстер бюджету",
+      "w": 240,
+      "x": 0,
+      "y": 7320
+    },
+    "tp4": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Налаштування бюджету і план",
+      "w": 240,
+      "x": 0,
+      "y": 9220
+    },
+    "tp5": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Діалоги бюджету",
+      "w": 240,
+      "x": 0,
+      "y": 11340
+    },
+    "tp6": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Аналітика",
+      "w": 240,
+      "x": 0,
+      "y": 14580
+    },
+    "tp7": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Цілі",
+      "w": 240,
+      "x": 0,
+      "y": 17080
+    },
+    "tp8": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Нова ціль і витрата з цілі",
+      "w": 240,
+      "x": 0,
+      "y": 19140
+    },
+    "tp9": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Регулярні платежі",
+      "w": 240,
+      "x": 0,
+      "y": 20460
+    },
+    "tp13": {
+      "kind": "title1",
+      "maxW": 8000,
+      "page": "planning",
+      "text": "Палітра і шкали",
+      "w": 240,
+      "x": 0,
+      "y": 29040
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "MainCollapsed.dc.html",
+    "Search.dc.html",
+    "Notifications.dc.html",
+    "Add.dc.html",
+    "Profile.dc.html",
+    "Shell.dc.html",
+    "Disabled.dc.html",
+    "NoAccess.dc.html",
+    "NotFound.dc.html",
+    "Upgrade.dc.html",
+    "StepUp.dc.html",
+    "Unsaved.dc.html",
+    "Bulk.dc.html",
+    "ShellCollapsed.dc.html",
+    "Customize.dc.html",
+    "CustomizeSizes.dc.html",
+    "AddWidget.dc.html",
+    "More.dc.html",
+    "MoneyTx.dc.html",
+    "MoneyTxFilters.dc.html",
+    "MoneyTxViews.dc.html",
+    "MoneyTxDetail.dc.html",
+    "MoneyTxEmpty.dc.html",
+    "MoneyTxNoResults.dc.html",
+    "MoneyTxLoading.dc.html",
+    "MoneyTxError.dc.html",
+    "MoneyReview.dc.html",
+    "MoneyReviewDone.dc.html",
+    "MoneyNewTx.dc.html",
+    "MoneyNewTxStep2.dc.html",
+    "MoneyNewTxStep3.dc.html",
+    "MoneyNewTxCat.dc.html",
+    "MoneyNewTxDate.dc.html",
+    "MoneyNewTxAcc.dc.html",
+    "MoneyNewTxNoAcc.dc.html",
+    "MoneySplit.dc.html",
+    "MoneySplitMonths.dc.html",
+    "MoneyAddReceipt.dc.html",
+    "MoneyReceipt.dc.html",
+    "MoneyReceipts.dc.html",
+    "MoneyRetailer.dc.html",
+    "MoneyMerchant.dc.html",
+    "MoneyAccounts.dc.html",
+    "MoneyAccount.dc.html",
+    "MoneyAccSettings.dc.html",
+    "MoneyCredit.dc.html",
+    "MoneyAddAcc.dc.html",
+    "MoneyNewAcc.dc.html",
+    "MoneyNewAccOwners.dc.html",
+    "MoneyNewAccStep3.dc.html",
+    "MoneyCloseAcc.dc.html",
+    "MoneyMergeAcc.dc.html",
+    "MoneyImport1.dc.html",
+    "MoneyImport2.dc.html",
+    "MoneyImportRules.dc.html",
+    "MoneyImportMismatch.dc.html",
+    "MoneyImport3.dc.html",
+    "MoneyPairs.dc.html",
+    "MoneyReconcile.dc.html",
+    "MoneyReconHistory.dc.html",
+    "MoneyConnections.dc.html",
+    "MoneySource.dc.html",
+    "MoneyDisconnect.dc.html",
+    "MoneyBank1.dc.html",
+    "MoneyBank2.dc.html",
+    "MoneyBank3.dc.html",
+    "MoneyBankWizard.dc.html",
+    "MoneyBank5.dc.html",
+    "MoneyOrders.dc.html",
+    "MoneyOrdersUnavail.dc.html",
+    "MoneyTxMenu.dc.html",
+    "MoneyTxDetailNoReceipt.dc.html",
+    "MoneyLinkAsset.dc.html",
+    "MoneyRules.dc.html",
+    "MoneyRuleEdit.dc.html",
+    "MoneyRuleEditStep2.dc.html",
+    "MoneyPairManual.dc.html",
+    "MoneyReconnect.dc.html",
+    "MoneyRemap.dc.html",
+    "MoneySourceLetters.dc.html",
+    "PlanBudget.dc.html",
+    "PlanBudgetNext.dc.html",
+    "PlanBudgetPaceDays.dc.html",
+    "PlanBudgetShares.dc.html",
+    "PlanBudgetCatFilter.dc.html",
+    "PlanBudgetMembers.dc.html",
+    "PlanBudgetOverspent.dc.html",
+    "PlanBudgetBreakdown.dc.html",
+    "PlanBudgetSimple.dc.html",
+    "PlanBudgetEmpty.dc.html",
+    "PlanBudgetZbb.dc.html",
+    "PlanBudgetZbbOver.dc.html",
+    "PlanBudgetFlex.dc.html",
+    "PlanBudgetWiz1.dc.html",
+    "PlanBudgetWiz1NoHist.dc.html",
+    "PlanBudgetWiz2.dc.html",
+    "PlanBudgetWiz2Week.dc.html",
+    "PlanBudgetWiz2Custom.dc.html",
+    "PlanBudgetWiz3.dc.html",
+    "PlanBudgetWiz4.dc.html",
+    "PlanBudgetWiz4Deficit.dc.html",
+    "PlanBudgetMethod.dc.html",
+    "PlanBudgetSettingsGeneral.dc.html",
+    "PlanBudgetMethodSwitch.dc.html",
+    "PlanBudgetMethodSwitchZbb.dc.html",
+    "PlanBudgetMethodExit.dc.html",
+    "PlanBudgetPeriod.dc.html",
+    "PlanBudgetAccounts.dc.html",
+    "PlanBudgetPlan.dc.html",
+    "PlanBudgetPlanOver.dc.html",
+    "PlanBudgetAssign.dc.html",
+    "PlanBudgetAssignShort.dc.html",
+    "PlanBudgetMove.dc.html",
+    "PlanBudgetMoveFrom.dc.html",
+    "PlanBudgetUnderfunded.dc.html",
+    "PlanBudgetUnderfundedSnoozed.dc.html",
+    "PlanBudgetHistory.dc.html",
+    "PlanBudgetTarget.dc.html",
+    "PlanCompare.dc.html",
+    "PlanCompareBase.dc.html",
+    "PlanComparePeriod.dc.html",
+    "PlanCompareYear.dc.html",
+    "PlanTrend.dc.html",
+    "PlanTrendDiff.dc.html",
+    "PlanFlow.dc.html",
+    "PlanFlowWaterfall.dc.html",
+    "PlanFlowYear.dc.html",
+    "PlanPeriod.dc.html",
+    "PlanGoals.dc.html",
+    "PlanGoalCard.dc.html",
+    "PlanGoalCardAchieved.dc.html",
+    "PlanGoalCardContribute.dc.html",
+    "PlanGoalCardAuto.dc.html",
+    "PlanGoalsArchive.dc.html",
+    "PlanGoalsEmpty.dc.html",
+    "PlanGoalNew.dc.html",
+    "PlanGoalNewForm.dc.html",
+    "PlanGoalNewFormStep2.dc.html",
+    "PlanGoalNewFormStep3.dc.html",
+    "PlanGoalNewWhere.dc.html",
+    "PlanGoalNewCushion.dc.html",
+    "PlanGoalNewCushionStep2.dc.html",
+    "PlanGoalNewEnvelope.dc.html",
+    "PlanGoalSpend.dc.html",
+    "PlanGoalSpendStep2.dc.html",
+    "PlanGoalSpendAsset.dc.html",
+    "PlanGoalSpendAssetStep2.dc.html",
+    "PlanRecurring.dc.html",
+    "PlanRecurringOverdue.dc.html",
+    "PlanRecurringPayment.dc.html",
+    "PlanRecurringCancel.dc.html",
+    "PlanRecurringEmpty.dc.html",
+    "PlanAffordEmpty.dc.html",
+    "PlanAfford.dc.html",
+    "PlanAffordOk.dc.html",
+    "PlanAffordShort.dc.html",
+    "PlanAffordInstalment.dc.html",
+    "PlanDebts.dc.html",
+    "PlanDebtsEmpty.dc.html",
+    "PlanDebtPlan.dc.html",
+    "PlanDebtPlanGrows.dc.html",
+    "PlanDebtStrategy.dc.html",
+    "PlanDebtProgress.dc.html",
+    "PlanReports.dc.html",
+    "PlanReportNew.dc.html",
+    "PlanReportNewTrend.dc.html",
+    "PlanReportNewTreemap.dc.html",
+    "PlanReportView.dc.html",
+    "PlanReportViewExport.dc.html",
+    "PlanBudgetIncome.dc.html",
+    "PlanBudgetAddCat.dc.html",
+    "PocShell.dc.html",
+    "PocShellCollapsed.dc.html",
+    "PocAdd.dc.html",
+    "PocProfile.dc.html",
+    "PocNotFound.dc.html",
+    "PocStepUp.dc.html",
+    "PocUnsaved.dc.html",
+    "PocMoneyTx.dc.html",
+    "PocMoneyTxFilters.dc.html",
+    "PocMoneyTxDetail.dc.html",
+    "PocMoneyTxMenu.dc.html",
+    "PocMoneyTxDetailNoReceipt.dc.html",
+    "PocMoneyRules.dc.html",
+    "PocMoneyRuleEdit.dc.html",
+    "PocMoneyRuleEditStep2.dc.html",
+    "PocMoneyTxEmpty.dc.html",
+    "PocMoneyTxNoResults.dc.html",
+    "PocMoneyTxLoading.dc.html",
+    "PocMoneyTxError.dc.html",
+    "PocMoneyReview.dc.html",
+    "PocMoneyReviewDone.dc.html",
+    "PocMoneyNewTx.dc.html",
+    "PocMoneyNewTxStep2.dc.html",
+    "PocMoneyNewTxStep3.dc.html",
+    "PocMoneyNewTxCat.dc.html",
+    "PocMoneyNewTxDate.dc.html",
+    "PocMoneyNewTxAcc.dc.html",
+    "PocMoneyNewTxNoAcc.dc.html",
+    "PocMoneySplit.dc.html",
+    "PocMoneySplitMonths.dc.html",
+    "PocMoneyMerchant.dc.html",
+    "PocMoneyPairs.dc.html",
+    "PocMoneyPairManual.dc.html",
+    "PocMoneyAccounts.dc.html",
+    "PocMoneyAccount.dc.html",
+    "PocMoneyAccSettings.dc.html",
+    "PocMoneyAccBalance.dc.html",
+    "PocMoneyAccBalanceBank.dc.html",
+    "PocMoneyAddAcc.dc.html",
+    "PocMoneyNewAcc.dc.html",
+    "PocMoneyNewAccStep3.dc.html",
+    "PocMoneyCloseAcc.dc.html",
+    "PocMoneyMergeAcc.dc.html",
+    "PocMoneyImport1.dc.html",
+    "PocMoneyImport2.dc.html",
+    "PocMoneyImportRules.dc.html",
+    "PocMoneyImportMismatch.dc.html",
+    "PocMoneyImport3.dc.html",
+    "PocImportHistory.dc.html",
+    "PocMoneyConnections.dc.html",
+    "PocMoneySource.dc.html",
+    "PocMoneyDisconnect.dc.html",
+    "PocMoneyBank1.dc.html",
+    "PocMoneyBank2.dc.html",
+    "PocMoneyBank3.dc.html",
+    "PocMoneyBankWizard.dc.html",
+    "PocMoneyBank5.dc.html",
+    "PocMoneyReconnect.dc.html",
+    "PocMoneyRemap.dc.html",
+    "PocPlanBudget.dc.html",
+    "PocPlanBudgetNext.dc.html",
+    "PocPlanBudgetCatFilter.dc.html",
+    "PocPlanBudgetIncome.dc.html",
+    "PocPlanBudgetOverspent.dc.html",
+    "PocPlanBudgetBreakdown.dc.html",
+    "PocPlanBudgetEmpty.dc.html",
+    "PocPlanBudgetWiz1.dc.html",
+    "PocPlanBudgetWiz1NoHist.dc.html",
+    "PocPlanBudgetWiz2.dc.html",
+    "PocPlanBudgetWiz3.dc.html",
+    "PocPlanBudgetWiz4.dc.html",
+    "PocPlanBudgetWiz4Deficit.dc.html",
+    "PocPlanBudgetSettingsGeneral.dc.html",
+    "PocPlanBudgetAccounts.dc.html",
+    "PocPlanBudgetPlan.dc.html",
+    "PocPlanBudgetPlanOver.dc.html",
+    "PocPlanBudgetAddCat.dc.html",
+    "PocPlanBudgetTarget.dc.html",
+    "PocPlanCompare.dc.html",
+    "PocPlanCompareBase.dc.html",
+    "PocPlanComparePeriod.dc.html",
+    "PocPlanCompareYear.dc.html",
+    "PocPlanTrend.dc.html",
+    "PocPlanFlow.dc.html",
+    "PocPlanFlowYear.dc.html",
+    "PocPlanPeriod.dc.html",
+    "PocPlanGoals.dc.html",
+    "PocPlanGoalCard.dc.html",
+    "PocPlanGoalCardAchieved.dc.html",
+    "PocPlanGoalCardContribute.dc.html",
+    "PocPlanGoalCardAuto.dc.html",
+    "PocPlanGoalsArchive.dc.html",
+    "PocPlanGoalsEmpty.dc.html",
+    "PocPlanGoalNew.dc.html",
+    "PocPlanGoalNewForm.dc.html",
+    "PocPlanGoalNewFormStep2.dc.html",
+    "PocPlanGoalNewFormStep3.dc.html",
+    "PocPlanGoalNewWhere.dc.html",
+    "PocPlanGoalNewCushion.dc.html",
+    "PocPlanGoalNewCushionStep2.dc.html",
+    "PocPlanGoalNewEnvelope.dc.html",
+    "PocPlanGoalSpend.dc.html",
+    "PocPlanGoalSpendStep2.dc.html",
+    "PocPlanRecurring.dc.html",
+    "PocPlanRecurringOverdue.dc.html",
+    "PocPlanRecurringPayment.dc.html",
+    "PocPlanRecurringCancel.dc.html",
+    "PocPlanRecurringEmpty.dc.html",
+    "PocPlanAffordEmpty.dc.html",
+    "PocPlanAfford.dc.html",
+    "PocPlanAffordOk.dc.html",
+    "PocPlanAffordShort.dc.html",
+    "PocPlanAffordInstalment.dc.html",
+    "PocPlanDebts.dc.html",
+    "PocPlanDebtsEmpty.dc.html",
+    "PocPlanDebtPlan.dc.html",
+    "PocPlanDebtPlanGrows.dc.html",
+    "PocPlanDebtStrategy.dc.html",
+    "PocPlanDebtProgress.dc.html",
+    "PocSignIn.dc.html",
+    "PocSignUp.dc.html",
+    "PocCheckEmail.dc.html",
+    "PocResetPassword.dc.html",
+    "PocMonoToken.dc.html",
+    "PocSettings.dc.html",
+    "PocMoneyNewAccLoan.dc.html",
+    "PocStates.dc.html",
+    "PlanPalette.dc.html",
+    "PlanChartColors.dc.html",
+    "CatShades.dc.html",
+    "PocMoneyTxColumns.dc.html",
+    "PocMoneyTxToast.dc.html",
+    "PocMoneyAccountsStale.dc.html",
+    "PocMoneyAccountMismatch.dc.html",
+    "PlanBudgetMethodExitStep2.dc.html",
+    "SessionTimeout.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "poc",
+      "name": "PoC"
+    },
+    {
+      "id": "home",
+      "name": "Головна"
+    },
+    {
+      "id": "shell",
+      "name": "Оболонка і оверлеї"
+    },
+    {
+      "id": "system",
+      "name": "Системні екрани і діалоги"
+    },
+    {
+      "id": "money",
+      "name": "Гроші"
+    },
+    {
+      "id": "planning",
+      "name": "Планування"
+    }
+  ],
+  "title": "Willowsum · P0 оболонка і системні екрани"
+}

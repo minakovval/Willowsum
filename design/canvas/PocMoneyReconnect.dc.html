@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Перепідключити ПриватБанк</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="PocShell" active="money" page="Рахунки" height="800" hint-size="1280px,800px"></dc-import></div>
+  <div style="position: absolute; left: 212px; top: 64px; right: 0; bottom: 0; padding: 28px 32px;"><div><h1 style="margin: 0; font: 600 28px/34px 'Inter Tight', Inter, sans-serif;">Рахунки</h1></div></div>
+  <div style="position: absolute; inset: 0; background: rgba(11, 37, 69, 0.36); backdrop-filter: blur(2px);"></div>
+  <div role="dialog" aria-modal="true" aria-label="Перепідключити ПриватБанк" style="position: absolute; left: 360px; top: 48px; width: 560px; box-sizing: border-box; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 4px rgba(11,37,69,.06), 0 24px 48px rgba(11,37,69,.20); overflow: hidden;">
+    <a href="PocMoneyConnections.dc.html" aria-label="Закрити" style="text-decoration: none; box-sizing: border-box; cursor: pointer; position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 999px; background: transparent; color: #566174;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></a>
+    <div style="padding: 28px 32px 24px; display: flex; flex-direction: column; gap: 16px; text-align: left;">
+      <h2 style="margin: 0 40px 0 0; font: 600 22px/28px 'Inter Tight', Inter, sans-serif; letter-spacing: -0.015em;">Перепідключити ПриватБанк</h2>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 10px; background: #FAFAF8;"><span title="Логотип з довідника мерчантів" style="width: 36px; height: 36px; flex: none; box-sizing: border-box; border-radius: 8px; border: 1px solid #E5E5E2; background: #FFFFFF; display: grid; place-items: center;"><span style="width: 22px; height: 22px; border-radius: 6px; background: #27704C; color: #FFFFFF; display: grid; place-items: center; font: 700 12px Inter, sans-serif;">П</span></span><span style="flex: 1; display: flex; flex-direction: column;"><b style="font-weight: 600;">ПриватБанк · 1 рахунок</b><span style="color: #566174; font-size: 13px;">дані не оновлюються з 30 жовт. 2026 р.</span></span><span  style="display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px; background: #FBF3E8; color: #7A4505; font: 500 11px/16px Inter, sans-serif; white-space: nowrap; gap: 4px;"><span aria-hidden="true">!</span>Потребує дії</span></div><span style="font-size: 14px; line-height: 21px;">Згода на доступ діє 90 днів і закінчилась 30 жовтня. Підтвердіть її на сторінці банку — це займе хвилину.</span><div style="display: flex; gap: 10px; font-size: 13px; line-height: 19px;"><span style="color: #27704C; display: grid; padding-top: 1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span>Історія не зміниться; транзакції з 30 жовтня завантажимо після підтвердження.</span></div><div style="display: flex; gap: 10px; font-size: 13px; line-height: 19px;"><span style="color: #27704C; display: grid; padding-top: 1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span>Рахунки зіставимо з наявними автоматично; якщо банк змінив номер — попросимо обрати.</span></div><div style="display: flex; gap: 10px; font-size: 13px; line-height: 19px;"><span style="color: #27704C; display: grid; padding-top: 1px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span><span>Willowsum лише читає дані. Нова згода — знову на 90 днів.</span></div>
+    </div>
+    <div style="padding: 20px 32px 24px; background: #FAFAF8; border-top: 1px solid #F1F1EF;"><div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;"><a href="PocMoneyConnections.dc.html"  style="text-decoration: none; box-sizing: border-box; cursor: pointer; height: 40px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 14px; border: 1px solid #7B8494; border-radius: 8px; background: #FFFFFF; color: #1B2230; font: 600 14px Inter, sans-serif; white-space: nowrap;">Пізніше</a><a href="PocMoneyRemap.dc.html" style="text-decoration: none; box-sizing: border-box; cursor: pointer; height: 40px; display: flex; justify-content: center; align-items: center; gap: 8px; padding: 0 16px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 14px Inter, sans-serif; white-space: nowrap;">Перейти до ПриватБанку</a></div></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

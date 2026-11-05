@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Центр сповіщень</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}a{color:#1D4E89}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="home" height="800" hint-size="1280px,800px"></dc-import></div>
+  <div style="position: absolute; inset: 0; background: rgba(11, 37, 69, 0.20);"></div>
+  <aside role="dialog" aria-modal="true" aria-labelledby="nt" style="position: absolute; top: 0; right: 0; width: 420px; height: 800px; box-sizing: border-box; background: #FFFFFF; border-left: 1px solid #E5E5E2; box-shadow: -8px 0 24px rgba(11,37,69,.08); display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; gap: 8px; height: 64px; padding: 0 16px 0 24px; border-bottom: 1px solid #E5E5E2;">
+      <h2 id="nt" style="margin: 0; flex: 1; font: 600 18px/24px 'Inter Tight', Inter, sans-serif;">Сповіщення</h2>
+      <button type="button" style="height: 36px; padding: 0 10px; border: 0; background: transparent; color: #1D4E89; font: 500 14px Inter, sans-serif;">Позначити все прочитаним</button>
+      <button type="button" aria-label="Налаштування сповіщень" title="Налаштування сповіщень" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: #566174;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+      <button type="button" aria-label="Закрити" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: #566174;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+    </div>
+    <div role="tablist" style="display: flex; gap: 4px; padding: 12px 24px;">
+      <button type="button" role="tab" aria-selected="true" style="height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: #F1F1EF; color: #0B2545; font: 600 13px Inter, sans-serif;">Усі</button>
+      <button type="button" role="tab" aria-selected="false" style="height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: #566174; font: 500 13px Inter, sans-serif;">Непрочитані · 3</button>
+    </div>
+    <div style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; scrollbar-width: thin;">
+      <span style="padding: 8px 24px 4px; font: 500 12px/16px Inter, sans-serif; letter-spacing: 0.08em; color: #566174;">СЬОГОДНІ</span>
+      <sc-for list="{{items}}" as="n" hint-placeholder-count="6">
+        <sc-if value="{{n.head}}" hint-placeholder-val="{{false}}"><span style="padding: 16px 24px 4px; font: 500 12px/16px Inter, sans-serif; letter-spacing: 0.08em; color: #566174;">{{n.head}}</span></sc-if>
+        <a href="#" style="display: flex; gap: 12px; padding: 12px 24px; text-decoration: none; color: #1B2230;">
+          <span style="width: 8px; flex: none; padding-top: 6px;"><sc-if value="{{n.unread}}" hint-placeholder-val="{{false}}"><span style="display: block; width: 8px; height: 8px; border-radius: 999px; background: #1D4E89;" aria-label="Непрочитане"></span></sc-if></span>
+          <span style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0;"><span style="font-weight: {{n.w}};">{{n.title}}</span><span style="color: #566174;">{{n.text}}</span><span style="display: flex; align-items: center; gap: 8px; margin-top: 4px;"><span style="color: #566174; font-size: 12px;">{{n.time}}</span><sc-if value="{{n.action}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 2px; color: #1D4E89; font-weight: 500; font-size: 13px;">{{n.action}}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></span></sc-if></span></span>
+        </a>
+      </sc-for>
+    </div>
+    <a href="#" style="display: flex; align-items: center; justify-content: center; min-height: 48px; border-top: 1px solid #E5E5E2; color: #566174; text-decoration: none; font-weight: 500;">Усі сповіщення</a>
+  </aside>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { items: [
+      { head: '', unread: true, w: 600, title: '7 нових транзакцій до розбору', action: 'Розібрати', text: 'Монобанк синхронізовано о 09:40', time: '09:42' },
+      { head: '', unread: true, w: 600, title: 'Бюджет «Продукти» використано на 85 %', action: 'Відкрити бюджет', text: 'Лишилось 63,00 € до кінця листопада', time: '08:15' },
+      { head: '', unread: true, w: 600, title: 'Поліс КАСКО закінчується через 12 днів', action: 'Продовжити поліс', text: 'Škoda Octavia · АХА Страхування', time: '07:00' },
+      { head: 'ВЧОРА', unread: false, w: 500, title: 'Надійшла зарплата', action: '', text: '+3 400,00 € на рахунок «Поточний»', time: '1 листопада, 10:03' },
+      { head: '', unread: false, w: 500, title: 'Андрій додав актив «Годинник Seiko»', action: 'Переглянути актив', text: 'Активи · Колекційні предмети', time: '1 листопада, 19:20' },
+      { head: '', unread: false, w: 500, title: 'Ціль «Відпустка в Португалії» — 60 %', action: '', text: 'Ви на шляху до цілі', time: '1 листопада, 08:00' },
+      { head: 'ЦЬОГО ТИЖНЯ', unread: false, w: 500, title: 'Рахунок «Ощадний» не синхронізується', action: 'Підключити знову', text: 'Банк просить повторно підтвердити доступ', time: '30 жовтня, 12:10' },
+      { head: '', unread: false, w: 500, title: 'Оцінку квартири оновлено', action: '', text: '+15 000,00 € · Квартира на Подолі', time: '29 жовтня, 09:00' }
+    ] };
+  }
+}
+</script>
+</body>
+</html>
