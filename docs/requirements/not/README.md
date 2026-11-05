@@ -12,5 +12,5 @@ Shared text of this tab (title, intro, common sections) is kept in [../doc/READM
 
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
-| [NOT-01](NOT-01.md) | Нагадування і сповіщення | MVP | M |
+| [NOT-01](NOT-01.md) | Нагадування і сповіщення | MVP (сповіщення в застосунку і email); v1-mobile (push-сповіщення в мобільних застосунках) | M |
 | [NOT-02](NOT-02.md) | Тригери сповіщень | v1 | S |

@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-26@v1
-- Залежить від: FIN-06@v1, INS-02@v1, RPT-01@MVP, RPT-02@v2, SUB-07@v1
+- Залежить від: FIN-06@v1, INS-02@v1, RPT-01@v1, RPT-02@v2, SUB-07@v1
 - Дизайн: S-147, S-149, S-150
 - Спільні правила: П-3, П-17, П-19, П-21, SCR-02
 - Сценарії: UC-BUD-106, UC-BUD-107, UC-BUD-108, UC-BUD-109, UC-BUD-110, UC-FIN-57, UC-INS-15, UC-INS-16, UC-RPT-01, UC-RPT-02, UC-RPT-03, UC-RPT-04, UC-RPT-05, UC-RPT-06, UC-RPT-07, UC-RPT-08, UC-RPT-09, UC-RPT-10, UC-RPT-11, UC-RPT-12, UC-RPT-13, UC-RPT-14, UC-RPT-15, UC-RPT-16, UC-RPT-17, UC-RPT-18, UC-RPT-19, UC-UX-10, UC-VAL-16, UC-VAL-28

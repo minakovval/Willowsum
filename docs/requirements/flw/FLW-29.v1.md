@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-29@MVP
-- Залежить від: ACC-01@MVP, ACC-11@MVP, NOT-01@MVP, SUB-05@v1, SUP-01@MVP
+- Залежить від: ACC-01@MVP, ACC-11@MVP, NOT-01@v1-mobile, SUB-05@v1, SUP-01@v1
 - Дизайн: S-026, S-180, S-181, S-182, S-183, S-184, S-266, S-267
 - Спільні правила: П-8, П-10, П-21, SCR-02
 - Сценарії: UC-ACC-20, UC-ADM-20, UC-DAT-20, UC-SUB-21, UC-SUB-23, UC-SUB-24, UC-SUB-25, UC-SUP-01, UC-SUP-02, UC-SUP-03, UC-SUP-04, UC-SUP-05, UC-SUP-06, UC-SUP-07, UC-SUP-08, UC-SUP-09, UC-UX-43

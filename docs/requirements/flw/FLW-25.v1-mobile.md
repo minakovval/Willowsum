@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-25@MVP
-- Залежить від: ACC-02@v1-mobile, BUD-10@v1-mobile, NOT-01@MVP, UX-02@v1-mobile
+- Залежить від: ACC-02@v1-mobile, BUD-10@v1-mobile, NOT-01@v1-mobile, UX-02@v1-mobile
 - Дизайн: S-024, S-156, S-194, S-195
 - Спільні правила: П-6, П-8, П-17, SCR-02
 - Сценарії: UC-ACC-62, UC-AST-35, UC-AST-39, UC-AST-43, UC-BUD-26, UC-BUD-34, UC-BUD-37, UC-BUD-41, UC-BUD-50, UC-BUD-51, UC-BUD-52, UC-BUD-53, UC-BUD-54, UC-BUD-61, UC-BUD-67, UC-BUD-83, UC-DAT-16, UC-DOC-14, UC-FIN-04, UC-FIN-19, UC-IMP-23, UC-INS-07, UC-NOT-01, UC-NOT-02, UC-NOT-03, UC-NOT-04, UC-NOT-06, UC-NOT-08, UC-NOT-09, UC-RPT-11, UC-UX-08, UC-UX-10, UC-UX-12, UC-UX-38, UC-VAL-09

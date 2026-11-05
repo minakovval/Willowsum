@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-03@MVP
-- Залежить від: ACC-03@MVP, ACC-08@MVP, ACC-09@MVP, ACC-10@MVP, ACC-11@MVP, NOT-01@MVP, SUB-07@v1, UX-01@v1
+- Залежить від: ACC-03@v1-mobile, ACC-08@v1, ACC-09@v1, ACC-10@MVP, ACC-11@MVP, NOT-01@v1-mobile, SUB-07@v1, UX-01@v1
 - Дизайн: S-010, S-032, S-040, S-186, S-204, S-205
 - Спільні правила: П-5, П-6, П-7, П-10, П-21, SCR-02
 - Сценарії: UC-ACC-21, UC-ACC-49, UC-ACC-50, UC-ACC-51, UC-ACC-52, UC-ACC-53, UC-ACC-55, UC-ACC-58, UC-AST-31, UC-DAT-04, UC-DAT-08, UC-DAT-22, UC-DOC-10, UC-UX-04, UC-VAL-33, UC-WGT-06

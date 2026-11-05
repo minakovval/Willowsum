@@ -134,7 +134,7 @@ None.
 - NFR-09@PoC
 - NFR-19@PoC
 
-Not migrated in PoC: 6 slices without design links (links are unknown until migration).
+Not migrated in PoC: 2 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -158,32 +158,21 @@ None.
 - JRN-06@PoC v2
 - NFR-19@PoC v2
 
-Not migrated in PoC v2: 2 slices without design links (links are unknown until migration).
+Not migrated in PoC v2: 0 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (20 of 229)
+### Screens without a slice (9 of 229)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
-| S-009 | Умови оновлено (погоджуюсь / не погоджуюсь) | LEG-01 | migration |
-| S-018 | Умови використання | LEG-01, L10N-02 | migration |
-| S-019 | Банер cookie (лише необхідні / прийняти аналітику) | LEG-01 | migration |
 | S-023 | Клавіатурні скорочення | UX-04 | a «Дизайн» link |
-| S-027 | Створити простір | ACC-08 | migration |
 | S-031 | Сторінка не знайдена | SCR-01 | migration |
 | S-033 | Зберегти зміни? (Зберегти / Не зберігати / Скасувати) | SCR-02, UX-09 | migration |
-| S-084 | Нагадування на картці активу | NOT-01 | migration |
-| S-187 | Профіль (ім'я, аватар, телефон, зміна email) | ACC-05, L10N-01 | migration |
-| S-188 | Мова і формати | ACC-05, L10N-01, L10N-02 | migration |
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | a «Дизайн» link |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | a «Дизайн» link |
-| S-202 | Видалити простір (ввести назву) | ACC-08 | migration |
-| S-203 | Простори (список, відновити видалений) | ACC-08 | migration |
-| S-284 | Політика видимості (перемикачі областей для обмежених учасників, за замовчуванням «Закрито… | ACC-10 | migration |
 | S-208 | Власні поля активів | AST-01 | migration |
 | S-231 | Запис-посилання на офіційний цифровий документ | VLT-15 | migration |
-| S-265 | Персонал (співробітники і ролі) | ADM-05, GRID-07 | migration |
 | S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 
@@ -308,7 +297,7 @@ Not migrated in PoC v2: 2 slices without design links (links are unknown until m
 - NFR-18@MVP
 - NFR-19@MVP
 
-Not migrated in MVP: 94 slices without design links (links are unknown until migration).
+Not migrated in MVP: 64 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -334,20 +323,17 @@ None.
 - CICD-10@v1-mobile
 - JRN-07@v1-mobile
 
-Not migrated in v1-mobile: 3 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 2 slices without design links (links are unknown until migration).
 
 ## v1
 
-### Screens without a slice (6 of 26)
+### Screens without a slice (3 of 26)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-100 | Невпізнані інструменти | INV-01 | migration |
 | S-102 | Непарні переміщення біржа ↔ гаманець ↔ банк | CRY-02 | migration |
 | S-118 | Доходи і витрати активу (yield) | AST-06 | migration |
-| S-271 | Перевизначення (індивідуальні, CSV) | ADM-06 | migration |
-| S-274 | Back office: пошук і картка користувача (trial, купон, план) | SUB-05 | migration |
-| S-275 | Довідники (типи активів, стилі, установи, категорії документів) | SUB-05 | migration |
 
 ### Migrated slices without design (9)
 
@@ -367,25 +353,21 @@ Not migrated in v1-mobile: 3 slices without design links (links are unknown unti
 - JRN-02@v1
 - JRN-06@v1
 
-Not migrated in v1: 27 slices without design links (links are unknown until migration).
+Not migrated in v1: 18 slices without design links (links are unknown until migration).
 
 ## v2
 
-### Screens without a slice (12 of 36)
+### Screens without a slice (8 of 36)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-044 | «Ваш \<місяць> у підсумках» (слайди) і річний підсумок | UX-06 | a «Дизайн» link |
 | S-119 | Список бажаних покупок (Wishlist) | AST-15 | migration |
 | S-154 | Спадок (спадкове планування з партнером) | PLN-03 | migration |
-| S-295 | Подарувати підписку (вхід: «Ще › Плани і підписка») | SUB-08 | migration |
-| S-296 | Перейти на пряму оплату (вхід: «Ще › Плани і підписка») | SUB-08 | migration |
 | S-185 | Навчання (гайди, відео, глосарій, події) | UX-07 | a «Дизайн» link |
 | S-219 | Вигляд (кольори учасників, порядок сторінок) | UX-05 | a «Дизайн» link |
 | S-247 | Додати приватну картку в Apple / Google Wallet | VLT-19 | migration |
 | S-292 | Стрічка активності радника (правки радника, пакети фіду) | ADV-06 | migration |
-| S-276 | Купони і промо | SUB-06 | migration |
-| S-277 | Подарунки і спеціальні програми | SUB-08 | migration |
 | S-278 | Контент навчання (гайди, відео, глосарій, події) | UX-07 | a «Дизайн» link |
 
 ### Migrated slices without design (6)
@@ -404,4 +386,4 @@ Not migrated in v1: 27 slices without design links (links are unknown until migr
 - JRN-03@v2
 - JRN-04@v2
 
-Not migrated in v2: 23 slices without design links (links are unknown until migration).
+Not migrated in v2: 17 slices without design links (links are unknown until migration).

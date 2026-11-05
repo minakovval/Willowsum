@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-15@MVP
-- Залежить від: NOT-01@MVP, VAL-01@MVP, VAL-02@MVP, VAL-03@v1, VAL-04@MVP, VAL-06@v1
+- Залежить від: NOT-01@v1-mobile, VAL-01@MVP, VAL-02@MVP, VAL-03@v1, VAL-04@MVP, VAL-06@v1
 - Дизайн: S-024, S-075, S-076, S-077
 - Спільні правила: П-2, П-12, П-17, П-23, SCR-02
 - Сценарії: UC-AST-05, UC-AST-07, UC-DOC-08, UC-FIN-48, UC-FIN-69, UC-INS-05, UC-NOT-04, UC-NOT-11, UC-VAL-01, UC-VAL-02, UC-VAL-03, UC-VAL-04, UC-VAL-05, UC-VAL-06, UC-VAL-08, UC-VAL-09, UC-VAL-10, UC-VAL-11, UC-VAL-21, UC-VAL-22, UC-VAL-30, UC-WGT-24
