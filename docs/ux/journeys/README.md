@@ -647,8 +647,8 @@ comm -23 /tmp/uc.txt /tmp/uj.txt   # має бути порожньо
 | UC-INV-05 | Відкотити імпорт брокера | v1 | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-INV-06 | Оновити курси валют ECB і НБУ | MVP | [UJ-15](UJ-15-investor-crypto.md), [UJ-23](UJ-23-localisation-currency.md) |
 | UC-INV-07 | Оновити ціни інструментів із резервних джерел у межах лімітів | v1 | [UJ-15](UJ-15-investor-crypto.md) |
-| UC-INV-08 | Побачити ціну з джерелом і датою та позначку застарілості | v1 | [UJ-15](UJ-15-investor-crypto.md) |
-| UC-INV-09 | Увімкнути нове джерело цін в адмін-панелі | v1 | [UJ-31](UJ-31-platform-staff.md) |
+| UC-INV-08 | Побачити ціну з джерелом і датою та позначку застарілості | MVP | [UJ-15](UJ-15-investor-crypto.md) |
+| UC-INV-09 | Увімкнути нове джерело цін в адмін-панелі | MVP | [UJ-31](UJ-31-platform-staff.md) |
 | UC-INV-10 | Переглянути лоти, реалізований і нереалізований результат позиції | v1 | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-INV-11 | Ввести собівартість лоту з невідомою собівартістю | v1 | [UJ-15](UJ-15-investor-crypto.md) |
 | UC-INV-12 | Змінити метод собівартості портфеля з імпортованими операціями | v1 | [UJ-15](UJ-15-investor-crypto.md) |
