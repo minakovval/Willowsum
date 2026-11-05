@@ -48,21 +48,26 @@
   --ws-text-action-line: 1.25rem;
   --ws-text-action-weight: 600;
   --ws-text-action-tracking: 0em;
-  --ws-text-amount-xl-family: var(--ws-font-sans);
-  --ws-text-amount-xl-size: 2.5rem;
-  --ws-text-amount-xl-line: 2.75rem;
+  --ws-text-amount-xl-family: var(--ws-font-display);
+  --ws-text-amount-xl-size: 2rem;
+  --ws-text-amount-xl-line: 2.5rem;
   --ws-text-amount-xl-weight: 600;
-  --ws-text-amount-xl-tracking: -0.01em;
-  --ws-text-amount-l-family: var(--ws-font-sans);
-  --ws-text-amount-l-size: 1.75rem;
-  --ws-text-amount-l-line: 2rem;
+  --ws-text-amount-xl-tracking: -0.02em;
+  --ws-text-amount-l-family: var(--ws-font-display);
+  --ws-text-amount-l-size: 1.5rem;
+  --ws-text-amount-l-line: 1.875rem;
   --ws-text-amount-l-weight: 600;
   --ws-text-amount-l-tracking: -0.01em;
-  --ws-text-amount-m-family: var(--ws-font-sans);
-  --ws-text-amount-m-size: 1rem;
+  --ws-text-amount-m-family: var(--ws-font-display);
+  --ws-text-amount-m-size: 1.125rem;
   --ws-text-amount-m-line: 1.5rem;
   --ws-text-amount-m-weight: 600;
-  --ws-text-amount-m-tracking: 0em;
+  --ws-text-amount-m-tracking: -0.01em;
+  --ws-text-amount-s-family: var(--ws-font-sans);
+  --ws-text-amount-s-size: 0.875rem;
+  --ws-text-amount-s-line: 1.25rem;
+  --ws-text-amount-s-weight: 600;
+  --ws-text-amount-s-tracking: 0em;
   --ws-text-chart-axis-family: var(--ws-font-sans);
   --ws-text-chart-axis-size: 0.75rem;
   --ws-text-chart-axis-line: 1rem;
@@ -622,6 +627,14 @@
   line-height: var(--ws-text-amount-m-line);
   font-weight: var(--ws-text-amount-m-weight);
   letter-spacing: var(--ws-text-amount-m-tracking);
+  font-variant-numeric: tabular-nums;
+}
+.ws-text-amount-s {
+  font-family: var(--ws-text-amount-s-family);
+  font-size: var(--ws-text-amount-s-size);
+  line-height: var(--ws-text-amount-s-line);
+  font-weight: var(--ws-text-amount-s-weight);
+  letter-spacing: var(--ws-text-amount-s-tracking);
   font-variant-numeric: tabular-nums;
 }
 .ws-text-chart-axis {
