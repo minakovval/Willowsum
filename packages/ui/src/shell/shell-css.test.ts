@@ -13,11 +13,26 @@ describe("shell styles", () => {
     expect(rule('.ws-nav-item[aria-current="page"]')).toMatch(/background:\s*var\(--ws-surface-300\)/);
   });
 
-  it("CMP-69 AC4 / UX-09 item 11: the count badge is brand-2 on on-brand, never amber", () => {
+  it("CMP-69 AC1: the current L1 item has brand text, the current L2 item brand on surface-100", () => {
+    expect(rule('.ws-nav-item[aria-current="page"]')).toMatch(/color:\s*var\(--ws-brand\)/);
+    const sub = rule('.ws-nav-subitem[aria-current="page"]');
+    expect(sub).toMatch(/background:\s*var\(--ws-surface-100\)/);
+    expect(sub).toMatch(/color:\s*var\(--ws-brand\)/);
+  });
+
+  it("CMP-69 AC4 / UX-09 item 11: the count is a plain ink-muted number without a pill, never amber", () => {
     const badge = rule(".ws-nav-badge");
-    expect(badge).toMatch(/background:\s*var\(--ws-brand-2\)/);
-    expect(badge).toMatch(/color:\s*var\(--ws-on-brand\)/);
+    expect(badge).toMatch(/color:\s*var\(--ws-ink-muted\)/);
+    expect(badge).not.toMatch(/background/);
+    expect(badge).not.toMatch(/radius/);
     expect(css).not.toMatch(/accent/);
+  });
+
+  it("CMP-69 (canvas P0): white sidebar, 44 px L1 items with a 4 px radius", () => {
+    expect(rule(".ws-nav-sidebar")).toMatch(/background:\s*var\(--ws-surface-200\)/);
+    const item = rule(".ws-nav-item");
+    expect(item).toMatch(/min-height:\s*var\(--ws-touch-target\)/);
+    expect(item).toMatch(/border-radius:\s*var\(--ws-radius-sm\)/);
   });
 
   it("CMP-69 / UX-09 items 4, 16: sidebar 212 px, collapsed rail 64 px, from the layout tokens", () => {

@@ -149,8 +149,8 @@ a {
 .ws-skeleton {
   display: block;
   height: var(--ws-space-4);
-  border-radius: var(--ws-radius-sm);
-  background: var(--ws-surface-300);
+  border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);
+  background: var(--ws-skeleton);
   animation: ws-pulse var(--ws-duration-skeleton) var(--ws-easing-in-out) infinite;
 }
 

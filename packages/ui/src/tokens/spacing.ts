@@ -18,6 +18,8 @@ export const radii = {
   "radius-sm": 4,
   "radius-md": 8,
   "radius-lg": 14,
+  /** Dialogs and the sign-in card (canvas P0). */
+  "radius-xl": 16,
   "radius-pill": 999,
 } as const;
 

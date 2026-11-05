@@ -6,7 +6,7 @@
  * attribute on any element scopes a theme to that subtree (used by the gallery).
  */
 import { CHART_FILL_STEPS, colors, COLOR_TOKEN_NAMES, type ThemeName } from "./color.ts";
-import { layers, shadows } from "./elevation.ts";
+import { layers, SCRIM_BLUR, shadows } from "./elevation.ts";
 import { breakpoints, layout, widthClasses, type WidthClass } from "./layout.ts";
 import { easings, motion } from "./motion.ts";
 import { radii, space } from "./spacing.ts";
@@ -26,7 +26,7 @@ function themeDeclarations(theme: ThemeName): string[] {
   CHART_FILL_STEPS.forEach((token, i) => lines.push(decl(`chart-${i + 1}`, cssVar(token))));
   lines.push(
     decl(
-      "chart-other",
+      "chart-other-hatch",
       `repeating-linear-gradient(45deg, ${cssVar("ink-muted")} 0 3px, ${cssVar("surface-200")} 3px 6px)`,
     ),
   );
@@ -110,6 +110,7 @@ export function buildTokensCss(): string {
     ...Object.entries(easings).map(([n, v]) => decl(n, v)),
     ...Object.entries(layout).map(([n, v]) => decl(n, `${v}px`)),
     decl("chart-area-opacity", 0.14),
+    decl("scrim-blur", `${SCRIM_BLUR}px`),
     ...widthDeclarations("narrow"),
   ];
 

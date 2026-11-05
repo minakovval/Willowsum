@@ -56,6 +56,65 @@ describe("exact DS values", () => {
     expect(colors.overlay).toMatchObject({ light: "rgba(11, 37, 69, 0.45)", dark: "rgba(0, 0, 0, 0.6)" });
   });
 
+  it("DS-06 / DS-07 chart scheme is kept exactly (owner, 2026-11-05)", () => {
+    expect(
+      (
+        [
+          "chart-cat-1",
+          "chart-cat-2",
+          "chart-cat-3",
+          "chart-cat-4",
+          "chart-cat-5",
+          "chart-cat-6",
+          "chart-cat-7",
+          "chart-cat-8",
+        ] as const
+      ).map((n) => colors[n].light),
+    ).toEqual(["#5872D2", "#0E9161", "#9C7305", "#097FCD", "#C35047", "#9B5BB6", "#0F899B", "#678800"]);
+    expect(colors["chart-group-income-1"].light).toBe("#BA4E84");
+    expect(colors["chart-group-income-2"].light).toBe("#BE590F");
+    expect(colors["chart-transfer"].light).toBe("#9DB2C8");
+    expect(colors["chart-other"].light).toBe("#9AA3AF");
+    expect(colors["chart-reference"]).toMatchObject({
+      light: "rgba(27, 34, 48, 0.6)",
+      dark: "rgba(246, 241, 232, 0.6)",
+    });
+    expect(
+      (["usage-0", "usage-30", "usage-55", "usage-75", "usage-95"] as const).map((n) => colors[n].light),
+    ).toEqual(["#0E7A3B", "#34A853", "#7CC242", "#C9C21A", "#FBBC05"]);
+    expect(
+      (["over-1", "over-2", "over-3", "over-4", "over-5", "over-6", "over-7", "over-8"] as const).map(
+        (n) => colors[n].light,
+      ),
+    ).toEqual(["#E3A39B", "#DE7A6F", "#E5584A", "#F2281A", "#D21C10", "#B5180C", "#94130A", "#7A0F08"]);
+  });
+
+  it("canvas P0 tokens (owner decision 2026-11-05): tints, goals, scrim, shadows", () => {
+    expect(colors["surface-inset"]).toMatchObject({ light: "#FAFAF8", dark: "#0F2B50" });
+    expect(colors["tint-info"]).toMatchObject({ light: "#EEF2F7", dark: "#1B3F6E" });
+    expect(colors["tint-warning"]).toMatchObject({ light: "#FBF3E8", dark: "#3A3122" });
+    expect(colors["on-warning"]).toMatchObject({ light: "#7A4505", dark: "#F2C27A" });
+    expect(colors["tint-positive"]).toMatchObject({ light: "#E9F3EE", dark: "#173F36" });
+    expect(colors["tint-negative"]).toMatchObject({ light: "#F8ECEC", dark: "#4A2532" });
+    expect(colors.skeleton).toMatchObject({ light: "#ECEEF1", dark: "#1B3F6E" });
+    expect(
+      (["goal-0", "goal-25", "goal-55", "goal-80", "goal-100", "goal-paused"] as const).map(
+        (n) => colors[n].light,
+      ),
+    ).toEqual(["#FFD000", "#E6CF1A", "#9ACD32", "#4CAF50", "#2E7D32", "#C5CAD1"]);
+    expect(colors.scrim).toMatchObject({ light: "rgba(11, 37, 69, 0.36)", dark: "rgba(0, 0, 0, 0.55)" });
+    expect(shadows["shadow-popover"].light).toBe("0 8px 24px rgba(11, 37, 69, 0.16)");
+    expect(shadows["shadow-dialog"].light).toBe(
+      "0 2px 4px rgba(11, 37, 69, 0.06), 0 24px 48px rgba(11, 37, 69, 0.20)",
+    );
+    const css = buildTokensCss();
+    expect(css).toContain("--ws-chart-1: var(--ws-brand);");
+    expect(css).toContain("--ws-chart-4: var(--ws-border-control);");
+    expect(css).toContain("--ws-chart-other-hatch: repeating-linear-gradient(");
+    expect(css).toContain("--ws-scrim-blur: 2px;");
+    expect(css).toContain("--ws-radius-xl: 16px;");
+  });
+
   it("emits every colour token for both themes in the CSS", () => {
     const css = buildTokensCss();
     for (const [name, t] of Object.entries(colors)) {
@@ -88,6 +147,7 @@ describe("exact DS values", () => {
       "radius-sm": 4,
       "radius-md": 8,
       "radius-lg": 14,
+      "radius-xl": 16,
       "radius-pill": 999,
     });
     expect(layers["layer-nav"]).toBe(40);

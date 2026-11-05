@@ -3,11 +3,11 @@ import { Car, HeartPulse, House, Plane, Shield, UserRound } from "lucide";
 import { Icon, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, IconSvg } from "./Icon.tsx";
 
 describe("icon set (DS-12)", () => {
-  it.each(ICON_NAMES)("%s: 24 px grid, 1.5 px round stroke, outline, currentColor", (name) => {
+  it.each(ICON_NAMES)("%s: 24 px grid, 1.8 px round stroke, outline, currentColor", (name) => {
     const { container } = render(<IconSvg name={name} px={24} />);
     const svg = container.querySelector("svg")!;
     expect(svg.getAttribute("viewBox")).toBe("0 0 24 24");
-    expect(svg.getAttribute("stroke-width")).toBe("1.5");
+    expect(svg.getAttribute("stroke-width")).toBe("1.8");
     expect(svg.getAttribute("stroke-linecap")).toBe("round");
     expect(svg.getAttribute("stroke-linejoin")).toBe("round");
     expect(svg.getAttribute("fill")).toBe("none");
@@ -19,10 +19,10 @@ describe("icon set (DS-12)", () => {
     }
   });
 
-  it("keeps a 1.5 px line at every size (absolute stroke)", () => {
+  it("keeps a 1.8 px line at every size (absolute stroke)", () => {
     for (const px of [16, 20, 24, 32, 40]) {
       const svg = render(<IconSvg name="home" px={px} />).container.querySelector("svg")!;
-      expect(Number(svg.getAttribute("stroke-width")) * (px / 24)).toBeCloseTo(1.5, 2);
+      expect(Number(svg.getAttribute("stroke-width")) * (px / 24)).toBeCloseTo(1.8, 2);
     }
     const thin = render(<IconSvg name="property" px={96} stroke={1.1} absoluteStroke={false} />);
     expect(thin.container.querySelector("svg")!.getAttribute("stroke-width")).toBe("1.1");

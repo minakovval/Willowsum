@@ -68,8 +68,9 @@ export const layout = {
 
 export const iconSizes = [16, 20, 24, 32, 40] as const;
 export type IconSize = (typeof iconSizes)[number];
-/** DS-12 item 2. */
-export const ICON_STROKE = 1.5;
+/** DS-12 item 2: 1.8 px stroke (canvas P0); «+» and «✓» inside buttons use 2 px. */
+export const ICON_STROKE = 1.8;
+export const ICON_STROKE_BUTTON = 2;
 
 /** Media query strings for matchMedia; CSS cannot read custom properties inside @media. */
 export const mediaQueries = {
