@@ -73,7 +73,7 @@ A folder must carry the field when at least half of its files have it; a single 
 
 ## Acceptance criteria
 
-686 files (requirement and slice files) have a «Критерії приймання» section with 6123 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
+686 files (requirement and slice files) have a «Критерії приймання» section with 6126 numbered criteria, all checked for the Given/When/Then form and continuous numbering. Files without the section (criteria tables or narrative only): `jrn/` 2, `scr/` 1.
 
 ## Fact registry
 
@@ -95,7 +95,7 @@ Facts and patterns: `tools/req-check/facts.json`. "Mentions" counts every value 
 | Signed file URL lifetime (15 min; 2 min for a scoped member) (`signed-url`) | 15 min / 2 min | 32 | 0 | 15 min ×21, 2 min ×11 |
 | Login / 2FA lockout threshold (failed attempts) (`lockout-attempts`) | 5 attempts | 38 | 0 | 5 attempts ×38 |
 | Login lockout counting window (`lockout-window`) | 15 min | 18 | 0 | 15 min ×18 |
-| Login / 2FA lockout duration (`lockout-duration`) | 15 min | 48 | 0 | 15 min ×48 |
+| Login / 2FA lockout duration (`lockout-duration`) | 15 min | 47 | 0 | 15 min ×47 |
 | Transfer pairing window between own accounts (`transfer-window`) | 3 d | 13 | 0 | 3 d ×13 |
 | Possible-duplicate / matching date window (±N days) (`date-match-window`) | 3 d | 75 | 0 | 3 d ×75 |
 | Import technical ceiling: file size (`ceiling-file-size`) | 25 MB | 6 | 0 | 25 MB ×6 |
