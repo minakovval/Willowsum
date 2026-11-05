@@ -10,7 +10,10 @@ export const motion = {
   "duration-spinner": 800,
   "duration-spinner-reduced": 2400,
   "duration-skeleton": 1600,
-  "duration-toast": 6000,
+  /** CMP-20: a success or info toast closes itself after 8 s… */
+  "duration-toast": 8000,
+  /** …and after 10 s when it has the «Відмінити» (undo) action. */
+  "duration-toast-undo": 10000,
   "duration-reveal-hold": 350,
   "duration-reveal-visible": 3000,
   /** With reduced motion: «не більше 0,01 мс». */

@@ -163,6 +163,14 @@ describe("exact DS values", () => {
     expect(buildTokensCss()).toContain("@media (prefers-reduced-motion: reduce)");
   });
 
+  it("CMP-20 toast: closes after 8 s, or 10 s with the «Відмінити» action", () => {
+    expect(motion["duration-toast"]).toBe(8000);
+    expect(motion["duration-toast-undo"]).toBe(10000);
+    const css = buildTokensCss();
+    expect(css).toContain("--ws-duration-toast: 8000ms;");
+    expect(css).toContain("--ws-duration-toast-undo: 10000ms;");
+  });
+
   it("DS-10 width classes and navigation forms", () => {
     expect(widthClassOf(359)).toBe("narrow");
     expect(widthClassOf(599)).toBe("narrow");
