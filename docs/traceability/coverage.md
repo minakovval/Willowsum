@@ -10,9 +10,29 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 None.
 
-### Migrated slices without design (56)
+### Migrated slices without design (94)
 
+- ARC-01@PoC
+- ARC-02@PoC
+- ARC-03@PoC
+- ARC-04@PoC
+- ARC-05@PoC
+- ARC-06@PoC
+- ARC-07@PoC
+- ARC-08@PoC
+- ARC-09@PoC
+- ARC-10@PoC
+- ARC-11@PoC
 - CHT-00@PoC
+- CICD-01@PoC
+- CICD-02@PoC
+- CICD-03@PoC
+- CICD-04@PoC
+- CICD-05@PoC
+- CICD-06@PoC
+- CICD-07@PoC
+- CICD-08@PoC
+- CICD-12@PoC
 - CMP-01@PoC
 - CMP-02@PoC
 - CMP-03@PoC
@@ -66,36 +86,55 @@ None.
 - DS-17@PoC
 - DS-22@PoC
 - GRID-00@PoC
+- NFR-01@PoC
+- NFR-02@PoC
+- NFR-03@PoC
+- NFR-04@PoC
+- NFR-05@PoC
+- NFR-06@PoC
+- NFR-07@PoC
+- NFR-08@PoC
+- NFR-09@PoC
+- NFR-10@PoC
+- NFR-11@PoC
+- NFR-12@PoC
+- NFR-14@PoC
+- NFR-15@PoC
+- NFR-16@PoC
+- NFR-17@PoC
+- NFR-18@PoC
+- NFR-19@PoC
 - PRC-01@PoC
 - PRC-02@PoC
 
-### Slices without acceptance criteria (23)
+### Slices without acceptance criteria (24)
 
-- ARC-01@PoC (не мігровано)
-- ARC-02@PoC (не мігровано)
-- ARC-03@PoC (не мігровано)
-- ARC-04@PoC (не мігровано)
-- ARC-05@PoC (не мігровано)
-- ARC-06@PoC (не мігровано)
-- ARC-07@PoC (не мігровано)
-- ARC-08@PoC (не мігровано)
-- ARC-09@PoC (не мігровано)
-- ARC-11@PoC (не мігровано)
-- CICD-01@PoC (не мігровано)
-- CICD-02@PoC (не мігровано)
-- CICD-03@PoC (не мігровано)
-- CICD-04@PoC (не мігровано)
-- CICD-05@PoC (не мігровано)
-- CICD-06@PoC (не мігровано)
-- CICD-07@PoC (не мігровано)
-- CICD-08@PoC (не мігровано)
-- CICD-12@PoC (не мігровано)
+- ARC-01@PoC
+- ARC-02@PoC
+- ARC-03@PoC
+- ARC-04@PoC
+- ARC-05@PoC
+- ARC-06@PoC
+- ARC-07@PoC
+- ARC-08@PoC
+- ARC-09@PoC
+- ARC-10@PoC
+- ARC-11@PoC
+- CICD-01@PoC
+- CICD-02@PoC
+- CICD-03@PoC
+- CICD-04@PoC
+- CICD-05@PoC
+- CICD-06@PoC
+- CICD-07@PoC
+- CICD-08@PoC
+- CICD-12@PoC
 - JRN-05@PoC (не мігровано)
 - JRN-06@PoC (не мігровано)
-- NFR-18@PoC (не мігровано)
-- NFR-19@PoC (не мігровано)
+- NFR-09@PoC
+- NFR-19@PoC
 
-Not migrated in PoC: 57 slices without design links (links are unknown until migration).
+Not migrated in PoC: 22 slices without design links (links are unknown until migration).
 
 ## PoC v2
 
@@ -103,15 +142,20 @@ Not migrated in PoC: 57 slices without design links (links are unknown until mig
 
 None.
 
-### Migrated slices without design (3)
+### Migrated slices without design (6)
 
+- ARC-01@PoC v2
 - CMP-24@PoC v2
 - CMP-69@PoC v2
 - DS-03@PoC v2
+- NFR-01@PoC v2
+- NFR-19@PoC v2
 
-### Slices without acceptance criteria (1)
+### Slices without acceptance criteria (3)
 
+- ARC-01@PoC v2
 - JRN-06@PoC v2 (не мігровано)
+- NFR-19@PoC v2
 
 Not migrated in PoC v2: 9 slices without design links (links are unknown until migration).
 
@@ -237,9 +281,15 @@ Not migrated in PoC v2: 9 slices without design links (links are unknown until m
 | S-291 | Джерела цін і курсів (список джерел, ліцензійний дозвіл, увімкнення і вимкнення з підтверд… | INV-02, SCR-01 | migration |
 | S-293 | Типи активів (схеми типів і полів, чернетка, публікація з підтвердженням другим Super admi… | AST-01, SCR-01 | migration |
 
-### Migrated slices without design (79)
+### Migrated slices without design (101)
 
+- ARC-01@MVP
+- ARC-10@MVP
 - CHT-00@MVP
+- CICD-02@MVP
+- CICD-05@MVP
+- CICD-09@MVP
+- CICD-11@MVP
 - CMP-01@MVP
 - CMP-02@MVP
 - CMP-03@MVP
@@ -318,22 +368,41 @@ Not migrated in PoC v2: 9 slices without design links (links are unknown until m
 - DS-21@MVP
 - DS-22@MVP
 - GRID-00@MVP
+- NFR-01@MVP
+- NFR-02@MVP
+- NFR-03@MVP
+- NFR-04@MVP
+- NFR-06@MVP
+- NFR-07@MVP
+- NFR-08@MVP
+- NFR-09@MVP
+- NFR-11@MVP
+- NFR-12@MVP
+- NFR-14@MVP
+- NFR-15@MVP
+- NFR-16@MVP
+- NFR-17@MVP
+- NFR-18@MVP
+- NFR-19@MVP
 
-### Slices without acceptance criteria (11)
+### Slices without acceptance criteria (14)
 
-- ARC-10@MVP (не мігровано)
-- CICD-09@MVP (не мігровано)
-- CICD-11@MVP (не мігровано)
+- ARC-01@MVP
+- ARC-10@MVP
+- CICD-02@MVP
+- CICD-05@MVP
+- CICD-09@MVP
+- CICD-11@MVP
 - JRN-01@MVP (не мігровано)
 - JRN-02@MVP (не мігровано)
 - JRN-03@MVP (не мігровано)
 - JRN-05@MVP (не мігровано)
 - JRN-06@MVP (не мігровано)
 - JRN-07@MVP (не мігровано)
-- NFR-18@MVP (не мігровано)
-- NFR-19@MVP (не мігровано)
+- NFR-18@MVP
+- NFR-19@MVP
 
-Not migrated in MVP: 154 slices without design links (links are unknown until migration).
+Not migrated in MVP: 142 slices without design links (links are unknown until migration).
 
 ## v1-mobile
 
@@ -346,18 +415,25 @@ Not migrated in MVP: 154 slices without design links (links are unknown until mi
 | S-282 | Швидка інвентаризація активів камерою | AST-16, FLW-08 | migration |
 | S-283 | Офлайн-пакет подорожі і Сейф без мережі | VLT-05, VLT-08, VLT-09, FLW-52, FLW-54, FLW-55 | migration |
 
-### Migrated slices without design (3)
+### Migrated slices without design (10)
 
+- CICD-10@v1-mobile
 - DS-10@v1-mobile
 - DS-11@v1-mobile
 - DS-18@v1-mobile
+- NFR-01@v1-mobile
+- NFR-04@v1-mobile
+- NFR-07@v1-mobile
+- NFR-08@v1-mobile
+- NFR-11@v1-mobile
+- NFR-13@v1-mobile
 
 ### Slices without acceptance criteria (2)
 
-- CICD-10@v1-mobile (не мігровано)
+- CICD-10@v1-mobile
 - JRN-07@v1-mobile (не мігровано)
 
-Not migrated in v1-mobile: 9 slices without design links (links are unknown until migration).
+Not migrated in v1-mobile: 7 slices without design links (links are unknown until migration).
 
 ## v1
 
@@ -381,8 +457,9 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 | S-274 | Back office: пошук і картка користувача (trial, купон, план) | SUB-05 | migration |
 | S-275 | Довідники (типи активів, стилі, установи, категорії документів) | SUB-05 | migration |
 
-### Migrated slices without design (7)
+### Migrated slices without design (9)
 
+- ARC-01@v1
 - CMP-38@v1
 - CMP-39@v1
 - CMP-40@v1
@@ -390,9 +467,11 @@ Not migrated in v1-mobile: 9 slices without design links (links are unknown unti
 - CMP-43@v1
 - CMP-51@v1
 - CMP-70@v1
+- NFR-17@v1
 
-### Slices without acceptance criteria (2)
+### Slices without acceptance criteria (3)
 
+- ARC-01@v1
 - JRN-02@v1 (не мігровано)
 - JRN-06@v1 (не мігровано)
 
@@ -439,13 +518,15 @@ Not migrated in v1: 38 slices without design links (links are unknown until migr
 | S-277 | Подарунки і спеціальні програми | SUB-08 | migration |
 | S-278 | Контент навчання (гайди, відео, глосарій, події) | UX-07 | migration |
 
-### Migrated slices without design (2)
+### Migrated slices without design (3)
 
+- ARC-01@v2
 - FIN-15@v2
 - FIN-19@v2
 
-### Slices without acceptance criteria (2)
+### Slices without acceptance criteria (3)
 
+- ARC-01@v2
 - JRN-03@v2 (не мігровано)
 - JRN-04@v2 (не мігровано)
 

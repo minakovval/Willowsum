@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Зрізи: FIN-18@MVP, FIN-18@v1-mobile, FIN-18@v1
-- Модуль: bank-consents, bank-monobank, bank-saltedge, bank-sync, transactions, usage-limits
+- Модуль: bank-consents, bank-enablebanking, bank-monobank, bank-saltedge, bank-sync, transactions, usage-limits
 
 **Мета.** Як користувач, чиї банки й гаманці підтримуються різними провайдерами, я хочу підключати їх через найнадійніше джерело і міняти провайдера без втрати історії, щоб усі мої гроші були в одному місці.
 

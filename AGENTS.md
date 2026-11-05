@@ -54,7 +54,7 @@ Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent a
 
 ## Module map
 
-The full module catalogue (78 modules, what each one owns) and the modularity rules are in
+The full module catalogue (79 modules, what each one owns) and the modularity rules are in
 `docs/requirements/arc/ARC-01.md`; the ledger rules are in `docs/requirements/arc/ARC-11.md`.
 Modules are small: one business capability each. Every asset type and every bank provider is its own
 module behind a common interface. Transactions, recognition (merchants, categorization, duplicates,
@@ -66,7 +66,7 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | Shared | `parties`, `saved-views`, `bulk-actions` |
 | Assets | `asset-registry`, `locations`, `asset-media`, `asset-property`, `asset-art`, `asset-wine`, `asset-collectables`, `asset-jewellery`, `asset-vehicles`, `asset-belongings`, `asset-business`, `asset-other`, `liabilities`, `insurance` |
 | Valuation | `valuation`, `auto-valuation`, `market-data`, `fx-rates`, `net-worth` |
-| Money | `accounts`, `transactions`, `ledger`, `merchants`, `categorization`, `duplicate-matching`, `transfer-matching`, `bank-consents`, `bank-sync`, `bank-monobank`, `bank-saltedge`, `recurring`, `holdings`, `cost-basis`, `broker-events`, `crypto` |
+| Money | `accounts`, `transactions`, `ledger`, `merchants`, `categorization`, `duplicate-matching`, `transfer-matching`, `bank-consents`, `bank-sync`, `bank-monobank`, `bank-enablebanking`, `bank-saltedge`, `recurring`, `holdings`, `cost-basis`, `broker-events`, `crypto` |
 | Import | `import-sessions`, `import-recipes`, `file-parsers`, `ocr`, `receipts` |
 | Budget | `categories`, `budget`, `goals`, `cashflow`, `debt-payoff` |
 | Documents | `documents`, `file-storage`, `vault-items`, `vault-sharing`, `vault-emergency-access` |
@@ -82,7 +82,7 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | LEG | `legal-consents` |
 | AST | `parties`, `asset-registry`, `locations`, `asset-media`, `asset-property`, `asset-art`, `asset-wine`, `asset-collectables`, `asset-jewellery`, `asset-vehicles`, `asset-belongings`, `asset-business`, `asset-other`, `liabilities` |
 | VAL | `locations`, `valuation`, `auto-valuation`, `market-data`, `fx-rates`, `net-worth` |
-| FIN | `liabilities`, `accounts`, `transactions`, `ledger`, `duplicate-matching`, `transfer-matching`, `bank-consents`, `bank-sync`, `bank-monobank`, `bank-saltedge`, `recurring` |
+| FIN | `liabilities`, `accounts`, `transactions`, `ledger`, `duplicate-matching`, `transfer-matching`, `bank-consents`, `bank-sync`, `bank-monobank`, `bank-enablebanking`, `bank-saltedge`, `recurring` |
 | INS | `insurance` |
 | INV | `market-data`, `holdings`, `cost-basis`, `broker-events` |
 | BUD | `transactions`, `merchants`, `categorization`, `recurring`, `receipts`, `categories`, `budget`, `goals`, `cashflow`, `debt-payoff` |

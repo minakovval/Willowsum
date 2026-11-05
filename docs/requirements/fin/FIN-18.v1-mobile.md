@@ -8,7 +8,7 @@
 - Дизайн: S-063
 - Спільні правила: П-8, П-12, П-18, П-20, П-22, П-23, NFR-13
 - Сценарії: UC-FIN-26, UC-FIN-27, UC-FIN-28, UC-FIN-29, UC-FIN-30, UC-FIN-31, UC-FIN-32
-- Модуль: bank-sync, bank-consents, bank-monobank, bank-saltedge, transactions
+- Модуль: bank-sync, bank-consents, bank-monobank, bank-enablebanking, bank-saltedge, transactions
 - Перевіряється: —
 
 **Мета.** Як користувач, чиї банки й гаманці підтримуються різними провайдерами, я хочу підключати їх через найнадійніше джерело і міняти провайдера без втрати історії, щоб усі мої гроші були в одному місці.
