@@ -15,7 +15,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 - «Фокус-кільце» — суцільна лінія 3 px кольору `focus` 1D4E89 / E3A33B з відступом 2 px від краю; воно ніколи не прибирається.
 - «Режим "Приховати суми"» — глобальний перемикач: замість кожної суми показано «•••», відсотки лишаються видимими, осі графіків із сумами приховано, маркери мапи мають однаковий розмір.
 - «Зменшений рух» — системне налаштування користувача; тоді анімації вимикаються або замінюються миттєвою зміною.
-- Тексти інтерфейсу в прикладах — українською; суми — в EUR або UAH у форматі «€ 128 450,00» (пробіл між тисячами, кома перед копійками, валюта перед числом).
+- Тексти інтерфейсу в прикладах — українською; суми — в EUR або UAH у форматі uk-UA «128 450,00 €» (нерозривний пробіл між тисячами, кома перед копійками, символ валюти після числа — DS-04).
 
 **Вимоги вкладки:** CMP-01 Button, CMP-02 Field, CMP-03 Select, CMP-04 Checkbox, CMP-05 Switch, CMP-06 Dropzone, CMP-07 Amount, CMP-08 Delta, CMP-09 GoalProgress, CMP-10 PageHeader, CMP-11 Tabs, CMP-12 Segmented, CMP-13 Pagination, CMP-14 Stepper, CMP-15 Checklist, CMP-16 CommandPalette, CMP-17 Tree, CMP-18 Badge, CMP-19 Banner, CMP-20 Toast, CMP-21 Dialog, CMP-22 Skeleton, CMP-23 EmptyState, CMP-24 ErrorState, CMP-25 Tooltip, CMP-26 Table, CMP-27 ListRow, CMP-28 TransactionRow, CMP-29 NotificationItem, CMP-30 Avatar, CMP-31 Timeline, CMP-32 FilterBar, CMP-33 Icon, CMP-34 AssetPlaceholder, CMP-35 AssetMap, CMP-36 AssetGallery, CMP-37 PhotoGallery, CMP-38 AssetMapWidget, CMP-39 AssetGalleryWidget, CMP-40 SummaryWidget, CMP-41 AssetTypeWidget, CMP-42 LineChart, CMP-43 SmallMultiples, CMP-44 Sparkline, CMP-45 Treemap, CMP-46 InvestmentChart, CMP-47 BarChart, CMP-48 DonutChart, CMP-49 RingProgress, CMP-50 Waterfall, CMP-51 Heatmap, CMP-52 AllocationBar, CMP-53 Card, CMP-54 Widget, CMP-55 BudgetRow, CMP-56 ConnectionCard, CMP-57 PlanCard, CMP-58 ViewSwitch, CMP-59 IconButton, CMP-60 Toolbar, CMP-61 Menu, CMP-62 SortMenu, CMP-63 ColumnPicker, CMP-64 Chip, CMP-65 PillTabs, CMP-66 GroupHeader, CMP-67 FolderCard, CMP-68 MiniMap, CMP-69 AppNavigation, CMP-70 KpiTile, CMP-71 BrandMark, CMP-72 PeriodPicker.
 
@@ -31,7 +31,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-04](CMP-04.md) | Checkbox — Прапорець | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини) | M |
 | [CMP-05](CMP-05.md) | Switch — Перемикач | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, сенсорні екрани, режим «Приховати суми») | M |
 | [CMP-06](CMP-06.md) | Dropzone — Зона завантаження файлів | MVP; v1 (стан недоступності за планом) | M |
-| [CMP-07](CMP-07.md) | Amount — Сума | PoC (десктоп від 1280 px, світла тема); MVP (сенсорні екрани, режим «Приховати суми») | M |
+| [CMP-07](CMP-07.md) | Amount — Сума | PoC (десктоп від 1280 px, світла тема, одиниці скорочення українською); MVP (сенсорні екрани, режим «Приховати суми», одиниці скорочення за мовою інтерфейсу) | M |
 | [CMP-08](CMP-08.md) | Delta — Зміна | PoC (десктоп від 1280 px, світла тема); MVP (темна тема, режим «Приховати суми») | M |
 | [CMP-09](CMP-09.md) | GoalProgress — Прогрес цілі | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, сенсорні екрани, темна тема, режим «Приховати суми») | M |
 | [CMP-10](CMP-10.md) | PageHeader — Заголовок сторінки | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини) | M |
@@ -50,7 +50,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-23](CMP-23.md) | EmptyState — Порожній стан | PoC (десктоп від 1280 px; без різновиду з прикладом); MVP (ролі й учасники простору; різновид із прикладом для сторінки «Активи», вузькі ширини); v1 (дія, недоступна за лімітом плану) | M |
 | [CMP-24](CMP-24.md) | ErrorState — Стан помилки | PoC (без «Довідка і підтримка»; десктоп від 1280 px); PoC v2 (кнопка «Довідка і підтримка» з кодом запиту); MVP (вузькі ширини) | M |
 | [CMP-25](CMP-25.md) | Tooltip — Підказка | PoC (десктоп від 1280 px, світла тема); MVP (сенсорні екрани, темна тема, режим «Приховати суми») | M |
-| [CMP-26](CMP-26.md) | Table — Таблиця | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
+| [CMP-26](CMP-26.md) | Table — Таблиця | PoC (десктоп від 1280 px, світла тема; один вигляд — таблиця); PoC v2 (вигляд карток поруч із таблицею, вибір вигляду для кожного списку); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-27](CMP-27.md) | ListRow — Рядок списку | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-28](CMP-28.md) | TransactionRow — Рядок транзакції | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-29](CMP-29.md) | NotificationItem — Сповіщення в центрі сповіщень | MVP; v1-mobile (push-сповіщення на заблокованому екрані) | M |
@@ -82,9 +82,9 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-55](CMP-55.md) | BudgetRow — Рядок бюджету | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, темна тема, режим «Приховати суми») | M |
 | [CMP-56](CMP-56.md) | ConnectionCard — Картка підключення | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-57](CMP-57.md) | PlanCard — Картка плану | MVP | M |
-| [CMP-58](CMP-58.md) | ViewSwitch — Перемикач вигляду | MVP | M |
+| [CMP-58](CMP-58.md) | ViewSwitch — Перемикач вигляду | PoC v2 (кнопка вигляду графіка з меню виглядів і перемикач «Картки / Таблиця» у списках; десктоп від 1280 px, світла тема); MVP (повний обсяг: віджети Головної, сенсорні екрани, вузькі ширини, темна тема, режим «Приховати суми») | M |
 | [CMP-59](CMP-59.md) | IconButton — Кнопка-іконка | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
-| [CMP-60](CMP-60.md) | Toolbar — Панель інструментів списку | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини) | M |
+| [CMP-60](CMP-60.md) | Toolbar — Панель інструментів списку | PoC (десктоп від 1280 px, світла тема; без перемикача вигляду); PoC v2 (перемикач «Картки / Таблиця» в панелі); MVP (вузькі й середні ширини) | M |
 | [CMP-61](CMP-61.md) | Menu — Меню і спливна панель | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, сенсорні екрани, темна тема) | M |
 | [CMP-62](CMP-62.md) | SortMenu — Меню сортування | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-63](CMP-63.md) | ColumnPicker — Вибір колонок | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, темна тема) | M |

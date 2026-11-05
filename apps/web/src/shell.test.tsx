@@ -323,6 +323,16 @@ describe("CMP-71@PoC brand mark link", () => {
   });
 });
 
+describe("UX-09@PoC no «Приховати суми»", () => {
+  it("has no «Приховати суми» action in the PoC shell (UX-09@PoC), even when the gallery stored the mode", () => {
+    localStorage.setItem("ws-hide-amounts", "1");
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "Приховати суми" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Приховати суми" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Загальні дії" })).toBeNull();
+  });
+});
+
 describe("GRID-00@PoC shell", () => {
   it("GRID-00 AC2: at 1280 px the navigation is the 212 px sidebar", () => {
     const { container } = render(<App />);

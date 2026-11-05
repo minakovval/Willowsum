@@ -6,7 +6,7 @@ import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
-import { canonicalPath, resolveRoute } from "./routing/routes.ts";
+import { canonicalPath, resolveRoute, type Route } from "./routing/routes.ts";
 import { recordVisit, rememberPage } from "./routing/session.ts";
 import { hrefFor, useHashPath } from "./routing/useHashPath.ts";
 
@@ -35,9 +35,19 @@ function Router() {
     window.scrollTo(0, 0);
   }, [path]);
 
+  // The design-system gallery demonstrates «Приховати суми» (kept for MVP); the PoC app has no such
+  // mode (UX-09@PoC), so its pages always show amounts, whatever the gallery stored on this device.
+  if (route.kind === "gallery")
+    return (
+      <HideAmountsProvider>
+        <GalleryTokensPage />
+      </HideAmountsProvider>
+    );
+  return <HideAmountsProvider initialHidden={false}>{appPage(route)}</HideAmountsProvider>;
+}
+
+function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
-    case "gallery":
-      return <GalleryTokensPage />;
     case "page":
       return <SectionPage section={route.section} page={route.page} />;
     case "child":
@@ -55,9 +65,7 @@ export function App() {
   return (
     <I18nProvider>
       <ThemeProvider>
-        <HideAmountsProvider>
-          <Router />
-        </HideAmountsProvider>
+        <Router />
       </ThemeProvider>
     </I18nProvider>
   );
