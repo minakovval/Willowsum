@@ -56,14 +56,22 @@ describe("app shell at three widths", () => {
     expect(shell()).toBe("sidebar");
   });
 
-  it("has skip links, a focusable main area, and the «Приховати суми» action", () => {
+  it("has skip links and a focusable main area", () => {
     installMatchMedia({ width: 390 });
     render(<App />);
     expect(screen.getByRole("link", { name: "Перейти до вмісту" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Перейти до навігації" })).toBeTruthy();
     expect(screen.getByRole("main").getAttribute("tabindex")).toBe("-1");
-    expect(screen.getByRole("button", { name: "Приховати суми" }).getAttribute("aria-pressed")).toBe("false");
     expect(document.title).toBe("Willowsum · Головна");
+  });
+
+  it("has no «Приховати суми» action in the PoC shell (UX-09@PoC), even when the gallery stored the mode", () => {
+    localStorage.setItem("ws-hide-amounts", "1");
+    installMatchMedia({ width: 1280 });
+    render(<App />);
+    expect(screen.queryByRole("button", { name: "Приховати суми" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Приховати суми" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Загальні дії" })).toBeNull();
   });
 
   it("marks the current section after navigation and moves focus to main", () => {

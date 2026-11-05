@@ -18,7 +18,8 @@ are written as literals. `src/styles/tokens.css` is generated from them and comm
 | DS-12 | Partly | Icon set (77 names: 22 sections, 12 asset types, 9 money-and-cover, actions, status) based on [Lucide](https://lucide.dev) (`lucide` 1.59.0, ISC), 1.5 px absolute round stroke at every size, outline only, `currentColor`, tones, sizes, parent → child pairs composed from the parent glyph, custom `metals` glyph, RTL flip for directional icons. No photo placeholder yet |
 | DS-13 | Partly | Motion tokens; reduced motion makes transitions instant, stops the skeleton, slows the spinner to 2.4 s |
 | DS-14 | Partly | 3 px focus ring with 2 px offset, skip links, 44 px targets in the shell |
-| DS-18 | Partly | `HideAmountsProvider`, `Amount` (shows «•••», real value not in the DOM, hold 350 ms or Enter / Space shows it for 3 s), `Percent` (always visible), eye toggle with `aria-pressed`. Stored on this device only until the profile API exists (cross-device sync is still to do) |
+| DS-18 | Partly | `HideAmountsProvider`, `Amount` (shows «•••», real value not in the DOM, hold 350 ms or Enter / Space shows it for 3 s), `Percent` (always visible), eye toggle with `aria-pressed`. Stored on this device only until the profile API exists (cross-device sync is still to do). Kept for MVP: the PoC app shell does not show the toggle |
+| DS-04 / CMP-07 | Partly | `formatCompactAmount({ value, currency, locale })`: two decimals below 100, one from 100; units and layout by interface language — uk «тис., млн, млрд, трлн, квдрлн, квінтлн», «128,4 тис. €», «−1,24 млн ₴»; en «k, M, bn, tn, qd, qn», symbol first, no space, decimal point, «€128.4k», «−€128.4k»; `FitAmount` fit order. The English units are prepared for MVP: the PoC interface is Ukrainian only |
 | DS-02 | Partly | `WillowsumMark` (theme-aware fills), `Wordmark`, brand SVG files in `src/brand/assets` |
 | CMP-69 / UX-09 | Partly | `AppShell`: bottom bar < 600 px, 64 px rail 600–1279 px, 212 px sidebar ≥ 1280 px, current item, skip links. No L2 tabs, badges, «Ще» sheet, shortcuts or module hiding yet |
 
@@ -30,7 +31,7 @@ are written as literals. `src/styles/tokens.css` is generated from them and comm
   `ICON_PARENT_CHILD`, `WillowsumMark`, `Wordmark`, `ThemeProvider`, `useTheme`, `ThemeSwitch`,
   `THEME_STORAGE_KEY`, `HideAmountsProvider`, `useHideAmounts`, `Amount`, `Percent`,
   `HideAmountsToggle`, `HideAmountsSwitch`, `HIDDEN_AMOUNT`, `AppShell`, `useNavForm`, `MAIN_ID`,
-  `NAV_ID`, `useMediaQuery`.
+  `NAV_ID`, `useMediaQuery`, `FitAmount`, `formatCompactAmount`.
 - `./tokens`: tokens only (no React).
 - `./styles.css`: generated tokens + base + component + shell styles.
 - `./fonts.css`: the self-hosted Inter / Inter Tight faces.
