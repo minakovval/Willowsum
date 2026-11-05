@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Налаштування</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 900px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230; background: #FBFBFA;">
+  <div style="position:absolute;inset:0;"><dc-import name="PocShell" active="none" page="" height="900" hint-size="1280px,900px"></dc-import></div>
+  <div style="position:absolute;left:212px;top:64px;right:0;bottom:0;padding:28px 32px;display:flex;flex-direction:column;gap:16px;max-width:820px;">
+    <h1 style="margin:0;font:600 28px/34px 'Inter Tight',Inter,sans-serif;">Налаштування</h1>
+    <section style="background:#FFFFFF;border:1px solid #E5E5E2;border-radius:12px;padding:16px 24px;"><h2 style="margin:0 0 6px;font:600 16px/22px Inter,sans-serif;">Профіль</h2><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Ім'я</span><span style="flex:1;">Олена Коваленко</span><a href="#" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Змінити</a></div><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Email</span><span style="flex:1;">olena@example.com</span><a href="PocStepUp.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Змінити</a></div><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Пароль</span><span style="flex:1;">••••••••••••</span><a href="PocStepUp.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Змінити</a></div></section>
+    <section style="background:#FFFFFF;border:1px solid #E5E5E2;border-radius:12px;padding:16px 24px;"><h2 style="margin:0 0 6px;font:600 16px/22px Inter,sans-serif;">Відображення</h2><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Валюта відображення</span><span style="flex:1;">EUR — усі суми перераховуються в євро за курсами ECB і НБУ</span></div><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Мова</span><span style="flex:1;">Українська</span></div></section>
+    <section style="background:#FFFFFF;border:1px solid #E5E5E2;border-radius:12px;padding:16px 24px;"><h2 style="margin:0 0 6px;font:600 16px/22px Inter,sans-serif;">Дані</h2><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Імпорт виписок</span><span style="flex:1;">CSV, XLSX, XLS</span><a href="PocMoneyImport1.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Імпортувати</a></div><div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-top:1px solid #F1F1EF;"><span style="width:220px;color:#566174;font-size:13px;">Підключені банки</span><span style="flex:1;">monobank, Revolut, BBVA</span><a href="PocMoneyConnections.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Підключення</a></div></section>
+    <div><a href="PocSignIn.dc.html" style="box-sizing:border-box;height:40px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:8px;font:600 14px Inter,sans-serif;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid #7B8494;background:#FFFFFF;color:#1B2230;">Вийти</a></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":900}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

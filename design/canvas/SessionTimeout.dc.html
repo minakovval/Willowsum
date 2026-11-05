@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>0:59 · Сесія завершиться</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 800px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230;">
+  <div style="position: absolute; inset: 0;"><dc-import name="Shell" active="assets" height="800" hint-size="1280px,800px"></dc-import></div>
+  <main style="position: absolute; left: 212px; top: 64px; width: 1068px; box-sizing: border-box; padding: 32px; display: flex; flex-direction: column; gap: 20px;">
+    <span style="color: #566174;">Активи › Квартира на Подолі › Редагування</span>
+    <h1 style="margin: 0; font: 600 28px/34px 'Inter Tight', Inter, sans-serif;">Квартира на Подолі</h1>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 320px)); gap: 16px 24px;">
+      <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-weight: 500;">Назва</span><input type="text" value="Квартира на Подолі" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #7B8494; border-radius: 4px; font: 400 16px Inter, sans-serif;"></label>
+      <label style="display: flex; flex-direction: column; gap: 6px;"><span style="font-weight: 500;">Поточна вартість</span><input type="text" value="215 000,00 €" style="height: 44px; box-sizing: border-box; padding: 0 12px; border: 1px solid #7B8494; border-radius: 4px; font: 400 16px Inter, sans-serif; font-variant-numeric: tabular-nums;"></label>
+    </div>
+  </main>
+  <div style="position: absolute; inset: 0; background: rgba(11, 37, 69, 0.36); backdrop-filter: blur(2px);"></div>
+  <div role="alertdialog" aria-modal="true" aria-labelledby="st" aria-describedby="sd" style="position: absolute; left: 360px; top: 170px; width: 560px; box-sizing: border-box; background: #FFFFFF; border-radius: 16px; box-shadow: 0 2px 4px rgba(11,37,69,.06), 0 24px 48px rgba(11,37,69,.20); overflow: hidden;">
+    <div style="padding: 32px 32px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px;"><span style="width: 56px; height: 56px; border-radius: 16px; background: #FBF3E8; display: grid; place-items: center; color: #7A4505;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2 2"></path><path d="M5 3 2 6"></path><path d="m22 6-3-3"></path></svg></span><h2 id="st" style="margin: 4px 0 0; font: 600 22px/28px 'Inter Tight', Inter, sans-serif; letter-spacing: -0.015em;">Сесія завершиться через <span role="timer" aria-live="off" style="font-variant-numeric: tabular-nums;">0:59</span></h2><p id="sd" style="margin: 0; color: #566174; font-size: 15px; line-height: 22px; max-width: 420px;">Ви нічого не робили 14 хвилин. Якщо сесія завершиться, незбережені зміни збережемо як чернетку й відновимо після входу.</p></div>
+    <div style="display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 8px; padding: 20px 32px 28px; background: #FAFAF8; border-top: 1px solid #F1F1EF;"><button type="button" autofocus style="height: 40px; padding: 0 12px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 14px Inter, sans-serif; white-space: nowrap;">Залишитися</button></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

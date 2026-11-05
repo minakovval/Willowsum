@@ -8,3 +8,4 @@ tools
 .claude
 **/*.md
 packages/ui/src/styles/tokens.css
+design

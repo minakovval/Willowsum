@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Оболонка Willowsum</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#1D4E89}a:hover{color:#0B2545}
+</style>
+</helmet>
+<div style="width: 1280px; height: {{height}}px; display: flex; background: #FBFBFA; color: #1B2230; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px;">
+  <sc-if value="{{expanded}}" hint-placeholder-val="{{true}}">
+  <nav aria-label="Розділи" style="width: 212px; flex: none; box-sizing: border-box; border-right: 1px solid #E5E5E2; background: #FFFFFF; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px;">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 0 0 16px 8px; min-height: 36px;">
+      <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 56 V32 A24 24 0 0 1 32 8 H56 V32 A24 24 0 0 1 32 56 Z" fill="#0B2545"></path><path d="M8 56 V40 A16 16 0 0 1 24 24 H40 V40 A16 16 0 0 1 24 56 Z" fill="#1D4E89"></path><path d="M8 56 V48 A8 8 0 0 1 16 40 H24 V48 A8 8 0 0 1 16 56 Z" fill="#E3A33B"></path></svg>
+      <span style="font-family: 'Inter Tight', Inter, sans-serif; font-weight: 600; font-size: 18px; letter-spacing: -0.02em;">Willowsum</span>
+      <div style="flex: 1;"></div>
+      <button type="button" aria-label="Згорнути панель" title="Згорнути панель" style="width: 36px; height: 36px; margin-right: -6px; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #566174;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg></button>
+    </div>
+    <button type="button" style="height: 40px; margin: 0 0 12px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8; font: 600 15px Inter, sans-serif;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg>Додати</button>
+    <sc-for list="{{sections}}" as="s" hint-placeholder-count="5">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <sc-if value="{{s.on}}" hint-placeholder-val="{{false}}"><a href="{{s.href}}" aria-current="page" style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 0 10px; border-radius: 4px; text-decoration: none; font-weight: 500; background: #F1F1EF; color: #0B2545;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{s.d1}}"></path><path d="{{s.d2}}"></path><path d="{{s.d3}}"></path></svg><span>{{s.label}}</span></a></sc-if>
+        <sc-if value="{{s.off}}" hint-placeholder-val="{{true}}"><a href="{{s.href}}" style="display: flex; align-items: center; gap: 10px; min-height: 44px; box-sizing: border-box; padding: 0 10px; border-radius: 4px; text-decoration: none; font-weight: 500; color: #566174;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{s.d1}}"></path><path d="{{s.d2}}"></path><path d="{{s.d3}}"></path></svg><span>{{s.label}}</span></a></sc-if>
+        <sc-if value="{{s.open}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 2px; padding: 2px 0 8px;">
+            <sc-for list="{{s.pages}}" as="p" hint-placeholder-count="4">
+              <sc-if value="{{p.on}}" hint-placeholder-val="{{false}}"><a href="{{p.href}}" aria-current="page" style="display: flex; align-items: center; gap: 10px; min-height: 36px; box-sizing: border-box; padding: 0 10px 0 22px; border-radius: 4px; text-decoration: none; color: #0B2545; font-weight: 600; background: #F6F6F4;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none;"><path d="{{p.i1}}"></path><path d="{{p.i2}}"></path><path d="{{p.i3}}"></path></svg><span style="flex: 1;">{{p.label}}</span><span style="color: #566174; font-size: 13px;">{{p.count}}</span></a></sc-if>
+              <sc-if value="{{p.off}}" hint-placeholder-val="{{true}}"><a href="{{p.href}}" style="display: flex; align-items: center; gap: 10px; min-height: 36px; box-sizing: border-box; padding: 0 10px 0 22px; border-radius: 4px; text-decoration: none; color: #566174;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex: none;"><path d="{{p.i1}}"></path><path d="{{p.i2}}"></path><path d="{{p.i3}}"></path></svg><span style="flex: 1;">{{p.label}}</span><span style="color: #566174; font-size: 13px;">{{p.count}}</span></a></sc-if>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-for>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; flex-direction: column; gap: 4px; padding-top: 12px; border-top: 1px solid #F1F1EF;">
+      <button type="button" aria-label="Профіль і простори" style="display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: #1B2230; font: inherit; text-align: left;"><span style="width: 32px; height: 32px; flex: none; border-radius: 999px; background: #1D4E89; color: #FFFFFF; display: grid; place-items: center; font-weight: 600; font-size: 13px;">ОК</span><span style="flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 16px;"><span style="font-weight: 500;">Олена</span><span style="color: #566174; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Родина Коваленків</span></span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#566174" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"></path><path d="m7 9 5-5 5 5"></path></svg></button>
+    </div>
+  </nav>
+  </sc-if>
+  <sc-if value="{{collapsed}}" hint-placeholder-val="{{false}}">
+  <nav aria-label="Розділи" style="position: relative; width: 64px; flex: none; box-sizing: border-box; border-right: 1px solid #E5E5E2; background: #FFFFFF; padding: 16px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+    <div style="padding: 6px 0 8px;"><svg width="24" height="24" viewBox="0 0 64 64" role="img" aria-label="Willowsum"><path d="M8 56 V32 A24 24 0 0 1 32 8 H56 V32 A24 24 0 0 1 32 56 Z" fill="#0B2545"></path><path d="M8 56 V40 A16 16 0 0 1 24 24 H40 V40 A16 16 0 0 1 24 56 Z" fill="#1D4E89"></path><path d="M8 56 V48 A8 8 0 0 1 16 40 H24 V48 A8 8 0 0 1 16 56 Z" fill="#E3A33B"></path></svg></div>
+    <button type="button" aria-label="Додати" title="Додати" style="width: 40px; height: 40px; margin: 4px 0 12px; display: grid; place-items: center; border: 0; border-radius: 8px; background: #0B2545; color: #F6F1E8;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"></path><path d="M12 5v14"></path></svg></button>
+        <sc-for list="{{sections}}" as="s" hint-placeholder-count="5">
+      <sc-if value="{{s.on}}" hint-placeholder-val="{{false}}"><a href="{{s.href}}" aria-current="page" aria-label="{{s.label}}" title="{{s.label}}" style="display: grid; place-items: center; width: 44px; height: 44px; border-radius: 4px; text-decoration: none; background: #F1F1EF; color: #0B2545;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{s.d1}}"></path><path d="{{s.d2}}"></path><path d="{{s.d3}}"></path></svg></a></sc-if>
+      <sc-if value="{{s.off}}" hint-placeholder-val="{{true}}"><a href="{{s.href}}" aria-label="{{s.label}}" title="{{s.label}}" style="display: grid; place-items: center; width: 44px; height: 44px; border-radius: 4px; text-decoration: none; color: #566174;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{s.d1}}"></path><path d="{{s.d2}}"></path><path d="{{s.d3}}"></path></svg></a></sc-if>
+    </sc-for>
+    <div style="flex: 1;"></div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding-top: 12px; border-top: 1px solid #F1F1EF;">
+      <button type="button" aria-label="Профіль і простори" title="Олена · Родина Коваленків" style="width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent;"><span style="width: 32px; height: 32px; flex: none; border-radius: 999px; background: #1D4E89; color: #FFFFFF; display: grid; place-items: center; font-weight: 600; font-size: 13px;">ОК</span></button>
+    </div>
+    <sc-if value="{{showHandle}}" hint-placeholder-val="{{false}}">
+      <div aria-hidden="true" style="position: absolute; top: 0; bottom: 0; right: -2px; width: 3px; background: #1D4E89;"></div>
+      <button type="button" aria-label="Розгорнути панель" title="Розгорнути панель" style="position: absolute; top: 120px; right: -13px; width: 24px; height: 24px; padding: 0; display: grid; place-items: center; border: 1px solid #E5E5E2; border-radius: 999px; background: #FFFFFF; color: #0B2545; box-shadow: 0 1px 3px rgba(11,37,69,.16);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+    </sc-if>
+  </nav>
+  </sc-if>
+  <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column;">
+    <header style="height: 64px; flex: none; box-sizing: border-box; border-bottom: 1px solid #E5E5E2; background: #FBFBFA; padding: 0 32px; display: flex; align-items: center; gap: 12px;">
+      <button type="button" style="flex: 0 1 420px; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid #7B8494; border-radius: 4px; background: #FFFFFF; color: #566174; font: inherit; text-align: left; cursor: text;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.34-4.34"></path></svg>
+        <span style="flex: 1;">Пошук або команда</span>
+        <kbd style="font: 500 12px Inter, sans-serif; color: #566174; border: 1px solid #E5E5E2; border-radius: 4px; padding: 1px 6px;">Ctrl K</kbd>
+      </button>
+      <div style="flex: 1;"></div>
+      <button type="button" aria-label="Приховати суми" title="Приховати суми" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #566174; position: relative;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg></button>
+      <button type="button" aria-label="Сповіщення, 3 нових" title="Сповіщення" style="width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: #566174; position: relative;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><span style="position: absolute; top: 5px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 999px; background: #0B2545; color: #F6F1E8; font: 600 11px/16px Inter, sans-serif; text-align: center;">3</span></button>
+    </header>
+    <div style="flex: 1;"></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"active":{"editor":"enum","options":["home","money","assets","planning","more"],"default":"home"},"page":{"editor":"text","default":""},"height":{"editor":"int","default":800},"restricted":{"editor":"boolean","default":false},"collapsed":{"editor":"boolean","default":false},"showHandle":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":800}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const active = this.props.active ?? 'home';
+    const page = this.props.page ?? '';
+    const S = [
+      { id: 'home', label: 'Головна', d1: 'M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8', d2: 'M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', d3: '', pages: [] },
+      { id: 'money', label: 'Гроші', d1: 'M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1', d2: 'M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4', d3: '', pages: [['Транзакції','7'],['Рахунки','']] },
+      { id: 'assets', label: 'Активи', d1: 'M10.5 3 8 9l4 13 4-13-2.5-6', d2: 'M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z', d3: 'M2 9h20', pages: [['Активи',''],["Зобов'язання",''],['Портфель',''],['Локації',''],['Документи',''],['Страхування','']] },
+      { id: 'planning', label: 'Планування', d1: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', d2: 'M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12z', d3: 'M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', pages: [['Бюджет',''],['Цілі',''],['Регулярні платежі',''],['Борги',''],['Чи можу я дозволити',''],['Звіти','']] },
+      { id: 'more', label: 'Ще', d1: 'M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', d2: 'M19 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', d3: 'M5 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z', pages: [['Сповіщення',''],['Сейф',''],['Налаштування',''],['Плани і підписка',''],['Імпорт',''],['Довідка','']] }
+    ];
+    const PI = {"Пари": ["M8 3 4 7l4 4", "M4 7h16", "m16 21 4-4-4-4M20 17H4"], "Транзакції": ["m16 3 4 4-4 4", "M20 7H4", "m8 21-4-4 4-4M4 17h16"], "Рахунки": ["M3 22h18", "M6 18v-7M10 18v-7M14 18v-7M18 18v-7", "m12 2 8 5H4z"], "До розбору": ["M22 12h-6l-2 3h-4l-2-3H2", "M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z", ""], "Підключення": ["M12 22v-5", "M9 8V2M15 8V2", "M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"], "Активи": ["M10.5 3 8 9l4 13 4-13-2.5-6", "M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z", "M2 9h20"], "Зобов'язання": ["M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z", "m15 9-6 6", "M9 9h.01M15 15h.01"], "Портфель": ["M22 7 13.5 15.5 8.5 10.5 2 17", "M16 7h6v6", ""], "Локації": ["M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0", "M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", ""], "Документи": ["M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", "M14 2v4a2 2 0 0 0 2 2h4", "M10 9H8M16 13H8M16 17H8"], "Страхування": ["M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z", "m9 12 2 2 4-4", ""], "Бюджет": ["M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1", "M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4", ""], "Цілі": ["M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528", "", ""], "Борги": ["M2 5h20v14H2z", "M2 10h20"], "Регулярні платежі": ["m17 2 4 4-4 4M3 11v-1a4 4 0 0 1 4-4h14", "m7 22-4-4 4-4", "M21 13v1a4 4 0 0 1-4 4H3"], "Чи можу я дозволити": ["M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z", "M10 6h4", "M10 10h.01M14 10h.01M10 14h.01M14 14h.01M10 18h4"], "Звіти": ["M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z", "M14 2v4a2 2 0 0 0 2 2h4", "M8 18v-1M12 18v-4M16 18v-2"], "Сповіщення": ["M10.268 21a2 2 0 0 0 3.464 0", "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326", ""], "Сейф": ["M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z", "M7 11V7a5 5 0 0 1 10 0v4", ""], "Налаштування": ["M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915", "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z", ""], "Плани і підписка": ["m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z", "m2 12 8.58 3.91a2 2 0 0 0 1.66 0L21 12", "m2 17 8.58 3.91a2 2 0 0 0 1.66 0L21 17"], "Імпорт": ["M12 3v12", "m17 8-5-5-5 5", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"], "Довідка": ["M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z", "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3", "M12 17h.01"]};
+    const SH = { home: 'Main.dc.html', money: 'MoneyTx.dc.html' };
+    const PH = { 'Транзакції': 'MoneyTx.dc.html', 'Рахунки': 'MoneyAccounts.dc.html', 'До розбору': 'MoneyReview.dc.html', 'Пари': 'MoneyPairs.dc.html', 'Підключення': 'MoneyConnections.dc.html', 'Сповіщення': 'Notifications.dc.html', 'Борги': 'PlanDebts.dc.html' };
+    const restricted = this.props.restricted === true || this.props.restricted === 'true';
+    const sections = S.filter((s) => !restricted || ['home', 'assets', 'more'].includes(s.id)).map((s) => {
+      const on = s.id === active;
+      return {
+        label: s.label, href: SH[s.id] || '#', d1: s.d1, d2: s.d2, d3: s.d3, on, off: !on, open: on && s.pages.length > 0,
+        pages: s.pages.map(([label, count0], i) => { const count = (label === 'Транзакції' && this.props.reviewCount !== undefined) ? String(this.props.reviewCount) : count0; const pOn = page ? label === page : i === 0; const ic = PI[label] || ['','','']; return { label, href: PH[label] || '#', count, on: pOn, off: !pOn, i1: ic[0], i2: ic[1], i3: ic[2] }; })
+      };
+    });
+    const collapsed = this.props.collapsed === true || this.props.collapsed === 'true';
+    return { sections, height: this.props.height ?? 800, collapsed, expanded: !collapsed, showHandle: this.props.showHandle === true || this.props.showHandle === 'true' };
+  }
+}
+</script>
+</body>
+</html>
