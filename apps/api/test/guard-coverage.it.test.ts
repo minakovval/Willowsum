@@ -311,6 +311,65 @@ describe("guard coverage: privileges of the guard's functions", () => {
       mod.query("DO $$ BEGIN PERFORM platform_guard.check_module('other'); END $$"),
     ).rejects.toThrow(/check_module runs only from the isolation guard/);
   });
+
+  // Lead's code check of PR #75: a module trigger function named guard_ddl prints without its schema at
+  // runtime (the module schema is on the search_path), and the statement text of a dynamic query can carry
+  // a forged call-stack line. Neither may pass check_module's gate.
+  it.each([
+    [
+      "a module trigger function named guard_ddl",
+      `CREATE FUNCTION guard_ddl() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN
+         PERFORM platform_guard.check_module(pg_catalog.substr(current_user, 8)); RETURN NEW; END $f$;`,
+      "guard_ddl",
+    ],
+    [
+      "a forged guard_ddl() line in the statement text",
+      `CREATE FUNCTION forge() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN
+         EXECUTE E'SELECT platform_guard.check_module(''other'') /*\\nPL/pgSQL function platform_guard.guard_ddl() line 4 at PERFORM\\n*/';
+         RETURN NEW; END $f$;`,
+      "forge",
+    ],
+  ])("%s: a module's runtime role that reaches check_module through it gets 42501", async (_, fn, name) => {
+    const modulesDir = path.join(apiDir, "test/.tmp", `guardcov-${randomBytes(4).toString("hex")}`);
+    for (const m of ["guarded", "other"]) {
+      const dir = path.join(modulesDir, m, "adapters/db/migrations");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(path.join(dir, "0001_things.sql"), CREATE);
+    }
+    writeFileSync(
+      path.join(modulesDir, "guarded/adapters/db/migrations/0002_trigger.sql"),
+      `${fn}
+       CREATE TRIGGER call_guard BEFORE INSERT ON things FOR EACH ROW EXECUTE FUNCTION ${name}();`,
+    );
+    cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+    const db = await createTestDatabase();
+    const su = new pg.Client({ connectionString: db.url });
+    await su.connect();
+    cleanup.push(async () => {
+      await su.end();
+      await db.drop();
+    });
+    await migrate(su, { modules: ["guarded", "other"], modulesDir });
+    await enableModuleLogin(su, "guarded", password);
+    await enableContextLogin(su, password);
+    const databases = new ModuleDatabases({
+      connectionFor: () => ({ connectionString: urlAs(db.url, "ws_mod_guarded", password) }),
+      context: { connectionString: urlAs(db.url, CONTEXT_ROLE, password) },
+      poolSize: 1,
+    });
+    cleanup.push(() => databases.end());
+    const error = await databases
+      .for("guarded")
+      .inHousehold(householdA, (q) =>
+        q.query("INSERT INTO things (household_id, label) VALUES ($1, 'x')", [householdA]),
+      )
+      .then(
+        () => null,
+        (e: Error & { code?: string }) => e,
+      );
+    expect(error?.code).toBe("42501");
+    expect(error?.message).toMatch(/check_module runs only from the isolation guard/);
+  });
 });
 
 describe("guard coverage: guardProblems detects a weakened guard", () => {

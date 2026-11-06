@@ -130,6 +130,14 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
       "a domain CHECK with a volatile pg_catalog function",
       "CREATE DOMAIN short_text AS text CHECK (VALUE <> pg_catalog.random()::text);",
     ],
+    [
+      "extended statistics on an expression with a volatile pg_catalog function (ANALYZE computes it over every row)",
+      "CREATE STATISTICS peek ON (label || pg_catalog.random()::text), household_id FROM things;",
+    ],
+    [
+      "extended statistics on an expression with a function outside pg_catalog",
+      "CREATE STATISTICS peek ON (platform_context.current_household()), household_id FROM things;",
+    ],
     ["traditional inheritance", "CREATE TABLE base (id uuid, label text); ALTER TABLE things INHERIT base;"],
     ["renaming household_id away", `ALTER TABLE things RENAME COLUMN household_id TO owner_id; ${COPY}`],
   ])("%s: the migration fails, no row is copied, household A sees only its own rows", async (_, sql) => {
@@ -152,7 +160,7 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
     expect(seenByA).toEqual(["a1"]);
   });
 
-  it("expand steps on a customer table still work (new column, default, index, check, generated column, partitions, trigger)", async () => {
+  it("expand steps on a customer table still work (new column, default, index, check, generated column, partitions, trigger, extended statistics)", async () => {
     const { error } = await probe(
       `ALTER TABLE things ADD COLUMN note text;
        ALTER TABLE things ADD COLUMN ref uuid NOT NULL DEFAULT gen_random_uuid();
@@ -163,7 +171,8 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
        CREATE TABLE parts (id uuid NOT NULL, household_id uuid NOT NULL, label text) PARTITION BY HASH (id);
        CREATE TABLE parts_0 PARTITION OF parts FOR VALUES WITH (MODULUS 1, REMAINDER 0);
        CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
-       CREATE TRIGGER touch BEFORE INSERT ON things FOR EACH ROW EXECUTE FUNCTION touch();`,
+       CREATE TRIGGER touch BEFORE INSERT ON things FOR EACH ROW EXECUTE FUNCTION touch();
+       CREATE STATISTICS things_stats ON (lower(label)), household_id FROM things;`,
     );
     expect(error).toBe("");
   });
