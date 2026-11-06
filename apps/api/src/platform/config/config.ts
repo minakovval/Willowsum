@@ -24,6 +24,8 @@ export interface Config {
     readonly modulePasswords: ReadonlyMap<string, string>;
     /** Password of `ws_probe`, which may only read the applied-migrations list (readiness). */
     readonly probePassword: string;
+    /** Password of `ws_context`, which may only bind module connections to a household (ARC-03). */
+    readonly contextPassword: string;
   };
 }
 
@@ -61,6 +63,7 @@ export function loadConfig(
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
     WS_DB_SSL: z.enum(["true", "false"]).default("true"),
     WS_DB_PROBE_PASSWORD: secret,
+    WS_DB_CONTEXT_PASSWORD: secret,
     ...Object.fromEntries(modules.map((m) => [modulePasswordVariable(m), secret])),
   } satisfies z.ZodRawShape;
   const problems: string[] = [];
@@ -83,6 +86,7 @@ export function loadConfig(
       ssl: v["WS_DB_SSL"] === "true",
       modulePasswords: new Map(modules.map((m) => [m, v[modulePasswordVariable(m)] as string])),
       probePassword: v["WS_DB_PROBE_PASSWORD"] as string,
+      contextPassword: v["WS_DB_CONTEXT_PASSWORD"] as string,
     },
   };
 }

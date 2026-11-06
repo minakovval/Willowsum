@@ -1,0 +1,96 @@
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import type { ModuleDatabases } from "../../platform/db/module-db.ts";
+import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
+import { AUDIT_MASK, createAuditLog, type AuditLog } from "./index.ts";
+
+const householdA = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
+const householdB = "9e8d7c6b-5a49-4382-8170-6f5e4d3c2b02";
+const entity = { type: "accounts.account", id: "5c0b8a3e-1f2d-4c6b-8e9a-7d6c5b4a3f21" };
+const actor = { kind: "user" as const, id: "7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c22" };
+
+let db: RealModulesDatabase;
+let owner: RealModulesDatabase["owner"];
+let databases: ModuleDatabases;
+let log: AuditLog;
+
+async function code(promise: Promise<unknown>): Promise<string> {
+  return promise.then(
+    () => "ok",
+    (e: { code?: string; message: string }) => e.code ?? e.message,
+  );
+}
+
+beforeAll(async () => {
+  db = await setupRealModules();
+  ({ owner, databases } = db);
+  log = createAuditLog(databases.for("audit"));
+  await log.record(householdA, {
+    actor,
+    channel: "web",
+    entity,
+    action: "update",
+    changes: [
+      { field: "name", before: "Card", after: "Main card", sensitive: false },
+      { field: "iban", before: null, after: "UA213223130000026007233566001", sensitive: true },
+    ],
+  });
+});
+
+afterAll(async () => {
+  await db?.close();
+});
+
+describe("ARC-03 FR 5 / П-10: the audit log", () => {
+  it("records author, UTC time, entity, fields with values before and after, channel", async () => {
+    const [entry] = await log.entriesFor(householdA, entity);
+    expect(entry).toMatchObject({
+      householdId: householdA,
+      actorKind: "user",
+      actorId: actor.id,
+      channel: "web",
+      entityType: entity.type,
+      entityId: entity.id,
+      action: "update",
+    });
+    expect(entry!.occurredAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(entry!.changes).toEqual([
+      { field: "name", before: "Card", after: "Main card", masked: false },
+      { field: "iban", before: null, after: AUDIT_MASK, masked: true },
+    ]);
+  });
+
+  it("sensitive values never reach the table", async () => {
+    const { rows } = await owner.query<{ raw: string }>("SELECT changes::text AS raw FROM audit.entries");
+    expect(rows.map((r) => r.raw).join()).not.toContain("UA2132");
+  });
+
+  it("another household sees no entries of this one", async () => {
+    expect(await log.entriesFor(householdB, entity)).toEqual([]);
+  });
+
+  it.each([
+    ["UPDATE", "UPDATE entries SET action = 'delete'"],
+    ["DELETE", "DELETE FROM entries"],
+    ["TRUNCATE", "TRUNCATE entries"],
+  ])("criterion: the application role has no %s on the audit table (append-only)", async (_, sql) => {
+    expect(await code(databases.for("audit").inHousehold(householdA, (q) => q.query(sql)))).toBe("42501");
+  });
+
+  it.each([
+    ["UPDATE", "UPDATE audit.entries SET action = 'delete'"],
+    ["DELETE", "DELETE FROM audit.entries"],
+    ["TRUNCATE", "TRUNCATE audit.entries"],
+  ])("even the schema owner cannot %s an entry: a trigger refuses it", async (_, sql) => {
+    await expect(owner.query(sql)).rejects.toThrow(/append-only/);
+    const { rows } = await owner.query<{ n: number }>("SELECT count(*)::int AS n FROM audit.entries");
+    expect(rows[0]!.n).toBe(1);
+  });
+
+  it("an invalid entry is refused before anything is stored", async () => {
+    await expect(
+      log.record(householdA, { actor, channel: "web", entity, action: "update", changes: [] } as never),
+    ).resolves.toBeDefined();
+    await expect(log.record(householdA, { actor: { kind: "user", id: "anna" } } as never)).rejects.toThrow();
+    expect(await log.entriesFor(householdA, entity)).toHaveLength(2);
+  });
+});

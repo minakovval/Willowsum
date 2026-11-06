@@ -3,6 +3,14 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type pg from "pg";
 import { moduleRoleName, schemaName } from "../modules/rules.ts";
+import {
+  CONTEXT_ROLE,
+  LARGE_OBJECT_FUNCTIONS_SQL,
+  applyHouseholdIsolation,
+  ensurePlatformContext,
+  grantPlatformContext,
+  revokeLargeObjects,
+} from "./isolation.ts";
 
 /**
  * Versioned migrations, one folder per module: `src/modules/<module>/adapters/db/migrations/NNNN_<slug>.sql`
@@ -63,6 +71,15 @@ export interface MigrateResult {
  */
 export async function migrate(client: pg.ClientBase, source: MigrationSource): Promise<MigrateResult> {
   const id = (name: string): string => client.escapeIdentifier(name);
+  // Customer tables force row security for every role but a superuser or BYPASSRLS. A data migration
+  // («перенести») run by any other role would silently see no rows, so such a role is refused up front.
+  const runner = await client.query<{ ok: boolean }>(
+    "SELECT rolsuper OR rolbypassrls AS ok FROM pg_roles WHERE rolname = current_user",
+  );
+  if (!runner.rows[0]?.ok)
+    throw new Error(
+      "The migration role must be a superuser or have BYPASSRLS: data migrations cover every household",
+    );
   await client.query(`SELECT pg_advisory_lock(hashtext('willowsum.migrate'))`);
   try {
     await client.query(`CREATE SCHEMA IF NOT EXISTS ${id(MIGRATIONS_SCHEMA)}`);
@@ -77,6 +94,12 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
     const database = (await client.query<{ db: string }>("SELECT current_database() AS db")).rows[0]!.db;
     await client.query(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`);
     await client.query(`REVOKE TEMPORARY, CONNECT ON DATABASE ${id(database)} FROM PUBLIC`);
+    await revokeLargeObjects(client);
+    // Household binding and shared types (ARC-03 FR 2, FR 3; isolation.ts).
+    await ensurePlatformContext(client);
+    await ensureRole(client, CONTEXT_ROLE, "NOLOGIN NOINHERIT");
+    await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(CONTEXT_ROLE)}`);
+    await grantPlatformContext(client, CONTEXT_ROLE);
 
     await ensureRole(client, PROBE_ROLE, "NOLOGIN NOINHERIT");
     await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(PROBE_ROLE)}`);
@@ -97,6 +120,7 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
         `ALTER DEFAULT PRIVILEGES IN SCHEMA ${id(schema)} GRANT USAGE, SELECT ON SEQUENCES TO ${id(role)}`,
       );
       await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(role)}`);
+      await grantPlatformContext(client, role);
     }
 
     const done = await client.query<{ module: string; name: string; checksum: string }>(
@@ -115,7 +139,10 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       await client.query("BEGIN");
       try {
         await client.query(`SET LOCAL search_path = ${id(schemaName(migration.module))}`);
+        await client.query(`SET LOCAL TimeZone = 'UTC'`);
         await client.query(migration.sql);
+        // In the same transaction: a customer table is never visible without its household policy.
+        await applyHouseholdIsolation(client, schemaName(migration.module));
         await client.query(
           `INSERT INTO ${id(MIGRATIONS_SCHEMA)}.applied (module, name, checksum) VALUES ($1, $2, $3)`,
           [migration.module, migration.name, migration.checksum],
@@ -136,11 +163,13 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
 
 /**
  * The boundary holds only while module roles are plain: no superuser, role-creation, RLS bypass or
- * replication attribute, no membership in any role and no role that is a member of them. Checked on
- * every migration run, so a manual GRANT on any environment stops the next deployment.
+ * replication attribute, no membership in any role and no role that is a member of them, no per-role
+ * settings (`ALTER ROLE … SET`, which could change search_path or row_security at login) and no access to
+ * large objects (a channel outside every schema). Checked on every migration run, so a manual GRANT or
+ * ALTER ROLE on any environment stops the next deployment.
  */
 export async function assertIsolatedRoles(client: pg.ClientBase, modules: readonly string[]): Promise<void> {
-  const roles = [...modules.map(moduleRoleName), PROBE_ROLE];
+  const roles = [...modules.map(moduleRoleName), PROBE_ROLE, CONTEXT_ROLE];
   const result = await client.query<{ rolname: string; problem: string }>(
     `SELECT r.rolname, 'has a privileged attribute' AS problem
        FROM pg_roles r
@@ -153,6 +182,15 @@ export async function assertIsolatedRoles(client: pg.ClientBase, modules: readon
      SELECT g.rolname, 'is granted to ' || r.rolname
        FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member JOIN pg_roles g ON g.oid = m.roleid
       WHERE g.rolname = ANY($1)
+     UNION ALL
+     SELECT r.rolname, 'has role settings (ALTER ROLE … SET)'
+       FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole
+      WHERE r.rolname = ANY($1)
+     UNION ALL
+     SELECT r.rolname, 'can execute large-object functions'
+       FROM pg_roles r
+      WHERE r.rolname = ANY($1)
+        AND EXISTS (SELECT 1 FROM (${LARGE_OBJECT_FUNCTIONS_SQL}) f WHERE has_function_privilege(r.oid, f.oid, 'EXECUTE'))
       ORDER BY 1, 2`,
     [roles],
   );
@@ -179,6 +217,16 @@ export async function enableModuleLogin(
 async function ensureRole(client: pg.ClientBase, role: string, options: string): Promise<void> {
   const exists = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [role]);
   if (exists.rowCount === 0) await client.query(`CREATE ROLE ${client.escapeIdentifier(role)} ${options}`);
+}
+
+/**
+ * Lets the household-binding role log in (ARC-03; isolation.ts). Used by infrastructure and tests; in
+ * deployed environments the password comes from the secrets store (CICD-12), never from code.
+ */
+export async function enableContextLogin(client: pg.ClientBase, password: string): Promise<void> {
+  await client.query(
+    `ALTER ROLE ${client.escapeIdentifier(CONTEXT_ROLE)} LOGIN PASSWORD ${client.escapeLiteral(password)}`,
+  );
 }
 
 /**

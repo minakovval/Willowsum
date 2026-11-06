@@ -3,8 +3,9 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createTestDatabase, urlAs } from "../../../test/db.ts";
-import { assertIsolatedRoles, enableModuleLogin, migrate } from "./migrate.ts";
-import { ModuleDatabase, ModuleDatabases } from "./module-db.ts";
+import { CONTEXT_ROLE } from "./isolation.ts";
+import { assertIsolatedRoles, enableContextLogin, enableModuleLogin, migrate } from "./migrate.ts";
+import { HouseholdBinder, ModuleDatabase, ModuleDatabases } from "./module-db.ts";
 
 const modulesDir = fileURLToPath(new URL("../../../test/fixtures/db-modules", import.meta.url));
 const password = randomBytes(12).toString("hex");
@@ -14,6 +15,10 @@ let owner: pg.Client;
 let databases: ModuleDatabases;
 let alpha: ModuleDatabase;
 let beta: ModuleDatabase;
+let homes: ModuleDatabase;
+const fixtureModules = ["alpha", "beta", "homes"];
+const householdA = "6f1c1f2e-9a4b-4d55-8e3a-0b7f2a1c9d01";
+const householdB = "0d2e7c4a-3b1f-4a9e-9c6d-5e8f1a2b3c02";
 
 async function sqlState(promise: Promise<unknown>): Promise<string | undefined> {
   try {
@@ -28,15 +33,23 @@ beforeAll(async () => {
   db = await createTestDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
-  await migrate(owner, { modules: ["alpha", "beta"], modulesDir });
-  for (const module of ["alpha", "beta"]) await enableModuleLogin(owner, module, password);
+  await migrate(owner, { modules: fixtureModules, modulesDir });
+  for (const module of fixtureModules) await enableModuleLogin(owner, module, password);
+  await enableContextLogin(owner, password);
   // One connection per module pool, so every test reuses the same connection: state must not leak.
   databases = new ModuleDatabases({
     connectionFor: (module) => ({ connectionString: urlAs(db.url, `ws_mod_${module}`, password) }),
+    context: { connectionString: urlAs(db.url, CONTEXT_ROLE, password) },
     poolSize: 1,
   });
   alpha = databases.for("alpha");
   beta = databases.for("beta");
+  homes = databases.for("homes");
+  // Seeded by the superuser owner, which bypasses row policies.
+  await owner.query(
+    "INSERT INTO homes.records (household_id, label) VALUES ($1, 'a1'), ($1, 'a2'), ($2, 'b1')",
+    [householdA, householdB],
+  );
 });
 
 afterAll(async () => {
@@ -117,19 +130,20 @@ describe("ARC-01 FR 3: each module owns its schema; the database closes other mo
 
   it("a pool that is not logged in as the module's role is refused", async () => {
     const wrong = new pg.Pool({ connectionString: urlAs(db.url, "ws_mod_alpha", password), max: 1 });
+    const binder = new HouseholdBinder(wrong);
     try {
-      await expect(new ModuleDatabase(wrong, "beta").transaction((q) => q.query("SELECT 1"))).rejects.toThrow(
-        /must log in as ws_mod_beta/,
-      );
+      await expect(
+        new ModuleDatabase(wrong, "beta", binder).transaction((q) => q.query("SELECT 1")),
+      ).rejects.toThrow(/must log in as ws_mod_beta/);
     } finally {
       await wrong.end();
     }
   });
 
   it("migrations stop when a module role is granted another role or a privileged attribute", async () => {
-    await assertIsolatedRoles(owner, ["alpha", "beta"]);
+    await assertIsolatedRoles(owner, fixtureModules);
     await owner.query("GRANT ws_mod_beta TO ws_mod_alpha");
-    await expect(migrate(owner, { modules: ["alpha", "beta"], modulesDir })).rejects.toThrow(
+    await expect(migrate(owner, { modules: fixtureModules, modulesDir })).rejects.toThrow(
       /ws_mod_alpha is a member of ws_mod_beta; ws_mod_beta is granted to ws_mod_alpha/,
     );
     await owner.query("REVOKE ws_mod_beta FROM ws_mod_alpha");
@@ -156,7 +170,7 @@ describe("ARC-01 FR 3: each module owns its schema; the database closes other mo
 
 describe("ARC-03 FR 4: versioned, immutable migrations", () => {
   it("applies each migration once", async () => {
-    expect((await migrate(owner, { modules: ["alpha", "beta"], modulesDir })).applied).toEqual([]);
+    expect((await migrate(owner, { modules: fixtureModules, modulesDir })).applied).toEqual([]);
   });
 
   it("refuses a migration file that changed after it was applied", async () => {
@@ -171,6 +185,21 @@ describe("ARC-03 FR 4: versioned, immutable migrations", () => {
     ]);
   });
 
+  it("refuses a migration role without BYPASSRLS: a data migration would silently miss every household", async () => {
+    const role = `ws_it_owner_${randomBytes(4).toString("hex")}`;
+    await owner.query(`CREATE ROLE ${role} LOGIN PASSWORD '${password}'`);
+    await owner.query(`GRANT CONNECT ON DATABASE ${new URL(db.url).pathname.slice(1)} TO ${role}`);
+    const weak = new pg.Client({ connectionString: urlAs(db.url, role, password) });
+    await weak.connect();
+    try {
+      await expect(migrate(weak, { modules: fixtureModules, modulesDir })).rejects.toThrow(/BYPASSRLS/);
+    } finally {
+      await weak.end();
+      await owner.query(`DROP OWNED BY ${role}`);
+      await owner.query(`DROP ROLE ${role}`);
+    }
+  });
+
   it("rolls back a failing migration completely and does not record it", async () => {
     await expect(migrate(owner, { modules: ["broken"], modulesDir })).rejects.toThrow(
       /broken\/0001_partial.sql failed/,
@@ -179,5 +208,170 @@ describe("ARC-03 FR 4: versioned, immutable migrations", () => {
     expect(table.rows[0].t).toBeNull();
     const recorded = await owner.query("SELECT 1 FROM platform_migrations.applied WHERE module = 'broken'");
     expect(recorded.rowCount).toBe(0);
+  });
+});
+
+const labels = async (q: { query: (t: string) => Promise<{ rows: { label: string }[] }> }) =>
+  (await q.query("SELECT label FROM records ORDER BY label")).rows.map((r) => r.label);
+
+describe("ARC-03 FR 2: household isolation in the database, for the module role", () => {
+  it("criterion «дані іншого простору — 0, навіть якщо фільтр у коді забуто»: no filter, own rows only", async () => {
+    expect(await homes.inHousehold(householdA, labels)).toEqual(["a1", "a2"]);
+    expect(await homes.inHousehold(householdB, labels)).toEqual(["b1"]);
+    expect(
+      await homes.inHousehold(
+        householdA,
+        async (q) =>
+          (await q.query("SELECT count(*)::int AS n FROM records WHERE household_id = $1", [householdB]))
+            .rows,
+      ),
+    ).toEqual([{ n: 0 }]);
+  });
+
+  it("the code-side filter: the runner carries the household it is bound to", async () => {
+    const rows = await homes.inHousehold(
+      householdA,
+      async (q) =>
+        (
+          await q.query<{ label: string }>("SELECT label FROM records WHERE household_id = $1 ORDER BY 1", [
+            q.householdId,
+          ])
+        ).rows,
+    );
+    expect(rows.map((r) => r.label)).toEqual(["a1", "a2"]);
+  });
+
+  it("a transaction bound to no household sees no customer rows and writes none", async () => {
+    expect(await homes.transaction(labels)).toEqual([]);
+    expect(
+      await sqlState(
+        homes.transaction((q) =>
+          q.query("INSERT INTO records (household_id, label) VALUES ($1, 'x')", [householdA]),
+        ),
+      ),
+    ).toBe("42501");
+  });
+
+  it("rows of another household cannot be written, moved, changed or deleted", async () => {
+    const insertB = (q: { query: (t: string, v: unknown[]) => Promise<unknown> }) =>
+      q.query("INSERT INTO records (household_id, label) VALUES ($1, 'x')", [householdB]);
+    expect(await sqlState(homes.inHousehold(householdA, insertB))).toBe("42501");
+    expect(
+      await sqlState(
+        homes.inHousehold(householdA, (q) => q.query("UPDATE records SET household_id = $1", [householdB])),
+      ),
+    ).toBe("42501");
+    const changed = await homes.inHousehold(householdA, async (q) => [
+      (await q.query("UPDATE records SET label = 'hacked' WHERE household_id = $1", [householdB])).rowCount,
+      (await q.query("DELETE FROM records WHERE household_id = $1", [householdB])).rowCount,
+    ]);
+    expect(changed).toEqual([0, 0]);
+    expect(await homes.inHousehold(householdB, labels)).toEqual(["b1"]);
+  });
+
+  it.each([
+    [
+      "a custom setting",
+      "SELECT set_config('app.household_id', '0d2e7c4a-3b1f-4a9e-9c6d-5e8f1a2b3c02', false)",
+    ],
+    [
+      "writing the binding",
+      "UPDATE platform_context.bindings SET household_id = '0d2e7c4a-3b1f-4a9e-9c6d-5e8f1a2b3c02'",
+    ],
+    [
+      "inserting a binding",
+      "INSERT INTO platform_context.bindings (pid, role) VALUES (pg_backend_pid(), session_user)",
+    ],
+    [
+      "calling bind",
+      "SELECT platform_context.bind(pg_backend_pid(), '0d2e7c4a-3b1f-4a9e-9c6d-5e8f1a2b3c02')",
+    ],
+    ["becoming ws_context", "SET ROLE ws_context"],
+  ])("module SQL cannot choose another household (%s)", async (_, sql) => {
+    const seen = await homes.inHousehold(householdA, async (q) => {
+      await q.query("SAVEPOINT s");
+      await q.query(sql).catch(() => undefined);
+      await q.query("ROLLBACK TO SAVEPOINT s");
+      return labels(q);
+    });
+    expect(seen).toEqual(["a1", "a2"]);
+    expect(await sqlState(homes.transaction((q) => q.query(sql)))).toBe(
+      sql.startsWith("SELECT set_config") ? undefined : "42501",
+    );
+  });
+
+  it("ending the transaction inside the work and starting another keeps the platform's household", async () => {
+    const seen = await homes.inHousehold(householdA, async (q) => {
+      await q.query("COMMIT");
+      await q.query("BEGIN");
+      // SET LOCAL search_path ended with the transaction; the table is named in full.
+      return (await q.query<{ label: string }>("SELECT label FROM homes.records ORDER BY label")).rows.map(
+        (r) => r.label,
+      );
+    });
+    expect(seen).toEqual(["a1", "a2"]);
+  });
+
+  it("the binding is replaced on every transaction of a reused connection", async () => {
+    expect(await homes.inHousehold(householdB, labels)).toEqual(["b1"]);
+    expect(await homes.transaction(labels)).toEqual([]);
+    expect(await homes.inHousehold(householdA, labels)).toEqual(["a1", "a2"]);
+  });
+
+  it("a runner kept beyond its transaction is refused", async () => {
+    let kept: { query: (t: string) => Promise<unknown> } | undefined;
+    await homes.inHousehold(householdA, async (q) => {
+      kept = q;
+    });
+    await expect(kept!.query("SELECT 1")).rejects.toThrow(/transaction has ended/);
+  });
+
+  it("the household id must be a UUID", async () => {
+    await expect(homes.inHousehold("1 OR 1=1", labels)).rejects.toThrow(/UUID/);
+  });
+
+  it("ws_context binds module connections only and reads no data", async () => {
+    const ctx = new pg.Client({ connectionString: urlAs(db.url, CONTEXT_ROLE, password) });
+    await ctx.connect();
+    try {
+      expect(
+        await sqlState(ctx.query("SELECT platform_context.bind(pg_backend_pid(), $1)", [householdA])),
+      ).toBe("42501");
+      expect(await sqlState(ctx.query("SELECT * FROM homes.records"))).toBe("42501");
+      expect(await sqlState(ctx.query("SELECT * FROM platform_context.bindings"))).toBe("42501");
+    } finally {
+      await ctx.end();
+    }
+  });
+});
+
+describe("ARC-03 FR 1: time is UTC in every transaction", () => {
+  it("TimeZone is UTC even after module code changed it in an earlier transaction", async () => {
+    await alpha.transaction((q) => q.query("SET TimeZone = 'Europe/Kyiv'"));
+    expect(await alpha.transaction(async (q) => (await q.query("SHOW TimeZone")).rows)).toEqual([
+      { TimeZone: "UTC" },
+    ]);
+  });
+});
+
+describe("ARC-01 / ADR-0001 hardening: no channel between modules outside their schemas", () => {
+  it.each([
+    ["lo_create", "SELECT lo_create(0)"],
+    ["lo_from_bytea", "SELECT lo_from_bytea(0, 'x')"],
+    ["lo_open", "SELECT lo_open(1, 262144)"],
+  ])("module roles cannot use large objects (%s)", async (_, sql) => {
+    expect(await sqlState(alpha.transaction((q) => q.query(sql)))).toBe("42501");
+  });
+
+  it("migrations stop when a module role has its own settings (pg_db_role_setting) or large-object access", async () => {
+    await owner.query("ALTER ROLE ws_mod_beta SET search_path = alpha");
+    await expect(assertIsolatedRoles(owner, ["beta"])).rejects.toThrow(/ws_mod_beta has role settings/);
+    await owner.query("ALTER ROLE ws_mod_beta RESET ALL");
+    await owner.query("GRANT EXECUTE ON FUNCTION lo_create(oid) TO ws_mod_beta");
+    await expect(assertIsolatedRoles(owner, ["beta"])).rejects.toThrow(
+      /ws_mod_beta can execute large-object functions/,
+    );
+    await owner.query("REVOKE EXECUTE ON FUNCTION lo_create(oid) FROM ws_mod_beta");
+    await assertIsolatedRoles(owner, fixtureModules);
   });
 });

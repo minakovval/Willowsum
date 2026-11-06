@@ -156,6 +156,29 @@ jobs:
         run: pnpm --filter @willowsum/api check:modules
       - name: Integration tests on PostgreSQL 17
         run: pnpm --filter @willowsum/api test:integration
+      - name: Schema check — row policies, household column, amounts, UTC time, region (ARC-03)
+        run: pnpm --filter @willowsum/api check:schema
+      - name: Base version of the PR (for migration compatibility, ARC-03 FR 4)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+          persist-credentials: false
+      - name: Migrations expand → migrate → contract; released migrations unchanged (ARC-03 FR 4)
+        env:
+          WS_MIGRATION_BASE_DIR: ${{ github.workspace }}/.base
+        run: pnpm --filter @willowsum/api check:migrations
+      - name: Old code + new schema — the base version's module tests on this PR's migrations (ARC-03 FR 4)
+        env:
+          WS_COMPAT_SCHEMA_FROM: ${{ github.workspace }}/apps/api
+        run: |
+          if [ ! -f .base/apps/api/test/real-modules.ts ]; then
+            echo "The base version has no compatibility harness yet (it arrives with ARC-03); nothing to run."
+            exit 0
+          fi
+          cd .base
+          pnpm install --frozen-lockfile
+          pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts src/modules --passWithNoTests
       - name: One image, three roles (ARC-02); without configuration it refuses to start and names the variables
         run: |
           docker build -q -f apps/api/Dockerfile -t willowsum-api:ci .

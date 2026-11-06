@@ -21,7 +21,13 @@ function copyOfApi(): string {
     filter: (source) => !source.endsWith(".test.ts"),
   });
   mkdirSync(path.join(dir, "src/modules"));
-  cpSync(path.join(apiDir, "src/modules/index.ts"), path.join(dir, "src/modules/index.ts"));
+  // The registry as it is before any module exists (the real one lists the repository's modules).
+  writeFileSync(
+    path.join(dir, "src/modules/index.ts"),
+    readFileSync(path.join(apiDir, "src/modules/index.ts"), "utf8")
+      .replace(/^import \{ \w+ \} from "\.\/[a-z0-9-]+\/index\.ts";\n/gm, "")
+      .replace(/^ {2}\w+Module,\n/gm, ""),
+  );
   writeFileSync(path.join(dir, "module-rules.json"), JSON.stringify({ modules: {} }));
   writeFileSync(path.join(dir, "events.snapshot.json"), JSON.stringify({ events: {} }));
   return dir;

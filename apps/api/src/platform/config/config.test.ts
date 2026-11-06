@@ -6,6 +6,7 @@ const base = {
   WS_DB_HOST: "localhost",
   WS_DB_NAME: "willowsum",
   WS_DB_PROBE_PASSWORD: "probe-secret-value-0001",
+  WS_DB_CONTEXT_PASSWORD: "context-secret-value-01",
   WS_DB_PASSWORD_LEDGER: secretA,
   WS_DB_PASSWORD_BANK_MONOBANK: "another-secret-value-02",
 };
@@ -54,6 +55,17 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
   it("refuses an unknown role", () => {
     expect(errorOf(() => loadConfig(base, "cron", ["ledger", "bank-monobank"])).variables).toEqual([
       "--role (api | worker | scheduler)",
+    ]);
+  });
+
+  it("ARC-03: the household-binding role ws_context needs its own password", () => {
+    expect(loadConfig(base, "api", ["ledger", "bank-monobank"]).database.contextPassword).toBe(
+      "context-secret-value-01",
+    );
+    const env: Record<string, string> = { ...base };
+    delete env["WS_DB_CONTEXT_PASSWORD"];
+    expect(errorOf(() => loadConfig(env, "api", ["ledger", "bank-monobank"])).variables).toEqual([
+      "WS_DB_CONTEXT_PASSWORD",
     ]);
   });
 });
