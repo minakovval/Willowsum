@@ -18,7 +18,9 @@ compartment, keys and buckets.
 | State in Object Storage, encrypted on the client (AES-GCM), enforced | `versions.tf` | CICD-12 |
 | The vault, both keys, all buckets and the server have `prevent_destroy`: a plan can never delete them; removing one takes a deliberate code change first | `kms.tf`, `storage.tf`, `server.tf` | ARC-06 FR1, CICD-07 FR2 |
 
-Regions: primary **eu-madrid-1** (NFR-17), copies **eu-frankfurt-1**. Sizes per environment are in
+Regions: primary **eu-madrid-1** (NFR-17), copies **eu-frankfurt-1**. Losing the whole Madrid region (and with
+it the master key) is an accepted risk for «Старт» (owner, 2026-11-06); the copies protect against the
+loss of the server. Sizes per environment are in
 `env/<environment>.tfvars`; together they stay inside the free tier (4 OCPU, 24 GB, 200 GB disk).
 
 ## Checks
@@ -31,7 +33,8 @@ there; nothing is planned or applied.
 
 These steps need the owner's own cloud account and are never done by agents (CICD-12):
 
-1. Create the OCI account (home region Madrid) and subscribe the tenancy to the Frankfurt region.
+1. Create the OCI account: Pay As You Go, home region Madrid, Frankfurt subscribed, MFA and a budget
+   alarm. Step by step: [owner-setup.md](owner-setup.md).
 2. Create the state bucket `willowsum-tofu-state` (private, versioned) in Madrid and a customer secret
    key for the S3-compatible API, kept in the secrets store.
 3. Put the state passphrase (≥ 32 random characters) in the secrets store, one per environment.
