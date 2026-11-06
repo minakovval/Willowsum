@@ -181,6 +181,10 @@ async function ensureRole(client: pg.ClientBase, role: string, options: string):
   if (exists.rowCount === 0) await client.query(`CREATE ROLE ${client.escapeIdentifier(role)} ${options}`);
 }
 
+/**
+ * Lets the readiness role log in. Used by infrastructure and tests; in deployed environments the password
+ * comes from the secrets store (CICD-12), never from code.
+ */
 export async function enableProbeLogin(client: pg.ClientBase, password: string): Promise<void> {
   await client.query(
     `ALTER ROLE ${client.escapeIdentifier(PROBE_ROLE)} LOGIN PASSWORD ${client.escapeLiteral(password)}`,

@@ -4,3 +4,5 @@
 infra/local/.state
 .env
 .env.*
+apps/api/src/**/*.test.ts
+apps/api/test

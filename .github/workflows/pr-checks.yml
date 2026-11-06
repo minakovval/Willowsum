@@ -166,5 +166,6 @@ jobs:
             set -e
             echo "$role: $out"
             test "$code" = "1"
-            echo "$out" | grep -q '^Configuration error: missing or invalid WS_DB_HOST, WS_DB_NAME, WS_DB_PROBE_PASSWORD$'
+            # Names only: the list grows with every module (WS_DB_PASSWORD_<SCHEMA>), values never appear.
+            echo "$out" | grep -Eq '^Configuration error: missing or invalid ([A-Z0-9_]+, )*WS_DB_HOST, ([A-Z0-9_]+, )*WS_DB_NAME(, [A-Z0-9_]+)*$'
           done

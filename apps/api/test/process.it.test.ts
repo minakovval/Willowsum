@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { enableProbeLogin, migrate, pendingMigrations, readMigrations } from "../src/platform/db/migrate.ts";
-import { createTestDatabase } from "./db.ts";
+import { createTestDatabase, urlAs } from "./db.ts";
 
 const apiDir = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = fileURLToPath(new URL("./fixtures/db-modules", import.meta.url));
@@ -131,10 +131,49 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     expect(await p.exit).toBe(0);
   });
 
-  it("«готовий» checks the schema version: a migration the code ships but the database lacks makes it not ready", async () => {
-    const expected = readMigrations({ modules: ["alpha"], modulesDir: fixtures });
-    expect(await pendingMigrations(owner, expected)).toEqual(["alpha/0001_items.sql"]);
+  it("a database restart does not crash the process: live stays 200 and ready recovers", async () => {
+    const port = await freePort();
+    const p = start("api", baseEnv(port));
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+    // The probe's idle connection is killed, as in a restart or failover.
+    await owner.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'ws_probe'");
+    await new Promise((r) => setTimeout(r, 300));
+    expect(p.child.exitCode).toBeNull();
+    expect((await fetch(`http://127.0.0.1:${port}/health/live`)).status).toBe(200);
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 5_000);
+    expect(p.output()).not.toContain("Unhandled");
+    p.child.kill("SIGTERM");
+    expect(await p.exit).toBe(0);
+  });
+
+  it("ws_probe can only read the applied-migrations list", async () => {
     await migrate(owner, { modules: ["alpha"], modulesDir: fixtures });
+    const probe = new pg.Client({ connectionString: urlAs(db.url, "ws_probe", probePassword) });
+    await probe.connect();
+    const code = async (sql: string) =>
+      probe.query(sql).then(
+        () => "ok",
+        (e: { code?: string }) => e.code,
+      );
+    try {
+      expect(await code("SELECT count(*) FROM platform_migrations.applied")).toBe("ok");
+      expect(
+        await code("INSERT INTO platform_migrations.applied (module, name, checksum) VALUES ('x', 'y', 'z')"),
+      ).toBe("42501");
+      expect(await code("UPDATE platform_migrations.applied SET checksum = 'x'")).toBe("42501");
+      expect(await code("DELETE FROM platform_migrations.applied")).toBe("42501");
+      expect(await code("SELECT * FROM alpha.items")).toBe("42501");
+      expect(await code("CREATE TABLE public.sneaky (id int)")).toBe("42501");
+      expect(await code("CREATE TEMP TABLE t (id int)")).toBe("42501");
+    } finally {
+      await probe.end();
+    }
+  });
+
+  it("«готовий» checks the schema version: a migration the code ships but the database lacks makes it not ready", async () => {
+    const expected = readMigrations({ modules: ["beta"], modulesDir: fixtures });
+    expect(await pendingMigrations(owner, expected)).toEqual(["beta/0001_items.sql"]);
+    await migrate(owner, { modules: ["beta"], modulesDir: fixtures });
     expect(await pendingMigrations(owner, expected)).toEqual([]);
     // The database may be ahead of the code (expand → migrate → contract).
     expect(await pendingMigrations(owner, [])).toEqual([]);

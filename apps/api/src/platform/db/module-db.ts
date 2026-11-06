@@ -99,6 +99,8 @@ export class ModuleDatabases {
         idleTimeoutMillis: 30_000,
         ...this.config.connectionFor(module),
       });
+      // A dropped idle connection (database restart) must not crash the process; the next query reconnects.
+      pool.on("error", () => undefined);
       entry = { pool, db: new ModuleDatabase(pool, module) };
       this.pools.set(module, entry);
     }

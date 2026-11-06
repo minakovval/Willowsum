@@ -41,6 +41,9 @@ const probe = new pg.Pool({
   max: 1,
   connectionTimeoutMillis: 2_000,
 });
+// An idle client that loses its connection (database restart, failover) must not crash the process: the
+// next readiness check simply reports «не готовий». Nothing about the error is logged (it holds connection details).
+probe.on("error", () => undefined);
 
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 const server = buildServer({
