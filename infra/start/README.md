@@ -13,7 +13,7 @@ compartment, keys and buckets.
 | Server: one Ampere A1 VM (free tier), Ubuntu 24.04, Docker, automatic security updates; disk encrypted with the KMS key and preserved if the server is replaced; IMDS v2 only | `server.tf`, `cloud-init.yaml` | ARC «Старт», ARC-06, CICD-12 |
 | OCI Vault with HSM keys: application master key, storage key | `kms.tf` | ARC-06 FR1, CICD-12 FR4, NFR-16 FR2 |
 | Files bucket (private, KMS-encrypted, versions kept 35 days) | `storage.tf` | ARC-06 FR4 |
-| Off-site copies and the secrets package in another EU region (private, kept exactly 35 days, no hidden versions) | `storage.tf` | CICD-07 FR2, NFR-16, ARC-06 FR5 |
+| Off-site copies and the secrets package in another EU region (private, kept exactly 35 days, no hidden versions, a retention rule forbids deleting or changing them earlier) | `storage.tf` | CICD-07 FR2, NFR-16, ARC-06 FR5 |
 | Server identity (instance principal) and least-privilege policies: the server cannot delete copies | `access.tf` | CICD-12, NFR-16 |
 | State in Object Storage, encrypted on the client (AES-GCM), enforced | `versions.tf` | CICD-12 |
 | The vault, both keys, all buckets and the server have `prevent_destroy`: a plan can never delete them; removing one takes a deliberate code change first | `kms.tf`, `storage.tf`, `server.tf` | ARC-06 FR1, CICD-07 FR2 |
@@ -22,6 +22,9 @@ Regions: primary **eu-madrid-1** (NFR-17), copies **eu-frankfurt-1**. Losing the
 it the master key) is an accepted risk for «Старт» (owner, 2026-11-06); the copies protect against the
 loss of the server. Sizes per environment are in
 `env/<environment>.tfvars`; together they stay inside the free tier (4 OCPU, 24 GB, 200 GB disk).
+The copies in Frankfurt are outside the free tier (it covers Object Storage in the home region only)
+and are billed by size: for PoC an estimated 10–40 GB, well under 1 EUR a month. The 5 EUR budget alarm
+(`owner-setup.md`) covers it.
 
 ## Checks
 
