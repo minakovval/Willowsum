@@ -61,6 +61,11 @@ describe("root fix: a module migration cannot create anything with more than its
       /permission denied for schema platform_context/,
     ],
     [
+      "a rewrite rule on its own table (the guard refuses it)",
+      "probe-rule",
+      /ARC-03 guard: rule leak on things/,
+    ],
+    [
       "RESET ROLE back to the migration role",
       "probe-escape",
       /cannot set parameter "role" within security-definer function/,
@@ -83,12 +88,6 @@ describe("root fix: a module migration cannot create anything with more than its
   });
 
   it.each([
-    [
-      "a rewrite rule on its own table",
-      "probe-rule",
-      /rule leak on probe_rule\.things: rewrite rules run with the owner's rights/,
-      "INSERT INTO things (household_id, label) VALUES ($1, 'a2') RETURNING label",
-    ],
     [
       "a SECURITY DEFINER trigger function in its own schema",
       "probe-trigger",
@@ -194,6 +193,17 @@ describe("defence in depth: objects a privileged role creates by hand stop the n
       "global default privileges for a module role",
       "ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO ws_mod_homes",
       [/ws_mod_homes has privileges on default acl/],
+    ],
+    [
+      "a disabled isolation guard",
+      "ALTER EVENT TRIGGER ws_module_guard DISABLE",
+      [/event trigger ws_module_guard differs from the platform's isolation guard/],
+    ],
+    [
+      "a replaced guard function",
+      `CREATE OR REPLACE FUNCTION platform_guard.check_module(p_schema text) RETURNS void LANGUAGE plpgsql
+         SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $$ BEGIN END $$`,
+      [/platform_guard\.check_module\(p_schema text\) differs from the platform's isolation guard/],
     ],
     [
       "an object in a module schema not owned by its owner role",

@@ -47,6 +47,161 @@ const BIND_BODY = `
       END `;
 const PLATFORM_FUNCTION_CONFIG = "search_path=pg_catalog, pg_temp";
 
+/**
+ * The isolation guard (ARC-03, review of PR #75 round 3). A module's owner role owns its tables, and a table
+ * owner can always switch row security off, change the policy or add rules. So db:bootstrap installs, as the
+ * superuser, an event trigger that runs after every DDL statement. When the statement was run by a module
+ * owner role (`current_user` is `ws_own_<schema>`: migration SQL runs in a wrapper owned by it), the
+ * trigger calls `check_module(<schema>)`, a SECURITY DEFINER function of the superuser, which
+ * 1. isolates a customer table that has no row security yet (new table or new household_id column): ENABLE
+ *    and FORCE row security and the household policy — run as the superuser, so the guard does not re-check
+ *    its own steps;
+ * 2. refuses the statement when any table of the schema is not exactly isolated (row security enabled and
+ *    forced, only the household policy, as defined), has row security or policies without household_id,
+ *    or when the schema has a materialized view, a rewrite rule (a view's _RETURN aside) or a view without
+ *    security_invoker.
+ * The statement fails before the migration's next statement, so no row of another household can be copied.
+ */
+export const GUARD_SCHEMA = "platform_guard";
+export const GUARD_TRIGGER = "ws_module_guard";
+const GUARD_DDL_BODY = `
+      BEGIN
+        IF pg_catalog.left(current_user, 7) = 'ws_own_' THEN
+          PERFORM ${GUARD_SCHEMA}.check_module(pg_catalog.substr(current_user, 8));
+        END IF;
+      END `;
+const CHECK_MODULE_BODY = `
+      DECLARE
+        ns oid;
+        t record;
+        bad text;
+        expected constant text := '(household_id=(SELECTplatform_context.current_household()))';
+      BEGIN
+        SELECT n.oid INTO ns FROM pg_catalog.pg_namespace n
+         WHERE n.nspname = p_schema
+           AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname = 'ws_own_' || p_schema);
+        IF ns IS NULL THEN RETURN; END IF;
+        FOR t IN
+          SELECT c.relname, a.atttypid = 'uuid'::pg_catalog.regtype AND a.attnotnull AS valid
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped
+           WHERE c.relnamespace = ns AND c.relkind IN ('r', 'p') AND NOT c.relrowsecurity AND NOT c.relforcerowsecurity
+             AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid)
+        LOOP
+          IF NOT t.valid THEN
+            RAISE EXCEPTION '%.%: household_id must be uuid NOT NULL', p_schema, t.relname USING ERRCODE = '42501';
+          END IF;
+          EXECUTE pg_catalog.format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY, FORCE ROW LEVEL SECURITY', p_schema, t.relname);
+          EXECUTE pg_catalog.format(
+            'CREATE POLICY household_isolation ON %I.%I AS PERMISSIVE FOR ALL TO PUBLIC '
+            'USING (household_id = (SELECT platform_context.current_household())) '
+            'WITH CHECK (household_id = (SELECT platform_context.current_household()))', p_schema, t.relname);
+        END LOOP;
+        SELECT pg_catalog.string_agg(problem, '; ' ORDER BY problem) INTO bad FROM (
+          SELECT c.relname || ': household_id must be uuid NOT NULL' AS problem
+            FROM pg_catalog.pg_class c
+            JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped
+           WHERE c.relnamespace = ns AND c.relkind IN ('r', 'p')
+             AND NOT (a.atttypid = 'uuid'::pg_catalog.regtype AND a.attnotnull)
+          UNION ALL
+          SELECT c.relname || ': row security must stay enabled and forced'
+            FROM pg_catalog.pg_class c
+           WHERE c.relnamespace = ns AND c.relkind IN ('r', 'p') AND NOT (c.relrowsecurity AND c.relforcerowsecurity)
+             AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped)
+          UNION ALL
+          SELECT c.relname || ': row security or policies without household_id'
+            FROM pg_catalog.pg_class c
+           WHERE c.relnamespace = ns AND c.relkind IN ('r', 'p')
+             AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped)
+             AND (c.relrowsecurity OR c.relforcerowsecurity OR EXISTS (SELECT 1 FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid))
+          UNION ALL
+          SELECT c.relname || ': only the household_isolation policy, as the platform defines it'
+            FROM pg_catalog.pg_class c
+           WHERE c.relnamespace = ns AND c.relkind IN ('r', 'p')
+             AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped)
+             AND NOT (
+               (SELECT pg_catalog.count(*) FROM pg_catalog.pg_policy p WHERE p.polrelid = c.oid) = 1
+               AND EXISTS (SELECT 1 FROM pg_catalog.pg_policy p
+                            WHERE p.polrelid = c.oid AND p.polname = 'household_isolation' AND p.polpermissive
+                              AND p.polcmd = '*' AND p.polroles = '{0}'
+                              AND pg_catalog.regexp_replace(pg_catalog.replace(pg_catalog.pg_get_expr(p.polqual, p.polrelid), ' AS current_household', ''), '\\s', '', 'g') = expected
+                              AND pg_catalog.regexp_replace(pg_catalog.replace(pg_catalog.pg_get_expr(p.polwithcheck, p.polrelid), ' AS current_household', ''), '\\s', '', 'g') = expected))
+          UNION ALL
+          SELECT c.relname || ': materialized views cannot carry row policies'
+            FROM pg_catalog.pg_class c WHERE c.relnamespace = ns AND c.relkind = 'm'
+          UNION ALL
+          SELECT c.relname || ': a view must be WITH (security_invoker = true)'
+            FROM pg_catalog.pg_class c
+           WHERE c.relnamespace = ns AND c.relkind = 'v'
+             AND NOT COALESCE(pg_catalog.array_to_string(c.reloptions, ',') ~* 'security_invoker=(true|on|1)', false)
+          UNION ALL
+          SELECT 'rule ' || w.rulename || ' on ' || c.relname || ': rewrite rules run with the owner''s rights'
+            FROM pg_catalog.pg_rewrite w JOIN pg_catalog.pg_class c ON c.oid = w.ev_class
+           WHERE c.relnamespace = ns AND NOT (w.rulename = '_RETURN' AND c.relkind IN ('v', 'm'))
+        ) found;
+        IF bad IS NOT NULL THEN
+          RAISE EXCEPTION 'ARC-03 guard: %', bad USING ERRCODE = '42501';
+        END IF;
+      END `;
+
+/**
+ * Installs the guard (db:bootstrap; superuser only, because only a superuser creates event triggers).
+ * Idempotent; restores the platform's definition if it was changed.
+ */
+export async function installGuard(client: pg.ClientBase): Promise<void> {
+  await client.query(`
+    CREATE SCHEMA IF NOT EXISTS ${GUARD_SCHEMA};
+    REVOKE ALL ON SCHEMA ${GUARD_SCHEMA} FROM PUBLIC;
+    GRANT USAGE ON SCHEMA ${GUARD_SCHEMA} TO PUBLIC;
+    CREATE OR REPLACE FUNCTION ${GUARD_SCHEMA}.check_module(p_schema text) RETURNS void
+      LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+      AS $$${CHECK_MODULE_BODY}$$;
+    CREATE OR REPLACE FUNCTION ${GUARD_SCHEMA}.guard_ddl() RETURNS event_trigger
+      LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp
+      AS $$${GUARD_DDL_BODY}$$;
+    REVOKE ALL ON FUNCTION ${GUARD_SCHEMA}.check_module(text) FROM PUBLIC;
+    GRANT EXECUTE ON FUNCTION ${GUARD_SCHEMA}.check_module(text) TO PUBLIC;
+    DROP EVENT TRIGGER IF EXISTS ${GUARD_TRIGGER};
+    CREATE EVENT TRIGGER ${GUARD_TRIGGER} ON ddl_command_end EXECUTE FUNCTION ${GUARD_SCHEMA}.guard_ddl();
+  `);
+}
+
+/** Problems with the guard itself: missing, disabled, changed or not owned by a superuser. */
+export async function guardProblems(client: pg.ClientBase): Promise<string[]> {
+  const { rows } = await client.query<{ problem: string }>(
+    `SELECT 'the isolation guard (event trigger ${GUARD_TRIGGER}) is missing' AS problem
+      WHERE NOT EXISTS (SELECT 1 FROM pg_event_trigger WHERE evtname = '${GUARD_TRIGGER}')
+     UNION ALL
+     SELECT 'event trigger ' || e.evtname || ' differs from the platform''s isolation guard'
+       FROM pg_event_trigger e
+      WHERE e.evtname = '${GUARD_TRIGGER}'
+        AND NOT (e.evtevent = 'ddl_command_end' AND e.evtenabled IN ('O', 'A') AND e.evttags IS NULL
+                 AND e.evtfoid = to_regprocedure('${GUARD_SCHEMA}.guard_ddl()')
+                 AND (SELECT rolsuper FROM pg_roles WHERE oid = e.evtowner))
+     UNION ALL
+     SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+              || ' differs from the platform''s isolation guard'
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = '${GUARD_SCHEMA}'
+        AND NOT ((SELECT rolsuper FROM pg_roles WHERE oid = p.proowner) AND p.proconfig IS NOT DISTINCT FROM ARRAY[$1]
+                 AND ((p.proname = 'check_module' AND p.prosecdef AND p.prosrc = $2
+                       AND p.oid = to_regprocedure('${GUARD_SCHEMA}.check_module(text)'))
+                   OR (p.proname = 'guard_ddl' AND NOT p.prosecdef AND p.prosrc = $3
+                       AND p.oid = to_regprocedure('${GUARD_SCHEMA}.guard_ddl()'))))
+     UNION ALL
+     SELECT '${GUARD_SCHEMA}: is not owned by a superuser'
+       FROM pg_namespace n WHERE n.nspname = '${GUARD_SCHEMA}' AND NOT (SELECT rolsuper FROM pg_roles WHERE oid = n.nspowner)
+     UNION ALL
+     SELECT '${GUARD_SCHEMA}.' || c.relname || ': only the guard''s functions belong in ${GUARD_SCHEMA}'
+       FROM pg_class c WHERE c.relnamespace = to_regnamespace('${GUARD_SCHEMA}')
+     UNION ALL
+     SELECT '${GUARD_SCHEMA}.' || t.typname || ': only the guard''s functions belong in ${GUARD_SCHEMA}'
+       FROM pg_type t WHERE t.typnamespace = to_regnamespace('${GUARD_SCHEMA}')`,
+    [PLATFORM_FUNCTION_CONFIG, CHECK_MODULE_BODY, GUARD_DDL_BODY],
+  );
+  return rows.map((r) => r.problem);
+}
+
 /** Objects shared by every module schema: the binding, its functions, platform types. Idempotent. */
 export async function ensurePlatformContext(client: pg.ClientBase): Promise<void> {
   await client.query(`
@@ -184,6 +339,7 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
                             WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname !~ '^pg_(toast|temp_)'),
           platform_fn AS (SELECT p.oid FROM pg_proc p WHERE p.pronamespace = '${CONTEXT_SCHEMA}'::regnamespace
                             AND p.proname IN ('current_household', 'bind')),
+          guard_fn AS (SELECT p.oid FROM pg_proc p WHERE p.pronamespace = to_regnamespace('${GUARD_SCHEMA}')),
           allowed_fn AS (SELECT '${CONTEXT_SCHEMA}.current_household()'::regprocedure::oid AS oid),
           shdep AS (SELECT d.*, o.type AS otype, o.schema AS oschema, o.identity AS oidentity
                       FROM pg_shdepend d, pg_identify_object(d.classid, d.objid, d.objsubid) o
@@ -229,7 +385,7 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
      SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
               || ': SECURITY DEFINER functions are allowed only in the platform'
        FROM pg_proc p JOIN user_schemas n ON n.oid = p.pronamespace
-      WHERE p.prosecdef AND p.oid NOT IN (SELECT oid FROM platform_fn)
+      WHERE p.prosecdef AND p.oid NOT IN (SELECT oid FROM platform_fn) AND p.oid NOT IN (SELECT oid FROM guard_fn)
      UNION ALL
      SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
               || ' differs from the platform''s definition'
@@ -254,7 +410,7 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
        FROM pg_rewrite w JOIN pg_class c ON c.oid = w.ev_class JOIN user_schemas n ON n.oid = c.relnamespace
       WHERE NOT (w.rulename = '_RETURN' AND c.relkind IN ('v', 'm'))
      UNION ALL
-     SELECT 'event trigger ' || evtname || ': not allowed' FROM pg_event_trigger
+     SELECT 'event trigger ' || evtname || ': not allowed' FROM pg_event_trigger WHERE evtname <> '${GUARD_TRIGGER}'
      UNION ALL
      SELECT 'extension ' || extname || ': not allowed' FROM pg_extension WHERE extname <> 'plpgsql'
      UNION ALL
@@ -274,5 +430,5 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
       BIND_BODY,
     ],
   );
-  return rows.map((r) => r.problem);
+  return [...rows.map((r) => r.problem), ...(await guardProblems(client))];
 }

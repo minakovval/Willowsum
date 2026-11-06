@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
+import { revokeLargeObjects } from "../src/platform/db/isolation.ts";
 import { bootstrapDatabase, migrate } from "../src/platform/db/migrate.ts";
 import { schemaProblems } from "../src/platform/db/schema-rules.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
@@ -55,6 +56,17 @@ describe("ARC-03: migrations run as a non-superuser database owner (CREATEROLE, 
     );
     expect(error).toMatch(/db:bootstrap/);
     expect(error).not.toContain(password);
+  });
+
+  it("without the isolation guard (event trigger) the run stops and names the one-time step", async () => {
+    const { superuser, deployer } = await deployerDatabase();
+    await revokeLargeObjects(superuser); // half a bootstrap: large objects closed, no guard
+    const error = await migrate(deployer, { modules: ["deployed"], modulesDir }).then(
+      () => "",
+      (e: Error) => e.message,
+    );
+    expect(error).toMatch(/the isolation guard \(event trigger ws_module_guard\) is missing/);
+    expect(error).toMatch(/db:bootstrap/);
   });
 
   it("after the bootstrap every run works as the non-superuser owner, and isolation holds", async () => {

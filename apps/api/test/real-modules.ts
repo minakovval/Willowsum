@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/db/migrate.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
+import type { SchemaExemptions } from "../src/platform/db/schema-rules.ts";
 import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
@@ -30,7 +31,13 @@ export async function migrateRealModules(owner: pg.ClientBase, url: string): Pro
     });
     return;
   }
-  await migrate(owner, { modules: realModules, modulesDir: realModulesDir });
+  await migrate(owner, {
+    modules: realModules,
+    modulesDir: realModulesDir,
+    exemptions: JSON.parse(
+      readFileSync(path.join(apiDir, "schema-exemptions.json"), "utf8"),
+    ) as SchemaExemptions,
+  });
 }
 
 /** Login for every real module role and the binding role; one ModuleDatabases over them. */

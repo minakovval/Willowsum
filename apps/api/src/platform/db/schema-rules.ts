@@ -42,7 +42,8 @@ const AMOUNT_RE = /^(?:(.+)_)?amount$/;
 export async function schemaProblems(
   client: pg.ClientBase,
   modules: readonly string[],
-  exemptions: SchemaExemptions,
+  /** Without it (test fixtures), tables without household_id are not checked against the exemption list. */
+  exemptions?: SchemaExemptions,
 ): Promise<string[]> {
   const schemas = modules.map(schemaName);
   const problems: string[] = [];
@@ -119,12 +120,12 @@ export async function schemaProblems(
     const cols = columnsOf.get(t.table) ?? [];
     const household = cols.find((c) => c.column === HOUSEHOLD_COLUMN);
     if (!household) {
-      if (!(t.table in exemptions.tables))
+      if (exemptions && !(t.table in exemptions.tables))
         problems.push(
           `${t.table}: no ${HOUSEHOLD_COLUMN} column; customer data needs it, other tables go to schema-exemptions.json with a reason`,
         );
     } else {
-      if (t.table in exemptions.tables)
+      if (exemptions && t.table in exemptions.tables)
         problems.push(`${t.table}: has ${HOUSEHOLD_COLUMN} but is listed in schema-exemptions.json`);
       if (household.type !== "uuid" || !household.not_null)
         problems.push(`${t.table}: ${HOUSEHOLD_COLUMN} must be uuid NOT NULL`);
@@ -135,17 +136,19 @@ export async function schemaProblems(
       if (!standard || !isStandardPolicy(standard))
         problems.push(`${t.table}: customer-data table without the ${ISOLATION_POLICY} policy`);
       for (const p of own) {
-        if (p.permissive && p.name !== ISOLATION_POLICY)
-          problems.push(`${t.table}: permissive policy ${p.name} would widen household isolation`);
+        // A restrictive policy could only narrow access, but its expression sees rows of every household
+        // before the household policy filters them: only the platform's policy is allowed.
+        if (p.name !== ISOLATION_POLICY)
+          problems.push(`${t.table}: policy ${p.name}: only the ${ISOLATION_POLICY} policy is allowed`);
       }
     }
     problems.push(...columnProblems(t.table, cols));
   }
 
-  for (const name of Object.keys(exemptions.tables)) {
+  for (const name of Object.keys(exemptions?.tables ?? {})) {
     if (!known.has(name) && schemas.includes(name.split(".")[0]!))
       problems.push(`schema-exemptions.json: ${name} does not exist`);
-    if (!(exemptions.tables[name] ?? "").trim())
+    if (!(exemptions?.tables[name] ?? "").trim())
       problems.push(`schema-exemptions.json: ${name} needs a reason`);
   }
   if (known.has(HOUSEHOLD_TABLE)) {

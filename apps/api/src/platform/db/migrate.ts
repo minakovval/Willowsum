@@ -3,14 +3,16 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type pg from "pg";
 import { moduleRoleName, ownerRoleName, schemaName } from "../modules/rules.ts";
+import { schemaProblems, type SchemaExemptions } from "./schema-rules.ts";
 import {
   CONTEXT_ROLE,
   LARGE_OBJECT_FUNCTIONS_SQL,
   PROBE_ROLE,
   applyHouseholdIsolation,
-  boundaryProblems,
   ensurePlatformContext,
   grantPlatformContext,
+  guardProblems,
+  installGuard,
   revokeLargeObjects,
 } from "./isolation.ts";
 
@@ -48,6 +50,11 @@ export interface MigrationSource {
   readonly modules: readonly string[];
   /** Folder that contains `<module>/adapters/db/migrations`. */
   readonly modulesDir: string;
+  /**
+   * apps/api/schema-exemptions.json. With it, the check after the migrations also requires household_id on
+   * every table that is not exempt; without it (test fixtures) that one rule is skipped.
+   */
+  readonly exemptions?: SchemaExemptions;
 }
 
 export function readMigrations(source: MigrationSource): Migration[] {
@@ -103,6 +110,14 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
     await client.query(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`);
     await client.query(`REVOKE TEMPORARY, CONNECT ON DATABASE ${id(database)} FROM PUBLIC`);
     await revokeLargeObjects(client);
+    // The isolation guard (event trigger) is the superuser's: installed by db:bootstrap, verified here.
+    if (superuser) await installGuard(client);
+    const guard = await guardProblems(client);
+    if (guard.length > 0)
+      throw new Error(
+        `${guard.join("; ")}. Run the one-time bootstrap of this database as a superuser ` +
+          "(pnpm --filter @willowsum/api db:bootstrap, ADR-0002), then migrate again.",
+      );
     // Household binding and shared types (ARC-03 FR 2, FR 3; isolation.ts).
     await ensurePlatformContext(client);
     await ensureRole(client, CONTEXT_ROLE, "NOLOGIN NOINHERIT");
@@ -185,7 +200,8 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       }
       applied.push(key);
     }
-    await assertIsolatedRoles(client, source.modules);
+    // On every deployment, not only in CI: the full schema rules and the boundary (ARC-03).
+    await assertIsolatedRoles(client, source.modules, source.exemptions);
     return { applied };
   } finally {
     await client.query(`SELECT pg_advisory_unlock(hashtext('willowsum.migrate'))`);
@@ -199,7 +215,11 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
  * large objects (a channel outside every schema). Checked on every migration run, so a manual GRANT or
  * ALTER ROLE on any environment stops the next deployment.
  */
-export async function assertIsolatedRoles(client: pg.ClientBase, modules: readonly string[]): Promise<void> {
+export async function assertIsolatedRoles(
+  client: pg.ClientBase,
+  modules: readonly string[],
+  exemptions?: SchemaExemptions,
+): Promise<void> {
   const roles = [...modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m)]), PROBE_ROLE, CONTEXT_ROLE];
   const result = await client.query<{ rolname: string; problem: string }>(
     `SELECT r.rolname, 'has a privileged attribute' AS problem
@@ -232,14 +252,14 @@ export async function assertIsolatedRoles(client: pg.ClientBase, modules: readon
   );
   const problems = [
     ...result.rows.map((r) => `${r.rolname} ${r.problem}`),
-    ...(await boundaryProblems(client, modules)),
+    ...(await schemaProblems(client, modules, exemptions)),
   ];
   if (problems.length > 0) throw new Error(`Module roles must stay isolated: ${problems.join("; ")}`);
 }
 
 /**
  * One-time step per database, run as a superuser (ADR-0002): closes the large-object functions of
- * pg_catalog, which only a superuser can change. Afterwards migrations run as the non-superuser database
+ * pg_catalog and installs the isolation guard (an event trigger), which only a superuser can do. Afterwards migrations run as the non-superuser database
  * owner (CREATEROLE). Idempotent.
  */
 export async function bootstrapDatabase(client: pg.ClientBase): Promise<void> {
@@ -248,6 +268,7 @@ export async function bootstrapDatabase(client: pg.ClientBase): Promise<void> {
   );
   if (!rows[0]?.su) throw new Error("db:bootstrap runs once per database as a superuser");
   await revokeLargeObjects(client);
+  await installGuard(client);
 }
 
 /**

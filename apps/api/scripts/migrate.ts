@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { migrate } from "../src/platform/db/migrate.ts";
+import type { SchemaExemptions } from "../src/platform/db/schema-rules.ts";
 import { topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
 
 const url = process.env["DATABASE_URL"];
@@ -22,6 +23,9 @@ try {
   const { applied } = await migrate(client, {
     modules: topologicalOrder(rules),
     modulesDir: fileURLToPath(new URL("../src/modules", import.meta.url)),
+    exemptions: JSON.parse(
+      readFileSync(new URL("../schema-exemptions.json", import.meta.url), "utf8"),
+    ) as SchemaExemptions,
   });
   console.log(applied.length > 0 ? `Applied:\n  ${applied.join("\n  ")}` : "Nothing to apply");
 } finally {

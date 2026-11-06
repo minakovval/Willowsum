@@ -26,7 +26,7 @@ afterEach(async () => {
 function newerVersion(sql: string): string {
   const dir = path.join(tmpRoot, `compat-${randomBytes(4).toString("hex")}`);
   mkdirSync(dir, { recursive: true });
-  for (const entry of ["package.json", "module-rules.json", "scripts", "src"])
+  for (const entry of ["package.json", "module-rules.json", "schema-exemptions.json", "scripts", "src"])
     cpSync(path.join(apiDir, entry), path.join(dir, entry), { recursive: true });
   writeFileSync(path.join(dir, "src/modules/audit/adapters/db/migrations/0002_next.sql"), sql);
   cleanup.push(async () => rmSync(dir, { recursive: true, force: true }));

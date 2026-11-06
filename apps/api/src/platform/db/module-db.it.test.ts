@@ -120,6 +120,15 @@ describe("ARC-01 FR 3: each module owns its schema; the database closes other mo
   it("module roles cannot change the schema (DDL belongs to migrations)", async () => {
     expect(await sqlState(alpha.transaction((q) => q.query("CREATE TABLE extra (id int)")))).toBe("42501");
     expect(await sqlState(alpha.transaction((q) => q.query("DROP TABLE items")))).toBe("42501");
+    // A module login role is not the owner: it cannot switch row security off at runtime.
+    expect(
+      await sqlState(homes.transaction((q) => q.query("ALTER TABLE records NO FORCE ROW LEVEL SECURITY"))),
+    ).toBe("42501");
+    expect(
+      await sqlState(
+        homes.transaction((q) => q.query("ALTER POLICY household_isolation ON records USING (true)")),
+      ),
+    ).toBe("42501");
     expect(await sqlState(alpha.transaction((q) => q.query("CREATE TABLE public.sneaky (id int)")))).toBe(
       "42501",
     );

@@ -22,16 +22,33 @@ beforeAll(async () => {
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);
-  await migrate(owner, { modules: ["homes", "household"], modulesDir: fixtures });
+  await migrate(owner, { modules: ["homes"], modulesDir: fixtures });
+  // The household fixture lacks its region and key reference: the check after the migrations stops the run.
+  await expect(migrate(owner, { modules: ["household"], modulesDir: fixtures })).rejects.toThrow(
+    /household\.households: needs data_region/,
+  );
   vdb = await createTestDatabase();
   vowner = new pg.Client({ connectionString: vdb.url });
   await vowner.connect();
   await migrate(vowner, { modules: ["homes"], modulesDir: fixtures });
-  // The violations fixture breaks the boundary too (a SECURITY DEFINER function): its migrations are
-  // applied, then the run stops — the schema check below still reports every problem.
-  await expect(migrate(vowner, { modules: ["violations"], modulesDir: fixtures })).rejects.toThrow(
-    /violations\.elevated\(\): SECURITY DEFINER functions are allowed only in the platform/,
-  );
+  // The violations fixture breaks every rule, so the guard and the post-migration check would refuse it as a
+  // migration. It is applied by hand as the superuser instead (the guard does not act for it), its objects
+  // handed to the module's owner role, and its customer tables isolated as the runner would.
+  await migrate(vowner, { modules: ["violations"], modulesDir: `${fixtures}/__none__` });
+  await vowner.query("SET search_path = violations");
+  await vowner.query(readFileSync(`${fixtures}/violations/adapters/db/migrations/0001_bad.sql`, "utf8"));
+  await vowner.query("RESET search_path");
+  await vowner.query(`
+    DO $$ DECLARE o record;
+    BEGIN
+      FOR o IN SELECT c.relname, c.relkind FROM pg_class c
+                WHERE c.relnamespace = 'violations'::regnamespace AND c.relkind IN ('r', 'v', 'm') LOOP
+        EXECUTE format('ALTER %s violations.%I OWNER TO ws_own_violations',
+          CASE o.relkind WHEN 'r' THEN 'TABLE' WHEN 'v' THEN 'VIEW' ELSE 'MATERIALIZED VIEW' END, o.relname);
+      END LOOP;
+      ALTER FUNCTION violations.elevated() OWNER TO ws_own_violations;
+    END $$`);
+  await applyHouseholdIsolation(vowner, "violations");
 });
 
 afterAll(async () => {
@@ -76,7 +93,7 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
     [
       "another permissive policy",
       "CREATE POLICY open ON homes.records USING (true)",
-      /permissive policy open would widen household isolation/,
+      /policy open: only the household_isolation policy is allowed/,
     ],
     [
       "policy changed",
@@ -94,13 +111,15 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
     expect(await schemaProblems(owner, ["homes"], none)).toEqual([]);
   });
 
-  it("a restrictive policy may narrow access further", async () => {
+  it("a restrictive policy is refused too: its expression sees rows of every household", async () => {
     await owner.query("BEGIN");
     try {
       await owner.query(
         "CREATE POLICY only_recent ON homes.records AS RESTRICTIVE USING (at > now() - interval '1 year')",
       );
-      expect(await schemaProblems(owner, ["homes"], none)).toEqual([]);
+      expect(await schemaProblems(owner, ["homes"], none)).toEqual([
+        "homes.records: policy only_recent: only the household_isolation policy is allowed",
+      ]);
     } finally {
       await owner.query("ROLLBACK");
     }

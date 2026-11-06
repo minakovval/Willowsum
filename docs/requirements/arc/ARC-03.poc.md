@@ -9,7 +9,7 @@
 - Спільні правила: П-1, П-5, П-9, П-10, П-24
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/test/isolation.it.test.ts, apps/api/test/schema.it.test.ts, apps/api/test/bypass.it.test.ts, apps/api/test/bootstrap.it.test.ts, apps/api/test/compat.it.test.ts, apps/api/scripts/lib/migration-compat.test.ts, apps/api/src/platform/db/module-db.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/src/modules/audit/domain/entry.test.ts, tools/synthetic/src/synthetic.test.ts
+- Перевіряється: apps/api/test/isolation.it.test.ts, apps/api/test/schema.it.test.ts, apps/api/test/bypass.it.test.ts, apps/api/test/guard.it.test.ts, apps/api/test/bootstrap.it.test.ts, apps/api/test/compat.it.test.ts, apps/api/scripts/lib/migration-compat.test.ts, apps/api/src/platform/db/module-db.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/src/modules/audit/domain/entry.test.ts, tools/synthetic/src/synthetic.test.ts
 
 1. Система запису — PostgreSQL 17. Суми — NUMERIC(38,18) із кодом валюти; час — UTC.
 2. Кожна таблиця з даними клієнтів має ідентифікатор простору. Ізоляція забезпечується двічі: фільтром у коді та політиками безпеки на рівні рядків у базі даних, які діють для ролі застосунку.
