@@ -15,7 +15,7 @@ const server = () =>
 const leak = async () => ({ leak: true });
 
 describe("ARC-07 security: plugin prefixes that can serve /v1", () => {
-  it.each(["/v1", "/V1", "/v1/", "//v1", "v1", "/:tenant", "/*", "/:v(^v1$)"])(
+  it.each(["/", "//", "/v1", "/V1", "/v1/", "//v1", "v1", "/:tenant", "/*", "/:v(^v1$)"])(
     "a plugin with prefix %s is refused even without routes (not-found handler)",
     async (prefix) => {
       const app = server();
