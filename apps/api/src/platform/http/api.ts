@@ -177,8 +177,19 @@ const API_ROUTE_TOKEN = Symbol("willowsum-api-route");
 const guarded = new WeakSet<FastifyInstance>();
 
 /**
- * Refuses, as it is registered, every route under /v1 (any letter case) that registerApi did not mount: such
- * a route would be served without the session, role and plan checks and outside the contract (ARC-07
+ * Could a route with this URL answer a request under /v1? Decided by its first path segment: `v1` in any
+ * letter case, or a parametric, wildcard or regex segment (`:`, `*`, `(`), which Fastify would also match
+ * for `/v1/…` requests (e.g. `/*` as a static fallback, `/:version/debug`). Literal routes elsewhere
+ * (`/health/live`, `/v10-not-api`) cannot.
+ */
+export function mayServeApiPath(url: string): boolean {
+  const first = url.replace(/^\/+/, "").split("/")[0] ?? "";
+  return first.toLowerCase() === API_PREFIX.slice(1) || /[:*(]/.test(first);
+}
+
+/**
+ * Refuses, as it is registered, every route that could serve a /v1 request unless registerApi mounted it:
+ * such a route would answer without the session, role and plan checks and outside the contract (ARC-07
  * criterion «маршрут без перевірки прав і плану — 0», NFR-05 FR 1). buildServer installs it before any
  * route; registerApi installs it too (once per app).
  */
@@ -186,12 +197,10 @@ export function guardApiRoutes(app: FastifyInstance): void {
   if (guarded.has(app)) return;
   guarded.add(app);
   app.addHook("onRoute", (route) => {
-    const url = route.url.toLowerCase();
-    const underApi = url === API_PREFIX || url.startsWith(`${API_PREFIX}/`);
     const config = route.config as { apiRoute?: unknown } | undefined;
-    if (underApi && config?.apiRoute !== API_ROUTE_TOKEN) {
+    if (mayServeApiPath(route.url) && config?.apiRoute !== API_ROUTE_TOKEN) {
       throw new Error(
-        `Route ${route.url}: routes under ${API_PREFIX} are mounted only by registerApi (defineRoute)`,
+        `Route ${route.url}: routes that can serve ${API_PREFIX} are mounted only by registerApi (defineRoute)`,
       );
     }
   });

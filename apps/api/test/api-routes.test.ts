@@ -174,3 +174,26 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
     expect(() => app.get("/v1", async () => ({}))).toThrow(/mounted only by registerApi/);
   });
 });
+
+describe("NFR-05 FR 1: the api server serves the contract's routes and the two probes, nothing else", () => {
+  it("the full set of served routes is apiRoutes plus GET /health/live and GET /health/ready", async () => {
+    const app = buildServer({
+      readiness: async () => ({ ready: true }),
+      api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    });
+    await app.ready();
+    const served = new Set<string>();
+    for (const line of app.printRoutes({ commonPrefix: false }).split("\n")) {
+      const m = line.match(/(\/\S*) \(([^)]+)\)/);
+      if (!m) continue;
+      for (const method of m[2]!.split(", ")) if (method !== "HEAD") served.add(`${method} ${m[1]}`);
+    }
+    const expected = [
+      ...apiRoutes.map((r) => `${r.method} ${fastifyPath(r.path)}`),
+      "GET /health/live",
+      "GET /health/ready",
+    ];
+    expect([...served].sort()).toEqual(expected.sort());
+    await app.close();
+  });
+});
