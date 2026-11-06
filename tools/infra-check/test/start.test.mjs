@@ -60,6 +60,19 @@ test('ARC-06 FR5 / CICD-07 FR2: copy buckets keep no hidden versions, so a copy 
   }
 });
 
+test('NFR-16 / CICD-07 FR2: a retention rule keeps every copy for 35 days, so nobody can delete it earlier', () => {
+  const copies = resources('oci_objectstorage_bucket').filter((x) => /provider\s*=\s*oci\.backup/.test(x.body));
+  assert.equal(copies.length, 2);
+  for (const b of copies) {
+    assert.match(
+      b.body,
+      /retention_rules\s*\{[^]*?duration\s*\{\s*time_amount\s*=\s*var\.backup_retention_days\s*time_unit\s*=\s*"DAYS"/,
+      b.labels[1],
+    );
+    assert.doesNotMatch(b.body, /time_rule_locked/, `${b.labels[1]}: not locked, still adjustable by a reviewed PR`);
+  }
+});
+
 test('ARC-06 FR4: every bucket is private; the files bucket is encrypted with the storage key', () => {
   const buckets = resources('oci_objectstorage_bucket');
   assert.equal(buckets.length, 3);

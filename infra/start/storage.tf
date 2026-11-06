@@ -53,6 +53,17 @@ resource "oci_objectstorage_bucket" "backups" {
   versioning     = "Disabled"
   freeform_tags  = local.tags
 
+  # While this rule is in place nobody can delete or change a copy before it is 35 days old. Only someone
+  # who can manage the bucket can remove the rule first; the server cannot. The rule is not locked, so it
+  # can still be adjusted by a reviewed PR.
+  retention_rules {
+    display_name = "keep-${var.backup_retention_days}-days"
+    duration {
+      time_amount = var.backup_retention_days
+      time_unit   = "DAYS"
+    }
+  }
+
   # Destroying this would make every encrypted copy unreadable or lose data; removing it takes a
   # deliberate code change first (review of PR #70).
   lifecycle {
@@ -69,6 +80,17 @@ resource "oci_objectstorage_bucket" "secrets_backup" {
   access_type    = "NoPublicAccess"
   versioning     = "Disabled"
   freeform_tags  = local.tags
+
+  # While this rule is in place nobody can delete or change a copy before it is 35 days old. Only someone
+  # who can manage the bucket can remove the rule first; the server cannot. The rule is not locked, so it
+  # can still be adjusted by a reviewed PR.
+  retention_rules {
+    display_name = "keep-${var.backup_retention_days}-days"
+    duration {
+      time_amount = var.backup_retention_days
+      time_unit   = "DAYS"
+    }
+  }
 
   # Destroying this would make every encrypted copy unreadable or lose data; removing it takes a
   # deliberate code change first (review of PR #70).
