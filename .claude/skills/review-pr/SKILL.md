@@ -5,6 +5,8 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
 
@@ -38,21 +40,26 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Security: own crypto, injection, missing step-up where the requirement asks for it, unsafe file handling.
 - Module boundaries: imports of another module's internals or tables; provider SDKs outside adapters;
   domain layer depending on database, HTTP or file system.
-- UI: empty/loading/error states, «Приховати суми», breakpoints, i18n uk/en, accessibility.
+- Design before code: any change under `apps/` or `packages/` before the owner has started development
+  (AGENTS.md, «Process: design before code») — blocking.
+- UI: empty/loading/error states, «Приховати суми» (from MVP; not in PoC), breakpoints of the target
+  release, i18n uk/en, accessibility; existing design-system elements reused.
 - Ledger: any write to journal tables outside `ledger`, unbalanced entries, edits instead of reversals,
   texts or merchant names stored in the journal (ARC-11).
 - Module card not updated when the public interface or events changed.
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
   implements, and the change matches that decision; a PR changing deploy or infrastructure workflows or
   access/trust settings (OIDC, secrets store, KMS, DNS) has an approval comment from the owner's own GitHub
-  account on that PR — otherwise blocking.
+  account on that PR — otherwise blocking. The decision is also in the decision log (`docs/decisions/`).
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
   listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. For a
   changed card, its «Реліз» line matches its row in the module README (PRC-01 FR 3), its slices are
-  complete for their release, and `docs/traceability/` and `docs/validation/req-check-report.md` were
-  regenerated.
+  complete for their release, scope removed from PoC moved to PoC v2, and `docs/traceability/` and
+  `docs/validation/req-check-report.md` were regenerated (`node --test tools/req-check` and
+  `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`: 0 errors,
+  no diff).
 - New dependencies or services without justification.
 
 ## 4. Verify, do not speculate
@@ -66,7 +73,8 @@ Post one PR review:
 - **Blocking** — violates a requirement criterion or a hard rule; each with file:line and the failing path.
 - **Non-blocking** — clarity, naming, small improvements.
 - The coverage table.
-- Questions for the owner where the requirement itself is unclear.
+- Questions for the owner where the requirement itself is unclear on a real product question; small
+  details the author decided and recorded are not owner questions.
 
 Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
 The authoring agent merges only after «Ready».

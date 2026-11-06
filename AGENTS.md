@@ -1,11 +1,18 @@
 # Rules for AI agents working in this repository
 
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+
 This is the single rule set for every agent (and human) changing this repository. It is short on purpose:
 read it fully, then load only the files your task needs. If a task conflicts with this file, stop and ask
 the product owner.
 
 Willowsum is built from scratch. The requirements are complete; the code is written requirement by
 requirement, following the architecture requirements (ARC) and delivery requirements (CICD).
+
+Current phase: design (see «Process: design before code»). Work only on canvas mockups and
+requirements; do not change `apps/` or `packages/` until the owner has approved every PoC design detail
+and explicitly starts development. The code already in `main` from PRs #46, #47, #52, #54, #55 is kept
+and frozen (owner, 2026-11-06); issues #49 and #51 wait for the start of development.
 
 ## Where things are
 
@@ -19,6 +26,10 @@ requirement, following the architecture requirements (ARC) and delivery requirem
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |
 | Architecture decisions (written while building) | `docs/adr/` — do not contradict an accepted ADR; propose a new one |
+| Project state and owner decision log | `docs/decisions/` (`state-2026-11-05.md`) |
+| Screen map (screens S-NNN, entry points), use cases, user journeys | `docs/ux/` |
+| Design artifacts (canvas, design system, Claude Doc, release sheet), snapshots, recovery | `docs/design/ARTIFACTS.md`; snapshots in `design/` |
+| Coverage tables of design decisions, req-check report | `docs/validation/` |
 
 Requirement files are self-contained: you never need another source to implement one. A requirement
 changes only through a PR to its file that records the owner's decision.
@@ -29,16 +40,21 @@ build a release, read only the slices of that release (and the latest earlier sl
 that has none in it). Links to other requirements, screens, П-rules, use cases, modules and tests live
 only in the fixed «Зв'язки» header at the top of a card or slice; IDs are allowed there and nowhere else
 in the text. Requirements not migrated yet keep the old one-file format. Format and rules:
-`docs/requirements/README.md`, «Release slices and links».
+`docs/requirements/README.md`, «Release slices and links». Scope that the owner removes from PoC (from
+2026-11-04) moves to PoC v2: it leaves the PoC slice and is added to the PoC v2 slice.
 
 Before changing a requirement, a screen or a shared rule, run
 `node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n|UC-id|module>` and update every
 dependent slice in the same PR or list it as follow-up with an issue in the PR body (PRC-02).
-Regenerate `docs/traceability/` and `docs/validation/req-check-report.md` in the same PR.
+Regenerate `docs/traceability/` and `docs/validation/req-check-report.md` in the same PR: run
+`node --test tools/req-check` and
+`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
+(0 errors; commit the regenerated files).
 
 ## Planned code layout
 
-Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent another.
+Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent another. `apps/web`, `packages/ui` and
+`packages/i18n` already exist (PoC shell; frozen until development starts).
 
 | Path | Contents |
 | --- | --- |
@@ -128,10 +144,12 @@ errors) lives only in `packages/domain-kernel`.
 4. Branch `<ID>-<slug>`; PR title starts with the ID, e.g. `BUD-03: safe-to-spend widget`.
 5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
    money calculations, database schema, pipeline and infrastructure also need a security review.
-6. All CI checks green. Never skip, disable or weaken a test to get green.
+6. All CI checks green (jobs `requirements`, `web`, `traceability`). Never skip, disable or weaken a
+   test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
    session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or
-   skills are merged only when the PR body records the owner's decision they implement. PRs that change deploy or
+   skills are merged only when the PR body records the owner's decision they implement (and the decision
+   log in `docs/decisions/` has it). PRs that change deploy or
    infrastructure workflows or access/trust settings (OIDC trust, secrets store, KMS, DNS) are merged only
    after the owner comments approval on that PR from their own GitHub account. If the owner commented
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
@@ -154,8 +172,8 @@ owner on 2026-11-06):
    approved.
 3. The UI/UX is complete before development starts; the requirements are validated through the
    prototype.
-4. A rule decided on the canvas is a general product rule, not a canvas-only note. Each rule goes into a
-   decision log at once. When a design step is approved, all its rules go into the requirements in
+4. A rule decided on the canvas is a general product rule, not a canvas-only note. Each rule goes into the
+   decision log (`docs/decisions/`) at once. When a design step is approved, all its rules go into the requirements in
    one PR, with a coverage table that maps every rule to the file that now holds it. A validation report
    in `docs/validation/` is one such table.
 5. A rule changed or approved on one example applies to all analogous elements, for example every
@@ -199,8 +217,11 @@ owner on 2026-11-06):
   no third-party offers; the product never moves money.
 - **UI:** every screen/widget has empty, loading and error states; no "Coming soon". WCAG 2.2 AA;
   all user-facing strings via i18n (uk and en complete).
-- **Ambiguity:** if requirements disagree or a criterion is unclear, do not guess. Stop and write the
-  question in the PR body for the owner.
+- **Ambiguity:** if requirements disagree or a criterion is unclear on a real product question (product
+  direction, scope or release, legal or compliance, money, access or infrastructure), do not guess. Stop
+  and write the question in the PR body for the owner. Small product details (formats, rounding, default
+  views, icons, placeholders, wording, which of two texts to follow when the intent is clear) the lead
+  agent decides, records in the PR body and the decision log, and tells the owner afterwards.
 - **Tests are the spec:** never change an acceptance test to fit the code unless the requirement changed.
 
 ## Definition of Done
@@ -208,6 +229,7 @@ owner on 2026-11-06):
 - Every acceptance criterion and edge case has an automated test; CI green.
 - Permission tests for every role and for a scoped member when data access changed.
 - Entitlement check with the feature key; audit entries written; feature flag for new functions.
-- Empty / loading / error states, WCAG 2.2 AA, i18n strings, widths 390, 768 and 1280 px.
+- Empty / loading / error states, WCAG 2.2 AA, i18n strings, widths 390, 768 and 1280 px (PoC and PoC v2:
+  1280 px desktop and light theme only, П-25).
 - No new High/Critical security findings.
 - API contract updated; help texts updated if user-visible.

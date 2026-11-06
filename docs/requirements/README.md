@@ -1,5 +1,7 @@
 # Product requirements / Вимоги до продукту
 
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
 [00-general.md](00-general.md) with the product overview, releases, roles matrix, plan matrix, general
@@ -74,13 +76,17 @@ create no slice. Other slices may depend on these implicit slices.
 release (slices, Mermaid dependency graph, build sequence in waves) and `coverage.md` (screens without a
 slice, slices without design, slices without criteria). The files are committed; CI regenerates them and
 fails on any difference; the same CI step also regenerates `docs/validation/req-check-report.md`.
+Run locally before pushing: `node --test tools/req-check` and
+`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
+CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`.
 
 **Change process (PRC-02).** Before changing a requirement, a slice, a screen, a canvas board or a
 shared rule, run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>`:
 it lists every dependent slice transitively, with the files, screens, use cases, docs/ux mentions,
 tests and modules to update. Update dependent slices in the same PR or list each one in the PR body as
 follow-up with an issue; regenerate the traceability files and the report; record the owner's decision
-in the PR body. Merge conditions are those of AGENTS.md step 7:
+in the PR body and in the decision log (`docs/decisions/`). Scope the owner removes from PoC moves to
+PoC v2. Merge conditions are those of AGENTS.md step 7:
 
 - CI green on the latest commit and «Ready» from a review in a separate session; changes to auth,
   permissions, encryption, money calculations, database schema, pipeline or infrastructure also need a

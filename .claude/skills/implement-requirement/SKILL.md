@@ -5,8 +5,14 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+
 Input: a requirement ID (or a small group from the same module). Output: one PR whose title starts with
 the ID, CI green, every acceptance criterion covered by a test.
+
+**Gate: design before code.** Do not change `apps/` or `packages/` until the owner has approved the
+design of the target release and explicitly started development (AGENTS.md, «Process: design before
+code»). Until then, stop and tell the owner; requirement and design changes follow PRC-02 instead.
 
 ## 1. Load only what you need
 
@@ -34,8 +40,10 @@ Write a short plan in the session (not a file):
   contract in `packages/api-contract` first), UI screens and states;
 - feature key and plan limits, roles and scope behaviour, audit entries.
 
-If any criterion is ambiguous or conflicts with another rule, stop and list the question for the owner.
-Do not guess. If the work will not fit one session, split it by criteria into several PRs now.
+If a criterion is unclear or conflicts with another rule on a real product question (direction, scope or
+release, legal or compliance, money, access or infrastructure), stop and list the question for the owner;
+do not guess. Small product details follow AGENTS.md «Ambiguity»: decide, record the decision in the PR
+body and the decision log in `docs/decisions/`. If the work will not fit one session, split it by criteria into several PRs now.
 
 ## 3. Branch
 
@@ -48,6 +56,7 @@ after the criterion, e.g. `it('BUD-03 AC2: shows daily limit when …')`.
 
 Always include, where relevant:
 - permission tests for Owner, Admin, Editor, Viewer and a scoped member (no data, counts or sums leak);
+  PoC and PoC v2 have one user per space, so there the tests cover that user and other spaces;
 - entitlement tests: limit reached → `402 PLAN_LIMIT_REACHED`, existing data still visible;
 - money tests with `Decimal` and mixed currencies;
 - audit entry written for every change.
@@ -55,20 +64,24 @@ Always include, where relevant:
 ## 5. Implement
 
 - Money: the Money/Decimal type from `packages/domain-kernel`, never floats.
-- Plans: the entitlement interface of the `plans` module with the feature key; no plan names or numbers in code.
+- Plans: the entitlement interface (`plan-catalog`, `usage-limits`) with the feature key; no plan names or numbers in code.
 - Scope: filter in the query layer and database policies, not in the UI.
 - External services: only through an adapter; new functions behind a feature flag.
 - Money movements: only through the `ledger` interface, following ARC-11.
 - Update the module card in the same PR when the public interface or events change.
-- UI: empty / loading / error states, three breakpoints, i18n keys for uk and en, WCAG 2.2 AA,
-  «Приховати суми» mode respected.
+- UI: empty / loading / error states, the breakpoints of the target release (PoC and PoC v2: desktop from 1280 px, light theme — П-25),
+  i18n keys for uk and en, WCAG 2.2 AA (PoC: as limited by П-25), «Приховати суми» mode respected from MVP (not in PoC). Reuse
+  existing design-system elements; the canvas is the visual reference.
 - Stay inside the module; use other modules only through their public interfaces.
 - Synthetic data only (`tools/synthetic`).
 
 ## 6. Verify
 
-Run the repo's checks (typecheck, lint, unit, integration; e2e for UI — see the root `package.json`).
-All green before pushing.
+Run the repo's checks (typecheck, lint, unit, integration; e2e for UI — see the root `package.json`),
+plus `node --test tools/req-check` and
+`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
+(0 errors, regenerated files committed). All green before pushing; CI runs jobs `requirements`, `web`,
+`traceability`.
 Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missing criteria, leaks
 through scope, floats, hard-coded limits, personal data in logs.
 
