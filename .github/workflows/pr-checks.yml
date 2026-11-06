@@ -73,3 +73,33 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+
+  local-env:
+    # CICD-04: the local environment starts with one command and every service answers (smoke test).
+    # CI uses the same compose file with freshly generated, throwaway credentials and synthetic data.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Local environment tool unit tests
+        run: node --test tools/local-env
+      - name: Start the local environment (one command)
+        run: node tools/local-env/index.mjs up
+      - name: Mask the generated throwaway secrets in later log output
+        run: |
+          grep -E '^WS_LOCAL_[A-Z0-9_]*(PASSWORD|SECRET_KEY)=' infra/local/.state/local.env | cut -d= -f2- | while read -r v; do
+            echo "::add-mask::$v"
+          done
+      - name: Smoke test PostgreSQL, mail and S3 storage
+        run: node tools/local-env/index.mjs smoke
+      - name: Service logs on failure
+        if: failure()
+        run: docker compose -f infra/local/compose.yaml --env-file infra/local/.state/local.env logs --no-color --tail 200
+      - name: Stop the local environment
+        if: always()
+        run: node tools/local-env/index.mjs down

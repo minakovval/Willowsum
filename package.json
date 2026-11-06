@@ -12,7 +12,12 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "pnpm -r run test",
-    "dev": "pnpm --filter @willowsum/web dev"
+    "dev": "pnpm --filter @willowsum/web dev",
+    "local:up": "node tools/local-env/index.mjs up",
+    "local:down": "node tools/local-env/index.mjs down",
+    "local:reset": "node tools/local-env/index.mjs reset",
+    "local:status": "node tools/local-env/index.mjs status",
+    "local:smoke": "node tools/local-env/index.mjs smoke"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
