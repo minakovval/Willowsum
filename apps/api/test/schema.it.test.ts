@@ -148,6 +148,7 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
         "violations.snapshot: materialized views and foreign tables cannot carry row policies",
         "violations.elevated(): SECURITY DEFINER functions in module schemas would bypass row policies",
         "violations.elevated(): SECURITY DEFINER functions are allowed only in the platform",
+        "violations.elevated(): only trigger functions without SECURITY DEFINER may live in a module schema",
         "schema-exemptions.json: violations.gone does not exist",
         "violations.linked: unique key linked_code_key does not include household_id (it would reveal rows of other households)",
         "violations.linked: foreign key linked_parent_fkey does not include household_id",

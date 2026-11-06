@@ -4,6 +4,7 @@ import {
   CONTEXT_SCHEMA,
   HOUSEHOLD_COLUMN,
   ISOLATION_POLICY,
+  GUARD_SCHEMA,
   TYPES_SCHEMA,
   boundaryProblems,
 } from "./isolation.ts";
@@ -187,6 +188,21 @@ export async function schemaProblems(
         ? `${k.table}: unique key ${k.name} does not include ${HOUSEHOLD_COLUMN} (it would reveal rows of other households)`
         : `${k.table}: foreign key ${k.name} does not include ${HOUSEHOLD_COLUMN}`,
     );
+  // The guard's own rules (functions, operators, casts, inheritance, expressions), when the guard is installed.
+  const guard = await client.query<{ installed: boolean }>(
+    `SELECT to_regprocedure('${GUARD_SCHEMA}.module_problems(text)') IS NOT NULL AS installed`,
+  );
+  if (guard.rows[0]?.installed) {
+    for (const schema of schemas) {
+      const found = await client.query<{ problem: string }>(
+        `SELECT m.problem FROM ${GUARD_SCHEMA}.module_problems($1) AS m(problem) ORDER BY 1`,
+        [schema],
+      );
+      problems.push(
+        ...found.rows.map((r) => `${schema}.${r.problem.replace(new RegExp(`^${schema}\\.`), "")}`),
+      );
+    }
+  }
   problems.push(...(await boundaryProblems(client, modules)));
   return problems;
 }

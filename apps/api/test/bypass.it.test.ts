@@ -1,17 +1,9 @@
-import { randomBytes } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
-import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
-import {
-  assertIsolatedRoles,
-  enableContextLogin,
-  enableModuleLogin,
-  migrate,
-} from "../src/platform/db/migrate.ts";
-import { ModuleDatabases } from "../src/platform/db/module-db.ts";
+import { assertIsolatedRoles, migrate } from "../src/platform/db/migrate.ts";
 import { schemaProblems } from "../src/platform/db/schema-rules.ts";
-import { createTestDatabase, urlAs } from "./db.ts";
+import { createTestDatabase } from "./db.ts";
 
 /**
  * Reviews of PR #75: ways a module migration (or a privileged role by hand) could make module SQL escape
@@ -22,9 +14,6 @@ import { createTestDatabase, urlAs } from "./db.ts";
 
 const fixtures = fileURLToPath(new URL("./fixtures/db-bypass", import.meta.url));
 const modulesDir = fileURLToPath(new URL("./fixtures/db-modules", import.meta.url));
-const password = randomBytes(12).toString("hex");
-const householdA = "6f1c1f2e-9a4b-4d55-8e3a-0b7f2a1c9d01";
-const householdB = "0d2e7c4a-3b1f-4a9e-9c6d-5e8f1a2b3c02";
 const cleanup: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
@@ -66,6 +55,11 @@ describe("root fix: a module migration cannot create anything with more than its
       /ARC-03 guard: rule leak on things/,
     ],
     [
+      "a SECURITY DEFINER trigger function in its own schema (the guard refuses it)",
+      "probe-trigger",
+      /ARC-03 guard: .*copy_all\(\): only trigger functions without SECURITY DEFINER may live in a module schema/,
+    ],
+    [
       "RESET ROLE back to the migration role",
       "probe-escape",
       /cannot set parameter "role" within security-definer function/,
@@ -86,47 +80,6 @@ describe("root fix: a module migration cannot create anything with more than its
     expect(applied.rowCount).toBe(0);
     expect(await schemaProblems(owner, [module], { tables: {} })).toEqual([]);
   });
-
-  it.each([
-    [
-      "a SECURITY DEFINER trigger function in its own schema",
-      "probe-trigger",
-      /probe_trigger\.copy_all\(\): SECURITY DEFINER functions are allowed only in the platform/,
-      "INSERT INTO things (household_id, label) VALUES ($1, 'pull')",
-    ],
-  ])(
-    "%s: the run stops, and even so the object reads no other household",
-    async (_, module, problem, insert) => {
-      const { url, owner } = await database();
-      const error = await errorOf(migrate(owner, { modules: [module], modulesDir: fixtures }));
-      expect(error).toMatch(/^Module roles must stay isolated: /);
-      expect(error).toMatch(problem);
-      expect((await schemaProblems(owner, [module], { tables: {} })).join("\n")).toMatch(problem);
-
-      // The object belongs to the owner role, which is under the household policy: no leak.
-      const table = `${module.replace("-", "_")}.things`;
-      await owner.query(`INSERT INTO ${table} (household_id, label) VALUES ($1, 'a1'), ($2, 'b1')`, [
-        householdA,
-        householdB,
-      ]);
-      await enableModuleLogin(owner, module, password);
-      await enableContextLogin(owner, password);
-      const databases = new ModuleDatabases({
-        connectionFor: (m) => ({ connectionString: urlAs(url, `ws_mod_${m.replace("-", "_")}`, password) }),
-        context: { connectionString: urlAs(url, CONTEXT_ROLE, password) },
-        poolSize: 1,
-      });
-      cleanup.push(() => databases.end());
-      const seen = await databases.for(module).inHousehold(householdA, async (q) => {
-        const returned = (await q.query<{ label: string }>(insert, [householdA])).rows.map((r) => r.label);
-        const visible = (
-          await q.query<{ label: string }>("SELECT label FROM things ORDER BY label")
-        ).rows.map((r) => r.label);
-        return [...returned, ...visible].join(",");
-      });
-      expect(seen).not.toMatch(/b1/);
-    },
-  );
 });
 
 describe("defence in depth: objects a privileged role creates by hand stop the next run and fail check:schema", () => {

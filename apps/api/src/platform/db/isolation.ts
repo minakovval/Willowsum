@@ -64,6 +64,94 @@ const PLATFORM_FUNCTION_CONFIG = "search_path=pg_catalog, pg_temp";
  */
 export const GUARD_SCHEMA = "platform_guard";
 export const GUARD_TRIGGER = "ws_module_guard";
+/** Second event trigger: refuses column-type rewrites by module owner roles (table_rewrite). */
+export const REWRITE_GUARD_TRIGGER = "ws_module_rewrite_guard";
+/** Body of the runner function migrate.ts creates for each migration (the guard allows exactly it). */
+export const RUNNER_FUNCTION = "ws_run_migration";
+export const RUNNER_BODY = " BEGIN EXECUTE sql; END ";
+const GUARD_REWRITE_BODY = `
+      BEGIN
+        -- Reason bit 4: a column is rewritten (ALTER COLUMN … TYPE, with or without USING). The rewrite
+        -- evaluates an expression over every row of every household; type changes go through a new column.
+        IF pg_catalog.left(current_user, 7) = 'ws_own_' AND (pg_catalog.pg_event_trigger_table_rewrite_reason() & 4) <> 0 THEN
+          RAISE EXCEPTION 'ARC-03 guard: changing the type of a column rewrites every row of every household; add a new column instead (expand, migrate, contract)'
+            USING ERRCODE = '42501';
+        END IF;
+      END `;
+/**
+ * Problems no module may have in its schema, as text rows (read-only; used by check_module and by
+ * check:schema). Rules from the guard-coverage review of PR #75:
+ * - only trigger functions (not SECURITY DEFINER) may live in a module schema, besides the migration
+ *   runner: a function in a CHECK, index, generated column or USING expression runs over every household's
+ *   rows during DDL, where row policies do not apply; no operators or casts either;
+ * - no table inheritance (a parent without the household policy shows the children's rows); declarative
+ *   partitions only, and a partitioned table must be a customer table;
+ * - CHECK constraints, index expressions and predicates and stored generated columns may call only
+ *   immutable pg_catalog functions and operators (column defaults are not evaluated over other rows).
+ */
+const MODULE_PROBLEMS_BODY = `
+      WITH ns AS (SELECT n.oid FROM pg_catalog.pg_namespace n WHERE n.nspname = p_schema),
+      -- Expression trees: catalog objects are pinned, so pg_depend does not list pg_catalog functions; the
+      -- function and operator ids are read from the stored trees instead.
+      expr AS (
+        SELECT con.conname::text AS obj, con.conbin::text AS tree
+          FROM pg_catalog.pg_constraint con
+          LEFT JOIN pg_catalog.pg_class c ON c.oid = con.conrelid
+          LEFT JOIN pg_catalog.pg_type ty ON ty.oid = con.contypid
+         WHERE con.conbin IS NOT NULL AND (c.relnamespace = (SELECT oid FROM ns) OR ty.typnamespace = (SELECT oid FROM ns))
+        UNION ALL
+        SELECT ic.relname::text, COALESCE(i.indexprs::text, '') || ' ' || COALESCE(i.indpred::text, '')
+          FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
+         WHERE ic.relnamespace = (SELECT oid FROM ns)
+        UNION ALL
+        SELECT c.relname || '.' || a.attname, ad.adbin::text
+          FROM pg_catalog.pg_attrdef ad
+          JOIN pg_catalog.pg_class c ON c.oid = ad.adrelid
+          JOIN pg_catalog.pg_attribute a ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
+         WHERE c.relnamespace = (SELECT oid FROM ns) AND a.attgenerated <> ''),
+      refs AS (
+        SELECT e.obj, m[1] AS kind, m[2]::oid AS id
+          FROM expr e, pg_catalog.regexp_matches(e.tree, ':(funcid|opfuncid|opno) (\\d+)', 'g') AS m)
+      SELECT DISTINCT problem FROM (
+        SELECT pg_catalog.format('%I(%s)', p.proname, pg_catalog.pg_get_function_identity_arguments(p.oid))
+                 || ': only trigger functions without SECURITY DEFINER may live in a module schema' AS problem
+          FROM pg_catalog.pg_proc p
+         WHERE p.pronamespace = (SELECT oid FROM ns)
+           AND NOT (p.prokind = 'f' AND p.prorettype = 'pg_catalog.trigger'::pg_catalog.regtype AND NOT p.prosecdef)
+           AND NOT (p.proname = '${RUNNER_FUNCTION}' AND p.prosecdef AND p.prosrc = '${RUNNER_BODY}'
+                    AND pg_catalog.pg_get_function_identity_arguments(p.oid) = 'sql text')
+        UNION ALL
+        SELECT o.oid::pg_catalog.regoperator::text || ': operators are not allowed in a module schema'
+          FROM pg_catalog.pg_operator o WHERE o.oprnamespace = (SELECT oid FROM ns)
+        UNION ALL
+        SELECT 'cast (' || c.castsource::pg_catalog.regtype::text || ' AS ' || c.casttarget::pg_catalog.regtype::text
+                 || '): casts are not allowed in a module schema'
+          FROM pg_catalog.pg_cast c
+          JOIN pg_catalog.pg_type st ON st.oid = c.castsource JOIN pg_catalog.pg_type tt ON tt.oid = c.casttarget
+         WHERE st.typnamespace = (SELECT oid FROM ns) OR tt.typnamespace = (SELECT oid FROM ns)
+        UNION ALL
+        SELECT ch.oid::pg_catalog.regclass::text || ' inherits ' || pa.oid::pg_catalog.regclass::text
+                 || ': table inheritance is not allowed (declarative partitions only)'
+          FROM pg_catalog.pg_inherits i
+          JOIN pg_catalog.pg_class ch ON ch.oid = i.inhrelid JOIN pg_catalog.pg_class pa ON pa.oid = i.inhparent
+         WHERE (ch.relnamespace = (SELECT oid FROM ns) OR pa.relnamespace = (SELECT oid FROM ns)) AND pa.relkind <> 'p'
+        UNION ALL
+        SELECT c.relname || ': a partitioned table must be a customer table (household_id)'
+          FROM pg_catalog.pg_class c
+         WHERE c.relnamespace = (SELECT oid FROM ns) AND c.relkind = 'p'
+           AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+                            WHERE a.attrelid = c.oid AND a.attname = 'household_id' AND NOT a.attisdropped)
+        UNION ALL
+        SELECT r.obj || ': expressions on module tables may call only immutable pg_catalog functions'
+          FROM refs r
+         WHERE (r.kind IN ('funcid', 'opfuncid') AND r.id <> 0
+                AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_proc p WHERE p.oid = r.id
+                                 AND p.pronamespace = 'pg_catalog'::pg_catalog.regnamespace AND p.provolatile = 'i'))
+            OR (r.kind = 'opno'
+                AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_operator o JOIN pg_catalog.pg_proc p ON p.oid = o.oprcode
+                                 WHERE o.oid = r.id AND p.pronamespace = 'pg_catalog'::pg_catalog.regnamespace
+                                   AND p.provolatile = 'i'))
+      ) found `;
 const GUARD_DDL_BODY = `
       BEGIN
         IF pg_catalog.left(current_user, 7) = 'ws_own_' THEN
@@ -75,8 +163,16 @@ const CHECK_MODULE_BODY = `
         ns oid;
         t record;
         bad text;
+        ctx text;
         expected constant text := '(household_id=(SELECTplatform_context.current_household()))';
       BEGIN
+        -- Only the event trigger may call this (it runs as the superuser): not module code at runtime.
+        GET DIAGNOSTICS ctx = PG_CONTEXT;
+        -- PostgreSQL prints a function without its schema when the schema is on the search_path; a function of
+        -- a module schema is printed with its schema, and modules have CREATE nowhere else.
+        IF ctx !~ '(^|\\n)PL/pgSQL function (${GUARD_SCHEMA}\\.)?guard_ddl\\(\\) line ' THEN
+          RAISE EXCEPTION 'check_module runs only from the isolation guard' USING ERRCODE = '42501';
+        END IF;
         SELECT n.oid INTO ns FROM pg_catalog.pg_namespace n
          WHERE n.nspname = p_schema
            AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles r WHERE r.rolname = 'ws_own_' || p_schema);
@@ -138,6 +234,8 @@ const CHECK_MODULE_BODY = `
           SELECT 'rule ' || w.rulename || ' on ' || c.relname || ': rewrite rules run with the owner''s rights'
             FROM pg_catalog.pg_rewrite w JOIN pg_catalog.pg_class c ON c.oid = w.ev_class
            WHERE c.relnamespace = ns AND NOT (w.rulename = '_RETURN' AND c.relkind IN ('v', 'm'))
+          UNION ALL
+          SELECT m.problem FROM ${GUARD_SCHEMA}.module_problems(p_schema) AS m(problem)
         ) found;
         IF bad IS NOT NULL THEN
           RAISE EXCEPTION 'ARC-03 guard: %', bad USING ERRCODE = '42501';
@@ -153,6 +251,12 @@ export async function installGuard(client: pg.ClientBase): Promise<void> {
     CREATE SCHEMA IF NOT EXISTS ${GUARD_SCHEMA};
     REVOKE ALL ON SCHEMA ${GUARD_SCHEMA} FROM PUBLIC;
     GRANT USAGE ON SCHEMA ${GUARD_SCHEMA} TO PUBLIC;
+    CREATE OR REPLACE FUNCTION ${GUARD_SCHEMA}.module_problems(p_schema text) RETURNS SETOF text
+      LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp
+      AS $$${MODULE_PROBLEMS_BODY}$$;
+    CREATE OR REPLACE FUNCTION ${GUARD_SCHEMA}.guard_rewrite() RETURNS event_trigger
+      LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp
+      AS $$${GUARD_REWRITE_BODY}$$;
     CREATE OR REPLACE FUNCTION ${GUARD_SCHEMA}.check_module(p_schema text) RETURNS void
       LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
       AS $$${CHECK_MODULE_BODY}$$;
@@ -163,31 +267,41 @@ export async function installGuard(client: pg.ClientBase): Promise<void> {
     GRANT EXECUTE ON FUNCTION ${GUARD_SCHEMA}.check_module(text) TO PUBLIC;
     DROP EVENT TRIGGER IF EXISTS ${GUARD_TRIGGER};
     CREATE EVENT TRIGGER ${GUARD_TRIGGER} ON ddl_command_end EXECUTE FUNCTION ${GUARD_SCHEMA}.guard_ddl();
+    DROP EVENT TRIGGER IF EXISTS ${REWRITE_GUARD_TRIGGER};
+    CREATE EVENT TRIGGER ${REWRITE_GUARD_TRIGGER} ON table_rewrite EXECUTE FUNCTION ${GUARD_SCHEMA}.guard_rewrite();
   `);
 }
 
 /** Problems with the guard itself: missing, disabled, changed or not owned by a superuser. */
 export async function guardProblems(client: pg.ClientBase): Promise<string[]> {
   const { rows } = await client.query<{ problem: string }>(
-    `SELECT 'the isolation guard (event trigger ${GUARD_TRIGGER}) is missing' AS problem
-      WHERE NOT EXISTS (SELECT 1 FROM pg_event_trigger WHERE evtname = '${GUARD_TRIGGER}')
+    `WITH expected_trigger(name, event, fn) AS (
+            VALUES ('${GUARD_TRIGGER}', 'ddl_command_end', '${GUARD_SCHEMA}.guard_ddl()'),
+                   ('${REWRITE_GUARD_TRIGGER}', 'table_rewrite', '${GUARD_SCHEMA}.guard_rewrite()')),
+          expected_fn(signature, definer, body) AS (
+            VALUES ('${GUARD_SCHEMA}.guard_ddl()', false, $2),
+                   ('${GUARD_SCHEMA}.guard_rewrite()', false, $3),
+                   ('${GUARD_SCHEMA}.check_module(text)', true, $4),
+                   ('${GUARD_SCHEMA}.module_problems(text)', false, $5))
+     SELECT 'the isolation guard (event trigger ' || x.name || ') is missing' AS problem
+       FROM expected_trigger x WHERE NOT EXISTS (SELECT 1 FROM pg_event_trigger e WHERE e.evtname = x.name)
      UNION ALL
      SELECT 'event trigger ' || e.evtname || ' differs from the platform''s isolation guard'
-       FROM pg_event_trigger e
-      WHERE e.evtname = '${GUARD_TRIGGER}'
-        AND NOT (e.evtevent = 'ddl_command_end' AND e.evtenabled IN ('O', 'A') AND e.evttags IS NULL
-                 AND e.evtfoid = to_regprocedure('${GUARD_SCHEMA}.guard_ddl()')
-                 AND (SELECT rolsuper FROM pg_roles WHERE oid = e.evtowner))
+       FROM pg_event_trigger e JOIN expected_trigger x ON x.name = e.evtname
+      WHERE NOT (e.evtevent = x.event AND e.evtenabled IN ('O', 'A') AND e.evttags IS NULL
+                 AND e.evtfoid = to_regprocedure(x.fn) AND (SELECT rolsuper FROM pg_roles WHERE oid = e.evtowner))
      UNION ALL
      SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
               || ' differs from the platform''s isolation guard'
        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
       WHERE n.nspname = '${GUARD_SCHEMA}'
-        AND NOT ((SELECT rolsuper FROM pg_roles WHERE oid = p.proowner) AND p.proconfig IS NOT DISTINCT FROM ARRAY[$1]
-                 AND ((p.proname = 'check_module' AND p.prosecdef AND p.prosrc = $2
-                       AND p.oid = to_regprocedure('${GUARD_SCHEMA}.check_module(text)'))
-                   OR (p.proname = 'guard_ddl' AND NOT p.prosecdef AND p.prosrc = $3
-                       AND p.oid = to_regprocedure('${GUARD_SCHEMA}.guard_ddl()'))))
+        AND NOT EXISTS (SELECT 1 FROM expected_fn f
+                         WHERE p.oid = to_regprocedure(f.signature) AND p.prosecdef = f.definer AND p.prosrc = f.body
+                           AND p.proconfig IS NOT DISTINCT FROM ARRAY[$1]
+                           AND (SELECT rolsuper FROM pg_roles WHERE oid = p.proowner))
+     UNION ALL
+     SELECT 'the isolation guard function ' || f.signature || ' is missing'
+       FROM expected_fn f WHERE to_regprocedure(f.signature) IS NULL
      UNION ALL
      SELECT '${GUARD_SCHEMA}: is not owned by a superuser'
        FROM pg_namespace n WHERE n.nspname = '${GUARD_SCHEMA}' AND NOT (SELECT rolsuper FROM pg_roles WHERE oid = n.nspowner)
@@ -197,7 +311,7 @@ export async function guardProblems(client: pg.ClientBase): Promise<string[]> {
      UNION ALL
      SELECT '${GUARD_SCHEMA}.' || t.typname || ': only the guard''s functions belong in ${GUARD_SCHEMA}'
        FROM pg_type t WHERE t.typnamespace = to_regnamespace('${GUARD_SCHEMA}')`,
-    [PLATFORM_FUNCTION_CONFIG, CHECK_MODULE_BODY, GUARD_DDL_BODY],
+    [PLATFORM_FUNCTION_CONFIG, GUARD_DDL_BODY, GUARD_REWRITE_BODY, CHECK_MODULE_BODY, MODULE_PROBLEMS_BODY],
   );
   return rows.map((r) => r.problem);
 }
@@ -410,7 +524,8 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
        FROM pg_rewrite w JOIN pg_class c ON c.oid = w.ev_class JOIN user_schemas n ON n.oid = c.relnamespace
       WHERE NOT (w.rulename = '_RETURN' AND c.relkind IN ('v', 'm'))
      UNION ALL
-     SELECT 'event trigger ' || evtname || ': not allowed' FROM pg_event_trigger WHERE evtname <> '${GUARD_TRIGGER}'
+     SELECT 'event trigger ' || evtname || ': not allowed' FROM pg_event_trigger
+      WHERE evtname NOT IN ('${GUARD_TRIGGER}', '${REWRITE_GUARD_TRIGGER}')
      UNION ALL
      SELECT 'extension ' || extname || ': not allowed' FROM pg_extension WHERE extname <> 'plpgsql'
      UNION ALL

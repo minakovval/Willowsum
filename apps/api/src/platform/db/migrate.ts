@@ -8,6 +8,8 @@ import {
   CONTEXT_ROLE,
   LARGE_OBJECT_FUNCTIONS_SQL,
   PROBE_ROLE,
+  RUNNER_BODY,
+  RUNNER_FUNCTION,
   applyHouseholdIsolation,
   ensurePlatformContext,
   grantPlatformContext,
@@ -27,14 +29,13 @@ import {
 export const MIGRATIONS_SCHEMA = "platform_migrations";
 export { PROBE_ROLE } from "./isolation.ts";
 
-/**
- * A module's migration SQL runs inside this SECURITY DEFINER function, owned by the module's owner role
+/*
+ * A module's migration SQL runs inside a SECURITY DEFINER function (RUNNER_FUNCTION), owned by the module's owner role
  * (ws_own_<schema>) and dropped again in the same transaction. Inside a SECURITY DEFINER function PostgreSQL
  * refuses SET ROLE, RESET ROLE and SET SESSION AUTHORIZATION, so migration SQL cannot return to the
  * migration (deployer) role: whatever it creates — tables, rules, triggers, functions, views — belongs to the
  * owner role, which has CREATE only on its own schema and no BYPASSRLS (ARC-03, ADR-0002).
  */
-const RUNNER_FUNCTION = "ws_run_migration";
 
 const FILE_RE = /^(\d{4})_[a-z0-9_]+\.sql$/;
 
@@ -182,7 +183,7 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
         await client.query(`SET LOCAL TimeZone = 'UTC'`);
         await client.query(
           `CREATE FUNCTION ${schema}.${RUNNER_FUNCTION}(sql text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
-             AS $$ BEGIN EXECUTE sql; END $$`,
+             AS $$${RUNNER_BODY}$$`,
         );
         await client.query(`SELECT ${schema}.${RUNNER_FUNCTION}($1)`, [migration.sql]);
         await client.query(`DROP FUNCTION ${schema}.${RUNNER_FUNCTION}(text)`);

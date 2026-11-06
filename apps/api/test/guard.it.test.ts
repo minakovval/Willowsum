@@ -104,6 +104,33 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
       "CREATE RULE leak AS ON INSERT TO things DO ALSO SELECT household_id, label FROM things;",
     ],
     ["a view without security_invoker", "CREATE VIEW plain AS SELECT * FROM things;"],
+    [
+      "ALTER COLUMN … TYPE … USING with a pg_catalog function (the rewrite would see every row)",
+      "ALTER TABLE things ALTER COLUMN label TYPE varchar USING (label || pg_catalog.set_config('ws.x', label, false));",
+    ],
+    ["a column type change that rewrites the table", "ALTER TABLE things ALTER COLUMN label TYPE char(20);"],
+    [
+      "a type change inside a DO block",
+      "DO $$ BEGIN EXECUTE 'ALTER TABLE things ALTER COLUMN label TYPE char(20)'; END $$;",
+    ],
+    [
+      "a function that is not a trigger function",
+      "CREATE FUNCTION f(t text) RETURNS boolean LANGUAGE sql AS 'SELECT true';",
+    ],
+    ["a procedure", "CREATE PROCEDURE p() LANGUAGE sql AS 'SELECT 1';"],
+    [
+      "an operator (even over a pg_catalog function)",
+      "CREATE OPERATOR === (LEFTARG = text, RIGHTARG = text, FUNCTION = pg_catalog.texteq);",
+    ],
+    [
+      "a CHECK with a volatile pg_catalog function",
+      "ALTER TABLE things ADD CONSTRAINT r CHECK (label <> pg_catalog.random()::text);",
+    ],
+    [
+      "a domain CHECK with a volatile pg_catalog function",
+      "CREATE DOMAIN short_text AS text CHECK (VALUE <> pg_catalog.random()::text);",
+    ],
+    ["traditional inheritance", "CREATE TABLE base (id uuid, label text); ALTER TABLE things INHERIT base;"],
     ["renaming household_id away", `ALTER TABLE things RENAME COLUMN household_id TO owner_id; ${COPY}`],
   ])("%s: the migration fails, no row is copied, household A sees only its own rows", async (_, sql) => {
     const { error, seenByA, rows } = await probe(sql);
@@ -125,9 +152,18 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
     expect(seenByA).toEqual(["a1"]);
   });
 
-  it("expand steps on a customer table still work (new column, index)", async () => {
+  it("expand steps on a customer table still work (new column, default, index, check, generated column, partitions, trigger)", async () => {
     const { error } = await probe(
-      "ALTER TABLE things ADD COLUMN note text; CREATE INDEX things_label ON things (label);",
+      `ALTER TABLE things ADD COLUMN note text;
+       ALTER TABLE things ADD COLUMN ref uuid NOT NULL DEFAULT gen_random_uuid();
+       CREATE INDEX things_label ON things (label);
+       CREATE INDEX things_lower ON things (lower(label)) WHERE label <> '';
+       ALTER TABLE things ADD CONSTRAINT label_short CHECK (length(label) < 100);
+       ALTER TABLE things ADD COLUMN label_upper text GENERATED ALWAYS AS (upper(label)) STORED;
+       CREATE TABLE parts (id uuid NOT NULL, household_id uuid NOT NULL, label text) PARTITION BY HASH (id);
+       CREATE TABLE parts_0 PARTITION OF parts FOR VALUES WITH (MODULUS 1, REMAINDER 0);
+       CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+       CREATE TRIGGER touch BEFORE INSERT ON things FOR EACH ROW EXECUTE FUNCTION touch();`,
     );
     expect(error).toBe("");
   });
