@@ -74,6 +74,24 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  secrets:
+    # CICD-12 FR 9: a secret in the PR's commits blocks the PR (gitleaks). The weekly full-history scan is
+    # .github/workflows/secret-scan.yml.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # gitleaks lists the PR's commits
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
   local-env:
     # CICD-04: the local environment starts with one command and every service answers (smoke test).
     # CI uses the same compose file with freshly generated, throwaway credentials and synthetic data.
@@ -138,3 +156,15 @@ jobs:
         run: pnpm --filter @willowsum/api check:modules
       - name: Integration tests on PostgreSQL 17
         run: pnpm --filter @willowsum/api test:integration
+      - name: One image, three roles (ARC-02); without configuration it refuses to start and names the variables
+        run: |
+          docker build -q -f apps/api/Dockerfile -t willowsum-api:ci .
+          for role in api worker scheduler; do
+            set +e
+            out=$(docker run --rm willowsum-api:ci --role "$role" 2>&1)
+            code=$?
+            set -e
+            echo "$role: $out"
+            test "$code" = "1"
+            echo "$out" | grep -q '^Configuration error: missing or invalid WS_DB_HOST, WS_DB_NAME, WS_DB_PROBE_PASSWORD$'
+          done

@@ -13,6 +13,8 @@ import { moduleRoleName, schemaName } from "../modules/rules.ts";
  */
 
 export const MIGRATIONS_SCHEMA = "platform_migrations";
+/** Read-only role of the readiness probe: it may only read the applied-migrations list (ARC-02 FR 4). */
+export const PROBE_ROLE = "ws_probe";
 
 const FILE_RE = /^(\d{4})_[a-z0-9_]+\.sql$/;
 
@@ -76,6 +78,11 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
     await client.query(`REVOKE CREATE ON SCHEMA public FROM PUBLIC`);
     await client.query(`REVOKE TEMPORARY, CONNECT ON DATABASE ${id(database)} FROM PUBLIC`);
 
+    await ensureRole(client, PROBE_ROLE, "NOLOGIN NOINHERIT");
+    await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(PROBE_ROLE)}`);
+    await client.query(`GRANT USAGE ON SCHEMA ${id(MIGRATIONS_SCHEMA)} TO ${id(PROBE_ROLE)}`);
+    await client.query(`GRANT SELECT ON ${id(MIGRATIONS_SCHEMA)}.applied TO ${id(PROBE_ROLE)}`);
+
     for (const module of source.modules) {
       const schema = schemaName(module);
       const role = moduleRoleName(module);
@@ -133,7 +140,7 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
  * every migration run, so a manual GRANT on any environment stops the next deployment.
  */
 export async function assertIsolatedRoles(client: pg.ClientBase, modules: readonly string[]): Promise<void> {
-  const roles = modules.map(moduleRoleName);
+  const roles = [...modules.map(moduleRoleName), PROBE_ROLE];
   const result = await client.query<{ rolname: string; problem: string }>(
     `SELECT r.rolname, 'has a privileged attribute' AS problem
        FROM pg_roles r
@@ -172,4 +179,28 @@ export async function enableModuleLogin(
 async function ensureRole(client: pg.ClientBase, role: string, options: string): Promise<void> {
   const exists = await client.query(`SELECT 1 FROM pg_roles WHERE rolname = $1`, [role]);
   if (exists.rowCount === 0) await client.query(`CREATE ROLE ${client.escapeIdentifier(role)} ${options}`);
+}
+
+export async function enableProbeLogin(client: pg.ClientBase, password: string): Promise<void> {
+  await client.query(
+    `ALTER ROLE ${client.escapeIdentifier(PROBE_ROLE)} LOGIN PASSWORD ${client.escapeLiteral(password)}`,
+  );
+}
+
+/**
+ * Schema version check for readiness (ARC-02 FR 4): every migration this code ships must be applied with
+ * the same checksum. The database may be ahead of the code (expand → migrate → contract), never behind.
+ * Returns the migrations that are missing or differ.
+ */
+export async function pendingMigrations(
+  client: pg.ClientBase,
+  expected: readonly Migration[],
+): Promise<string[]> {
+  const { rows } = await client.query<{ module: string; name: string; checksum: string }>(
+    `SELECT module, name, checksum FROM ${client.escapeIdentifier(MIGRATIONS_SCHEMA)}.applied`,
+  );
+  const applied = new Map(rows.map((r) => [`${r.module}/${r.name}`, r.checksum]));
+  return expected
+    .filter((m) => applied.get(`${m.module}/${m.name}`) !== m.checksum)
+    .map((m) => `${m.module}/${m.name}`);
 }

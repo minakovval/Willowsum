@@ -16,7 +16,7 @@ const NO_COLOR_TEMPLATES = {
 /** NFR-06 FR 1 / AGENTS.md «Money»: no floats for amounts (static analysis). */
 // Exact lower-case names, or a camelCase suffix (`totalAmount`, `unitPrice`); `checksum` and `separate` are not amounts.
 const AMOUNT_NAME =
-  "/^(amount|balance|price|total|sum|rate)s?$|[a-z0-9](Amount|Balance|Price|Total|Sum|Rate)s?$/";
+  "/^(amount|balance|price|total|subtotal|sum|rate)s?$|[a-z0-9](Amount|Balance|Price|Total|Sum|Rate)s?$/";
 const NUMERIC_ARG = (fn) =>
   `${fn}:matches([arguments.0.type='Literal'][arguments.0.raw=/^[0-9.]/], [arguments.0.type='UnaryExpression'][arguments.0.argument.type='Literal'])`;
 const AMOUNT_NUMBER_TYPE =
