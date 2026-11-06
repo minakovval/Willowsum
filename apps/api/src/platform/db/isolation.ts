@@ -1,4 +1,5 @@
 import type pg from "pg";
+import { moduleRoleName, ownerRoleName } from "../modules/rules.ts";
 
 /**
  * Household isolation in the database (ARC-03 FR 2): every customer-data table has `household_id uuid NOT
@@ -27,6 +28,25 @@ export type DataRegion = (typeof DATA_REGIONS)[number];
 
 const CURRENT_HOUSEHOLD = `(SELECT ${CONTEXT_SCHEMA}.current_household())`;
 
+/** Read-only role of the readiness probe: it may only read the applied-migrations list (ARC-02 FR 4). */
+export const PROBE_ROLE = "ws_probe";
+
+/** Bodies of the two platform functions; the boundary check compares the database's copies with them. */
+const CURRENT_HOUSEHOLD_BODY = ` SELECT household_id FROM ${CONTEXT_SCHEMA}.bindings
+             WHERE pid = pg_catalog.pg_backend_pid() AND role = session_user `;
+const BIND_BODY = `
+      DECLARE bound_role name;
+      BEGIN
+        SELECT usename INTO bound_role FROM pg_catalog.pg_stat_activity
+         WHERE pid = p_pid AND datname = pg_catalog.current_database();
+        IF bound_role IS NULL OR pg_catalog.left(bound_role, 7) <> 'ws_mod_' THEN
+          RAISE EXCEPTION 'only module connections are bound to a household' USING ERRCODE = '42501';
+        END IF;
+        INSERT INTO ${CONTEXT_SCHEMA}.bindings (pid, role, household_id) VALUES (p_pid, bound_role, p_household)
+          ON CONFLICT (pid) DO UPDATE SET role = EXCLUDED.role, household_id = EXCLUDED.household_id, bound_at = now();
+      END `;
+const PLATFORM_FUNCTION_CONFIG = "search_path=pg_catalog, pg_temp";
+
 /** Objects shared by every module schema: the binding, its functions, platform types. Idempotent. */
 export async function ensurePlatformContext(client: pg.ClientBase): Promise<void> {
   await client.query(`
@@ -41,22 +61,11 @@ export async function ensurePlatformContext(client: pg.ClientBase): Promise<void
 
     CREATE OR REPLACE FUNCTION ${CONTEXT_SCHEMA}.current_household() RETURNS uuid
       LANGUAGE sql STABLE PARALLEL RESTRICTED SECURITY DEFINER SET search_path = pg_catalog, pg_temp
-      AS $$ SELECT household_id FROM ${CONTEXT_SCHEMA}.bindings
-             WHERE pid = pg_catalog.pg_backend_pid() AND role = session_user $$;
+      AS $$${CURRENT_HOUSEHOLD_BODY}$$;
 
     CREATE OR REPLACE FUNCTION ${CONTEXT_SCHEMA}.bind(p_pid integer, p_household uuid) RETURNS void
       LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
-      AS $$
-      DECLARE bound_role name;
-      BEGIN
-        SELECT usename INTO bound_role FROM pg_catalog.pg_stat_activity
-         WHERE pid = p_pid AND datname = pg_catalog.current_database();
-        IF bound_role IS NULL OR bound_role NOT LIKE 'ws\\_mod\\_%' THEN
-          RAISE EXCEPTION 'only module connections are bound to a household' USING ERRCODE = '42501';
-        END IF;
-        INSERT INTO ${CONTEXT_SCHEMA}.bindings (pid, role, household_id) VALUES (p_pid, bound_role, p_household)
-          ON CONFLICT (pid) DO UPDATE SET role = EXCLUDED.role, household_id = EXCLUDED.household_id, bound_at = now();
-      END $$;
+      AS $$${BIND_BODY}$$;
     REVOKE ALL ON FUNCTION ${CONTEXT_SCHEMA}.current_household() FROM PUBLIC;
     REVOKE ALL ON FUNCTION ${CONTEXT_SCHEMA}.bind(integer, uuid) FROM PUBLIC;
 
@@ -70,7 +79,7 @@ export async function ensurePlatformContext(client: pg.ClientBase): Promise<void
   `);
 }
 
-/** Lets `role` (a module role or ws_context) use the shared objects it needs, and nothing else. */
+/** Lets `role` (a module role, a module owner role or ws_context) use the shared objects it needs, and nothing else. */
 export async function grantPlatformContext(client: pg.ClientBase, role: string): Promise<void> {
   const r = client.escapeIdentifier(role);
   await client.query(`GRANT USAGE ON SCHEMA ${CONTEXT_SCHEMA} TO ${r}`);
@@ -146,72 +155,124 @@ export const LARGE_OBJECT_FUNCTIONS_SQL = `SELECT p.oid FROM pg_proc p
   WHERE p.pronamespace = 'pg_catalog'::regnamespace AND p.proname ~ '^(lo_|loread$|lowrite$)'`;
 
 /**
- * What would let a module role escape row policies outside its own schema (review of PR #75). Checked on
- * every migration run (assertIsolatedRoles) and by check:schema:
- * - module roles, ws_probe and ws_context own no objects (an owner can switch row security off);
- * - a module role's explicit privileges cover only its own schema, its database CONNECT and the allowlist:
- *   USAGE on platform_context and platform_types, EXECUTE on platform_context.current_household();
- * - no SECURITY DEFINER function anywhere is callable by a module role, except current_household();
- * - no relation outside its own schema (and the system catalogs) is usable by a module role;
+ * What would let module code escape row policies or reach outside its schema (reviews of PR #75). Checked on
+ * every migration run (assertIsolatedRoles) and by check:schema. Module migrations already run as the
+ * module's owner role, which can create nothing outside its schema and is itself under row policies; this
+ * check is the second line, for objects a privileged role might create by hand or by mistake:
+ * - module roles, ws_probe and ws_context own no objects; an owner role owns objects of its own schema only,
+ *   and every object in a module schema belongs to that module's owner role;
+ * - explicit privileges of module and owner roles cover only their own schema, database CONNECT and the
+ *   allowlist: USAGE on platform_context and platform_types, EXECUTE on platform_context.current_household();
+ *   global default privileges for them are refused;
+ * - no relation (columns and sequences included) outside their own schema is usable by them;
+ * - no SECURITY DEFINER function in any schema but the two platform functions, which must be exactly as
+ *   the platform defines them; platform_context and platform_types hold nothing else;
+ * - no rewrite rules (a view's _RETURN aside), no event triggers, no extension but plpgsql;
  * - no table at all in schema public, and no household_id column outside the module schemas.
  */
-export async function boundaryProblems(
-  client: pg.ClientBase,
-  moduleRoles: readonly string[],
-  platformRoles: readonly string[],
-): Promise<string[]> {
+export async function boundaryProblems(client: pg.ClientBase, modules: readonly string[]): Promise<string[]> {
   const { rows } = await client.query<{ problem: string }>(
-    `WITH roles AS (SELECT oid, rolname, 'ws_mod_' <> left(rolname, 7) AS platform,
-                           CASE WHEN left(rolname, 7) = 'ws_mod_' THEN substr(rolname, 8) END AS own
-                      FROM pg_roles WHERE rolname = ANY($1) OR rolname = ANY($2)),
+    `WITH roles AS (
+            SELECT oid, rolname,
+                   CASE left(rolname, 7) WHEN 'ws_mod_' THEN 'module' WHEN 'ws_own_' THEN 'owner' ELSE 'platform' END AS kind,
+                   CASE WHEN left(rolname, 7) IN ('ws_mod_', 'ws_own_') THEN substr(rolname, 8) END AS own
+              FROM pg_roles WHERE rolname = ANY($1)),
           db AS (SELECT oid FROM pg_database WHERE datname = current_database()),
           modules AS (SELECT n.oid, n.nspname FROM pg_namespace n
                        WHERE EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = 'ws_mod_' || n.nspname)),
-          allowed_fn AS (SELECT '${CONTEXT_SCHEMA}.current_household()'::regprocedure::oid AS oid)
-     SELECT r.rolname || ' owns ' || (SELECT o.type || ' ' || o.identity FROM pg_identify_object(d.classid, d.objid, d.objsubid) o) AS problem
-       FROM pg_shdepend d JOIN roles r ON r.oid = d.refobjid
-      WHERE d.deptype = 'o' AND d.dbid IN (0, (SELECT oid FROM db))
+          user_schemas AS (SELECT oid, nspname FROM pg_namespace
+                            WHERE nspname NOT IN ('pg_catalog', 'information_schema') AND nspname !~ '^pg_(toast|temp_)'),
+          platform_fn AS (SELECT p.oid FROM pg_proc p WHERE p.pronamespace = '${CONTEXT_SCHEMA}'::regnamespace
+                            AND p.proname IN ('current_household', 'bind')),
+          allowed_fn AS (SELECT '${CONTEXT_SCHEMA}.current_household()'::regprocedure::oid AS oid),
+          shdep AS (SELECT d.*, o.type AS otype, o.schema AS oschema, o.identity AS oidentity
+                      FROM pg_shdepend d, pg_identify_object(d.classid, d.objid, d.objsubid) o
+                     WHERE d.dbid IN (0, (SELECT oid FROM db)))
+     SELECT r.rolname || ' owns ' || d.otype || ' ' || d.oidentity AS problem
+       FROM shdep d JOIN roles r ON r.oid = d.refobjid
+      WHERE d.deptype = 'o'
+        AND NOT (r.kind = 'owner' AND (
+              (d.oschema IS NOT NULL AND d.oschema = r.own)
+              OR (d.classid = 'pg_default_acl'::regclass
+                  AND (SELECT a.defaclnamespace FROM pg_default_acl a WHERE a.oid = d.objid)
+                      IS NOT DISTINCT FROM (SELECT oid FROM pg_namespace WHERE nspname = r.own))))
      UNION ALL
-     SELECT r.rolname || ' has privileges on ' || (SELECT o.type || ' ' || o.identity FROM pg_identify_object(d.classid, d.objid, d.objsubid) o)
-       FROM pg_shdepend d JOIN roles r ON r.oid = d.refobjid AND NOT r.platform
-      WHERE d.deptype = 'a' AND d.dbid IN (0, (SELECT oid FROM db))
+     SELECT r.rolname || ' has privileges on ' || d.otype || ' ' || d.oidentity
+       FROM shdep d JOIN roles r ON r.oid = d.refobjid AND r.kind <> 'platform'
+      WHERE d.deptype = 'a'
         AND NOT CASE d.classid
           WHEN 'pg_database'::regclass THEN true
-          WHEN 'pg_namespace'::regclass THEN
-            (SELECT nspname FROM pg_namespace WHERE oid = d.objid) IN (r.own, '${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
-          WHEN 'pg_class'::regclass THEN
-            (SELECT n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.oid = d.objid) = r.own
-          WHEN 'pg_proc'::regclass THEN d.objid = (SELECT oid FROM allowed_fn)
-            OR (SELECT n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.oid = d.objid) = r.own
-          WHEN 'pg_type'::regclass THEN
-            (SELECT n.nspname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.oid = d.objid) = r.own
+          WHEN 'pg_namespace'::regclass THEN d.oidentity IN (r.own, '${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
+          WHEN 'pg_proc'::regclass THEN d.objid = (SELECT oid FROM allowed_fn) OR d.oschema IS NOT DISTINCT FROM r.own
           WHEN 'pg_default_acl'::regclass THEN
-            (SELECT n.nspname FROM pg_default_acl a JOIN pg_namespace n ON n.oid = a.defaclnamespace WHERE a.oid = d.objid) = r.own
-          ELSE false END
-     UNION ALL
-     SELECT r.rolname || ' can execute SECURITY DEFINER function '
-              || format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
-       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace CROSS JOIN roles r
-      WHERE NOT r.platform AND p.prosecdef AND p.oid <> (SELECT oid FROM allowed_fn)
-        AND has_schema_privilege(r.oid, n.oid, 'USAGE') AND has_function_privilege(r.oid, p.oid, 'EXECUTE')
+            (SELECT a.defaclnamespace FROM pg_default_acl a WHERE a.oid = d.objid) IS NOT DISTINCT FROM
+            (SELECT oid FROM pg_namespace WHERE nspname = r.own)
+          ELSE d.oschema IS NOT DISTINCT FROM r.own AND d.oschema IS NOT NULL END
      UNION ALL
      SELECT r.rolname || ' can use ' || n.nspname || '.' || c.relname || ' outside its schema'
-       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace CROSS JOIN roles r
-      WHERE NOT r.platform AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
-        AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname IS DISTINCT FROM r.own
-        AND has_schema_privilege(r.oid, n.oid, 'USAGE')
-        AND has_table_privilege(r.oid, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+       FROM pg_class c JOIN user_schemas n ON n.oid = c.relnamespace CROSS JOIN roles r
+      WHERE r.kind <> 'platform' AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+        AND n.nspname IS DISTINCT FROM r.own AND has_schema_privilege(r.oid, n.oid, 'USAGE')
+        AND CASE WHEN c.relkind = 'S' THEN has_sequence_privilege(r.oid, c.oid, 'USAGE, SELECT, UPDATE')
+                 ELSE has_table_privilege(r.oid, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+                      OR has_any_column_privilege(r.oid, c.oid, 'SELECT, INSERT, UPDATE, REFERENCES') END
+     UNION ALL
+     SELECT n.nspname || '.' || c.relname || ' is not owned by ws_own_' || n.nspname
+       FROM pg_class c JOIN modules n ON n.oid = c.relnamespace
+      WHERE c.relowner <> COALESCE((SELECT oid FROM pg_roles WHERE rolname = 'ws_own_' || n.nspname), 0)
+     UNION ALL
+     SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+              || ' is not owned by ws_own_' || n.nspname
+       FROM pg_proc p JOIN modules n ON n.oid = p.pronamespace
+      WHERE p.proowner <> COALESCE((SELECT oid FROM pg_roles WHERE rolname = 'ws_own_' || n.nspname), 0)
+     UNION ALL
+     SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+              || ': SECURITY DEFINER functions are allowed only in the platform'
+       FROM pg_proc p JOIN user_schemas n ON n.oid = p.pronamespace
+      WHERE p.prosecdef AND p.oid NOT IN (SELECT oid FROM platform_fn)
+     UNION ALL
+     SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+              || ' differs from the platform''s definition'
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname IN ('${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
+        AND NOT (p.oid IN (SELECT oid FROM platform_fn) AND p.prosecdef AND p.proowner = n.nspowner
+                 AND p.proconfig IS NOT DISTINCT FROM ARRAY[$2]
+                 AND p.prosrc = CASE p.proname WHEN 'current_household' THEN $3 ELSE $4 END)
+     UNION ALL
+     SELECT n.nspname || '.' || c.relname || ': only the platform''s objects belong in ' || n.nspname
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname IN ('${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
+        AND NOT (n.nspname = '${CONTEXT_SCHEMA}' AND c.relname IN ('bindings', 'bindings_pkey') AND c.relowner = n.nspowner)
+     UNION ALL
+     SELECT n.nspname || '.' || t.typname || ': only the platform''s objects belong in ' || n.nspname
+       FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+      WHERE n.nspname IN ('${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
+        AND NOT (n.nspname = '${CONTEXT_SCHEMA}' AND t.typname IN ('bindings', '_bindings'))
+        AND NOT (n.nspname = '${TYPES_SCHEMA}' AND t.typname IN ('data_region', '_data_region') AND t.typowner = n.nspowner)
+     UNION ALL
+     SELECT 'rule ' || w.rulename || ' on ' || n.nspname || '.' || c.relname || ': rewrite rules run with the owner''s rights'
+       FROM pg_rewrite w JOIN pg_class c ON c.oid = w.ev_class JOIN user_schemas n ON n.oid = c.relnamespace
+      WHERE NOT (w.rulename = '_RETURN' AND c.relkind IN ('v', 'm'))
+     UNION ALL
+     SELECT 'event trigger ' || evtname || ': not allowed' FROM pg_event_trigger
+     UNION ALL
+     SELECT 'extension ' || extname || ': not allowed' FROM pg_extension WHERE extname <> 'plpgsql'
      UNION ALL
      SELECT 'public.' || c.relname || ': no table may live in schema public'
        FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
      UNION ALL
      SELECT n.nspname || '.' || c.relname || ': ${HOUSEHOLD_COLUMN} outside the module schemas'
-       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       FROM pg_class c JOIN user_schemas n ON n.oid = c.relnamespace
        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = '${HOUSEHOLD_COLUMN}' AND NOT a.attisdropped
       WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND n.oid NOT IN (SELECT oid FROM modules)
-        AND n.nspname NOT IN ('pg_catalog', 'information_schema', '${CONTEXT_SCHEMA}')
+        AND n.nspname <> '${CONTEXT_SCHEMA}'
       ORDER BY 1`,
-    [moduleRoles, platformRoles],
+    [
+      [...modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m)]), PROBE_ROLE, CONTEXT_ROLE],
+      PLATFORM_FUNCTION_CONFIG,
+      CURRENT_HOUSEHOLD_BODY,
+      BIND_BODY,
+    ],
   );
   return rows.map((r) => r.problem);
 }

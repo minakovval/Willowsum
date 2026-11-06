@@ -1,14 +1,12 @@
 import type pg from "pg";
-import { moduleRoleName, schemaName } from "../modules/rules.ts";
+import { schemaName } from "../modules/rules.ts";
 import {
-  CONTEXT_ROLE,
   CONTEXT_SCHEMA,
   HOUSEHOLD_COLUMN,
   ISOLATION_POLICY,
   TYPES_SCHEMA,
   boundaryProblems,
 } from "./isolation.ts";
-import { PROBE_ROLE } from "./migrate.ts";
 
 /**
  * Schema check (ARC-03, criterion «Таблиця з даними клієнтів без політики рядків — 0»; FR 1–3). Runs on a
@@ -186,7 +184,7 @@ export async function schemaProblems(
         ? `${k.table}: unique key ${k.name} does not include ${HOUSEHOLD_COLUMN} (it would reveal rows of other households)`
         : `${k.table}: foreign key ${k.name} does not include ${HOUSEHOLD_COLUMN}`,
     );
-  problems.push(...(await boundaryProblems(client, modules.map(moduleRoleName), [PROBE_ROLE, CONTEXT_ROLE])));
+  problems.push(...(await boundaryProblems(client, modules)));
   return problems;
 }
 

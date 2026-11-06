@@ -185,19 +185,20 @@ describe("ARC-03 FR 4: versioned, immutable migrations", () => {
     ]);
   });
 
-  it("refuses a migration role without BYPASSRLS: a data migration would silently miss every household", async () => {
-    const role = `ws_it_owner_${randomBytes(4).toString("hex")}`;
-    await owner.query(`CREATE ROLE ${role} LOGIN PASSWORD '${password}'`);
-    await owner.query(`GRANT CONNECT ON DATABASE ${new URL(db.url).pathname.slice(1)} TO ${role}`);
-    const weak = new pg.Client({ connectionString: urlAs(db.url, role, password) });
-    await weak.connect();
-    try {
-      await expect(migrate(weak, { modules: fixtureModules, modulesDir })).rejects.toThrow(/BYPASSRLS/);
-    } finally {
-      await weak.end();
-      await owner.query(`DROP OWNED BY ${role}`);
-      await owner.query(`DROP ROLE ${role}`);
-    }
+  it("migration SQL runs as the module's owner role, not as the migration role (ARC-03, ADR-0002)", async () => {
+    await migrate(owner, { modules: ["whoami"], modulesDir });
+    const { rows } = await owner.query("SELECT who, session FROM whoami.seen");
+    expect(rows).toEqual([{ who: "ws_own_whoami", session: "postgres" }]);
+    const { rows: own } = await owner.query(
+      "SELECT relowner::regrole::text AS owner FROM pg_class WHERE oid = 'whoami.seen'::regclass",
+    );
+    expect(own).toEqual([{ owner: "ws_own_whoami" }]);
+    const { rows: attrs } = await owner.query(
+      "SELECT rolsuper, rolbypassrls, rolcreaterole, rolcanlogin FROM pg_roles WHERE rolname = 'ws_own_whoami'",
+    );
+    expect(attrs).toEqual([
+      { rolsuper: false, rolbypassrls: false, rolcreaterole: false, rolcanlogin: false },
+    ]);
   });
 
   it("rolls back a failing migration completely and does not record it", async () => {

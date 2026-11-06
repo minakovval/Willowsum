@@ -13,6 +13,9 @@ const none: SchemaExemptions = { tables: {} };
 
 let db: { url: string; drop: () => Promise<void> };
 let owner: pg.Client;
+/** A second database for the violations fixture: some of its problems are database-wide. */
+let vdb: { url: string; drop: () => Promise<void> };
+let vowner: pg.Client;
 
 beforeAll(async () => {
   db = await createTestDatabase();
@@ -20,16 +23,22 @@ beforeAll(async () => {
   await owner.connect();
   await migrateRealModules(owner, db.url);
   await migrate(owner, { modules: ["homes", "household"], modulesDir: fixtures });
-  // The violations fixture breaks the boundary too (a SECURITY DEFINER function its role can call): its
-  // migrations are applied, then the run stops — the schema check below still reports every problem.
-  await expect(migrate(owner, { modules: ["violations"], modulesDir: fixtures })).rejects.toThrow(
-    /ws_mod_violations can execute SECURITY DEFINER function violations\.elevated\(\)/,
+  vdb = await createTestDatabase();
+  vowner = new pg.Client({ connectionString: vdb.url });
+  await vowner.connect();
+  await migrate(vowner, { modules: ["homes"], modulesDir: fixtures });
+  // The violations fixture breaks the boundary too (a SECURITY DEFINER function): its migrations are
+  // applied, then the run stops — the schema check below still reports every problem.
+  await expect(migrate(vowner, { modules: ["violations"], modulesDir: fixtures })).rejects.toThrow(
+    /violations\.elevated\(\): SECURITY DEFINER functions are allowed only in the platform/,
   );
 });
 
 afterAll(async () => {
   await owner?.end();
   await db?.drop();
+  await vowner?.end();
+  await vdb?.drop();
 });
 
 describe("ARC-03 criterion «таблиця з даними клієнтів без політики рядків — 0»: CI schema check", () => {
@@ -98,7 +107,7 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
   });
 
   it("reports every broken rule: household column, exemptions, amounts, time, region, policy bypasses", async () => {
-    const problems = await schemaProblems(owner, ["violations"], {
+    const problems = await schemaProblems(vowner, ["violations"], {
       tables: {
         "violations.exempted": "Reference data without customer data (test)",
         "violations.gone": "Old",
@@ -119,7 +128,7 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
         "violations.leaky: a view must be WITH (security_invoker = true), or it bypasses row policies",
         "violations.snapshot: materialized views and foreign tables cannot carry row policies",
         "violations.elevated(): SECURITY DEFINER functions in module schemas would bypass row policies",
-        "ws_mod_violations can execute SECURITY DEFINER function violations.elevated()",
+        "violations.elevated(): SECURITY DEFINER functions are allowed only in the platform",
         "schema-exemptions.json: violations.gone does not exist",
         "violations.linked: unique key linked_code_key does not include household_id (it would reveal rows of other households)",
         "violations.linked: foreign key linked_parent_fkey does not include household_id",
@@ -128,7 +137,7 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
   });
 
   it("an exemption needs a reason and cannot cover a customer-data table", async () => {
-    const problems = await schemaProblems(owner, ["violations", "homes"], {
+    const problems = await schemaProblems(vowner, ["violations", "homes"], {
       tables: { "violations.exempted": " ", "homes.records": "not customer data" },
     });
     expect(problems).toContain("schema-exemptions.json: violations.exempted needs a reason");
