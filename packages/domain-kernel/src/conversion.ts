@@ -1,3 +1,4 @@
+import { isCurrencyCode } from "./currency.ts";
 import { DomainError } from "./errors.ts";
 import { AMOUNT_MAX_SCALE, Decimal, Money } from "./money.ts";
 
@@ -35,16 +36,39 @@ export class InvalidRateError extends DomainError {
   }
 }
 
+/** Rates have at most 18 decimals, so a product with an 18-decimal amount stays exact within 60 digits. */
+export const RATE_MAX_SCALE = 18;
+
 export function exchangeRate(rate: Omit<ExchangeRate, "rate"> & { rate: string | Decimal }): ExchangeRate {
-  const value = typeof rate.rate === "string" ? new Decimal(rate.rate) : rate.rate;
+  let value: unknown = rate.rate;
+  if (typeof value === "string") {
+    if (!/^(0|[1-9]\d*)(\.\d+)?$/.test(value))
+      throw new InvalidRateError("A rate must be a positive decimal string");
+    value = new Decimal(value);
+  }
+  const checked = { ...rate, rate: value as Decimal };
+  assertValidRate(checked);
+  return checked;
+}
+
+/** Checked again at the conversion boundary: an ExchangeRate built by hand gets no shortcut (NFR-06 FR 4). */
+export function assertValidRate(rate: ExchangeRate): void {
+  const value: unknown = rate?.rate;
   if (!(value instanceof Decimal) || !value.isFinite() || value.lte(0)) {
     throw new InvalidRateError("A rate must be a positive finite decimal");
   }
-  if (!ISO_DATE_RE.test(rate.date)) throw new InvalidRateError("A rate date is YYYY-MM-DD");
-  if (rate.source.trim() === "") throw new InvalidRateError("A rate needs its source");
+  if (value.decimalPlaces() > RATE_MAX_SCALE) throw new InvalidRateError("A rate has at most 18 decimals");
+  if (typeof rate.date !== "string" || !ISO_DATE_RE.test(rate.date)) {
+    throw new InvalidRateError("A rate date is YYYY-MM-DD");
+  }
+  if (typeof rate.source !== "string" || rate.source.trim() === "") {
+    throw new InvalidRateError("A rate needs its source");
+  }
+  if (!isCurrencyCode(rate.base) || !isCurrencyCode(rate.quote)) {
+    throw new InvalidRateError("A rate's currencies must be known units");
+  }
   if (rate.base === rate.quote)
     throw new InvalidRateError("A rate converts between two different currencies");
-  return { ...rate, rate: value };
 }
 
 /**
@@ -53,6 +77,7 @@ export function exchangeRate(rate: Omit<ExchangeRate, "rate"> & { rate: string |
  * `requestedDate` is the date the amount belongs to; a rate of an earlier date marks the result approximate.
  */
 export function convert(amount: Money, rate: ExchangeRate, requestedDate: string): Conversion {
+  assertValidRate(rate);
   if (amount.currency !== rate.base)
     throw new InvalidRateError("The rate's base currency must match the amount");
   if (!ISO_DATE_RE.test(requestedDate)) throw new InvalidRateError("The requested date is YYYY-MM-DD");

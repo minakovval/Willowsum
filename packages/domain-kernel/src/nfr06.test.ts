@@ -86,6 +86,24 @@ describe("NFR-06 FR 4: every conversion keeps its rate, the rate's date and its 
     expect(() => exchangeRate({ ...base, rate: "1", date: "05.11.2026" })).toThrow(/YYYY-MM-DD/);
     expect(() => exchangeRate({ ...base, rate: "1", quote: "USD" })).toThrow(/two different/);
     expect(() => convert(Money.of("1", "UAH"), usdEur, "2026-11-05")).toThrow(/base currency/);
+    expect(() => exchangeRate({ ...base, rate: "1", quote: "ABC" })).toThrow(/known units/);
+    expect(() => exchangeRate({ ...base, rate: "1e3" })).toThrow(/positive decimal string/);
+    expect(() => exchangeRate({ ...base, rate: "0." + "1".repeat(19) })).toThrow(/at most 18 decimals/);
+  });
+
+  it("convert checks a hand-built rate too: no negative rate, empty date or empty source gets through", () => {
+    const amount = Money.of("10", "USD");
+    const forged = { base: "USD", quote: "EUR", rate: new Decimal("-2"), date: "", source: "" };
+    expect(() => convert(amount, forged, "2026-11-05")).toThrow(InvalidRateError);
+    expect(() =>
+      convert(amount, { ...forged, rate: new Decimal("2"), date: "2026-11-05" }, "2026-11-05"),
+    ).toThrow(/source/);
+    expect(() => convert(amount, { ...forged, rate: new Decimal("2"), source: "ECB" }, "2026-11-05")).toThrow(
+      /YYYY-MM-DD/,
+    );
+    expect(() =>
+      convert(amount, { ...forged, rate: "2" as never, date: "2026-11-05", source: "ECB" }, "2026-11-05"),
+    ).toThrow(/positive finite decimal/);
   });
 });
 

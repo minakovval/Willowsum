@@ -44,7 +44,12 @@ const MINOR_UNITS: Readonly<Record<string, number>> = {
   UYW: 4,
 };
 
-/** Active ISO 4217 alphabetic codes (funds and special codes included, testing and «no currency» codes excluded). */
+/**
+ * ISO 4217 alphabetic codes that are active, plus codes withdrawn in 2025 or later that are kept so that
+ * historical amounts stay readable (ANG → XCG, BGN → EUR). Fund codes (BOV, CHE, CHW, CLF, COU, MXV, USN,
+ * UYI, UYW) are included; special drawing units with no minor unit (XDR, XSU, XUA), testing (XTS) and
+ * «no currency» (XXX) codes are not. Codes withdrawn earlier (HRK, SLL, ZWL, CUC, …) are not accepted.
+ */
 const ISO_4217 =
   `AED AFN ALL AMD ANG AOA ARS AUD AWG AZN BAM BBD BDT BGN BHD BIF BMD BND BOB BOV BRL BSD BTN BWP BYN
 BZD CAD CDF CHE CHF CHW CLF CLP CNY COP COU CRC CUP CVE CZK DJF DKK DOP DZD EGP ERN ETB EUR FJD FKP GBP GEL GHS
