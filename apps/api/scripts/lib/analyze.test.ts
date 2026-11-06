@@ -27,6 +27,8 @@ describe("ARC-01 dependency analyzer (criteria table: internal imports, cycles, 
       "no-circular: src/modules/beta/adapters/loop.ts → src/modules/beta/domain/helper.ts",
       // The database driver only through platform/db; a type-only import counts.
       "no-db-driver-in-modules: src/modules/alpha/adapters/store.ts → pg",
+      // Code outside src/modules (e.g. an HTTP entry point) also goes only through index.ts.
+      "outside-to-module-internals: src/http/routes.ts → src/modules/beta/domain/helper.ts",
       // ARC-01 FR 4: only dependencies declared in module-rules.json (alpha → beta is declared, gamma is not).
       "undeclared-dependency:alpha: src/modules/alpha/application/run.ts → src/modules/gamma/index.ts",
       // An import that does not resolve can't be checked, so it is an error itself.

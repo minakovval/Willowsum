@@ -40,6 +40,14 @@ export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
       to: { path: "^src/modules/[^/]+/", pathNot: ["^src/modules/$1/", "^src/modules/[^/]+/index\\.ts$"] },
     },
     {
+      name: "outside-to-module-internals",
+      comment:
+        "Code outside src/modules (entry points, HTTP, jobs) reaches a module only through its index.ts.",
+      severity: "error",
+      from: { path: "^src/", pathNot: "^src/modules/" },
+      to: { path: "^src/modules/[^/]+/", pathNot: "^src/modules/[^/]+/index\\.ts$" },
+    },
+    {
       name: "domain-pure",
       comment:
         "The domain layer has no I/O: only its own domain files, the domain kernel, zod and decimal.js (ARC-01 FR 5).",

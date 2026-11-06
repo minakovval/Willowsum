@@ -41,6 +41,7 @@ export class AmountOutOfRangeError extends DomainError {
 }
 
 function checkRange(value: Decimal): Decimal {
+  if (!value.isFinite()) throw new DomainError("INVALID_AMOUNT", "Amount must be a finite decimal");
   if (value.decimalPlaces() > AMOUNT_MAX_SCALE) throw new AmountOutOfRangeError();
   if (value.abs().truncated().toFixed().replace(/^0$/, "").length > AMOUNT_MAX_INTEGER_DIGITS) {
     throw new AmountOutOfRangeError();
@@ -69,7 +70,10 @@ export class Money {
       return new Money(new Decimal(amount), currencyCode(currency));
     }
     if (!(amount instanceof Decimal)) {
-      throw new DomainError("INVALID_AMOUNT", "Amount must be a decimal string or a Decimal");
+      throw new DomainError(
+        "INVALID_AMOUNT",
+        "Amount must be a decimal string or a Decimal from @willowsum/domain-kernel (not a JS number or another decimal.js instance)",
+      );
     }
     return new Money(amount, currencyCode(currency));
   }

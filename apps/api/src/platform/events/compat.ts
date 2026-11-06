@@ -5,7 +5,8 @@ import type { JsonSchema } from "./define.ts";
  *
  * Compatible means every payload valid under `previous` is still valid under `next` and every consumer
  * written for `previous` still finds what it reads: for objects, existing properties keep a compatible
- * schema and stay required if they were; new properties must be optional; additionalProperties must not
+ * schema and keep their required/optional status (required → optional breaks consumers, optional →
+ * required rejects earlier payloads); new properties must be optional; additionalProperties must not
  * become stricter. Any other change to a non-object schema must leave it identical.
  */
 export function compatibilityProblems(previous: JsonSchema, next: JsonSchema, at = "$"): string[] {
@@ -22,6 +23,8 @@ export function compatibilityProblems(previous: JsonSchema, next: JsonSchema, at
         continue;
       }
       if (prevRequired.has(key) && !nextRequired.has(key)) problems.push(`${at}.${key}: no longer required`);
+      if (!prevRequired.has(key) && nextRequired.has(key))
+        problems.push(`${at}.${key}: optional property became required`);
       problems.push(...compatibilityProblems(schema, nextSchema, `${at}.${key}`));
     }
     for (const key of Object.keys(nextProps)) {

@@ -1,0 +1,8 @@
+{
+  "name": "@willowsum/local-env",
+  "private": true,
+  "description": "Local environment (CICD-04): PostgreSQL, mail and S3 storage in Docker, started with one command. Zero dependencies. `main` lets `node --test tools/local-env` run the unit tests; the smoke test runs against a started stack.",
+  "type": "module",
+  "main": "test/all.mjs",
+  "bin": "index.mjs"
+}

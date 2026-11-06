@@ -50,6 +50,19 @@ describe("ARC-01 event catalogue: versioned schemas, compatible changes only", (
       /note: new property is required/,
     );
     expect(() => nextSnapshot([ledger([required])], snapshot)).toThrow(/publish a new version instead/);
+
+    // An existing optional property may not become required, nor a required one optional.
+    const optionalSnapshot = nextSnapshot([ledger([withOptional])], { events: {} });
+    expect(catalogueProblems([ledger([required])], optionalSnapshot)).toEqual([
+      "ledger.posting-set-recorded@v1: incompatible change $.note: optional property became required — publish a new version instead",
+    ]);
+    const relaxed = defineEvent({
+      ...v1,
+      schema: z.object({ postingSetId: z.string(), householdId: z.string().optional() }),
+    });
+    expect(catalogueProblems([ledger([relaxed])], snapshot).join()).toMatch(
+      /householdId: no longer required/,
+    );
   });
 
   it("an incompatible change goes into a new version; the old one stays", () => {

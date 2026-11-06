@@ -31,6 +31,9 @@ describe("Money (ARC-01 kernel, AGENTS.md «Money»)", () => {
       expect(() => Money.of(bad, "EUR"), bad).toThrow("plain decimal string");
     }
     expect(Money.of(new Decimal("12.50"), "EUR").toDecimalString()).toBe("12.5");
+    for (const bad of [new Decimal(NaN), new Decimal(Infinity), new Decimal(-Infinity)]) {
+      expect(() => Money.of(bad, "EUR")).toThrow("finite");
+    }
   });
 
   it("rejects amounts that do not fit NUMERIC(38,18)", () => {

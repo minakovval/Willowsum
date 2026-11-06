@@ -15,7 +15,12 @@
     "dev": "pnpm --filter @willowsum/web dev",
     "check:modules": "pnpm --filter @willowsum/api check:modules",
     "test:integration": "pnpm --filter @willowsum/api test:integration",
-    "new-module": "pnpm --filter @willowsum/api new-module"
+    "new-module": "pnpm --filter @willowsum/api new-module",
+    "local:up": "node tools/local-env/index.mjs up",
+    "local:down": "node tools/local-env/index.mjs down",
+    "local:reset": "node tools/local-env/index.mjs reset",
+    "local:status": "node tools/local-env/index.mjs status",
+    "local:smoke": "node tools/local-env/index.mjs smoke"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
