@@ -4,8 +4,9 @@
 
 <!-- The PR title must start with the requirement ID, e.g. `BUD-03: safe-to-spend widget`.
      Link the file: docs/requirements/bud/BUD-03.md (for a migrated requirement: the slice, e.g. BUD-03.poc.md).
-     One requirement (or one small group) per PR. Until the owner starts development, PRs change only
-     requirements, design and docs — not apps/ or packages/ (AGENTS.md, «Process: design before code»). -->
+     One requirement (or one small group) per PR. Until the owner has approved the design of the target
+     release and started its development (PoC: 2026-11-06), PRs for that release change only requirements,
+     design and docs — not apps/ or packages/ (AGENTS.md, «Process: design before code»). -->
 
 ## Owner decision
 
