@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../db/module-db.ts";
+import { pageQuery } from "./pagination.ts";
 
 /**
  * Who is calling (ARC-07, П-5). The household comes from the authenticated session, never from the
@@ -45,12 +46,19 @@ export interface PublicContext {
   readonly principal: null;
 }
 
+/**
+ * What route code gets of its module's database: transactions bound to no household only. A household
+ * transaction is reachable solely through `ctx.inHousehold`, bound to the session's household, so route code
+ * cannot bind a household taken from the request (П-5, ADR-0003).
+ */
+export type HouseholdFreeDatabase = Pick<ModuleDatabase, "transaction">;
+
 export interface ProtectedContext {
   readonly principal: Principal;
   /** A transaction of the route's own module, bound to the caller's household (ARC-03). */
   inHousehold<T>(work: (db: HouseholdQueryRunner) => Promise<T>): Promise<T>;
-  /** The route's own module database, for work outside a household. */
-  readonly db: ModuleDatabase;
+  /** The route's own module database, for work outside a household (customer tables show no rows there). */
+  readonly db: HouseholdFreeDatabase;
 }
 
 export type RouteContext<A extends RouteAccess> = A extends { readonly public: string }
@@ -136,6 +144,12 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
   if (route.request?.body && (route.method === "GET" || route.method === "DELETE"))
     fail("GET and DELETE take no body");
   if (route.create && route.method !== "POST") fail("only POST routes are create routes");
+  const queryShape = route.request?.query instanceof z.ZodObject ? route.request.query.shape : {};
+  for (const key of ["cursor", "limit"] as const) {
+    // The page bound (≤ 100) is structural: `cursor` and `limit` are always the platform's own fields.
+    if (key in queryShape && queryShape[key] !== pageQuery.shape[key])
+      fail(`query «${key}» must be pageQuery's own field`);
+  }
   if (route.list) {
     const query = objectKeys(route.request?.query);
     if (!query.includes("cursor") || !query.includes("limit")) fail("a list takes pageQuery (cursor, limit)");

@@ -73,9 +73,16 @@ function isPermission(permission: string): permission is Permission {
   return Object.hasOwn(PERMISSIONS, permission);
 }
 
-/** Does this member hold the permission? An unknown role or permission holds nothing. */
+/** Roles a scope may restrict (00-general «Область доступу»); Owner and Admin are never scoped. */
+export const SCOPABLE_ROLES: readonly Role[] = ["editor", "viewer", "advisor"];
+
+/**
+ * Does this member hold the permission? An unknown role or permission holds nothing, and neither does an
+ * impossible member — a scoped Owner or Admin (identity must never produce one; refusing is the safe answer).
+ */
 export function can(member: Member, permission: string): boolean {
   if (!isRole(member.role) || !isPermission(permission)) return false;
+  if (member.scoped && !SCOPABLE_ROLES.includes(member.role)) return false;
   if (member.scoped && !SCOPED_ALLOWED.has(permission)) return false;
   return (PERMISSIONS[permission] as readonly Role[]).includes(member.role);
 }

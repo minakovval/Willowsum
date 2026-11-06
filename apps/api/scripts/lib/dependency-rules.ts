@@ -85,6 +85,14 @@ export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
       to: { path: ["fastify"].flatMap((p) => packagePaths(p)) },
     },
     {
+      name: "api-client-libraries-only-in-api-contract",
+      comment:
+        "openapi-fetch and openapi-typescript are used only inside packages/api-contract (ARC-07, ADR-0003); the backend reaches the client through @willowsum/api-contract.",
+      severity: "error",
+      from: { path: "^(src|scripts|test)/" },
+      to: { path: ["openapi-fetch", "openapi-typescript"].flatMap((p) => packagePaths(p)) },
+    },
+    {
       name: "platform-not-to-modules",
       comment: "Platform code (src/platform) knows nothing about business modules.",
       severity: "error",

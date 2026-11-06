@@ -11,7 +11,7 @@ import {
 import { IDEMPOTENCY_REPLAYED_HEADER } from "./idempotency.ts";
 import { decodeCursor, PAGE_DEFAULT_LIMIT, PAGE_MAX_LIMIT, pageOf, pageQuery, toPage } from "./pagination.ts";
 import { ApiProblem, PROBLEM_CONTENT_TYPE, problemType } from "./problem.ts";
-import { defineRoute } from "./route.ts";
+import { defineRoute, type ProtectedContext } from "./route.ts";
 
 const access = { permission: "things.write", feature: "things" };
 
@@ -388,5 +388,69 @@ describe("ARC-07: route declarations", () => {
     );
     await expect(testApp(routes, { features: new Set() })).rejects.toThrow(/unknown feature key things/);
     await expect(testApp([getThing, getThing])).rejects.toThrow(/declared twice/);
+  });
+});
+
+describe("ARC-07 review fixes (PR #80)", () => {
+  it("field-error paths name only declared fields: a key the client chose (record) is «*», never echoed", async () => {
+    const tags = defineRoute({
+      ...createThing,
+      operationId: "createTags",
+      path: "/v1/tags",
+      create: false,
+      request: {
+        body: z.object({
+          labels: z.record(z.string(), z.string().max(3)),
+          items: z.array(z.object({ n: z.number() })),
+        }),
+      },
+      handler: async () => ({ id: 1, name: "x" }),
+    });
+    const app = await testApp([tags]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/tags",
+      headers: { ...json, ...principalHeader() },
+      payload: { labels: { "jane@example.com": "too long" }, items: [{ n: 1 }, { n: "x" }] },
+    });
+    expect(res.json().errors).toEqual(
+      expect.arrayContaining([
+        { in: "body", path: "labels.*", issue: "too_big" },
+        { in: "body", path: "items.1.n", issue: "invalid_type" },
+      ]),
+    );
+    expect(res.body).not.toContain("jane");
+  });
+
+  it("the page bound is structural: a route may not declare its own cursor or limit", () => {
+    const ownLimit = pageQuery.extend({ limit: z.coerce.number().int().max(10_000) });
+    expect(() => defineRoute({ ...listThings, request: { query: ownLimit } })).toThrow(
+      /pageQuery's own field/,
+    );
+    expect(() =>
+      defineRoute({
+        ...getThing,
+        request: { ...getThing.request, query: z.object({ limit: z.coerce.number() }) },
+      }),
+    ).toThrow(/pageQuery's own field/);
+  });
+
+  it("П-5: route code gets no inHousehold on ctx.db (type and runtime), only household-free transactions", async () => {
+    let keys: string[] = [];
+    const probe = defineRoute({
+      ...getThing,
+      operationId: "probeCtx",
+      path: "/v1/probe-ctx/{thingId}",
+      handler: async (_input, ctx) => {
+        const protectedCtx = ctx as ProtectedContext;
+        // @ts-expect-error — inHousehold is not part of ctx.db: a household from the request cannot be bound.
+        void protectedCtx.db.inHousehold;
+        keys = Object.keys(protectedCtx.db);
+        return { id: 1, household: "" };
+      },
+    });
+    const app = await testApp([probe]);
+    await app.inject({ method: "GET", url: "/v1/probe-ctx/1", headers: principalHeader() });
+    expect(keys).toEqual(["transaction"]);
   });
 });

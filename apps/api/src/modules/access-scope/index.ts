@@ -10,5 +10,5 @@ export const accessScopeModule = defineModule({
 });
 
 export { checkPermission } from "./application/index.ts";
-export { can, permissionsOf, PERMISSION_KEYS, PERMISSIONS, ROLES } from "./domain/index.ts";
+export { can, permissionsOf, PERMISSION_KEYS, PERMISSIONS, ROLES, SCOPABLE_ROLES } from "./domain/index.ts";
 export type { Member, Permission, Role } from "./domain/index.ts";

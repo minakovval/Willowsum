@@ -9,7 +9,7 @@
 - Спільні правила: П-5, П-12, П-22, П-24, ARC-04, ARC-05, ARC-07, ARC-11
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/test/contract.test.ts, apps/api/test/api-routes.test.ts, packages/api-contract/src/index.test.ts
+- Перевіряється: apps/api/test/contract.test.ts, apps/api/test/api-routes.test.ts, apps/api/test/api-security.test.ts, packages/api-contract/src/index.test.ts
 
 **Мета.** Як команда розробки, ми хочемо мати один задокументований API, надійний журнал фінансових подій і замінних зовнішніх провайдерів, щоб веб, мобільний застосунок та інтеграції поводилися однаково, а зміна провайдера не ламала клієнтів.
 

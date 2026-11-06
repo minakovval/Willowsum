@@ -118,6 +118,26 @@ export default tseslint.config(
     rules: { "no-restricted-syntax": ["error", NO_COLOR_LITERALS, NO_COLOR_TEMPLATES, ...NO_FLOAT_MONEY] },
   },
   {
+    // ARC-07 / ADR-0003: the OpenAPI client libraries are used only inside packages/api-contract; every other
+    // package talks to the API through @willowsum/api-contract.
+    files: ["**/*.{ts,tsx,js}"],
+    ignores: ["packages/api-contract/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "openapi-fetch", message: "Use @willowsum/api-contract (ARC-07, ADR-0003)." },
+            {
+              name: "openapi-typescript",
+              message: "Only packages/api-contract generates the client (ADR-0003).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Tests may use literals freely (they assert the rules above), and translation catalogues hold words.
     files: ["**/*.test.{ts,tsx}", "packages/i18n/src/messages/**", "**/test/fixtures/**"],
     rules: { "no-restricted-syntax": "off" },

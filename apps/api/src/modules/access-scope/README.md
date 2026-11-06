@@ -21,7 +21,8 @@ ARC-07@PoC (перевірка прав на кожному маршруті), N
 - `accessScopeModule` — опис модуля з маршрутом `GET /v1/me/permissions` (`getMyPermissions`: роль, scope і
   дозволи того, хто викликає; дозвіл `household.data.read`, ключ функції `household.core`).
 - `checkPermission(member, permission)` / `can(member, permission)` — чи має учасник (`{ role, scoped }`) дозвіл;
-  невідома роль чи дозвіл — ні; учасник зі scope має лише `household.data.read`.
+  невідома роль чи дозвіл — ні; учасник зі scope має лише `household.data.read`; scope буває лише в Editor,
+  Viewer і Advisor (`SCOPABLE_ROLES`), а «обмежений» Owner чи Admin не має жодного дозволу.
 - `permissionsOf(member)`, `PERMISSIONS` (дозвіл → ролі), `PERMISSION_KEYS`, `ROLES` (`owner`, `admin`,
   `editor`, `viewer`, `advisor`), типи `Member`, `Permission`, `Role`.
 

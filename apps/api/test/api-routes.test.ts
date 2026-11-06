@@ -2,13 +2,14 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
-import { apiOptions, apiRoutes } from "../src/api.ts";
+import { apiOptions, apiRoutes, mountApi } from "../src/api.ts";
 import { can, PERMISSION_KEYS, ROLES } from "../src/modules/access-scope/index.ts";
 import { modules } from "../src/modules/index.ts";
 import { FEATURE_KEYS } from "../src/modules/plan-catalog/index.ts";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { IDEMPOTENCY_TABLE_SQL } from "../src/platform/http/idempotency.ts";
 import { fastifyPath, isPublic, type ApiRoute } from "../src/platform/http/route.ts";
+import { buildServer } from "../src/platform/process/server.ts";
 import { fakeDatabases, principalHeader, testAuthenticate } from "./http.ts";
 
 /**
@@ -90,7 +91,11 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
         }
       }
       expect(checkPermission).toHaveBeenCalledTimes(members.length);
-      for (const call of checkPermission.mock.calls) expect(call[1]).toBe(permission);
+      // Checked for the session's own principal (role and scope as signed in), with the route's permission.
+      checkPermission.mock.calls.forEach((call, i) => {
+        expect(call[0]).toEqual(expect.objectContaining(members[i]));
+        expect(call[1]).toBe(permission);
+      });
     },
   );
 
@@ -143,5 +148,29 @@ describe("ARC-07 FR 4: every module with create routes stores idempotency keys i
         m.name,
       ).toBe(true);
     }
+  });
+});
+
+describe("ARC-07 criterion «маршрут без перевірки прав і плану — 0»: no /v1 route outside the API layer", () => {
+  const wiring = () => ({ databases: fakeDatabases().databases, entitlements: "all-enabled" as const });
+  const readiness = async () => ({ ready: true as const });
+
+  it("a raw route under /v1 registered before the API mount is refused", () => {
+    expect(() =>
+      buildServer({
+        readiness,
+        api: (app) => {
+          app.get("/v1/hidden", async () => ({ secret: 1 }));
+          mountApi(app, wiring());
+        },
+      }),
+    ).toThrow(/mounted only by registerApi/);
+  });
+
+  it("a raw route under /v1 (any letter case) registered after the mount is refused", () => {
+    const app = buildServer({ readiness, api: (a) => mountApi(a, wiring()) });
+    expect(() => app.get("/v1/debug/households", async () => [])).toThrow(/mounted only by registerApi/);
+    expect(() => app.post("/V1/Things", async () => ({}))).toThrow(/mounted only by registerApi/);
+    expect(() => app.get("/v1", async () => ({}))).toThrow(/mounted only by registerApi/);
   });
 });

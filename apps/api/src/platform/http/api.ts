@@ -1,6 +1,6 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
-import type { ModuleDatabase } from "../db/module-db.ts";
+import type { HouseholdQueryRunner, ModuleDatabase, ModuleQueryRunner } from "../db/module-db.ts";
 import {
   IDEMPOTENCY_HEADER,
   IDEMPOTENCY_KEY_RE,
@@ -20,6 +20,7 @@ import {
   fastifyPath,
   isPublic,
   type ApiRoute,
+  type HouseholdFreeDatabase,
   type Principal,
   type ProtectedContext,
   type RouteInput,
@@ -91,11 +92,55 @@ export function installProblemHandlers(app: FastifyInstance, supportId?: ApiOpti
   });
 }
 
-function fieldErrors(where: ProblemFieldError["in"], error: z.ZodError): ProblemFieldError[] {
-  // Paths and issue codes only: zod messages could repeat the value that was sent.
+interface SchemaNode {
+  readonly _zod: { readonly def: Record<string, unknown> & { readonly type: string } };
+}
+
+/**
+ * The path of a field error with only names the schema declares: object keys of the schema and array
+ * indexes. Any other segment (a key the client chose, e.g. of a record) becomes «*», so a value-like key
+ * sent by the client is never echoed back.
+ */
+export function declaredPath(schema: z.ZodType | undefined, path: readonly PropertyKey[]): string {
+  let node = schema as unknown as SchemaNode | undefined;
+  const out: string[] = [];
+  for (const segment of path) {
+    // Wrappers (optional, nullable, default, pipe …) whose path is their inner schema's.
+    for (let i = 0; i < 16 && node; i++) {
+      const def = node._zod.def;
+      const inner = (def["innerType"] ?? (def.type === "pipe" ? def["in"] : undefined)) as
+        SchemaNode | undefined;
+      if (!inner) break;
+      node = inner;
+    }
+    const def = node?._zod.def;
+    if (
+      def?.type === "object" &&
+      typeof segment === "string" &&
+      Object.hasOwn(def["shape"] as object, segment)
+    ) {
+      out.push(segment);
+      node = (def["shape"] as Record<string, SchemaNode>)[segment];
+    } else if (def?.type === "array" && typeof segment === "number") {
+      out.push(String(segment));
+      node = def["element"] as SchemaNode;
+    } else {
+      out.push("*");
+      node = undefined;
+    }
+  }
+  return out.join(".");
+}
+
+function fieldErrors(
+  where: ProblemFieldError["in"],
+  schema: z.ZodType,
+  error: z.ZodError,
+): ProblemFieldError[] {
+  // Declared paths and issue codes only: zod messages could repeat the value that was sent.
   return error.issues.map((issue) => ({
     in: where,
-    path: issue.path.map(String).join("."),
+    path: declaredPath(schema, issue.path),
     issue: issue.code,
   }));
 }
@@ -106,7 +151,7 @@ function parseInput(route: ApiRoute, request: FastifyRequest): RouteInput<ApiRou
     if (!schema) return undefined;
     const parsed = schema.safeParse(value ?? (where === "body" ? undefined : {}));
     if (parsed.success) return parsed.data;
-    errors.push(...fieldErrors(where, parsed.error));
+    errors.push(...fieldErrors(where, schema, parsed.error));
     return undefined;
   };
   const params = part("path", route.request?.params, request.params);
@@ -125,6 +170,31 @@ function idempotencyKey(request: FastifyRequest): string | undefined {
     });
   }
   return raw;
+}
+
+/** Marks the routes registerApi mounts; private to this file, so no other code can claim it. */
+const API_ROUTE_TOKEN = Symbol("willowsum-api-route");
+const guarded = new WeakSet<FastifyInstance>();
+
+/**
+ * Refuses, as it is registered, every route under /v1 (any letter case) that registerApi did not mount: such
+ * a route would be served without the session, role and plan checks and outside the contract (ARC-07
+ * criterion «маршрут без перевірки прав і плану — 0», NFR-05 FR 1). buildServer installs it before any
+ * route; registerApi installs it too (once per app).
+ */
+export function guardApiRoutes(app: FastifyInstance): void {
+  if (guarded.has(app)) return;
+  guarded.add(app);
+  app.addHook("onRoute", (route) => {
+    const url = route.url.toLowerCase();
+    const underApi = url === API_PREFIX || url.startsWith(`${API_PREFIX}/`);
+    const config = route.config as { apiRoute?: unknown } | undefined;
+    if (underApi && config?.apiRoute !== API_ROUTE_TOKEN) {
+      throw new Error(
+        `Route ${route.url}: routes under ${API_PREFIX} are mounted only by registerApi (defineRoute)`,
+      );
+    }
+  });
 }
 
 /** Checks the routes against the API rules before any is served. */
@@ -156,6 +226,7 @@ export function assertRoutes(
 /** Mounts the API routes on the app (role `api`). */
 export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   assertRoutes(options.routes, options);
+  guardApiRoutes(app);
   installProblemHandlers(app, options.supportId);
   // Request bodies are JSON only (the contract has no other media type): text/plain is 415, not a string body.
   app.removeContentTypeParser("text/plain");
@@ -163,6 +234,7 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
     app.route({
       method: route.method,
       url: fastifyPath(route.path),
+      config: { apiRoute: API_ROUTE_TOKEN },
       handler: async (request, reply) => {
         const respond = async (status: number, value: unknown): Promise<string> => {
           // Only what the contract declares is sent: unknown fields are stripped, a wrong shape is a 500.
@@ -184,11 +256,16 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         const input = parseInput(route, request);
         const module = route.module as string;
         const db = options.databases.for(module);
-        const ctx: ProtectedContext = {
+        // Only household-free transactions besides the session-bound one: no `inHousehold(<any id>)` (П-5).
+        const householdFree: HouseholdFreeDatabase = Object.freeze({
+          transaction: <T>(work: (q: ModuleQueryRunner) => Promise<T>) => db.transaction(work),
+        });
+        const ctx: ProtectedContext = Object.freeze({
           principal,
-          db,
-          inHousehold: (work) => db.inHousehold(principal.householdId, work),
-        };
+          db: householdFree,
+          inHousehold: <T>(work: (q: HouseholdQueryRunner) => Promise<T>) =>
+            db.inHousehold(principal.householdId, work),
+        });
         const key = route.create ? idempotencyKey(request) : undefined;
         if (key === undefined) {
           return reply.send(await respond(route.response.status, await route.handler(input, ctx)));
