@@ -77,6 +77,14 @@ export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
       to: { path: ["pg", "@types/pg"].flatMap((p) => packagePaths(p)) },
     },
     {
+      name: "no-http-framework-in-modules",
+      comment:
+        "Modules declare routes with platform/http defineRoute; the API layer alone talks to Fastify (ARC-07: every route checked).",
+      severity: "error",
+      from: { path: "^src/modules/" },
+      to: { path: ["fastify"].flatMap((p) => packagePaths(p)) },
+    },
+    {
       name: "platform-not-to-modules",
       comment: "Platform code (src/platform) knows nothing about business modules.",
       severity: "error",

@@ -15,6 +15,8 @@ export interface Config {
   /** HTTP port: the API itself for `api`, the health probes for every role. */
   readonly port: number;
   readonly shutdownTimeoutMs: number;
+  /** Source of the plan matrix (plan-catalog); PoC: every feature enabled (П-24). */
+  readonly planEntitlements: (typeof PLAN_ENTITLEMENT_SOURCES)[number];
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -39,6 +41,9 @@ export class ConfigError extends Error {
   }
 }
 
+/** Mirrors plan-catalog's ENTITLEMENT_SOURCES (a test keeps them equal; platform code cannot import modules). */
+export const PLAN_ENTITLEMENT_SOURCES = ["all-enabled"] as const;
+
 const secret = z.string().min(16);
 const port = z.coerce.number().int().min(1).max(65_535);
 
@@ -58,6 +63,7 @@ export function loadConfig(
   const shape = {
     WS_PORT: port.default(8080),
     WS_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
+    WS_PLAN_ENTITLEMENTS: z.enum(PLAN_ENTITLEMENT_SOURCES).default("all-enabled"),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -79,6 +85,7 @@ export function loadConfig(
     role: role as Role,
     port: v["WS_PORT"] as number,
     shutdownTimeoutMs: v["WS_SHUTDOWN_TIMEOUT_MS"] as number,
+    planEntitlements: v["WS_PLAN_ENTITLEMENTS"] as Config["planEntitlements"],
     database: {
       host: v["WS_DB_HOST"] as string,
       port: v["WS_DB_PORT"] as number,

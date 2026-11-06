@@ -30,6 +30,14 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
     expect(modulePasswordVariable("bank-monobank")).toBe("WS_DB_PASSWORD_BANK_MONOBANK");
   });
 
+  it("ARC-07 / П-24: the plan matrix source defaults to every feature enabled; another value is refused by name", () => {
+    expect(loadConfig(base, "api", ["ledger", "bank-monobank"]).planEntitlements).toBe("all-enabled");
+    const error = errorOf(() =>
+      loadConfig({ ...base, WS_PLAN_ENTITLEMENTS: "premium" }, "api", ["ledger", "bank-monobank"]),
+    );
+    expect(error.variables).toEqual(["WS_PLAN_ENTITLEMENTS"]);
+  });
+
   it("criterion «старт із пропущеним обов'язковим секретом»: refuses to start, names the variable, not the value", () => {
     const env: Record<string, string> = { ...base };
     delete env["WS_DB_PASSWORD_LEDGER"];

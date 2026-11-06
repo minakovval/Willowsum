@@ -1,0 +1,23 @@
+/**
+ * The feature catalogue (П-21): every function has a key here, and the plan matrix gives each key a value
+ * for every plan. Keys are added by the requirement that introduces the function; plan names and limits
+ * never appear in code (AGENTS.md «Plans»).
+ */
+export const FEATURES = {
+  "household.core": "Робота з власним простором: перегляд і зміна його даних через API",
+} as const satisfies Record<string, string>;
+
+export type FeatureKey = keyof typeof FEATURES;
+export const FEATURE_KEYS = Object.keys(FEATURES) as FeatureKey[];
+
+export function isFeatureKey(key: string): key is FeatureKey {
+  return Object.hasOwn(FEATURES, key);
+}
+
+/**
+ * Where the plan matrix comes from. PoC has no plans or payment (00-general §0.2, П-24): every feature is
+ * enabled for every space by configuration (`WS_PLAN_ENTITLEMENTS=all-enabled`). The versioned matrix
+ * from SUB/ADM requirements replaces this source without changing the interface.
+ */
+export const ENTITLEMENT_SOURCES = ["all-enabled"] as const;
+export type EntitlementSource = (typeof ENTITLEMENT_SOURCES)[number];

@@ -101,6 +101,30 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     expect(p.output()).toContain('"outcome":"clean"');
   });
 
+  it("ARC-07: the api role serves the /v1 API; a protected route without a session is a 401 problem", async () => {
+    const port = await freePort();
+    const p = start("api", baseEnv(port));
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+    const meta = await fetch(`http://127.0.0.1:${port}/v1/meta`);
+    expect(meta.status).toBe(200);
+    expect(await meta.json()).toEqual({ apiVersion: "v1" });
+    const me = await fetch(`http://127.0.0.1:${port}/v1/me/permissions`);
+    expect(me.status).toBe(401);
+    expect(me.headers.get("content-type")).toMatch(/^application\/problem\+json/);
+    expect(await me.json()).toMatchObject({ code: "UNAUTHENTICATED", status: 401 });
+    p.child.kill("SIGTERM");
+    expect(await p.exit).toBe(0);
+  });
+
+  it("ARC-07: the worker role serves only the probes, no API", async () => {
+    const port = await freePort();
+    const p = start("worker", baseEnv(port));
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+    expect((await fetch(`http://127.0.0.1:${port}/v1/meta`)).status).toBe(404);
+    p.child.kill("SIGTERM");
+    expect(await p.exit).toBe(0);
+  });
+
   it.each(["worker", "scheduler"])(
     "the %s role starts from the same entry point and serves the probes",
     async (role) => {

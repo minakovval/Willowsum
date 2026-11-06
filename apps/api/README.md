@@ -1,10 +1,10 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06 (ARC-03)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06 (ARC-07)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
-[ADR-0002](../../docs/adr/0002-data-isolation.md).
+[ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md).
 
 ## Будова
 
@@ -12,7 +12,8 @@
 | --- | --- |
 | `src/modules/<module>/` | Модуль: `index.ts` (публічний інтерфейс і події), `domain/`, `application/`, `adapters/` (зокрема `adapters/db/migrations/NNNN_slug.sql`), картка `README.md`, генератор синтетичних даних своїх таблиць `synthetic.ts` |
 | `src/modules/index.ts` | Реєстр модулів (генератор додає сюди) |
-| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`) |
+| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI) |
+| `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки access-scope і plan-catalog |
 | `module-rules.json` | Єдиний файл правил: модулі, шар, від яких модулів залежить кожен |
 | `events.snapshot.json` | Опубліковані версії подій і схеми їхніх даних |
 | `schema-exemptions.json` | Таблиці схем модулів без `household_id` (без даних клієнтів) і причина для кожної (ARC-03) |
@@ -28,6 +29,9 @@
 | `pnpm check:migrations` | «Розширити → перенести → звузити»: операції звуження лише з `-- ws:contract …`; з `WS_MIGRATION_BASE_DIR` — і незмінність випущених міграцій |
 | `node tools/synthetic/index.ts --out <dir> [--households n] [--format csv\|sql]` | Синтетичні дані з генераторів модулів (ARC-03 п. 6); лише вигадані дані |
 | `pnpm --filter @willowsum/api events:snapshot` | Записує нові версії подій; несумісну зміну відхиляє |
+| `pnpm contract:write` (з кореня) | Пише контракт `packages/api-contract/openapi.json` з маршрутів і типи клієнта `src/schema.ts` (ARC-07) |
+| `pnpm contract:check` (з кореня) | Контракт і типи збігаються з маршрутами (CI-задача `api`) |
+| `pnpm --filter @willowsum/api contract:compat <base openapi.json>` | Зміни контракту сумісні в межах `/v1` щодо базової гілки (CI-задача `api`) |
 | `pnpm --filter @willowsum/api test` | Юніт-тести (без БД і мережі) |
 | `DATABASE_URL=… pnpm test:integration` | Інтеграційні тести на реальному PostgreSQL (суперкористувач тимчасової БД) |
 | `DATABASE_URL=<суперкористувач> pnpm --filter @willowsum/api db:bootstrap` | Один раз на нову базу: закриває функції великих об'єктів і ставить страж ізоляції — тригер подій `ws_module_guard` (ADR-0002) |
@@ -42,6 +46,7 @@
 | --- | --- | --- |
 | `WS_PORT` | Порт HTTP (API або лише перевірки `/health/live`, `/health/ready`) | 8080 |
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
+| `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_DB_HOST`, `WS_DB_PORT`, `WS_DB_NAME`, `WS_DB_SSL` | Сервер БД | порт 5432, SSL увімкнено |
 | `WS_DB_PROBE_PASSWORD` | Пароль ролі `ws_probe` (лише читання списку міграцій для «готовий») | — |
 | `WS_DB_CONTEXT_PASSWORD` | Пароль ролі `ws_context` (лише прив'язка з'єднань модулів до простору, ARC-03) | — |
@@ -80,3 +85,18 @@
   у пізнішому релізі. CI запускає тести модулів попередньої версії на новій схемі.
 - Кожна таблиця з даними клієнтів має генератор у `src/modules/<module>/synthetic.ts` (`tools/synthetic`);
   без нього тест ізоляції `test/isolation.it.test.ts` падає.
+
+## HTTP API (ARC-07)
+
+- Усі маршрути — під `/v1`, оголошуються `defineRoute` у `adapters/http/` модуля і потрапляють у `routes` опису
+  модуля. Кожен маршрут називає дозвіл (`access-scope`) і ключ функції (`plan-catalog`) або причину, чому він
+  публічний (публічні — лише платформні, без даних простору; перелік — у `test/api-routes.test.ts`). Модулі не
+  імпортують Fastify.
+- Порядок: сеанс (401) → роль і scope (403) → план (402 `PLAN_LIMIT_REACHED`) → вхід за схемами zod (400) →
+  ідемпотентність → обробник → відповідь за схемою відповіді. Дані простору — лише через `ctx.inHousehold`
+  (простір із сеансу). До identity (ACC-01) сеансів немає: захищені маршрути відповідають 401.
+- Помилки — RFC 9457 `application/problem+json` з `code`; без внутрішніх деталей і персональних даних.
+- `create: true` — заголовок `Idempotency-Key`; модуль додає міграцію з `src/platform/http/idempotency-keys.sql`
+  дослівно. `list: true` — `pageQuery` (`cursor`, `limit` ≤ 100) і `pageOf(item)`.
+- Після зміни маршруту — `pnpm contract:write` і коміт `packages/api-contract/openapi.json` та `src/schema.ts`.
+  Видаляти з контракту можна лише через 6 місяців після `deprecatedSince` (ADR-0003).

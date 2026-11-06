@@ -9,7 +9,7 @@
 - Спільні правила: П-21, П-24, ARC-01
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: apps/api/src/platform/http/api.test.ts, apps/api/src/platform/http/openapi.test.ts, apps/api/scripts/lib/contract-compat.test.ts, apps/api/test/api-routes.test.ts, apps/api/test/contract.test.ts, apps/api/test/idempotency.it.test.ts, apps/api/test/process.it.test.ts, apps/api/src/modules/access-scope/domain/permissions.test.ts, apps/api/src/modules/plan-catalog/index.test.ts, packages/api-contract/src/index.test.ts
 
 1. Усі клієнти (веб, адмін-панель, мобільний застосунок, зовнішній API) працюють через один задокументований HTTP API. Прямого доступу клієнтів до БД немає.
 2. Контракт API описаний у форматі OpenAPI 3.1 і генерується з тих самих схем, що перевіряють запити. Клієнтський пакет генерується з контракту.

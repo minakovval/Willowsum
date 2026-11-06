@@ -5,6 +5,8 @@ export type ReadinessCheck = () => Promise<{ ready: true } | { ready: false; rea
 
 export interface ServerOptions {
   readonly readiness: ReadinessCheck;
+  /** Mounts the HTTP API (role `api` only, ARC-07). */
+  readonly api?: (app: FastifyInstance) => void;
 }
 
 /**
@@ -36,5 +38,6 @@ export function buildServer(options: ServerOptions): FastifyInstance {
       return reply.code(503).send({ status: "not-ready", reason: "database-unreachable" });
     }
   });
+  options.api?.(app);
   return app;
 }
