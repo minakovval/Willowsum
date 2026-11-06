@@ -40,15 +40,17 @@ export async function ensurePlatformContext(client: pg.ClientBase): Promise<void
     REVOKE ALL ON ${CONTEXT_SCHEMA}.bindings FROM PUBLIC;
 
     CREATE OR REPLACE FUNCTION ${CONTEXT_SCHEMA}.current_household() RETURNS uuid
-      LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog
-      AS $$ SELECT household_id FROM ${CONTEXT_SCHEMA}.bindings WHERE pid = pg_backend_pid() AND role = session_user $$;
+      LANGUAGE sql STABLE PARALLEL RESTRICTED SECURITY DEFINER SET search_path = pg_catalog, pg_temp
+      AS $$ SELECT household_id FROM ${CONTEXT_SCHEMA}.bindings
+             WHERE pid = pg_catalog.pg_backend_pid() AND role = session_user $$;
 
     CREATE OR REPLACE FUNCTION ${CONTEXT_SCHEMA}.bind(p_pid integer, p_household uuid) RETURNS void
-      LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog
+      LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, pg_temp
       AS $$
       DECLARE bound_role name;
       BEGIN
-        SELECT usename INTO bound_role FROM pg_stat_activity WHERE pid = p_pid AND datname = current_database();
+        SELECT usename INTO bound_role FROM pg_catalog.pg_stat_activity
+         WHERE pid = p_pid AND datname = pg_catalog.current_database();
         IF bound_role IS NULL OR bound_role NOT LIKE 'ws\\_mod\\_%' THEN
           RAISE EXCEPTION 'only module connections are bound to a household' USING ERRCODE = '42501';
         END IF;
@@ -113,20 +115,103 @@ export async function applyHouseholdIsolation(client: pg.ClientBase, schema: str
 /**
  * Large objects live outside every schema, so a module could hand data to another module through them
  * (lo_create + GRANT SELECT ON LARGE OBJECT). Nothing in Willowsum uses them: EXECUTE on the server-side
- * large-object functions is revoked from PUBLIC. assertIsolatedRoles checks that no platform role can run them.
+ * large-object functions is revoked from PUBLIC. Those functions belong to the bootstrap superuser, so only a
+ * superuser can revoke it: once per database (`pnpm --filter @willowsum/api db:bootstrap`). Every later run
+ * finds nothing left to revoke and needs no superuser. If something is left and this role cannot revoke it,
+ * the run stops and names the bootstrap step.
  */
 export async function revokeLargeObjects(client: pg.ClientBase): Promise<void> {
-  await client.query(`
-    DO $$ DECLARE f regprocedure;
-    BEGIN
-      FOR f IN SELECT p.oid::regprocedure FROM pg_proc p
-                WHERE p.pronamespace = 'pg_catalog'::regnamespace AND p.proname ~ '^(lo_|loread$|lowrite$)'
-      LOOP
-        EXECUTE format('REVOKE EXECUTE ON FUNCTION %s FROM PUBLIC', f);
-      END LOOP;
-    END $$`);
+  const open = async (): Promise<string[]> =>
+    (
+      await client.query<{ fn: string }>(
+        `SELECT f.oid::regprocedure::text AS fn FROM (${LARGE_OBJECT_FUNCTIONS_SQL}) f
+          WHERE has_function_privilege('public', f.oid, 'EXECUTE') ORDER BY 1`,
+      )
+    ).rows.map((r) => r.fn);
+  const left = await open();
+  if (left.length === 0) return;
+  for (const fn of left) {
+    // Not the function's owner: PostgreSQL refuses or only warns; the re-check below decides.
+    await client.query(`REVOKE EXECUTE ON FUNCTION pg_catalog.${fn} FROM PUBLIC`).catch(() => undefined);
+  }
+  if ((await open()).length > 0)
+    throw new Error(
+      "Large-object functions are still executable by PUBLIC. Run the one-time bootstrap of this database as a " +
+        "superuser (pnpm --filter @willowsum/api db:bootstrap, ADR-0002), then migrate again.",
+    );
 }
 
 /** Server-side large-object functions (used by assertIsolatedRoles). */
 export const LARGE_OBJECT_FUNCTIONS_SQL = `SELECT p.oid FROM pg_proc p
   WHERE p.pronamespace = 'pg_catalog'::regnamespace AND p.proname ~ '^(lo_|loread$|lowrite$)'`;
+
+/**
+ * What would let a module role escape row policies outside its own schema (review of PR #75). Checked on
+ * every migration run (assertIsolatedRoles) and by check:schema:
+ * - module roles, ws_probe and ws_context own no objects (an owner can switch row security off);
+ * - a module role's explicit privileges cover only its own schema, its database CONNECT and the allowlist:
+ *   USAGE on platform_context and platform_types, EXECUTE on platform_context.current_household();
+ * - no SECURITY DEFINER function anywhere is callable by a module role, except current_household();
+ * - no relation outside its own schema (and the system catalogs) is usable by a module role;
+ * - no table at all in schema public, and no household_id column outside the module schemas.
+ */
+export async function boundaryProblems(
+  client: pg.ClientBase,
+  moduleRoles: readonly string[],
+  platformRoles: readonly string[],
+): Promise<string[]> {
+  const { rows } = await client.query<{ problem: string }>(
+    `WITH roles AS (SELECT oid, rolname, 'ws_mod_' <> left(rolname, 7) AS platform,
+                           CASE WHEN left(rolname, 7) = 'ws_mod_' THEN substr(rolname, 8) END AS own
+                      FROM pg_roles WHERE rolname = ANY($1) OR rolname = ANY($2)),
+          db AS (SELECT oid FROM pg_database WHERE datname = current_database()),
+          modules AS (SELECT n.oid, n.nspname FROM pg_namespace n
+                       WHERE EXISTS (SELECT 1 FROM pg_roles r WHERE r.rolname = 'ws_mod_' || n.nspname)),
+          allowed_fn AS (SELECT '${CONTEXT_SCHEMA}.current_household()'::regprocedure::oid AS oid)
+     SELECT r.rolname || ' owns ' || (SELECT o.type || ' ' || o.identity FROM pg_identify_object(d.classid, d.objid, d.objsubid) o) AS problem
+       FROM pg_shdepend d JOIN roles r ON r.oid = d.refobjid
+      WHERE d.deptype = 'o' AND d.dbid IN (0, (SELECT oid FROM db))
+     UNION ALL
+     SELECT r.rolname || ' has privileges on ' || (SELECT o.type || ' ' || o.identity FROM pg_identify_object(d.classid, d.objid, d.objsubid) o)
+       FROM pg_shdepend d JOIN roles r ON r.oid = d.refobjid AND NOT r.platform
+      WHERE d.deptype = 'a' AND d.dbid IN (0, (SELECT oid FROM db))
+        AND NOT CASE d.classid
+          WHEN 'pg_database'::regclass THEN true
+          WHEN 'pg_namespace'::regclass THEN
+            (SELECT nspname FROM pg_namespace WHERE oid = d.objid) IN (r.own, '${CONTEXT_SCHEMA}', '${TYPES_SCHEMA}')
+          WHEN 'pg_class'::regclass THEN
+            (SELECT n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE c.oid = d.objid) = r.own
+          WHEN 'pg_proc'::regclass THEN d.objid = (SELECT oid FROM allowed_fn)
+            OR (SELECT n.nspname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.oid = d.objid) = r.own
+          WHEN 'pg_type'::regclass THEN
+            (SELECT n.nspname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace WHERE t.oid = d.objid) = r.own
+          WHEN 'pg_default_acl'::regclass THEN
+            (SELECT n.nspname FROM pg_default_acl a JOIN pg_namespace n ON n.oid = a.defaclnamespace WHERE a.oid = d.objid) = r.own
+          ELSE false END
+     UNION ALL
+     SELECT r.rolname || ' can execute SECURITY DEFINER function '
+              || format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid))
+       FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace CROSS JOIN roles r
+      WHERE NOT r.platform AND p.prosecdef AND p.oid <> (SELECT oid FROM allowed_fn)
+        AND has_schema_privilege(r.oid, n.oid, 'USAGE') AND has_function_privilege(r.oid, p.oid, 'EXECUTE')
+     UNION ALL
+     SELECT r.rolname || ' can use ' || n.nspname || '.' || c.relname || ' outside its schema'
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace CROSS JOIN roles r
+      WHERE NOT r.platform AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema') AND n.nspname IS DISTINCT FROM r.own
+        AND has_schema_privilege(r.oid, n.oid, 'USAGE')
+        AND has_table_privilege(r.oid, c.oid, 'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER')
+     UNION ALL
+     SELECT 'public.' || c.relname || ': no table may live in schema public'
+       FROM pg_class c WHERE c.relnamespace = 'public'::regnamespace AND c.relkind IN ('r', 'p', 'v', 'm', 'f', 'S')
+     UNION ALL
+     SELECT n.nspname || '.' || c.relname || ': ${HOUSEHOLD_COLUMN} outside the module schemas'
+       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = '${HOUSEHOLD_COLUMN}' AND NOT a.attisdropped
+      WHERE c.relkind IN ('r', 'p', 'v', 'm', 'f') AND n.oid NOT IN (SELECT oid FROM modules)
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema', '${CONTEXT_SCHEMA}')
+      ORDER BY 1`,
+    [moduleRoles, platformRoles],
+  );
+  return rows.map((r) => r.problem);
+}

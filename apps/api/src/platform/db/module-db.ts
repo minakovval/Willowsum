@@ -65,7 +65,10 @@ export class ModuleDatabase {
     return this.run(null, work);
   }
 
-  /** A transaction bound to one household, chosen by the platform (the caller's session), never by module SQL. */
+  /**
+   * A transaction bound to one household. Module SQL cannot change the binding; the id itself comes from the
+   * caller's TypeScript today — tying it to the authenticated session comes with ARC-07 (access-scope).
+   */
   async inHousehold<T>(householdId: string, work: (db: HouseholdQueryRunner) => Promise<T>): Promise<T> {
     if (!UUID_RE.test(householdId)) throw new Error("householdId must be a UUID");
     return this.run(householdId, (q) => work({ ...q, householdId }));

@@ -345,6 +345,24 @@ describe("ARC-03 FR 2: household isolation in the database, for the module role"
   });
 });
 
+describe("ARC-03: the platform's SECURITY DEFINER functions are hardened", () => {
+  it("search_path is pg_catalog, pg_temp; current_household is STABLE and PARALLEL RESTRICTED", async () => {
+    const { rows } = await owner.query(
+      `SELECT proname, provolatile, proparallel, proconfig FROM pg_proc
+        WHERE pronamespace = 'platform_context'::regnamespace ORDER BY proname`,
+    );
+    expect(rows).toEqual([
+      { proname: "bind", provolatile: "v", proparallel: "u", proconfig: ["search_path=pg_catalog, pg_temp"] },
+      {
+        proname: "current_household",
+        provolatile: "s",
+        proparallel: "r",
+        proconfig: ["search_path=pg_catalog, pg_temp"],
+      },
+    ]);
+  });
+});
+
 describe("ARC-03 FR 1: time is UTC in every transaction", () => {
   it("TimeZone is UTC even after module code changed it in an earlier transaction", async () => {
     await alpha.transaction((q) => q.query("SET TimeZone = 'Europe/Kyiv'"));

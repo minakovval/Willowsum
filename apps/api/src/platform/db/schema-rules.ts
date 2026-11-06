@@ -1,6 +1,14 @@
 import type pg from "pg";
-import { schemaName } from "../modules/rules.ts";
-import { CONTEXT_SCHEMA, HOUSEHOLD_COLUMN, ISOLATION_POLICY, TYPES_SCHEMA } from "./isolation.ts";
+import { moduleRoleName, schemaName } from "../modules/rules.ts";
+import {
+  CONTEXT_ROLE,
+  CONTEXT_SCHEMA,
+  HOUSEHOLD_COLUMN,
+  ISOLATION_POLICY,
+  TYPES_SCHEMA,
+  boundaryProblems,
+} from "./isolation.ts";
+import { PROBE_ROLE } from "./migrate.ts";
 
 /**
  * Schema check (ARC-03, criterion «Таблиця з даними клієнтів без політики рядків — 0»; FR 1–3). Runs on a
@@ -15,7 +23,12 @@ import { CONTEXT_SCHEMA, HOUSEHOLD_COLUMN, ISOLATION_POLICY, TYPES_SCHEMA } from
  * - region: a `data_region` column not of the platform type; the household table without its region and
  *   key reference;
  * - objects that would bypass the policy: views without `security_invoker`, materialized views,
- *   SECURITY DEFINER functions in module schemas.
+ *   SECURITY DEFINER functions in module schemas; and everything outside the module schemas that
+ *   boundaryProblems (isolation.ts) checks on every migration run too;
+ * - a unique key or foreign key of a customer table without `household_id`: a duplicate-key or foreign-key
+ *   error would reveal that a row exists in another household (and a foreign key could point into it). The
+ *   one exception is a unique key on a single uuid column: random identifiers reveal nothing to someone
+ *   who does not already hold the id.
  */
 
 /** apps/api/schema-exemptions.json: tables in module schemas that hold no customer data, with the reason. */
@@ -148,6 +161,32 @@ export async function schemaProblems(
   }
   for (const { fn } of definers.rows)
     problems.push(`${fn}: SECURITY DEFINER functions in module schemas would bypass row policies`);
+
+  const keys = await client.query<{ table: string; kind: string; name: string }>(
+    `WITH customer AS (
+       SELECT c.oid, n.nspname || '.' || c.relname AS table, a.attnum AS household
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = $2 AND NOT a.attisdropped
+        WHERE n.nspname = ANY($1) AND c.relkind IN ('r', 'p'))
+     SELECT t.table, 'unique key' AS kind, ic.relname AS name
+       FROM pg_index i JOIN customer t ON t.oid = i.indrelid JOIN pg_class ic ON ic.oid = i.indexrelid
+      WHERE i.indisunique AND NOT (t.household = ANY ((i.indkey::int2[])[0:i.indnkeyatts - 1]))
+        AND NOT (i.indnkeyatts = 1 AND EXISTS (SELECT 1 FROM pg_attribute a
+                   WHERE a.attrelid = t.oid AND a.attnum = i.indkey[0] AND a.atttypid = 'uuid'::regtype))
+     UNION ALL
+     SELECT t.table, 'foreign key', k.conname
+       FROM pg_constraint k JOIN customer t ON t.oid = k.conrelid
+      WHERE k.contype = 'f' AND NOT (t.household = ANY (k.conkey))
+      ORDER BY 1, 2, 3`,
+    [schemas, HOUSEHOLD_COLUMN],
+  );
+  for (const k of keys.rows)
+    problems.push(
+      k.kind === "unique key"
+        ? `${k.table}: unique key ${k.name} does not include ${HOUSEHOLD_COLUMN} (it would reveal rows of other households)`
+        : `${k.table}: foreign key ${k.name} does not include ${HOUSEHOLD_COLUMN}`,
+    );
+  problems.push(...(await boundaryProblems(client, modules.map(moduleRoleName), [PROBE_ROLE, CONTEXT_ROLE])));
   return problems;
 }
 

@@ -7,6 +7,7 @@ import {
   CONTEXT_ROLE,
   LARGE_OBJECT_FUNCTIONS_SQL,
   applyHouseholdIsolation,
+  boundaryProblems,
   ensurePlatformContext,
   grantPlatformContext,
   revokeLargeObjects,
@@ -71,14 +72,16 @@ export interface MigrateResult {
  */
 export async function migrate(client: pg.ClientBase, source: MigrationSource): Promise<MigrateResult> {
   const id = (name: string): string => client.escapeIdentifier(name);
-  // Customer tables force row security for every role but a superuser or BYPASSRLS. A data migration
-  // («перенести») run by any other role would silently see no rows, so such a role is refused up front.
+  // Customer tables force row security for every role without BYPASSRLS. A data migration («перенести») run
+  // by such a role would silently see no rows, so it is refused up front. No superuser is needed after the
+  // one-time db:bootstrap (revokeLargeObjects then has nothing left to revoke).
   const runner = await client.query<{ ok: boolean }>(
     "SELECT rolsuper OR rolbypassrls AS ok FROM pg_roles WHERE rolname = current_user",
   );
   if (!runner.rows[0]?.ok)
     throw new Error(
-      "The migration role must be a superuser or have BYPASSRLS: data migrations cover every household",
+      "The migration role needs BYPASSRLS (a superuser also works): data migrations cover every household. " +
+        "A superuser is needed only once per database, for db:bootstrap (ADR-0002).",
     );
   await client.query(`SELECT pg_advisory_lock(hashtext('willowsum.migrate'))`);
   try {
@@ -181,7 +184,9 @@ export async function assertIsolatedRoles(client: pg.ClientBase, modules: readon
      UNION ALL
      SELECT g.rolname, 'is granted to ' || r.rolname
        FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member JOIN pg_roles g ON g.oid = m.roleid
-      WHERE g.rolname = ANY($1)
+      -- PostgreSQL 16+ gives a CREATEROLE creator an ADMIN-only membership (no INHERIT, no SET): it can
+      -- manage the role (password, LOGIN) but neither use its privileges nor become it.
+      WHERE g.rolname = ANY($1) AND (m.inherit_option OR m.set_option)
      UNION ALL
      SELECT r.rolname, 'has role settings (ALTER ROLE … SET)'
        FROM pg_db_role_setting s JOIN pg_roles r ON r.oid = s.setrole
@@ -194,11 +199,24 @@ export async function assertIsolatedRoles(client: pg.ClientBase, modules: readon
       ORDER BY 1, 2`,
     [roles],
   );
-  if (result.rows.length > 0) {
-    throw new Error(
-      `Module roles must stay isolated: ${result.rows.map((r) => `${r.rolname} ${r.problem}`).join("; ")}`,
-    );
-  }
+  const problems = [
+    ...result.rows.map((r) => `${r.rolname} ${r.problem}`),
+    ...(await boundaryProblems(client, modules.map(moduleRoleName), [PROBE_ROLE, CONTEXT_ROLE])),
+  ];
+  if (problems.length > 0) throw new Error(`Module roles must stay isolated: ${problems.join("; ")}`);
+}
+
+/**
+ * One-time step per database, run as a superuser (ADR-0002): closes the large-object functions of
+ * pg_catalog, which only a superuser can change. Afterwards migrations run as the non-superuser schema
+ * owner with BYPASSRLS. Idempotent.
+ */
+export async function bootstrapDatabase(client: pg.ClientBase): Promise<void> {
+  const { rows } = await client.query<{ su: boolean }>(
+    "SELECT rolsuper AS su FROM pg_roles WHERE rolname = current_user",
+  );
+  if (!rows[0]?.su) throw new Error("db:bootstrap runs once per database as a superuser");
+  await revokeLargeObjects(client);
 }
 
 /**

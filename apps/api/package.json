@@ -13,6 +13,7 @@
     "new-module": "node scripts/new-module.ts",
     "events:snapshot": "node scripts/events-snapshot.ts",
     "migrate": "node scripts/migrate.ts",
+    "db:bootstrap": "node scripts/db-bootstrap.ts",
     "start": "node src/main.ts"
   },
   "dependencies": {

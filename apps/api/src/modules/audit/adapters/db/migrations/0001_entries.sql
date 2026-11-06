@@ -1,5 +1,5 @@
 -- Audit log, append-only (ARC-03 FR 5, П-10). One row per data change in a household. The module role may
--- only INSERT and SELECT; UPDATE, DELETE and TRUNCATE are refused by privileges and, for every role, by triggers.
+-- only INSERT (without id and occurred_at) and SELECT; UPDATE, DELETE and TRUNCATE are refused by privileges and, for every role, by triggers.
 -- Row-level security on household_id is added by the migration runner (ARC-03 FR 2).
 CREATE TABLE entries (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -16,7 +16,9 @@ CREATE TABLE entries (
 );
 CREATE INDEX entries_entity ON entries (household_id, entity_type, entity_id, occurred_at);
 
-REVOKE UPDATE, DELETE, TRUNCATE ON entries FROM ws_mod_audit;
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON entries FROM ws_mod_audit;
+-- id and occurred_at are always set by the database: module SQL cannot backdate an entry.
+GRANT INSERT (household_id, actor_kind, actor_id, channel, entity_type, entity_id, action, changes) ON entries TO ws_mod_audit;
 
 CREATE FUNCTION reject_change() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN

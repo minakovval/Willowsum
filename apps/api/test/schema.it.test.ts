@@ -19,7 +19,12 @@ beforeAll(async () => {
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);
-  await migrate(owner, { modules: ["homes", "violations", "household"], modulesDir: fixtures });
+  await migrate(owner, { modules: ["homes", "household"], modulesDir: fixtures });
+  // The violations fixture breaks the boundary too (a SECURITY DEFINER function its role can call): its
+  // migrations are applied, then the run stops — the schema check below still reports every problem.
+  await expect(migrate(owner, { modules: ["violations"], modulesDir: fixtures })).rejects.toThrow(
+    /ws_mod_violations can execute SECURITY DEFINER function violations\.elevated\(\)/,
+  );
 });
 
 afterAll(async () => {
@@ -114,7 +119,10 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
         "violations.leaky: a view must be WITH (security_invoker = true), or it bypasses row policies",
         "violations.snapshot: materialized views and foreign tables cannot carry row policies",
         "violations.elevated(): SECURITY DEFINER functions in module schemas would bypass row policies",
+        "ws_mod_violations can execute SECURITY DEFINER function violations.elevated()",
         "schema-exemptions.json: violations.gone does not exist",
+        "violations.linked: unique key linked_code_key does not include household_id (it would reveal rows of other households)",
+        "violations.linked: foreign key linked_parent_fkey does not include household_id",
       ].sort(),
     );
   });

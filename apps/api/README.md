@@ -30,7 +30,8 @@
 | `pnpm --filter @willowsum/api events:snapshot` | Записує нові версії подій; несумісну зміну відхиляє |
 | `pnpm --filter @willowsum/api test` | Юніт-тести (без БД і мережі) |
 | `DATABASE_URL=… pnpm test:integration` | Інтеграційні тести на реальному PostgreSQL (суперкористувач тимчасової БД) |
-| `DATABASE_URL=… pnpm --filter @willowsum/api migrate` | Застосовує міграції від імені ролі-власника схем (суперкористувач або BYPASSRLS, ADR-0002) |
+| `DATABASE_URL=<суперкористувач> pnpm --filter @willowsum/api db:bootstrap` | Один раз на нову базу: закриває функції великих об'єктів (ADR-0002) |
+| `DATABASE_URL=… pnpm --filter @willowsum/api migrate` | Застосовує міграції від імені ролі-власника схем (BYPASSRLS, без суперкористувача після bootstrap; ADR-0002) |
 | `node src/main.ts --role api\|worker\|scheduler` | Запускає процес (ARC-02); образ — `docker build -f apps/api/Dockerfile .` з кореня |
 
 ## Конфігурація (ARC-02, CICD-12)
@@ -58,11 +59,14 @@
   `household_isolation` вмикає виконавець міграцій у транзакції міграції; писати їх у міграції не треба.
   Таблиця без даних клієнтів іде в `schema-exemptions.json` із причиною.
 - Код модуля працює з даними простору лише в `ModuleDatabase.inHousehold(householdId, async (q) => …)` і
-  фільтрує `WHERE household_id = $1` значенням `q.householdId`. Простір обирає платформа (сеанс
-  користувача), не SQL модуля: прив'язку пише роль `ws_context`, а роль модуля її лише читає. Якщо фільтр
+  фільтрує `WHERE household_id = $1` значенням `q.householdId`. SQL модуля не може змінити простір:
+  прив'язку пише роль `ws_context`, а роль модуля її лише читає (простір із сеансу користувача — з ARC-07). Якщо фільтр
   забуто, база все одно поверне лише рядки цього простору. `transaction(…)` без простору бачить 0 рядків.
 - Суми — NUMERIC(38,18) і колонка валюти (`amount` + `currency`, `<x>_amount` + `<x>_currency`); час —
-  `timestamptz`, кожна транзакція в UTC; регіон — тип `platform_types.data_region`.
+  `timestamptz`, кожна транзакція в UTC; регіон — тип `platform_types.data_region`. Унікальні й зовнішні
+  ключі таблиць клієнтів містять `household_id` (виняток — унікальний ключ з однієї колонки uuid).
+- Міграція не створює об'єктів поза схемою свого модуля і не передає власність ролі модуля: кожен запуск
+  міграцій це перевіряє і зупиняється.
 - Міграції лише розширюють схему; звуження — окремою міграцією з `-- ws:contract <NNNN_expand.sql> <причина>`
   у пізнішому релізі. CI запускає тести модулів попередньої версії на новій схемі.
 - Кожна таблиця з даними клієнтів має генератор у `src/modules/<module>/synthetic.ts` (`tools/synthetic`);

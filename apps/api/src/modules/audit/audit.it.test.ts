@@ -77,6 +77,19 @@ describe("ARC-03 FR 5 / П-10: the audit log", () => {
   });
 
   it.each([
+    ["occurred_at", "occurred_at", "'2020-01-01T00:00:00Z'"],
+    ["id", "id", "'2f8fddc6-5a91-4b72-9e3f-7a013acd8fad'"],
+  ])("module SQL cannot set %s: the database sets it (no backdated entries)", async (_, column, value) => {
+    const sql = `INSERT INTO entries (household_id, ${column}, actor_kind, channel, entity_type, entity_id, action, changes)
+                 VALUES ($1, ${value}, 'system', 'system', 'x', $2, 'create', '[]')`;
+    expect(
+      await code(
+        databases.for("audit").inHousehold(householdA, (q) => q.query(sql, [householdA, entity.id])),
+      ),
+    ).toBe("42501");
+  });
+
+  it.each([
     ["UPDATE", "UPDATE audit.entries SET action = 'delete'"],
     ["DELETE", "DELETE FROM audit.entries"],
     ["TRUNCATE", "TRUNCATE audit.entries"],

@@ -12,6 +12,11 @@
  * migration must already be in the base version (released before), so the contract ships in a later release.
  * Statements on tables created in the same file are not checked (nothing can depend on them yet). Applied
  * migrations are immutable: a file of the base version may not change or disappear.
+ *
+ * What this static rule does not catch (the dynamic CI step «old code + new schema» does, as far as the base
+ * version's module tests reach): `ALTER COLUMN … DROP DEFAULT`, a new unique index or trigger on an
+ * existing table, `DROP POLICY` and `DROP INDEX`, and any DDL hidden in `DO $$ … EXECUTE … $$`. Policies are
+ * re-checked by check:schema; everything else relies on the base version's tests and on review.
  */
 
 export interface MigrationFile {
