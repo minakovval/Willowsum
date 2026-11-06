@@ -12,7 +12,10 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "test": "pnpm -r run test",
-    "dev": "pnpm --filter @willowsum/web dev"
+    "dev": "pnpm --filter @willowsum/web dev",
+    "check:modules": "pnpm --filter @willowsum/api check:modules",
+    "test:integration": "pnpm --filter @willowsum/api test:integration",
+    "new-module": "pnpm --filter @willowsum/api new-module"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
