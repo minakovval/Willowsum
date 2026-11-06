@@ -1,4 +1,9 @@
-import type { FlagActor, Rollout } from "../../src/modules/feature-flags/index.ts";
+import {
+  FULL_ROLLOUT_MAX_DAYS,
+  type FlagActor,
+  type FlagDefinition,
+  type Rollout,
+} from "../../src/modules/feature-flags/index.ts";
 
 /** A command of scripts/flags.ts (CICD-06: staff change flags through FlagAdmin until the ADM screen exists). */
 export type FlagCommand =
@@ -68,4 +73,18 @@ export function parseFlagCommand(argv: readonly string[]): FlagCommand {
     default:
       throw new Error("unknown command");
   }
+}
+
+/**
+ * After `rollout <release flag> all`: the 30-day rule of CICD-06 FR 2 is checked on the code (`check:flags`
+ * reads `fullyEnabledOn`), so the day must be written there. Null for other changes and operational flags.
+ */
+export function rolloutReminder(
+  key: string,
+  rollout: Rollout,
+  flags: Readonly<Record<string, FlagDefinition>>,
+  today: string,
+): string | null {
+  if (rollout.stage !== "all" || flags[key]?.kind !== "release") return null;
+  return `Reminder: ${key} is now fully enabled. In the PR that records it, set fullyEnabledOn: "${today}" for ${key} in FLAGS (feature-flags/domain/catalogue.ts); remove the flag from the code within ${FULL_ROLLOUT_MAX_DAYS} days (check:flags fails after that).`;
 }

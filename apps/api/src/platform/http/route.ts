@@ -22,8 +22,9 @@ export interface Principal {
  *
  * The flag of a protected route (feature-flags, CICD-06) is `flag`, or by default its feature key: every
  * function has a key in the feature catalogue and a flag under that key (ARC-01 FR 7). A route of a new
- * sub-function names its own flag. While the flag is off for the caller's space the route answers 404, as
- * if it did not exist (DAT-05 FR 7); while its module's kill switch is on it answers 503.
+ * sub-function names its own flag as well: then both its feature's flag and its own must be on, so switching
+ * the function off also hides the sub-function. While a flag is off for the caller's space the route answers
+ * 404, as if it did not exist (DAT-05 FR 7); while its module's kill switch is on it answers 503.
  */
 export type RouteAccess =
   | { readonly permission: string; readonly feature: string; readonly flag?: string }
@@ -113,9 +114,16 @@ export function isPublic(access: RouteAccess): access is { readonly public: stri
   return "public" in access;
 }
 
-/** The flag a protected route is behind: its own `flag`, or its feature key. */
+/** The most specific flag of a protected route: its own `flag`, or its feature key. */
 export function routeFlag(access: { readonly feature: string; readonly flag?: string }): string {
   return access.flag ?? access.feature;
+}
+
+/** Every flag a protected route is behind, all of which must be on: its feature's flag, then its own. */
+export function routeFlags(access: { readonly feature: string; readonly flag?: string }): string[] {
+  return access.flag === undefined || access.flag === access.feature
+    ? [access.feature]
+    : [access.feature, access.flag];
 }
 
 function objectKeys(schema: z.ZodType | undefined): string[] {

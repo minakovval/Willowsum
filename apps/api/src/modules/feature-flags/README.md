@@ -25,24 +25,27 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
   видаляється ≤ 30 днів після повного вмикання; `operational` — постійний вимикач), `owner` (роль або команда),
   `reviewBy`, для `release` — `fullyEnabledOn`. Модуль не завантажиться, якщо ключі прапорців і ключі функцій різняться.
 - `createFlagRuntimeFor(db, options?)` → `FlagRuntime` (одна на процес API, `src/api.ts`):
-  `isModuleAvailable(module)`, `isEnabled(householdId, flag)`, `enabledFlags(householdId)`, `refresh()`, `loaded`.
-  Стан кешується і перечитується першим запитом після `REFRESH_MS` (15 с; `KILL_SWITCH_MAX_DELAY_MS` = 60 с — межа
-  CICD-06). До першого завантаження модулі недоступні, прапорці вимкнені; невдале перечитування лишає останній стан.
+  `isModuleAvailable(module)`, `isEnabled(householdId, flag)`, `enabledFlags(householdId)`, `refresh()`, `loaded`, `fresh`.
+  Стан кешується; його вік рахується від початку завантаження; перший запит після `REFRESH_MS` (15 с) перечитує його і
+  чекає не довше `LOAD_WAIT_MS` (2 с). Невдале чи зависле перечитування лишає останній стан, поки йому менше
+  `KILL_SWITCH_MAX_DELAY_MS` (60 с — межа CICD-06); без такого стану модулі недоступні, прапорці вимкнені, `fresh` — false.
 - `createFlagAdminFor(db, audit, modules)` → `FlagAdmin` — єдиний спосіб змінити стан: `setRollout(actor, key, rollout)`,
   `setKillSwitch(actor, module, disabled)`, `setTestHousehold(actor, householdId, isTest)`, `state()`, `overdue(now)`.
   Автор — `{ kind: "staff", id }` або `{ kind: "system" }`. Кожна зміна пише запис аудиту (`AUDIT_ENTITY`): прапорці й
-  вимикачі — у журнал платформи, позначка тестового простору — у журнал простору; зміна без різниці нічого не пише.
+  вимикачі — у журнал платформи (з полем `flag` чи `module`), позначка тестового простору — у журнал простору; зміна без
+  різниці нічого не пише. Після `rollout <release-прапорець> all` скрипт нагадує записати `fullyEnabledOn`.
   Персонал викликає його через `node scripts/flags.ts` (`state`, `rollout`, `kill`, `revive`, `test-space`, `--actor`).
 - `flagReviewProblems(flags, today, featureKeys)`, `utcDay` — правила `pnpm check:flags`; `bucketOf(flag, householdId)`
   — кошик 0–99 (FNV-1a від «<ключ>:<простір>»).
 - Типи `FlagRuntime`, `FlagAdmin`, `FlagActor`, `FlagSnapshot`, `FlagDefinition`, `FlagKey`, `FlagKind`, `Rollout`,
-  `RolloutStage`; константи `REFRESH_MS`, `KILL_SWITCH_MAX_DELAY_MS`, `FULL_ROLLOUT_MAX_DAYS`, `ROLLOUT_STAGES`.
+  `RolloutStage`; константи `REFRESH_MS`, `LOAD_WAIT_MS`, `KILL_SWITCH_MAX_DELAY_MS`, `FULL_ROLLOUT_MAX_DAYS`, `ROLLOUT_STAGES`.
 
 Етапи (`Rollout`): `off` (типово: прапорець без збереженого стану), `test` (лише тестові простори), `share` + `percent`
 1–99 (тестові простори + простори з кошиком < `percent`), `all`.
 
-Маршрути API оголошують прапорець через `access.feature` (або власний `access.flag`); API відповідає 503
-`MODULE_UNAVAILABLE`, поки вимикач модуля ввімкнено, і 404 `NOT_FOUND`, поки прапорець вимкнений для простору (ADR-0004).
+Маршрути API оголошують прапорець через `access.feature`; підфункція додає власний `access.flag`, і тоді потрібні обидва.
+До читання тіла API відповідає 503 `MODULE_UNAVAILABLE`, поки вимикач модуля ввімкнено, і 404 `NOT_FOUND`, поки прапорець
+вимкнений для простору (ADR-0004).
 
 Прапорці: `household.core` — `operational`, власник `product-owner`, перегляд до 2027-02-04.
 

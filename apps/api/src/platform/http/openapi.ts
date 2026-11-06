@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_REPLAYED_HEADER, IDEMPOTENCY_TTL_HOURS } from "./idempotency.ts";
 import { PROBLEM_CONTENT_TYPE, ProblemSchema } from "./problem.ts";
-import { isPublic, routeFlag, type ApiRoute } from "./route.ts";
+import { isPublic, routeFlags, type ApiRoute } from "./route.ts";
 
 /**
  * The OpenAPI 3.1 contract (ARC-07 FR 2), generated from the same zod schemas that validate requests and
@@ -99,7 +99,11 @@ function operation(route: ApiRoute): Json {
       : {}),
     [ACCESS_EXTENSION]: isPublic(route.access)
       ? { public: route.access.public }
-      : { permission: route.access.permission, feature: route.access.feature, flag: routeFlag(route.access) },
+      : {
+          permission: route.access.permission,
+          feature: route.access.feature,
+          flags: routeFlags(route.access),
+        },
     ...(params.length > 0 ? { parameters: params } : {}),
     ...(route.request?.body
       ? {

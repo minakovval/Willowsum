@@ -81,9 +81,10 @@ const server = buildServer({
       const pending = await pendingMigrations(client, expected);
       if (pending.length > 0) return { ready: false, reason: "schema-behind" };
       // The API serves only once it knows the flags and kill switches (before that every module answers 503).
-      if (config.role === "api" && !flags.loaded) {
-        await flags.refresh().catch(() => undefined);
-        if (!flags.loaded) return { ready: false, reason: "flags-not-loaded" };
+      // State older than 60 s (reloads failing) makes it not ready too: the ≤ 1 min bound of a kill switch holds.
+      if (config.role === "api" && !flags.fresh) {
+        await flags.refresh();
+        if (!flags.fresh) return { ready: false, reason: flags.loaded ? "flags-stale" : "flags-not-loaded" };
       }
       return { ready: true };
     } finally {

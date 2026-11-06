@@ -30,7 +30,7 @@ export const featureFlagsModule = defineModule({
     );
 }
 
-export { AUDIT_ENTITY, KILL_SWITCH_MAX_DELAY_MS, REFRESH_MS } from "./application/index.ts";
+export { AUDIT_ENTITY, KILL_SWITCH_MAX_DELAY_MS, LOAD_WAIT_MS, REFRESH_MS } from "./application/index.ts";
 export type { FlagActor, FlagAdmin, FlagRuntime, FlagSnapshot } from "./application/index.ts";
 export {
   FLAG_KEYS,

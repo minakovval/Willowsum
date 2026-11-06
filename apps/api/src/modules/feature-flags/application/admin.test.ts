@@ -28,6 +28,7 @@ describe("CICD-06: flags change only through the internal interface, and every c
       entity: { type: AUDIT_ENTITY.flag, id: expect.any(String) },
       action: "update",
       changes: [
+        { field: "flag", before: "household.core", after: "household.core", sensitive: false },
         { field: "stage", before: "off", after: "share", sensitive: false },
         { field: "percent", before: "0", after: "20", sensitive: false },
       ],
@@ -41,7 +42,10 @@ describe("CICD-06: flags change only through the internal interface, and every c
       expect.objectContaining({
         actor: { kind: "system" },
         entity: { type: AUDIT_ENTITY.killSwitch, id: expect.any(String) },
-        changes: [{ field: "disabled", before: "false", after: "true", sensitive: false }],
+        changes: [
+          { field: "module", before: "access-scope", after: "access-scope", sensitive: false },
+          { field: "disabled", before: "false", after: "true", sensitive: false },
+        ],
       }),
     );
     await admin.setTestHousehold(staff, h, true);

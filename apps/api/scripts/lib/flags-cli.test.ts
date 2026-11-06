@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseFlagCommand } from "./flags-cli.ts";
+import { parseFlagCommand, rolloutReminder } from "./flags-cli.ts";
 
 const staff = "1e2d3c4b-5a69-4788-9a6b-5c4d3e2f1a07";
 const space = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
@@ -28,5 +28,26 @@ describe("CICD-06: scripts/flags.ts — staff change flags, kill switches and te
     expect(() => parseFlagCommand(["rollout", "x", "half", "--actor", staff])).toThrow(/rollout/);
     expect(() => parseFlagCommand(["kill", "a", "--actor", "anna"])).toThrow(/UUID/);
     expect(() => parseFlagCommand(["drop"])).toThrow(/unknown command/);
+  });
+});
+
+describe("CICD-06 FR 2: rollout of a release flag to «all» reminds to record fullyEnabledOn", () => {
+  const flags = {
+    "x.new": { kind: "release" as const, owner: "product-owner", reviewBy: "2027-01-01", description: "x" },
+    "x.core": {
+      kind: "operational" as const,
+      owner: "product-owner",
+      reviewBy: "2027-01-01",
+      description: "x",
+    },
+  };
+  it("prints the day to write and the 30-day limit", () => {
+    expect(rolloutReminder("x.new", { stage: "all" }, flags, "2026-11-06")).toMatch(
+      /x\.new.*fullyEnabledOn: "2026-11-06".*within 30 days/,
+    );
+  });
+  it("says nothing for other stages and for operational flags", () => {
+    expect(rolloutReminder("x.new", { stage: "share", percent: 50 }, flags, "2026-11-06")).toBeNull();
+    expect(rolloutReminder("x.core", { stage: "all" }, flags, "2026-11-06")).toBeNull();
   });
 });

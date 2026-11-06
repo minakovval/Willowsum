@@ -58,4 +58,18 @@ describe("CICD-06 FR 1: staged rollout — test spaces → a share of spaces →
     expect(rollout.safeParse({ stage: "all", percent: 100 }).success).toBe(false);
     expect(rollout.safeParse({ stage: "share", percent: 5 }).success).toBe(true);
   });
+
+  it("the share boundary: bucket < percent is in, bucket = percent is out (share:1 and share:99, known answers)", async () => {
+    const b0 = "3b9d7f0e-2c4a-4e8b-9a1d-000000000072";
+    const b1 = "3b9d7f0e-2c4a-4e8b-9a1d-000000000039";
+    const b98 = "3b9d7f0e-2c4a-4e8b-9a1d-000000000005";
+    const b99 = "3b9d7f0e-2c4a-4e8b-9a1d-0000000000c3";
+    expect([b0, b1, b98, b99].map((h) => bucketOf("household.core", h))).toEqual([0, 1, 98, 99]);
+    const one: Rollout = { stage: "share", percent: 1 };
+    const most: Rollout = { stage: "share", percent: 99 };
+    expect(await isOnFor("household.core", one, b0, no)).toBe(true);
+    expect(await isOnFor("household.core", one, b1, no)).toBe(false);
+    expect(await isOnFor("household.core", most, b98, no)).toBe(true);
+    expect(await isOnFor("household.core", most, b99, no)).toBe(false);
+  });
 });

@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../src/platform/db/module-db.ts";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import type { IdempotencyBegin, IdempotencyStore } from "../src/platform/http/idempotency.ts";
-import type { ApiRoute, Principal } from "../src/platform/http/route.ts";
+import { routeFlags, type ApiRoute, type Principal } from "../src/platform/http/route.ts";
 
 export const householdA = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
 export const householdB = "9e8d7c6b-5a49-4382-8170-6f5e4d3c2b02";
@@ -110,7 +110,7 @@ export async function testApp(
     checkFeature: async () => true,
     moduleAvailable: async () => true,
     checkFlag: async () => true,
-    flags: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.flag ?? r.access.feature] : []))),
+    flags: new Set(routes.flatMap((r) => ("feature" in r.access ? routeFlags(r.access) : []))),
     permissions: new Set(routes.flatMap((r) => ("permission" in r.access ? [r.access.permission] : []))),
     features: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.feature] : []))),
     databases: fakeDatabases().databases,

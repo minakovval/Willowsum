@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createFlagRuntime, KILL_SWITCH_MAX_DELAY_MS, REFRESH_MS } from "./index.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createFlagRuntime, KILL_SWITCH_MAX_DELAY_MS, LOAD_WAIT_MS, REFRESH_MS } from "./index.ts";
 import { memoryFlagStore } from "./memory-store.test-helper.ts";
 
 const h = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
@@ -85,5 +85,93 @@ describe("CICD-06 AC1: the runtime follows the staged rollout", () => {
 
   it("an unknown flag is a programming error, not a silent «off»", async () => {
     await expect(createFlagRuntime(memoryFlagStore()).isEnabled(h, "nope")).rejects.toThrow(/Unknown flag/);
+  });
+});
+
+describe("CICD-06 AC3: the ≤ 1 minute bound holds when reloads fail, hang or are slow (fake timers)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The memory store, with loads that can be held open. */
+  function slowStore() {
+    const store = memoryFlagStore();
+    const load = store.snapshot.bind(store);
+    const held: (() => void)[] = [];
+    let hold = false;
+    store.snapshot = async () => {
+      if (hold) await new Promise<void>((resolve) => held.push(resolve));
+      return load();
+    };
+    return {
+      store,
+      hold: (on: boolean) => {
+        hold = on;
+      },
+      release: () => held.splice(0).forEach((r) => r()),
+    };
+  }
+
+  it("a hanging reload: requests wait at most LOAD_WAIT_MS; the old state answers until it is 60 s old, then every module is unavailable and the runtime is not fresh", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { store, hold } = slowStore();
+    const runtime = createFlagRuntime(store);
+    expect(await runtime.isModuleAvailable("audit")).toBe(true);
+    hold(true);
+    vi.setSystemTime(REFRESH_MS);
+    const answer = runtime.isModuleAvailable("audit");
+    await vi.advanceTimersByTimeAsync(LOAD_WAIT_MS);
+    expect(await answer).toBe(true);
+    expect(runtime.fresh).toBe(true);
+    vi.setSystemTime(KILL_SWITCH_MAX_DELAY_MS - 1);
+    expect(runtime.fresh).toBe(true);
+    vi.setSystemTime(KILL_SWITCH_MAX_DELAY_MS);
+    const late = runtime.isModuleAvailable("audit");
+    await vi.advanceTimersByTimeAsync(LOAD_WAIT_MS);
+    expect(await late).toBe(false);
+    expect(
+      await Promise.race([
+        runtime.isEnabled("3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01", "household.core"),
+        vi.advanceTimersByTimeAsync(LOAD_WAIT_MS).then(() => "waited"),
+      ]),
+    ).toBe(false);
+    expect(runtime.fresh).toBe(false);
+    expect(runtime.loaded).toBe(true);
+  });
+
+  it("failing reloads: after 60 s without a successful load every module is unavailable; the next success restores it", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const store = memoryFlagStore();
+    const runtime = createFlagRuntime(store);
+    expect(await runtime.isModuleAvailable("audit")).toBe(true);
+    store.fail = true;
+    vi.setSystemTime(30_000);
+    expect(await runtime.isModuleAvailable("audit")).toBe(true);
+    vi.setSystemTime(60_000);
+    expect(await runtime.isModuleAvailable("audit")).toBe(false);
+    store.fail = false;
+    vi.setSystemTime(61_000);
+    expect(await runtime.isModuleAvailable("audit")).toBe(true);
+    expect(runtime.fresh).toBe(true);
+  });
+
+  it("the 15 s count from the start of a load, so a slow load does not stretch them", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { store, hold, release } = slowStore();
+    const runtime = createFlagRuntime(store);
+    hold(true);
+    const first = runtime.isModuleAvailable("access-scope");
+    // The load started at 0 s and finishes at 10 s.
+    await vi.advanceTimersByTimeAsync(LOAD_WAIT_MS);
+    expect(await first).toBe(false);
+    vi.setSystemTime(10_000);
+    hold(false);
+    release();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(await runtime.isModuleAvailable("access-scope")).toBe(true);
+    // A kill switch stored right after the load started is in force 15 s after that start, not 15 s after its end.
+    await store.setKillSwitch("access-scope", true);
+    vi.setSystemTime(REFRESH_MS);
+    expect(await runtime.isModuleAvailable("access-scope")).toBe(false);
   });
 });

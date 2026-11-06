@@ -7,12 +7,12 @@
  */
 import { readFileSync } from "node:fs";
 import { createAuditLog } from "../src/modules/audit/index.ts";
-import { createFlagAdminFor } from "../src/modules/feature-flags/index.ts";
+import { createFlagAdminFor, FLAGS, utcDay } from "../src/modules/feature-flags/index.ts";
 import { ConfigError, loadConfig } from "../src/platform/config/config.ts";
 import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
-import { FLAGS_USAGE, parseFlagCommand, type FlagCommand } from "./lib/flags-cli.ts";
+import { FLAGS_USAGE, parseFlagCommand, rolloutReminder, type FlagCommand } from "./lib/flags-cli.ts";
 
 const modules = topologicalOrder(
   JSON.parse(readFileSync(new URL("../module-rules.json", import.meta.url), "utf8")) as ModuleRules,
@@ -66,9 +66,12 @@ try {
       );
       break;
     }
-    case "rollout":
+    case "rollout": {
       console.log(JSON.stringify(await admin.setRollout(command.actor, command.key, command.rollout)));
+      const reminder = rolloutReminder(command.key, command.rollout, FLAGS, utcDay(new Date()));
+      if (reminder) console.log(reminder);
       break;
+    }
     case "kill-switch":
       console.log(JSON.stringify(await admin.setKillSwitch(command.actor, command.module, command.disabled)));
       break;

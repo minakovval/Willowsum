@@ -276,3 +276,122 @@ describe("DAT-05 AC7: a server error reaches telemetry without amounts, account 
     expect(res.json().code).toBe("INTERNAL");
   });
 });
+
+describe("CICD-06 / DAT-05: kill switch, session and flag answer before the body is read", () => {
+  const createThing = defineRoute({
+    module: "things",
+    method: "POST",
+    path: "/v1/things",
+    operationId: "createThingEarly",
+    summary: "x",
+    access: { permission: "things.write", feature: "things" },
+    request: { body: z.object({ name: z.string() }) },
+    response: { status: 201, description: "x", schema: z.object({ ok: z.boolean() }) },
+    handler: async () => ({ ok: true }),
+  });
+  const bodies = [
+    { "content-type": "text/plain", payload: "not json" },
+    { "content-type": "application/json", payload: "{" },
+    { "content-type": "application/xml", payload: "<a/>" },
+    { "content-type": "application/json", payload: JSON.stringify({ name: "x".repeat(2_000_000) }) },
+  ];
+
+  it.each(bodies.map((b) => [b["content-type"], b] as const))(
+    "%s body to a module that is switched off → 503 MODULE_UNAVAILABLE, not 415, 413 or 400",
+    async (_, { payload, ...headers }) => {
+      const app = await testApp([createThing], { moduleAvailable: async () => false });
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/things",
+        headers: { ...headers, ...principalHeader() },
+        payload,
+      });
+      expect(res.statusCode).toBe(503);
+      expect(res.json().code).toBe("MODULE_UNAVAILABLE");
+    },
+  );
+
+  it.each(bodies.map((b) => [b["content-type"], b] as const))(
+    "%s body to a function whose flag is off → the 404 of an unknown path, not 415, 413 or 400",
+    async (_, { payload, ...headers }) => {
+      const app = await testApp([createThing], { checkFlag: async () => false });
+      const unknown = await app.inject({
+        method: "POST",
+        url: "/v1/no-such-function",
+        headers: principalHeader(),
+      });
+      const res = await app.inject({
+        method: "POST",
+        url: "/v1/things",
+        headers: { ...headers, ...principalHeader() },
+        payload,
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toBe(unknown.body);
+    },
+  );
+
+  it("without a session the same body gets 401, not 415", async () => {
+    const app = await testApp([createThing]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/things",
+      headers: { "content-type": "text/plain" },
+      payload: "x",
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("when the function is on and the module available, the body is checked as before (415)", async () => {
+    const app = await testApp([createThing]);
+    const res = await app.inject({
+      method: "POST",
+      url: "/v1/things",
+      headers: { "content-type": "text/plain", ...principalHeader() },
+      payload: "x",
+    });
+    expect(res.statusCode).toBe(415);
+  });
+});
+
+describe("CICD-06: a route with its own flag is behind its feature's flag too", () => {
+  const sub = defineRoute({
+    module: "things",
+    method: "GET",
+    path: "/v1/things/export",
+    operationId: "exportThings",
+    summary: "x",
+    access: { permission: "things.read", feature: "things", flag: "things.export" },
+    response: { status: 200, description: "x", schema: z.object({ ok: z.boolean() }) },
+    handler: async () => ({ ok: true }),
+  });
+
+  it.each([
+    [["things"], 404],
+    [["things.export"], 404],
+    [["things", "things.export"], 404],
+    [[], 200],
+  ] as const)("flags off %j → %i", async (off, status) => {
+    const app = await testApp([sub], {
+      flags: new Set(["things", "things.export"]),
+      checkFlag: async (_p, flag) => !(off as readonly string[]).includes(flag),
+    });
+    expect(
+      (await app.inject({ method: "GET", url: "/v1/things/export", headers: principalHeader() })).statusCode,
+    ).toBe(status);
+  });
+
+  it("both flags must exist, or the API does not start", () => {
+    expect(() =>
+      registerApi(Fastify(), {
+        ...apiOptions(testWiring()),
+        routes: [
+          {
+            ...sub,
+            access: { permission: "household.data.read", feature: "nope.feature", flag: "household.core" },
+          } as ApiRoute,
+        ],
+      }),
+    ).toThrow(/unknown (feature key|flag) nope\.feature/);
+  });
+});

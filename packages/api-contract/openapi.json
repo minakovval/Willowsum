@@ -16,7 +16,9 @@
         "x-willowsum-access": {
           "permission": "household.data.read",
           "feature": "household.core",
-          "flag": "household.core"
+          "flags": [
+            "household.core"
+          ]
         },
         "responses": {
           "200": {
@@ -128,7 +130,9 @@
         "x-willowsum-access": {
           "permission": "household.data.read",
           "feature": "household.core",
-          "flag": "household.core"
+          "flags": [
+            "household.core"
+          ]
         },
         "responses": {
           "200": {

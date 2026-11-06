@@ -65,7 +65,9 @@ export function createFlagAdmin(deps: {
         channel: "system",
         entity: { type: AUDIT_ENTITY.flag, id },
         action: "update",
+        // The key is recorded too: the row id alone would not say which flag changed once rows are gone.
         changes: [
+          { field: "flag", before: key, after: key, sensitive: false },
           { field: "stage", before: before.stage, after: after.stage, sensitive: false },
           { field: "percent", before: percentOf(before), after: percentOf(after), sensitive: false },
         ],
@@ -84,7 +86,10 @@ export function createFlagAdmin(deps: {
         channel: "system",
         entity: { type: AUDIT_ENTITY.killSwitch, id },
         action: "update",
-        changes: [{ field: "disabled", before: String(before), after: String(disabled), sensitive: false }],
+        changes: [
+          { field: "module", before: module, after: module, sensitive: false },
+          { field: "disabled", before: String(before), after: String(disabled), sensitive: false },
+        ],
       });
       return { before, after: disabled };
     },

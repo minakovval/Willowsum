@@ -96,7 +96,7 @@ describe("ARC-07 FR 2: OpenAPI 3.1 from the schemas that validate requests", () 
     expect(get["x-willowsum-access"]).toEqual({
       permission: "things.read",
       feature: "things",
-      flag: "things",
+      flags: ["things"],
     });
     expect(get["deprecated"]).toBe(true);
     expect(get["x-deprecated-since"]).toBe("2026-11-01");

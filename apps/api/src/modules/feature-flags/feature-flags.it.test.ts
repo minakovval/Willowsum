@@ -145,11 +145,11 @@ describe("CICD-06: every change of a flag, a kill switch or a test space is in t
       id: rows[0]!.id,
     });
     expect(entries.map((e) => e.changes.map((c) => `${c.field}:${c.before}→${c.after}`).join(" "))).toEqual([
-      "stage:off→test percent:0→0",
-      "stage:test→share percent:0→25",
-      "stage:share→all percent:25→100",
-      "stage:all→test percent:100→0",
-      "stage:test→all percent:0→100",
+      "flag:household.core→household.core stage:off→test percent:0→0",
+      "flag:household.core→household.core stage:test→share percent:0→25",
+      "flag:household.core→household.core stage:share→all percent:25→100",
+      "flag:household.core→household.core stage:all→test percent:100→0",
+      "flag:household.core→household.core stage:test→all percent:0→100",
     ]);
     expect(entries.every((e) => e.actorKind === "staff" && e.actorId === staff.id)).toBe(true);
   });
@@ -160,7 +160,10 @@ describe("CICD-06: every change of a flag, a kill switch or a test space is in t
     );
     const log = createAuditLog(db.databases.for("audit"));
     const kills = await log.platformEntriesFor({ type: AUDIT_ENTITY.killSwitch, id: rows[0]!.id });
-    expect(kills.map((e) => e.changes[0]!.after)).toEqual(["true", "false"]);
+    expect(kills.map((e) => e.changes.map((c) => `${c.field}:${c.after}`).join(" "))).toEqual([
+      "module:access-scope disabled:true",
+      "module:access-scope disabled:false",
+    ]);
     const marks = await log.entriesFor(testSpace, { type: AUDIT_ENTITY.testHousehold, id: testSpace });
     expect(marks.map((e) => e.changes[0]!.after)).toEqual(["true", "false"]);
     expect(await log.entriesFor(otherSpace, { type: AUDIT_ENTITY.testHousehold, id: testSpace })).toEqual([]);

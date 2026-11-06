@@ -19,7 +19,7 @@ import {
   API_PREFIX,
   fastifyPath,
   isPublic,
-  routeFlag,
+  routeFlags,
   type ApiRoute,
   type HouseholdFreeDatabase,
   type Principal,
@@ -304,8 +304,8 @@ export function assertRoutes(
     if (!options.features.has(route.access.feature)) {
       throw new Error(`Route ${where}: unknown feature key ${route.access.feature} (plan-catalog)`);
     }
-    if (!options.flags.has(routeFlag(route.access))) {
-      throw new Error(`Route ${where}: unknown flag ${routeFlag(route.access)} (feature-flags)`);
+    for (const flag of routeFlags(route.access)) {
+      if (!options.flags.has(flag)) throw new Error(`Route ${where}: unknown flag ${flag} (feature-flags)`);
     }
     if (route.module === null) throw new Error(`Route ${where}: a protected route belongs to a module`);
   }
@@ -318,11 +318,32 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   installProblemHandlers(app, options.supportId, options.reportError);
   // Request bodies are JSON only (the contract has no other media type): text/plain is 415, not a string body.
   app.removeContentTypeParser("text/plain");
+  // The session found by a route's onRequest hook, for its handler (one entry per request, gone with it).
+  const principals = new WeakMap<FastifyRequest, Principal>();
   for (const route of options.routes) {
+    const access = route.access;
     app.route({
       method: route.method,
       url: fastifyPath(route.path),
       config: { apiRoute: API_ROUTE_TOKEN },
+      // Kill switch → session → flags run before the body is read (onRequest), so a switched-off module or a
+      // hidden function answers 503 / 401 / 404 whatever body or media type was sent — never 415, 413 or 400
+      // first, which would show that the route exists (CICD-06 FR 3, DAT-05 FR 7; ADR-0004).
+      ...(isPublic(access)
+        ? {}
+        : {
+            onRequest: async (request: FastifyRequest) => {
+              // A module switched off by its kill switch answers «temporarily unavailable»; the rest works.
+              if (!(await options.moduleAvailable(route.module as string)))
+                throw new ApiProblem("MODULE_UNAVAILABLE");
+              const principal = await options.authenticate(request);
+              if (!principal) throw new ApiProblem("UNAUTHENTICATED");
+              // A function that is off for the space does not exist for it: the same 404 as an unknown path.
+              for (const flag of routeFlags(access))
+                if (!(await options.checkFlag(principal, flag))) throw new ApiProblem("NOT_FOUND");
+              principals.set(request, principal);
+            },
+          }),
       handler: async (request, reply) => {
         const respond = async (status: number, value: unknown): Promise<string> => {
           // Only what the contract declares is sent: unknown fields are stripped, a wrong shape is a 500.
@@ -337,12 +358,9 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
           );
         }
         const module = route.module as string;
-        // A module switched off by its kill switch answers «temporarily unavailable»; the rest works (CICD-06 FR 3).
-        if (!(await options.moduleAvailable(module))) throw new ApiProblem("MODULE_UNAVAILABLE");
-        const principal = await options.authenticate(request);
-        if (!principal) throw new ApiProblem("UNAUTHENTICATED");
-        // A function that is off for the space does not exist for it: the same 404 as an unknown path (DAT-05 FR 7).
-        if (!(await options.checkFlag(principal, routeFlag(route.access)))) throw new ApiProblem("NOT_FOUND");
+        const principal = principals.get(request);
+        // The onRequest hook always sets it; without it nothing of the module runs.
+        if (!principal) throw new ApiProblem("INTERNAL");
         if (!options.checkPermission(principal, route.access.permission)) throw new ApiProblem("FORBIDDEN");
         if (!(await options.checkFeature(principal, route.access.feature)))
           throw new ApiProblem("PLAN_LIMIT_REACHED");
