@@ -40,8 +40,9 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Security: own crypto, injection, missing step-up where the requirement asks for it, unsafe file handling.
 - Module boundaries: imports of another module's internals or tables; provider SDKs outside adapters;
   domain layer depending on database, HTTP or file system.
-- Design before code: any change under `apps/` or `packages/` before the owner has started development
-  (AGENTS.md, «Process: design before code») — blocking.
+- Design before code: any change under `apps/` or `packages/` for a release whose design the owner has
+  not yet approved and whose development the owner has not started (PoC: started 2026-11-06; AGENTS.md,
+  «Process: design before code») — blocking.
 - UI: empty/loading/error states, «Приховати суми» (from MVP; not in PoC), breakpoints of the target
   release, i18n uk/en, accessibility; existing design-system elements reused.
 - Ledger: any write to journal tables outside `ledger`, unbalanced entries, edits instead of reversals,
