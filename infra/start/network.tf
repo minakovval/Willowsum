@@ -21,6 +21,14 @@ resource "oci_core_vcn" "main" {
   freeform_tags  = local.tags
 }
 
+# The VCN's default security list allows SSH from anywhere; it is emptied so it can never expose the
+# server, even if attached by mistake.
+resource "oci_core_default_security_list" "default" {
+  manage_default_resource_id = oci_core_vcn.main.default_security_list_id
+  display_name               = "${local.name}-default-empty"
+  freeform_tags              = local.tags
+}
+
 resource "oci_core_internet_gateway" "main" {
   compartment_id = oci_identity_compartment.env.id
   vcn_id         = oci_core_vcn.main.id

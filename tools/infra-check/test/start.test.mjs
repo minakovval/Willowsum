@@ -50,7 +50,14 @@ test('CICD-07 FR2 / NFR-16: copies and old file versions are kept 35 days, then 
   }
   const backups = policies.find((p) => p.labels[1] === 'backups');
   assert.match(backups.body, /target\s*=\s*"objects"/);
-  assert.match(backups.body, /target\s*=\s*"previous-object-versions"/);
+  const files = policies.find((p) => p.labels[1] === 'files');
+  assert.match(files.body, /target\s*=\s*"previous-object-versions"/);
+});
+
+test('ARC-06 FR5 / CICD-07 FR2: copy buckets keep no hidden versions, so a copy is gone after exactly 35 days', () => {
+  for (const b of resources('oci_objectstorage_bucket').filter((x) => /provider\s*=\s*oci\.backup/.test(x.body))) {
+    assert.match(b.body, /versioning\s*=\s*"Disabled"/, b.labels[1]);
+  }
 });
 
 test('ARC-06 FR4: every bucket is private; the files bucket is encrypted with the storage key', () => {
@@ -58,9 +65,10 @@ test('ARC-06 FR4: every bucket is private; the files bucket is encrypted with th
   assert.equal(buckets.length, 3);
   for (const b of buckets) {
     assert.match(b.body, /access_type\s*=\s*"NoPublicAccess"/, b.labels[1]);
-    assert.match(b.body, /versioning\s*=\s*"Enabled"/, b.labels[1]);
   }
-  assert.match(buckets.find((b) => b.labels[1] === 'files').body, /kms_key_id\s*=\s*oci_kms_key\.storage\.id/);
+  const files = buckets.find((b) => b.labels[1] === 'files');
+  assert.match(files.body, /kms_key_id\s*=\s*oci_kms_key\.storage\.id/);
+  assert.match(files.body, /versioning\s*=\s*"Enabled"/, 'deleted user files stay recoverable for the retention period');
 });
 
 test('ARC-06 FR1 / CICD-12 FR4: the master key lives in managed KMS, HSM-protected, AES-256', () => {
@@ -88,8 +96,37 @@ test('CICD-08 FR2: no SSH from the internet and no SSH keys on the server', () =
   // The only TCP ports opened to the internet are 80 and 443.
   assert.match(code(lists[0].body), /setproduct\(var\.public_ingress_cidrs, \[80, 443\]\)/);
   for (const f of tfFiles()) assert.doesNotMatch(code(f.text), /ssh_authorized_keys/, f.name);
+  // The VCN's default security list (SSH from anywhere by default) is managed and emptied.
+  const [def] = resources('oci_core_default_security_list');
+  assert.ok(def, 'default security list is managed');
+  assert.match(def.body, /manage_default_resource_id\s*=\s*oci_core_vcn\.main\.default_security_list_id/);
+  assert.doesNotMatch(code(def.body), /ingress_security_rules|egress_security_rules/, 'no rules at all');
   const cloudInit = fs.readFileSync(path.join(START_DIR, 'cloud-init.yaml'), 'utf8');
   assert.match(cloudInit, /^ssh_pwauth: false$/m);
+});
+
+test('CICD-07 FR2 / ARC-06 FR1: the vault, keys, buckets and the server cannot be destroyed by a plan', () => {
+  const guarded = [
+    ['oci_kms_vault', 'main'],
+    ['oci_kms_key', 'master'],
+    ['oci_kms_key', 'storage'],
+    ['oci_objectstorage_bucket', 'files'],
+    ['oci_objectstorage_bucket', 'backups'],
+    ['oci_objectstorage_bucket', 'secrets_backup'],
+    ['oci_core_instance', 'server'],
+  ];
+  for (const [type, name] of guarded) {
+    const r = resources(type).find((x) => x.labels[1] === name);
+    assert.ok(r, `${type}.${name} exists`);
+    assert.match(r.body, /lifecycle\s*\{[^}]*prevent_destroy\s*=\s*true/s, `${type}.${name} has prevent_destroy`);
+  }
+  const [server] = resources('oci_core_instance');
+  assert.match(server.body, /preserve_boot_volume\s*=\s*true/, 'the database disk outlives the instance');
+});
+
+test('CICD-12: the server serves only IMDS v2, so a request forgery cannot take its cloud identity', () => {
+  const [server] = resources('oci_core_instance');
+  assert.match(server.body, /instance_options\s*\{\s*are_legacy_imds_endpoints_disabled\s*=\s*true\s*\}/);
 });
 
 test('CICD-12 FR1: no credentials, tenancy identifiers or OCIDs in the code', () => {
