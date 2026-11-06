@@ -130,6 +130,9 @@ describe("ARC-03 round 3: a module migration cannot weaken row security on its o
       "a domain CHECK with a volatile pg_catalog function",
       "CREATE DOMAIN short_text AS text CHECK (VALUE <> pg_catalog.random()::text);",
     ],
+    // PostgreSQL 16 itself accepts volatile functions in statistics expressions (unlike index expressions):
+    // CREATE STATISTICS … ON (label || random()::text) succeeds even as a superuser, and ANALYZE then
+    // computes the expression over every row. The guard is the only barrier here.
     [
       "extended statistics on an expression with a volatile pg_catalog function (ANALYZE computes it over every row)",
       "CREATE STATISTICS peek ON (label || pg_catalog.random()::text), household_id FROM things;",
