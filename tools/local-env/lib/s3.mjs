@@ -59,6 +59,31 @@ export async function s3Request(values, method, url, body) {
   return fetch(url, { method, headers, body });
 }
 
+/**
+ * Waits until the bucket accepts writes. SeaweedFS grows the volumes of a new bucket's collection on
+ * the first write, and a write that arrives before they are writable fails with HTTP 500
+ * («No writable volumes»). A probe object is written and deleted, retried until it succeeds.
+ */
+export async function ensureWritable(values, { timeoutMs = 60_000, intervalMs = 500 } = {}) {
+  const url = s3Url(values, values.WS_LOCAL_S3_BUCKET, '.willowsum-write-probe');
+  const deadline = Date.now() + timeoutMs;
+  let last = '';
+  for (let attempt = 1; ; attempt += 1) {
+    const res = await s3Request(values, 'PUT', url, 'probe');
+    await res.text();
+    if (res.ok) {
+      const del = await s3Request(values, 'DELETE', url);
+      await del.text();
+      return attempt;
+    }
+    last = `HTTP ${res.status}`;
+    if (res.status === 403 || Date.now() >= deadline) {
+      throw new Error(`Bucket ${values.WS_LOCAL_S3_BUCKET} does not accept writes (${last}).`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+}
+
 /** Creates the bucket if it does not exist yet. */
 export async function ensureBucket(values) {
   const url = s3Url(values, values.WS_LOCAL_S3_BUCKET);

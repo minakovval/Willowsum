@@ -9,7 +9,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { REPO_ROOT, STATE_DIR, compose, dockerAvailable } from './lib/docker.mjs';
-import { ensureBucket } from './lib/s3.mjs';
+import { ensureBucket, ensureWritable } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
 
@@ -31,7 +31,8 @@ async function up() {
   const res = compose(envPath, ['up', '-d', '--wait', '--wait-timeout', '180']);
   if (res.status !== 0) fail('services did not become healthy; see `pnpm local:status` and `docker compose logs`.');
   const bucket = await ensureBucket(values);
-  console.log(`Bucket ${values.WS_LOCAL_S3_BUCKET}: ${bucket}.`);
+  await ensureWritable(values);
+  console.log(`Bucket ${values.WS_LOCAL_S3_BUCKET}: ${bucket}, writable.`);
   console.log(`\nLocal environment is up.\n${connectionInfo(values, rel(envPath))}`);
 }
 
