@@ -2,8 +2,13 @@
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import { databaseAuditStore } from "./adapters/index.ts";
-import { recordEntry, type AuditEntry } from "./application/index.ts";
-import type { AuditEntryInput } from "./domain/index.ts";
+import {
+  recordEntry,
+  recordPlatformEntry,
+  type AuditEntry,
+  type PlatformAuditEntry,
+} from "./application/index.ts";
+import type { AuditEntryInput, PlatformEntryInput } from "./domain/index.ts";
 
 export const auditModule = defineModule({
   name: "audit",
@@ -11,14 +16,20 @@ export const auditModule = defineModule({
   consumes: [],
 });
 
-export type { AuditEntry } from "./application/index.ts";
+export type { AuditEntry, PlatformAuditEntry } from "./application/index.ts";
 export { AUDIT_MASK } from "./domain/index.ts";
-export type { AuditChange, AuditEntryInput } from "./domain/index.ts";
+export type { AuditChange, AuditEntryInput, PlatformEntryInput } from "./domain/index.ts";
 
-/** The household's audit log (ARC-03 FR 5, П-10): append an entry; read the entries of one entity. */
+/**
+ * The audit log (ARC-03 FR 5, П-10): append an entry; read the entries of one entity. A household's log, and
+ * the platform log for changes that belong to no household (feature flags, kill switches — CICD-06).
+ */
 export interface AuditLog {
   record(householdId: string, entry: AuditEntryInput): Promise<AuditEntry>;
   entriesFor(householdId: string, entity: { type: string; id: string }): Promise<AuditEntry[]>;
+  /** Staff or system only. */
+  recordPlatform(entry: PlatformEntryInput): Promise<PlatformAuditEntry>;
+  platformEntriesFor(entity: { type: string; id: string }): Promise<PlatformAuditEntry[]>;
 }
 
 /** `db` is the audit module's own database (`ModuleDatabases.for("audit")`). */
@@ -27,5 +38,7 @@ export function createAuditLog(db: ModuleDatabase): AuditLog {
   return {
     record: (householdId, entry) => recordEntry(store, householdId, entry),
     entriesFor: (householdId, entity) => store.forEntity(householdId, entity.type, entity.id),
+    recordPlatform: (entry) => recordPlatformEntry(store, entry),
+    platformEntriesFor: (entity) => store.platformForEntity(entity.type, entity.id),
   };
 }

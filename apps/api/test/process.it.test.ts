@@ -4,7 +4,14 @@ import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { enableProbeLogin, migrate, pendingMigrations, readMigrations } from "../src/platform/db/migrate.ts";
+import {
+  enableContextLogin,
+  enableModuleLogin,
+  enableProbeLogin,
+  migrate,
+  pendingMigrations,
+  readMigrations,
+} from "../src/platform/db/migrate.ts";
 import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
 import { migrateRealModules, realModules } from "./real-modules.ts";
@@ -82,6 +89,9 @@ beforeAll(async () => {
   // Readiness needs every migration the code ships (ARC-02 FR 4).
   await migrateRealModules(owner, db.url);
   await enableProbeLogin(owner, probePassword);
+  // The api role reads flags and kill switches before it is ready (CICD-06): its module role and the binding role log in.
+  await enableModuleLogin(owner, "feature-flags", probePassword);
+  await enableContextLogin(owner, probePassword);
 });
 
 afterAll(async () => {

@@ -11,6 +11,7 @@ import {
   memoryIdempotency,
   principalHeader,
   testApp,
+  testWiring,
 } from "./http.ts";
 import { IDEMPOTENCY_REPLAYED_HEADER } from "../src/platform/http/idempotency.ts";
 import { mountApi, apiRoutes } from "../src/api.ts";
@@ -253,7 +254,7 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
   it("every /v1 route the api server serves is a declared, checked API route (no raw Fastify route under /v1)", async () => {
     const app = buildServer({
       readiness: async () => ({ ready: true }),
-      api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+      api: (a) => mountApi(a, testWiring()),
     });
     await app.ready();
     const served = new Set<string>();

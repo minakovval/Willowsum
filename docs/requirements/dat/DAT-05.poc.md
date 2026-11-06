@@ -9,7 +9,7 @@
 - Спільні правила: П-7, П-8, П-13, П-14, П-24, П-25, П-26, CMP-22, CMP-23, CMP-24
 - Сценарії: UC-DAT-20, UC-DAT-21, UC-DAT-23
 - Модуль: feature-flags
-- Перевіряється: —
+- Перевіряється: apps/api/test/not-found.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/test/no-coming-soon.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06-r2.test.ts
 
 **Мета.** Як користувач, я хочу завжди розуміти, що відбувається на екрані — немає даних, дані завантажуються чи сталася помилка — і що мені робити далі, щоб не стикатися з порожніми екранами та заглушками.
 

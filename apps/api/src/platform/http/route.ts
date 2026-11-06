@@ -19,9 +19,16 @@ export interface Principal {
  * What a route checks before its handler runs (ARC-07 criterion «маршрут без перевірки прав і плану — 0»).
  * Every route names a permission (access-scope) and a feature key (plan-catalog), or says why it is public.
  * A public route serves no household data.
+ *
+ * The flag of a protected route (feature-flags, CICD-06) is `flag`, or by default its feature key: every
+ * function has a key in the feature catalogue and a flag under that key (ARC-01 FR 7). A route of a new
+ * sub-function names its own flag as well: then both its feature's flag and its own must be on, so switching
+ * the function off also hides the sub-function. While a flag is off for the caller's space the route answers
+ * 404, as if it did not exist (DAT-05 FR 7); while its module's kill switch is on it answers 503.
  */
 export type RouteAccess =
-  { readonly permission: string; readonly feature: string } | { readonly public: string };
+  | { readonly permission: string; readonly feature: string; readonly flag?: string }
+  | { readonly public: string };
 
 export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export type HttpMethod = (typeof HTTP_METHODS)[number];
@@ -107,6 +114,18 @@ export function isPublic(access: RouteAccess): access is { readonly public: stri
   return "public" in access;
 }
 
+/** The most specific flag of a protected route: its own `flag`, or its feature key. */
+export function routeFlag(access: { readonly feature: string; readonly flag?: string }): string {
+  return access.flag ?? access.feature;
+}
+
+/** Every flag a protected route is behind, all of which must be on: its feature's flag, then its own. */
+export function routeFlags(access: { readonly feature: string; readonly flag?: string }): string[] {
+  return access.flag === undefined || access.flag === access.feature
+    ? [access.feature]
+    : [access.feature, access.flag];
+}
+
 function objectKeys(schema: z.ZodType | undefined): string[] {
   return schema instanceof z.ZodObject ? Object.keys(schema.shape) : [];
 }
@@ -133,6 +152,8 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
     if (route.module !== null) fail("public routes are platform routes (module null)");
   } else if (!access.permission?.trim() || !access.feature?.trim()) {
     fail("needs both a permission (access-scope) and a feature key (plan-catalog)");
+  } else if (access.flag !== undefined && !access.flag.trim()) {
+    fail("an explicit flag must name a flag of feature-flags");
   }
   const templateParams = [...route.path.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]).sort();
   const declared = objectKeys(route.request?.params).sort();

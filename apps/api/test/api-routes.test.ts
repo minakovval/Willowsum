@@ -10,7 +10,7 @@ import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { IDEMPOTENCY_TABLE_SQL } from "../src/platform/http/idempotency.ts";
 import { fastifyPath, isPublic, type ApiRoute } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { fakeDatabases, principalHeader, testAuthenticate } from "./http.ts";
+import { principalHeader, testAuthenticate, testWiring } from "./http.ts";
 
 /**
  * ARC-07 criterion «маршрут без перевірки прав і плану — 0»: an automated permission test for every role on
@@ -34,7 +34,7 @@ function concreteUrl(route: ApiRoute): string {
 async function serve(overrides: Partial<ApiOptions>) {
   const app = Fastify({ logger: false });
   registerApi(app, {
-    ...apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    ...apiOptions(testWiring()),
     authenticate: testAuthenticate,
     ...overrides,
   });
@@ -73,9 +73,7 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
     async (_, route) => {
       if (isPublic(route.access)) return;
       const permission = route.access.permission;
-      const checkPermission = vi.fn(
-        apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }).checkPermission,
-      );
+      const checkPermission = vi.fn(apiOptions(testWiring()).checkPermission);
       const app = await serve({ checkPermission });
       for (const member of members) {
         const res = await app.inject({
@@ -129,7 +127,7 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
     };
     expect(() =>
       registerApi(Fastify(), {
-        ...apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+        ...apiOptions(testWiring()),
         routes: [rogue],
       }),
     ).toThrow(/unknown permission anything\.goes/);
@@ -152,7 +150,7 @@ describe("ARC-07 FR 4: every module with create routes stores idempotency keys i
 });
 
 describe("ARC-07 criterion «маршрут без перевірки прав і плану — 0»: no /v1 route outside the API layer", () => {
-  const wiring = () => ({ databases: fakeDatabases().databases, entitlements: "all-enabled" as const });
+  const wiring = () => testWiring();
   const readiness = async () => ({ ready: true as const });
 
   it("a raw route under /v1 registered before the API mount is refused", () => {
@@ -179,7 +177,7 @@ describe("NFR-05 FR 1: the api server serves the contract's routes and the two p
   it("the full set of served routes is apiRoutes plus GET /health/live and GET /health/ready", async () => {
     const app = buildServer({
       readiness: async () => ({ ready: true }),
-      api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+      api: (a) => mountApi(a, testWiring()),
     });
     await app.ready();
     const served = new Set<string>();

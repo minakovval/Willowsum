@@ -5,12 +5,12 @@
 import { describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { fakeDatabases } from "./http.ts";
+import { testWiring } from "./http.ts";
 
 const server = () =>
   buildServer({
     readiness: async () => ({ ready: true }),
-    api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    api: (a) => mountApi(a, testWiring()),
   });
 const leak = async () => ({ leak: true });
 

@@ -69,8 +69,11 @@ beforeAll(async () => {
     authenticate: testAuthenticate,
     checkPermission: () => true,
     checkFeature: async () => true,
+    moduleAvailable: async () => true,
+    checkFlag: async () => true,
     permissions: new Set(["things.write"]),
     features: new Set(["things"]),
+    flags: new Set(["things"]),
     databases,
     idempotency: (module) => moduleIdempotencyStore(databases.for(module)),
   });

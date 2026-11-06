@@ -2,7 +2,7 @@ import Fastify, { type FastifyInstance } from "fastify";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../src/platform/db/module-db.ts";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import type { IdempotencyBegin, IdempotencyStore } from "../src/platform/http/idempotency.ts";
-import type { ApiRoute, Principal } from "../src/platform/http/route.ts";
+import { routeFlags, type ApiRoute, type Principal } from "../src/platform/http/route.ts";
 
 export const householdA = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
 export const householdB = "9e8d7c6b-5a49-4382-8170-6f5e4d3c2b02";
@@ -40,6 +40,34 @@ export function fakeDatabases(): { databases: ApiOptions["databases"]; bound: st
     },
   } as unknown as ModuleDatabase;
   return { databases: { for: () => db }, bound };
+}
+
+/**
+ * Flags and kill switches for unit tests: every flag on for every space, no module switched off, unless the
+ * test turns some off. Records what was asked.
+ */
+export function fakeFlags(options: { off?: readonly string[]; killed?: readonly string[] } = {}): {
+  isModuleAvailable(m: string): Promise<boolean>;
+  isEnabled(h: string, f: string): Promise<boolean>;
+  asked: string[];
+} {
+  const asked: string[] = [];
+  return {
+    asked,
+    isModuleAvailable: async (module) => {
+      asked.push(`module:${module}`);
+      return !(options.killed ?? []).includes(module);
+    },
+    isEnabled: async (householdId, flag) => {
+      asked.push(`flag:${flag}@${householdId}`);
+      return !(options.off ?? []).includes(flag);
+    },
+  };
+}
+
+/** The wiring of src/api.ts for unit tests: fake databases, all plans enabled, all flags on. */
+export function testWiring(flags = fakeFlags()) {
+  return { databases: fakeDatabases().databases, entitlements: "all-enabled" as const, flags };
 }
 
 /** In-memory idempotency store with the same semantics as the table one (moduleIdempotencyStore). */
@@ -80,6 +108,9 @@ export async function testApp(
     authenticate: testAuthenticate,
     checkPermission: () => true,
     checkFeature: async () => true,
+    moduleAvailable: async () => true,
+    checkFlag: async () => true,
+    flags: new Set(routes.flatMap((r) => ("feature" in r.access ? routeFlags(r.access) : []))),
     permissions: new Set(routes.flatMap((r) => ("permission" in r.access ? [r.access.permission] : []))),
     features: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.feature] : []))),
     databases: fakeDatabases().databases,

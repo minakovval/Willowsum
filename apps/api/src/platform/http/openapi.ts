@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_REPLAYED_HEADER, IDEMPOTENCY_TTL_HOURS } from "./idempotency.ts";
 import { PROBLEM_CONTENT_TYPE, ProblemSchema } from "./problem.ts";
-import { isPublic, type ApiRoute } from "./route.ts";
+import { isPublic, routeFlags, type ApiRoute } from "./route.ts";
 
 /**
  * The OpenAPI 3.1 contract (ARC-07 FR 2), generated from the same zod schemas that validate requests and
@@ -77,6 +77,12 @@ function operation(route: ApiRoute): Json {
     responses["401"] = problemResponse("Not signed in (UNAUTHENTICATED)");
     responses["402"] = problemResponse("The plan of the space does not include this (PLAN_LIMIT_REACHED)");
     responses["403"] = problemResponse("The role or scope does not allow this (FORBIDDEN)");
+    responses["404"] = problemResponse(
+      "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+    );
+    responses["503"] = problemResponse(
+      "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+    );
   }
   if (route.create) {
     responses["409"] = problemResponse(
@@ -93,7 +99,11 @@ function operation(route: ApiRoute): Json {
       : {}),
     [ACCESS_EXTENSION]: isPublic(route.access)
       ? { public: route.access.public }
-      : { permission: route.access.permission, feature: route.access.feature },
+      : {
+          permission: route.access.permission,
+          feature: route.access.feature,
+          flags: routeFlags(route.access),
+        },
     ...(params.length > 0 ? { parameters: params } : {}),
     ...(route.request?.body
       ? {
