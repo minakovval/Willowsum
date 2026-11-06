@@ -49,9 +49,11 @@ If the PR covers only part of the requirement, the body must say which criteria 
   texts or merchant names stored in the journal (ARC-11).
 - Module card not updated when the public interface or events changed.
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
-  implements, and the change matches that decision; a PR changing deploy or infrastructure workflows or
-  access/trust settings (OIDC, secrets store, KMS, DNS) has an approval comment from the owner's own GitHub
-  account on that PR — otherwise blocking. The decision is also in the decision log (`docs/decisions/`).
+  implements, and the change matches that decision; a PR that acts on the cloud or production (applies
+  infrastructure, deploys or releases to production, or changes the workflows that do this or their trust
+  settings: OIDC, production secrets store, production DNS) has an approval comment from the owner's own
+  GitHub account on that PR — otherwise blocking. Infrastructure code that is only validated (no apply),
+  CI check jobs and the local environment need no such comment. The decision is also in the decision log (`docs/decisions/`).
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or

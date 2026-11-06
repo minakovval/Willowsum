@@ -151,9 +151,12 @@ errors) lives only in `packages/domain-kernel`.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
    session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or
    skills are merged only when the PR body records the owner's decision they implement (and the decision
-   log in `docs/decisions/` has it). PRs that change deploy or
-   infrastructure workflows or access/trust settings (OIDC trust, secrets store, KMS, DNS) are merged only
-   after the owner comments approval on that PR from their own GitHub account. If the owner commented
+   log in `docs/decisions/` has it). An approval comment from the
+   owner's own GitHub account on the PR is needed only for what acts on the cloud or production: applying
+   infrastructure (`tofu apply`), deploying or releasing to production, and changing the workflows that do
+   this or the trust settings they use (OIDC trust, the production secrets store, production DNS). Code
+   that is only validated (infrastructure as code without apply, KMS and access rules described as code),
+   CI check jobs and the local environment need no approval comment (owner, 2026-11-06). If the owner commented
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
