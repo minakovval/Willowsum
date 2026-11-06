@@ -95,3 +95,11 @@ export function schemaName(module: string): string {
 export function moduleRoleName(module: string): string {
   return `ws_mod_${schemaName(module)}`;
 }
+
+/**
+ * NOLOGIN role that owns a module's objects and runs its migrations (ARC-03, ADR-0002): CREATE and USAGE on
+ * the module's schema only, no BYPASSRLS, so rules, triggers and functions it creates stay under row policies.
+ */
+export function ownerRoleName(module: string): string {
+  return `ws_own_${schemaName(module)}`;
+}

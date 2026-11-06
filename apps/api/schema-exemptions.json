@@ -1,0 +1,4 @@
+{
+  "$comment": "ARC-03: tables in module schemas without household_id (no customer data), each with the reason. Checked by scripts/check-schema.ts; a customer-data table never goes here.",
+  "tables": {}
+}

@@ -8,6 +8,8 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/
 COPY packages/domain-kernel/package.json packages/domain-kernel/
+# Workspace manifest only: the synthetic-data tool is a dev dependency and is not installed (--prod).
+COPY tools/synthetic/package.json tools/synthetic/
 RUN pnpm install --frozen-lockfile --prod --filter "@willowsum/api..."
 
 FROM node:22-alpine

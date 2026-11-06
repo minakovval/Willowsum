@@ -1,5 +1,6 @@
 import pg from "pg";
 import { moduleRoleName, schemaName } from "../modules/rules.ts";
+import { CONTEXT_SCHEMA } from "./isolation.ts";
 
 /** Query interface handed to a module's adapters inside one transaction. */
 export interface ModuleQueryRunner {
@@ -10,38 +11,94 @@ export interface ModuleQueryRunner {
 }
 
 /**
- * Database access for one module (ARC-01 FR 3). The pool logs in as the module's own role
+ * Query interface inside a household transaction (ARC-03 FR 2). Module SQL still filters by
+ * `household_id = <householdId>` (the code-side filter); the database policy returns this household's
+ * rows only, even when that filter is forgotten.
+ */
+export interface HouseholdQueryRunner extends ModuleQueryRunner {
+  readonly householdId: string;
+}
+
+/**
+ * Writes the household binding of a module connection (ARC-03; isolation.ts). Its pool logs in as
+ * `ws_context`, which may only execute `platform_context.bind`; module roles cannot write a binding.
+ */
+export class HouseholdBinder {
+  private readonly pool: pg.Pool;
+
+  constructor(pool: pg.Pool) {
+    this.pool = pool;
+  }
+
+  async bind(pid: number, householdId: string | null): Promise<void> {
+    await this.pool.query(`SELECT ${CONTEXT_SCHEMA}.bind($1, $2)`, [pid, householdId]);
+  }
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/**
+ * Database access for one module (ARC-01 FR 3, ARC-03 FR 2). The pool logs in as the module's own role
  * `ws_mod_<module>`, which has privileges only on the module's schema and is a member of no other role
  * (migrate.ts checks this). Queries to another module's tables are therefore refused by the database,
- * whatever SQL the module sends.
+ * whatever SQL the module sends. Before each transaction the connection is bound to one household (or to
+ * none): customer-data tables show only that household's rows. Time is UTC in every transaction.
  */
 export class ModuleDatabase {
   readonly module: string;
   private readonly pool: pg.Pool;
+  private readonly binder: HouseholdBinder;
   private readonly role: string;
   private readonly schema: string;
-  private readonly verified = new WeakSet<pg.PoolClient>();
+  private readonly backendPid = new WeakMap<pg.PoolClient, number>();
 
-  constructor(pool: pg.Pool, module: string) {
+  constructor(pool: pg.Pool, module: string, binder: HouseholdBinder) {
     this.pool = pool;
     this.module = module;
+    this.binder = binder;
     this.role = moduleRoleName(module);
     this.schema = schemaName(module);
   }
 
+  /** A transaction bound to no household: customer-data tables show no rows and accept none. */
   async transaction<T>(work: (db: ModuleQueryRunner) => Promise<T>): Promise<T> {
+    return this.run(null, work);
+  }
+
+  /**
+   * A transaction bound to one household. Module SQL cannot change the binding; the id itself comes from the
+   * caller's TypeScript today — tying it to the authenticated session comes with ARC-07 (access-scope).
+   */
+  async inHousehold<T>(householdId: string, work: (db: HouseholdQueryRunner) => Promise<T>): Promise<T> {
+    if (!UUID_RE.test(householdId)) throw new Error("householdId must be a UUID");
+    return this.run(householdId, (q) => work({ ...q, householdId }));
+  }
+
+  private async run<T>(householdId: string | null, work: (db: ModuleQueryRunner) => Promise<T>): Promise<T> {
     const client = await this.pool.connect();
     let broken: Error | undefined;
+    let open = true;
     try {
-      if (!(await this.loggedInAsModuleRole(client))) {
+      const pid = await this.moduleBackendPid(client);
+      if (pid === undefined) {
         broken = new Error(`The ${this.module} pool must log in as ${this.role}`);
         throw broken;
       }
+      // Bound before any module SQL runs on this connection; the previous binding is replaced.
+      await this.binder.bind(pid, householdId).catch((error: Error) => {
+        broken = error;
+        throw error;
+      });
       await client.query("BEGIN");
       // pg_temp last: a temporary object can never shadow a module table (and creating one is not allowed).
       await client.query(`SET LOCAL search_path = ${client.escapeIdentifier(this.schema)}, pg_temp`);
+      await client.query(`SET LOCAL TimeZone = 'UTC'`);
       const result = await work({
-        query: (text, values) => client.query(text, values as unknown[] | undefined),
+        query: (text, values) => {
+          // A runner kept beyond its transaction would run on a connection that serves someone else.
+          if (!open) return Promise.reject(new Error("This transaction has ended"));
+          return client.query(text, values as unknown[] | undefined);
+        },
       });
       await client.query("COMMIT");
       return result;
@@ -52,6 +109,7 @@ export class ModuleDatabase {
       });
       throw error;
     } finally {
+      open = false;
       if (!broken) {
         // No session state survives into the next transaction on this connection.
         await client.query("DISCARD ALL").catch((discardError: Error) => {
@@ -64,31 +122,39 @@ export class ModuleDatabase {
   }
 
   /** Each new connection must be logged in as the module's role, not as anything broader. */
-  private async loggedInAsModuleRole(client: pg.PoolClient): Promise<boolean> {
-    if (this.verified.has(client)) return true;
-    const { rows } = await client.query<{ session_user: string; current_user: string }>(
-      "SELECT session_user, current_user",
+  private async moduleBackendPid(client: pg.PoolClient): Promise<number | undefined> {
+    const known = this.backendPid.get(client);
+    if (known !== undefined) return known;
+    const { rows } = await client.query<{ session_user: string; current_user: string; pid: number }>(
+      "SELECT session_user, current_user, pg_backend_pid() AS pid",
     );
-    if (rows[0]?.session_user !== this.role || rows[0]?.current_user !== this.role) return false;
-    this.verified.add(client);
-    return true;
+    if (rows[0]?.session_user !== this.role || rows[0]?.current_user !== this.role) return undefined;
+    this.backendPid.set(client, rows[0].pid);
+    return rows[0].pid;
   }
 }
 
 export interface ModuleDatabasesConfig {
   /** Connection settings of a module's pool: host, database, user = its role, password from secrets. */
   readonly connectionFor: (module: string) => pg.PoolConfig;
+  /** Connection settings of the binding pool: user `ws_context`, password from secrets. */
+  readonly context: pg.PoolConfig;
   /** Connections per module pool (default 3). */
   readonly poolSize?: number;
 }
 
-/** One small pool per module, created on first use. */
+/** One small pool per module, created on first use, plus one binding pool. */
 export class ModuleDatabases {
   private readonly config: ModuleDatabasesConfig;
   private readonly pools = new Map<string, { pool: pg.Pool; db: ModuleDatabase }>();
+  private readonly contextPool: pg.Pool;
+  private readonly binder: HouseholdBinder;
 
   constructor(config: ModuleDatabasesConfig) {
     this.config = config;
+    this.contextPool = new pg.Pool({ max: 2, idleTimeoutMillis: 30_000, ...config.context });
+    this.contextPool.on("error", () => undefined);
+    this.binder = new HouseholdBinder(this.contextPool);
   }
 
   for(module: string): ModuleDatabase {
@@ -101,7 +167,7 @@ export class ModuleDatabases {
       });
       // A dropped idle connection (database restart) must not crash the process; the next query reconnects.
       pool.on("error", () => undefined);
-      entry = { pool, db: new ModuleDatabase(pool, module) };
+      entry = { pool, db: new ModuleDatabase(pool, module, this.binder) };
       this.pools.set(module, entry);
     }
     return entry.db;
@@ -110,5 +176,6 @@ export class ModuleDatabases {
   async end(): Promise<void> {
     await Promise.all([...this.pools.values()].map((e) => e.pool.end()));
     this.pools.clear();
+    await this.contextPool.end();
   }
 }

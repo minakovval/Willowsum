@@ -1,0 +1,21 @@
+{
+  "name": "@willowsum/synthetic",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic synthetic household generator (ARC-03 FR 6, П-9): the only data agents and tests use. Modules register a generator per table in apps/api/src/modules/<module>/synthetic.ts.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": "index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "generate": "node index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

@@ -5,7 +5,9 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { enableProbeLogin, migrate, pendingMigrations, readMigrations } from "../src/platform/db/migrate.ts";
+import { modulePasswordVariable } from "../src/platform/config/config.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
+import { migrateRealModules, realModules } from "./real-modules.ts";
 
 const apiDir = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = fileURLToPath(new URL("./fixtures/db-modules", import.meta.url));
@@ -33,6 +35,9 @@ function baseEnv(port: number): Record<string, string> {
     WS_DB_NAME: u.pathname.slice(1),
     WS_DB_SSL: "false",
     WS_DB_PROBE_PASSWORD: probePassword,
+    WS_DB_CONTEXT_PASSWORD: probePassword,
+    // Every declared module needs the password of its role (not used by these probes).
+    ...Object.fromEntries(realModules.map((m) => [modulePasswordVariable(m), probePassword])),
   };
 }
 
@@ -74,10 +79,8 @@ beforeAll(async () => {
   db = await createTestDatabase();
   owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
-  await migrate(owner, {
-    modules: [],
-    modulesDir: fileURLToPath(new URL("../src/modules", import.meta.url)),
-  });
+  // Readiness needs every migration the code ships (ARC-02 FR 4).
+  await migrateRealModules(owner, db.url);
   await enableProbeLogin(owner, probePassword);
 });
 
@@ -136,7 +139,9 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     const p = start("api", baseEnv(port));
     await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
     // The probe's idle connection is killed, as in a restart or failover.
-    await owner.query("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'ws_probe'");
+    await owner.query(
+      "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE usename = 'ws_probe' AND datname = current_database()",
+    );
     await new Promise((r) => setTimeout(r, 300));
     expect(p.child.exitCode).toBeNull();
     expect((await fetch(`http://127.0.0.1:${port}/health/live`)).status).toBe(200);

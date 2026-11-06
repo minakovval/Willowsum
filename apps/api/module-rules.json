@@ -1,4 +1,9 @@
 {
   "$comment": "ARC-01 FR 4: every backend module and the modules whose public interface it may import. Edit with scripts/new-module.ts; checked by scripts/check-modules.ts.",
-  "modules": {}
+  "modules": {
+    "audit": {
+      "layer": "platform",
+      "dependsOn": []
+    }
+  }
 }
