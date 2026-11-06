@@ -1,0 +1,7 @@
+{
+  "name": "@willowsum/infra-check",
+  "private": true,
+  "description": "Static rules for the infrastructure code in infra/start (CICD-07, CICD-03, CICD-08, CICD-12, ARC-06, NFR-16, NFR-17). Zero dependencies; `node --test tools/infra-check` runs every test file. `tofu fmt` and `tofu validate` run in CI (job infra).",
+  "type": "module",
+  "main": "test/all.mjs"
+}

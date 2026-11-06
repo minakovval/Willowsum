@@ -169,3 +169,33 @@ jobs:
             # Names only: the list grows with every module (WS_DB_PASSWORD_<SCHEMA>), values never appear.
             echo "$out" | grep -Eq '^Configuration error: missing or invalid ([A-Z0-9_]+, )*WS_DB_HOST, ([A-Z0-9_]+, )*WS_DB_NAME(, [A-Z0-9_]+)*$'
           done
+
+  infra:
+    # CICD-07: the «Старт» infrastructure code (infra/start) is formatted, valid for the pinned OpenTofu
+    # and OCI provider, and keeps the static rules (tools/infra-check). No cloud access: nothing is
+    # planned or applied here and no secrets are used.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Static infrastructure rules
+        run: node --test tools/infra-check
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: "1.13.2"
+          tofu_wrapper: false
+      - name: Formatting
+        run: tofu fmt -check -recursive -diff infra/start
+      - name: Init without backend and validate
+        run: |
+          # A throwaway passphrase so the enforced state encryption can be configured; nothing is stored.
+          TF_VAR_state_passphrase="$(openssl rand -base64 33)"
+          echo "::add-mask::$TF_VAR_state_passphrase"
+          export TF_VAR_state_passphrase
+          tofu -chdir=infra/start init -backend=false -input=false
+          tofu -chdir=infra/start validate

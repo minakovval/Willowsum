@@ -1,0 +1,15 @@
+#cloud-config
+# First boot of the «Старт» server (CICD-07): container runtime and automatic security updates.
+# The application stack itself is deployed by the delivery pipeline (CICD-05), not here.
+timezone: UTC
+ssh_pwauth: false
+disable_root: true
+package_update: true
+package_upgrade: true
+packages:
+  - docker.io
+  - docker-compose-v2
+  - unattended-upgrades
+runcmd:
+  - systemctl enable --now docker
+  - systemctl enable --now unattended-upgrades

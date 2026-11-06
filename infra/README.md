@@ -8,7 +8,7 @@ Infrastructure as code for every environment of CICD-04 and both deployment prof
 | --- | --- | --- | --- |
 | [`local/`](local/README.md) | Local: development by agents and people, synthetic data | CICD-04 | Ready |
 | — | CI: temporary environment per PR (`.github/workflows/pr-checks.yml`, job `local-env`) | CICD-04 | Ready (backing services) |
-| `start/` | Staging and production on the «Старт» profile (Oracle Cloud Infrastructure, EU), OpenTofu | CICD-07, ARC-08 | Not started |
+| [`start/`](start/README.md) | Staging and production on the «Старт» profile (Oracle Cloud Infrastructure, EU), OpenTofu | CICD-07, ARC-08 | Code and CI checks; not applied yet |
 | `commercial/` | «Комерційний» profile | ARC-08 | Not started |
 
 Rules for everything in this folder:

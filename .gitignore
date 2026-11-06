@@ -11,3 +11,10 @@ coverage/
 
 # Local environment credentials and state (tools/local-env, CICD-04/CICD-12)
 infra/local/.state/
+
+# OpenTofu (infra/, CICD-07): providers, local state, plans and filled-in backend configs
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/start/env/*.s3.tfbackend

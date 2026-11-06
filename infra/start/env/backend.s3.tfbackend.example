@@ -1,0 +1,13 @@
+# Copy to env/<environment>.s3.tfbackend (git-ignored) and fill in. The state bucket is created once by
+# the owner (see infra/start/README.md, «Bootstrap»). Credentials come from the environment
+# (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY: an OCI customer secret key), never from this file.
+bucket                      = "willowsum-tofu-state"
+key                         = "start/<environment>.tfstate"
+region                      = "eu-madrid-1"
+endpoints                   = { s3 = "https://<namespace>.compat.objectstorage.eu-madrid-1.oraclecloud.com" }
+use_path_style              = true
+skip_region_validation      = true
+skip_credentials_validation = true
+skip_requesting_account_id  = true
+skip_metadata_api_check     = true
+skip_s3_checksum            = true
