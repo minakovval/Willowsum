@@ -53,8 +53,9 @@ resource "oci_objectstorage_bucket" "backups" {
   versioning     = "Disabled"
   freeform_tags  = local.tags
 
-  # Nobody can delete or change a copy before it is 35 days old: not the server, not an operator, not a
-  # compromised console account. The rule is not locked, so it can still be adjusted by a reviewed PR.
+  # While this rule is in place nobody can delete or change a copy before it is 35 days old. Only someone
+  # who can manage the bucket can remove the rule first; the server cannot. The rule is not locked, so it
+  # can still be adjusted by a reviewed PR.
   retention_rules {
     display_name = "keep-${var.backup_retention_days}-days"
     duration {
@@ -80,8 +81,9 @@ resource "oci_objectstorage_bucket" "secrets_backup" {
   versioning     = "Disabled"
   freeform_tags  = local.tags
 
-  # Nobody can delete or change a copy before it is 35 days old: not the server, not an operator, not a
-  # compromised console account. The rule is not locked, so it can still be adjusted by a reviewed PR.
+  # While this rule is in place nobody can delete or change a copy before it is 35 days old. Only someone
+  # who can manage the bucket can remove the rule first; the server cannot. The rule is not locked, so it
+  # can still be adjusted by a reviewed PR.
   retention_rules {
     display_name = "keep-${var.backup_retention_days}-days"
     duration {
