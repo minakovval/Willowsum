@@ -86,8 +86,9 @@ const GUARD_REWRITE_BODY = `
  *   rows during DDL, where row policies do not apply; no operators or casts either;
  * - no table inheritance (a parent without the household policy shows the children's rows); declarative
  *   partitions only, and a partitioned table must be a customer table;
- * - CHECK constraints, index expressions and predicates and stored generated columns may call only
- *   immutable pg_catalog functions and operators (column defaults are not evaluated over other rows).
+ * - CHECK constraints, index expressions and predicates, stored generated columns and extended-statistics
+ *   expressions (ANALYZE computes them over every row) may call only immutable pg_catalog functions and
+ *   operators (column defaults are not evaluated over other rows).
  */
 const MODULE_PROBLEMS_BODY = `
       WITH ns AS (SELECT n.oid FROM pg_catalog.pg_namespace n WHERE n.nspname = p_schema),
@@ -103,6 +104,10 @@ const MODULE_PROBLEMS_BODY = `
         SELECT ic.relname::text, COALESCE(i.indexprs::text, '') || ' ' || COALESCE(i.indpred::text, '')
           FROM pg_catalog.pg_index i JOIN pg_catalog.pg_class ic ON ic.oid = i.indexrelid
          WHERE ic.relnamespace = (SELECT oid FROM ns)
+        UNION ALL
+        SELECT s.stxname::text, s.stxexprs::text
+          FROM pg_catalog.pg_statistic_ext s JOIN pg_catalog.pg_class c ON c.oid = s.stxrelid
+         WHERE s.stxexprs IS NOT NULL AND (s.stxnamespace = (SELECT oid FROM ns) OR c.relnamespace = (SELECT oid FROM ns))
         UNION ALL
         SELECT c.relname || '.' || a.attname, ad.adbin::text
           FROM pg_catalog.pg_attrdef ad
@@ -167,10 +172,33 @@ const CHECK_MODULE_BODY = `
         expected constant text := '(household_id=(SELECTplatform_context.current_household()))';
       BEGIN
         -- Only the event trigger may call this (it runs as the superuser): not module code at runtime.
+        -- Three gates; the last two rest on server state, not on text the caller can write.
+        -- 1. Call stack: the two frames right above this one must be guard_ddl's call statement and its own
+        --    frame (guard_ddl runs with search_path = pg_catalog, pg_temp, so it prints with its schema; a
+        --    module function named guard_ddl prints without). This is a coarse filter only: PostgreSQL prints
+        --    statement text unescaped, so a caller can end line 2 itself (e.g. after a quoted column alias)
+        --    and forge line 3.
+        -- 2. Event-trigger state: pg_event_trigger_ddl_commands() fails outside a DDL command. It does not
+        --    prove that guard_ddl is the caller: code run inside some other DDL command (a function called by
+        --    CREATE TABLE AS) also has that state.
+        -- 3. The connection's login role (session_user, unchanged by SECURITY DEFINER and SET ROLE) can act
+        --    as the module's owner role (SET). That is the migration runner (or a superuser): it can run the
+        --    module's DDL, and so the guard's checks, anyway. Module, context and probe roles cannot.
+        --    Migration code on the runner's connection can still reach this function (e.g. a trigger fired by
+        --    CREATE TABLE … AS WITH … INSERT); that is accepted: it only isolates and refuses, never weakens.
         GET DIAGNOSTICS ctx = PG_CONTEXT;
-        -- PostgreSQL prints a function without its schema when the schema is on the search_path; a function of
-        -- a module schema is printed with its schema, and modules have CREATE nowhere else.
-        IF ctx !~ '(^|\\n)PL/pgSQL function (${GUARD_SCHEMA}\\.)?guard_ddl\\(\\) line ' THEN
+        IF pg_catalog.split_part(ctx, E'\\n', 2) IS DISTINCT FROM 'SQL statement "SELECT ${GUARD_SCHEMA}.check_module(pg_catalog.substr(current_user, 8))"'
+           OR pg_catalog.split_part(ctx, E'\\n', 3) !~ '^PL/pgSQL function ${GUARD_SCHEMA}\\.guard_ddl\\(\\) line [0-9]+ at PERFORM$' THEN
+          RAISE EXCEPTION 'check_module runs only from the isolation guard' USING ERRCODE = '42501';
+        END IF;
+        BEGIN
+          PERFORM pg_catalog.pg_event_trigger_ddl_commands();
+        EXCEPTION WHEN event_trigger_protocol_violated THEN
+          RAISE EXCEPTION 'check_module runs only from the isolation guard' USING ERRCODE = '42501';
+        END;
+        IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles r
+                        WHERE r.rolname = 'ws_own_' || p_schema
+                          AND pg_catalog.pg_has_role(session_user, r.oid, 'SET')) THEN
           RAISE EXCEPTION 'check_module runs only from the isolation guard' USING ERRCODE = '42501';
         END IF;
         SELECT n.oid INTO ns FROM pg_catalog.pg_namespace n
