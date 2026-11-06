@@ -154,7 +154,7 @@ errors) lives only in `packages/domain-kernel`.
    log in `docs/decisions/` has it). An approval comment from the
    owner's own GitHub account on the PR is needed only for what acts on the cloud or production: applying
    infrastructure (`tofu apply`), deploying or releasing to production, and changing the workflows that do
-   this or the trust settings they use (OIDC trust, the production secrets store, production DNS). Code
+   this or the trust settings they use (OIDC trust, the production secrets store) or production DNS. Code
    that is only validated (infrastructure as code without apply, KMS and access rules described as code),
    CI check jobs and the local environment need no approval comment (owner, 2026-11-06). If the owner commented
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the

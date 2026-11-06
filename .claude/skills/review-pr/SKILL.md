@@ -51,7 +51,7 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
   implements, and the change matches that decision; a PR that acts on the cloud or production (applies
   infrastructure, deploys or releases to production, or changes the workflows that do this or their trust
-  settings: OIDC, production secrets store, production DNS) has an approval comment from the owner's own
+  settings: OIDC, production secrets store; or production DNS) has an approval comment from the owner's own
   GitHub account on that PR — otherwise blocking. Infrastructure code that is only validated (no apply),
   CI check jobs and the local environment need no such comment. The decision is also in the decision log (`docs/decisions/`).
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.

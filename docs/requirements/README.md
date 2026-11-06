@@ -94,7 +94,7 @@ PoC v2. Merge conditions are those of AGENTS.md step 7:
 - PRs that change requirements, AGENTS.md or skills: the PR body records the owner's decision;
 - PRs that act on the cloud or production — applying infrastructure, deploying or releasing to
   production, or changing the workflows that do this or their trust settings (OIDC trust, production
-  secrets store, production DNS): only after the owner comments approval on that PR from their own GitHub
+  secrets store) or production DNS: only after the owner comments approval on that PR from their own GitHub
   account. Infrastructure code without apply, CI checks and the local environment need no such comment;
 - no merge while the owner has said «stop» or has an open question on the PR;
 - production releases and production actions need the owner's approval; never push to `main` directly.
