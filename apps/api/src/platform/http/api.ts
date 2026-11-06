@@ -196,6 +196,16 @@ export function mayServeApiPath(url: string): boolean {
 export function guardApiRoutes(app: FastifyInstance): void {
   if (guarded.has(app)) return;
   guarded.add(app);
+  // A plugin under such a prefix could answer /v1 requests without being a route (its own not-found or error
+  // handler). The API layer registers no plugins, so every such plugin is refused.
+  app.addHook("onRegister", (instance) => {
+    // A bare "/" (or "//", "///") prefix has an empty first segment but still gets its own 404 router for /v1/*.
+    if (instance.prefix && (mayServeApiPath(instance.prefix) || /^\/+$/.test(instance.prefix))) {
+      throw new Error(
+        `Plugin prefix ${instance.prefix}: plugins that can serve ${API_PREFIX} are not allowed; routes are mounted only by registerApi (defineRoute)`,
+      );
+    }
+  });
   app.addHook("onRoute", (route) => {
     const config = route.config as { apiRoute?: unknown } | undefined;
     if (mayServeApiPath(route.url) && config?.apiRoute !== API_ROUTE_TOKEN) {
