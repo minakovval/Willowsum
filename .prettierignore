@@ -9,3 +9,5 @@ tools
 **/*.md
 packages/ui/src/styles/tokens.css
 design
+packages/api-contract/openapi.json
+packages/api-contract/src/schema.ts

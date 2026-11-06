@@ -1,10 +1,13 @@
 import Fastify, { type FastifyInstance } from "fastify";
+import { guardApiRoutes } from "../http/api.ts";
 
 /** What the readiness probe asks: can we reach the database, and is its schema at least our version? */
 export type ReadinessCheck = () => Promise<{ ready: true } | { ready: false; reason: string }>;
 
 export interface ServerOptions {
   readonly readiness: ReadinessCheck;
+  /** Mounts the HTTP API (role `api` only, ARC-07). */
+  readonly api?: (app: FastifyInstance) => void;
 }
 
 /**
@@ -18,6 +21,8 @@ export function buildServer(options: ServerOptions): FastifyInstance {
     forceCloseConnections: "idle",
     return503OnClosing: true,
   });
+  // Before any route: nothing under /v1 is served unless the API layer mounted it with its checks (ARC-07).
+  guardApiRoutes(app);
   // A response finished during shutdown closes its keep-alive connection, so close() is not held open by it.
   let closing = false;
   app.addHook("preClose", async () => {
@@ -36,5 +41,6 @@ export function buildServer(options: ServerOptions): FastifyInstance {
       return reply.code(503).send({ status: "not-ready", reason: "database-unreachable" });
     }
   });
+  options.api?.(app);
   return app;
 }

@@ -1,0 +1,199 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import Fastify from "fastify";
+import { describe, expect, it, vi } from "vitest";
+import { apiOptions, apiRoutes, mountApi } from "../src/api.ts";
+import { can, PERMISSION_KEYS, ROLES } from "../src/modules/access-scope/index.ts";
+import { modules } from "../src/modules/index.ts";
+import { FEATURE_KEYS } from "../src/modules/plan-catalog/index.ts";
+import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
+import { IDEMPOTENCY_TABLE_SQL } from "../src/platform/http/idempotency.ts";
+import { fastifyPath, isPublic, type ApiRoute } from "../src/platform/http/route.ts";
+import { buildServer } from "../src/platform/process/server.ts";
+import { fakeDatabases, principalHeader, testAuthenticate } from "./http.ts";
+
+/**
+ * ARC-07 criterion «маршрут без перевірки прав і плану — 0»: an automated permission test for every role on
+ * every route. It walks the routes the API really serves (src/api.ts), so a new route is covered without
+ * writing a test, and a route that skips a check fails here.
+ */
+
+/** Routes that may be called without a session; each serves no household data. Adding one is a reviewed change. */
+const PUBLIC_ROUTES = ["getMeta"];
+
+const members = [
+  ...ROLES.map((role) => ({ role, scoped: false })),
+  ...ROLES.map((role) => ({ role, scoped: true })),
+];
+
+function concreteUrl(route: ApiRoute): string {
+  // Any value: validation runs after the checks, so a wrong one is 400, never 401/402/403.
+  return fastifyPath(route.path).replace(/:([A-Za-z]+)/g, "00000000-0000-4000-8000-000000000000");
+}
+
+async function serve(overrides: Partial<ApiOptions>) {
+  const app = Fastify({ logger: false });
+  registerApi(app, {
+    ...apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    authenticate: testAuthenticate,
+    ...overrides,
+  });
+  await app.ready();
+  return app;
+}
+
+const protectedRoutes = apiRoutes.filter((r) => !isPublic(r.access));
+
+describe("ARC-07 criterion «маршрут без перевірки прав і плану — 0»", () => {
+  it("the API serves routes, and only the listed ones are public", () => {
+    expect(protectedRoutes.length).toBeGreaterThan(0);
+    expect(apiRoutes.filter((r) => isPublic(r.access)).map((r) => r.operationId)).toEqual(PUBLIC_ROUTES);
+  });
+
+  it("every protected route names a permission of access-scope and a feature key of plan-catalog", () => {
+    for (const route of protectedRoutes) {
+      if (isPublic(route.access)) continue;
+      expect(PERMISSION_KEYS, route.operationId).toContain(route.access.permission);
+      expect(FEATURE_KEYS, route.operationId).toContain(route.access.feature);
+    }
+  });
+
+  it.each(protectedRoutes.map((r) => [`${r.method} ${r.path}`, r] as const))(
+    "%s: without a session → 401",
+    async (_, route) => {
+      const app = await serve({});
+      const res = await app.inject({ method: route.method, url: concreteUrl(route) });
+      expect(res.statusCode).toBe(401);
+      expect(res.json().code).toBe("UNAUTHENTICATED");
+    },
+  );
+
+  it.each(protectedRoutes.map((r) => [`${r.method} ${r.path}`, r] as const))(
+    "%s: every role, scoped or not, gets exactly what access-scope allows; the check is made with the route's permission",
+    async (_, route) => {
+      if (isPublic(route.access)) return;
+      const permission = route.access.permission;
+      const checkPermission = vi.fn(
+        apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }).checkPermission,
+      );
+      const app = await serve({ checkPermission });
+      for (const member of members) {
+        const res = await app.inject({
+          method: route.method,
+          url: concreteUrl(route),
+          headers: principalHeader(member),
+        });
+        const label = `${member.role}${member.scoped ? " (scoped)" : ""}`;
+        if (can(member, permission)) expect([401, 402, 403], label).not.toContain(res.statusCode);
+        else {
+          expect(res.statusCode, label).toBe(403);
+          expect(res.json().code, label).toBe("FORBIDDEN");
+        }
+      }
+      expect(checkPermission).toHaveBeenCalledTimes(members.length);
+      // Checked for the session's own principal (role and scope as signed in), with the route's permission.
+      checkPermission.mock.calls.forEach((call, i) => {
+        expect(call[0]).toEqual(expect.objectContaining(members[i]));
+        expect(call[1]).toBe(permission);
+      });
+    },
+  );
+
+  it.each(protectedRoutes.map((r) => [`${r.method} ${r.path}`, r] as const))(
+    "%s: when the plan does not include its feature → 402 PLAN_LIMIT_REACHED, checked with the route's feature key",
+    async (_, route) => {
+      if (isPublic(route.access)) return;
+      const checkFeature = vi.fn(async () => false);
+      const app = await serve({ checkFeature });
+      const res = await app.inject({
+        method: route.method,
+        url: concreteUrl(route),
+        headers: principalHeader({ role: "owner" }),
+      });
+      expect(res.statusCode).toBe(402);
+      expect(res.json().code).toBe("PLAN_LIMIT_REACHED");
+      expect(checkFeature).toHaveBeenCalledWith(
+        expect.objectContaining({ role: "owner" }),
+        route.access.feature,
+      );
+    },
+  );
+
+  it("a route with a permission access-scope does not know is refused at start (the check cannot be skipped)", () => {
+    const route = protectedRoutes[0]!;
+    const rogue = {
+      ...route,
+      operationId: "rogue",
+      path: "/v1/rogue",
+      access: { permission: "anything.goes", feature: "household.core" },
+    };
+    expect(() =>
+      registerApi(Fastify(), {
+        ...apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+        routes: [rogue],
+      }),
+    ).toThrow(/unknown permission anything\.goes/);
+  });
+});
+
+describe("ARC-07 FR 4: every module with create routes stores idempotency keys in its own schema", () => {
+  it("each such module ships the idempotency_keys migration verbatim", () => {
+    for (const m of modules.filter((m) => (m.routes ?? []).some((r) => r.create))) {
+      const dir = path.join(import.meta.dirname, "../src/modules", m.name, "adapters/db/migrations");
+      const sql = readdirSync(dir)
+        .filter((f) => f.endsWith(".sql"))
+        .map((f) => readFileSync(path.join(dir, f), "utf8"));
+      expect(
+        sql.some((s) => s.includes(IDEMPOTENCY_TABLE_SQL.trim())),
+        m.name,
+      ).toBe(true);
+    }
+  });
+});
+
+describe("ARC-07 criterion «маршрут без перевірки прав і плану — 0»: no /v1 route outside the API layer", () => {
+  const wiring = () => ({ databases: fakeDatabases().databases, entitlements: "all-enabled" as const });
+  const readiness = async () => ({ ready: true as const });
+
+  it("a raw route under /v1 registered before the API mount is refused", () => {
+    expect(() =>
+      buildServer({
+        readiness,
+        api: (app) => {
+          app.get("/v1/hidden", async () => ({ secret: 1 }));
+          mountApi(app, wiring());
+        },
+      }),
+    ).toThrow(/mounted only by registerApi/);
+  });
+
+  it("a raw route under /v1 (any letter case) registered after the mount is refused", () => {
+    const app = buildServer({ readiness, api: (a) => mountApi(a, wiring()) });
+    expect(() => app.get("/v1/debug/households", async () => [])).toThrow(/mounted only by registerApi/);
+    expect(() => app.post("/V1/Things", async () => ({}))).toThrow(/mounted only by registerApi/);
+    expect(() => app.get("/v1", async () => ({}))).toThrow(/mounted only by registerApi/);
+  });
+});
+
+describe("NFR-05 FR 1: the api server serves the contract's routes and the two probes, nothing else", () => {
+  it("the full set of served routes is apiRoutes plus GET /health/live and GET /health/ready", async () => {
+    const app = buildServer({
+      readiness: async () => ({ ready: true }),
+      api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    });
+    await app.ready();
+    const served = new Set<string>();
+    for (const line of app.printRoutes({ commonPrefix: false }).split("\n")) {
+      const m = line.match(/(\/\S*) \(([^)]+)\)/);
+      if (!m) continue;
+      for (const method of m[2]!.split(", ")) if (method !== "HEAD") served.add(`${method} ${m[1]}`);
+    }
+    const expected = [
+      ...apiRoutes.map((r) => `${r.method} ${fastifyPath(r.path)}`),
+      "GET /health/live",
+      "GET /health/ready",
+    ];
+    expect([...served].sort()).toEqual(expected.sort());
+    await app.close();
+  });
+});

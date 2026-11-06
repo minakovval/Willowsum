@@ -10,6 +10,9 @@
     "check:modules": "node scripts/check-modules.ts",
     "check:schema": "node scripts/check-schema.ts",
     "check:migrations": "node scripts/check-migrations.ts",
+    "contract:write": "node scripts/contract.ts --write",
+    "contract:check": "node scripts/contract.ts --check",
+    "contract:compat": "node scripts/contract.ts --compat",
     "new-module": "node scripts/new-module.ts",
     "events:snapshot": "node scripts/events-snapshot.ts",
     "migrate": "node scripts/migrate.ts",
@@ -18,13 +21,14 @@
   },
   "dependencies": {
     "@willowsum/domain-kernel": "workspace:*",
+    "fastify": "5.12.8",
     "pg": "8.23.1",
-    "zod": "4.6.7",
-    "fastify": "5.12.8"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
     "@types/pg": "8.23.1",
+    "@willowsum/api-contract": "workspace:*",
     "@willowsum/synthetic": "workspace:*",
     "dependency-cruiser": "18.7.2",
     "typescript": "6.0.3",

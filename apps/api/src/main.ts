@@ -6,9 +6,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
+import { mountApi } from "./api.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
+import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
+import { ModuleDatabases } from "./platform/db/module-db.ts";
 import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/migrate.ts";
-import { topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
+import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { buildServer } from "./platform/process/server.ts";
 
@@ -45,8 +48,28 @@ const probe = new pg.Pool({
 // next readiness check simply reports «не готовий». Nothing about the error is logged (it holds connection details).
 probe.on("error", () => undefined);
 
+const connection = {
+  host: config.database.host,
+  port: config.database.port,
+  database: config.database.name,
+  ssl: config.database.ssl,
+};
+// Each module's own pool and role (ARC-01); the API serves module routes through them (ARC-07).
+const databases = new ModuleDatabases({
+  connectionFor: (module) => ({
+    ...connection,
+    user: moduleRoleName(module),
+    password: config.database.modulePasswords.get(module) ?? "",
+  }),
+  context: { ...connection, user: CONTEXT_ROLE, password: config.database.contextPassword },
+});
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 const server = buildServer({
+  // Sessions arrive with identity (ACC-01); until then every protected route answers 401.
+  ...(config.role === "api"
+    ? { api: (app) => mountApi(app, { databases, entitlements: config.planEntitlements }) }
+    : {}),
   readiness: async () => {
     const client = await probe.connect();
     try {
@@ -59,6 +82,7 @@ const server = buildServer({
 });
 
 lifecycle.onStop(() => probe.end());
+lifecycle.onStop(() => databases.end());
 lifecycle.onStop(() => server.close());
 // worker and scheduler register their job loops here once the queue exists (ARC-04).
 

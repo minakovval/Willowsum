@@ -1,0 +1,268 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Willowsum API",
+    "version": "v1",
+    "description": "The one HTTP API of every Willowsum client (ARC-07). Within /v1 only compatible changes are made; removal only after a deprecation mark and at least 6 months. Errors are RFC 9457 problem details with a machine code."
+  },
+  "paths": {
+    "/v1/me/permissions": {
+      "get": {
+        "operationId": "getMyPermissions",
+        "summary": "My role and permissions in the current space",
+        "tags": [
+          "access-scope"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "household.core"
+        },
+        "responses": {
+          "200": {
+            "description": "The caller's role, whether a scope restricts them, and the permissions they hold",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "admin",
+                        "editor",
+                        "viewer",
+                        "advisor"
+                      ]
+                    },
+                    "scoped": {
+                      "type": "boolean"
+                    },
+                    "permissions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "household.data.read",
+                          "household.data.write",
+                          "assets.dispose",
+                          "assets.trash",
+                          "assets.groups.manage",
+                          "locations.exact.read",
+                          "members.manage",
+                          "members.assign-privileged",
+                          "scope.manage",
+                          "billing.manage",
+                          "household.transfer",
+                          "export.full",
+                          "export.reports",
+                          "audit.read",
+                          "bank.reconciliation.undo",
+                          "support.access.approve",
+                          "session.timeout.manage"
+                        ],
+                        "x-extensible-enum": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "role",
+                    "scoped",
+                    "permissions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "API version",
+        "tags": [
+          "platform"
+        ],
+        "x-willowsum-access": {
+          "public": "Clients read the API version before sign-in; no household data"
+        },
+        "responses": {
+          "200": {
+            "description": "The API version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "const": "v1"
+                    }
+                  },
+                  "required": [
+                    "apiVersion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 400,
+            "maximum": 599
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "VALIDATION_FAILED",
+              "MALFORMED_REQUEST",
+              "INVALID_CURSOR",
+              "UNAUTHENTICATED",
+              "PLAN_LIMIT_REACHED",
+              "FORBIDDEN",
+              "NOT_FOUND",
+              "IDEMPOTENCY_KEY_REUSED",
+              "IDEMPOTENCY_REQUEST_IN_PROGRESS",
+              "PAYLOAD_TOO_LARGE",
+              "UNSUPPORTED_MEDIA_TYPE",
+              "INTERNAL"
+            ],
+            "x-extensible-enum": true,
+            "description": "Machine-readable code; new codes may be added"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "supportId": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "in": {
+                  "type": "string",
+                  "enum": [
+                    "path",
+                    "query",
+                    "header",
+                    "body"
+                  ]
+                },
+                "path": {
+                  "type": "string"
+                },
+                "issue": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "in",
+                "path",
+                "issue"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "additionalProperties": false,
+        "description": "RFC 9457 problem details with a machine-readable code (ARC-07 FR 4)."
+      }
+    }
+  }
+}
