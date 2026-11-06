@@ -52,6 +52,11 @@ export interface ApiOptions {
   readonly permissions: ReadonlySet<string>;
   readonly features: ReadonlySet<string>;
   readonly flags: ReadonlySet<string>;
+  /**
+   * The flag a flag requires (feature-flags catalogue `requires`), or undefined. A route's own `access.flag` must
+   * require the route's feature, so GET /v1/me/features and the route always agree on whether it is on.
+   */
+  readonly flagRequires: (flag: string) => string | undefined;
   /** The database of the module that owns a route. */
   readonly databases: { for(module: string): ModuleDatabase };
   /** The idempotency store of a module with create routes (default: its own table). */
@@ -291,7 +296,7 @@ export function guardApiRoutes(app: FastifyInstance): void {
 /** Checks the routes against the API rules before any is served. */
 export function assertRoutes(
   routes: readonly ApiRoute[],
-  options: Pick<ApiOptions, "permissions" | "features" | "flags">,
+  options: Pick<ApiOptions, "permissions" | "features" | "flags"> & Partial<Pick<ApiOptions, "flagRequires">>,
 ): void {
   const seen = new Set<string>();
   const operations = new Set<string>();
@@ -312,6 +317,14 @@ export function assertRoutes(
     }
     for (const flag of routeFlags(route.access)) {
       if (!options.flags.has(flag)) throw new Error(`Route ${where}: unknown flag ${flag} (feature-flags)`);
+    }
+    const own = route.access.flag;
+    if (options.flagRequires && own !== undefined && own !== route.access.feature) {
+      const parent = options.flagRequires(own);
+      if (parent !== route.access.feature)
+        throw new Error(
+          `Route ${where}: flag ${own} must require the route's feature ${route.access.feature} (it requires ${parent ?? "nothing"})`,
+        );
     }
     if (route.module === null) throw new Error(`Route ${where}: a protected route belongs to a module`);
   }
