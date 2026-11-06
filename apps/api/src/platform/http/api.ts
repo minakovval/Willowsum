@@ -141,6 +141,12 @@ export function installProblemHandlers(
   supportId?: ApiOptions["supportId"],
   reportError?: ApiOptions["reportError"],
 ): void {
+  // An unknown path answers 404 before its body is read, exactly like a hidden function (whose flag check runs
+  // in onRequest): otherwise a malformed, empty or oversized body would get 400 / 413 on an unknown path only,
+  // telling the two apart (DAT-05 FR 7, security review of PR #82). Existing routes are not affected.
+  app.addHook("onRequest", async (request) => {
+    if (request.is404) throw new ApiProblem("NOT_FOUND");
+  });
   app.setNotFoundHandler((request, reply) => sendProblem(reply, "NOT_FOUND", request, supportId));
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ApiProblem) {

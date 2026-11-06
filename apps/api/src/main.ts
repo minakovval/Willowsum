@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { mountApi } from "./api.ts";
-import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { checkFlagsReady, createFlagRuntimeFor, FLAGS_DB_TIMEOUTS } from "./modules/feature-flags/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
 import { ModuleDatabases } from "./platform/db/module-db.ts";
@@ -61,6 +61,8 @@ const databases = new ModuleDatabases({
     ...connection,
     user: moduleRoleName(module),
     password: config.database.modulePasswords.get(module) ?? "",
+    // The flag check must never hang on the database (CICD-06 FR 3).
+    ...(module === "feature-flags" ? FLAGS_DB_TIMEOUTS : {}),
   }),
   context: { ...connection, user: CONTEXT_ROLE, password: config.database.contextPassword },
 });
@@ -82,9 +84,9 @@ const server = buildServer({
       if (pending.length > 0) return { ready: false, reason: "schema-behind" };
       // The API serves only once it knows the flags and kill switches (before that every module answers 503).
       // State older than 60 s (reloads failing) makes it not ready too: the ≤ 1 min bound of a kill switch holds.
-      if (config.role === "api" && !flags.fresh) {
-        await flags.refresh();
-        if (!flags.fresh) return { ready: false, reason: flags.loaded ? "flags-stale" : "flags-not-loaded" };
+      if (config.role === "api") {
+        const reason = await checkFlagsReady(flags);
+        if (reason !== "ok") return { ready: false, reason };
       }
       return { ready: true };
     } finally {

@@ -40,6 +40,22 @@ export function flagReviewProblems(
           `${key}: fully enabled since ${flag.fullyEnabledOn} (${enabledFor} days); remove the flag from the code (≤ ${FULL_ROLLOUT_MAX_DAYS} days)`,
         );
     }
+    if (flag.requires !== undefined) {
+      // The chain of «requires» must end at a flag that requires nothing, without coming back.
+      const seen = new Set([key]);
+      let next: string | undefined = flag.requires;
+      while (next !== undefined) {
+        if (seen.has(next) || !Object.hasOwn(flags, next)) {
+          problems.push(
+            `${key}: requires ${flag.requires}, which is ${seen.has(next) ? "a cycle" : "not a flag"}`,
+          );
+          break;
+        }
+        seen.add(next);
+        const parent = flagDefinition.safeParse(flags[next]);
+        next = parent.success ? parent.data.requires : undefined;
+      }
+    }
     if (!knownFeatures.includes(key))
       problems.push(`${key}: no such key in the feature catalogue (plan-catalog FEATURES)`);
   }

@@ -30,8 +30,22 @@ export const featureFlagsModule = defineModule({
     );
 }
 
-export { AUDIT_ENTITY, KILL_SWITCH_MAX_DELAY_MS, LOAD_WAIT_MS, REFRESH_MS } from "./application/index.ts";
-export type { FlagActor, FlagAdmin, FlagRuntime, FlagSnapshot } from "./application/index.ts";
+export {
+  AUDIT_ENTITY,
+  checkFlagsReady,
+  flagsReadiness,
+  KILL_SWITCH_MAX_DELAY_MS,
+  LOAD_WAIT_MS,
+  REFRESH_MS,
+} from "./application/index.ts";
+export type { FlagActor, FlagAdmin, FlagRuntime, FlagSnapshot, FlagsReadiness } from "./application/index.ts";
+
+/**
+ * Connection settings of this module's pool in the API process (main.ts). A reload that hangs in the
+ * database (lock, overload) ends after 5 s and the next request retries, instead of holding the process on
+ * the old state, or after 60 s in the fail-closed state, longer than needed (ADR-0004).
+ */
+export const FLAGS_DB_TIMEOUTS = { statement_timeout: 5_000, connectionTimeoutMillis: 5_000 } as const;
 export {
   FLAG_KEYS,
   FLAGS,

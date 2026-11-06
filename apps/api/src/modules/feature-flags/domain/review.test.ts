@@ -72,4 +72,31 @@ describe("CICD-06 AC2: every flag has an owner and a review date; CI fails for s
     expect(overdueFullRollouts(flags, at, new Date("2026-10-31T12:00:00Z"))).toEqual([]);
     expect(overdueFullRollouts(flags, at, new Date("2026-11-01T00:30:00Z"))).toEqual(["a.one"]);
   });
+
+  it("a sub-function's flag requires an existing flag, without cycles", () => {
+    const f = (requires?: string) => ({
+      ...base,
+      kind: "release",
+      reviewBy: "2027-06-01",
+      ...(requires ? { requires } : {}),
+    });
+    const keys = ["a.one", "a.two", "a.three"];
+    expect(
+      flagReviewProblems({ "a.one": f(), "a.two": f("a.one"), "a.three": f("a.two") }, "2026-11-06", keys),
+    ).toEqual([]);
+    expect(
+      flagReviewProblems({ "a.one": f(), "a.two": f("a.nope"), "a.three": f() }, "2026-11-06", keys),
+    ).toEqual(["a.two: requires a.nope, which is not a flag"]);
+    expect(
+      flagReviewProblems(
+        { "a.one": f("a.two"), "a.two": f("a.one"), "a.three": f("a.three") },
+        "2026-11-06",
+        keys,
+      ),
+    ).toEqual([
+      "a.one: requires a.two, which is a cycle",
+      "a.two: requires a.one, which is a cycle",
+      "a.three: requires a.three, which is a cycle",
+    ]);
+  });
 });

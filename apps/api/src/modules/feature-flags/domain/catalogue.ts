@@ -31,6 +31,8 @@ export const flagDefinition = z
     reviewBy: isoDate,
     /** Release flags: the day the rollout reached «all» (YYYY-MM-DD, UTC); set in the PR that records it. */
     fullyEnabledOn: isoDate.optional(),
+    /** A sub-function's flag: the flag of its function, which must be on too (as for a route's flags). */
+    requires: z.string().min(1).optional(),
     description: z.string().min(1).max(300),
   })
   .strict()

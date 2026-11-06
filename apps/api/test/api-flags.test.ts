@@ -1,7 +1,8 @@
 import Fastify from "fastify";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { apiOptions, apiRoutes } from "../src/api.ts";
+import { apiOptions, apiRoutes, mountApi } from "../src/api.ts";
+import { buildServer } from "../src/platform/process/server.ts";
 import { can } from "../src/modules/access-scope/index.ts";
 import { FLAG_KEYS } from "../src/modules/feature-flags/index.ts";
 import { FEATURE_KEYS } from "../src/modules/plan-catalog/index.ts";
@@ -393,5 +394,50 @@ describe("CICD-06: a route with its own flag is behind its feature's flag too", 
         ],
       }),
     ).toThrow(/unknown (feature key|flag) nope\.feature/);
+  });
+});
+
+describe("DAT-05 FR 7: an unknown path answers 404 before its body is read (the real server)", () => {
+  const malformed = [
+    ["malformed JSON", "application/json", "{"],
+    ["empty JSON body", "application/json", ""],
+    ["oversized JSON", "application/json", JSON.stringify({ x: "x".repeat(2_000_000) })],
+    ["text/plain", "text/plain", "x"],
+  ] as const;
+
+  async function server(flags = fakeFlags()) {
+    const app = buildServer({
+      readiness: async () => ({ ready: true }),
+      api: (a) => mountApi(a, testWiring(flags)),
+    });
+    await app.ready();
+    return app;
+  }
+
+  it.each(malformed)(
+    "%s without a session: an unknown /v1 path and a non-/v1 path → 404 NOT_FOUND",
+    async (_, type, payload) => {
+      const app = await server();
+      for (const url of ["/v1/no-such-function", "/not-api/at-all"]) {
+        const res = await app.inject({ method: "POST", url, headers: { "content-type": type }, payload });
+        expect(res.statusCode, url).toBe(404);
+        expect(res.json().code, url).toBe("NOT_FOUND");
+      }
+    },
+  );
+
+  it("without a session: a route of a switched-off module → 503 (with a body: see «before the body is read»)", async () => {
+    for (const route of protectedRoutes) {
+      const app = await server(fakeFlags({ killed: [route.module as string] }));
+      const res = await app.inject({ method: route.method, url: concreteUrl(route) });
+      expect(res.statusCode, route.operationId).toBe(503);
+    }
+  });
+
+  it("the probes answer as before", async () => {
+    const app = await server();
+    expect((await app.inject({ method: "GET", url: "/health/live" })).json()).toEqual({ status: "live" });
+    expect((await app.inject({ method: "GET", url: "/health/ready" })).json()).toEqual({ status: "ready" });
+    expect((await app.inject({ method: "GET", url: "/health/nope" })).statusCode).toBe(404);
   });
 });

@@ -35,6 +35,9 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
   вимикачі — у журнал платформи (з полем `flag` чи `module`), позначка тестового простору — у журнал простору; зміна без
   різниці нічого не пише. Після `rollout <release-прапорець> all` скрипт нагадує записати `fullyEnabledOn`.
   Персонал викликає його через `node scripts/flags.ts` (`state`, `rollout`, `kill`, `revive`, `test-space`, `--actor`).
+- `checkFlagsReady(runtime)` / `flagsReadiness({ loaded, fresh })` → `ok`, `flags-not-loaded` або `flags-stale` (готовність
+  ролі `api`); `FLAGS_DB_TIMEOUTS` — `statement_timeout` і тайм-аут з'єднання 5 с для пулу модуля (`main.ts`).
+- Прапорець підфункції має в каталозі `requires` (прапорець її функції): ввімкнений лише разом із ним.
 - `flagReviewProblems(flags, today, featureKeys)`, `utcDay` — правила `pnpm check:flags`; `bucketOf(flag, householdId)`
   — кошик 0–99 (FNV-1a від «<ключ>:<простір>»).
 - Типи `FlagRuntime`, `FlagAdmin`, `FlagActor`, `FlagSnapshot`, `FlagDefinition`, `FlagKey`, `FlagKind`, `Rollout`,

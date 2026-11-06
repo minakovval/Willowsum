@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFlagRuntime, KILL_SWITCH_MAX_DELAY_MS, LOAD_WAIT_MS, REFRESH_MS } from "./index.ts";
+import {
+  checkFlagsReady,
+  createFlagRuntime,
+  flagOn,
+  flagsOn,
+  flagsReadiness,
+  KILL_SWITCH_MAX_DELAY_MS,
+  LOAD_WAIT_MS,
+  REFRESH_MS,
+} from "./index.ts";
 import { memoryFlagStore } from "./memory-store.test-helper.ts";
 
 const h = "3b9d7f0e-2c4a-4e8b-9a1d-6f5e4c3b2a01";
@@ -173,5 +182,83 @@ describe("CICD-06 AC3: the ≤ 1 minute bound holds when reloads fail, hang or a
     await store.setKillSwitch("access-scope", true);
     vi.setSystemTime(REFRESH_MS);
     expect(await runtime.isModuleAvailable("access-scope")).toBe(false);
+  });
+});
+
+describe("CICD-06 / ADR-0004: readiness of the api role follows the freshness of the flags (fake timers)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("the decision: fresh → ok; never loaded → flags-not-loaded; loaded but stale → flags-stale", () => {
+    expect(flagsReadiness({ loaded: true, fresh: true })).toBe("ok");
+    expect(flagsReadiness({ loaded: false, fresh: false })).toBe("flags-not-loaded");
+    expect(flagsReadiness({ loaded: true, fresh: false })).toBe("flags-stale");
+  });
+
+  // Mutants: readiness on `loaded` instead of `fresh` (stale says ok); always «flags-not-loaded» (stale and
+  // recovery say the wrong thing).
+  it("on a real runtime: not loaded → loaded → 60 s of failed reloads → stale → a success → ok again", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const store = memoryFlagStore();
+    const runtime = createFlagRuntime(store);
+    store.fail = true;
+    expect(await checkFlagsReady(runtime)).toBe("flags-not-loaded");
+    store.fail = false;
+    expect(await checkFlagsReady(runtime)).toBe("ok");
+    store.fail = true;
+    vi.setSystemTime(KILL_SWITCH_MAX_DELAY_MS - 1);
+    expect(await checkFlagsReady(runtime)).toBe("ok");
+    vi.setSystemTime(KILL_SWITCH_MAX_DELAY_MS);
+    expect(await checkFlagsReady(runtime)).toBe("flags-stale");
+    expect(await runtime.isModuleAvailable("audit")).toBe(false);
+    store.fail = false;
+    expect(await checkFlagsReady(runtime)).toBe("ok");
+    expect(await runtime.isModuleAvailable("audit")).toBe(true);
+  });
+
+  it("a fresh runtime is not reloaded by the probe", async () => {
+    const store = memoryFlagStore();
+    const runtime = createFlagRuntime(store);
+    await checkFlagsReady(runtime);
+    await checkFlagsReady(runtime);
+    expect(store.calls.snapshot).toBe(1);
+  });
+});
+
+describe("CICD-06: a sub-function's flag is on only while the flag it requires is on", () => {
+  const catalogue = {
+    "x.core": { kind: "operational" },
+    "x.core.export": { kind: "release", requires: "x.core" },
+    "x.core.export.pdf": { kind: "release", requires: "x.core.export" },
+  };
+  const snap = (on: string[]) => ({
+    rollouts: new Map(on.map((k) => [k, { stage: "all" as const }])),
+    killed: new Set<string>(),
+    fullyEnabledAt: new Map(),
+  });
+
+  it.each([
+    [
+      ["x.core", "x.core.export", "x.core.export.pdf"],
+      ["x.core", "x.core.export", "x.core.export.pdf"],
+    ],
+    [["x.core.export", "x.core.export.pdf"], []],
+    [["x.core", "x.core.export.pdf"], ["x.core"]],
+    [
+      ["x.core", "x.core.export"],
+      ["x.core", "x.core.export"],
+    ],
+  ])("on %j → listed %j", async (on, listed) => {
+    expect(await flagsOn(snap(on), h, async () => false, catalogue)).toEqual(listed);
+  });
+
+  it("flagOn applies the same rule", async () => {
+    expect(await flagOn(snap(["x.core.export"]), "x.core.export", h, async () => false, catalogue)).toBe(
+      false,
+    );
+    expect(
+      await flagOn(snap(["x.core", "x.core.export"]), "x.core.export", h, async () => false, catalogue),
+    ).toBe(true);
   });
 });

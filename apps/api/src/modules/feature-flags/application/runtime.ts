@@ -1,4 +1,4 @@
-import { FLAG_KEYS, isFlagKey, isOnFor, OFF, type FlagKey } from "../domain/index.ts";
+import { FLAGS, isOnFor, OFF, type FlagKey } from "../domain/index.ts";
 import type { FlagSnapshot, FlagStore } from "./ports.ts";
 
 /**
@@ -38,28 +38,65 @@ export interface FlagRuntimeOptions {
   readonly refreshMs?: number;
 }
 
-/** Evaluates a flag on a snapshot (also used by GET /v1/me/features). */
+/** The part of the flag catalogue the evaluation needs: which flags exist and which flag each one requires. */
+export type FlagCatalogue = Readonly<Record<string, { readonly kind: string; readonly requires?: string }>>;
+
+/** How deep `requires` may chain (check:flags refuses cycles; this only stops a runaway catalogue). */
+const MAX_REQUIRES_DEPTH = 8;
+
+/**
+ * Evaluates a flag on a snapshot (also used by GET /v1/me/features). A flag that `requires` another (a
+ * sub-function's flag requires its function's) is on only while that one is on too — the same rule the API
+ * applies to a route's flags (routeFlags), so a sub-function is never listed while its function is hidden.
+ */
 export async function flagOn(
   snapshot: FlagSnapshot,
   flag: string,
   householdId: string,
   isTestHousehold: () => Promise<boolean>,
+  catalogue: FlagCatalogue = FLAGS,
 ): Promise<boolean> {
-  if (!isFlagKey(flag)) throw new Error(`Unknown flag ${flag} (feature-flags)`);
-  return isOnFor(flag, snapshot.rollouts.get(flag) ?? OFF, householdId, isTestHousehold);
+  let key: string | undefined = flag;
+  for (let depth = 0; key !== undefined; depth++) {
+    if (!Object.hasOwn(catalogue, key)) throw new Error(`Unknown flag ${key} (feature-flags)`);
+    if (depth > MAX_REQUIRES_DEPTH)
+      throw new Error(`Flag ${flag}: «requires» chains too deep (feature-flags)`);
+    if (!(await isOnFor(key, snapshot.rollouts.get(key) ?? OFF, householdId, isTestHousehold))) return false;
+    key = catalogue[key]!.requires;
+  }
+  return true;
 }
 
 export async function flagsOn(
   snapshot: FlagSnapshot,
   householdId: string,
   isTestHousehold: () => Promise<boolean>,
+  catalogue: FlagCatalogue = FLAGS,
 ): Promise<FlagKey[]> {
   // One lookup at most, shared by every flag at «test» or «share».
   let test: Promise<boolean> | undefined;
   const once = () => (test ??= isTestHousehold());
   const on: FlagKey[] = [];
-  for (const key of FLAG_KEYS) if (await flagOn(snapshot, key, householdId, once)) on.push(key);
+  for (const key of Object.keys(catalogue))
+    if (await flagOn(snapshot, key, householdId, once, catalogue)) on.push(key as FlagKey);
   return on;
+}
+
+/** What the readiness probe of the api role says about the flags (ADR-0004). */
+export type FlagsReadiness = "ok" | "flags-not-loaded" | "flags-stale";
+
+/** Ready only on fresh state: never loaded → «flags-not-loaded»; loaded but 60 s old or more → «flags-stale». */
+export function flagsReadiness(state: { readonly loaded: boolean; readonly fresh: boolean }): FlagsReadiness {
+  if (state.fresh) return "ok";
+  return state.loaded ? "flags-stale" : "flags-not-loaded";
+}
+
+/** The readiness check main.ts runs: a reload (bounded by LOAD_WAIT_MS) when the state is not fresh, then the decision. */
+export async function checkFlagsReady(
+  runtime: Pick<FlagRuntime, "loaded" | "fresh" | "refresh">,
+): Promise<FlagsReadiness> {
+  if (!runtime.fresh) await runtime.refresh();
+  return flagsReadiness(runtime);
 }
 
 /**
@@ -82,14 +119,11 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
 
   const reload = (): Promise<void> =>
     (inflight ??= (async () => {
+      // Only one load runs at a time (inflight), so each finished load is the newest.
       const started = now();
-      const next = await store.snapshot();
-      // A load that started before the one in force (overtaken) never replaces it.
-      if (started >= loadedAt) {
-        snapshot = next;
-        loadedAt = started;
-        testCache.clear();
-      }
+      snapshot = await store.snapshot();
+      loadedAt = started;
+      testCache.clear();
     })().finally(() => {
       inflight = undefined;
     }));
@@ -136,7 +170,7 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
       return s !== undefined && !s.killed.has(module);
     },
     isEnabled: async (householdId, flag) => {
-      if (!isFlagKey(flag)) throw new Error(`Unknown flag ${flag} (feature-flags)`);
+      if (!Object.hasOwn(FLAGS, flag)) throw new Error(`Unknown flag ${flag} (feature-flags)`);
       const s = await current();
       return s !== undefined && flagOn(s, flag, householdId, isTest(householdId));
     },
