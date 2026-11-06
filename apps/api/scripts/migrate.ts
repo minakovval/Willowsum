@@ -1,6 +1,6 @@
 /**
  * Applies migrations of all modules in dependency order (ARC-01, ARC-03). Connects with DATABASE_URL as
- * the migration (schema owner) role — never as ws_app.
+ * the migration (schema owner) role — never as a module role.
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

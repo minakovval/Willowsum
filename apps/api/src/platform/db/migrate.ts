@@ -56,7 +56,7 @@ export interface MigrateResult {
 
 /**
  * Creates the module schemas and roles and applies pending migrations. Runs as the migration (owner)
- * role, never as `ws_app`. An applied migration whose file changed is an error: migrations are immutable;
+ * role, never as a module role. An applied migration whose file changed is an error: migrations are immutable;
  * change the schema with a new migration (expand → migrate → contract, ARC-03 FR 4).
  */
 export async function migrate(client: pg.ClientBase, source: MigrationSource): Promise<MigrateResult> {
