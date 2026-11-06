@@ -1,0 +1,8 @@
+**/node_modules
+**/.git
+**/test/.tmp
+infra/local/.state
+.env
+.env.*
+apps/api/src/**/*.test.ts
+apps/api/test
