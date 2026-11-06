@@ -10,6 +10,7 @@
     "check:modules": "node scripts/check-modules.ts",
     "check:schema": "node scripts/check-schema.ts",
     "check:migrations": "node scripts/check-migrations.ts",
+    "check:flags": "node scripts/check-flags.ts",
     "contract:write": "node scripts/contract.ts --write",
     "contract:check": "node scripts/contract.ts --check",
     "contract:compat": "node scripts/contract.ts --compat",

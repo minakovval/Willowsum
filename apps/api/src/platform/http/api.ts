@@ -19,6 +19,7 @@ import {
   API_PREFIX,
   fastifyPath,
   isPublic,
+  routeFlag,
   type ApiRoute,
   type HouseholdFreeDatabase,
   type Principal,
@@ -28,9 +29,12 @@ import {
 
 /**
  * The one HTTP API of every client (ARC-07 FR 1, NFR-05 FR 1–2). For each request, in this order:
- * authentication (401) → role and scope (access-scope, 403) → plan (plan-catalog, 402) → input validation
- * with the route's zod schemas (400) → idempotency for create routes (409 / replay) → handler → the
- * response parsed by the route's response schema (fields not in the contract never leave the server).
+ * the module's kill switch (feature-flags, 503 MODULE_UNAVAILABLE) → authentication (401) → the route's flag
+ * for the caller's space (feature-flags, 404 as for a route that does not exist) → role and scope
+ * (access-scope, 403) → plan (plan-catalog, 402) → input validation with the route's zod schemas (400) →
+ * idempotency for create routes (409 / replay) → handler → the response parsed by the route's response
+ * schema (fields not in the contract never leave the server). Public (platform) routes have no module, flag
+ * or session: only validation and the handler.
  */
 export interface ApiOptions {
   readonly routes: readonly ApiRoute[];
@@ -40,15 +44,68 @@ export interface ApiOptions {
   readonly checkPermission: (principal: Principal, permission: string) => boolean;
   /** Plan check by feature key (plan-catalog). */
   readonly checkFeature: (principal: Principal, feature: string) => Promise<boolean>;
-  /** Every permission and feature key that exists; a route naming another one is refused at start. */
+  /** Is the module available, i.e. its kill switch off (feature-flags, CICD-06 FR 3)? */
+  readonly moduleAvailable: (module: string) => Promise<boolean>;
+  /** Is the flag on for the caller's space (feature-flags, CICD-06 FR 1)? */
+  readonly checkFlag: (principal: Principal, flag: string) => Promise<boolean>;
+  /** Every permission, feature key and flag that exists; a route naming another one is refused at start. */
   readonly permissions: ReadonlySet<string>;
   readonly features: ReadonlySet<string>;
+  readonly flags: ReadonlySet<string>;
   /** The database of the module that owns a route. */
   readonly databases: { for(module: string): ModuleDatabase };
   /** The idempotency store of a module with create routes (default: its own table). */
   readonly idempotency: (module: string) => IdempotencyStore;
   /** Support id for problems (ARC-09 traces); omitted while it returns undefined. */
   readonly supportId?: (request: FastifyRequest) => string | undefined;
+  /** Where server errors are reported (ARC-09 telemetry later); gets a value-free ErrorReport only. */
+  readonly reportError?: (report: ErrorReport) => void;
+}
+
+/**
+ * What the API reports about a server error (5xx) to telemetry (DAT-05 FR 9, AGENTS.md «Privacy»): the
+ * route template (never the concrete URL, which holds ids), the method, the problem code and status, and the
+ * error's class name. Never the error message, the stack, the request body, query or headers: they may hold
+ * amounts, account names, names or emails.
+ */
+export interface ErrorReport {
+  readonly method: string;
+  /** The route's path template (e.g. `/v1/accounts/:accountId`), or null for an unknown path. */
+  readonly route: string | null;
+  readonly code: ProblemCode;
+  readonly status: number;
+  /** The class of the error (`TypeError`, `DatabaseError` …), letters and digits only. */
+  readonly errorClass: string;
+}
+
+/** Seconds a client waits before retrying a module that is switched off. */
+export const MODULE_UNAVAILABLE_RETRY_AFTER_S = 60;
+
+function errorClass(error: unknown): string {
+  const name = error instanceof Error ? error.constructor.name || error.name : typeof error;
+  return /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name) ? name : "Error";
+}
+
+function reportServerError(
+  reportError: ApiOptions["reportError"],
+  request: FastifyRequest,
+  code: ProblemCode,
+  error: unknown,
+): void {
+  const { status } = problemBody(code);
+  // A module switched off on purpose is not an error.
+  if (!reportError || status < 500 || code === "MODULE_UNAVAILABLE") return;
+  try {
+    reportError({
+      method: request.method,
+      route: request.routeOptions.url ?? null,
+      code,
+      status,
+      errorClass: errorClass(error),
+    });
+  } catch {
+    // Reporting never changes the answer.
+  }
 }
 
 function sendProblem(
@@ -79,16 +136,25 @@ function frameworkProblem(error: FastifyError): ProblemCode {
 }
 
 /** Problems for every error and unknown route of the app (also outside /v1). Never internal details. */
-export function installProblemHandlers(app: FastifyInstance, supportId?: ApiOptions["supportId"]): void {
+export function installProblemHandlers(
+  app: FastifyInstance,
+  supportId?: ApiOptions["supportId"],
+  reportError?: ApiOptions["reportError"],
+): void {
   app.setNotFoundHandler((request, reply) => sendProblem(reply, "NOT_FOUND", request, supportId));
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof ApiProblem) {
+      reportServerError(reportError, request, error.code, error);
+      if (error.code === "MODULE_UNAVAILABLE")
+        void reply.header("retry-after", String(MODULE_UNAVAILABLE_RETRY_AFTER_S));
       return sendProblem(reply, error.code, request, supportId, {
         detail: error.detail,
         errors: error.errors,
       });
     }
-    return sendProblem(reply, frameworkProblem(error), request, supportId);
+    const code = frameworkProblem(error);
+    reportServerError(reportError, request, code, error);
+    return sendProblem(reply, code, request, supportId);
   });
 }
 
@@ -219,7 +285,7 @@ export function guardApiRoutes(app: FastifyInstance): void {
 /** Checks the routes against the API rules before any is served. */
 export function assertRoutes(
   routes: readonly ApiRoute[],
-  options: Pick<ApiOptions, "permissions" | "features">,
+  options: Pick<ApiOptions, "permissions" | "features" | "flags">,
 ): void {
   const seen = new Set<string>();
   const operations = new Set<string>();
@@ -238,6 +304,9 @@ export function assertRoutes(
     if (!options.features.has(route.access.feature)) {
       throw new Error(`Route ${where}: unknown feature key ${route.access.feature} (plan-catalog)`);
     }
+    if (!options.flags.has(routeFlag(route.access))) {
+      throw new Error(`Route ${where}: unknown flag ${routeFlag(route.access)} (feature-flags)`);
+    }
     if (route.module === null) throw new Error(`Route ${where}: a protected route belongs to a module`);
   }
 }
@@ -246,7 +315,7 @@ export function assertRoutes(
 export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   assertRoutes(options.routes, options);
   guardApiRoutes(app);
-  installProblemHandlers(app, options.supportId);
+  installProblemHandlers(app, options.supportId, options.reportError);
   // Request bodies are JSON only (the contract has no other media type): text/plain is 415, not a string body.
   app.removeContentTypeParser("text/plain");
   for (const route of options.routes) {
@@ -267,13 +336,17 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
             await respond(route.response.status, await route.handler(input, { principal: null })),
           );
         }
+        const module = route.module as string;
+        // A module switched off by its kill switch answers «temporarily unavailable»; the rest works (CICD-06 FR 3).
+        if (!(await options.moduleAvailable(module))) throw new ApiProblem("MODULE_UNAVAILABLE");
         const principal = await options.authenticate(request);
         if (!principal) throw new ApiProblem("UNAUTHENTICATED");
+        // A function that is off for the space does not exist for it: the same 404 as an unknown path (DAT-05 FR 7).
+        if (!(await options.checkFlag(principal, routeFlag(route.access)))) throw new ApiProblem("NOT_FOUND");
         if (!options.checkPermission(principal, route.access.permission)) throw new ApiProblem("FORBIDDEN");
         if (!(await options.checkFeature(principal, route.access.feature)))
           throw new ApiProblem("PLAN_LIMIT_REACHED");
         const input = parseInput(route, request);
-        const module = route.module as string;
         const db = options.databases.for(module);
         // Only household-free transactions besides the session-bound one: no `inHousehold(<any id>)` (П-5).
         const householdFree: HouseholdFreeDatabase = Object.freeze({

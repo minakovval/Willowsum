@@ -16,6 +16,7 @@
     "check:modules": "pnpm --filter @willowsum/api check:modules",
     "check:schema": "pnpm --filter @willowsum/api check:schema",
     "check:migrations": "pnpm --filter @willowsum/api check:migrations",
+    "check:flags": "pnpm --filter @willowsum/api check:flags",
     "contract:write": "pnpm --filter @willowsum/api contract:write && pnpm --filter @willowsum/api-contract generate",
     "contract:check": "pnpm --filter @willowsum/api contract:check && pnpm --filter @willowsum/api-contract check",
     "test:integration": "pnpm --filter @willowsum/api test:integration",

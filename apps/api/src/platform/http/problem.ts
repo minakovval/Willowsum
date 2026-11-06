@@ -25,6 +25,8 @@ export const PROBLEMS = {
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   INTERNAL: { status: 500, title: "Something went wrong on our side" },
+  /** The route's module is switched off by its kill switch (CICD-06 FR 3); clients show «Тимчасово недоступно». */
+  MODULE_UNAVAILABLE: { status: 503, title: "This function is temporarily unavailable" },
 } as const satisfies Record<string, { status: number; title: string }>;
 
 export type ProblemCode = keyof typeof PROBLEMS;
@@ -93,4 +95,14 @@ export function problemBody(
     ...(options.supportId !== undefined ? { supportId: options.supportId } : {}),
     ...(options.errors !== undefined ? { errors: [...options.errors] } : {}),
   };
+}
+
+/**
+ * A record the caller cannot see does not exist for them (DAT-05 FR 6, AGENTS.md «Data access»): a route
+ * that reads one record answers 404 NOT_FOUND both when it does not exist and when it belongs to another
+ * space (the household policy hides it), with the same body as an unknown path — never «no access».
+ */
+export function requireFound<T>(record: T | null | undefined): T {
+  if (record === null || record === undefined) throw new ApiProblem("NOT_FOUND");
+  return record;
 }

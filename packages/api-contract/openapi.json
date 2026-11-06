@@ -6,6 +6,118 @@
     "description": "The one HTTP API of every Willowsum client (ARC-07). Within /v1 only compatible changes are made; removal only after a deprecation mark and at least 6 months. Errors are RFC 9457 problem details with a machine code."
   },
   "paths": {
+    "/v1/me/features": {
+      "get": {
+        "operationId": "getMyFeatures",
+        "summary": "The functions that are on for the current space",
+        "tags": [
+          "feature-flags"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "household.core",
+          "flag": "household.core"
+        },
+        "responses": {
+          "200": {
+            "description": "Keys of the functions that are on for the caller's space; functions that are off are not listed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "household.core"
+                        ],
+                        "x-extensible-enum": true
+                      }
+                    }
+                  },
+                  "required": [
+                    "features"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/me/permissions": {
       "get": {
         "operationId": "getMyPermissions",
@@ -15,7 +127,8 @@
         ],
         "x-willowsum-access": {
           "permission": "household.data.read",
-          "feature": "household.core"
+          "feature": "household.core",
+          "flag": "household.core"
         },
         "responses": {
           "200": {
@@ -107,6 +220,26 @@
           },
           "403": {
             "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -213,7 +346,8 @@
               "IDEMPOTENCY_REQUEST_IN_PROGRESS",
               "PAYLOAD_TOO_LARGE",
               "UNSUPPORTED_MEDIA_TYPE",
-              "INTERNAL"
+              "INTERNAL",
+              "MODULE_UNAVAILABLE"
             ],
             "x-extensible-enum": true,
             "description": "Machine-readable code; new codes may be added"

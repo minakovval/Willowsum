@@ -93,7 +93,11 @@ describe("ARC-07 FR 2: OpenAPI 3.1 from the schemas that validate requests", () 
 
   it("each operation records its permission and feature key; FR 3: a deprecated one carries its date", () => {
     const get = doc.paths["/v1/things/{thingId}"]!["get"]!;
-    expect(get["x-willowsum-access"]).toEqual({ permission: "things.read", feature: "things" });
+    expect(get["x-willowsum-access"]).toEqual({
+      permission: "things.read",
+      feature: "things",
+      flag: "things",
+    });
     expect(get["deprecated"]).toBe(true);
     expect(get["x-deprecated-since"]).toBe("2026-11-01");
     expect(get.parameters).toEqual([

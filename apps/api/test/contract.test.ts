@@ -9,7 +9,7 @@ import { registerApi } from "../src/platform/http/api.ts";
 import { buildOpenApi, serializeOpenApi } from "../src/platform/http/openapi.ts";
 import { fastifyPath } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { fakeDatabases, PRINCIPAL_HEADER, principalHeader, testAuthenticate } from "./http.ts";
+import { PRINCIPAL_HEADER, principalHeader, testAuthenticate, testWiring } from "./http.ts";
 
 /**
  * ARC-07 criterion «розбіжність між контрактом і реалізацією — 0»: the committed contract is the one the
@@ -59,7 +59,7 @@ beforeAll(async () => {
           if (method !== "HEAD") served.push(`${method} ${route.url}`);
       });
       registerApi(server, {
-        ...apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+        ...apiOptions(testWiring()),
         authenticate: testAuthenticate,
       });
     },

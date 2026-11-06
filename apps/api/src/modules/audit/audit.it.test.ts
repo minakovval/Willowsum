@@ -107,3 +107,45 @@ describe("ARC-03 FR 5 / П-10: the audit log", () => {
     expect(await log.entriesFor(householdA, entity)).toHaveLength(2);
   });
 });
+
+describe("П-10 / CICD-06: the platform log (changes that belong to no household)", () => {
+  const flag = { type: "feature-flags.flag", id: "0d9c8b7a-6f5e-4d3c-8b2a-1f0e9d8c7b61" };
+  const staff = { kind: "staff" as const, id: "1e2d3c4b-5a69-4788-9a6b-5c4d3e2f1a07" };
+
+  it("records who, when, which setting and the values before and after", async () => {
+    await log.recordPlatform({
+      actor: staff,
+      channel: "system",
+      entity: flag,
+      action: "update",
+      changes: [{ field: "stage", before: "off", after: "test", sensitive: false }],
+    });
+    const [entry] = await log.platformEntriesFor(flag);
+    expect(entry).toMatchObject({
+      actorKind: "staff",
+      actorId: staff.id,
+      channel: "system",
+      action: "update",
+    });
+    expect(entry!.changes).toEqual([{ field: "stage", before: "off", after: "test", masked: false }]);
+    expect(entry!.occurredAt).toMatch(/Z$/);
+  });
+
+  it("a household's user cannot be the author of a platform change", async () => {
+    await expect(
+      log.recordPlatform({ actor, channel: "web", entity: flag, action: "update", changes: [] }),
+    ).rejects.toThrow(/staff or the system/);
+  });
+
+  it.each([
+    ["UPDATE", "UPDATE platform_entries SET action = 'delete'"],
+    ["DELETE", "DELETE FROM platform_entries"],
+    ["TRUNCATE", "TRUNCATE platform_entries"],
+  ])("the application role has no %s on the platform log (append-only)", async (_, sql) => {
+    expect(await code(databases.for("audit").transaction((q) => q.query(sql)))).toBe("42501");
+  });
+
+  it("even the schema owner cannot change or delete a platform entry", async () => {
+    await expect(owner.query("DELETE FROM audit.platform_entries")).rejects.toThrow(/append-only/);
+  });
+});

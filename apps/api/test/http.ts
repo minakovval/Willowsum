@@ -42,6 +42,34 @@ export function fakeDatabases(): { databases: ApiOptions["databases"]; bound: st
   return { databases: { for: () => db }, bound };
 }
 
+/**
+ * Flags and kill switches for unit tests: every flag on for every space, no module switched off, unless the
+ * test turns some off. Records what was asked.
+ */
+export function fakeFlags(options: { off?: readonly string[]; killed?: readonly string[] } = {}): {
+  isModuleAvailable(m: string): Promise<boolean>;
+  isEnabled(h: string, f: string): Promise<boolean>;
+  asked: string[];
+} {
+  const asked: string[] = [];
+  return {
+    asked,
+    isModuleAvailable: async (module) => {
+      asked.push(`module:${module}`);
+      return !(options.killed ?? []).includes(module);
+    },
+    isEnabled: async (householdId, flag) => {
+      asked.push(`flag:${flag}@${householdId}`);
+      return !(options.off ?? []).includes(flag);
+    },
+  };
+}
+
+/** The wiring of src/api.ts for unit tests: fake databases, all plans enabled, all flags on. */
+export function testWiring(flags = fakeFlags()) {
+  return { databases: fakeDatabases().databases, entitlements: "all-enabled" as const, flags };
+}
+
 /** In-memory idempotency store with the same semantics as the table one (moduleIdempotencyStore). */
 export function memoryIdempotency(): IdempotencyStore & { size(): number } {
   const rows = new Map<string, { hash: string; status?: number; body?: string }>();
@@ -80,6 +108,9 @@ export async function testApp(
     authenticate: testAuthenticate,
     checkPermission: () => true,
     checkFeature: async () => true,
+    moduleAvailable: async () => true,
+    checkFlag: async () => true,
+    flags: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.flag ?? r.access.feature] : []))),
     permissions: new Set(routes.flatMap((r) => ("permission" in r.access ? [r.access.permission] : []))),
     features: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.feature] : []))),
     databases: fakeDatabases().databases,

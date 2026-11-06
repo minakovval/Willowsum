@@ -1,10 +1,11 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06 (ARC-07)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06 (CICD-06)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
-[ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md).
+[ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md); прапорці функцій і аварійні вимикачі —
+[ADR-0004](../../docs/adr/0004-feature-flags.md).
 
 ## Будова
 
@@ -13,11 +14,11 @@
 | `src/modules/<module>/` | Модуль: `index.ts` (публічний інтерфейс і події), `domain/`, `application/`, `adapters/` (зокрема `adapters/db/migrations/NNNN_slug.sql`), картка `README.md`, генератор синтетичних даних своїх таблиць `synthetic.ts` |
 | `src/modules/index.ts` | Реєстр модулів (генератор додає сюди) |
 | `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI) |
-| `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки access-scope і plan-catalog |
+| `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки feature-flags, access-scope і plan-catalog |
 | `module-rules.json` | Єдиний файл правил: модулі, шар, від яких модулів залежить кожен |
 | `events.snapshot.json` | Опубліковані версії подій і схеми їхніх даних |
 | `schema-exemptions.json` | Таблиці схем модулів без `household_id` (без даних клієнтів) і причина для кожної (ARC-03) |
-| `scripts/` | `new-module`, `check-modules`, `check-schema`, `check-migrations`, `events-snapshot`, `migrate` |
+| `scripts/` | `new-module`, `check-modules`, `check-schema`, `check-migrations`, `check-flags`, `flags`, `events-snapshot`, `migrate` |
 
 ## Команди
 
@@ -27,6 +28,8 @@
 | `pnpm check:modules` | Правила модулів, аналізатор імпортів, контракти подій (CI-задача `api`) |
 | `DATABASE_URL=… pnpm check:schema` | Перевірка схеми (ARC-03): політики рядків на кожній таблиці клієнтів, `household_id`, суми NUMERIC(38,18) з валютою, лише `timestamptz`, регіон (CI-задача `api`) |
 | `pnpm check:migrations` | «Розширити → перенести → звузити»: операції звуження лише з `-- ws:contract …`; з `WS_MIGRATION_BASE_DIR` — і незмінність випущених міграцій |
+| `pnpm check:flags` | Кожен прапорець має власника і дату перегляду; падає, якщо дата минула, тимчасовий прапорець повністю ввімкнений понад 30 днів або функція не має прапорця (CICD-06, CI-задача `api`) |
+| `node scripts/flags.ts state\|rollout\|kill\|revive\|test-space … --actor <uuid>` | Змінює прапорці, вимикачі модулів і тестові простори через `FlagAdmin` (кожна зміна в аудиті; діє за ≤ 15 с без релізу); конфігурація — та сама, що в процесів |
 | `node tools/synthetic/index.ts --out <dir> [--households n] [--format csv\|sql]` | Синтетичні дані з генераторів модулів (ARC-03 п. 6); лише вигадані дані |
 | `pnpm --filter @willowsum/api events:snapshot` | Записує нові версії подій; несумісну зміну відхиляє |
 | `pnpm contract:write` (з кореня) | Пише контракт `packages/api-contract/openapi.json` з маршрутів і типи клієнта `src/schema.ts` (ARC-07) |
@@ -92,12 +95,16 @@
   модуля. Кожен маршрут називає дозвіл (`access-scope`) і ключ функції (`plan-catalog`) або причину, чому він
   публічний (публічні — лише платформні, без даних простору; перелік — у `test/api-routes.test.ts`). Модулі не
   імпортують Fastify.
-- Порядок: сеанс (401) → роль і scope (403) → план (402 `PLAN_LIMIT_REACHED`) → вхід за схемами zod (400) →
-  ідемпотентність → обробник → відповідь за схемою відповіді. Дані простору — лише через `ctx.inHousehold`
+- Порядок: аварійний вимикач модуля (503 `MODULE_UNAVAILABLE`, `Retry-After: 60`) → сеанс (401) → прапорець функції
+  для простору сеансу (404 `NOT_FOUND`, як невідомий шлях) → роль і scope (403) → план (402 `PLAN_LIMIT_REACHED`) →
+  вхід за схемами zod (400) → ідемпотентність → обробник → відповідь за схемою відповіді. Прапорець маршруту —
+  `access.flag`, типово `access.feature` (ARC-01 п. 7); нова функція виходить вимкненою (CICD-06, ADR-0004). Дані простору — лише через `ctx.inHousehold`
   (простір із сеансу); `ctx.db` дає лише `transaction` без простору. До identity (ACC-01) сеансів немає:
   захищені маршрути відповідають 401. Маршрут в обхід `registerApi`, що може відповісти на запит під `/v1`
   (сирий `app.get("/v1/…")`, `/*`, `/:version/…`), і плагін із таким префіксом сервер відхиляє під час реєстрації.
-- Помилки — RFC 9457 `application/problem+json` з `code`; без внутрішніх деталей і персональних даних.
+- Помилки — RFC 9457 `application/problem+json` з `code`; без внутрішніх деталей і персональних даних. Запис, якого
+  немає або який належить іншому простору, — `requireFound(record)` → 404 (DAT-05). Помилки 5xx ідуть у
+  `reportError` лише як метод, шаблон маршруту, код, статус і клас помилки (ARC-09 додасть експортер).
 - `create: true` — заголовок `Idempotency-Key`; модуль додає міграцію з `src/platform/http/idempotency-keys.sql`
   дослівно. `list: true` — `pageQuery` (`cursor`, `limit` ≤ 100) і `pageOf(item)`.
 - Після зміни маршруту — `pnpm contract:write` і коміт `packages/api-contract/openapi.json` та `src/schema.ts`.

@@ -1,4 +1,8 @@
 {
   "$comment": "ARC-03: tables in module schemas without household_id (no customer data), each with the reason. Checked by scripts/check-schema.ts; a customer-data table never goes here.",
-  "tables": {}
+  "tables": {
+    "audit.platform_entries": "Platform audit log (П-10): changes that belong to no household — feature flags and kill switches (CICD-06), staff actions later. Opaque staff ids and setting values; no customer data.",
+    "feature_flags.flags": "Rollout state of each feature flag (CICD-06): platform-wide setting (stage, share in %), no customer data. Test spaces are in feature_flags.test_households under the household policy.",
+    "feature_flags.kill_switches": "Kill switch of each module (CICD-06 FR 3): platform-wide setting (module name, on/off), no customer data."
+  }
 }

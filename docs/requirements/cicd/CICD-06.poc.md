@@ -9,7 +9,7 @@
 - Спільні правила: П-14, П-21, ARC-01
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts
 
 1. Кожна нова функція виходить вимкненою прапорцем. Власник вмикає її: спочатку для тестових просторів, потім для частки просторів, потім для всіх.
 2. Кожен прапорець має власника і дату перегляду. Тимчасовий прапорець видаляється з коду не пізніше ніж через 30 днів після повного вмикання.

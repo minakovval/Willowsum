@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { mountApi } from "./api.ts";
+import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
 import { ModuleDatabases } from "./platform/db/module-db.ts";
@@ -64,17 +65,27 @@ const databases = new ModuleDatabases({
   context: { ...connection, user: CONTEXT_ROLE, password: config.database.contextPassword },
 });
 
+// Flags and kill switches (CICD-06): read from the database by the readiness probe and by requests, reloaded
+// when older than 15 s.
+const flags = createFlagRuntimeFor(databases.for("feature-flags"));
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 const server = buildServer({
   // Sessions arrive with identity (ACC-01); until then every protected route answers 401.
   ...(config.role === "api"
-    ? { api: (app) => mountApi(app, { databases, entitlements: config.planEntitlements }) }
+    ? { api: (app) => mountApi(app, { databases, entitlements: config.planEntitlements, flags }) }
     : {}),
   readiness: async () => {
     const client = await probe.connect();
     try {
       const pending = await pendingMigrations(client, expected);
-      return pending.length === 0 ? { ready: true } : { ready: false, reason: "schema-behind" };
+      if (pending.length > 0) return { ready: false, reason: "schema-behind" };
+      // The API serves only once it knows the flags and kill switches (before that every module answers 503).
+      if (config.role === "api" && !flags.loaded) {
+        await flags.refresh().catch(() => undefined);
+        if (!flags.loaded) return { ready: false, reason: "flags-not-loaded" };
+      }
+      return { ready: true };
     } finally {
       client.release();
     }

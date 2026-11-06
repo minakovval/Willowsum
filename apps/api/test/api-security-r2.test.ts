@@ -7,12 +7,12 @@ import { describe, expect, it } from "vitest";
 import { apiOptions, mountApi } from "../src/api.ts";
 import { guardApiRoutes, registerApi } from "../src/platform/http/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { fakeDatabases } from "./http.ts";
+import { testWiring } from "./http.ts";
 
 const server = () =>
   buildServer({
     readiness: async () => ({ ready: true }),
-    api: (a) => mountApi(a, { databases: fakeDatabases().databases, entitlements: "all-enabled" }),
+    api: (a) => mountApi(a, testWiring()),
   });
 
 describe("ARC-07 security: no raw route can answer a /v1 request", () => {
@@ -29,7 +29,7 @@ describe("ARC-07 security: no raw route can answer a /v1 request", () => {
 
   it("registerApi guards an app it did not build (no buildServer): a raw /v1 route after the mount is refused", () => {
     const app = Fastify({ logger: false });
-    registerApi(app, apiOptions({ databases: fakeDatabases().databases, entitlements: "all-enabled" }));
+    registerApi(app, apiOptions(testWiring()));
     expect(() => app.get("/v1/debug/households", async () => ({ leak: true }))).toThrow(/registerApi/);
   });
 

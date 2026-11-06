@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
@@ -22,13 +22,17 @@ afterEach(async () => {
   for (const step of cleanup.splice(0).reverse()) await step();
 });
 
+const auditMigrations = path.join(apiDir, "src/modules/audit/adapters/db/migrations");
+/** The name of the next audit migration (after the ones this version ships). */
+const NEXT = `${String(readdirSync(auditMigrations).filter((f) => /^\d{4}_.*\.sql$/.test(f)).length + 1).padStart(4, "0")}_next.sql`;
+
 /** A copy of apps/api with one more audit migration: the «new version». */
 function newerVersion(sql: string): string {
   const dir = path.join(tmpRoot, `compat-${randomBytes(4).toString("hex")}`);
   mkdirSync(dir, { recursive: true });
   for (const entry of ["package.json", "module-rules.json", "schema-exemptions.json", "scripts", "src"])
     cpSync(path.join(apiDir, entry), path.join(dir, entry), { recursive: true });
-  writeFileSync(path.join(dir, "src/modules/audit/adapters/db/migrations/0002_next.sql"), sql);
+  writeFileSync(path.join(dir, "src/modules/audit/adapters/db/migrations", NEXT), sql);
   cleanup.push(async () => rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -43,7 +47,7 @@ async function oldCodeRecordsAgainst(newer: string): Promise<void> {
     await db.drop();
   });
   await migrateRealModules(owner, db.url);
-  const applied = await owner.query("SELECT 1 FROM platform_migrations.applied WHERE name = '0002_next.sql'");
+  const applied = await owner.query("SELECT 1 FROM platform_migrations.applied WHERE name = $1", [NEXT]);
   expect(applied.rowCount).toBe(1);
   const databases = await openRealModules(owner, db.url, 1);
   cleanup.push(() => databases.end());

@@ -9,6 +9,10 @@
       "layer": "platform",
       "dependsOn": []
     },
+    "feature-flags": {
+      "layer": "platform",
+      "dependsOn": ["audit", "plan-catalog"]
+    },
     "plan-catalog": {
       "layer": "platform",
       "dependsOn": []
