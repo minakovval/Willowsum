@@ -1,7 +1,7 @@
 # CICD-07@PoC: infrastructure of the «Старт» profile (ARC-08) as code. Versions are pinned exactly
 # (CICD-03); a new version goes in through a PR, at least 7 days after its release.
 terraform {
-  required_version = "= 1.13.5"
+  required_version = "= 1.13.2"
 
   required_providers {
     oci = {
