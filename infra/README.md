@@ -17,5 +17,6 @@ Rules for everything in this folder:
   SMTP, OpenTelemetry (ARC-08). Cloud-specific services only behind adapters.
 - No secrets in the repository: machines generate them (CICD-12).
 - Images and actions pinned by version and digest (CICD-03); licences from the allowed list (CICD-02).
-- Changes to deploy or infrastructure workflows and to access or trust settings are merged only after the
-  owner's approval comment on the PR (`AGENTS.md`).
+- Applying infrastructure (`tofu apply`), production deploys, and changes to the workflows that do them or
+  to their trust settings (OIDC, production secrets store) or production DNS need the owner's approval
+  comment on the PR (`AGENTS.md`). Code that is only validated here does not.

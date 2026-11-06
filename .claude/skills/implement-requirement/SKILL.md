@@ -96,8 +96,9 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 Then ask for review by a different agent session with the `review-pr` skill. Merge (squash) yourself only
 when CI is green on the latest commit, the review verdict is «Ready» (and the security review, for sensitive
 areas), and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
-AGENTS.md or skills states in its body the owner decision it implements. A PR that changes deploy or
-infrastructure workflows or access/trust settings (OIDC, secrets store, KMS, DNS) also needs an approval
-comment from the owner's own GitHub account on that PR. Never merge your own PR without that independent review.
+AGENTS.md or skills states in its body the owner decision it implements. A PR that acts on the cloud or
+production (applies infrastructure, deploys or releases to production, or changes the workflows that do this
+or their trust settings: OIDC, production secrets store; or production DNS) also needs an approval comment from
+the owner's own GitHub account on that PR; infrastructure code without apply does not. Never merge your own PR without that independent review.
 Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the owner
 it is merged.
