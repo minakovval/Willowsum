@@ -1,4 +1,5 @@
 import DecimalJs from "decimal.js";
+import { currencyCode, currencyInfo, type CurrencyCode } from "./currency.ts";
 import { DomainError } from "./errors.ts";
 
 /**
@@ -11,17 +12,6 @@ export type Decimal = InstanceType<typeof Decimal>;
 /** Storage limits of an amount: NUMERIC(38,18) — 20 integer digits, 18 fraction digits (ARC-03). */
 export const AMOUNT_MAX_INTEGER_DIGITS = 20;
 export const AMOUNT_MAX_SCALE = 18;
-
-/** ISO 4217 alphabetic code or another three-letter unit code (XAU, XAG, crypto tickers are added by NFR-06). */
-export type CurrencyCode = string & { readonly __brand: "CurrencyCode" };
-
-const CURRENCY_RE = /^[A-Z]{3}$/;
-
-export function currencyCode(code: string): CurrencyCode {
-  if (!CURRENCY_RE.test(code))
-    throw new DomainError("INVALID_CURRENCY", "Currency code must be three letters A–Z");
-  return code as CurrencyCode;
-}
 
 const DECIMAL_STRING_RE = /^-?(0|[1-9]\d*)(\.\d+)?$/;
 
@@ -79,7 +69,7 @@ export class Money {
   }
 
   static zero(currency: string): Money {
-    return new Money(new Decimal(0), currencyCode(currency));
+    return new Money(new Decimal("0"), currencyCode(currency));
   }
 
   plus(other: Money): Money {
@@ -111,6 +101,14 @@ export class Money {
   compare(other: Money): -1 | 0 | 1 {
     this.assertSameCurrency(other);
     return this.amount.comparedTo(other.amount) as -1 | 0 | 1;
+  }
+
+  /**
+   * The amount rounded to the currency's minor units with banker's rounding (half to even), for display
+   * only (NFR-06 FR 2, DS-04). Stored and computed values are never rounded.
+   */
+  toDisplayDecimal(): Decimal {
+    return this.amount.toDecimalPlaces(currencyInfo(this.currency).minorUnits, Decimal.ROUND_HALF_EVEN);
   }
 
   /** Canonical decimal string without exponent, e.g. "-125.5". Not a display format (see DS-04). */

@@ -7,9 +7,11 @@ export {
   CurrencyMismatchError,
   Decimal,
   Money,
-  currencyCode,
   sumMoney,
 } from "./money.ts";
-export type { CurrencyCode } from "./money.ts";
+export { currencyCode, currencyInfo, isCurrencyCode, knownCurrencies } from "./currency.ts";
+export type { CurrencyCode, CurrencyInfo, CurrencyKind } from "./currency.ts";
+export { InvalidRateError, convert, exchangeRate } from "./conversion.ts";
+export type { Conversion, ExchangeRate } from "./conversion.ts";
 export { isId, newId, parseId } from "./ids.ts";
 export type { Id } from "./ids.ts";
