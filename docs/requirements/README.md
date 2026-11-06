@@ -78,7 +78,8 @@ slice, slices without design, slices without criteria). The files are committed;
 fails on any difference; the same CI step also regenerates `docs/validation/req-check-report.md`.
 Run locally before pushing: `node --test tools/req-check` and
 `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
-CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`.
+CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`, `secrets`,
+`local-env`, `api`, `infra`.
 
 **Change process (PRC-02).** Before changing a requirement, a slice, a screen, a canvas board or a
 shared rule, run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>`:
