@@ -9,10 +9,12 @@ the product owner.
 Willowsum is built from scratch. The requirements are complete; the code is written requirement by
 requirement, following the architecture requirements (ARC) and delivery requirements (CICD).
 
-Current phase: design (see «Process: design before code»). Work only on canvas mockups and
-requirements; do not change `apps/` or `packages/` until the owner has approved every PoC design detail
-and explicitly starts development. The code already in `main` from PRs #46, #47, #52, #54, #55 is kept
-and frozen (owner, 2026-11-06); issues #49 and #51 wait for the start of development.
+Current phase: PoC development. On 2026-11-06 the owner approved the PoC design («дизайн ок») and started
+development; build the PoC requirement by requirement in the waves of `docs/traceability/release-poc.md`,
+with the canvas (snapshot in `design/canvas/`) as the visual reference. The PoC shell code already in
+`main` (PRs #46, #47, #52, #54, #55) is the starting point; issues #49 and #51 are now open for work.
+«Process: design before code» still applies to every later release (PoC v2, MVP, …): no code for a
+release until the owner has approved its design and started its development.
 
 ## Where things are
 
@@ -54,7 +56,7 @@ Regenerate `docs/traceability/` and `docs/validation/req-check-report.md` in the
 ## Planned code layout
 
 Created by the first tasks (ARC-01, ARC-07, CICD-02); follow it, do not invent another. `apps/web`, `packages/ui` and
-`packages/i18n` already exist (PoC shell; frozen until development starts).
+`packages/i18n` already exist (PoC shell; PoC development started 2026-11-06).
 
 | Path | Contents |
 | --- | --- |
