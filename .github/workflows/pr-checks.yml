@@ -103,3 +103,38 @@ jobs:
       - name: Stop the local environment
         if: always()
         run: node tools/local-env/index.mjs down
+
+  api:
+    # Backend (ARC-01): module boundaries and integration tests on a real PostgreSQL 17 (ARC-03).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # Same pinned image as the local environment (infra/local/compose.yaml).
+        image: postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throw-away CI database; not a secret.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Enable pnpm (version from package.json via corepack)
+        run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Module boundaries, dependency rules and event contracts (ARC-01)
+        run: pnpm --filter @willowsum/api check:modules
+      - name: Integration tests on PostgreSQL 17
+        run: pnpm --filter @willowsum/api test:integration
