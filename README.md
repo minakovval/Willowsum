@@ -26,8 +26,8 @@ shell code already in `main` (PRs #46, #47, #52, #54, #55) is kept and frozen (o
 
 1. Now: PoC design on the canvas; each approved design step goes into the requirements in one PR.
 2. After the owner starts development: build the PoC in the waves of
-   [docs/traceability/release-poc.md](docs/traceability/release-poc.md) — foundation first (ARC, CICD,
-   NFR), then the design system (DS, CMP) and the PoC modules («Гроші», «Планування»).
+   [docs/traceability/release-poc.md](docs/traceability/release-poc.md) . The PoC sections are «Гроші» and
+   «Планування».
 3. Then PoC v2, MVP («Сейф» is part of MVP), v1-mobile, v1, v2.
 
 Each step is one requirement per session and one PR, as described in AGENTS.md.

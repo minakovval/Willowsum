@@ -28,7 +28,7 @@
 - [ ] One automated test per acceptance criterion and edge case
 - [ ] Permission tests for every role and a scoped member (if data access changed)
 - [ ] Entitlement check with the requirement's feature key (if it has plan limits)
-- [ ] Empty / loading / error states; widths 390, 768, 1280 px (PoC: 1280 only); uk and en strings
+- [ ] Empty / loading / error states; widths 390, 768, 1280 px (PoC and PoC v2: 1280 only, light theme); uk and en strings
 
 ## Sensitive areas touched
 

@@ -73,7 +73,8 @@ Post one PR review:
 - **Blocking** — violates a requirement criterion or a hard rule; each with file:line and the failing path.
 - **Non-blocking** — clarity, naming, small improvements.
 - The coverage table.
-- Questions for the owner where the requirement itself is unclear.
+- Questions for the owner where the requirement itself is unclear on a real product question; small
+  details the author decided and recorded are not owner questions.
 
 Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
 The authoring agent merges only after «Ready».

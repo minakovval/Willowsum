@@ -40,8 +40,10 @@ Write a short plan in the session (not a file):
   contract in `packages/api-contract` first), UI screens and states;
 - feature key and plan limits, roles and scope behaviour, audit entries.
 
-If any criterion is ambiguous or conflicts with another rule, stop and list the question for the owner.
-Do not guess. If the work will not fit one session, split it by criteria into several PRs now.
+If a criterion is unclear or conflicts with another rule on a real product question (direction, scope or
+release, legal or compliance, money, access or infrastructure), stop and list the question for the owner;
+do not guess. Small product details follow AGENTS.md «Ambiguity»: decide, record the decision in the PR
+body and the decision log in `docs/decisions/`. If the work will not fit one session, split it by criteria into several PRs now.
 
 ## 3. Branch
 
@@ -68,7 +70,7 @@ Always include, where relevant:
 - Money movements: only through the `ledger` interface, following ARC-11.
 - Update the module card in the same PR when the public interface or events change.
 - UI: empty / loading / error states, the breakpoints of the target release (PoC and PoC v2: desktop from 1280 px, light theme — П-25),
-  i18n keys for uk and en, WCAG 2.2 AA, «Приховати суми» mode respected from MVP (not in PoC). Reuse
+  i18n keys for uk and en, WCAG 2.2 AA (PoC: as limited by П-25), «Приховати суми» mode respected from MVP (not in PoC). Reuse
   existing design-system elements; the canvas is the visual reference.
 - Stay inside the module; use other modules only through their public interfaces.
 - Synthetic data only (`tools/synthetic`).
