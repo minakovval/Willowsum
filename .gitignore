@@ -8,3 +8,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Local environment credentials and state (tools/local-env, CICD-04/CICD-12)
+infra/local/.state/
