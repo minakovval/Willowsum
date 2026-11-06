@@ -81,7 +81,7 @@ Run the repo's checks (typecheck, lint, unit, integration; e2e for UI — see th
 plus `node --test tools/req-check` and
 `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
 (0 errors, regenerated files committed). All green before pushing; CI runs jobs `requirements`, `web`,
-`traceability`.
+`traceability`, `local-env` and `api`.
 Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missing criteria, leaks
 through scope, floats, hard-coded limits, personal data in logs.
 

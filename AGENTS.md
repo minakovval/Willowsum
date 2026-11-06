@@ -146,7 +146,7 @@ errors) lives only in `packages/domain-kernel`.
 4. Branch `<ID>-<slug>`; PR title starts with the ID, e.g. `BUD-03: safe-to-spend widget`.
 5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
    money calculations, database schema, pipeline and infrastructure also need a security review.
-6. All CI checks green (jobs `requirements`, `web`, `traceability`, `local-env`). Never skip, disable or weaken a
+6. All CI checks green (jobs `requirements`, `web`, `traceability`, `local-env`, `api`). Never skip, disable or weaken a
    test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
    session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or

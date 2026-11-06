@@ -1,0 +1,29 @@
+{
+  "name": "@willowsum/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "check:modules": "node scripts/check-modules.ts",
+    "new-module": "node scripts/new-module.ts",
+    "events:snapshot": "node scripts/events-snapshot.ts",
+    "migrate": "node scripts/migrate.ts",
+    "start": "node src/main.ts"
+  },
+  "dependencies": {
+    "@willowsum/domain-kernel": "workspace:*",
+    "pg": "8.23.1",
+    "zod": "4.6.7",
+    "fastify": "5.12.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@types/pg": "8.23.1",
+    "dependency-cruiser": "18.7.2",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

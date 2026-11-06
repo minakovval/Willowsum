@@ -74,6 +74,24 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  secrets:
+    # CICD-12 FR 9: a secret in the PR's commits blocks the PR (gitleaks). The weekly full-history scan is
+    # .github/workflows/secret-scan.yml.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # gitleaks lists the PR's commits
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: false
+
   local-env:
     # CICD-04: the local environment starts with one command and every service answers (smoke test).
     # CI uses the same compose file with freshly generated, throwaway credentials and synthetic data.
@@ -103,6 +121,54 @@ jobs:
       - name: Stop the local environment
         if: always()
         run: node tools/local-env/index.mjs down
+
+  api:
+    # Backend (ARC-01): module boundaries and integration tests on a real PostgreSQL 17 (ARC-03).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # Same pinned image as the local environment (infra/local/compose.yaml).
+        image: postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throw-away CI database; not a secret.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Enable pnpm (version from package.json via corepack)
+        run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Module boundaries, dependency rules and event contracts (ARC-01)
+        run: pnpm --filter @willowsum/api check:modules
+      - name: Integration tests on PostgreSQL 17
+        run: pnpm --filter @willowsum/api test:integration
+      - name: One image, three roles (ARC-02); without configuration it refuses to start and names the variables
+        run: |
+          docker build -q -f apps/api/Dockerfile -t willowsum-api:ci .
+          for role in api worker scheduler; do
+            set +e
+            out=$(docker run --rm willowsum-api:ci --role "$role" 2>&1)
+            code=$?
+            set -e
+            echo "$role: $out"
+            test "$code" = "1"
+            # Names only: the list grows with every module (WS_DB_PASSWORD_<SCHEMA>), values never appear.
+            echo "$out" | grep -Eq '^Configuration error: missing or invalid ([A-Z0-9_]+, )*WS_DB_HOST, ([A-Z0-9_]+, )*WS_DB_NAME(, [A-Z0-9_]+)*$'
+          done
 
   infra:
     # CICD-07: the «Старт» infrastructure code (infra/start) is formatted, valid for the pinned OpenTofu
