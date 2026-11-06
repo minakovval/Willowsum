@@ -9,7 +9,7 @@
 - Спільні правила: П-1, П-2, П-3, П-21, П-24, П-25, П-26, ARC-03, ARC-11
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: packages/domain-kernel/src/nfr06.test.ts, packages/domain-kernel/src/money.test.ts, packages/domain-kernel/src/lint-rules.test.ts
 
 **Мета.** Як користувач, я хочу, щоб суми, частки і курси зберігалися точно й простежувано, щоб net worth і звіти завжди збігалися з ручним розрахунком.
 

@@ -46,8 +46,8 @@ describe("Money (ARC-01 kernel, AGENTS.md «Money»)", () => {
 
   it("validates currency codes", () => {
     expect(currencyCode("EUR")).toBe("EUR");
-    for (const bad of ["eur", "EU", "EURO", "€"])
-      expect(() => currencyCode(bad), bad).toThrow(/three letters/);
+    for (const bad of ["eur", "EU", "EURO", "€", "ABC"])
+      expect(() => currencyCode(bad), bad).toThrow(/Unknown currency/);
   });
 
   it("negates, compares, sums and serialises", () => {
