@@ -145,7 +145,8 @@ its own, and list in the PR body which criteria are left.
 
 ## Process: design before code
 
-Owner decisions of 2026-11-02 (design session; items 10–11 from the «Гроші» review):
+Owner decisions of 2026-11-02 (design session; items 10–11 from the «Гроші» review; item 10 changed by the
+owner on 2026-11-06):
 
 1. Design comes first, as mockups on the canvas; changes and clarifications happen there. Turning a
    design into code is a separate step that starts only after every detail is approved.
@@ -165,10 +166,10 @@ Owner decisions of 2026-11-02 (design session; items 10–11 from the «Грош
 8. A design concept is not development. Status updates about design work do not talk about "code" until
    development has started.
 9. No tests with real families for now.
-10. Navigation between screens is shown as a clickable prototype on the canvas (in Play mode buttons and
-   links open their target boards and the sidebar works), not as a separate screen diagram. For every
-   screen it must be known how the user gets there: its entry points are written into the screen's or
-   flow's requirement (and the screen map).
+10. Navigation between screens is not prototyped on the canvas: boards are not made clickable (owner
+   2026-11-06: clickability is inconvenient on this board) and there is no separate screen diagram. For
+   every screen it must be known how the user gets there: its entry points are written into the screen's
+   or flow's requirement and the screen map.
 11. Do not invent a new UI element when a suitable one already exists in the design system or on other
    screens (for example the chart period switch, view switch, filters, menus): reuse it as is. A new
    element appears only when nothing existing fits, and it is then added to the design system (CMP/DS)

@@ -6,11 +6,11 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (0 of 2)
+### Screens without a slice (0 of 71)
 
 None.
 
-### Migrated slices without design (96)
+### Migrated slices without design (97)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -86,6 +86,7 @@ None.
 - DS-17@PoC
 - DS-22@PoC
 - GRID-00@PoC
+- IMP-10@PoC
 - NFR-01@PoC
 - NFR-02@PoC
 - NFR-03@PoC
@@ -140,7 +141,7 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 ## PoC v2
 
-### Screens without a slice (0 of 0)
+### Screens without a slice (0 of 20)
 
 None.
 
@@ -167,7 +168,7 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 
 ## MVP
 
-### Screens without a slice (5 of 229)
+### Screens without a slice (5 of 140)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
