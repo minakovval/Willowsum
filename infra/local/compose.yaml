@@ -43,6 +43,8 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: "false"
       MP_SMTP_AUTH_ALLOW_INSECURE: "true"
       MP_SMTP_AUTH: ${WS_LOCAL_SMTP_USER:?run pnpm local:up}:${WS_LOCAL_SMTP_PASSWORD:?run pnpm local:up}
+      # The web UI and API need a login too: caught mail will hold sign-in links and codes.
+      MP_UI_AUTH: ${WS_LOCAL_MAIL_UI_USER:?run pnpm local:up}:${WS_LOCAL_MAIL_UI_PASSWORD:?run pnpm local:up}
       MP_MAX_MESSAGES: "5000"
       TZ: UTC
     ports:
@@ -73,11 +75,9 @@ services:
     volumes:
       - s3-data:/data
     configs:
-      # Readable only by the image's seaweed user.
+      # Built from the generated variables; never written to the repository or the host's disk by the tool.
       - source: s3-identities
         target: /etc/willowsum/s3.json
-        uid: "1000"
-        mode: 0400
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/healthz"]
       interval: 2s

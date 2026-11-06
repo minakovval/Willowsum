@@ -90,6 +90,11 @@ jobs:
         run: node --test tools/local-env
       - name: Start the local environment (one command)
         run: node tools/local-env/index.mjs up
+      - name: Mask the generated throwaway secrets in later log output
+        run: |
+          grep -E '^WS_LOCAL_[A-Z0-9_]*(PASSWORD|SECRET_KEY)=' infra/local/.state/local.env | cut -d= -f2- | while read -r v; do
+            echo "::add-mask::$v"
+          done
       - name: Smoke test PostgreSQL, mail and S3 storage
         run: node tools/local-env/index.mjs smoke
       - name: Service logs on failure

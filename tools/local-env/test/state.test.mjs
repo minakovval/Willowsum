@@ -31,6 +31,20 @@ test('CICD-04 local: credentials are private to the user (dir 0700, file 0600)',
   assert.equal(mode(path.join(dir, ENV_FILE)), 0o600);
 });
 
+test('CICD-04 local: a credentials file with looser permissions is tightened back to 0600', () => {
+  const dir = path.join(tmp(), '.state');
+  const { envPath } = ensureState(dir);
+  fs.chmodSync(envPath, 0o644);
+  ensureState(dir);
+  assert.equal(mode(envPath), 0o600);
+  // A rewrite (new key added) also lands in a 0600 file.
+  fs.writeFileSync(envPath, fs.readFileSync(envPath, 'utf8').replace(/^WS_LOCAL_S3_BUCKET=.*\n/m, ''));
+  fs.chmodSync(envPath, 0o644);
+  ensureState(dir);
+  assert.equal(mode(envPath), 0o600);
+  assert.deepEqual(fs.readdirSync(dir), ['local.env'], 'no temporary file is left behind');
+});
+
 test('CICD-04 local: later runs reuse the same credentials, so the database volume keeps working', () => {
   const dir = path.join(tmp(), '.state');
   const first = ensureState(dir);

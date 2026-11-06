@@ -10,6 +10,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { REPO_ROOT, STATE_DIR, compose, dockerAvailable } from './lib/docker.mjs';
 import { ensureBucket } from './lib/s3.mjs';
+import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
 
 const rel = (p) => path.relative(REPO_ROOT, p);
@@ -23,16 +24,6 @@ function requireDocker() {
   if (!dockerAvailable()) fail('Docker with the compose plugin is required (docker compose version failed).');
 }
 
-function connectionInfo(values, envPath) {
-  return [
-    `PostgreSQL 17  127.0.0.1:${values.WS_LOCAL_PG_PORT}  db=${values.WS_LOCAL_PG_DB} user=${values.WS_LOCAL_PG_USER}`,
-    `SMTP           127.0.0.1:${values.WS_LOCAL_SMTP_PORT}  user=${values.WS_LOCAL_SMTP_USER} (AUTH PLAIN; mail never leaves the machine)`,
-    `Mail web UI    http://127.0.0.1:${values.WS_LOCAL_MAIL_UI_PORT}`,
-    `S3             http://127.0.0.1:${values.WS_LOCAL_S3_PORT}  bucket=${values.WS_LOCAL_S3_BUCKET} region=${values.WS_LOCAL_S3_REGION} (path-style)`,
-    `Credentials    ${rel(envPath)} (generated, git-ignored)`,
-  ].join('\n');
-}
-
 async function up() {
   requireDocker();
   const { values, envPath, created } = ensureState(STATE_DIR);
@@ -41,7 +32,7 @@ async function up() {
   if (res.status !== 0) fail('services did not become healthy; see `pnpm local:status` and `docker compose logs`.');
   const bucket = await ensureBucket(values);
   console.log(`Bucket ${values.WS_LOCAL_S3_BUCKET}: ${bucket}.`);
-  console.log(`\nLocal environment is up.\n${connectionInfo(values, envPath)}`);
+  console.log(`\nLocal environment is up.\n${connectionInfo(values, rel(envPath))}`);
 }
 
 function down({ volumes = false } = {}) {
@@ -58,7 +49,7 @@ function status() {
   const state = readState(STATE_DIR);
   if (!state) return console.log('Local environment was never started. Run `pnpm local:up`.');
   compose(state.envPath, ['ps']);
-  console.log(`\n${connectionInfo(state.values, state.envPath)}`);
+  console.log(`\n${connectionInfo(state.values, rel(state.envPath))}`);
 }
 
 function smoke() {

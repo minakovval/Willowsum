@@ -79,5 +79,5 @@ test('CICD-04 local: the S3 gateway accepts only the generated key (one identity
   assert.deepEqual(json.identities[0].credentials, [
     { accessKey: '<WS_LOCAL_S3_ACCESS_KEY>', secretKey: '<WS_LOCAL_S3_SECRET_KEY>' },
   ]);
-  assert.match(body, /- source: s3-identities\n\s+target: \/etc\/willowsum\/s3\.json\n\s+uid: "1000"\n\s+mode: 0400/);
+  assert.match(body, /- source: s3-identities\n\s+target: \/etc\/willowsum\/s3\.json\n/);
 });

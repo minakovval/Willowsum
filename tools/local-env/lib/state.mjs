@@ -11,7 +11,12 @@ import path from 'node:path';
 export const ENV_FILE = 'local.env';
 
 /** Names of the generated secret variables; never printed by the tool. */
-export const SECRET_KEYS = ['WS_LOCAL_PG_PASSWORD', 'WS_LOCAL_SMTP_PASSWORD', 'WS_LOCAL_S3_SECRET_KEY'];
+export const SECRET_KEYS = [
+  'WS_LOCAL_PG_PASSWORD',
+  'WS_LOCAL_SMTP_PASSWORD',
+  'WS_LOCAL_MAIL_UI_PASSWORD',
+  'WS_LOCAL_S3_SECRET_KEY',
+];
 
 /** Non-secret defaults. Ports can be overridden by editing the generated env file. */
 const DEFAULTS = {
@@ -20,6 +25,7 @@ const DEFAULTS = {
   WS_LOCAL_PG_PORT: '5432',
   WS_LOCAL_SMTP_USER: 'willowsum',
   WS_LOCAL_SMTP_PORT: '1025',
+  WS_LOCAL_MAIL_UI_USER: 'willowsum',
   WS_LOCAL_MAIL_UI_PORT: '8025',
   WS_LOCAL_S3_PORT: '8333',
   WS_LOCAL_S3_REGION: 'eu-local-1',
@@ -33,6 +39,7 @@ function generate() {
     ...DEFAULTS,
     WS_LOCAL_PG_PASSWORD: random(32),
     WS_LOCAL_SMTP_PASSWORD: random(32),
+    WS_LOCAL_MAIL_UI_PASSWORD: random(32),
     // The access key is an identifier, the secret key is the secret.
     WS_LOCAL_S3_ACCESS_KEY: `WSLOCAL${crypto.randomBytes(8).toString('hex').toUpperCase()}`,
     WS_LOCAL_S3_SECRET_KEY: random(32),
@@ -57,9 +64,16 @@ function formatEnv(values) {
   return `${lines.join('\n')}\n`;
 }
 
+/**
+ * Writes a new file created with mode 0600 and renames it over the target, so secrets are never
+ * written into a file with looser permissions (an existing file's mode is not trusted).
+ */
 function writePrivate(file, content) {
-  fs.writeFileSync(file, content, { mode: 0o600 });
-  fs.chmodSync(file, 0o600);
+  const tmp = `${file}.${process.pid}.tmp`;
+  fs.rmSync(tmp, { force: true });
+  fs.writeFileSync(tmp, content, { mode: 0o600, flag: 'wx' });
+  fs.chmodSync(tmp, 0o600);
+  fs.renameSync(tmp, file);
 }
 
 /**
@@ -74,6 +88,7 @@ export function ensureState(stateDir) {
   const values = { ...generate(), ...existing };
   const created = Object.keys(existing).length === 0;
   if (created || Object.keys(values).some((k) => !(k in existing))) writePrivate(envPath, formatEnv(values));
+  else fs.chmodSync(envPath, 0o600); // tighten a file whose mode was loosened by hand
   return { values, envPath, created };
 }
 

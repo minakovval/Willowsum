@@ -62,9 +62,18 @@ export function sendMail(values, { user, password, from, to, subject, text }) {
   });
 }
 
+export function mailAuthHeader(values) {
+  const login = `${values.WS_LOCAL_MAIL_UI_USER}:${values.WS_LOCAL_MAIL_UI_PASSWORD}`;
+  return { authorization: `Basic ${Buffer.from(login).toString('base64')}` };
+}
+
+export function mailApiUrl(values, pathAndQuery) {
+  return `http://127.0.0.1:${values.WS_LOCAL_MAIL_UI_PORT}${pathAndQuery}`;
+}
+
 export async function mailCount(values, query) {
-  const url = `http://127.0.0.1:${values.WS_LOCAL_MAIL_UI_PORT}/api/v1/search?query=${encodeURIComponent(query)}`;
-  const res = await fetch(url);
+  const url = mailApiUrl(values, `/api/v1/search?query=${encodeURIComponent(query)}`);
+  const res = await fetch(url, { headers: mailAuthHeader(values) });
   if (!res.ok) throw new Error(`Mail API HTTP ${res.status}`);
   return (await res.json()).messages_count;
 }
@@ -100,6 +109,6 @@ export function pgAuthRequest(values) {
   });
 }
 
-export const token =() => crypto.randomBytes(6).toString('hex');
+export const token = () => crypto.randomBytes(6).toString('hex');
 
 export { s3Request, s3Url };

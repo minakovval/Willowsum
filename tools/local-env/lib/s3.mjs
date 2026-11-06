@@ -12,7 +12,11 @@ export function signingKey(secretKey, date, region, service) {
   return hmac(hmac(hmac(hmac(`AWS4${secretKey}`, date), region), service), 'aws4_request');
 }
 
-/** Path-style S3 URL for a bucket and optional object key (keys use only unreserved characters). */
+/**
+ * Path-style S3 URL for a bucket and optional object key. Keys must use only unreserved characters
+ * (A–Z a–z 0–9 - . _ ~ and /): encodeURIComponent leaves !'()* unescaped, which S3 canonical URIs require
+ * escaped, so such keys would get a wrong signature.
+ */
 export function s3Url(values, bucket, key = '') {
   const encoded = key
     .split('/')

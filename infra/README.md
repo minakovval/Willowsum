@@ -1,5 +1,7 @@
 # Infrastructure
 
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06
+
 Infrastructure as code for every environment of CICD-04 and both deployment profiles of ARC-08.
 
 | Folder | Environment | Requirement | Status |

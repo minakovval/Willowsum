@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { STATE_DIR } from '../lib/docker.mjs';
-import { mailCount, pgAuthRequest, psql, s3Request, s3Url, sendMail, token } from '../lib/smoke.mjs';
+import { mailApiUrl, mailCount, pgAuthRequest, psql, s3Request, s3Url, sendMail, token } from '../lib/smoke.mjs';
 import { readState } from '../lib/state.mjs';
 
 const state = readState(STATE_DIR);
@@ -47,6 +47,11 @@ test('CICD-04 local: SMTP refuses a wrong password', async () => {
     }),
     /SMTP step AUTH got 535/,
   );
+});
+
+test('CICD-04 local: the mail web UI and API refuse access without the generated login', async () => {
+  const res = await fetch(mailApiUrl(values, '/api/v1/messages'));
+  assert.equal(res.status, 401);
 });
 
 test('CICD-04 local: S3 storage stores and returns an object with the generated key', async () => {

@@ -1,12 +1,14 @@
 # Local environment
 
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06
+
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
 
 | Service | Technology | Address (127.0.0.1 only) | Licence |
 | --- | --- | --- | --- |
 | Database | PostgreSQL 17 (UTC) | `127.0.0.1:5432` | PostgreSQL |
-| Mail | Mailpit: SMTP catches every message, nothing leaves the machine | SMTP `127.0.0.1:1025`, web UI `http://127.0.0.1:8025` | MIT |
+| Mail | Mailpit: SMTP catches every message, nothing leaves the machine; SMTP and the web UI need the generated logins | SMTP `127.0.0.1:1025`, web UI `http://127.0.0.1:8025` | MIT |
 | File storage | SeaweedFS S3 gateway, path-style, bucket `willowsum-files` | `http://127.0.0.1:8333` | Apache-2.0 |
 
 ## Commands
@@ -24,7 +26,7 @@ Requires Docker with the compose plugin and Node 22. From the repository root:
 ## Credentials
 
 No credentials are written by people or committed (CICD-12). On the first `pnpm local:up` the tool
-generates random values (≥ 32 bytes for passwords and the S3 secret key) into
+generates random values (≥ 32 bytes for every password and the S3 secret key) into
 `infra/local/.state/local.env` (git-ignored, mode 0600). Later runs reuse them. The API (once it exists, ARC-01) will read
 its local configuration from that file. To get new values, delete `infra/local/.state/` and run `pnpm local:reset`.
 
