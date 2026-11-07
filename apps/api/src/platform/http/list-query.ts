@@ -61,6 +61,7 @@ const INT4_MIN = -2_147_483_648;
 const INT4_MAX = 2_147_483_647;
 const INT8_MIN = -(2n ** 63n);
 const INT8_MAX = 2n ** 63n - 1n;
+const INT8_RE = /^-?(0|[1-9][0-9]{0,18})$/;
 
 /**
  * Strict value parsers for filters (NFR-15 FR 15): each accepts only the canonical text of its type and only
@@ -85,18 +86,29 @@ export const filterValue = Object.freeze({
   int8: () =>
     z
       .string()
-      .regex(/^-?(0|[1-9][0-9]{0,18})$/)
-      .refine((v) => BigInt(v) >= INT8_MIN && BigInt(v) <= INT8_MAX),
+      // One refinement: in zod 4 a failed `.regex()` does not stop a later `.refine()`, and BigInt() of a text
+      // that is not an integer throws (a 500 instead of a 400).
+      .refine((v) => INT8_RE.test(v) && BigInt(v) >= INT8_MIN && BigInt(v) <= INT8_MAX),
   /** `numeric`: a decimal string (never a float), by default the NUMERIC(38,18) of amounts: 20 + 18 digits. */
   decimal: (digits: { readonly integer?: number; readonly fraction?: number } = {}) => {
     const integer = digits.integer ?? 20;
     const fraction = digits.fraction ?? 18;
     return z.string().regex(new RegExp(`^-?(0|[1-9][0-9]{0,${integer - 1}})(\\.[0-9]{1,${fraction}})?$`));
   },
-  /** `date`: `YYYY-MM-DD`, a real calendar day. */
-  isoDate: () => z.iso.date(),
-  /** `timestamptz`: ISO 8601 with an offset or `Z`. */
-  timestamp: () => z.iso.datetime({ offset: true }),
+  /** `date`: `YYYY-MM-DD`, a real calendar day from year 0001 (PostgreSQL has no year 0000). */
+  isoDate: () => z.iso.date().refine((v) => !v.startsWith("0000")),
+  /**
+   * `timestamptz`: ISO 8601 with an offset or `Z`, from year 0001 (PostgreSQL has no year 0000) and with an
+   * offset PostgreSQL accepts (at most ±15:59; `+23:59` is SQLSTATE 22009, a 500 instead of a 400).
+   */
+  timestamp: () =>
+    z.iso
+      .datetime({ offset: true })
+      .refine((v) => !v.startsWith("0000"))
+      .refine((v) => {
+        const offset = /([+-])(\d{2}):?(\d{2})$/.exec(v);
+        return offset === null || Number(offset[2]) <= 15;
+      }),
   uuid: () => z.uuid(),
   /** `boolean`: exactly `true` or `false`. */
   boolean: () => z.enum(["true", "false"]).transform((v) => v === "true"),

@@ -9,7 +9,7 @@
 - Спільні правила: П-22, П-26, ARC-07, NFR-01, NFR-15
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/test/nfr14-headers.test.ts, apps/api/test/nfr14-rate-limit.test.ts, apps/api/src/platform/http/rate-limit.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/web/src/security-headers.test.ts, apps/web/src/static.test.ts, apps/api/test/sec86-headers.test.ts, apps/api/test/sec86-rate-limit.test.ts, apps/api/test/sec86-process.it.test.ts, apps/web/src/sec86-web.test.ts
+- Перевіряється: apps/api/test/nfr14-headers.test.ts, apps/api/test/nfr14-rate-limit.test.ts, apps/api/src/platform/http/rate-limit.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/web/src/security-headers.test.ts, apps/web/src/static.test.ts, apps/api/test/sec86-headers.test.ts, apps/api/test/sec86-rate-limit.test.ts, apps/api/test/sec86-process.it.test.ts, apps/web/src/sec86-web.test.ts, apps/api/test/sec86r2-client-error.test.ts, apps/api/test/sec86r2-rate-limit.test.ts
 
 **Мета.** Як користувач, я хочу, щоб браузер не міг кешувати чи вбудовувати мої фінансові дані на сторонніх сайтах і щоб сервіс не можна було перевантажити запитами, щоб мої дані не витекли через атаки на клієнтську частину.
 
