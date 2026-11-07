@@ -25,7 +25,7 @@ export async function analyzeImports(
         ruleSet: { forbidden: buildForbiddenRules(rules, providerSdks) },
         // Type-only imports count too: a type import of another module's internals is still coupling.
         tsPreCompilationDeps: true,
-        doNotFollow: { path: "node_modules" },
+        doNotFollow: { path: "(^|/)node_modules/" },
         // Fixtures hold deliberate violations; test/.tmp holds copies other tests are writing.
         exclude: { path: ["^test/fixtures/", "^test/\\.tmp/"] },
         outputType: "json",
@@ -82,7 +82,7 @@ export async function analyzeWorkspaceSdks(
         validate: true,
         ruleSet: { forbidden: [buildWorkspaceSdkRule(providerSdks)] },
         tsPreCompilationDeps: true,
-        doNotFollow: { path: "node_modules" },
+        doNotFollow: { path: "(^|/)node_modules/" },
         exclude: { path: ["(^|/)node_modules/", "^(apps|packages|tools)/[^/]+/dist/"] },
         outputType: "json",
       },

@@ -108,6 +108,25 @@ describe("ARC-05 FR 1: the same analyzer rule over the web app, shared packages 
     ]);
   });
 
+  it("a folder whose name only starts with node_modules is analysed, in apps/api and in the workspace", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "ws-sdk-nm-"));
+    const files: Record<string, string> = {
+      "src/node_modules_x/a.ts": 'export { default } from "stripe";\n',
+      "apps/web/src/node_modules_x/b.ts": 'export { default } from "twilio";\n',
+    };
+    for (const [file, code] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), code);
+    }
+    const api = await analyzeImports(root, { modules: {} }, sdks);
+    expect(api.filter((v) => v.startsWith("provider-sdk-outside-adapter"))).toEqual([
+      "provider-sdk-outside-adapter: src/node_modules_x/a.ts → stripe",
+    ]);
+    expect(await analyzeWorkspaceSdks(root, sdks, ["apps/web/src"])).toEqual([
+      "provider-sdk-outside-adapter: apps/web/src/node_modules_x/b.ts → twilio",
+    ]);
+  });
+
   it("finds none in the repository, which it does scan (web, packages, tools/synthetic)", async () => {
     const dirs = workspaceSourceDirs(repoRoot);
     expect(dirs).toEqual(

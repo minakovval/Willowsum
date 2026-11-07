@@ -1,16 +1,17 @@
-// Створено: 2026-11-07 · Оновлено: 2026-11-07 (рецензії PR #84)
+// Створено: 2026-11-07 · Оновлено: 2026-11-07 (рецензії PR #84, три раунди)
 //
 // ARC-05 criterion «Тести, що потребують інтернету в CI — 0» (ADR-0005): a Vitest setup file that every
 // package's test config loads. A test may reach only this machine and the PostgreSQL host of the integration
 // tests (DATABASE_URL, PGHOST, WS_DB_HOST):
 // - IP literals: loopback only (127.0.0.0/8, ::1, IPv4-mapped 127.x, the unspecified address);
-// - names: `localhost` (which must also resolve to loopback) and the database host (trusted by name);
+// - names: `localhost` (which must always resolve to loopback, also when it is the database host) and the
+//   database host (trusted by name, resolved by the system resolver — never by a custom lookup);
 // - Unix sockets (a non-empty `path`).
 // Anything else fails with WS_NETWORK_BLOCKED: fetch, http/https, TLS and raw TCP sockets before connecting,
-// UDP datagrams before sending (a socket's own `lookup` must answer loopback for localhost; only sockets made
-// with dgram.createSocket), DNS queries (dns.lookup, dns.lookupService, dns.resolve*, dns.promises, Resolver)
-// before asking. Child processes a test starts are not covered. Working adapters are tested with an injected fetch
-// (apps/api/src/platform/adapters/testing.ts).
+// UDP datagrams before sending (a socket's own `lookup` — dgram.createSocket or new dgram.Socket — must answer
+// loopback for localhost and is never used for the database host), DNS queries (dns.lookup,
+// dns.lookupService, dns.resolve*, dns.promises, Resolver) before asking. Child processes a test starts are not
+// covered. Working adapters are tested with an injected fetch (apps/api/src/platform/adapters/testing.ts).
 import dgram from "node:dgram";
 import dns from "node:dns";
 import { syncBuiltinESMExports } from "node:module";
@@ -77,7 +78,9 @@ export function isAllowedHost(host, extra = allowedExtraHosts(process.env)) {
 function needsLoopbackLookup(host) {
   if (host === undefined || host === null || host === "") return false;
   const h = strip(host);
-  return !net.isIP(h) && !allowedExtraHosts(process.env).has(h);
+  if (net.isIP(h)) return false;
+  // `localhost` always: being the database host too (CI: DATABASE_URL on localhost) must not exempt it.
+  return h === "localhost" || !allowedExtraHosts(process.env).has(h);
 }
 
 /**
@@ -121,15 +124,22 @@ function guardSockets() {
       process.nextTick(() => this.destroy(error));
       return this;
     }
-    if (needsLoopbackLookup(target.host)) {
-      // Rewrite to the options form with a lookup that refuses non-loopback answers.
+    const custom = (Array.isArray(args[0]) ? args[0][0] : args[0])?.lookup;
+    if (needsLoopbackLookup(target.host) || typeof custom === "function") {
+      // Rewrite to the options form: a local name gets a lookup that refuses non-loopback answers; the database
+      // host (trusted by name) gets the system resolver, never a custom lookup.
       const normalized = Array.isArray(args[0]) ? args[0] : undefined;
       const options = normalized
         ? normalized[0]
         : typeof args[0] === "object"
           ? args[0]
           : { port: args[0], host: args[1] };
-      const checked = { ...options, lookup: loopbackOnlyLookup(target.host, target.port, options.lookup) };
+      const checked = {
+        ...options,
+        lookup: needsLoopbackLookup(target.host)
+          ? loopbackOnlyLookup(target.host, target.port, options.lookup)
+          : undefined,
+      };
       if (normalized) {
         normalized[0] = checked;
         return originalConnect.apply(this, args);
@@ -142,22 +152,31 @@ function guardSockets() {
 }
 
 function guardDatagrams() {
-  // A socket created with its own `lookup`: an allowed name (localhost) must still resolve to loopback.
+  // A socket with its own `lookup` (dgram.createSocket or new dgram.Socket): an allowed name (localhost) must
+  // still resolve to loopback, and the database host goes through the system resolver.
+  const guardOptions = (options) => {
+    if (options === null || typeof options !== "object" || typeof options.lookup !== "function") return options;
+    const inner = options.lookup;
+    const lookup = function guardedDgramLookup(hostname, family, callback) {
+      // An IP literal (e.g. the implicit bind to 0.0.0.0) is its own answer, whatever the lookup says.
+      const literal = net.isIP(strip(hostname ?? ""));
+      if (literal) return process.nextTick(() => callback(null, strip(hostname), literal));
+      if (!needsLoopbackLookup(hostname)) return dns.lookup(hostname, family, callback);
+      return loopbackOnlyLookup(hostname, undefined, inner)(hostname, family, callback);
+    };
+    return { ...options, lookup };
+  };
   const originalCreate = dgram.createSocket;
   dgram.createSocket = function guardedCreateSocket(options, ...rest) {
-    if (options !== null && typeof options === "object" && typeof options.lookup === "function") {
-      const inner = options.lookup;
-      const lookup = function guardedDgramLookup(hostname, family, callback) {
-        // An IP literal (e.g. the implicit bind to 0.0.0.0) is its own answer, whatever the lookup says.
-        const literal = net.isIP(strip(hostname ?? ""));
-        if (literal) return process.nextTick(() => callback(null, strip(hostname), literal));
-        if (!needsLoopbackLookup(hostname)) return inner(hostname, family, callback);
-        return loopbackOnlyLookup(hostname, undefined, inner)(hostname, family, callback);
-      };
-      return originalCreate.call(this, { ...options, lookup }, ...rest);
-    }
-    return originalCreate.call(this, options, ...rest);
+    return originalCreate.call(this, guardOptions(options), ...rest);
   };
+  const OriginalSocket = dgram.Socket;
+  function GuardedSocket(options, listener) {
+    return Reflect.construct(OriginalSocket, [guardOptions(options), listener], new.target ?? GuardedSocket);
+  }
+  GuardedSocket.prototype = OriginalSocket.prototype;
+  Object.setPrototypeOf(GuardedSocket, OriginalSocket);
+  dgram.Socket = GuardedSocket;
   const proto = dgram.Socket.prototype;
   const blocked = (socket, host, port, callback) => {
     const error = new NetworkBlockedError(host, port);
