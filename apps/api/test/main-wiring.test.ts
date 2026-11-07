@@ -4,6 +4,7 @@ import {
   KILL_SWITCH_MAX_DELAY_MS,
 } from "../src/modules/feature-flags/application/index.ts";
 import { memoryFlagStore } from "../src/modules/feature-flags/application/memory-store.test-helper.ts";
+import { FLAGS_DB_TIMEOUTS } from "../src/modules/feature-flags/index.ts";
 import { realModules } from "./real-modules.ts";
 import { contextPoolOptions, modulePoolOptions, readinessCheck } from "../src/wiring.ts";
 
@@ -65,6 +66,15 @@ describe("CICD-06: the flag check never hangs on the database", () => {
   it("the feature-flags pool and the binding pool get the 5 s statement and connection limits and a 6 s client limit", () => {
     expect(modulePoolOptions("feature-flags")).toEqual(limits);
     expect(contextPoolOptions()).toEqual(limits);
+  });
+
+  it("the client-side query_timeout is at most 6 s and above the server's statement_timeout (FLAGS_DB_TIMEOUTS)", () => {
+    for (const options of [modulePoolOptions("feature-flags"), contextPoolOptions(), FLAGS_DB_TIMEOUTS]) {
+      expect(options.query_timeout).toBeLessThanOrEqual(6_000);
+      expect(options.statement_timeout).toBeLessThanOrEqual(5_000);
+      expect(options.connectionTimeoutMillis).toBeLessThanOrEqual(5_000);
+      expect(Number(options.query_timeout)).toBeGreaterThan(Number(options.statement_timeout));
+    }
   });
 
   it("other module pools keep their defaults", () => {

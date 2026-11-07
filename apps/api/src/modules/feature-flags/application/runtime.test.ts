@@ -286,3 +286,23 @@ describe("CICD-06: the test-space lookup waits no longer than LOAD_WAIT_MS (fake
     expect(await runtime.isEnabled(h, "household.core")).toBe(true);
   });
 });
+
+describe("CICD-06: a failed test-space lookup keeps the function hidden (404, not 500)", () => {
+  it("a rejected lookup counts as «not a test space», is not cached, and the next request asks again", async () => {
+    const store = memoryFlagStore();
+    await store.setRollout("household.core", { stage: "test" });
+    store.testHouseholds.add(h);
+    const runtime = createFlagRuntime(store, { now: () => 1_000_000 });
+    const real = store.isTestHousehold.bind(store);
+    let asked = 0;
+    store.isTestHousehold = async () => {
+      asked++;
+      throw new Error("database unreachable");
+    };
+    expect(await runtime.isEnabled(h, "household.core")).toBe(false);
+    expect(await runtime.enabledFlags(h)).toEqual([]);
+    expect(asked).toBe(2);
+    store.isTestHousehold = real;
+    expect(await runtime.isEnabled(h, "household.core")).toBe(true);
+  });
+});

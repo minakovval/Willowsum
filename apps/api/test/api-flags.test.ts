@@ -483,3 +483,30 @@ describe("CICD-06: a route's own flag must require the route's feature (routes a
     expect(apiOptions(testWiring()).flagRequires("nope")).toBeUndefined();
   });
 });
+
+describe("CICD-06: a failed test-space lookup answers 404 through the API, not 500", () => {
+  it("a route at stage «test» whose test-space lookup fails is hidden (the 404 of an unknown path)", async () => {
+    const { createFlagRuntime } = await import("../src/modules/feature-flags/application/index.ts");
+    const { memoryFlagStore } =
+      await import("../src/modules/feature-flags/application/memory-store.test-helper.ts");
+    const store = memoryFlagStore();
+    await store.setRollout("household.core", { stage: "test" });
+    store.isTestHousehold = async () => {
+      throw new Error("database unreachable");
+    };
+    const app = await serve(createFlagRuntime(store) as unknown as ReturnType<typeof fakeFlags>);
+    const route = protectedRoutes[0]!;
+    const unknown = await app.inject({
+      method: "GET",
+      url: "/v1/no-such-function",
+      headers: principalHeader(),
+    });
+    const res = await app.inject({
+      method: route.method,
+      url: concreteUrl(route),
+      headers: principalHeader(),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toBe(unknown.body);
+  });
+});

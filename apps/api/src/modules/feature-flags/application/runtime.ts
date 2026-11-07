@@ -144,8 +144,8 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
 
   /**
    * Is the space a test space? Asked only at «test» and «share» (outside the share). Bounded like a reload: an
-   * answer that does not come within LOAD_WAIT_MS counts as «not a test space» for this request (the function
-   * stays hidden: fail closed) and is not remembered; a failed lookup is not remembered either.
+   * answer that does not come within LOAD_WAIT_MS, or a lookup that fails, counts as «not a test space» for this
+   * request (the function stays hidden — 404, not 500: fail closed) and is not remembered.
    */
   const isTest = (householdId: string) => () => {
     let cached = testCache.get(householdId);
@@ -163,7 +163,7 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
         resolve(false);
       }, LOAD_WAIT_MS);
     });
-    return Promise.race([cached, late]).finally(() => clearTimeout(timer));
+    return Promise.race([cached.catch(() => false), late]).finally(() => clearTimeout(timer));
   };
 
   return {
