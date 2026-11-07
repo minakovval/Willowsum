@@ -1,5 +1,11 @@
 import type { IForbiddenRuleType } from "dependency-cruiser";
 import type { ModuleRules } from "../../src/platform/modules/rules.ts";
+import {
+  ADAPTER_PATHS,
+  WORKSPACE_ADAPTER_PATHS,
+  providerSdkPaths,
+  type ProviderSdkList,
+} from "./provider-sdks.ts";
 
 const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -15,7 +21,10 @@ export const DOMAIN_ALLOWED_PACKAGES = ["zod", "decimal.js"];
  * dependency-cruiser rules derived from module-rules.json (ARC-01 FR 4, FR 5 and the criteria table:
  * internal imports, cycles and domain purity — 0 each). Paths are relative to apps/api.
  */
-export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
+export function buildForbiddenRules(
+  rules: ModuleRules,
+  providerSdks?: ProviderSdkList,
+): IForbiddenRuleType[] {
   const forbidden: IForbiddenRuleType[] = [
     {
       name: "no-circular",
@@ -92,6 +101,18 @@ export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
       from: { path: "^(src|scripts|test)/" },
       to: { path: ["openapi-fetch", "openapi-typescript"].flatMap((p) => packagePaths(p)) },
     },
+    ...(providerSdks && providerSdks.packages.length > 0
+      ? [
+          {
+            name: "provider-sdk-outside-adapter",
+            comment:
+              "A provider SDK (provider-sdks.json) is imported only in an adapter: src/modules/<module>/adapters/ or src/platform/adapters/ (ARC-05 FR 1, ADR-0005).",
+            severity: "error" as const,
+            from: { path: "^(src|scripts|test)/", pathNot: ADAPTER_PATHS },
+            to: { path: providerSdks.packages.flatMap((p) => providerSdkPaths(p)) },
+          },
+        ]
+      : []),
     {
       name: "platform-not-to-modules",
       comment: "Platform code (src/platform) knows nothing about business modules.",
@@ -111,4 +132,16 @@ export function buildForbiddenRules(rules: ModuleRules): IForbiddenRuleType[] {
     });
   }
   return forbidden;
+}
+
+/** ARC-05 FR 1 for the web app, shared packages and tools/synthetic (paths relative to the repository root). */
+export function buildWorkspaceSdkRule(providerSdks: ProviderSdkList): IForbiddenRuleType {
+  return {
+    name: "provider-sdk-outside-adapter",
+    comment:
+      "A provider SDK (apps/api/provider-sdks.json) is imported only in an adapter; outside apps/api that is apps/web/src/adapters/ (ARC-05 FR 1, ADR-0005).",
+    severity: "error",
+    from: { path: "^(apps|packages|tools)/", pathNot: WORKSPACE_ADAPTER_PATHS },
+    to: { path: providerSdks.packages.flatMap((p) => providerSdkPaths(p)) },
+  };
 }

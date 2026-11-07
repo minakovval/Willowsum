@@ -5,7 +5,8 @@ import { catalogueProblems, type EventSnapshot } from "../../src/platform/events
 import { readCatalogue } from "../../src/platform/modules/catalogue.ts";
 import type { ModuleDefinition } from "../../src/platform/modules/define.ts";
 import { validateRules, type ModuleRules } from "../../src/platform/modules/rules.ts";
-import { analyzeImports } from "./analyze.ts";
+import { analyzeImports, analyzeWorkspaceSdks } from "./analyze.ts";
+import { readProviderSdks } from "./provider-sdks.ts";
 
 /**
  * Everything ARC-01 asks CI to stop: rules file errors (unknown modules, cycles, wrong direction),
@@ -43,7 +44,10 @@ export async function checkModules(apiDir: string, repoRoot: string): Promise<st
       problems.push(`src/modules/index.ts: ${name} is registered but not declared`);
   }
 
-  problems.push(...(await analyzeImports(apiDir, rules)));
+  const providerSdks = readProviderSdks(path.join(apiDir, "provider-sdks.json"));
+  problems.push(...(await analyzeImports(apiDir, rules, providerSdks)));
+  // ARC-05 FR 1 in the web app, the shared packages and tools/synthetic.
+  problems.push(...(await analyzeWorkspaceSdks(repoRoot, providerSdks)).map((p) => `workspace: ${p}`));
 
   const snapshot = JSON.parse(
     readFileSync(path.join(apiDir, "events.snapshot.json"), "utf8"),

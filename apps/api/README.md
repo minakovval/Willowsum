@@ -1,11 +1,11 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06 (CICD-06)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
 [ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md); прапорці функцій і аварійні вимикачі —
-[ADR-0004](../../docs/adr/0004-feature-flags.md).
+[ADR-0004](../../docs/adr/0004-feature-flags.md); зовнішні провайдери через адаптери — [ADR-0005](../../docs/adr/0005-provider-adapters.md).
 
 ## Будова
 
@@ -13,11 +13,12 @@
 | --- | --- |
 | `src/modules/<module>/` | Модуль: `index.ts` (публічний інтерфейс і події), `domain/`, `application/`, `adapters/` (зокрема `adapters/db/migrations/NNNN_slug.sql`), картка `README.md`, генератор синтетичних даних своїх таблиць `synthetic.ts` |
 | `src/modules/index.ts` | Реєстр модулів (генератор додає сюди) |
-| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI) |
+| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI), набір інструментів адаптерів провайдерів (`adapters/`: порт і перелік полів, тайм-аут, повтори, запобіжник, останнє відоме значення; еталонний порт `adapters/reference/exchange-rates/`) |
 | `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки feature-flags, access-scope і plan-catalog |
 | `src/wiring.ts` | Налаштування пулів перевірки прапорців і перевірка готовності, які використовує `main.ts` (CICD-06) |
 | `module-rules.json` | Єдиний файл правил: модулі, шар, від яких модулів залежить кожен |
 | `events.snapshot.json` | Опубліковані версії подій і схеми їхніх даних |
+| `provider-sdks.json` | SDK зовнішніх провайдерів: імпортуються лише в `src/modules/<module>/adapters/` і `src/platform/adapters/` (ARC-05, `check:modules` і ESLint) |
 | `schema-exemptions.json` | Таблиці схем модулів без `household_id` (без даних клієнтів) і причина для кожної (ARC-03) |
 | `scripts/` | `new-module`, `check-modules`, `check-schema`, `check-migrations`, `check-flags`, `flags`, `events-snapshot`, `migrate` |
 
@@ -26,7 +27,7 @@
 | Команда | Що робить |
 | --- | --- |
 | `pnpm new-module <name> [--depends a,b] [--layer platform\|subject\|process]` | Створює модуль із каталогу ARC-01 і реєструє його |
-| `pnpm check:modules` | Правила модулів, аналізатор імпортів, контракти подій (CI-задача `api`) |
+| `pnpm check:modules` | Правила модулів, аналізатор імпортів (зокрема SDK провайдерів лише в адаптерах, ARC-05), контракти подій (CI-задача `api`) |
 | `DATABASE_URL=… pnpm check:schema` | Перевірка схеми (ARC-03): політики рядків на кожній таблиці клієнтів, `household_id`, суми NUMERIC(38,18) з валютою, лише `timestamptz`, регіон (CI-задача `api`) |
 | `pnpm check:migrations` | «Розширити → перенести → звузити»: операції звуження лише з `-- ws:contract …`; з `WS_MIGRATION_BASE_DIR` — і незмінність випущених міграцій |
 | `pnpm check:flags` | Кожен прапорець має власника і дату перегляду; падає, якщо дата минула, тимчасовий прапорець повністю ввімкнений понад 30 днів або функція не має прапорця (CICD-06, CI-задача `api`) |
@@ -36,7 +37,7 @@
 | `pnpm contract:write` (з кореня) | Пише контракт `packages/api-contract/openapi.json` з маршрутів і типи клієнта `src/schema.ts` (ARC-07) |
 | `pnpm contract:check` (з кореня) | Контракт і типи збігаються з маршрутами (CI-задача `api`) |
 | `pnpm --filter @willowsum/api contract:compat <base openapi.json>` | Зміни контракту сумісні в межах `/v1` щодо базової гілки (CI-задача `api`) |
-| `pnpm --filter @willowsum/api test` | Юніт-тести (без БД і мережі) |
+| `pnpm --filter @willowsum/api test` | Юніт-тести (без БД і мережі: `tools/test-guards/no-network.mjs` блокує з'єднання поза цією машиною, ARC-05) |
 | `DATABASE_URL=… pnpm test:integration` | Інтеграційні тести на реальному PostgreSQL (суперкористувач тимчасової БД) |
 | `DATABASE_URL=<суперкористувач> pnpm --filter @willowsum/api db:bootstrap` | Один раз на нову базу: закриває функції великих об'єктів і ставить страж ізоляції — тригер подій `ws_module_guard` (ADR-0002) |
 | `DATABASE_URL=… pnpm --filter @willowsum/api migrate` | Застосовує міграції: роль запуску — власник бази з CREATEROLE (суперкористувач лише для bootstrap); SQL модуля виконується від його ролі-власника `ws_own_<схема>` (ADR-0002) |
@@ -51,6 +52,7 @@
 | `WS_PORT` | Порт HTTP (API або лише перевірки `/health/live`, `/health/ready`) | 8080 |
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
+| `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005) | `test` |
 | `WS_DB_HOST`, `WS_DB_PORT`, `WS_DB_NAME`, `WS_DB_SSL` | Сервер БД | порт 5432, SSL увімкнено |
 | `WS_DB_PROBE_PASSWORD` | Пароль ролі `ws_probe` (лише читання списку міграцій для «готовий») | — |
 | `WS_DB_CONTEXT_PASSWORD` | Пароль ролі `ws_context` (лише прив'язка з'єднань модулів до простору, ARC-03) | — |
@@ -111,3 +113,16 @@
   дослівно. `list: true` — `pageQuery` (`cursor`, `limit` ≤ 100) і `pageOf(item)`.
 - Після зміни маршруту — `pnpm contract:write` і коміт `packages/api-contract/openapi.json` та `src/schema.ts`.
   Видаляти з контракту можна лише через 6 місяців після `deprecatedSince` (ADR-0003).
+
+## Зовнішні провайдери (ARC-05)
+
+- Кожен зовнішній сервіс — порт `defineProviderPort` (вид сервісу, операції з `idempotent` і переліком полів, що йдуть
+  провайдеру) і дві реалізації: `test` (синтетична) і `live`. Вибір — `WS_PROVIDER_MODE`, типово `test`.
+- Виклики — через `createProviderClient` (`src/platform/adapters/`): тайм-аут 10 с, повтори лише ідемпотентних
+  операцій, після 5 невдач поспіль 60 с без викликів. Читання — через `createLastKnown`: збій провайдера повертає
+  останнє відоме значення з `asOf` і `stale: true`.
+- HTTP-провайдер без SDK — `createProviderHttp.getJson(операція, значення, parse)`: шлях — шаблон операції (дані в
+  шляху лише через `{поле}`), поля перевіряються до відправлення, перенаправлення не виконуються, `parse` перевіряє
+  відповідь усередині виклику. SDK провайдера — лише в `adapters/` модуля (у вебі — `apps/web/src/adapters/`) і лише
+  після внесення в `provider-sdks.json`.
+- Тест робочої реалізації — без мережі: `recordingFetch` і `outgoingFieldViolations` (`src/platform/adapters/testing.ts`).

@@ -38,6 +38,14 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
     expect(error.variables).toEqual(["WS_PLAN_ENTITLEMENTS"]);
   });
 
+  it("ARC-05 FR 2: provider ports run their test implementation unless WS_PROVIDER_MODE=live; another value is refused by name", () => {
+    expect(loadConfig(base, "api", ["ledger"]).providerMode).toBe("test");
+    expect(loadConfig({ ...base, WS_PROVIDER_MODE: "live" }, "api", ["ledger"]).providerMode).toBe("live");
+    const error = errorOf(() => loadConfig({ ...base, WS_PROVIDER_MODE: "sandbox-xyz" }, "api", ["ledger"]));
+    expect(error.variables).toEqual(["WS_PROVIDER_MODE"]);
+    expect(error.message).not.toContain("sandbox-xyz");
+  });
+
   it("criterion «старт із пропущеним обов'язковим секретом»: refuses to start, names the variable, not the value", () => {
     const env: Record<string, string> = { ...base };
     delete env["WS_DB_PASSWORD_LEDGER"];

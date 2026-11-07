@@ -30,6 +30,7 @@ function copyOfApi(): string {
   );
   writeFileSync(path.join(dir, "module-rules.json"), JSON.stringify({ modules: {} }));
   writeFileSync(path.join(dir, "events.snapshot.json"), JSON.stringify({ events: {} }));
+  cpSync(path.join(apiDir, "provider-sdks.json"), path.join(dir, "provider-sdks.json"));
   return dir;
 }
 
