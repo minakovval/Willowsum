@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PROVIDER_MODES, type ProviderMode } from "../adapters/port.ts";
 import { schemaName } from "../modules/rules.ts";
 
 /**
@@ -17,6 +18,11 @@ export interface Config {
   readonly shutdownTimeoutMs: number;
   /** Source of the plan matrix (plan-catalog); PoC: every feature enabled (П-24). */
   readonly planEntitlements: (typeof PLAN_ENTITLEMENT_SOURCES)[number];
+  /**
+   * Which implementation of every provider port runs (ARC-05 FR 2, ADR-0005): `test` (synthetic, no network;
+   * the default, so local development and CI never reach a provider) or `live` (deployed environments).
+   */
+  readonly providerMode: ProviderMode;
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -64,6 +70,7 @@ export function loadConfig(
     WS_PORT: port.default(8080),
     WS_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
     WS_PLAN_ENTITLEMENTS: z.enum(PLAN_ENTITLEMENT_SOURCES).default("all-enabled"),
+    WS_PROVIDER_MODE: z.enum(PROVIDER_MODES).default("test"),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -86,6 +93,7 @@ export function loadConfig(
     port: v["WS_PORT"] as number,
     shutdownTimeoutMs: v["WS_SHUTDOWN_TIMEOUT_MS"] as number,
     planEntitlements: v["WS_PLAN_ENTITLEMENTS"] as Config["planEntitlements"],
+    providerMode: v["WS_PROVIDER_MODE"] as ProviderMode,
     database: {
       host: v["WS_DB_HOST"] as string,
       port: v["WS_DB_PORT"] as number,

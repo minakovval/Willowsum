@@ -9,7 +9,7 @@
 - Спільні правила: П-9, П-22, П-23, П-24
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: apps/api/src/platform/adapters/provider-client.test.ts, apps/api/src/platform/adapters/last-known.test.ts, apps/api/src/platform/adapters/outgoing.test.ts, apps/api/src/platform/adapters/http.test.ts, apps/api/src/platform/adapters/reference/exchange-rates/exchange-rates.test.ts, apps/api/src/platform/config/config.test.ts, apps/api/scripts/lib/provider-sdks.test.ts, apps/api/test/no-network.test.ts
 
 1. Кожен зовнішній сервіс (курси валют, ціни, банки, мапи, пошта, платежі, CAPTCHA, OCR, антивірус, сховище файлів, KMS, AI) викликається лише через внутрішній інтерфейс. Назви провайдерів та їхні SDK не з'являються поза адаптером.
 2. Кожен інтерфейс має щонайменше дві реалізації: робочу і тестову (синтетичну або пісочницю). Локальна розробка і CI працюють без доступу до зовнішніх сервісів.

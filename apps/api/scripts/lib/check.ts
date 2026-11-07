@@ -6,6 +6,7 @@ import { readCatalogue } from "../../src/platform/modules/catalogue.ts";
 import type { ModuleDefinition } from "../../src/platform/modules/define.ts";
 import { validateRules, type ModuleRules } from "../../src/platform/modules/rules.ts";
 import { analyzeImports } from "./analyze.ts";
+import { readProviderSdks } from "./provider-sdks.ts";
 
 /**
  * Everything ARC-01 asks CI to stop: rules file errors (unknown modules, cycles, wrong direction),
@@ -43,7 +44,9 @@ export async function checkModules(apiDir: string, repoRoot: string): Promise<st
       problems.push(`src/modules/index.ts: ${name} is registered but not declared`);
   }
 
-  problems.push(...(await analyzeImports(apiDir, rules)));
+  problems.push(
+    ...(await analyzeImports(apiDir, rules, readProviderSdks(path.join(apiDir, "provider-sdks.json")))),
+  );
 
   const snapshot = JSON.parse(
     readFileSync(path.join(apiDir, "events.snapshot.json"), "utf8"),

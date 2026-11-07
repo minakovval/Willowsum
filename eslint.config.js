@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import { readFileSync } from "node:fs";
 
 /** DS-06 acceptance 3 / DS-09 acceptance 7: colour literals live only in the token sources. */
 const NO_COLOR_LITERALS = {
@@ -71,6 +72,27 @@ const NO_PLAN_NAMES = [
   },
 ];
 
+const OPENAPI_CLIENT_PATHS = [
+  { name: "openapi-fetch", message: "Use @willowsum/api-contract (ARC-07, ADR-0003)." },
+  { name: "openapi-typescript", message: "Only packages/api-contract generates the client (ADR-0003)." },
+];
+
+/** ARC-05 FR 1: provider SDKs (apps/api/provider-sdks.json) only in adapter folders (ADR-0005). */
+const PROVIDER_SDKS = JSON.parse(
+  readFileSync(new URL("./apps/api/provider-sdks.json", import.meta.url), "utf8"),
+);
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const PROVIDER_SDK_PATTERNS = PROVIDER_SDKS.packages.map((name) => ({
+  regex: `^${name.endsWith("/*") ? `${escapeRe(name.slice(0, -2))}/[^/]+` : escapeRe(name)}(/.*)?$`,
+  message:
+    "A provider SDK is used only inside an adapter (ARC-05, ADR-0005): put this import in an adapters/ folder.",
+}));
+const ADAPTER_FILES = [
+  "apps/api/src/modules/*/adapters/**",
+  "apps/api/src/platform/adapters/**",
+  "apps/web/src/adapters/**",
+];
+
 export default tseslint.config(
   {
     ignores: [
@@ -119,23 +141,26 @@ export default tseslint.config(
   },
   {
     // ARC-07 / ADR-0003: the OpenAPI client libraries are used only inside packages/api-contract; every other
-    // package talks to the API through @willowsum/api-contract.
+    // package talks to the API through @willowsum/api-contract. ARC-05 FR 1 / ADR-0005: provider SDKs only in
+    // adapter folders (apps/api also checks this with the dependency analyzer).
     files: ["**/*.{ts,tsx,js}"],
-    ignores: ["packages/api-contract/**"],
+    ignores: ["packages/api-contract/**", ...ADAPTER_FILES],
     rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            { name: "openapi-fetch", message: "Use @willowsum/api-contract (ARC-07, ADR-0003)." },
-            {
-              name: "openapi-typescript",
-              message: "Only packages/api-contract generates the client (ADR-0003).",
-            },
-          ],
-        },
-      ],
+      "no-restricted-imports": ["error", { paths: OPENAPI_CLIENT_PATHS, patterns: PROVIDER_SDK_PATTERNS }],
     },
+  },
+  {
+    files: ADAPTER_FILES,
+    rules: { "no-restricted-imports": ["error", { paths: OPENAPI_CLIENT_PATHS }] },
+  },
+  {
+    files: ["packages/api-contract/**/*.{ts,tsx,js}"],
+    rules: { "no-restricted-imports": ["error", { patterns: PROVIDER_SDK_PATTERNS }] },
+  },
+  {
+    // Analyzer fixtures import provider SDKs on purpose (apps/api/scripts/lib/provider-sdks.test.ts).
+    files: ["apps/api/test/fixtures/provider-sdks/**"],
+    rules: { "no-restricted-imports": "off" },
   },
   {
     // Tests may use literals freely (they assert the rules above), and translation catalogues hold words.
