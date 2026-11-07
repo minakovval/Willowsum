@@ -74,6 +74,7 @@ beforeAll(async () => {
     permissions: new Set(["things.write"]),
     features: new Set(["things"]),
     flags: new Set(["things"]),
+    flagRequires: () => undefined,
     databases,
     idempotency: (module) => moduleIdempotencyStore(databases.for(module)),
   });

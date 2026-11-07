@@ -11,4 +11,4 @@ export {
 export type { FlagDefinition, FlagKey, FlagKind } from "./catalogue.ts";
 export { BUCKETS, bucketOf, isOnFor, OFF, ROLLOUT_STAGES, rollout } from "./rollout.ts";
 export type { Rollout, RolloutStage } from "./rollout.ts";
-export { flagReviewProblems, overdueFullRollouts, utcDay } from "./review.ts";
+export { flagReviewProblems, MAX_REQUIRES_DEPTH, overdueFullRollouts, utcDay } from "./review.ts";

@@ -7,6 +7,7 @@ import { can } from "../src/modules/access-scope/index.ts";
 import { FLAG_KEYS } from "../src/modules/feature-flags/index.ts";
 import { FEATURE_KEYS } from "../src/modules/plan-catalog/index.ts";
 import {
+  assertRoutes,
   MODULE_UNAVAILABLE_RETRY_AFTER_S,
   registerApi,
   type ApiOptions,
@@ -439,5 +440,73 @@ describe("DAT-05 FR 7: an unknown path answers 404 before its body is read (the 
     expect((await app.inject({ method: "GET", url: "/health/live" })).json()).toEqual({ status: "live" });
     expect((await app.inject({ method: "GET", url: "/health/ready" })).json()).toEqual({ status: "ready" });
     expect((await app.inject({ method: "GET", url: "/health/nope" })).statusCode).toBe(404);
+  });
+});
+
+describe("CICD-06: a route's own flag must require the route's feature (routes and /v1/me/features agree)", () => {
+  const route = (flag: string) =>
+    defineRoute({
+      module: "things",
+      method: "GET",
+      path: "/v1/things/export",
+      operationId: "exportThingsRequires",
+      summary: "x",
+      access: { permission: "things.read", feature: "things", flag },
+      response: { status: 200, description: "x", schema: z.object({ ok: z.boolean() }) },
+      handler: async () => ({ ok: true }),
+    });
+  const options = (requires: Record<string, string | undefined>) => ({
+    permissions: new Set(["things.read"]),
+    features: new Set(["things", "other"]),
+    flags: new Set(["things", "other", "things.export"]),
+    flagRequires: (flag: string) => requires[flag],
+  });
+
+  it("refused at start when the flag requires nothing or another flag", () => {
+    expect(() => assertRoutes([route("things.export")], options({}))).toThrow(
+      /flag things\.export must require the route's feature things \(it requires nothing\)/,
+    );
+    expect(() => assertRoutes([route("things.export")], options({ "things.export": "other" }))).toThrow(
+      /it requires other/,
+    );
+  });
+
+  it("accepted when it requires the route's feature, or when it is the feature's own flag", () => {
+    expect(() =>
+      assertRoutes([route("things.export")], options({ "things.export": "things" })),
+    ).not.toThrow();
+    expect(() => assertRoutes([route("things")], options({}))).not.toThrow();
+  });
+
+  it("the real wiring passes the catalogue's «requires»", () => {
+    expect(apiOptions(testWiring()).flagRequires("household.core")).toBeUndefined();
+    expect(apiOptions(testWiring()).flagRequires("nope")).toBeUndefined();
+  });
+});
+
+describe("CICD-06: a failed test-space lookup answers 404 through the API, not 500", () => {
+  it("a route at stage «test» whose test-space lookup fails is hidden (the 404 of an unknown path)", async () => {
+    const { createFlagRuntime } = await import("../src/modules/feature-flags/application/index.ts");
+    const { memoryFlagStore } =
+      await import("../src/modules/feature-flags/application/memory-store.test-helper.ts");
+    const store = memoryFlagStore();
+    await store.setRollout("household.core", { stage: "test" });
+    store.isTestHousehold = async () => {
+      throw new Error("database unreachable");
+    };
+    const app = await serve(createFlagRuntime(store) as unknown as ReturnType<typeof fakeFlags>);
+    const route = protectedRoutes[0]!;
+    const unknown = await app.inject({
+      method: "GET",
+      url: "/v1/no-such-function",
+      headers: principalHeader(),
+    });
+    const res = await app.inject({
+      method: route.method,
+      url: concreteUrl(route),
+      headers: principalHeader(),
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toBe(unknown.body);
   });
 });

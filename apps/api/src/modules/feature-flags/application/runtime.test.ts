@@ -262,3 +262,47 @@ describe("CICD-06: a sub-function's flag is on only while the flag it requires i
     ).toBe(true);
   });
 });
+
+describe("CICD-06: the test-space lookup waits no longer than LOAD_WAIT_MS (fake timers)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("a hanging lookup counts as «not a test space» after 2 s (fail closed), is not cached, and a later answer is used", async () => {
+    vi.useFakeTimers({ now: 0 });
+    const store = memoryFlagStore();
+    await store.setRollout("household.core", { stage: "test" });
+    store.testHouseholds.add(h);
+    const real = store.isTestHousehold.bind(store);
+    store.isTestHousehold = () => new Promise(() => undefined);
+    const runtime = createFlagRuntime(store);
+    let answer: boolean | undefined;
+    void runtime.isEnabled(h, "household.core").then((a) => (answer = a));
+    await vi.advanceTimersByTimeAsync(LOAD_WAIT_MS - 1);
+    expect(answer).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(answer).toBe(false);
+    store.isTestHousehold = real;
+    expect(await runtime.isEnabled(h, "household.core")).toBe(true);
+  });
+});
+
+describe("CICD-06: a failed test-space lookup keeps the function hidden (404, not 500)", () => {
+  it("a rejected lookup counts as «not a test space», is not cached, and the next request asks again", async () => {
+    const store = memoryFlagStore();
+    await store.setRollout("household.core", { stage: "test" });
+    store.testHouseholds.add(h);
+    const runtime = createFlagRuntime(store, { now: () => 1_000_000 });
+    const real = store.isTestHousehold.bind(store);
+    let asked = 0;
+    store.isTestHousehold = async () => {
+      asked++;
+      throw new Error("database unreachable");
+    };
+    expect(await runtime.isEnabled(h, "household.core")).toBe(false);
+    expect(await runtime.enabledFlags(h)).toEqual([]);
+    expect(asked).toBe(2);
+    store.isTestHousehold = real;
+    expect(await runtime.isEnabled(h, "household.core")).toBe(true);
+  });
+});

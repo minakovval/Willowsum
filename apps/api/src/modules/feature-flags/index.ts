@@ -45,7 +45,12 @@ export type { FlagActor, FlagAdmin, FlagRuntime, FlagSnapshot, FlagsReadiness } 
  * database (lock, overload) ends after 5 s and the next request retries, instead of holding the process on
  * the old state, or after 60 s in the fail-closed state, longer than needed (ADR-0004).
  */
-export const FLAGS_DB_TIMEOUTS = { statement_timeout: 5_000, connectionTimeoutMillis: 5_000 } as const;
+export const FLAGS_DB_TIMEOUTS = {
+  statement_timeout: 5_000,
+  connectionTimeoutMillis: 5_000,
+  // Client side: ends the wait even when the server never answers (the statement timeout needs a live server).
+  query_timeout: 6_000,
+} as const;
 export {
   FLAG_KEYS,
   FLAGS,

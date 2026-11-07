@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { mountApi } from "./api.ts";
-import { checkFlagsReady, createFlagRuntimeFor, FLAGS_DB_TIMEOUTS } from "./modules/feature-flags/index.ts";
+import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
 import { ModuleDatabases } from "./platform/db/module-db.ts";
@@ -15,6 +15,7 @@ import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/mig
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { buildServer } from "./platform/process/server.ts";
+import { contextPoolOptions, modulePoolOptions, readinessCheck } from "./wiring.ts";
 
 const rules = JSON.parse(
   readFileSync(new URL("../module-rules.json", import.meta.url), "utf8"),
@@ -62,9 +63,14 @@ const databases = new ModuleDatabases({
     user: moduleRoleName(module),
     password: config.database.modulePasswords.get(module) ?? "",
     // The flag check must never hang on the database (CICD-06 FR 3).
-    ...(module === "feature-flags" ? FLAGS_DB_TIMEOUTS : {}),
+    ...modulePoolOptions(module),
   }),
-  context: { ...connection, user: CONTEXT_ROLE, password: config.database.contextPassword },
+  context: {
+    ...connection,
+    user: CONTEXT_ROLE,
+    password: config.database.contextPassword,
+    ...contextPoolOptions(),
+  },
 });
 
 // Flags and kill switches (CICD-06): read from the database by the readiness probe and by requests, reloaded
@@ -77,22 +83,19 @@ const server = buildServer({
   ...(config.role === "api"
     ? { api: (app) => mountApi(app, { databases, entitlements: config.planEntitlements, flags }) }
     : {}),
-  readiness: async () => {
-    const client = await probe.connect();
-    try {
-      const pending = await pendingMigrations(client, expected);
-      if (pending.length > 0) return { ready: false, reason: "schema-behind" };
-      // The API serves only once it knows the flags and kill switches (before that every module answers 503).
-      // State older than 60 s (reloads failing) makes it not ready too: the ≤ 1 min bound of a kill switch holds.
-      if (config.role === "api") {
-        const reason = await checkFlagsReady(flags);
-        if (reason !== "ok") return { ready: false, reason };
+  // Schema at least this version; for the api role fresh flags too (before that every module answers 503).
+  readiness: readinessCheck({
+    role: config.role,
+    pendingMigrations: async () => {
+      const client = await probe.connect();
+      try {
+        return (await pendingMigrations(client, expected)).length;
+      } finally {
+        client.release();
       }
-      return { ready: true };
-    } finally {
-      client.release();
-    }
-  },
+    },
+    flags,
+  }),
 });
 
 lifecycle.onStop(() => probe.end());

@@ -5,7 +5,7 @@
  */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.ts";
-import { FLAG_KEYS, type FlagRuntime } from "./modules/feature-flags/index.ts";
+import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
 import type { ModuleDatabase } from "./platform/db/module-db.ts";
@@ -40,6 +40,10 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
     permissions: new Set(PERMISSION_KEYS),
     features: new Set(FEATURE_KEYS),
     flags: new Set(FLAG_KEYS),
+    flagRequires: (flag) =>
+      Object.hasOwn(FLAGS, flag)
+        ? (FLAGS[flag as keyof typeof FLAGS] as { requires?: string }).requires
+        : undefined,
     databases: wiring.databases,
     idempotency: (module) => moduleIdempotencyStore(wiring.databases.for(module)),
     ...(wiring.supportId ? { supportId: wiring.supportId } : {}),

@@ -1,4 +1,4 @@
-import { FLAGS, isOnFor, OFF, type FlagKey } from "../domain/index.ts";
+import { FLAGS, isOnFor, MAX_REQUIRES_DEPTH, OFF, type FlagKey } from "../domain/index.ts";
 import type { FlagSnapshot, FlagStore } from "./ports.ts";
 
 /**
@@ -40,9 +40,6 @@ export interface FlagRuntimeOptions {
 
 /** The part of the flag catalogue the evaluation needs: which flags exist and which flag each one requires. */
 export type FlagCatalogue = Readonly<Record<string, { readonly kind: string; readonly requires?: string }>>;
-
-/** How deep `requires` may chain (check:flags refuses cycles; this only stops a runaway catalogue). */
-const MAX_REQUIRES_DEPTH = 8;
 
 /**
  * Evaluates a flag on a snapshot (also used by GET /v1/me/features). A flag that `requires` another (a
@@ -145,16 +142,28 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
     return fresh() ? snapshot : undefined;
   };
 
+  /**
+   * Is the space a test space? Asked only at «test» and «share» (outside the share). Bounded like a reload: an
+   * answer that does not come within LOAD_WAIT_MS, or a lookup that fails, counts as «not a test space» for this
+   * request (the function stays hidden — 404, not 500: fail closed) and is not remembered.
+   */
   const isTest = (householdId: string) => () => {
     let cached = testCache.get(householdId);
     if (!cached) {
       if (testCache.size >= TEST_CACHE_MAX) testCache.clear();
-      cached = store.isTestHousehold(householdId);
-      testCache.set(householdId, cached);
-      // A failed lookup is not remembered.
-      cached.catch(() => testCache.delete(householdId));
+      const lookup = store.isTestHousehold(householdId);
+      testCache.set(householdId, lookup);
+      lookup.catch(() => testCache.delete(householdId));
+      cached = lookup;
     }
-    return cached;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const late = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => {
+        if (testCache.get(householdId) === cached) testCache.delete(householdId);
+        resolve(false);
+      }, LOAD_WAIT_MS);
+    });
+    return Promise.race([cached.catch(() => false), late]).finally(() => clearTimeout(timer));
   };
 
   return {

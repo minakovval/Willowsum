@@ -99,4 +99,22 @@ describe("CICD-06 AC2: every flag has an owner and a review date; CI fails for s
       "a.three: requires a.three, which is a cycle",
     ]);
   });
+
+  it("a «requires» chain longer than the bound is reported, so the walk always ends", () => {
+    const chain: Record<string, unknown> = {};
+    const keys = Array.from({ length: 12 }, (_, i) => `a.f${i}`);
+    keys.forEach((k, i) =>
+      Object.assign(chain, {
+        [k]: {
+          ...base,
+          kind: "release",
+          reviewBy: "2027-06-01",
+          ...(i > 0 ? { requires: keys[i - 1] } : {}),
+        },
+      }),
+    );
+    const problems = flagReviewProblems(chain, "2026-11-06", keys);
+    expect(problems).toContain("a.f11: requires chains deeper than 8 flags");
+    expect(problems.filter((p) => /deeper/.test(p)).length).toBe(3);
+  });
 });

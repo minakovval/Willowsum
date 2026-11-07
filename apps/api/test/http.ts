@@ -111,6 +111,13 @@ export async function testApp(
     moduleAvailable: async () => true,
     checkFlag: async () => true,
     flags: new Set(routes.flatMap((r) => ("feature" in r.access ? routeFlags(r.access) : []))),
+    // Test routes' own flags require their feature, as the catalogue would declare.
+    flagRequires: (flag) => {
+      for (const r of routes)
+        if ("feature" in r.access && r.access.flag === flag && flag !== r.access.feature)
+          return r.access.feature;
+      return undefined;
+    },
     permissions: new Set(routes.flatMap((r) => ("permission" in r.access ? [r.access.permission] : []))),
     features: new Set(routes.flatMap((r) => ("feature" in r.access ? [r.access.feature] : []))),
     databases: fakeDatabases().databases,

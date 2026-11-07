@@ -2,6 +2,9 @@ import { FULL_ROLLOUT_MAX_DAYS, flagDefinition, type FlagDefinition } from "./ca
 
 const DAY_MS = 86_400_000;
 
+/** How deep `requires` may chain: the same bound as the runtime's flagOn. */
+export const MAX_REQUIRES_DEPTH = 8;
+
 function days(from: string, to: string): number {
   return Math.floor((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
@@ -44,7 +47,12 @@ export function flagReviewProblems(
       // The chain of «requires» must end at a flag that requires nothing, without coming back.
       const seen = new Set([key]);
       let next: string | undefined = flag.requires;
-      while (next !== undefined) {
+      // Bounded like flagOn: a broken cycle check fails a test instead of hanging check:flags.
+      for (let depth = 0; next !== undefined; depth++) {
+        if (depth >= MAX_REQUIRES_DEPTH) {
+          problems.push(`${key}: requires chains deeper than ${MAX_REQUIRES_DEPTH} flags`);
+          break;
+        }
         if (seen.has(next) || !Object.hasOwn(flags, next)) {
           problems.push(
             `${key}: requires ${flag.requires}, which is ${seen.has(next) ? "a cycle" : "not a flag"}`,
