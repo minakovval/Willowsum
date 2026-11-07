@@ -1,4 +1,6 @@
 # Створено: 2026-11-07 · Оновлено: 2026-11-07
-# Known false positives in PR commits (CICD-12). Each line is a gitleaks fingerprint: commit:file:rule:line.
-# 7870ebf (PR #85): a synthetic test key in a telemetry test; the value is now built at run time.
+# Known false positives in PR #85's commits (CICD-12). Each line is a gitleaks fingerprint: commit:file:rule:line.
+# Both commits held a synthetic test key in a telemetry test; the value is now a low-entropy string with no
+# hex run. These commits are squashed on merge, so they never reach main's history.
 7870ebf5fa455eea4c94927a8d6779d26bac2637:apps/api/src/platform/adapters/telemetry-arc09.test.ts:generic-api-key:19
+6042ac3f4ef6381564c123559f64e5d7604e4cb7:apps/api/src/platform/adapters/telemetry-arc09.test.ts:generic-api-key:20
