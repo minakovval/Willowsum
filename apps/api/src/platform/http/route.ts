@@ -1,6 +1,9 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../db/module-db.ts";
+import { API_BODY_LIMIT_BYTES } from "./limits.ts";
 import { pageQuery } from "./pagination.ts";
+import { RATE_LIMITS, RATE_LIMIT_CLASSES, type RateLimitClass } from "./rate-limit.ts";
+import { ROUTE_HEADER_VALUE_RE, ROUTE_OVERRIDABLE_HEADERS, type RouteHeaders } from "./security-headers.ts";
 
 /**
  * Who is calling (ARC-07, П-5). The household comes from the authenticated session, never from the
@@ -94,6 +97,19 @@ export interface RouteDefinition<
   readonly list?: boolean;
   /** Marked deprecated on that date (ISO); removable from the contract 6 months later (ARC-07 FR 3). */
   readonly deprecatedSince?: string;
+  /**
+   * The rate-limit class (NFR-14 FR 5): `public` (60 per minute per address) for public routes — the default
+   * and the only class looser than `upload` they may have; `upload` (30) for file uploads; `default` (600)
+   * for the rest, the default of protected routes. A route may only be stricter than its default.
+   */
+  readonly rateLimit?: RateLimitClass;
+  /**
+   * The route's own values of security headers (NFR-14 FR 1), which win over the API defaults on its
+   * successful answer: e.g. `cache-control: private, max-age=300`, a CSP with `sandbox`, `SAMEORIGIN`.
+   */
+  readonly headers?: RouteHeaders;
+  /** A body limit below the API's 1 MiB (NFR-15 FR 17), in bytes. */
+  readonly bodyLimitBytes?: number;
   readonly handler: (input: RouteInput<R>, ctx: RouteContext<A>) => Promise<z.input<S>>;
 }
 
@@ -112,6 +128,11 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isPublic(access: RouteAccess): access is { readonly public: string } {
   return "public" in access;
+}
+
+/** The rate-limit class of a route: its own, or `public` for public and `default` for protected routes. */
+export function routeRateLimitClass(route: Pick<RouteDefinition, "access" | "rateLimit">): RateLimitClass {
+  return route.rateLimit ?? (isPublic(route.access) ? "public" : "default");
 }
 
 /** The most specific flag of a protected route: its own `flag`, or its feature key. */
@@ -179,6 +200,25 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
   }
   if (route.deprecatedSince !== undefined && !DATE_RE.test(route.deprecatedSince))
     fail("deprecatedSince is YYYY-MM-DD");
+  if (route.rateLimit !== undefined) {
+    if (!RATE_LIMIT_CLASSES.includes(route.rateLimit)) fail("rateLimit is public, upload or default");
+    const loosest = access && isPublic(access) ? "public" : "default";
+    if (RATE_LIMITS[route.rateLimit] > RATE_LIMITS[loosest])
+      fail(`rateLimit ${route.rateLimit} is looser than the ${loosest} class of this route`);
+  }
+  for (const [name, value] of Object.entries(route.headers ?? {})) {
+    if (!(ROUTE_OVERRIDABLE_HEADERS as readonly string[]).includes(name))
+      fail(`header ${name} cannot be set by a route (only ${ROUTE_OVERRIDABLE_HEADERS.join(", ")})`);
+    if (typeof value !== "string" || !ROUTE_HEADER_VALUE_RE.test(value))
+      fail(`header ${name} has an invalid value`);
+  }
+  if (
+    route.bodyLimitBytes !== undefined &&
+    (!Number.isInteger(route.bodyLimitBytes) ||
+      route.bodyLimitBytes < 1 ||
+      route.bodyLimitBytes > API_BODY_LIMIT_BYTES)
+  )
+    fail(`bodyLimitBytes is 1–${API_BODY_LIMIT_BYTES}`);
   if (!(route.response.schema instanceof z.ZodObject)) fail("the response is a JSON object");
   return route as unknown as ApiRoute;
 }

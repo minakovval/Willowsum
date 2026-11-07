@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { guardApiRoutes } from "../http/api.ts";
+import { API_BODY_LIMIT_BYTES } from "../http/limits.ts";
+import { applySecurityHeaders, installSecurityHeaders } from "../http/security-headers.ts";
 import { PROBLEM_CONTENT_TYPE, problemBody, type ProblemCode } from "../http/problem.ts";
 import {
   finishRequestTrace,
@@ -16,6 +18,15 @@ export interface ServerOptions {
   readonly readiness: ReadinessCheck;
   /** Mounts the HTTP API (role `api` only, ARC-07). */
   readonly api?: (app: FastifyInstance) => void;
+  /**
+   * HSTS on every answer: staging and production only (NFR-14 table), from the configuration. Default off.
+   */
+  readonly hsts?: boolean;
+  /**
+   * Proxies in front of the API whose `X-Forwarded-For` / `X-Forwarded-Proto` are trusted (NFR-14 FR 8;
+   * `WS_TRUSTED_PROXY_HOPS`). 0 (default): the client's address is the socket's, forwarded headers are ignored.
+   */
+  readonly trustedProxyHops?: number;
 }
 
 /** Seconds a client waits before retrying a request that arrived while this process was stopping. */
@@ -32,8 +43,16 @@ function sendProblem(request: FastifyRequest, reply: FastifyReply, code: Problem
  * and `scheduler` serve only the probes. The probes return no data: «готовий» says only why it is not.
  */
 export function buildServer(options: ServerOptions): FastifyInstance {
+  const hops = options.trustedProxyHops ?? 0;
+  if (!Number.isInteger(hops) || hops < 0) throw new Error("trustedProxyHops is a non-negative integer");
+  const headers = { hsts: options.hsts ?? false };
   const app = Fastify({
     logger: false,
+    // NFR-15 FR 17: request bodies up to 1 MiB (Fastify's default, made explicit); larger → 413.
+    bodyLimit: API_BODY_LIMIT_BYTES,
+    // NFR-14 FR 8: the client's address (request.ip, request.protocol) comes from forwarded headers only
+    // through the configured number of trusted proxies (hop 0 is the socket peer); without them, never.
+    trustProxy: hops === 0 ? false : (_address: string, hop: number) => hop < hops,
     // On shutdown, idle keep-alive connections are closed at once; requests in flight are finished.
     forceCloseConnections: "idle",
     // Requests that still arrive while stopping (on a busy keep-alive connection) are answered below with a
@@ -48,12 +67,15 @@ export function buildServer(options: ServerOptions): FastifyInstance {
     frameworkErrors: (_error, request, frameworkReply) => {
       const reply = frameworkReply as unknown as FastifyReply;
       traceRequest(request);
+      applySecurityHeaders(reply, headers);
       void sendProblem(request, reply, "NOT_FOUND");
       finishRequestTrace(request, reply);
     },
   });
   // Before any route: nothing under /v1 is served unless the API layer mounted it with its checks (ARC-07).
   guardApiRoutes(app);
+  // NFR-14 FR 1: the security headers on every answer (probes, problems, 404, the 503 while stopping).
+  installSecurityHeaders(app, headers);
   // Every request except the probes is traced; its trace id is the support id of its problems (ARC-09).
   instrumentHttp(app);
   // A response finished during shutdown closes its keep-alive connection, so close() is not held open by it.

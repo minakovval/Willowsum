@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PROVIDER_MODES, type ProviderMode } from "../adapters/port.ts";
+import { LOCAL_ALLOWED_ORIGINS, parseAllowedOrigins } from "../http/origin.ts";
 import { schemaName } from "../modules/rules.ts";
 import { TELEMETRY_MODES, type TelemetryMode } from "../telemetry/modes.ts";
 
@@ -42,6 +43,20 @@ export interface Config {
       readonly authorization: string;
     };
   };
+  /**
+   * Staging or production (`WS_TELEMETRY_ENVIRONMENT`): served over HTTPS only, so HSTS is sent and session
+   * cookies are `__Secure-` (NFR-14, NFR-15 FR 5).
+   */
+  readonly deployed: boolean;
+  /** HTTP protections of the API (NFR-14, NFR-15 FR 5; ADR-0007). */
+  readonly http: {
+    /** Proxies in front of the API whose forwarded headers are trusted (`WS_TRUSTED_PROXY_HOPS`, default 0). */
+    readonly trustedProxyHops: number;
+    /** `on` (default everywhere) or `off-load-test` (a load test only; refused in production). */
+    readonly rateLimits: (typeof RATE_LIMIT_MODES)[number];
+    /** Origins whose pages may send write requests (`WS_ALLOWED_ORIGINS`; default below in loadConfig). */
+    readonly allowedOrigins: ReadonlySet<string>;
+  };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -65,6 +80,15 @@ export class ConfigError extends Error {
     this.variables = variables;
   }
 }
+
+/** `WS_RATE_LIMITS`: on, or off only for a load test (NFR-14 FR 9). */
+export const RATE_LIMIT_MODES = ["on", "off-load-test"] as const;
+
+/**
+ * API instances that may run with rate-limit counters in process memory (NFR-14 FR 10): one. With more
+ * (`WS_API_INSTANCES` > 1) and limits on, the process refuses to start until a shared store exists (ADR-0007).
+ */
+export const MAX_INSTANCES_WITH_MEMORY_RATE_LIMITS = 1;
 
 /** Mirrors plan-catalog's ENTITLEMENT_SOURCES (a test keeps them equal; platform code cannot import modules). */
 export const PLAN_ENTITLEMENT_SOURCES = ["all-enabled"] as const;
@@ -121,6 +145,13 @@ export function loadConfig(
       .default("local"),
     WS_OTLP_ENDPOINT: z.string().refine(isTelemetryEndpoint).optional(),
     WS_OTLP_AUTHORIZATION: secret.optional(),
+    WS_TRUSTED_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+    WS_RATE_LIMITS: z.enum(RATE_LIMIT_MODES).default("on"),
+    WS_API_INSTANCES: z.coerce.number().int().min(1).max(64).default(1),
+    WS_ALLOWED_ORIGINS: z
+      .string()
+      .refine((v) => parseAllowedOrigins(v) !== undefined)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -149,6 +180,27 @@ export function loadConfig(
     if (parsed.data.WS_OTLP_ENDPOINT === undefined) problems.push("WS_OTLP_ENDPOINT");
     if (parsed.data.WS_OTLP_AUTHORIZATION === undefined) problems.push("WS_OTLP_AUTHORIZATION");
   }
+  if (parsed.success) {
+    const deployed = DEPLOYED_ENVIRONMENTS.has(parsed.data.WS_TELEMETRY_ENVIRONMENT);
+    // NFR-14 FR 9: limits can be switched off only for a load test, which never runs in production.
+    if (parsed.data.WS_RATE_LIMITS !== "on" && parsed.data.WS_TELEMETRY_ENVIRONMENT === "production")
+      problems.push("WS_RATE_LIMITS");
+    // NFR-14 FR 10: counters live in process memory; more API instances need a shared store first.
+    if (
+      role === "api" &&
+      parsed.data.WS_RATE_LIMITS === "on" &&
+      parsed.data.WS_API_INSTANCES > MAX_INSTANCES_WITH_MEMORY_RATE_LIMITS
+    )
+      problems.push("WS_API_INSTANCES");
+    // NFR-15 FR 5: staging and production take HTTPS origins only (http only for this machine, locally).
+    if (
+      deployed &&
+      [...(parseAllowedOrigins(parsed.data.WS_ALLOWED_ORIGINS ?? "") ?? [])].some(
+        (o) => !o.startsWith("https://"),
+      )
+    )
+      problems.push("WS_ALLOWED_ORIGINS");
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
   const telemetryMode = (v["WS_TELEMETRY"] ?? "test") as TelemetryMode;
@@ -169,6 +221,19 @@ export function loadConfig(
             },
           }
         : {}),
+    },
+    deployed: DEPLOYED_ENVIRONMENTS.has(v["WS_TELEMETRY_ENVIRONMENT"] as string),
+    http: {
+      trustedProxyHops: v["WS_TRUSTED_PROXY_HOPS"] as number,
+      rateLimits: v["WS_RATE_LIMITS"] as Config["http"]["rateLimits"],
+      // Not set: the Vite dev and preview servers locally; none in staging and production, where every
+      // write from a browser page is then refused (fail closed) until the web app's origin is configured.
+      allowedOrigins:
+        v["WS_ALLOWED_ORIGINS"] !== undefined
+          ? parseAllowedOrigins(v["WS_ALLOWED_ORIGINS"] as string)!
+          : DEPLOYED_ENVIRONMENTS.has(v["WS_TELEMETRY_ENVIRONMENT"] as string)
+            ? new Set<string>()
+            : LOCAL_ALLOWED_ORIGINS,
     },
     database: {
       host: v["WS_DB_HOST"] as string,

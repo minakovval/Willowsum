@@ -1,4 +1,4 @@
-// Створено: 2026-11-07 · Оновлено: 2026-11-07
+// Створено: 2026-11-07 · Оновлено: 2026-11-07 (NFR-14: лічильник відмов за лімітом частоти)
 //
 // SLOs and alert rules as code (ARC-09 FR 4, NFR-10 FR 5–6, ADR-0006). This file is the single source: the
 // rule file, the routing and the dashboard in infra/observability/ are generated from it by
@@ -16,6 +16,7 @@ export const METRICS = Object.freeze({
   "http.server.request.duration": "http_server_request_duration_seconds",
   "ws.provider.calls": "ws_provider_calls_total",
   "ws.bank_sync.runs": "ws_bank_sync_runs_total",
+  "ws.rate_limit.rejections": "ws_rate_limit_rejections_total",
 });
 
 const DURATION = METRICS["http.server.request.duration"];

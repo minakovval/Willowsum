@@ -61,6 +61,8 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   // A closed set: the problem codes of the API (it labels the duration metric, so its cardinality stays fixed).
   // Why a 503 was answered (closed set): only `kill_switch` is left out of the 5xx ratio.
   "ws.unavailable.reason": closed(/^(kill_switch|flags_unknown)$/, 16),
+  // The class of a rate limit that refused a request (closed set, NFR-14); never the client's address.
+  "ws.rate_limit.class": closed(/^(public|upload|default)$/, 16),
   "ws.problem.code": closed(new RegExp(`^(${PROBLEM_CODES.join("|")})$`), 64),
   // Database errors (NFR-10 FR 2): the SQLSTATE and the names of the constraint, table, column and schema.
   "db.system.name": str(/^postgresql$/, 16),

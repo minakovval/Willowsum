@@ -59,11 +59,15 @@ export type components = {
     schemas: {
         /** @description RFC 9457 problem details with a machine-readable code (ARC-07 FR 4). */
         Problem: {
+            /** @description VERSION_CONFLICT: the fields of the request whose current value differs from the value sent (field names only) */
+            changedFields?: string[];
             /**
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "NOT_FOUND" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            /** @description VERSION_CONFLICT: the current version of the record */
+            currentVersion?: number;
             detail?: string;
             errors?: {
                 /** @enum {string} */
@@ -71,6 +75,8 @@ export type components = {
                 issue: string;
                 path: string;
             }[];
+            /** @description LIMIT_REACHED: the limit that was reached */
+            limit?: number;
             status: number;
             /** @description Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code */
             supportId?: string;
@@ -145,6 +151,17 @@ export interface operations {
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -239,6 +256,17 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
             503: {
                 headers: {
@@ -283,6 +311,17 @@ export interface operations {
             /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
             400: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
                     [name: string]: unknown;
                 };
                 content: {
