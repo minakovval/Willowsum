@@ -1,3 +1,4 @@
+import dns from "node:dns";
 import { once } from "node:events";
 import http from "node:http";
 import net, { type AddressInfo } from "node:net";
@@ -53,6 +54,16 @@ describe("ARC-05 criterion «Тести, що потребують інтерн�
     const socket = net.connect(port, "127.0.0.1");
     await once(socket, "connect");
     socket.destroy();
+  });
+
+  it("ARC-05: dns.lookupService (callback and promise) is blocked for an outside address", async () => {
+    const viaCallback = await new Promise<NodeJS.ErrnoException | null>((resolve) =>
+      dns.lookupService(OUTSIDE, 443, (error) => resolve(error)),
+    );
+    expect(viaCallback?.code).toBe("WS_NETWORK_BLOCKED");
+    await expect(dns.promises.lookupService(OUTSIDE, 443)).rejects.toMatchObject({
+      code: "WS_NETWORK_BLOCKED",
+    });
   });
 
   it("allows only local hosts and the configured database host", () => {

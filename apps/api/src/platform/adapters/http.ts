@@ -1,6 +1,6 @@
 import { ProviderError } from "./errors.ts";
 import { assertOutgoing } from "./outgoing.ts";
-import { pathPlaceholders, type ProviderOperation } from "./port.ts";
+import { pathPlaceholders, pathTemplateProblems, type ProviderOperation } from "./port.ts";
 import type { ProviderClient } from "./provider-client.ts";
 
 /**
@@ -60,6 +60,9 @@ export function requestUrl(
   operation: ProviderOperation,
   values: Readonly<Record<string, string>>,
 ): URL {
+  // An operation may be built by hand (the type allows it): its template is checked here too.
+  if (pathTemplateProblems(operation.path, operation.fields).length > 0)
+    throw new Error("Provider operation path is not a valid template");
   const root = base.href.endsWith("/") ? base : new URL(`${base.href}/`);
   const used = new Set(pathPlaceholders(operation.path));
   const relative = operation.path

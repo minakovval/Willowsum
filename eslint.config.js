@@ -147,7 +147,9 @@ export default tseslint.config(
   {
     ignores: [
       "**/node_modules/**",
-      "**/dist/**",
+      // Build output of a package only: a dist/ folder inside src/ is still checked.
+      "*/*/dist/**",
+      "dist/**",
       "**/coverage/**",
       "docs/**",
       // tools/ holds scripts outside the workspace packages; tools/synthetic is a workspace package (linted).

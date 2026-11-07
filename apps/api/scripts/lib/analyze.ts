@@ -83,7 +83,7 @@ export async function analyzeWorkspaceSdks(
         ruleSet: { forbidden: [buildWorkspaceSdkRule(providerSdks)] },
         tsPreCompilationDeps: true,
         doNotFollow: { path: "node_modules" },
-        exclude: { path: ["(^|/)node_modules/", "(^|/)dist/"] },
+        exclude: { path: ["(^|/)node_modules/", "^(apps|packages|tools)/[^/]+/dist/"] },
         outputType: "json",
       },
       {

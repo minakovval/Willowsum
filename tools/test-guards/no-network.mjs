@@ -7,8 +7,9 @@
 // - names: `localhost` (which must also resolve to loopback) and the database host (trusted by name);
 // - Unix sockets (a non-empty `path`).
 // Anything else fails with WS_NETWORK_BLOCKED: fetch, http/https, TLS and raw TCP sockets before connecting,
-// UDP datagrams before sending, DNS queries (dns.lookup, dns.resolve*, dns.promises, Resolver) before asking.
-// Child processes a test starts are not covered. Working adapters are tested with an injected fetch
+// UDP datagrams before sending (a socket's own `lookup` must answer loopback for localhost; only sockets made
+// with dgram.createSocket), DNS queries (dns.lookup, dns.lookupService, dns.resolve*, dns.promises, Resolver)
+// before asking. Child processes a test starts are not covered. Working adapters are tested with an injected fetch
 // (apps/api/src/platform/adapters/testing.ts).
 import dgram from "node:dgram";
 import dns from "node:dns";
@@ -141,6 +142,22 @@ function guardSockets() {
 }
 
 function guardDatagrams() {
+  // A socket created with its own `lookup`: an allowed name (localhost) must still resolve to loopback.
+  const originalCreate = dgram.createSocket;
+  dgram.createSocket = function guardedCreateSocket(options, ...rest) {
+    if (options !== null && typeof options === "object" && typeof options.lookup === "function") {
+      const inner = options.lookup;
+      const lookup = function guardedDgramLookup(hostname, family, callback) {
+        // An IP literal (e.g. the implicit bind to 0.0.0.0) is its own answer, whatever the lookup says.
+        const literal = net.isIP(strip(hostname ?? ""));
+        if (literal) return process.nextTick(() => callback(null, strip(hostname), literal));
+        if (!needsLoopbackLookup(hostname)) return inner(hostname, family, callback);
+        return loopbackOnlyLookup(hostname, undefined, inner)(hostname, family, callback);
+      };
+      return originalCreate.call(this, { ...options, lookup }, ...rest);
+    }
+    return originalCreate.call(this, options, ...rest);
+  };
   const proto = dgram.Socket.prototype;
   const blocked = (socket, host, port, callback) => {
     const error = new NetworkBlockedError(host, port);
@@ -160,7 +177,8 @@ function guardDatagrams() {
   const originalConnect = proto.connect;
   proto.connect = function guardedConnect(port, address, callback) {
     if (typeof address === "string" && !isAllowedHost(address)) {
-      return blocked(this, address, port, typeof callback === "function" ? callback : undefined);
+      // Like a real failure: Node calls connect's callback only on success, so the error is emitted.
+      return blocked(this, address, port, undefined);
     }
     return originalConnect.apply(this, [port, address, callback].filter((a) => a !== undefined));
   };
@@ -209,7 +227,7 @@ function guardDns() {
       return original.call(this, name, ...rest);
     };
   };
-  for (const method of ["lookup", ...RESOLVE_METHODS]) {
+  for (const method of ["lookup", "lookupService", ...RESOLVE_METHODS]) {
     wrapCallback(dns, method);
     wrapPromise(dns.promises, method);
   }
