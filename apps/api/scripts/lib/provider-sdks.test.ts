@@ -1,10 +1,10 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
-import { analyzeImports } from "./analyze.ts";
+import { analyzeImports, analyzeWorkspaceSdks, workspaceSourceDirs } from "./analyze.ts";
 import { providerSdkPaths, readProviderSdks } from "./provider-sdks.ts";
 
 const fixture = fileURLToPath(new URL("../../test/fixtures/provider-sdks", import.meta.url));
@@ -43,6 +43,13 @@ describe("ARC-05 FR 1 / criterion «Імпорт SDK провайдера поз
     expect(match("stripe", "stripe-like-helper")).toBe(false);
     expect(match("stripe", "node_modules/.pnpm/stripe-like@1.0.0/node_modules/stripe-like/i.js")).toBe(false);
     expect(match("openai", "src/modules/ai-assistant/adapters/openai.ts")).toBe(false);
+    // Each form on its own: hoisted, pnpm store (scope «+» name «@» version), bare specifier.
+    const [hoisted, pnpm, bare] = providerSdkPaths("@aws-sdk/*").map((re) => new RegExp(re));
+    expect(hoisted!.test("node_modules/@aws-sdk/client-s3/index.js")).toBe(true);
+    expect(pnpm!.test("node_modules/.pnpm/@aws-sdk+client-s3@3.700.0/dist/index.js")).toBe(true);
+    expect(hoisted!.test("node_modules/.pnpm/@aws-sdk+client-s3@3.700.0/dist/index.js")).toBe(false);
+    expect(bare!.test("@aws-sdk/client-s3/dist")).toBe(true);
+    expect(bare!.test("node_modules/@aws-sdk/client-s3/index.js")).toBe(false);
   });
 
   it("the list is well-formed and covers the provider kinds of ARC-05 (payments, cloud, AI, mail, maps, messaging, banking)", () => {
@@ -66,11 +73,62 @@ describe("ARC-05 FR 1 / criterion «Імпорт SDK провайдера поз
   });
 });
 
+describe("ARC-05 FR 1: the same analyzer rule over the web app, shared packages and tools/synthetic", () => {
+  it("ARC-05 FR 1: catches static, dynamic, require and re-export loads in every file kind; allows apps/web/src/adapters", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "ws-sdk-ws-"));
+    const files: Record<string, string> = {
+      "apps/web/src/map.ts": 'export const load = () => import("mapbox-gl");\n',
+      "apps/web/src/screens/Pay.tsx":
+        'import Stripe from "stripe";\nexport const P = () => <i>{String(Stripe)}</i>;\n',
+      "apps/web/src/adapters/maps.ts": 'import mapboxgl from "mapbox-gl";\nexport const m = mapboxgl;\n',
+      "apps/web/e2e/probe.ts": 'export * from "openai";\n',
+      "packages/ui/src/a.mjs": 'import s from "@sentry/browser";\nexport const x = s;\n',
+      "packages/i18n/src/b.cjs": 'module.exports = require("twilio");\n',
+      "tools/synthetic/src/c.mts": 'export { default } from "@aws-sdk/client-s3";\n',
+      "packages/ui/src/fine.ts": 'import x from "stripe-like-helper";\nexport const y = x;\n',
+    };
+    for (const [file, code] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+      writeFileSync(path.join(root, file), code);
+    }
+    expect(workspaceSourceDirs(root)).toEqual([
+      "apps/web/src",
+      "apps/web/e2e",
+      "packages/i18n/src",
+      "packages/ui/src",
+      "tools/synthetic/src",
+    ]);
+    expect(await analyzeWorkspaceSdks(root, sdks)).toEqual([
+      "provider-sdk-outside-adapter: apps/web/e2e/probe.ts → openai",
+      "provider-sdk-outside-adapter: apps/web/src/map.ts → mapbox-gl",
+      "provider-sdk-outside-adapter: apps/web/src/screens/Pay.tsx → stripe",
+      "provider-sdk-outside-adapter: packages/i18n/src/b.cjs → twilio",
+      "provider-sdk-outside-adapter: packages/ui/src/a.mjs → @sentry/browser",
+      "provider-sdk-outside-adapter: tools/synthetic/src/c.mts → @aws-sdk/client-s3",
+    ]);
+  });
+
+  it("finds none in the repository, which it does scan (web, packages, tools/synthetic)", async () => {
+    const dirs = workspaceSourceDirs(repoRoot);
+    expect(dirs).toEqual(
+      expect.arrayContaining([
+        "apps/web/src",
+        "packages/ui/src",
+        "packages/domain-kernel/src",
+        "tools/synthetic/src",
+      ]),
+    );
+    expect(dirs.some((d) => d.startsWith("apps/api"))).toBe(false);
+    expect(await analyzeWorkspaceSdks(repoRoot, sdks)).toEqual([]);
+  });
+});
+
 describe("ARC-05 FR 1: the same list in ESLint for every other package (web, packages)", () => {
   const eslint = new ESLint({ cwd: repoRoot });
-  async function restricted(code: string, file: string): Promise<number> {
+  async function restricted(code: string, file: string, dynamic = false): Promise<number> {
     const [result] = await eslint.lintText(code, { filePath: path.join(repoRoot, file) });
-    return (result?.messages ?? []).filter((m) => m.ruleId === "no-restricted-imports").length;
+    const rule = dynamic ? "willowsum/no-provider-sdk-load" : "no-restricted-imports";
+    return (result?.messages ?? []).filter((m) => m.ruleId === rule).length;
   }
 
   it("ARC-05 FR 1: refuses a provider SDK in the web app or a shared package, allows it in an adapter folder", async () => {
@@ -85,6 +143,17 @@ describe("ARC-05 FR 1: the same list in ESLint for every other package (web, pac
     expect(
       await restricted('import x from "stripe-like-helper";\nexport const y = x;\n', "apps/web/src/a.ts"),
     ).toBe(0);
+  });
+
+  it("ARC-05 FR 1: dynamic loading and every file kind are checked, tools/synthetic included", async () => {
+    const lazy = 'export const load = () => import("mapbox-gl");\n';
+    expect(await restricted(lazy, "apps/web/src/screens/Map.tsx", true)).toBe(1);
+    expect(await restricted(lazy, "tools/synthetic/src/probe.ts", true)).toBe(1);
+    expect(await restricted('module.exports = require("twilio");\n', "packages/ui/src/a.cjs", true)).toBe(1);
+    expect(
+      await restricted('import s from "stripe";\nexport const x = s;\n', "packages/i18n/src/a.mjs"),
+    ).toBe(1);
+    expect(await restricted(lazy, "apps/web/src/adapters/maps.ts", true)).toBe(0);
   });
 
   it("the OpenAPI client rule still applies everywhere outside packages/api-contract, adapters included", async () => {

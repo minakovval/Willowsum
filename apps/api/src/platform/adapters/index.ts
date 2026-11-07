@@ -6,7 +6,7 @@ export { sleep, systemClock } from "./clock.ts";
 export type { AdapterClock } from "./clock.ts";
 export { OutgoingFieldError, PROVIDER_FAILURE_KINDS, ProviderError } from "./errors.ts";
 export type { ProviderFailureKind } from "./errors.ts";
-export { checkBaseUrl, createProviderHttp } from "./http.ts";
+export { checkBaseUrl, createProviderHttp, requestUrl } from "./http.ts";
 export type { FetchFn, ProviderHttp, ProviderHttpOptions } from "./http.ts";
 export { createLastKnown, memoryLastKnownStore } from "./last-known.ts";
 export type { LastKnown, LastKnownEntry, LastKnownStore, Observed } from "./last-known.ts";
@@ -15,9 +15,16 @@ export {
   outgoingFieldViolations,
   payloadFields,
   requestFields,
+  UNDECLARED_PATH,
   undeclaredFields,
 } from "./outgoing.ts";
-export { PROVIDER_MODES, defineProviderPort, selectImplementation } from "./port.ts";
+export {
+  PROVIDER_MODES,
+  defineProviderPort,
+  pathPlaceholders,
+  pathTemplateProblems,
+  selectImplementation,
+} from "./port.ts";
 export type { ProviderImplementations, ProviderMode, ProviderOperation, ProviderPort } from "./port.ts";
 export { DEFAULT_CALL_POLICY, backoffDelay, createProviderClient } from "./provider-client.ts";
 export type {

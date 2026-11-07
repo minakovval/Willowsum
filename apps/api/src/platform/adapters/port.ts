@@ -14,6 +14,12 @@ export interface ProviderOperation {
    * `a[].b`. A listed path covers what is below it.
    */
   readonly fields: readonly string[];
+  /**
+   * Request path below the provider's base URL, fixed in the port (FR 5: a call cannot add data to it). Data
+   * goes into the path only through placeholders, e.g. `rates/{date}`, and each placeholder is a declared field.
+   * Empty: the base URL itself.
+   */
+  readonly path: string;
 }
 
 export interface ProviderPort<Op extends string> {
@@ -24,22 +30,64 @@ export interface ProviderPort<Op extends string> {
 
 const PORT_NAME_RE = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
 const FIELD_RE = /^[A-Za-z_][A-Za-z0-9_-]*(\[\])?(\.[A-Za-z_][A-Za-z0-9_-]*(\[\])?)*$/;
+/** A fixed path segment: unreserved characters only and not starting with a dot (no `.`, `..`, `?`, `#`, `:`). */
+export const PATH_SEGMENT_RE = /^[A-Za-z0-9_~-][A-Za-z0-9._~-]*$/;
+const PLACEHOLDER_RE = /^\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
+
+/** Placeholder names of a path template, in order (`rates/{date}` → `["date"]`). */
+export function pathPlaceholders(template: string): string[] {
+  if (template === "") return [];
+  return template.split("/").flatMap((segment) => {
+    const m = PLACEHOLDER_RE.exec(segment);
+    return m ? [m[1]!] : [];
+  });
+}
+
+/** Problems of a path template: segments are fixed or a single `{field}` placeholder of a declared field. */
+export function pathTemplateProblems(template: string, fields: readonly string[]): string[] {
+  if (template === "") return [];
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const segment of template.split("/")) {
+    const m = PLACEHOLDER_RE.exec(segment);
+    if (m) {
+      if (!fields.includes(m[1]!)) problems.push(`placeholder {${m[1]}} is not a declared field`);
+      if (seen.has(m[1]!)) problems.push(`placeholder {${m[1]}} appears twice`);
+      seen.add(m[1]!);
+    } else if (!PATH_SEGMENT_RE.test(segment)) problems.push(`invalid path segment «${segment}»`);
+  }
+  return problems;
+}
 
 export function defineProviderPort<Op extends string>(
   name: string,
-  operations: { readonly [K in Op]: { readonly idempotent: boolean; readonly fields: readonly string[] } },
+  operations: {
+    readonly [K in Op]: {
+      readonly idempotent: boolean;
+      readonly fields: readonly string[];
+      readonly path?: string;
+    };
+  },
 ): ProviderPort<Op> {
   if (!PORT_NAME_RE.test(name)) throw new Error(`Provider port «${name}»: names are kebab-case`);
   const built = {} as { [K in Op]: ProviderOperation };
   for (const op of Object.keys(operations) as Op[]) {
-    const { idempotent, fields } = operations[op];
+    const { idempotent, fields, path = "" } = operations[op];
     for (const field of fields) {
       if (!FIELD_RE.test(field))
         throw new Error(`Provider port ${name}.${op}: invalid field path «${field}»`);
     }
     if (new Set(fields).size !== fields.length)
       throw new Error(`Provider port ${name}.${op}: duplicate field`);
-    built[op] = Object.freeze({ name: `${name}.${op}`, idempotent, fields: Object.freeze([...fields]) });
+    const pathProblems = pathTemplateProblems(path, fields);
+    if (pathProblems.length > 0)
+      throw new Error(`Provider port ${name}.${op}: path «${path}»: ${pathProblems.join("; ")}`);
+    built[op] = Object.freeze({
+      name: `${name}.${op}`,
+      idempotent,
+      fields: Object.freeze([...fields]),
+      path,
+    });
   }
   return Object.freeze({ name, operations: Object.freeze(built) });
 }

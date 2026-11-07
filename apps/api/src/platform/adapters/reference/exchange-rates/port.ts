@@ -9,7 +9,7 @@ import { defineProviderPort } from "../../port.ts";
  */
 export const EXCHANGE_RATES_PORT = defineProviderPort("exchange-rates", {
   // A read: safe to repeat. Sends only the currency codes and the date — nothing about the household.
-  ratesOn: { idempotent: true, fields: ["base", "symbols", "date"] },
+  ratesOn: { idempotent: true, fields: ["base", "symbols", "date"], path: "rates" },
 });
 
 export interface RatesRequest {
@@ -27,13 +27,16 @@ export interface ExchangeRateSource {
 
 const ISO_DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
-export function checkRatesRequest(request: RatesRequest): void {
+/** `now`: the adapter clock (ms); a rates date after today (UTC) is refused — no provider has it yet. */
+export function checkRatesRequest(request: RatesRequest, now: number): void {
   if (!isCurrencyCode(request.base)) throw new Error("Unknown base currency");
   if (request.quotes.length === 0) throw new Error("At least one quote currency");
   for (const q of request.quotes) {
     if (!isCurrencyCode(q) || q === request.base) throw new Error("Invalid quote currency");
   }
   if (!ISO_DATE_RE.test(request.date)) throw new Error("A rates date is YYYY-MM-DD");
+  if (request.date > new Date(now).toISOString().slice(0, 10))
+    throw new Error("A rates date is not in the future");
 }
 
 /** Key of a request for the last known value: the same currencies and date, in any order. */

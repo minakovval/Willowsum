@@ -1,5 +1,5 @@
 import { OutgoingFieldError } from "./errors.ts";
-import type { ProviderOperation } from "./port.ts";
+import { pathPlaceholders, type ProviderOperation } from "./port.ts";
 
 /**
  * Field paths of a payload (ARC-05 FR 5): nested object keys as `a.b`, array items as `a[]`. Only leaves are
@@ -35,9 +35,31 @@ export function assertOutgoing(provider: string, operation: ProviderOperation, p
   if (extra.length > 0) throw new OutgoingFieldError(provider, operation.name, extra);
 }
 
-/** What an HTTP request sends: its query parameter names and the field paths of its JSON body. */
-export async function requestFields(request: Request): Promise<string[]> {
-  const fields = [...new URL(request.url).searchParams.keys()];
+const escapeRe = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Matches the end of a request path against an operation's path template (`rates/{date}`). */
+function templateRe(template: string): RegExp {
+  const parts = template
+    .split("/")
+    .map((segment) => (/^\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(segment) ? "[^/]+" : escapeRe(segment)));
+  return new RegExp(`(^|/)${parts.join("/")}$`);
+}
+
+/** Pseudo-field reported when a request path does not follow the operation's path template. */
+export const UNDECLARED_PATH = "<undeclared path>";
+
+/**
+ * What an HTTP request sends: its query parameter names, the field paths of its JSON body and — given the
+ * operation — the placeholders of its path template (a path that does not follow the template is reported as
+ * `<undeclared path>`).
+ */
+export async function requestFields(request: Request, operation?: ProviderOperation): Promise<string[]> {
+  const url = new URL(request.url);
+  const fields = [...url.searchParams.keys()];
+  if (operation && operation.path !== "") {
+    if (templateRe(operation.path).test(url.pathname)) fields.push(...pathPlaceholders(operation.path));
+    else fields.push(UNDECLARED_PATH);
+  }
   const body = await request.clone().text();
   if (body !== "") {
     let parsed: unknown;
@@ -54,8 +76,8 @@ export async function requestFields(request: Request): Promise<string[]> {
 
 /**
  * For tests (ARC-05 FR 5, «перелік полів … перевіряється тестом»): every field of every recorded request that
- * the operation does not declare. An adapter test records the requests its working implementation makes
- * (`recordingFetch`) and expects this to be empty.
+ * the operation does not declare, path placeholders included. An adapter test records the requests its working
+ * implementation makes (`recordingFetch`) and expects this to be empty.
  */
 export async function outgoingFieldViolations(
   operation: ProviderOperation,
@@ -63,7 +85,8 @@ export async function outgoingFieldViolations(
 ): Promise<string[]> {
   const found = new Set<string>();
   for (const request of requests) {
-    for (const field of await requestFields(request)) if (!covered(field, operation.fields)) found.add(field);
+    for (const field of await requestFields(request, operation))
+      if (!covered(field, operation.fields)) found.add(field);
   }
   return [...found].sort();
 }

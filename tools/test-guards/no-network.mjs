@@ -1,10 +1,18 @@
-// Створено: 2026-11-07 · Оновлено: 2026-11-07
+// Створено: 2026-11-07 · Оновлено: 2026-11-07 (рецензії PR #84)
 //
 // ARC-05 criterion «Тести, що потребують інтернету в CI — 0» (ADR-0005): a Vitest setup file that every
-// package's test config loads. A test may reach only this machine (localhost, 127.0.0.0/8, ::1, Unix
-// sockets) and the PostgreSQL host of the integration tests (DATABASE_URL, PGHOST, WS_DB_HOST); any other
-// connection — through fetch, http/https, a raw socket or TLS — fails with WS_NETWORK_BLOCKED before DNS or
-// a packet. Working adapters are tested with an injected fetch (apps/api/src/platform/adapters/testing.ts).
+// package's test config loads. A test may reach only this machine and the PostgreSQL host of the integration
+// tests (DATABASE_URL, PGHOST, WS_DB_HOST):
+// - IP literals: loopback only (127.0.0.0/8, ::1, IPv4-mapped 127.x, the unspecified address);
+// - names: `localhost` (which must also resolve to loopback) and the database host (trusted by name);
+// - Unix sockets (a non-empty `path`).
+// Anything else fails with WS_NETWORK_BLOCKED: fetch, http/https, TLS and raw TCP sockets before connecting,
+// UDP datagrams before sending, DNS queries (dns.lookup, dns.resolve*, dns.promises, Resolver) before asking.
+// Child processes a test starts are not covered. Working adapters are tested with an injected fetch
+// (apps/api/src/platform/adapters/testing.ts).
+import dgram from "node:dgram";
+import dns from "node:dns";
+import { syncBuiltinESMExports } from "node:module";
 import net from "node:net";
 
 const INSTALLED = Symbol.for("willowsum.noNetworkGuard");
@@ -39,13 +47,53 @@ function allowedExtraHosts(env) {
   return hosts;
 }
 
-const LOCAL = new Set(["localhost", "::1", "0.0.0.0", "::", "0:0:0:0:0:0:0:1"]);
+const LOCAL_IPS = new Set(["::1", "0.0.0.0", "::", "0:0:0:0:0:0:0:1"]);
+const strip = (host) => String(host).replace(/^\[|\]$/g, "").toLowerCase();
 
+/** A loopback address (an IP literal, never a name): 127.0.0.0/8, ::1, IPv4-mapped 127.x, unspecified. */
+export function isLoopbackAddress(address) {
+  const a = strip(address);
+  const version = net.isIP(a);
+  if (version === 4) return a.startsWith("127.") || a === "0.0.0.0";
+  if (version === 6) return LOCAL_IPS.has(a) || /^::ffff:127\./.test(a);
+  return false;
+}
+
+/**
+ * Hosts a test may name. `*.localhost` is not allowed: the system resolver may send such names to DNS.
+ * The database host is matched by its exact name.
+ */
 export function isAllowedHost(host, extra = allowedExtraHosts(process.env)) {
   // No host means the default, localhost.
   if (host === undefined || host === null || host === "") return true;
-  const h = String(host).replace(/^\[|\]$/g, "").toLowerCase();
-  return LOCAL.has(h) || /^127\./.test(h) || /^::ffff:127\./.test(h) || h.endsWith(".localhost") || extra.has(h);
+  const h = strip(host);
+  if (extra.has(h)) return true;
+  if (net.isIP(h)) return isLoopbackAddress(h);
+  return h === "localhost";
+}
+
+/** Must the resolved address of this allowed name also be checked? Yes, except for the database host. */
+function needsLoopbackLookup(host) {
+  if (host === undefined || host === null || host === "") return false;
+  const h = strip(host);
+  return !net.isIP(h) && !allowedExtraHosts(process.env).has(h);
+}
+
+/**
+ * A local name is allowed by name, but it must also resolve to loopback (a hosts entry or a custom `lookup`
+ * could point it anywhere). The database host is trusted by name: it may be a container on another address.
+ */
+function loopbackOnlyLookup(host, port, inner) {
+  return function guardedLookup(hostname, options, callback) {
+    const cb = typeof options === "function" ? options : callback;
+    const opts = typeof options === "function" ? {} : (options ?? {});
+    (inner ?? dns.lookup)(hostname, opts, (error, address, family) => {
+      if (error) return cb(error);
+      const list = Array.isArray(address) ? address : [{ address }];
+      if (list.some((entry) => !isLoopbackAddress(entry.address))) return cb(new NetworkBlockedError(host, port));
+      return cb(null, address, family);
+    });
+  };
 }
 
 /** Target of Socket#connect, from any of its call forms (incl. Node's internal normalized array). */
@@ -53,27 +101,132 @@ function targetOf(args) {
   let first = args[0];
   if (Array.isArray(first)) first = first[0];
   if (first !== null && typeof first === "object") {
-    if (typeof first.path === "string") return { local: true };
+    // Node connects over TCP unless `path` is a non-empty string (an empty one means «no path»).
+    if (typeof first.path === "string" && first.path !== "") return { local: true };
     return { host: first.host ?? first.hostname, port: first.port };
   }
-  if (typeof first === "string" && Number.isNaN(Number(first))) return { local: true }; // IPC path
+  if (typeof first === "string" && first !== "" && Number.isNaN(Number(first))) return { local: true }; // IPC
   return { host: typeof args[1] === "string" ? args[1] : undefined, port: first };
 }
 
-export function installNetworkGuard() {
+function guardSockets() {
   const proto = net.Socket.prototype;
-  if (!proto[INSTALLED]) {
-    const originalConnect = proto.connect;
-    proto.connect = function guardedConnect(...args) {
-      const target = targetOf(args);
-      if (!target.local && !isAllowedHost(target.host)) {
-        const error = new NetworkBlockedError(target.host, target.port);
-        process.nextTick(() => this.destroy(error));
-        return this;
+  const originalConnect = proto.connect;
+  proto.connect = function guardedConnect(...args) {
+    const target = targetOf(args);
+    if (target.local) return originalConnect.apply(this, args);
+    if (!isAllowedHost(target.host)) {
+      const error = new NetworkBlockedError(target.host, target.port);
+      process.nextTick(() => this.destroy(error));
+      return this;
+    }
+    if (needsLoopbackLookup(target.host)) {
+      // Rewrite to the options form with a lookup that refuses non-loopback answers.
+      const normalized = Array.isArray(args[0]) ? args[0] : undefined;
+      const options = normalized
+        ? normalized[0]
+        : typeof args[0] === "object"
+          ? args[0]
+          : { port: args[0], host: args[1] };
+      const checked = { ...options, lookup: loopbackOnlyLookup(target.host, target.port, options.lookup) };
+      if (normalized) {
+        normalized[0] = checked;
+        return originalConnect.apply(this, args);
       }
-      return originalConnect.apply(this, args);
+      const callback = args.find((a) => typeof a === "function");
+      return originalConnect.apply(this, callback ? [checked, callback] : [checked]);
+    }
+    return originalConnect.apply(this, args);
+  };
+}
+
+function guardDatagrams() {
+  const proto = dgram.Socket.prototype;
+  const blocked = (socket, host, port, callback) => {
+    const error = new NetworkBlockedError(host, port);
+    if (typeof callback === "function") process.nextTick(() => callback(error));
+    else process.nextTick(() => socket.emit("error", error));
+  };
+  const originalSend = proto.send;
+  proto.send = function guardedSend(...args) {
+    // send(msg[, offset, length][, port][, address][, callback]): the address is the only string after msg.
+    const address = args.slice(1).find((a) => typeof a === "string");
+    const port = args.slice(1).find((a) => typeof a === "number");
+    if (address !== undefined && !isAllowedHost(address)) {
+      return blocked(this, address, port, args.find((a) => typeof a === "function"));
+    }
+    return originalSend.apply(this, args);
+  };
+  const originalConnect = proto.connect;
+  proto.connect = function guardedConnect(port, address, callback) {
+    if (typeof address === "string" && !isAllowedHost(address)) {
+      return blocked(this, address, port, typeof callback === "function" ? callback : undefined);
+    }
+    return originalConnect.apply(this, [port, address, callback].filter((a) => a !== undefined));
+  };
+}
+
+const RESOLVE_METHODS = [
+  "resolve",
+  "resolve4",
+  "resolve6",
+  "resolveAny",
+  "resolveCaa",
+  "resolveCname",
+  "resolveMx",
+  "resolveNaptr",
+  "resolveNs",
+  "resolvePtr",
+  "resolveSoa",
+  "resolveSrv",
+  "resolveTxt",
+  "reverse",
+];
+
+/** A DNS question about `name` is allowed only for an allowed host (a loopback literal, localhost, the DB host). */
+function guardDns() {
+  const wrapCallback = (target, method) => {
+    const original = target[method];
+    if (typeof original !== "function") return;
+    target[method] = function guardedDns(name, ...rest) {
+      if (!isAllowedHost(name)) {
+        const callback = rest.find((a) => typeof a === "function");
+        const error = new NetworkBlockedError(name);
+        if (callback) {
+          process.nextTick(() => callback(error));
+          return undefined;
+        }
+        throw error;
+      }
+      return original.call(this, name, ...rest);
     };
-    proto[INSTALLED] = true;
+  };
+  const wrapPromise = (target, method) => {
+    const original = target[method];
+    if (typeof original !== "function") return;
+    target[method] = async function guardedDnsPromise(name, ...rest) {
+      if (!isAllowedHost(name)) throw new NetworkBlockedError(name);
+      return original.call(this, name, ...rest);
+    };
+  };
+  for (const method of ["lookup", ...RESOLVE_METHODS]) {
+    wrapCallback(dns, method);
+    wrapPromise(dns.promises, method);
+  }
+  for (const method of RESOLVE_METHODS) {
+    wrapCallback(dns.Resolver.prototype, method);
+    wrapPromise(dns.promises.Resolver.prototype, method);
+  }
+}
+
+export function installNetworkGuard() {
+  if (!net.Socket.prototype[INSTALLED]) {
+    guardSockets();
+    guardDatagrams();
+    guardDns();
+    // ESM named imports of node:dns (`import { lookup } from "node:dns"`) see the guarded functions too.
+    syncBuiltinESMExports();
+    net.Socket.prototype[INSTALLED] = true;
   }
   const currentFetch = globalThis.fetch;
   if (typeof currentFetch === "function" && !currentFetch[INSTALLED]) {

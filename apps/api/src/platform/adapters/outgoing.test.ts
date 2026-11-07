@@ -20,6 +20,16 @@ describe("ARC-05 FR 5: the fields sent to a provider are fixed in the adapter an
     expect(payloadFields({ skipped: undefined, empty: {} })).toEqual(["empty"]);
   });
 
+  it("ARC-05 FR 5: a declared field covers itself and what is below it, never a longer name", () => {
+    const op = defineProviderPort("people", { find: { idempotent: true, fields: ["date", "params"] } })
+      .operations.find;
+    expect(undeclaredFields(op, { dateOfBirth: "1990-01-01", date: "x", paramsExtra: "y" })).toEqual([
+      "dateOfBirth",
+      "paramsExtra",
+    ]);
+    expect(undeclaredFields(op, { params: { a: { b: "1" } }, date: "x" })).toEqual([]);
+  });
+
   it("ARC-05 FR 5: a payload with only declared fields passes", () => {
     expect(undeclaredFields(SEND, { to: "a@example.test", template: "t", params: { code: "1" } })).toEqual(
       [],
@@ -74,7 +84,7 @@ describe("ARC-05 FR 5: the fields sent to a provider are fixed in the adapter an
     expect(() => defineProviderPort("payments", { pay: { idempotent: false, fields: ["a", "a"] } })).toThrow(
       /duplicate/,
     );
-    expect(SEND).toEqual({ name: "mail-delivery.send", idempotent: false, fields: SEND.fields });
+    expect(SEND).toEqual({ name: "mail-delivery.send", idempotent: false, fields: SEND.fields, path: "" });
     expect(Object.isFrozen(SEND.fields)).toBe(true);
   });
 });

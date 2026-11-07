@@ -70,5 +70,10 @@ describe("ARC-05 FR 4: a provider failure does not block viewing — last known 
     await store.set("c", { value: 3, asOf: "x" });
     expect(await store.get("a")).toBeUndefined();
     expect(await store.get("c")).toEqual({ value: 3, asOf: "x" });
+    // Writing a key again makes it the newest: the oldest other key goes first.
+    await store.set("b", { value: 22, asOf: "y" });
+    await store.set("d", { value: 4, asOf: "x" });
+    expect(await store.get("c")).toBeUndefined();
+    expect(await store.get("b")).toEqual({ value: 22, asOf: "y" });
   });
 });

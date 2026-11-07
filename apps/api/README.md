@@ -121,6 +121,8 @@
 - Виклики — через `createProviderClient` (`src/platform/adapters/`): тайм-аут 10 с, повтори лише ідемпотентних
   операцій, після 5 невдач поспіль 60 с без викликів. Читання — через `createLastKnown`: збій провайдера повертає
   останнє відоме значення з `asOf` і `stale: true`.
-- HTTP-провайдер без SDK — `createProviderHttp` (перевіряє поля до відправлення). SDK провайдера — лише в
-  `adapters/` модуля і лише після внесення в `provider-sdks.json`.
+- HTTP-провайдер без SDK — `createProviderHttp.getJson(операція, значення, parse)`: шлях — шаблон операції (дані в
+  шляху лише через `{поле}`), поля перевіряються до відправлення, перенаправлення не виконуються, `parse` перевіряє
+  відповідь усередині виклику. SDK провайдера — лише в `adapters/` модуля (у вебі — `apps/web/src/adapters/`) і лише
+  після внесення в `provider-sdks.json`.
 - Тест робочої реалізації — без мережі: `recordingFetch` і `outgoingFieldViolations` (`src/platform/adapters/testing.ts`).

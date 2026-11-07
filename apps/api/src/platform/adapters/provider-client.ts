@@ -1,6 +1,6 @@
 import { CircuitBreaker, type BreakerPolicy, type BreakerState } from "./circuit-breaker.ts";
 import { sleep, systemClock, type AdapterClock } from "./clock.ts";
-import { OutgoingFieldError, ProviderError } from "./errors.ts";
+import { ProviderError } from "./errors.ts";
 import type { ProviderOperation } from "./port.ts";
 
 /**
@@ -60,13 +60,6 @@ export function backoffDelay(attempt: number, retry: RetryPolicy, random: () => 
   return Math.floor(step / 2 + (r * step) / 2);
 }
 
-function normalise(error: unknown, provider: string, operation: string): ProviderError {
-  if (error instanceof ProviderError) return error;
-  const name = error instanceof Error ? error.name : typeof error;
-  // An exception from the transport (DNS, connection refused, TLS, reset) means the provider was not reached.
-  return new ProviderError("unavailable", provider, operation, name);
-}
-
 export function createProviderClient(options: ProviderClientOptions): ProviderClient {
   const clock = options.clock ?? systemClock;
   const random = options.random ?? Math.random;
@@ -113,12 +106,15 @@ export function createProviderClient(options: ProviderClientOptions): ProviderCl
           breaker.success();
           return result;
         } catch (raw) {
-          if (raw instanceof OutgoingFieldError) {
-            // Nothing was sent: not a provider failure. Release a half-open probe without judging the provider.
+          if (!(raw instanceof ProviderError)) {
+            // Not a provider failure: a refused outgoing field (nothing was sent) or a bug in the adapter. It
+            // is passed on unchanged — never retried, never counted, never hidden behind a last known value.
+            // A half-open probe is released without judging the provider. Adapters classify transport
+            // failures themselves (createProviderHttp turns them into «unavailable»).
             breaker.release();
             throw raw;
           }
-          const error = normalise(raw, provider, operation.name);
+          const error = raw;
           if (error.countsAsFailure) breaker.failure(clock.now());
           else breaker.neutral();
           const again = operation.idempotent && error.retryable && attempt < policy.retry.maxAttempts;

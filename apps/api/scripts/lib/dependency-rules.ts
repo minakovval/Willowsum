@@ -1,6 +1,11 @@
 import type { IForbiddenRuleType } from "dependency-cruiser";
 import type { ModuleRules } from "../../src/platform/modules/rules.ts";
-import { ADAPTER_PATHS, providerSdkPaths, type ProviderSdkList } from "./provider-sdks.ts";
+import {
+  ADAPTER_PATHS,
+  WORKSPACE_ADAPTER_PATHS,
+  providerSdkPaths,
+  type ProviderSdkList,
+} from "./provider-sdks.ts";
 
 const esc = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -127,4 +132,16 @@ export function buildForbiddenRules(
     });
   }
   return forbidden;
+}
+
+/** ARC-05 FR 1 for the web app, shared packages and tools/synthetic (paths relative to the repository root). */
+export function buildWorkspaceSdkRule(providerSdks: ProviderSdkList): IForbiddenRuleType {
+  return {
+    name: "provider-sdk-outside-adapter",
+    comment:
+      "A provider SDK (apps/api/provider-sdks.json) is imported only in an adapter; outside apps/api that is apps/web/src/adapters/ (ARC-05 FR 1, ADR-0005).",
+    severity: "error",
+    from: { path: "^(apps|packages|tools)/", pathNot: WORKSPACE_ADAPTER_PATHS },
+    to: { path: providerSdks.packages.flatMap((p) => providerSdkPaths(p)) },
+  };
 }

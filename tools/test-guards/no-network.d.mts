@@ -5,3 +5,4 @@ export declare class NetworkBlockedError extends Error {
 }
 export declare function isAllowedHost(host: string | undefined, extra?: ReadonlySet<string>): boolean;
 export declare function installNetworkGuard(): void;
+export declare function isLoopbackAddress(address: string): boolean;

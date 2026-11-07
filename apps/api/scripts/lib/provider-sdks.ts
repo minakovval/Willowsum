@@ -15,6 +15,9 @@ export const PROVIDER_SDK_FILE = fileURLToPath(new URL("../../provider-sdks.json
 /** Paths (relative to apps/api) where a provider SDK may be imported: adapters only. */
 export const ADAPTER_PATHS = ["^src/modules/[^/]+/adapters/", "^src/platform/adapters/"];
 
+/** The same for the other workspace packages (relative to the repository root): the web app's adapters. */
+export const WORKSPACE_ADAPTER_PATHS = ["^apps/web/src/adapters/"];
+
 const PACKAGE_RE = /^(@[a-z0-9][a-z0-9._-]*\/(\*|[a-z0-9][a-z0-9._-]*)|[a-z0-9][a-z0-9._-]*)$/;
 
 export function readProviderSdks(file = PROVIDER_SDK_FILE): ProviderSdkList {

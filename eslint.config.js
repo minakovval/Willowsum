@@ -87,6 +87,56 @@ const PROVIDER_SDK_PATTERNS = PROVIDER_SDKS.packages.map((name) => ({
   message:
     "A provider SDK is used only inside an adapter (ARC-05, ADR-0005): put this import in an adapters/ folder.",
 }));
+const PROVIDER_SDK_RES = PROVIDER_SDK_PATTERNS.map((p) => new RegExp(p.regex));
+const PROVIDER_SDK_MESSAGE =
+  PROVIDER_SDK_PATTERNS[0]?.message ?? "A provider SDK is used only inside an adapter.";
+/**
+ * The loading forms `no-restricted-imports` does not see: `import()`, `import("x").T`, `require()` and
+ * `createRequire(…)()` (ARC-05 FR 1). The dependency analyzer (`pnpm check:modules`) checks the same in CI.
+ */
+const willowsumPlugin = {
+  rules: {
+    "no-provider-sdk-load": {
+      meta: { type: "problem", schema: [] },
+      create(context) {
+        const check = (node, source) => {
+          const value =
+            source?.type === "Literal"
+              ? source.value
+              : source?.type === "TSLiteralType"
+                ? source.literal?.value
+                : source?.type === "TemplateLiteral" && source.expressions.length === 0
+                  ? source.quasis[0]?.value.cooked
+                  : undefined;
+          if (typeof value === "string" && PROVIDER_SDK_RES.some((re) => re.test(value)))
+            context.report({ node, message: PROVIDER_SDK_MESSAGE });
+        };
+        return {
+          ImportExpression: (node) => check(node, node.source),
+          TSImportType: (node) => check(node, node.argument),
+          TSExternalModuleReference: (node) => check(node, node.expression),
+          CallExpression(node) {
+            const callee = node.callee;
+            const isRequire =
+              (callee.type === "Identifier" && callee.name === "require") ||
+              (callee.type === "MemberExpression" &&
+                callee.object.type === "Identifier" &&
+                callee.object.name === "require" &&
+                callee.property.type === "Identifier" &&
+                callee.property.name === "resolve");
+            const isCreated =
+              callee.type === "CallExpression" &&
+              callee.callee.type === "Identifier" &&
+              callee.callee.name === "createRequire";
+            if (isRequire || isCreated) check(node, node.arguments[0]);
+          },
+        };
+      },
+    },
+  },
+};
+/** Every source file kind ESLint checks. */
+const ALL_FILES = ["**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}"];
 const ADAPTER_FILES = [
   "apps/api/src/modules/*/adapters/**",
   "apps/api/src/platform/adapters/**",
@@ -100,7 +150,9 @@ export default tseslint.config(
       "**/dist/**",
       "**/coverage/**",
       "docs/**",
-      "tools/**",
+      // tools/ holds scripts outside the workspace packages; tools/synthetic is a workspace package (linted).
+      "tools/*",
+      "!tools/synthetic",
       "design/**",
       ".claude/**",
       ".github/**",
@@ -109,7 +161,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["**/*.{ts,tsx,js}"],
+    files: ALL_FILES,
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
@@ -142,11 +194,13 @@ export default tseslint.config(
   {
     // ARC-07 / ADR-0003: the OpenAPI client libraries are used only inside packages/api-contract; every other
     // package talks to the API through @willowsum/api-contract. ARC-05 FR 1 / ADR-0005: provider SDKs only in
-    // adapter folders (apps/api also checks this with the dependency analyzer).
-    files: ["**/*.{ts,tsx,js}"],
+    // adapter folders, in every file kind and loading form (the dependency analyzer checks the same in CI).
+    files: ALL_FILES,
     ignores: ["packages/api-contract/**", ...ADAPTER_FILES],
+    plugins: { willowsum: willowsumPlugin },
     rules: {
       "no-restricted-imports": ["error", { paths: OPENAPI_CLIENT_PATHS, patterns: PROVIDER_SDK_PATTERNS }],
+      "willowsum/no-provider-sdk-load": "error",
     },
   },
   {
@@ -154,13 +208,17 @@ export default tseslint.config(
     rules: { "no-restricted-imports": ["error", { paths: OPENAPI_CLIENT_PATHS }] },
   },
   {
-    files: ["packages/api-contract/**/*.{ts,tsx,js}"],
-    rules: { "no-restricted-imports": ["error", { patterns: PROVIDER_SDK_PATTERNS }] },
+    files: ["packages/api-contract/**/*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}"],
+    plugins: { willowsum: willowsumPlugin },
+    rules: {
+      "no-restricted-imports": ["error", { patterns: PROVIDER_SDK_PATTERNS }],
+      "willowsum/no-provider-sdk-load": "error",
+    },
   },
   {
     // Analyzer fixtures import provider SDKs on purpose (apps/api/scripts/lib/provider-sdks.test.ts).
     files: ["apps/api/test/fixtures/provider-sdks/**"],
-    rules: { "no-restricted-imports": "off" },
+    rules: { "no-restricted-imports": "off", "willowsum/no-provider-sdk-load": "off" },
   },
   {
     // Tests may use literals freely (they assert the rules above), and translation catalogues hold words.

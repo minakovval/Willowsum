@@ -116,6 +116,29 @@ describe("ARC-05 reference port «exchange-rates»: working and test implementat
     }
   });
 
+  it("ARC-05 FR 3: five broken 200 answers in a row open the breaker; the sixth call does not reach the provider", async () => {
+    const { source, recorder } = live(() => jsonResponse({}));
+    const results: unknown[] = [];
+    for (let i = 0; i < 6; i += 1) results.push(await source.ratesOn(REQUEST).catch((e: unknown) => e));
+    expect(results.map((e) => (e as { kind: string }).kind)).toEqual([
+      "invalid-response",
+      "invalid-response",
+      "invalid-response",
+      "invalid-response",
+      "invalid-response",
+      "circuit-open",
+    ]);
+    expect(recorder.requests).toHaveLength(5);
+  });
+
+  it("a requested date after today (UTC) is refused by both implementations, before any request", async () => {
+    const { source, recorder } = live(() => jsonResponse({}));
+    const tomorrow = { ...REQUEST, date: "2026-11-07" };
+    await expect(source.ratesOn(tomorrow)).rejects.toThrow(/future/);
+    await expect(syntheticExchangeRates().ratesOn(tomorrow)).rejects.toThrow(/future/);
+    expect(recorder.requests).toEqual([]);
+  });
+
   it("ARC-05 FR 4: when the provider fails, the last known rates are shown with their date", async () => {
     let up = true;
     const { source } = live(() =>

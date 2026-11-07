@@ -1,5 +1,6 @@
 import { exchangeRate, type ExchangeRate } from "@willowsum/domain-kernel";
 import { z } from "zod";
+import { systemClock } from "../../clock.ts";
 import { ProviderError } from "../../errors.ts";
 import { createProviderHttp, type FetchFn } from "../../http.ts";
 import { createProviderClient, type ProviderClientOptions } from "../../provider-client.ts";
@@ -52,36 +53,30 @@ export function httpExchangeRates(options: HttpExchangeRatesOptions): ExchangeRa
   const op = EXCHANGE_RATES_PORT.operations.ratesOn;
   return {
     async ratesOn(request: RatesRequest): Promise<readonly ExchangeRate[]> {
-      checkRatesRequest(request);
+      checkRatesRequest(request, (options.clock ?? systemClock).now());
       const quotes = [...new Set(request.quotes)];
-      const body = await http.getJson(op, "rates", {
-        base: request.base,
-        symbols: quotes.join(","),
-        date: request.date,
-      });
-      const parsed = answer.safeParse(body);
-      // A rate of a later date than asked is never used (NFR-06); a missing quote is a broken answer.
-      if (
-        !parsed.success ||
-        parsed.data.base !== request.base ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(parsed.data.date) ||
-        parsed.data.date > request.date ||
-        quotes.some((q) => parsed.data.rates[q] === undefined)
-      )
-        throw new ProviderError("invalid-response", provider, op.name);
-      try {
+      // The answer is checked inside the call, so a broken answer counts towards the breaker (FR 3).
+      const parse = (body: unknown): readonly ExchangeRate[] => {
+        const parsed = answer.parse(body);
+        // A rate of a later date than asked is never used (NFR-06); a missing quote is a broken answer.
+        if (
+          parsed.base !== request.base ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date) ||
+          parsed.date > request.date ||
+          quotes.some((q) => parsed.rates[q] === undefined)
+        )
+          throw new ProviderError("invalid-response", provider, op.name);
         return quotes.map((quote) =>
           exchangeRate({
             base: request.base,
             quote,
-            rate: parsed.data.rates[quote]!,
-            date: parsed.data.date,
+            rate: parsed.rates[quote]!,
+            date: parsed.date,
             source: options.source,
           }),
         );
-      } catch {
-        throw new ProviderError("invalid-response", provider, op.name);
-      }
+      };
+      return http.getJson(op, { base: request.base, symbols: quotes.join(","), date: request.date }, parse);
     },
   };
 }

@@ -1,5 +1,5 @@
 {
-  "$comment": "ARC-05 FR 1: SDKs of external providers. They may be imported only in a module's adapters folder (apps/api/src/modules/<module>/adapters/), under apps/api/src/platform/adapters/ or apps/web/src/adapters/. `scope/*` means every package of the scope. Checked by `pnpm check:modules` (dependency analyzer, apps/api) and ESLint (every package). Add a provider's SDK here before its first adapter (ADR-0005).",
+  "$comment": "ARC-05 FR 1: SDKs of external providers. They may be imported only in a module's adapters folder (apps/api/src/modules/<module>/adapters/), under apps/api/src/platform/adapters/ or apps/web/src/adapters/. `scope/*` means every package of the scope. Checked by `pnpm check:modules` (dependency analyzer over apps/api and over apps/web, packages/* and tools/synthetic) and ESLint (every package and file kind, static and dynamic loading). Add a provider's SDK here before its first adapter (ADR-0005).",
   "packages": [
     "@anthropic-ai/*",
     "@aws-sdk/*",

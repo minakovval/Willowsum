@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProviderError } from "./errors.ts";
+import { createLastKnown } from "./last-known.ts";
 import { defineProviderPort } from "./port.ts";
 import { DEFAULT_CALL_POLICY, backoffDelay, createProviderClient } from "./provider-client.ts";
 
@@ -121,17 +122,26 @@ describe("ARC-05 FR 3: retries only for idempotent operations", () => {
     }
   });
 
-  it("a transport exception (e.g. connection refused) becomes «unavailable» without its message", async () => {
-    const client = createProviderClient({ provider: "probe", policy: { retry: { maxAttempts: 1 } } });
-    const outcome = await settle(
-      client.call(READ, async () => {
-        throw new TypeError("fetch failed for https://x.test/?email=someone@example.com");
-      }),
-    );
-    const error = (outcome as { error: ProviderError }).error;
-    expect(error.kind).toBe("unavailable");
-    expect(error.causeName).toBe("TypeError");
-    expect(error.message).toBe("Provider probe.probe-service.read: unavailable");
+  it("an exception from adapter code (a bug) is passed on unchanged: no retry, not counted, not hidden", async () => {
+    const client = createProviderClient({ provider: "probe", random: () => 0 });
+    const bug = new TypeError("adapter bug");
+    const run = vi.fn(async () => {
+      throw bug;
+    });
+    for (let i = 0; i < 6; i += 1) await expect(client.call(READ, run)).rejects.toBe(bug);
+    expect(run).toHaveBeenCalledTimes(6);
+    expect(client.breakerState()).toBe("closed");
+    // Through the last known value: a bug is not masked by an old value.
+    const lastKnown = createLastKnown<string>();
+    await lastKnown.read("k", () => client.call(READ, async () => "v1"));
+    await expect(lastKnown.read("k", () => client.call(READ, run))).rejects.toBe(bug);
+  });
+
+  it("ARC-05 FR 3: the backoff step never exceeds maxDelayMs", () => {
+    const retry = { maxAttempts: 10, baseDelayMs: 100, maxDelayMs: 300 };
+    expect([1, 2, 3, 4, 8].map((n) => backoffDelay(n, retry, () => 0.999999))).toEqual([
+      99, 199, 299, 299, 299,
+    ]);
   });
 
   it("backoff is exponential, capped and jittered within [step/2, step]", () => {
@@ -218,6 +228,14 @@ describe("ARC-05 FR 3: circuit breaker — 5 failures in a row → no calls for 
     expect(client.breakerState()).toBe("open");
     await vi.advanceTimersByTimeAsync(1);
     expect(client.breakerState()).toBe("half-open");
+  });
+
+  it("ARC-05 FR 3: five broken answers in a row («invalid-response») open the breaker", async () => {
+    const client = createProviderClient({ provider: "probe", random: () => 0 });
+    const run = vi.fn(async () => Promise.reject(new ProviderError("invalid-response", "probe", READ.name)));
+    for (let i = 0; i < 5; i += 1) await settle(client.call(READ, run));
+    expect(run).toHaveBeenCalledTimes(5);
+    expect(client.breakerState()).toBe("open");
   });
 
   it("ARC-05 FR 3: a timed-out call counts as a failure", async () => {

@@ -57,19 +57,19 @@ describe("ARC-05 criterion «Тести, що потребують інтерн�
 
   it("allows only local hosts and the configured database host", () => {
     const db = new Set(["pg.internal.test"]);
-    for (const host of [
-      undefined,
-      "",
-      "localhost",
-      "127.0.0.1",
-      "127.5.5.5",
-      "::1",
-      "[::1]",
-      "app.localhost",
-    ])
+    for (const host of [undefined, "", "localhost", "127.0.0.1", "127.5.5.5", "::1", "[::1]"])
       expect(allowed(host, db)).toBe(true);
     expect(allowed("pg.internal.test", db)).toBe(true);
-    for (const host of ["example.com", OUTSIDE, "10.0.0.1", "localhost.example.com", "api.stripe.com"])
+    for (const host of [
+      "example.com",
+      OUTSIDE,
+      "10.0.0.1",
+      "localhost.example.com",
+      "api.stripe.com",
+      "app.localhost",
+      "127.evil.example",
+      // *.localhost may go to DNS through the system resolver: not allowed.
+    ])
       expect(allowed(host, db)).toBe(false);
   });
 });
