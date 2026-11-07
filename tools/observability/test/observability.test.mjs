@@ -47,10 +47,10 @@ describe("NFR-10 FR 6: every required alert exists, pages, and uses the threshol
       ["ApiErrorBudgetBurnFast", "ApiErrorBudgetBurnMedium", "ApiErrorBudgetBurnSlow"].map((a) => alert(a).severity),
       ["page", "page", "ticket"],
     );
-    assert.equal(
-      defs.SERVER_ERROR_SELECTOR,
-      'http_response_status_code=~"5..", ws_problem_code!~"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE"',
-    );
+    // Only a deliberate kill switch is left out: an unknown flag state (a failing database) and a 503 during a
+    // stop still count (review of PR #85).
+    assert.equal(defs.SERVER_ERROR_SELECTOR, 'http_response_status_code=~"5..", ws_unavailable_reason!="kill_switch"');
+    assert.doesNotMatch(defs.SERVER_ERROR_SELECTOR, /flags_unknown|ws_problem_code|SERVICE_UNAVAILABLE/);
     for (const w of defs.ERROR_RATIO_WINDOWS) {
       const rule = defs.RECORDING_RULES.find((r) => r.record === `ws:api_error_ratio:rate${w}`);
       assert.equal(
@@ -67,7 +67,7 @@ describe("NFR-10 FR 6: every required alert exists, pages, and uses the threshol
     assert.equal(off.for, "30m");
     assert.equal(off.expr, "ws:api_module_unavailable:rate5m > 0");
     const rule = defs.RECORDING_RULES.find((r) => r.record === "ws:api_module_unavailable:rate5m");
-    assert.match(rule.expr, /ws_problem_code="MODULE_UNAVAILABLE"/);
+    assert.equal(rule.expr, 'sum(rate(http_server_request_duration_seconds_count{ws_unavailable_reason="kill_switch"}[5m]))');
   });
 
   it("latency pages need at least 20 requests of their kind in 5 minutes (one slow request at PoC traffic does not page)", () => {

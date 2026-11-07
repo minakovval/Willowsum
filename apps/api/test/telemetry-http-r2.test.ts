@@ -141,7 +141,7 @@ describe("NFR-10 FR 4–5: errors Fastify raises before routing are traced probl
 });
 
 describe("Lead's decision (review of PR #85): a kill switch is marked, not counted as a server error", () => {
-  it("a 503 MODULE_UNAVAILABLE carries ws.problem.code on its span and duration sample", async () => {
+  it("a 503 MODULE_UNAVAILABLE from a kill switch carries ws.problem.code and ws.unavailable.reason=kill_switch", async () => {
     const a = await server({ moduleAvailable: async () => false });
     const res = await a.inject({ method: "GET", url: "/v1/things/a", headers: principalHeader() });
     expect(res.statusCode).toBe(503);
@@ -154,6 +154,7 @@ describe("Lead's decision (review of PR #85): a kill switch is marked, not count
         "http.route": "/v1/things/:thingId",
         "http.response.status_code": 503,
         "ws.problem.code": "MODULE_UNAVAILABLE",
+        "ws.unavailable.reason": "kill_switch",
       },
     ]);
   });

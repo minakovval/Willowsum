@@ -7,6 +7,16 @@ import type pg from "pg";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { Role } from "./platform/config/config.ts";
 import type { ReadinessCheck } from "./platform/process/server.ts";
+import { logEvent } from "./platform/telemetry/signals.ts";
+
+/**
+ * The flag runtime's reload health as log events (ARC-09): `flags.reload_failed` (ERROR, the error class only)
+ * when reloads start failing, `flags.reload_recovered` when one succeeds again.
+ */
+export function flagReloadHealthLog(failure: string | undefined): void {
+  if (failure === undefined) logEvent("flags.reload_recovered", "info", { "ws.module": "feature-flags" });
+  else logEvent("flags.reload_failed", "error", { "ws.module": "feature-flags", "error.type": failure });
+}
 
 /**
  * Pool settings beyond the connection of one module's pool. The feature-flags pool serves the flag check of

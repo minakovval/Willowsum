@@ -23,7 +23,8 @@ export interface ApiWiring {
   readonly databases: { for(module: string): ModuleDatabase };
   readonly entitlements: EntitlementSource;
   /** Flags and kill switches (feature-flags: `createFlagRuntimeFor(databases.for("feature-flags"))`). */
-  readonly flags: Pick<FlagRuntime, "isModuleAvailable" | "isEnabled">;
+  readonly flags: Pick<FlagRuntime, "isModuleAvailable" | "isEnabled"> &
+    Partial<Pick<FlagRuntime, "moduleState">>;
   /** The session of a request. Until identity (ACC-01) exists, nothing is signed in. */
   readonly authenticate?: (request: FastifyRequest) => Promise<Principal | null>;
   readonly supportId?: ApiOptions["supportId"];
@@ -36,6 +37,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
     routes: apiRoutes,
     authenticate: wiring.authenticate ?? (async () => null),
     moduleAvailable: (module) => wiring.flags.isModuleAvailable(module),
+    ...(wiring.flags.moduleState
+      ? { moduleState: (module: string) => wiring.flags.moduleState!(module) }
+      : {}),
     checkFlag: (principal, flag) => wiring.flags.isEnabled(principal.householdId, flag),
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

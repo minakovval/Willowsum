@@ -10,6 +10,7 @@ import {
   type Span,
 } from "@opentelemetry/api";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { PROBLEMS } from "../http/problem.ts";
 import { logEvent, recordHttpRequest } from "./signals.ts";
 import { TELEMETRY_SCOPE } from "./scope.ts";
 
@@ -30,6 +31,8 @@ interface RequestTrace {
   ended: boolean;
   /** The problem code of the answer, if it is a problem (a closed set: ProblemCode). */
   problem?: string;
+  /** Why a 503 was answered: a kill switch (deliberate) or an unknown flag state (an outage). */
+  unavailable?: UnavailableReason;
 }
 
 const traces = new WeakMap<FastifyRequest, RequestTrace>();
@@ -68,6 +71,18 @@ export function annotateRequestError(request: FastifyRequest, attributes: Attrib
   found.span.setAttributes(attributes);
 }
 
+function problemStatus(code: string): number | undefined {
+  return Object.hasOwn(PROBLEMS, code) ? PROBLEMS[code as keyof typeof PROBLEMS].status : undefined;
+}
+
+/** `ws.unavailable.reason`: the only label the 5xx ratio leaves out is `kill_switch` (ADR-0006). */
+export type UnavailableReason = "kill_switch" | "flags_unknown";
+
+export function markUnavailableReason(request: FastifyRequest, reason: UnavailableReason): void {
+  const found = traces.get(request);
+  if (found && !found.ended) found.unavailable = reason;
+}
+
 /**
  * Records the problem code of the answer (`ws.problem.code` on the span and the duration metric). The codes are
  * a closed set; the alert rules leave the deliberate 503s out of the 5xx ratio: MODULE_UNAVAILABLE (a kill
@@ -89,7 +104,13 @@ export function finishRequestTrace(request: FastifyRequest, reply: FastifyReply 
     "http.request.method": method(request),
     ...(route ? { "http.route": route } : {}),
     ...(status !== undefined ? { "http.response.status_code": status } : {}),
-    ...(found.problem !== undefined ? { "ws.problem.code": found.problem } : {}),
+    // Only when the status is the code's own: a mark left behind by an earlier step never labels another answer.
+    ...(found.problem !== undefined && status === problemStatus(found.problem)
+      ? { "ws.problem.code": found.problem }
+      : {}),
+    ...(found.unavailable !== undefined && status === 503
+      ? { "ws.unavailable.reason": found.unavailable }
+      : {}),
   };
   if (route) found.span.updateName(`${method(request)} ${route}`);
   found.span.setAttributes(attributes);

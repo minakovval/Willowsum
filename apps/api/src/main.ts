@@ -17,7 +17,7 @@ import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 import { startTelemetry } from "./platform/telemetry/telemetry.ts";
-import { contextPoolOptions, modulePoolOptions, readinessCheck } from "./wiring.ts";
+import { contextPoolOptions, flagReloadHealthLog, modulePoolOptions, readinessCheck } from "./wiring.ts";
 
 const rules = JSON.parse(
   readFileSync(new URL("../module-rules.json", import.meta.url), "utf8"),
@@ -85,7 +85,10 @@ const databases = new ModuleDatabases({
 
 // Flags and kill switches (CICD-06): read from the database by the readiness probe and by requests, reloaded
 // when older than 15 s.
-const flags = createFlagRuntimeFor(databases.for("feature-flags"));
+const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
+  // Once when reloads start failing (by error class) and once when they recover — never on every attempt.
+  onReloadHealth: flagReloadHealthLog,
+});
 
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.

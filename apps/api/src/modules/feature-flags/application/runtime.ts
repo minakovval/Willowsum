@@ -17,10 +17,20 @@ export const LOAD_WAIT_MS = 2_000;
 /** Test-space answers cached between refreshes; the cache is emptied when it grows past this. */
 const TEST_CACHE_MAX = 10_000;
 
+/**
+ * Why a module answers or not: `on`; `killed` — its kill switch is on (a deliberate action); `unknown` — no
+ * usable flag state (never loaded, or the last successful load started ≥ 60 s ago: the database or the flag
+ * store is failing). Both of the last answer 503 MODULE_UNAVAILABLE, but only `killed` is deliberate: telemetry
+ * counts `unknown` as a server error (ARC-09, ADR-0006).
+ */
+export type ModuleState = "on" | "killed" | "unknown";
+
 /** The flag and kill-switch check of the API (CICD-06): one per process, wired in src/api.ts. */
 export interface FlagRuntime {
   /** False while the module's kill switch is on (and before the state was ever loaded). */
   isModuleAvailable(module: string): Promise<boolean>;
+  /** The module's state: `on`, `killed` (kill switch) or `unknown` (no usable flag state). */
+  moduleState(module: string): Promise<ModuleState>;
   /** Is the flag on for this space? An unknown key is a programming error. */
   isEnabled(householdId: string, flag: string): Promise<boolean>;
   /** The flags that are on for this space (only those: a client never learns of a hidden function). */
@@ -36,6 +46,11 @@ export interface FlagRuntime {
 export interface FlagRuntimeOptions {
   readonly now?: () => number;
   readonly refreshMs?: number;
+  /**
+   * Told once when reloads start failing (with the error's class only — never its message) and once when they
+   * succeed again (`undefined`); not on every failed reload, so an outage does not flood the log.
+   */
+  readonly onReloadHealth?: (failure: string | undefined) => void;
 }
 
 /** The part of the flag catalogue the evaluation needs: which flags exist and which flag each one requires. */
@@ -113,14 +128,31 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
   let loadedAt = Number.NEGATIVE_INFINITY;
   let inflight: Promise<void> | undefined;
   const testCache = new Map<string, Promise<boolean>>();
+  let failing = false;
+  const health = (failure: string | undefined) => {
+    if ((failure !== undefined) === failing) return;
+    failing = failure !== undefined;
+    try {
+      options.onReloadHealth?.(failure);
+    } catch {
+      // Reporting never changes the flag state.
+    }
+  };
 
   const reload = (): Promise<void> =>
     (inflight ??= (async () => {
       // Only one load runs at a time (inflight), so each finished load is the newest.
       const started = now();
-      snapshot = await store.snapshot();
+      try {
+        snapshot = await store.snapshot();
+      } catch (error) {
+        const name = error instanceof Error ? error.constructor.name || error.name : typeof error;
+        health(/^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name) ? name : "Error");
+        throw error;
+      }
       loadedAt = started;
       testCache.clear();
+      health(undefined);
     })().finally(() => {
       inflight = undefined;
     }));
@@ -177,6 +209,11 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
     isModuleAvailable: async (module) => {
       const s = await current();
       return s !== undefined && !s.killed.has(module);
+    },
+    moduleState: async (module) => {
+      const s = await current();
+      if (s === undefined) return "unknown";
+      return s.killed.has(module) ? "killed" : "on";
     },
     isEnabled: async (householdId, flag) => {
       if (!Object.hasOwn(FLAGS, flag)) throw new Error(`Unknown flag ${flag} (feature-flags)`);

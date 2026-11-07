@@ -90,13 +90,14 @@ const BUDGET = 1 - slo("api-availability").objective;
 export const ERROR_RATIO_WINDOWS = Object.freeze(["5m", "30m", "1h", "2h", "6h", "1d", "3d"]);
 
 /**
- * Deliberate 503s are not errors of the service: a module switched off by its kill switch (CICD-06) and a
- * request that arrived while a process was stopping. The API marks them with `ws.problem.code` (a closed set of
- * codes); they are left out of the 5xx numerator, so a planned action never pages on-call or burns the budget
- * (lead's decision, ADR-0006). A module left switched off is a ticket instead (ApiModuleSwitchedOff).
+ * A deliberate 503 is not an error of the service: a module switched off by its kill switch (CICD-06). The API
+ * labels it `ws.unavailable.reason="kill_switch"` (a closed set); it is left out of the 5xx numerator, so a
+ * planned action never pages on-call or burns the budget (lead's decision, ADR-0006). The same 503 answered
+ * because the flag state is unknown (a failing database, fail closed) is labelled `flags_unknown` and counts,
+ * as does a 503 during a graceful stop (a restart loop must show). A module left switched off is a ticket
+ * instead (ApiModuleSwitchedOff).
  */
-export const DELIBERATE_UNAVAILABLE = Object.freeze(["MODULE_UNAVAILABLE", "SERVICE_UNAVAILABLE"]);
-export const SERVER_ERROR_SELECTOR = `http_response_status_code=~"5..", ws_problem_code!~"${DELIBERATE_UNAVAILABLE.join("|")}"`;
+export const SERVER_ERROR_SELECTOR = `http_response_status_code=~"5..", ws_unavailable_reason!="kill_switch"`;
 
 const errorRatio = (w) =>
   `sum(rate(${DURATION}_count{${SERVER_ERROR_SELECTOR}}[${w}])) / sum(rate(${DURATION}_count[${w}]))`;
@@ -114,7 +115,7 @@ export const RECORDING_RULES = Object.freeze([
   { record: "ws:api_write_requests:increase5m", expr: requests(slo("api-write-latency")) },
   {
     record: "ws:api_module_unavailable:rate5m",
-    expr: `sum(rate(${DURATION}_count{ws_problem_code="MODULE_UNAVAILABLE"}[5m]))`,
+    expr: `sum(rate(${DURATION}_count{ws_unavailable_reason="kill_switch"}[5m]))`,
   },
   {
     record: "ws:bank_sync_failure_ratio:1h",
@@ -198,7 +199,7 @@ export const ALERTS = Object.freeze([
     severity: "ticket",
     slo: "api-availability",
     requirement: "CICD-06: a module kill switch left on (not an outage, not paged)",
-    summary: "A module has answered MODULE_UNAVAILABLE (kill switch on) for more than 30 minutes",
+    summary: "A module's kill switch has turned requests away for more than 30 minutes",
   },
   {
     alert: "BankSyncFailureRatioHigh",

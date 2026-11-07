@@ -42,7 +42,9 @@ export function buildServer(options: ServerOptions): FastifyInstance {
     // Errors Fastify raises before routing and without any hook — a URL it cannot decode (FST_ERR_BAD_URL), a
     // path parameter over the length limit (FST_ERR_MAX_PARAM_LENGTH): traced here and answered with the
     // NOT_FOUND problem and its support id, never Fastify's own body, which echoes the path. NOT_FOUND, as for
-    // an unknown path, so such a URL does not tell existing and unknown routes apart (DAT-05 FR 7).
+    // an unknown path, so such a URL does not tell existing and unknown routes apart (DAT-05 FR 7). Every
+    // framework error lands here, also FST_ERR_ASYNC_CONSTRAINT (no async route constraints are used today):
+    // if one ever is, map it to its own problem.
     frameworkErrors: (_error, request, frameworkReply) => {
       const reply = frameworkReply as unknown as FastifyReply;
       traceRequest(request);

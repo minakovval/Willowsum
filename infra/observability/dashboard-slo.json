@@ -51,7 +51,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "1 - (sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_problem_code!~\"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d])))"
+          "expr": "1 - (sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_unavailable_reason!=\"kill_switch\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d])))"
         }
       ]
     },
@@ -82,7 +82,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "1 - ((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_problem_code!~\"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d]))) / 0.001)"
+          "expr": "1 - ((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_unavailable_reason!=\"kill_switch\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d]))) / 0.001)"
         }
       ]
     },

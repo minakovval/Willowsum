@@ -38,7 +38,15 @@ export {
   LOAD_WAIT_MS,
   REFRESH_MS,
 } from "./application/index.ts";
-export type { FlagActor, FlagAdmin, FlagRuntime, FlagSnapshot, FlagsReadiness } from "./application/index.ts";
+export type {
+  FlagActor,
+  FlagAdmin,
+  FlagRuntime,
+  FlagRuntimeOptions,
+  FlagSnapshot,
+  FlagsReadiness,
+  ModuleState,
+} from "./application/index.ts";
 
 /**
  * Connection settings of this module's pool in the API process (main.ts). A reload that hangs in the
