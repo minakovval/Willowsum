@@ -10,13 +10,21 @@ import type {
   ResourceMetrics,
 } from "@opentelemetry/sdk-metrics";
 import type { ReadableSpan, SpanExporter, TimedEvent } from "@opentelemetry/sdk-trace";
-import { redactAttributes, redactName, redactSpanName } from "./redaction.ts";
+import {
+  redactAttributes,
+  redactName,
+  redactSeverityText,
+  redactSpanName,
+  redactUnit,
+  redactVersion,
+} from "./redaction.ts";
 
 /**
  * Exporter-level redaction (ARC-09 FR 2, ADR-0006): every exporter of the process — OTLP or in-memory — is
  * wrapped, so what a test sees in memory is exactly what would be sent. The wrappers copy each item with
  * only the allow-listed attributes (redaction.ts) and drop free text: span status messages, exception
- * messages and stack traces, scope attributes, link and event attributes outside the allow-list.
+ * messages and stack traces, scope attributes, link and event attributes outside the allow-list, metric
+ * descriptions; severity texts, scope versions and metric units only when they fit their grammar.
  */
 
 const resources = new WeakMap<Resource, Resource>();
@@ -30,10 +38,10 @@ export function redactResource(resource: Resource): Resource {
   return out;
 }
 
-const scope = <T extends { name: string; version?: string; schemaUrl?: string }>(s: T) => ({
-  name: redactName(s.name),
-  ...(s.version !== undefined ? { version: s.version } : {}),
-});
+const scope = <T extends { name: string; version?: string; schemaUrl?: string }>(s: T) => {
+  const version = redactVersion(s.version);
+  return { name: redactName(s.name), ...(version !== undefined ? { version } : {}) };
+};
 
 function redactEvent(event: TimedEvent): TimedEvent {
   return { time: event.time, name: redactName(event.name), attributes: redactAttributes(event.attributes) };
@@ -72,7 +80,7 @@ export function redactLogRecord(record: ReadableLogRecord): ReadableLogRecord {
     hrTime: record.hrTime,
     hrTimeObserved: record.hrTimeObserved,
     ...(record.spanContext ? { spanContext: record.spanContext } : {}),
-    ...(record.severityText !== undefined ? { severityText: record.severityText } : {}),
+    ...(redactSeverityText(record.severityText) !== undefined ? { severityText: record.severityText } : {}),
     ...(record.severityNumber !== undefined ? { severityNumber: record.severityNumber } : {}),
     // The body is an event name, never a message.
     body: redactName(record.body),
@@ -85,7 +93,13 @@ export function redactLogRecord(record: ReadableLogRecord): ReadableLogRecord {
 }
 
 function redactMetric(metric: MetricData): MetricData {
-  const descriptor = { ...metric.descriptor, name: redactName(metric.descriptor.name) };
+  // The description is free text: never exported. The unit only when it is a unit.
+  const descriptor = {
+    ...metric.descriptor,
+    name: redactName(metric.descriptor.name),
+    description: "",
+    unit: redactUnit(metric.descriptor.unit),
+  };
   const points = <T>(dataPoints: readonly { attributes: Attributes; value: T }[]) =>
     dataPoints.map((p) => ({ ...p, attributes: redactAttributes(p.attributes) }));
   return { ...metric, descriptor, dataPoints: points(metric.dataPoints as never) } as MetricData;

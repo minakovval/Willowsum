@@ -351,7 +351,8 @@
               "PAYLOAD_TOO_LARGE",
               "UNSUPPORTED_MEDIA_TYPE",
               "INTERNAL",
-              "MODULE_UNAVAILABLE"
+              "MODULE_UNAVAILABLE",
+              "SERVICE_UNAVAILABLE"
             ],
             "x-extensible-enum": true,
             "description": "Machine-readable code; new codes may be added"

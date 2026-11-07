@@ -54,7 +54,7 @@
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005) | `test` |
-| `WS_TELEMETRY` | Телеметрія (ARC-09, ADR-0006): `test` (у пам'яті процесу, нічого не виходить з машини), `otlp` (OTLP/HTTP на `WS_OTLP_ENDPOINT`; Grafana Cloud EU) або `off` | `test` |
+| `WS_TELEMETRY` | Телеметрія (ARC-09, ADR-0006): `test` (у пам'яті процесу, нічого не виходить з машини), `otlp` (OTLP/HTTP на `WS_OTLP_ENDPOINT`; Grafana Cloud EU) або `off`. Для `staging` і `production` обов'язкова і не `test` | `test` (поза `staging`/`production`) |
 | `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
 | `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
 | `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
@@ -142,7 +142,9 @@
   значення відповідає граматиці ключа і жоден детектор (email, IBAN, картка, суми, валюта, токени, координати, запит URL)
   не спрацював. Назва спана — метод і шаблон маршруту або технічна назва; тіло логу — назва події. Повідомлення помилок,
   стеки, URL, запити, заголовки, тіла, IP-адреси не експортуються. Модулі не імпортують OpenTelemetry.
-- Кожен запит API (крім `/health/*`) — новий кореневий спан; вхідні `traceparent` і `x-request-id` ігноруються. Транзакції
+- Кожен запит API (крім `/health/*`) — новий кореневий спан; вхідні `traceparent` і `x-request-id` ігноруються. Також URL,
+  який Fastify не декодує, і задовгий параметр шляху (проблема `NOT_FOUND`), і запит під час зупинки (`SERVICE_UNAVAILABLE`,
+  503, `Retry-After: 5`) — зі спаном і `supportId`. Навмисні 503 (вимикач модуля, зупинка) не рахуються як помилки в SLO. Транзакції
   модулів (`db.transaction <модуль>`) і виклики провайдерів (`provider <операція>`) — дочірні спани.
 - Фонова задача отримує трасу запиту: `jobTraceCarrier()` при постановці, `runJob(назва, carrier, робота)` у воркері;
   планувальник — `runScheduled(назва, робота)`.

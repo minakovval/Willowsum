@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { createServer } from "node:net";
+import { createServer as createHttpServer } from "node:http";
+import { createServer, type AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -124,6 +125,40 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     expect(await me.json()).toMatchObject({ code: "UNAUTHENTICATED", status: 401 });
     p.child.kill("SIGTERM");
     expect(await p.exit).toBe(0);
+  });
+
+  it("ARC-09 (review of PR #85): on SIGTERM telemetry is flushed last — the spans of the last requests reach the collector", async () => {
+    const received: { path: string; body: string }[] = [];
+    const collector = createHttpServer((request, response) => {
+      const chunks: Buffer[] = [];
+      request.on("data", (c: Buffer) => chunks.push(c));
+      request.on("end", () => {
+        received.push({ path: request.url ?? "", body: Buffer.concat(chunks).toString("utf8") });
+        response.writeHead(200, { "content-type": "application/json" }).end("{}");
+      });
+    });
+    await new Promise<void>((resolve) => collector.listen(0, "127.0.0.1", resolve));
+    try {
+      const port = await freePort();
+      const p = start("api", {
+        ...baseEnv(port),
+        WS_TELEMETRY: "otlp",
+        WS_OTLP_ENDPOINT: `http://127.0.0.1:${(collector.address() as AddressInfo).port}/otlp`,
+        WS_OTLP_AUTHORIZATION: "Basic c3ludGhldGljOnRva2VuLXZhbHVl",
+      });
+      await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+      expect((await fetch(`http://127.0.0.1:${port}/v1/meta`)).status).toBe(200);
+      // Sent at once: the batch exporter's own 5 s delay has not passed, only the stop flushes the span.
+      p.child.kill("SIGTERM");
+      expect(await p.exit).toBe(0);
+      const traces = received
+        .filter((r) => r.path === "/otlp/v1/traces")
+        .map((r) => r.body)
+        .join("\n");
+      expect(traces).toContain("/v1/meta");
+    } finally {
+      await new Promise<void>((resolve) => collector.close(() => resolve()));
+    }
   });
 
   it("ARC-07: the worker role serves only the probes, no API", async () => {

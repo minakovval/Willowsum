@@ -1,4 +1,5 @@
 import type { AnyValue, AttributeValue, Attributes } from "@opentelemetry/api";
+import { PROBLEM_CODES } from "../http/problem.ts";
 
 /**
  * The redaction filter of every exported signal (ARC-09 FR 2, NFR-10 FR 1–3, ADR-0006). It works on an
@@ -32,7 +33,6 @@ export const NAME_RE = /^[a-z][a-z0-9]*([._:-][a-zA-Z0-9]+)*$/;
 /** A path template of a route: `/v1/accounts/:accountId`, `/v1/me/features`. Never a concrete URL. */
 const ROUTE_RE = /^(\/[A-Za-z0-9_~:{}*-]*)+$/;
 const METHOD_RE = /^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS|_OTHER)$/;
-const CODE_RE = /^[A-Z][A-Z0-9_]{0,63}$/;
 const CLASS_RE = /^[A-Za-z][A-Za-z0-9]{0,63}$/;
 const SQLSTATE_RE = /^[0-9A-Z]{5}$/;
 const IDENTIFIER_RE = /^[A-Za-z_][A-Za-z0-9_$]{0,62}$/;
@@ -58,7 +58,8 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   "http.route": str(ROUTE_RE, 128),
   "http.response.status_code": int(100, 599),
   "error.type": str(CLASS_RE, 64),
-  "ws.problem.code": str(CODE_RE, 64),
+  // A closed set: the problem codes of the API (it labels the duration metric, so its cardinality stays fixed).
+  "ws.problem.code": closed(new RegExp(`^(${PROBLEM_CODES.join("|")})$`), 64),
   // Database errors (NFR-10 FR 2): the SQLSTATE and the names of the constraint, table, column and schema.
   "db.system.name": str(/^postgresql$/, 16),
   "db.response.status_code": str(SQLSTATE_RE, 5),
@@ -118,7 +119,9 @@ function allowedValue(rule: Rule, value: AttributeValue | AnyValue | undefined):
     return typeof value === "number" && Number.isInteger(value) && value >= rule.min && value <= rule.max;
   if (typeof value !== "string" || value.length === 0 || value.length > rule.max) return false;
   if (!rule.re.test(value)) return false;
-  if (rule.closed) return true;
+  // A closed grammar (a version) skips the detectors for its numeric core only: a pre-release or build part
+  // could still carry digits (a card number) or a token.
+  if (rule.closed) return !looksPersonal(value.replace(/^[0-9]+\.[0-9]+\.[0-9]+/, ""));
   // Grammars of route templates, SQL identifiers and names cannot hold a personal value except by
   // coincidence; the detectors catch the formats that can still slip through (e.g. digits).
   return !looksPersonal(value);
@@ -157,4 +160,28 @@ export function redactName(value: AnyValue | undefined): string {
   return typeof value === "string" && value.length <= 64 && NAME_RE.test(value) && !looksPersonal(value)
     ? value
     : REDACTED;
+}
+
+/** A version (instrumentation scope, SDK) if it is a plain version, undefined otherwise. */
+export function redactVersion(value: string | undefined): string | undefined {
+  return value !== undefined &&
+    value.length <= 64 &&
+    SEMVER_RE.test(value) &&
+    !looksPersonal(value.replace(/^[0-9]+\.[0-9]+\.[0-9]+/, ""))
+    ? value
+    : undefined;
+}
+
+const SEVERITY_TEXT_RE = /^(TRACE|DEBUG|INFO|WARN|ERROR|FATAL)[2-4]?$/;
+
+/** A log severity text if it is a severity name (`ERROR`, `WARN2` …), undefined otherwise. */
+export function redactSeverityText(value: string | undefined): string | undefined {
+  return value !== undefined && SEVERITY_TEXT_RE.test(value) ? value : undefined;
+}
+
+const UNIT_RE = /^[A-Za-z0-9{}/%._-]{0,32}$/;
+
+/** A metric unit (`s`, `{call}`) if it is a unit, empty otherwise. */
+export function redactUnit(value: string): string {
+  return UNIT_RE.test(value) && !looksPersonal(value) ? value : "";
 }

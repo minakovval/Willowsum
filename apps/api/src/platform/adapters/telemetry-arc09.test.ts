@@ -16,8 +16,8 @@ const telemetry = testTelemetryForFile();
 const PORT = defineProviderPort("geocoding", {
   lookup: { idempotent: true, fields: ["query", "country"], path: "search/{country}" },
 });
-// Built at run time so the secret scanner does not mistake this synthetic value for a real key.
-const KEY = ["synthetic", "api", "key", "9f8e7d6c5b4a3210"].join("-");
+// A distinctive, low-entropy synthetic value: it only has to be recognisable if it leaked.
+const HEADER_VALUE = "synthetic-synthetic-synthetic";
 const ADDRESS = "вул. Хрещатик, 22, кв. 7, Київ";
 
 function geocoder(answer: () => Response) {
@@ -31,7 +31,7 @@ function geocoder(answer: () => Response) {
     baseUrl: "https://geo.example/api/v2",
     client,
     fetch: recorder.fetch,
-    headers: { "x-api-key": KEY },
+    headers: { "x-api-key": HEADER_VALUE },
   });
   return { recorder, http };
 }
@@ -51,7 +51,15 @@ describe("NFR-10 FR 3: provider calls in telemetry without URL, parameters or ke
       "ws.provider.attempts": 1,
     });
     const text = await exportedText(telemetry);
-    for (const secret of [KEY, "Хрещатик", "geo.example", "search/ua", "query=", "50.45010", "30.52340"])
+    for (const secret of [
+      HEADER_VALUE,
+      "Хрещатик",
+      "geo.example",
+      "search/ua",
+      "query=",
+      "50.45010",
+      "30.52340",
+    ])
       expect(text).not.toContain(secret);
     expect(text).toContain("ws.provider.calls");
   });
@@ -75,18 +83,21 @@ describe("NFR-10 FR 3: provider calls in telemetry without URL, parameters or ke
       "http.response.status_code": 503,
     });
     const text = await exportedText(telemetry);
-    for (const secret of [KEY, "Хрещатик", "no match", "geo.example", "query="])
+    for (const secret of [HEADER_VALUE, "Хрещатик", "no match", "geo.example", "query="])
       expect(text).not.toContain(secret);
   });
 
   it("a transport failure is logged by the class of the error, not by its message (which may hold the URL)", async () => {
     const { http } = geocoder(() => {
-      throw new TypeError(`fetch failed: https://geo.example/api/v2/search/ua?query=${ADDRESS}&key=${KEY}`);
+      throw new TypeError(
+        `fetch failed: https://geo.example/api/v2/search/ua?query=${ADDRESS}&key=${HEADER_VALUE}`,
+      );
     });
     await expect(http.getJson(PORT.operations.lookup, { query: ADDRESS, country: "ua" })).rejects.toThrow();
     const records = telemetry.memory.logRecords();
     expect(records.map((r) => r.attributes["error.type"])).toEqual(["TypeError"]);
     const text = await exportedText(telemetry);
-    for (const secret of [KEY, "Хрещатик", "fetch failed", "geo.example"]) expect(text).not.toContain(secret);
+    for (const secret of [HEADER_VALUE, "Хрещатик", "fetch failed", "geo.example"])
+      expect(text).not.toContain(secret);
   });
 });

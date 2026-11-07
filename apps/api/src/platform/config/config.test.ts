@@ -104,6 +104,47 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
     ).toEqual(["WS_TELEMETRY"]);
   });
 
+  it("review of PR #85: staging and production must choose telemetry explicitly and never keep it in memory", () => {
+    const otlpVars = {
+      WS_OTLP_ENDPOINT: "https://otlp-gateway.example.eu/otlp",
+      WS_OTLP_AUTHORIZATION: "Basic c3ludGhldGljOnRva2VuLXZhbHVl",
+    };
+    for (const environment of ["staging", "production"]) {
+      for (const mode of [undefined, "test"]) {
+        const env = {
+          ...base,
+          WS_TELEMETRY_ENVIRONMENT: environment,
+          ...(mode ? { WS_TELEMETRY: mode } : {}),
+        };
+        expect(errorOf(() => loadConfig(env, "api", ["ledger"])).variables).toEqual(["WS_TELEMETRY"]);
+      }
+      const env = { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "otlp", ...otlpVars };
+      expect(loadConfig(env, "worker", ["ledger"]).telemetry.mode).toBe("otlp");
+      const off = { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off" };
+      expect(loadConfig(off, "api", ["ledger"]).telemetry.mode).toBe("off");
+    }
+    // Elsewhere the default stays `test`.
+    for (const environment of ["local", "ci", "preview-85"])
+      expect(
+        loadConfig({ ...base, WS_TELEMETRY_ENVIRONMENT: environment }, "api", ["ledger"]).telemetry.mode,
+      ).toBe("test");
+  });
+
+  it("review of PR #85: an endpoint with a bare «?» or «#» is refused (the signal paths would land after it)", () => {
+    for (const endpoint of [
+      "https://otlp-gateway.example.eu/otlp?",
+      "https://otlp-gateway.example.eu/otlp#",
+    ]) {
+      const env = {
+        ...base,
+        WS_TELEMETRY: "otlp",
+        WS_OTLP_ENDPOINT: endpoint,
+        WS_OTLP_AUTHORIZATION: "Basic c3ludGhldGljOnRva2VuLXZhbHVl",
+      };
+      expect(errorOf(() => loadConfig(env, "api", ["ledger"])).variables).toEqual(["WS_OTLP_ENDPOINT"]);
+    }
+  });
+
   it("criterion «старт із пропущеним обов'язковим секретом»: refuses to start, names the variable, not the value", () => {
     const env: Record<string, string> = { ...base };
     delete env["WS_DB_PASSWORD_LEDGER"];

@@ -51,7 +51,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "1 - (sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d])))"
+          "expr": "1 - (sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_problem_code!~\"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d])))"
         }
       ]
     },
@@ -82,7 +82,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "1 - ((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d]))) / 0.001)"
+          "expr": "1 - ((sum(rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\", ws_problem_code!~\"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE\"}[30d])) / sum(rate(http_server_request_duration_seconds_count[30d]))) / 0.001)"
         }
       ]
     },
@@ -212,7 +212,7 @@
     },
     {
       "id": 7,
-      "title": "Bank sync failure ratio, 1 hour (alert above 5 %)",
+      "title": "Turned away by a kill switch (not counted as errors)",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -222,6 +222,37 @@
         "h": 8,
         "w": 12,
         "x": 0,
+        "y": 24
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ws:api_module_unavailable:rate5m"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Bank sync failure ratio, 1 hour (alert above 5 %)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 24
       },
       "fieldConfig": {

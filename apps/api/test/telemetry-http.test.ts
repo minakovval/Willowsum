@@ -152,11 +152,15 @@ describe("NFR-10 FR 5: distributed tracing covers 100 % of API requests", () => 
       .find((m) => m.descriptor.name === "http.server.request.duration")!;
     const count = histogram.dataPoints.reduce((n, p) => n + (p.value as { count: number }).count, 0);
     expect(count).toBe(requests.length);
+    // Only method, route template, status and — for a problem — its code (a closed set).
     for (const p of histogram.dataPoints)
       expect(Object.keys(p.attributes).sort()).toEqual(
-        p.attributes["http.route"]
-          ? ["http.request.method", "http.response.status_code", "http.route"]
-          : ["http.request.method", "http.response.status_code"],
+        [
+          "http.request.method",
+          "http.response.status_code",
+          ...(p.attributes["http.route"] ? ["http.route"] : []),
+          ...(Number(p.attributes["http.response.status_code"]) >= 400 ? ["ws.problem.code"] : []),
+        ].sort(),
       );
   });
 });

@@ -9,7 +9,7 @@ import {
   type Context,
   type Span,
 } from "@opentelemetry/api";
-import type { FastifyInstance, FastifyReply, FastifyRequest, HookHandlerDoneFunction } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { logEvent, recordHttpRequest } from "./signals.ts";
 import { TELEMETRY_SCOPE } from "./scope.ts";
 
@@ -28,6 +28,8 @@ interface RequestTrace {
   readonly context: Context;
   readonly started: number;
   ended: boolean;
+  /** The problem code of the answer, if it is a problem (a closed set: ProblemCode). */
+  problem?: string;
 }
 
 const traces = new WeakMap<FastifyRequest, RequestTrace>();
@@ -66,7 +68,18 @@ export function annotateRequestError(request: FastifyRequest, attributes: Attrib
   found.span.setAttributes(attributes);
 }
 
-function finish(request: FastifyRequest, reply: FastifyReply | undefined): void {
+/**
+ * Records the problem code of the answer (`ws.problem.code` on the span and the duration metric). The codes are
+ * a closed set; the alert rules leave the deliberate 503s out of the 5xx ratio: MODULE_UNAVAILABLE (a kill
+ * switch, CICD-06) and SERVICE_UNAVAILABLE (a graceful stop) — ADR-0006.
+ */
+export function markRequestProblem(request: FastifyRequest, code: string): void {
+  const found = traces.get(request);
+  if (found && !found.ended) found.problem = code;
+}
+
+/** Ends the request's span with the reply's status (also called directly for a reply sent outside the hooks). */
+export function finishRequestTrace(request: FastifyRequest, reply: FastifyReply | undefined): void {
   const found = traces.get(request);
   if (!found || found.ended) return;
   found.ended = true;
@@ -76,6 +89,7 @@ function finish(request: FastifyRequest, reply: FastifyReply | undefined): void 
     "http.request.method": method(request),
     ...(route ? { "http.route": route } : {}),
     ...(status !== undefined ? { "http.response.status_code": status } : {}),
+    ...(found.problem !== undefined ? { "ws.problem.code": found.problem } : {}),
   };
   if (route) found.span.updateName(`${method(request)} ${route}`);
   found.span.setAttributes(attributes);
@@ -91,35 +105,38 @@ function finish(request: FastifyRequest, reply: FastifyReply | undefined): void 
   );
 }
 
-/** Re-enters the request's context: after the body is read, Fastify continues in the socket's context. */
-function enter(request: FastifyRequest, _reply: FastifyReply, done: HookHandlerDoneFunction): void {
+/**
+ * Starts the root span of a request (once) and returns its context. Also used for requests Fastify answers
+ * before any hook (a URL it cannot decode, process/server.ts), so they too get a trace and a support id.
+ */
+export function traceRequest(request: FastifyRequest): Context {
   const found = traces.get(request);
-  if (found) context.with(found.context, done);
-  else done();
+  if (found) return found.context;
+  const span = trace.getTracer(TELEMETRY_SCOPE).startSpan(
+    method(request),
+    { kind: SpanKind.SERVER, attributes: { "http.request.method": method(request) } },
+    // A new root: incoming trace headers are ignored on purpose (NFR-10 FR 4).
+    ROOT_CONTEXT,
+  );
+  const ctx = trace.setSpan(ROOT_CONTEXT, span);
+  traces.set(request, { span, context: ctx, started: performance.now(), ended: false });
+  return ctx;
 }
 
 export function instrumentHttp(app: FastifyInstance): void {
+  // The rest of the request's lifecycle (body, validation, handler, error handler) continues in this context:
+  // tests over a real socket with a body arriving in pieces show it (no re-entry in later hooks is needed).
   app.addHook("onRequest", (request, _reply, done) => {
     if (isProbe(request)) return done();
-    const span = trace.getTracer(TELEMETRY_SCOPE).startSpan(
-      method(request),
-      { kind: SpanKind.SERVER, attributes: { "http.request.method": method(request) } },
-      // A new root: incoming trace headers are ignored on purpose (NFR-10 FR 4).
-      ROOT_CONTEXT,
-    );
-    const ctx = trace.setSpan(ROOT_CONTEXT, span);
-    traces.set(request, { span, context: ctx, started: performance.now(), ended: false });
-    context.with(ctx, done);
+    context.with(traceRequest(request), done);
   });
-  app.addHook("preValidation", enter);
-  app.addHook("preHandler", enter);
   app.addHook("onResponse", (request, reply, done) => {
-    finish(request, reply);
+    finishRequestTrace(request, reply);
     done();
   });
   // The client went away before the answer: the span still ends (no status).
   app.addHook("onRequestAbort", (request, done) => {
-    finish(request, undefined);
+    finishRequestTrace(request, undefined);
     done();
   });
 }

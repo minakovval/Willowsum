@@ -27,6 +27,8 @@ export const PROBLEMS = {
   INTERNAL: { status: 500, title: "Something went wrong on our side" },
   /** The route's module is switched off by its kill switch (CICD-06 FR 3); clients show «Тимчасово недоступно». */
   MODULE_UNAVAILABLE: { status: 503, title: "This function is temporarily unavailable" },
+  /** The process is stopping (graceful stop, ARC-02 FR 5): the client retries after `Retry-After` on another one. */
+  SERVICE_UNAVAILABLE: { status: 503, title: "The service is restarting; try again shortly" },
 } as const satisfies Record<string, { status: number; title: string }>;
 
 export type ProblemCode = keyof typeof PROBLEMS;

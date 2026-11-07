@@ -31,11 +31,52 @@ describe("NFR-10 FR 6: every required alert exists, pages, and uses the threshol
     assert.deepEqual(validate(defs), []);
     assert.match(alert("BankSyncFailureRatioHigh").expr, /ws:bank_sync_failure_ratio:1h > 0\.05$/);
     assert.match(alert("Api5xxRatioHigh").expr, /ws:api_error_ratio:rate5m > 0\.01 /);
-    assert.match(alert("ApiReadLatencyP95High").expr, /> 0\.3$/);
-    assert.match(alert("ApiWriteLatencyP95High").expr, /> 0\.5$/);
+    assert.match(alert("ApiReadLatencyP95High").expr, /> 0\.3 and /);
+    assert.match(alert("ApiWriteLatencyP95High").expr, /> 0\.5 and /);
     assert.match(alert("ApiErrorBudgetBurnFast").expr, /rate1h > \(14\.4 \* 0\.001\) and .*rate5m > \(14\.4 \* 0\.001\)/);
     const bank = defs.RECORDING_RULES.find((r) => r.record === "ws:bank_sync_failure_ratio:1h");
     assert.match(bank.expr, /ws_bank_sync_runs_total\{ws_outcome="failure"\}\[1h\]/);
+  });
+
+  it("every burn-rate alert has its factor and both windows; the 5xx selector counts 5.. without deliberate 503s", () => {
+    const burn = (name) => alert(name).expr;
+    assert.equal(burn("ApiErrorBudgetBurnFast"), "ws:api_error_ratio:rate1h > (14.4 * 0.001) and ws:api_error_ratio:rate5m > (14.4 * 0.001)");
+    assert.equal(burn("ApiErrorBudgetBurnMedium"), "ws:api_error_ratio:rate6h > (6 * 0.001) and ws:api_error_ratio:rate30m > (6 * 0.001)");
+    assert.equal(burn("ApiErrorBudgetBurnSlow"), "ws:api_error_ratio:rate3d > (1 * 0.001) and ws:api_error_ratio:rate6h > (1 * 0.001)");
+    assert.deepEqual(
+      ["ApiErrorBudgetBurnFast", "ApiErrorBudgetBurnMedium", "ApiErrorBudgetBurnSlow"].map((a) => alert(a).severity),
+      ["page", "page", "ticket"],
+    );
+    assert.equal(
+      defs.SERVER_ERROR_SELECTOR,
+      'http_response_status_code=~"5..", ws_problem_code!~"MODULE_UNAVAILABLE|SERVICE_UNAVAILABLE"',
+    );
+    for (const w of defs.ERROR_RATIO_WINDOWS) {
+      const rule = defs.RECORDING_RULES.find((r) => r.record === `ws:api_error_ratio:rate${w}`);
+      assert.equal(
+        rule.expr,
+        `sum(rate(http_server_request_duration_seconds_count{${defs.SERVER_ERROR_SELECTOR}}[${w}])) / sum(rate(http_server_request_duration_seconds_count[${w}]))`,
+      );
+    }
+    assert.deepEqual([...defs.ERROR_RATIO_WINDOWS], ["5m", "30m", "1h", "2h", "6h", "1d", "3d"]);
+  });
+
+  it("lead's decision: a kill switch is not an error; a module left switched off for 30 minutes is a ticket", () => {
+    const off = alert("ApiModuleSwitchedOff");
+    assert.equal(off.severity, "ticket");
+    assert.equal(off.for, "30m");
+    assert.equal(off.expr, "ws:api_module_unavailable:rate5m > 0");
+    const rule = defs.RECORDING_RULES.find((r) => r.record === "ws:api_module_unavailable:rate5m");
+    assert.match(rule.expr, /ws_problem_code="MODULE_UNAVAILABLE"/);
+  });
+
+  it("latency pages need at least 20 requests of their kind in 5 minutes (one slow request at PoC traffic does not page)", () => {
+    assert.match(alert("ApiReadLatencyP95High").expr, /> 0\.3 and ws:api_read_requests:increase5m >= 20$/);
+    assert.match(alert("ApiWriteLatencyP95High").expr, /> 0\.5 and ws:api_write_requests:increase5m >= 20$/);
+    const reads = defs.RECORDING_RULES.find((r) => r.record === "ws:api_read_requests:increase5m");
+    assert.match(reads.expr, /http_request_method=~"GET\|HEAD"/);
+    const writes = defs.RECORDING_RULES.find((r) => r.record === "ws:api_write_requests:increase5m");
+    assert.match(writes.expr, /http_request_method=~"POST\|PUT\|PATCH\|DELETE"/);
   });
 
   it("a missing required alert, an unknown series, a bad duration or a slow page is refused", () => {
@@ -79,7 +120,7 @@ describe("infra/observability is generated from the definitions", () => {
   it("NFR-10 FR 5: the dashboard shows availability, error budget, 5xx, read and write p95 and bank sync", () => {
     const board = JSON.parse(generate(defs)["dashboard-slo.json"]);
     const titles = board.panels.map((p) => p.title).join(" | ");
-    for (const w of ["Availability", "Error budget", "5xx", "Read p95", "Write p95", "Bank sync"]) assert.ok(titles.includes(w), w);
+    for (const w of ["Availability", "Error budget", "5xx", "Read p95", "Write p95", "Bank sync", "kill switch"]) assert.ok(titles.includes(w), w);
   });
 
   it("the YAML writer quotes every string and nests lists of maps", () => {

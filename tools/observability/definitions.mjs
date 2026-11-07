@@ -52,6 +52,7 @@ export const SLOS = Object.freeze([
     thresholdS: 0.3,
     quantile: 0.95,
     methods: "GET|HEAD",
+    minRequests5m: 20,
     description: "95th percentile of read (GET, HEAD) request duration over 5 minutes.",
     requirement: "ARC-09 FR 4; NFR-10 FR 5",
   },
@@ -61,6 +62,7 @@ export const SLOS = Object.freeze([
     thresholdS: 0.5,
     quantile: 0.95,
     methods: "POST|PUT|PATCH|DELETE",
+    minRequests5m: 20,
     description: "95th percentile of write (POST, PUT, PATCH, DELETE) request duration over 5 minutes.",
     requirement: "ARC-09 FR 4; NFR-10 FR 5",
   },
@@ -87,8 +89,19 @@ const BUDGET = 1 - slo("api-availability").objective;
 /** Error-ratio windows of the multi-window, multi-burn-rate alerts (Google SRE workbook, chapter 5). */
 export const ERROR_RATIO_WINDOWS = Object.freeze(["5m", "30m", "1h", "2h", "6h", "1d", "3d"]);
 
+/**
+ * Deliberate 503s are not errors of the service: a module switched off by its kill switch (CICD-06) and a
+ * request that arrived while a process was stopping. The API marks them with `ws.problem.code` (a closed set of
+ * codes); they are left out of the 5xx numerator, so a planned action never pages on-call or burns the budget
+ * (lead's decision, ADR-0006). A module left switched off is a ticket instead (ApiModuleSwitchedOff).
+ */
+export const DELIBERATE_UNAVAILABLE = Object.freeze(["MODULE_UNAVAILABLE", "SERVICE_UNAVAILABLE"]);
+export const SERVER_ERROR_SELECTOR = `http_response_status_code=~"5..", ws_problem_code!~"${DELIBERATE_UNAVAILABLE.join("|")}"`;
+
 const errorRatio = (w) =>
-  `sum(rate(${DURATION}_count{http_response_status_code=~"5.."}[${w}])) / sum(rate(${DURATION}_count[${w}]))`;
+  `sum(rate(${DURATION}_count{${SERVER_ERROR_SELECTOR}}[${w}])) / sum(rate(${DURATION}_count[${w}]))`;
+const requests = (s) =>
+  `sum(increase(${DURATION}_count{http_request_method=~"${s.methods}"}[5m]))`;
 const p95 = (s) =>
   `histogram_quantile(${s.quantile}, sum by (le) (rate(${DURATION}_bucket{http_request_method=~"${s.methods}"}[5m])))`;
 
@@ -97,6 +110,12 @@ export const RECORDING_RULES = Object.freeze([
   ...ERROR_RATIO_WINDOWS.map((w) => ({ record: `ws:api_error_ratio:rate${w}`, expr: errorRatio(w) })),
   { record: "ws:api_read_latency_seconds:p95_5m", expr: p95(slo("api-read-latency")) },
   { record: "ws:api_write_latency_seconds:p95_5m", expr: p95(slo("api-write-latency")) },
+  { record: "ws:api_read_requests:increase5m", expr: requests(slo("api-read-latency")) },
+  { record: "ws:api_write_requests:increase5m", expr: requests(slo("api-write-latency")) },
+  {
+    record: "ws:api_module_unavailable:rate5m",
+    expr: `sum(rate(${DURATION}_count{ws_problem_code="MODULE_UNAVAILABLE"}[5m]))`,
+  },
   {
     record: "ws:bank_sync_failure_ratio:1h",
     expr: `sum(increase(${BANK_SYNC}{ws_outcome="failure"}[1h])) / sum(increase(${BANK_SYNC}[1h]))`,
@@ -154,7 +173,8 @@ export const ALERTS = Object.freeze([
   },
   {
     alert: "ApiReadLatencyP95High",
-    expr: `ws:api_read_latency_seconds:p95_5m > ${slo("api-read-latency").thresholdS}`,
+    // At PoC traffic one slow request would be the p95 of its window: page only with ≥ 20 reads in 5 minutes.
+    expr: `ws:api_read_latency_seconds:p95_5m > ${slo("api-read-latency").thresholdS} and ws:api_read_requests:increase5m >= ${slo("api-read-latency").minRequests5m}`,
     for: "2m",
     severity: "page",
     slo: "api-read-latency",
@@ -163,12 +183,22 @@ export const ALERTS = Object.freeze([
   },
   {
     alert: "ApiWriteLatencyP95High",
-    expr: `ws:api_write_latency_seconds:p95_5m > ${slo("api-write-latency").thresholdS}`,
+    expr: `ws:api_write_latency_seconds:p95_5m > ${slo("api-write-latency").thresholdS} and ws:api_write_requests:increase5m >= ${slo("api-write-latency").minRequests5m}`,
     for: "2m",
     severity: "page",
     slo: "api-write-latency",
     requirement: "NFR-10 FR 6: SLO violation (write p95 ≤ 500 ms)",
     summary: "API write p95 above 500 ms over 5 minutes",
+  },
+  {
+    alert: "ApiModuleSwitchedOff",
+    // Seen through the requests it turns away; a module nobody calls is not reported.
+    expr: "ws:api_module_unavailable:rate5m > 0",
+    for: "30m",
+    severity: "ticket",
+    slo: "api-availability",
+    requirement: "CICD-06: a module kill switch left on (not an outage, not paged)",
+    summary: "A module has answered MODULE_UNAVAILABLE (kill switch on) for more than 30 minutes",
   },
   {
     alert: "BankSyncFailureRatioHigh",
@@ -218,6 +248,12 @@ export const DASHBOARD_PANELS = Object.freeze([
     expr: "ws:api_write_latency_seconds:p95_5m",
   },
   { title: "Requests per second", type: "timeseries", unit: "reqps", expr: "ws:api_requests:rate5m" },
+  {
+    title: "Turned away by a kill switch (not counted as errors)",
+    type: "timeseries",
+    unit: "reqps",
+    expr: "ws:api_module_unavailable:rate5m",
+  },
   {
     title: "Bank sync failure ratio, 1 hour (alert above 5 %)",
     type: "timeseries",

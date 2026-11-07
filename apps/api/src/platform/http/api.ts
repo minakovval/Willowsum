@@ -2,6 +2,7 @@ import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from
 import type { z } from "zod";
 import { ProviderError } from "../adapters/errors.ts";
 import { databaseErrorFields, type DatabaseErrorFields } from "../db/errors.ts";
+import { markRequestProblem } from "../telemetry/http.ts";
 import type { HouseholdQueryRunner, ModuleDatabase, ModuleQueryRunner } from "../db/module-db.ts";
 import {
   IDEMPOTENCY_HEADER,
@@ -143,6 +144,7 @@ function sendProblem(
   supportId: ApiOptions["supportId"],
   options: { detail?: string | undefined; errors?: readonly ProblemFieldError[] | undefined } = {},
 ): FastifyReply {
+  markRequestProblem(request, code);
   const body = problemBody(code, { ...options, supportId: supportId?.(request) });
   return reply.code(body.status).header("content-type", PROBLEM_CONTENT_TYPE).send(JSON.stringify(body));
 }
