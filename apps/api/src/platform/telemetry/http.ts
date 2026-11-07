@@ -151,6 +151,17 @@ export function instrumentHttp(app: FastifyInstance): void {
     if (isProbe(request)) return done();
     context.with(traceRequest(request), done);
   });
+  // An error raised after a problem was marked means that problem was not sent (an onSend hook failed) and
+  // Fastify's fallback handler answers instead: that answer carries no mark, so a fault is never labelled as a
+  // deliberate 503. The first error of a request (before any problem is marked) keeps the kill-switch mark.
+  app.addHook("onError", (request, _reply, _error, done) => {
+    const found = traces.get(request);
+    if (found && found.problem !== undefined) {
+      delete found.problem;
+      delete found.unavailable;
+    }
+    done();
+  });
   app.addHook("onResponse", (request, reply, done) => {
     finishRequestTrace(request, reply);
     done();

@@ -53,7 +53,8 @@ export interface ApiOptions {
    * Why a module is unavailable, when known (feature-flags `moduleState`): `killed` — its kill switch, a
    * deliberate action; `unknown` — no usable flag state (a failing database). Both answer 503
    * MODULE_UNAVAILABLE; only `killed` is left out of the 5xx ratio, `unknown` is reported as the server error
-   * `FlagStateUnavailable` (ARC-09, ADR-0006). Without it, an unavailable module counts as `killed`.
+   * `FlagStateUnavailable` (ARC-09, ADR-0006). Without it, an unavailable module counts as `unknown` (an
+   * outage): only a caller that knows the reason may claim a deliberate switch.
    */
   readonly moduleState?: (module: string) => Promise<"on" | "killed" | "unknown">;
   /** Is the flag on for the caller's space (feature-flags, CICD-06 FR 1)? */
@@ -403,7 +404,8 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
                 ? await options.moduleState(module)
                 : (await options.moduleAvailable(module))
                   ? "on"
-                  : "killed";
+                  : // Without the reason, an unavailable module counts as an outage, never as a deliberate switch.
+                    "unknown";
               if (state === "killed") {
                 markUnavailableReason(request, "kill_switch");
                 throw new ApiProblem("MODULE_UNAVAILABLE");

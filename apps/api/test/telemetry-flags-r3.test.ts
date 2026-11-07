@@ -240,3 +240,30 @@ describe("re-review of PR #85, non-blocking: the deliberate 503s stay where they
     ]);
   });
 });
+
+describe("security review of PR #85, round 2: without a reason, an unavailable module is an outage", () => {
+  it("an API without moduleState reports an unavailable module as FlagStateUnavailable, labelled flags_unknown", async () => {
+    const reports: ErrorReport[] = [];
+    app = buildServer({
+      readiness: async () => ({ ready: true }),
+      api: (a) =>
+        registerApi(
+          a,
+          testApiOptions([getThing], {
+            moduleAvailable: async () => false,
+            reportError: (report, request) => {
+              reports.push(report);
+              reportServerErrorToTelemetry(report, request);
+            },
+          }),
+        ),
+    });
+    await app.ready();
+    const res = await app.inject({ method: "GET", url: "/v1/things/a", headers: principalHeader() });
+    expect(res.json()).toMatchObject({ code: "MODULE_UNAVAILABLE", status: 503 });
+    const [point] = await lastDurationPoint();
+    expect(point).toMatchObject({ "ws.unavailable.reason": "flags_unknown" });
+    expect(await countedAsError(point!)).toBe(true);
+    expect(reports.map((r) => r.errorClass)).toEqual(["FlagStateUnavailable"]);
+  });
+});
