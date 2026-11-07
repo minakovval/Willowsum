@@ -1,5 +1,8 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
+import { ProviderError } from "../adapters/errors.ts";
+import { databaseErrorFields, type DatabaseErrorFields } from "../db/errors.ts";
+import { markRequestProblem, markUnavailableReason } from "../telemetry/http.ts";
 import type { HouseholdQueryRunner, ModuleDatabase, ModuleQueryRunner } from "../db/module-db.ts";
 import {
   IDEMPOTENCY_HEADER,
@@ -46,6 +49,14 @@ export interface ApiOptions {
   readonly checkFeature: (principal: Principal, feature: string) => Promise<boolean>;
   /** Is the module available, i.e. its kill switch off (feature-flags, CICD-06 FR 3)? */
   readonly moduleAvailable: (module: string) => Promise<boolean>;
+  /**
+   * Why a module is unavailable, when known (feature-flags `moduleState`): `killed` — its kill switch, a
+   * deliberate action; `unknown` — no usable flag state (a failing database). Both answer 503
+   * MODULE_UNAVAILABLE; only `killed` is left out of the 5xx ratio, `unknown` is reported as the server error
+   * `FlagStateUnavailable` (ARC-09, ADR-0006). Without it, an unavailable module counts as `unknown` (an
+   * outage): only a caller that knows the reason may claim a deliberate switch.
+   */
+  readonly moduleState?: (module: string) => Promise<"on" | "killed" | "unknown">;
   /** Is the flag on for the caller's space (feature-flags, CICD-06 FR 1)? */
   readonly checkFlag: (principal: Principal, flag: string) => Promise<boolean>;
   /** Every permission, feature key and flag that exists; a route naming another one is refused at start. */
@@ -61,10 +72,16 @@ export interface ApiOptions {
   readonly databases: { for(module: string): ModuleDatabase };
   /** The idempotency store of a module with create routes (default: its own table). */
   readonly idempotency: (module: string) => IdempotencyStore;
-  /** Support id for problems (ARC-09 traces); omitted while it returns undefined. */
+  /**
+   * Support id of a request for its problems: the trace id the server drew for it (ARC-09 FR 3, NFR-10 FR 4;
+   * src/platform/telemetry/http.ts). Omitted while it returns undefined (an app without tracing).
+   */
   readonly supportId?: (request: FastifyRequest) => string | undefined;
-  /** Where server errors are reported (ARC-09 telemetry later); gets a value-free ErrorReport only. */
-  readonly reportError?: (report: ErrorReport) => void;
+  /**
+   * Where server errors are reported (ARC-09 telemetry: src/platform/telemetry/errors.ts); gets a value-free
+   * ErrorReport and the request (for its trace) only.
+   */
+  readonly reportError?: (report: ErrorReport, request: FastifyRequest) => void;
 }
 
 /**
@@ -81,6 +98,24 @@ export interface ErrorReport {
   readonly status: number;
   /** The class of the error (`TypeError`, `DatabaseError` …), letters and digits only. */
   readonly errorClass: string;
+  /**
+   * For a PostgreSQL error (NFR-10 FR 2): the SQLSTATE and the names of the constraint, table, column and
+   * schema — never the message or `detail`, which repeat the values.
+   */
+  readonly database?: DatabaseErrorFields;
+  /** For a provider failure (NFR-10 FR 3): adapter, operation and kind — never the URL, parameters or keys. */
+  readonly provider?: { readonly provider: string; readonly operation: string; readonly kind: string };
+}
+
+/**
+ * MODULE_UNAVAILABLE because the flag state is unknown (never loaded, or ≥ 60 s old: fail closed, CICD-06).
+ * The client sees the same 503 as for a kill switch; telemetry sees a server error (ARC-09, ADR-0006).
+ */
+export class FlagStateUnavailable extends ApiProblem {
+  constructor() {
+    super("MODULE_UNAVAILABLE");
+    this.name = "FlagStateUnavailable";
+  }
 }
 
 /** Seconds a client waits before retrying a module that is switched off. */
@@ -98,16 +133,25 @@ function reportServerError(
   error: unknown,
 ): void {
   const { status } = problemBody(code);
-  // A module switched off on purpose is not an error.
-  if (!reportError || status < 500 || code === "MODULE_UNAVAILABLE") return;
+  // A module switched off on purpose is not an error; one without a usable flag state is.
+  if (!reportError || status < 500) return;
+  if (code === "MODULE_UNAVAILABLE" && !(error instanceof FlagStateUnavailable)) return;
   try {
-    reportError({
-      method: request.method,
-      route: request.routeOptions.url ?? null,
-      code,
-      status,
-      errorClass: errorClass(error),
-    });
+    const database = databaseErrorFields(error);
+    reportError(
+      {
+        method: request.method,
+        route: request.is404 ? null : (request.routeOptions.url ?? null),
+        code,
+        status,
+        errorClass: errorClass(error),
+        ...(database ? { database } : {}),
+        ...(error instanceof ProviderError
+          ? { provider: { provider: error.provider, operation: error.operation, kind: error.kind } }
+          : {}),
+      },
+      request,
+    );
   } catch {
     // Reporting never changes the answer.
   }
@@ -120,6 +164,7 @@ function sendProblem(
   supportId: ApiOptions["supportId"],
   options: { detail?: string | undefined; errors?: readonly ProblemFieldError[] | undefined } = {},
 ): FastifyReply {
+  markRequestProblem(request, code);
   const body = problemBody(code, { ...options, supportId: supportId?.(request) });
   return reply.code(body.status).header("content-type", PROBLEM_CONTENT_TYPE).send(JSON.stringify(body));
 }
@@ -353,8 +398,22 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         : {
             onRequest: async (request: FastifyRequest) => {
               // A module switched off by its kill switch answers «temporarily unavailable»; the rest works.
-              if (!(await options.moduleAvailable(route.module as string)))
+              // Without a usable flag state every module answers the same, but that is an outage, not a decision.
+              const module = route.module as string;
+              const state = options.moduleState
+                ? await options.moduleState(module)
+                : (await options.moduleAvailable(module))
+                  ? "on"
+                  : // Without the reason, an unavailable module counts as an outage, never as a deliberate switch.
+                    "unknown";
+              if (state === "killed") {
+                markUnavailableReason(request, "kill_switch");
                 throw new ApiProblem("MODULE_UNAVAILABLE");
+              }
+              if (state === "unknown") {
+                markUnavailableReason(request, "flags_unknown");
+                throw new FlagStateUnavailable();
+              }
               const principal = await options.authenticate(request);
               if (!principal) throw new ApiProblem("UNAUTHENTICATED");
               // A function that is off for the space does not exist for it: the same 404 as an unknown path.

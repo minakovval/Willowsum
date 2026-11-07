@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-09)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -25,7 +25,10 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
   видаляється ≤ 30 днів після повного вмикання; `operational` — постійний вимикач), `owner` (роль або команда),
   `reviewBy`, для `release` — `fullyEnabledOn`. Модуль не завантажиться, якщо ключі прапорців і ключі функцій різняться.
 - `createFlagRuntimeFor(db, options?)` → `FlagRuntime` (одна на процес API, `src/api.ts`):
-  `isModuleAvailable(module)`, `isEnabled(householdId, flag)`, `enabledFlags(householdId)`, `refresh()`, `loaded`, `fresh`.
+  `isModuleAvailable(module)`, `moduleState(module)` (`on`, `killed` — вимикач, `unknown` — немає придатного стану; API
+  відповідає 503 в обох останніх, але телеметрія рахує `unknown` як збій, ADR-0006), `isEnabled(householdId, flag)`,
+  `enabledFlags(householdId)`, `refresh()`, `loaded`, `fresh`. Опція `onReloadHealth(клас помилки | undefined)` — один раз,
+  коли перечитування починають падати, і один раз після відновлення (`main.ts` логує `flags.reload_failed` / `recovered`).
   Стан кешується; його вік рахується від початку завантаження; перший запит після `REFRESH_MS` (15 с) перечитує його і
   чекає не довше `LOAD_WAIT_MS` (2 с). Невдале чи зависле перечитування лишає останній стан, поки йому менше
   `KILL_SWITCH_MAX_DELAY_MS` (60 с — межа CICD-06); без такого стану модулі недоступні, прапорці вимкнені, `fresh` — false.

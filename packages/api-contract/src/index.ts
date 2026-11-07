@@ -25,6 +25,17 @@ export function isProblem(value: unknown): value is Problem {
   return typeof v["code"] === "string" && typeof v["status"] === "number" && typeof v["type"] === "string";
 }
 
+/**
+ * The error code a screen shows for a failed request (ARC-09 FR 3; CMP-24 «Код: …»): the problem's
+ * `supportId`, the trace id the server drew for that request. Undefined when the answer is not a problem or
+ * carries no id (then the screen shows no code).
+ */
+export function problemSupportCode(value: unknown): string | undefined {
+  if (!isProblem(value)) return undefined;
+  const id = (value as { supportId?: unknown }).supportId;
+  return typeof id === "string" && /^[0-9a-f]{32}$/.test(id) ? id : undefined;
+}
+
 /** A fresh idempotency key for a create request; repeat it when retrying the same request. */
 export function newIdempotencyKey(): string {
   return globalThis.crypto.randomUUID();

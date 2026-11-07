@@ -13,4 +13,10 @@ export {
   LOAD_WAIT_MS,
   REFRESH_MS,
 } from "./runtime.ts";
-export type { FlagCatalogue, FlagRuntime, FlagRuntimeOptions, FlagsReadiness } from "./runtime.ts";
+export type {
+  FlagCatalogue,
+  FlagRuntime,
+  FlagRuntimeOptions,
+  FlagsReadiness,
+  ModuleState,
+} from "./runtime.ts";

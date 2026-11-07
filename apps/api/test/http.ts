@@ -48,6 +48,7 @@ export function fakeDatabases(): { databases: ApiOptions["databases"]; bound: st
  */
 export function fakeFlags(options: { off?: readonly string[]; killed?: readonly string[] } = {}): {
   isModuleAvailable(m: string): Promise<boolean>;
+  moduleState(m: string): Promise<"on" | "killed" | "unknown">;
   isEnabled(h: string, f: string): Promise<boolean>;
   asked: string[];
 } {
@@ -57,6 +58,11 @@ export function fakeFlags(options: { off?: readonly string[]; killed?: readonly 
     isModuleAvailable: async (module) => {
       asked.push(`module:${module}`);
       return !(options.killed ?? []).includes(module);
+    },
+    // A module in `killed` is switched off on purpose (its kill switch), as the real runtime reports it.
+    moduleState: async (module) => {
+      asked.push(`module:${module}`);
+      return (options.killed ?? []).includes(module) ? "killed" : "on";
     },
     isEnabled: async (householdId, flag) => {
       asked.push(`flag:${flag}@${householdId}`);
@@ -97,13 +103,10 @@ export function memoryIdempotency(): IdempotencyStore & { size(): number } {
   };
 }
 
-export async function testApp(
-  routes: readonly ApiRoute[],
-  overrides: Partial<ApiOptions> = {},
-): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+/** The API options of unit tests: every check passes unless overridden; fake databases, memory idempotency. */
+export function testApiOptions(routes: readonly ApiRoute[], overrides: Partial<ApiOptions> = {}): ApiOptions {
   const store = memoryIdempotency();
-  registerApi(app, {
+  return {
     routes,
     authenticate: testAuthenticate,
     checkPermission: () => true,
@@ -123,7 +126,15 @@ export async function testApp(
     databases: fakeDatabases().databases,
     idempotency: () => store,
     ...overrides,
-  });
+  };
+}
+
+export async function testApp(
+  routes: readonly ApiRoute[],
+  overrides: Partial<ApiOptions> = {},
+): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  registerApi(app, testApiOptions(routes, overrides));
   await app.ready();
   return app;
 }

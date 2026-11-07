@@ -1,0 +1,7 @@
+{
+  "name": "@willowsum/observability",
+  "private": true,
+  "description": "SLOs, alert rules, routing and the SLO dashboard as code (ARC-09, NFR-10, ADR-0006): generates and checks infra/observability/. Zero dependencies; `node --test tools/observability` runs the tests, `pnpm check:alerts` the check.",
+  "type": "module",
+  "main": "test/all.mjs"
+}

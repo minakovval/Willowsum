@@ -1,11 +1,11 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05, ARC-09)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
 [ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md); прапорці функцій і аварійні вимикачі —
-[ADR-0004](../../docs/adr/0004-feature-flags.md); зовнішні провайдери через адаптери — [ADR-0005](../../docs/adr/0005-provider-adapters.md).
+[ADR-0004](../../docs/adr/0004-feature-flags.md); зовнішні провайдери через адаптери — [ADR-0005](../../docs/adr/0005-provider-adapters.md); спостережуваність — [ADR-0006](../../docs/adr/0006-observability.md).
 
 ## Будова
 
@@ -13,7 +13,7 @@
 | --- | --- |
 | `src/modules/<module>/` | Модуль: `index.ts` (публічний інтерфейс і події), `domain/`, `application/`, `adapters/` (зокрема `adapters/db/migrations/NNNN_slug.sql`), картка `README.md`, генератор синтетичних даних своїх таблиць `synthetic.ts` |
 | `src/modules/index.ts` | Реєстр модулів (генератор додає сюди) |
-| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI), набір інструментів адаптерів провайдерів (`adapters/`: порт і перелік полів, тайм-аут, повтори, запобіжник, останнє відоме значення; еталонний порт `adapters/reference/exchange-rates/`) |
+| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI), набір інструментів адаптерів провайдерів (`adapters/`: порт і перелік полів, тайм-аут, повтори, запобіжник, останнє відоме значення; еталонний порт `adapters/reference/exchange-rates/`), телеметрія (`telemetry/`: OpenTelemetry, фільтр персональних даних, траси запитів і задач, метрики SLO) |
 | `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки feature-flags, access-scope і plan-catalog |
 | `src/wiring.ts` | Налаштування пулів перевірки прапорців і перевірка готовності, які використовує `main.ts` (CICD-06) |
 | `module-rules.json` | Єдиний файл правил: модулі, шар, від яких модулів залежить кожен |
@@ -41,6 +41,7 @@
 | `DATABASE_URL=… pnpm test:integration` | Інтеграційні тести на реальному PostgreSQL (суперкористувач тимчасової БД) |
 | `DATABASE_URL=<суперкористувач> pnpm --filter @willowsum/api db:bootstrap` | Один раз на нову базу: закриває функції великих об'єктів і ставить страж ізоляції — тригер подій `ws_module_guard` (ADR-0002) |
 | `DATABASE_URL=… pnpm --filter @willowsum/api migrate` | Застосовує міграції: роль запуску — власник бази з CREATEROLE (суперкористувач лише для bootstrap); SQL модуля виконується від його ролі-власника `ws_own_<схема>` (ADR-0002) |
+| `pnpm check:alerts` (з кореня) | SLO, правила алертів, маршрутизація і дашборд `infra/observability/` збігаються з `tools/observability/definitions.mjs`; кожна тривога NFR-10 є і надходить ≤ 5 хв (CI-задача `infra`, ARC-09) |
 | `node src/main.ts --role api\|worker\|scheduler` | Запускає процес (ARC-02); образ — `docker build -f apps/api/Dockerfile .` з кореня |
 
 ## Конфігурація (ARC-02, CICD-12)
@@ -53,6 +54,10 @@
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005) | `test` |
+| `WS_TELEMETRY` | Телеметрія (ARC-09, ADR-0006): `test` (у пам'яті процесу, нічого не виходить з машини), `otlp` (OTLP/HTTP на `WS_OTLP_ENDPOINT`; Grafana Cloud EU) або `off`. Для `staging` і `production` обов'язкова і не `test` | `test` (поза `staging`/`production`) |
+| `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
+| `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
+| `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
 | `WS_DB_HOST`, `WS_DB_PORT`, `WS_DB_NAME`, `WS_DB_SSL` | Сервер БД | порт 5432, SSL увімкнено |
 | `WS_DB_PROBE_PASSWORD` | Пароль ролі `ws_probe` (лише читання списку міграцій для «готовий») | — |
 | `WS_DB_CONTEXT_PASSWORD` | Пароль ролі `ws_context` (лише прив'язка з'єднань модулів до простору, ARC-03) | — |
@@ -106,9 +111,11 @@
   (простір із сеансу); `ctx.db` дає лише `transaction` без простору. До identity (ACC-01) сеансів немає:
   захищені маршрути відповідають 401. Маршрут в обхід `registerApi`, що може відповісти на запит під `/v1`
   (сирий `app.get("/v1/…")`, `/*`, `/:version/…`), і плагін із таким префіксом сервер відхиляє під час реєстрації.
-- Помилки — RFC 9457 `application/problem+json` з `code`; без внутрішніх деталей і персональних даних. Запис, якого
+- Помилки — RFC 9457 `application/problem+json` з `code` і `supportId` — ідентифікатором траси запиту, який сервер
+  генерує випадково (клієнт показує його як код помилки; ARC-09); без внутрішніх деталей і персональних даних. Запис, якого
   немає або який належить іншому простору, — `requireFound(record)` → 404 (DAT-05). Помилки 5xx ідуть у
-  `reportError` лише як метод, шаблон маршруту, код, статус і клас помилки (ARC-09 додасть експортер).
+  `reportError` лише як метод, шаблон маршруту, код, статус, клас помилки, для помилки БД — SQLSTATE і назви обмеження,
+  таблиці, стовпця й схеми, для провайдера — адаптер, операція й вид збою (подія `api.server_error`, ADR-0006).
 - `create: true` — заголовок `Idempotency-Key`; модуль додає міграцію з `src/platform/http/idempotency-keys.sql`
   дослівно. `list: true` — `pageQuery` (`cursor`, `limit` ≤ 100) і `pageOf(item)`.
 - Після зміни маршруту — `pnpm contract:write` і коміт `packages/api-contract/openapi.json` та `src/schema.ts`.
@@ -126,3 +133,23 @@
   відповідь усередині виклику. SDK провайдера — лише в `adapters/` модуля (у вебі — `apps/web/src/adapters/`) і лише
   після внесення в `provider-sdks.json`.
 - Тест робочої реалізації — без мережі: `recordingFetch` і `outgoingFieldViolations` (`src/platform/adapters/testing.ts`).
+
+## Телеметрія (ARC-09, NFR-10)
+
+- Траси, метрики й логи — OpenTelemetry у всіх ролях (`src/platform/telemetry/`, ADR-0006). Сервіс — лише конфігурація:
+  `WS_TELEMETRY`, `WS_OTLP_ENDPOINT`, `WS_OTLP_AUTHORIZATION`; локально і в CI — `test` (пам'ять).
+- Кожен експортер обгорнуто фільтром: атрибут іде далі, лише якщо його ключ є в `ATTRIBUTE_RULES` (`telemetry/redaction.ts`),
+  значення відповідає граматиці ключа і жоден детектор (email, IBAN, картка, суми, валюта, токени, координати, запит URL)
+  не спрацював. Назва спана — метод і шаблон маршруту або технічна назва; тіло логу — назва події. Повідомлення помилок,
+  стеки, URL, запити, заголовки, тіла, IP-адреси не експортуються. Модулі не імпортують OpenTelemetry.
+- Кожен запит API (крім `/health/*`) — новий кореневий спан; вхідні `traceparent` і `x-request-id` ігноруються. Також URL,
+  який Fastify не декодує, і задовгий параметр шляху (проблема `NOT_FOUND`), і запит під час зупинки (`SERVICE_UNAVAILABLE`,
+  503, `Retry-After: 5`) — зі спаном і `supportId`. Лише 503 від аварійного вимикача модуля (`ws.unavailable.reason=kill_switch`)
+  не рахується як помилка в SLO; той самий 503 через невідомий стан прапорців (`flags_unknown`) — помилка `FlagStateUnavailable`. Транзакції
+  модулів (`db.transaction <модуль>`) і виклики провайдерів (`provider <операція>`) — дочірні спани.
+- Фонова задача отримує трасу запиту: `jobTraceCarrier()` при постановці, `runJob(назва, carrier, робота)` у воркері;
+  планувальник — `runScheduled(назва, робота)`.
+- Метрики для SLO: `http.server.request.duration` (метод, шаблон маршруту, статус), `ws.provider.calls`, `ws.bank_sync.runs`
+  (`recordBankSyncRun`). Правила алертів — `infra/observability/` (генерує `tools/observability`).
+- Тести: `testTelemetryForFile()` і `exportedText()` (`telemetry/testing.ts`); синтетичні персональні значення —
+  `telemetry/pii.test-helper.ts`.

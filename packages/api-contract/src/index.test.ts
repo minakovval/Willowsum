@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import { generateTypes } from "../scripts/generate.ts";
-import { createApiClient, isProblem, newIdempotencyKey, type Problem, type ProblemCode } from "./index.ts";
+import {
+  createApiClient,
+  isProblem,
+  newIdempotencyKey,
+  problemSupportCode,
+  type Problem,
+  type ProblemCode,
+} from "./index.ts";
 
 describe("ARC-07 FR 2: the typed client is generated from the committed contract", () => {
   it("src/schema.ts is exactly what openapi.json generates (CI: pnpm --filter @willowsum/api-contract check)", async () => {
@@ -43,5 +50,21 @@ describe("ARC-07 FR 2: the typed client is generated from the committed contract
   it("FR 4: makes a fresh idempotency key for each create", () => {
     expect(newIdempotencyKey()).toMatch(/^[0-9a-f-]{36}$/);
     expect(newIdempotencyKey()).not.toBe(newIdempotencyKey());
+  });
+});
+
+describe("ARC-09 FR 3: the support code of a problem is the error code clients show", () => {
+  it("returns the server's trace id from a problem; nothing for other answers or malformed ids", () => {
+    const problem = {
+      type: "urn:willowsum:problem:internal",
+      title: "Something went wrong on our side",
+      status: 500,
+      code: "INTERNAL",
+      supportId: "4bf92f3577b34da6a3ce929d0e0e4736",
+    };
+    expect(problemSupportCode(problem)).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(problemSupportCode({ ...problem, supportId: "<script>" })).toBeUndefined();
+    expect(problemSupportCode({ ...problem, supportId: undefined })).toBeUndefined();
+    expect(problemSupportCode({ apiVersion: "v1" })).toBeUndefined();
   });
 });

@@ -177,7 +177,11 @@ describe("CICD-06 AC3: a module's kill switch makes its routes «temporarily una
       handler,
     });
     const authenticate = vi.fn(testAuthenticate);
-    const app = await testApp([route], { moduleAvailable: async (m) => m !== "things", authenticate });
+    const app = await testApp([route], {
+      moduleAvailable: async (m) => m !== "things",
+      moduleState: async (m) => (m === "things" ? "killed" : "on"),
+      authenticate,
+    });
     const res = await app.inject({ method: "GET", url: "/v1/things" });
     expect(res.statusCode).toBe(503);
     expect(res.json().code).toBe("MODULE_UNAVAILABLE");
@@ -259,6 +263,7 @@ describe("DAT-05 AC7: a server error reaches telemetry without amounts, account 
     expect(reports).toEqual([]);
     const killed = await testApp([failing], {
       moduleAvailable: async () => false,
+      moduleState: async () => "killed",
       reportError: (r) => reports.push(r),
     });
     expect((await killed.inject({ method: "POST", url: "/v1/things/x/sync" })).statusCode).toBe(503);
@@ -301,7 +306,10 @@ describe("CICD-06 / DAT-05: kill switch, session and flag answer before the body
   it.each(bodies.map((b) => [b["content-type"], b] as const))(
     "%s body to a module that is switched off → 503 MODULE_UNAVAILABLE, not 415, 413 or 400",
     async (_, { payload, ...headers }) => {
-      const app = await testApp([createThing], { moduleAvailable: async () => false });
+      const app = await testApp([createThing], {
+        moduleAvailable: async () => false,
+        moduleState: async () => "killed",
+      });
       const res = await app.inject({
         method: "POST",
         url: "/v1/things",

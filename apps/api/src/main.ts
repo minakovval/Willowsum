@@ -15,7 +15,9 @@ import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/mig
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { buildServer } from "./platform/process/server.ts";
-import { contextPoolOptions, modulePoolOptions, readinessCheck } from "./wiring.ts";
+import { logEvent } from "./platform/telemetry/signals.ts";
+import { startTelemetry } from "./platform/telemetry/telemetry.ts";
+import { contextPoolOptions, flagReloadHealthLog, modulePoolOptions, readinessCheck } from "./wiring.ts";
 
 const rules = JSON.parse(
   readFileSync(new URL("../module-rules.json", import.meta.url), "utf8"),
@@ -31,6 +33,14 @@ try {
   console.error(error instanceof ConfigError ? error.message : "Configuration error");
   process.exit(1);
 }
+
+// Telemetry first, so everything after it is traced (ARC-09; every role). Its exporter is configuration only.
+const telemetry = startTelemetry({
+  mode: config.telemetry.mode,
+  role: config.role,
+  environment: config.telemetry.environment,
+  ...(config.telemetry.otlp ? { otlp: config.telemetry.otlp } : {}),
+});
 
 const expected = readMigrations({
   modules,
@@ -75,9 +85,14 @@ const databases = new ModuleDatabases({
 
 // Flags and kill switches (CICD-06): read from the database by the readiness probe and by requests, reloaded
 // when older than 15 s.
-const flags = createFlagRuntimeFor(databases.for("feature-flags"));
+const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
+  // Once when reloads start failing (by error class) and once when they recover — never on every attempt.
+  onReloadHealth: flagReloadHealthLog,
+});
 
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
+// Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
+lifecycle.onStop(() => telemetry.shutdown());
 const server = buildServer({
   // Sessions arrive with identity (ACC-01); until then every protected route answers 401.
   ...(config.role === "api"
@@ -104,6 +119,7 @@ lifecycle.onStop(() => server.close());
 // worker and scheduler register their job loops here once the queue exists (ARC-04).
 
 await server.listen({ host: "0.0.0.0", port: config.port });
+logEvent("process.started", "info", { "ws.role": config.role });
 console.log(JSON.stringify({ event: "started", role: config.role, port: config.port }));
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {

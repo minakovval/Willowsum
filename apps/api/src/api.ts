@@ -13,6 +13,8 @@ import { registerApi, type ApiOptions } from "./platform/http/api.ts";
 import { moduleIdempotencyStore } from "./platform/http/idempotency.ts";
 import { platformRoutes } from "./platform/http/meta.ts";
 import type { ApiRoute, Principal } from "./platform/http/route.ts";
+import { reportServerErrorToTelemetry } from "./platform/telemetry/errors.ts";
+import { requestTraceId } from "./platform/telemetry/http.ts";
 
 /** Every route of the API, in registry order: what is served and what the contract describes. */
 export const apiRoutes: readonly ApiRoute[] = [...platformRoutes, ...modules.flatMap((m) => m.routes ?? [])];
@@ -21,7 +23,8 @@ export interface ApiWiring {
   readonly databases: { for(module: string): ModuleDatabase };
   readonly entitlements: EntitlementSource;
   /** Flags and kill switches (feature-flags: `createFlagRuntimeFor(databases.for("feature-flags"))`). */
-  readonly flags: Pick<FlagRuntime, "isModuleAvailable" | "isEnabled">;
+  readonly flags: Pick<FlagRuntime, "isModuleAvailable" | "isEnabled"> &
+    Partial<Pick<FlagRuntime, "moduleState">>;
   /** The session of a request. Until identity (ACC-01) exists, nothing is signed in. */
   readonly authenticate?: (request: FastifyRequest) => Promise<Principal | null>;
   readonly supportId?: ApiOptions["supportId"];
@@ -34,6 +37,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
     routes: apiRoutes,
     authenticate: wiring.authenticate ?? (async () => null),
     moduleAvailable: (module) => wiring.flags.isModuleAvailable(module),
+    ...(wiring.flags.moduleState
+      ? { moduleState: (module: string) => wiring.flags.moduleState!(module) }
+      : {}),
     checkFlag: (principal, flag) => wiring.flags.isEnabled(principal.householdId, flag),
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
@@ -46,8 +52,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
         : undefined,
     databases: wiring.databases,
     idempotency: (module) => moduleIdempotencyStore(wiring.databases.for(module)),
-    ...(wiring.supportId ? { supportId: wiring.supportId } : {}),
-    ...(wiring.reportError ? { reportError: wiring.reportError } : {}),
+    // ARC-09: the support id of a problem is the request's trace id; server errors go to telemetry.
+    supportId: wiring.supportId ?? requestTraceId,
+    reportError: wiring.reportError ?? reportServerErrorToTelemetry,
   };
 }
 

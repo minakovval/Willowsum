@@ -27,6 +27,8 @@ export const PROBLEMS = {
   INTERNAL: { status: 500, title: "Something went wrong on our side" },
   /** The route's module is switched off by its kill switch (CICD-06 FR 3); clients show «Тимчасово недоступно». */
   MODULE_UNAVAILABLE: { status: 503, title: "This function is temporarily unavailable" },
+  /** The process is stopping (graceful stop, ARC-02 FR 5): the client retries after `Retry-After` on another one. */
+  SERVICE_UNAVAILABLE: { status: 503, title: "The service is restarting; try again shortly" },
 } as const satisfies Record<string, { status: number; title: string }>;
 
 export type ProblemCode = keyof typeof PROBLEMS;
@@ -48,8 +50,14 @@ export const ProblemSchema = z
       .enum(PROBLEM_CODES as [ProblemCode, ...ProblemCode[]])
       .meta({ "x-extensible-enum": true, description: "Machine-readable code; new codes may be added" }),
     detail: z.string().optional(),
-    /** Support id the user can quote; filled by the tracing hook once ARC-09 exists. */
-    supportId: z.string().optional(),
+    /**
+     * The support code of this error (ARC-09 FR 3, NFR-10 FR 4): the trace id the server drew at random for the
+     * request (32 hex digits). Every problem the API serves carries it; clients show it as the error code.
+     */
+    supportId: z.string().optional().meta({
+      description:
+        "Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code",
+    }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(

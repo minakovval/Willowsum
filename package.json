@@ -17,6 +17,7 @@
     "check:schema": "pnpm --filter @willowsum/api check:schema",
     "check:migrations": "pnpm --filter @willowsum/api check:migrations",
     "check:flags": "pnpm --filter @willowsum/api check:flags",
+    "check:alerts": "node --test tools/observability && node tools/observability/index.mjs --check",
     "contract:write": "pnpm --filter @willowsum/api contract:write && pnpm --filter @willowsum/api-contract generate",
     "contract:check": "pnpm --filter @willowsum/api contract:check && pnpm --filter @willowsum/api-contract check",
     "test:integration": "pnpm --filter @willowsum/api test:integration",
