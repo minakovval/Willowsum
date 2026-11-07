@@ -76,10 +76,13 @@ export const ProblemSchema = z
     currentVersion: z.number().int().min(0).optional().meta({
       description: "VERSION_CONFLICT: the current version of the record",
     }),
-    /** For VERSION_CONFLICT: the names of the fields whose stored value differs from the one sent. */
+    /**
+     * For VERSION_CONFLICT: the fields someone else changed — those of the `base` the client sent (the values it
+     * read at its version) that the caller may read and whose stored value now differs. Names only, never values.
+     */
     changedFields: z.array(z.string()).optional().meta({
       description:
-        "VERSION_CONFLICT: the fields of the request whose current value differs from the value sent (field names only)",
+        "VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported)",
     }),
     /** For LIMIT_REACHED: the limit that was reached (a number of the service, never of the plan). */
     limit: z

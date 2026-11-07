@@ -4,7 +4,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { metaRoute } from "../src/platform/http/meta.ts";
-import { createApiRateLimits, RATE_LIMITS, RATE_LIMIT_WINDOW_MS } from "../src/platform/http/rate-limit.ts";
+import {
+  createApiRateLimits,
+  memoryRateLimitStore,
+  RATE_LIMITS,
+  RATE_LIMIT_WINDOW_MS,
+  reportRateLimitOverflow,
+} from "../src/platform/http/rate-limit.ts";
 import { defineRoute } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
@@ -227,6 +233,32 @@ describe("NFR-14 FR 8: the client address only through trusted proxies", () => {
   });
 });
 
+describe("NFR-14 FR 8: a proxy that writes the client as ip:port", () => {
+  it("the port is dropped: one client on many ports is one counter; two clients stay apart", async () => {
+    const server = await serve({ now: fixedNow, trustedProxyHops: 1 });
+    const statuses: number[] = [];
+    for (let i = 0; i < 61; i++)
+      statuses.push(
+        (
+          await server.inject({
+            method: "GET",
+            url: "/v1/meta",
+            remoteAddress: "10.0.0.5",
+            headers: { "x-forwarded-for": `${CLIENT}:${40_000 + i}` },
+          })
+        ).statusCode,
+      );
+    expect(statuses.at(-1)).toBe(429);
+    const other = await server.inject({
+      method: "GET",
+      url: "/v1/meta",
+      remoteAddress: "10.0.0.5",
+      headers: { "x-forwarded-for": `${OTHER}:40000` },
+    });
+    expect(other.statusCode).toBe(200);
+  });
+});
+
 describe("NFR-14 FR 9: limits are off only when the API is explicitly told so (load test)", () => {
   it('rateLimits: "off" lets every request through; omitted, the limits are on', async () => {
     const off = await serve({ api: { rateLimits: "off" } });
@@ -283,5 +315,31 @@ describe("NFR-14 FR 6 / ARC-09: a rejection is counted without the client addres
     const text = await exportedText(telemetry);
     expect(text).not.toContain(CLIENT);
     expect(text).not.toContain("203.0.113");
+  });
+});
+
+describe("NFR-14 (review of PR #86): an overflowing in-memory store is visible in telemetry, without addresses", () => {
+  it("every overflowed hit is counted by class; one log entry per class per window", async () => {
+    const overflowPoints = async (): Promise<number> => {
+      await telemetry.forceFlush();
+      const points = telemetry.memory
+        .resourceMetrics()
+        .flatMap((m) => m.scopeMetrics.flatMap((s) => s.metrics))
+        .filter((m) => m.descriptor.name === "ws.rate_limit.overflow")
+        .flatMap((m) => m.dataPoints as { attributes: Record<string, unknown>; value: unknown }[]);
+      for (const p of points) expect(Object.keys(p.attributes)).toEqual(["ws.rate_limit.class"]);
+      return (points.find((p) => p.attributes["ws.rate_limit.class"] === "public")?.value as number) ?? 0;
+    };
+    const before = await overflowPoints();
+    const store = memoryRateLimitStore({ maxKeys: 2, onOverflow: reportRateLimitOverflow });
+    const limits = createApiRateLimits({ store, now: fixedNow });
+    for (const address of [CLIENT, OTHER, "192.0.2.1", "192.0.2.2", "192.0.2.3"])
+      await limits.limiters.public.hit(`public:${address}`);
+    expect((await overflowPoints()) - before).toBe(3);
+    const logs = telemetry.memory.logRecords().filter((r) => r.eventName === "rate_limit.overflow");
+    expect(logs).toHaveLength(1);
+    expect(logs[0]!.attributes).toEqual({ "ws.rate_limit.class": "public" });
+    const text = await exportedText(telemetry);
+    for (const address of [CLIENT, OTHER, "192.0.2.3"]) expect(text).not.toContain(address);
   });
 });

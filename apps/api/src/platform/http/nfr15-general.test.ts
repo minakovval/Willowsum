@@ -9,7 +9,7 @@ import {
   SECURE_COOKIE_PREFIX,
 } from "./cookies.ts";
 import { API_BODY_LIMIT_BYTES, requireWithinLimit, TECHNICAL_LIMITS } from "./limits.ts";
-import { defineListQuery } from "./list-query.ts";
+import { defineListQuery, filterValue } from "./list-query.ts";
 import { PAGE_MAX_LIMIT } from "./pagination.ts";
 import { ApiProblem, problemBody, ProblemSchema } from "./problem.ts";
 import { defineRoute } from "./route.ts";
@@ -104,14 +104,17 @@ function fakeRunner(state: { version: number; values: Record<string, unknown> } 
       if (text.trimStart().startsWith("UPDATE")) {
         if (state && state.version === values[2]) {
           state.version += 1;
+          for (const m of text.matchAll(/"([a-z_]+)" = \$(\d+)/g))
+            if (m[1] !== "version") state.values[m[1]!] = values[Number(m[2]) - 1];
           return { rows: [{ version: state.version }], rowCount: 1 };
         }
         return { rows: [], rowCount: 0 };
       }
       if (!state) return { rows: [], rowCount: 0 };
       const row: Record<string, unknown> = { version: state.version };
-      // d<i>: is the stored value distinct from the i-th value sent (values[2 + i]).
-      Object.values(state.values).forEach((stored, i) => (row[`d${i}`] = stored !== values[2 + i]));
+      // `"col" IS DISTINCT FROM $n AS d<i>`: the stored value against the n-th parameter.
+      for (const m of text.matchAll(/"([a-z_]+)" IS DISTINCT FROM \$(\d+) AS (d\d+)/g))
+        row[m[3]!] = state.values[m[1]!] !== values[Number(m[2]) - 1];
       return { rows: [row], rowCount: 1 };
     }) as HouseholdQueryRunner["query"],
   };
@@ -120,58 +123,91 @@ function fakeRunner(state: { version: number; values: Record<string, unknown> } 
 
 const assets = defineVersionedTable({
   table: "assets",
-  fields: { name: "name", purchaseDate: "purchase_date" },
+  fields: { name: "name", purchaseDate: "purchase_date", secret: "secret_code" },
+  // `secret` may be written but not read back: never compared.
+  readable: ["name", "purchaseDate"],
 });
 
 describe("NFR-15 FR 13: two parallel changes of one record → 409 VERSION_CONFLICT with the current version and changed fields", () => {
   it("the change with the current version applies and raises the version", async () => {
     const { runner, calls } = fakeRunner({ version: 3, values: { name: "a", purchase_date: "2026-01-01" } });
-    expect(await updateVersioned(runner, assets, "id-1", 3, { name: "b" })).toEqual({ version: 4 });
+    expect(await updateVersioned(runner, assets, "id-1", 3, { name: "b" }, { name: "a" })).toEqual({
+      version: 4,
+    });
     expect(calls[0]!.text).toMatch(/UPDATE "assets" SET "name" = \$4, "version" = "version" \+ 1/);
     expect(calls[0]!.text).toMatch(/WHERE household_id = \$1 AND "id" = \$2 AND "version" = \$3/);
     expect(calls[0]!.values).toEqual([runner.householdId, "id-1", 3, "b"]);
   });
 
-  it("the second of two changes based on the same version gets VERSION_CONFLICT; nothing is written", async () => {
-    const state = { version: 3, values: { name: "a", purchase_date: "2026-01-01" } };
-    const first = fakeRunner(state);
-    await updateVersioned(first.runner, assets, "id-1", 3, { name: "from-first" });
-    state.values.name = "from-first";
-    const second = fakeRunner(state);
+  it("changedFields are the fields another writer changed since the base the client read — not the ones it sends", async () => {
+    const state = { version: 3, values: { name: "a", purchase_date: "2026-01-01", secret_code: "s" } };
+    const base = { name: "a", purchaseDate: "2026-01-01" };
+    await updateVersioned(fakeRunner(state).runner, assets, "id-1", 3, { name: "from-first" }, base);
+    // The second user, still on version 3, edits only the date.
     const problem = await asyncProblemOf(() =>
-      updateVersioned(second.runner, assets, "id-1", 3, { name: "from-second", purchaseDate: "2026-01-01" }),
+      updateVersioned(fakeRunner(state).runner, assets, "id-1", 3, { purchaseDate: "2026-02-02" }, base),
     );
-    expect(problem.code).toBe("VERSION_CONFLICT");
     expect(problemBody(problem.code, { extensions: problem.extensions })).toMatchObject({
       status: 409,
       code: "VERSION_CONFLICT",
       currentVersion: 4,
-      // The name changed under the user; the date the user sent is what is stored, so it is no conflict.
       changedFields: ["name"],
     });
-    expect(state.version).toBe(4);
+    expect(state.values).toMatchObject({ name: "from-first", purchase_date: "2026-01-01" });
+  });
+
+  it("fields outside `readable`, not declared, or left out of base are never compared or reported", async () => {
+    const state = { version: 5, values: { name: "x", purchase_date: "2026-03-03", secret_code: "real" } };
+    const { runner, calls } = fakeRunner(state);
+    const problem = await asyncProblemOf(() =>
+      updateVersioned(
+        runner,
+        assets,
+        "id-1",
+        4,
+        { name: "y" },
+        {
+          secret: "guess",
+          ["household_id"]: "x",
+          ["__proto__"]: "x",
+          purchaseDate: "2026-03-03",
+        },
+      ),
+    );
+    expect(problem.extensions).toEqual({ currentVersion: 5, changedFields: [] });
+    const select = calls.at(-1)!;
+    expect(select.text).not.toContain("secret_code");
+    expect(select.values).not.toContain("guess");
+    // `name` changed too, but the client did not send its base value: not reported (documented).
+    expect(problem.extensions?.changedFields).not.toContain("name");
   });
 
   it("a record the caller cannot see is 404, never a conflict (DAT-05)", async () => {
     const { runner } = fakeRunner(null);
-    expect((await asyncProblemOf(() => updateVersioned(runner, assets, "id-x", 1, { name: "b" }))).code).toBe(
-      "NOT_FOUND",
-    );
+    expect(
+      (await asyncProblemOf(() => updateVersioned(runner, assets, "id-x", 1, { name: "b" }, {}))).code,
+    ).toBe("NOT_FOUND");
   });
 
   it("only declared fields; identifiers checked at declaration; values only as parameters", async () => {
     const { runner } = fakeRunner({ version: 1, values: { name: "a" } });
-    await expect(updateVersioned(runner, assets, "id-1", 1, { ["name\" = 'x'; --"]: "b" })).rejects.toThrow(
-      /not a field/,
-    );
-    await expect(updateVersioned(runner, assets, "id-1", 1, {})).rejects.toThrow(/nothing to change/);
-    expect(() => defineVersionedTable({ table: "assets; drop", fields: { name: "name" } })).toThrow();
-    expect(() => defineVersionedTable({ table: "assets", fields: { name: "Name" } })).toThrow();
-    expect(() => defineVersionedTable({ table: "assets", fields: { owner: "household_id" } })).toThrow();
-    expect(() => defineVersionedTable({ table: "assets", fields: { v: "version" } })).toThrow();
-    expect(
-      (await asyncProblemOf(() => updateVersioned(runner, assets, "id-1", -1, { name: "b" }))).code,
-    ).toBe("VALIDATION_FAILED");
+    await expect(
+      updateVersioned(runner, assets, "id-1", 1, { ["name\" = 'x'; --"]: "b" }, {}),
+    ).rejects.toThrow(/not a field/);
+    await expect(updateVersioned(runner, assets, "id-1", 1, {}, {})).rejects.toThrow(/nothing to change/);
+    const fields = { name: "name" };
+    expect(() => defineVersionedTable({ table: "assets; drop", fields, readable: [] })).toThrow();
+    expect(() => defineVersionedTable({ table: "assets", fields: { name: "Name" }, readable: [] })).toThrow();
+    expect(() =>
+      defineVersionedTable({ table: "assets", fields: { owner: "household_id" }, readable: [] }),
+    ).toThrow();
+    expect(() => defineVersionedTable({ table: "assets", fields: { v: "version" }, readable: [] })).toThrow();
+    expect(() => defineVersionedTable({ table: "assets", fields, readable: ["other"] })).toThrow(/readable/);
+    for (const version of [-1, 2 ** 31])
+      expect(
+        (await asyncProblemOf(() => updateVersioned(runner, assets, "id-1", version, { name: "b" }, {})))
+          .code,
+      ).toBe("VALIDATION_FAILED");
   });
 
   it("the problem schema of the contract carries currentVersion and changedFields", () => {
@@ -186,7 +222,7 @@ const list = defineListQuery({
   filters: {
     status: { column: "status", cast: "text", value: z.enum(["active", "sold"]), operators: ["eq", "in"] },
     purchasedOn: { column: "purchased_on", cast: "date", value: z.iso.date(), operators: ["gte", "lte"] },
-    count: { column: "item_count", cast: "integer", value: z.coerce.number().int(), operators: ["eq", "gt"] },
+    count: { column: "item_count", cast: "integer", value: filterValue.int4(), operators: ["eq", "gt"] },
   },
   sorts: { name: "name", purchasedOn: "purchased_on" },
   defaultSort: { field: "name", direction: "asc" },
@@ -242,6 +278,70 @@ describe("NFR-15 FR 15: filter and sort fields only from a whitelist; values as 
         defaultSort: { field: "x", direction: "asc" },
       }),
     ).toThrow();
+  });
+});
+
+describe("NFR-15 FR 15 (review of PR #86): strict value parsers — a bad value is 400, never a database error", () => {
+  it.each([
+    [
+      "int4",
+      filterValue.int4(),
+      ["0", "-7", "2147483647", "-2147483648"],
+      ["", " ", "0x10", "01", "+1", "1e3", "1.0", "2147483648", "-2147483649", " 1"],
+    ],
+    ["int4 with bounds", filterValue.int4({ min: 0, max: 10 }), ["0", "10"], ["-1", "11"]],
+    [
+      "int8",
+      filterValue.int8(),
+      ["9223372036854775807", "-9223372036854775808"],
+      ["9223372036854775808", "", "0x1", "01"],
+    ],
+    [
+      "decimal",
+      filterValue.decimal(),
+      ["0", "-12.5", "12345678901234567890.123456789012345678"],
+      [
+        "",
+        "1.",
+        ".5",
+        "1e3",
+        "0x10",
+        "123456789012345678901",
+        "1.1234567890123456789",
+        "NaN",
+        "Infinity",
+        " 1",
+      ],
+    ],
+    [
+      "isoDate",
+      filterValue.isoDate(),
+      ["2024-02-29", "2026-11-07"],
+      ["2026-02-30", "2025-02-29", "2026-13-01", "26-11-07", ""],
+    ],
+    [
+      "timestamp",
+      filterValue.timestamp(),
+      ["2026-11-07T10:00:00Z", "2026-11-07T10:00:00+02:00"],
+      ["2026-11-07", "2026-11-07T10:00:00", ""],
+    ],
+    ["boolean", filterValue.boolean(), ["true", "false"], ["1", "TRUE", "yes", ""]],
+  ] as const)("%s", (_name, schema, good, bad) => {
+    for (const v of good) expect(schema.safeParse(v).success, v).toBe(true);
+    for (const v of bad) expect(schema.safeParse(v).success, JSON.stringify(v)).toBe(false);
+  });
+
+  it("int4 gives a number, int8 keeps its digits as text, boolean gives a boolean", () => {
+    expect(filterValue.int4().parse("42")).toBe(42);
+    expect(filterValue.int8().parse("9223372036854775807")).toBe("9223372036854775807");
+    expect(filterValue.boolean().parse("false")).toBe(false);
+  });
+
+  it("an out-of-range value in a filter is 400 VALIDATION_FAILED before any SQL", () => {
+    for (const value of ["2147483648", "0x10", "", " "]) {
+      const problem = problemOf(() => list.compile({ filter: `count.eq:${value}` }, 1));
+      expect(problemBody(problem.code, { errors: problem.errors }).status).toBe(400);
+    }
   });
 });
 

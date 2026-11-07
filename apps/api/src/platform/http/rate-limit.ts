@@ -1,4 +1,5 @@
 import { isIPv4, isIPv6 } from "node:net";
+import { logEvent, recordRateLimitOverflow } from "../telemetry/signals.ts";
 import { ApiProblem } from "./problem.ts";
 
 /**
@@ -39,28 +40,49 @@ const SWEEP_EVERY_HITS = 10_000;
 /**
  * Counters in this process only: valid while the API runs as one instance (the «Старт» profile, ARC-08);
  * the configuration refuses more instances with this store (config.ts, NFR-14 FR 10). Memory is bounded:
- * expired windows are swept, and beyond `maxKeys` live keys every new key counts in one shared overflow
- * counter, so a flood from many addresses is limited as a whole instead of growing the map.
+ * expired windows are swept, and beyond `maxKeys` live keys every new key counts in one overflow counter of
+ * its class (the part of the key before the first `:`), so a flood from many addresses is limited as a whole
+ * instead of growing the map, and overflowed `default` traffic never uses up the `public` budget.
+ *
+ * Under a flood the map is full of keys of the current window, which no sweep can remove: so a full sweep
+ * runs at most once per window start (plus one every `SWEEP_EVERY_HITS` hits), never on every new key.
+ * `onOverflow(prefix, firstInWindow)` is told of every hit that went to an overflow counter.
  */
-export function memoryRateLimitStore(options: { maxKeys?: number } = {}): RateLimitStore & {
-  size(): number;
-} {
+export function memoryRateLimitStore(
+  options: {
+    maxKeys?: number;
+    onOverflow?: (prefix: string, firstInWindow: boolean) => void;
+  } = {},
+): RateLimitStore & { size(): number; sweeps(): number } {
   const maxKeys = options.maxKeys ?? MEMORY_STORE_MAX_KEYS;
   const entries = new Map<string, { windowStart: number; expires: number; count: number }>();
   let hits = 0;
+  let sweeps = 0;
+  let lastFullSweep: number | undefined;
   const sweep = (now: number): void => {
+    sweeps += 1;
     for (const [key, entry] of entries) if (entry.expires <= now) entries.delete(key);
   };
   return {
     shared: false,
     size: () => entries.size,
+    sweeps: () => sweeps,
     hit: async (key, windowStart, windowMs) => {
       hits += 1;
       if (hits % SWEEP_EVERY_HITS === 0) sweep(windowStart);
       let id = key;
       if (!entries.has(id) && entries.size >= maxKeys) {
-        sweep(windowStart);
-        if (entries.size >= maxKeys) id = `${OVERFLOW_KEY}:${windowMs}`;
+        if (lastFullSweep !== windowStart) {
+          lastFullSweep = windowStart;
+          sweep(windowStart);
+        }
+        if (entries.size >= maxKeys) {
+          const at = key.indexOf(":");
+          const prefix = at < 0 ? key : key.slice(0, at);
+          id = `${OVERFLOW_KEY}:${prefix}:${windowMs}`;
+          const current = entries.get(id);
+          options.onOverflow?.(prefix, !current || current.windowStart !== windowStart);
+        }
       }
       const entry = entries.get(id);
       if (entry && entry.windowStart === windowStart) {
@@ -71,6 +93,19 @@ export function memoryRateLimitStore(options: { maxKeys?: number } = {}): RateLi
       return 1;
     },
   };
+}
+
+/**
+ * The overflow of the API's store in telemetry (ADR-0006): a counter per hit and one log entry per class per
+ * window — the class only, never an address.
+ */
+export function reportRateLimitOverflow(prefix: string, firstInWindow: boolean): void {
+  const limitClass = (RATE_LIMIT_CLASSES as readonly string[]).includes(prefix)
+    ? (prefix as RateLimitClass)
+    : undefined;
+  if (!limitClass) return;
+  recordRateLimitOverflow(limitClass);
+  if (firstInWindow) logEvent("rate_limit.overflow", "warn", { "ws.rate_limit.class": limitClass });
 }
 
 export interface RateLimitDecision {
@@ -128,7 +163,7 @@ export interface ApiRateLimits {
 export function createApiRateLimits(
   options: { store?: RateLimitStore; now?: () => number } = {},
 ): ApiRateLimits {
-  const store = options.store ?? memoryRateLimitStore();
+  const store = options.store ?? memoryRateLimitStore({ onOverflow: reportRateLimitOverflow });
   const limiter = (c: RateLimitClass): FixedWindowLimiter =>
     createFixedWindowLimiter({
       limit: RATE_LIMITS[c],
@@ -187,7 +222,23 @@ function expandIPv6(address: string): number[] | undefined {
  * client addresses are never logged or exported (NFR-17, ADR-0006).
  */
 export function clientAddressKey(address: string | undefined): string {
-  const raw = (address ?? "").replace(/%.*$/, "");
+  return addressKey(withoutPort(address ?? ""));
+}
+
+/**
+ * A proxy may write the client as `ip:port` (`203.0.113.7:4711`, `[2001:db8::1]:4711`): the port is dropped,
+ * so such clients are counted by their address instead of all sharing the `unknown` counter.
+ */
+function withoutPort(value: string): string {
+  const v = value;
+  const bracketed = /^\[([^\]]+)\](:[0-9]{1,5})?$/.exec(v);
+  if (bracketed) return bracketed[1]!;
+  const v4 = /^([0-9]{1,3}(?:\.[0-9]{1,3}){3}):[0-9]{1,5}$/.exec(v);
+  return v4 ? v4[1]! : v;
+}
+
+function addressKey(address: string): string {
+  const raw = address.replace(/%.*$/, "");
   if (isIPv4(raw)) return raw;
   if (!isIPv6(raw)) return "unknown";
   const groups = expandIPv6(raw.toLowerCase());

@@ -2,7 +2,7 @@ import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../src/platform/db/module-db.ts";
-import { defineListQuery } from "../src/platform/http/list-query.ts";
+import { defineListQuery, filterValue } from "../src/platform/http/list-query.ts";
 import { ApiProblem } from "../src/platform/http/problem.ts";
 import { defineVersionedTable, updateVersioned } from "../src/platform/http/versioned.ts";
 import { createTestDatabase } from "./db.ts";
@@ -25,6 +25,7 @@ const runner = (client: pg.Client, householdId: string): HouseholdQueryRunner =>
 const assets = defineVersionedTable({
   table: "assets",
   fields: { name: "name", purchasedOn: "purchased_on", value: "value_amount" },
+  readable: ["name", "purchasedOn", "value"],
 });
 
 const ID = "5d2f3c1a-8b7e-4c6d-9a0b-1e2f3a4b5c6d";
@@ -57,12 +58,15 @@ afterAll(async () => {
 });
 
 describe("NFR-15 FR 13: optimistic concurrency on PostgreSQL", () => {
-  it("two parallel changes based on version 1: exactly one applies, the other is 409 with the current version and changed fields", async () => {
+  it("two parallel changes based on version 1: one applies; the other is 409 naming the field A changed, not the one B sends", async () => {
     const [a, b] = clients.map((c) => runner(c, householdA)) as [HouseholdQueryRunner, HouseholdQueryRunner];
+    // Both read version 1: name «Painting», value 100.
+    const base = { name: "Painting", value: "100" };
     await clients[0]!.query("BEGIN");
     await clients[1]!.query("BEGIN");
-    const first = updateVersioned(a, assets, ID, 1, { name: "Painting (restored)" });
-    const second = updateVersioned(b, assets, ID, 1, { name: "Painting, oil", purchasedOn: "2026-01-10" });
+    // A changes the name; B, still on version 1, sends only the value.
+    const first = updateVersioned(a, assets, ID, 1, { name: "Painting (restored)" }, base);
+    const second = updateVersioned(b, assets, ID, 1, { value: "250" }, base);
     const firstResult = await first;
     // The second waits for the first's row lock; it sees the new version once the first commits.
     await clients[0]!.query("COMMIT");
@@ -75,7 +79,7 @@ describe("NFR-15 FR 13: optimistic concurrency on PostgreSQL", () => {
     expect(outcome).toBeInstanceOf(ApiProblem);
     const problem = outcome as ApiProblem;
     expect(problem.code).toBe("VERSION_CONFLICT");
-    // Only the name differs from what the second user sent; the date they sent is what is stored.
+    // The field A changed — not the value B is editing, which nobody else touched.
     expect(problem.extensions).toEqual({ currentVersion: 2, changedFields: ["name"] });
     const { rows } = await clients[0]!.query("SELECT name, version FROM assets WHERE id = $1", [ID]);
     expect(rows).toEqual([{ name: "Painting (restored)", version: 2 }]);
@@ -83,17 +87,24 @@ describe("NFR-15 FR 13: optimistic concurrency on PostgreSQL", () => {
 
   it("an amount compares as a number, not as text (100 = 100.000000000000000000)", async () => {
     const a = runner(clients[0]!, householdA);
-    const problem = await updateVersioned(a, assets, ID, 1, {
-      value: "100",
-      name: "Painting (restored)",
-    }).catch((e: unknown) => e as ApiProblem);
+    const problem = await updateVersioned(
+      a,
+      assets,
+      ID,
+      1,
+      { name: "x" },
+      {
+        value: "100",
+        name: "Painting (restored)",
+      },
+    ).catch((e: unknown) => e as ApiProblem);
     expect(problem).toBeInstanceOf(ApiProblem);
     expect((problem as ApiProblem).extensions).toEqual({ currentVersion: 2, changedFields: [] });
   });
 
   it("another space's record is 404 for the caller, not a conflict", async () => {
     const b = runner(clients[0]!, householdB);
-    const problem = await updateVersioned(b, assets, ID, 2, { name: "x" }).catch(
+    const problem = await updateVersioned(b, assets, ID, 2, { name: "x" }, {}).catch(
       (e: unknown) => e as ApiProblem,
     );
     expect((problem as ApiProblem).code).toBe("NOT_FOUND");
@@ -103,13 +114,14 @@ describe("NFR-15 FR 13: optimistic concurrency on PostgreSQL", () => {
 const list = defineListQuery({
   filters: {
     name: { column: "name", cast: "text", value: z.string().max(100), operators: ["eq", "ne"] },
-    purchasedOn: { column: "purchased_on", cast: "date", value: z.iso.date(), operators: ["gte", "lte"] },
-    value: {
-      column: "value_amount",
-      cast: "numeric",
-      value: z.string().regex(/^-?\d{1,20}(\.\d{1,18})?$/),
-      operators: ["gt", "lt"],
+    purchasedOn: {
+      column: "purchased_on",
+      cast: "date",
+      value: filterValue.isoDate(),
+      operators: ["gte", "lte"],
     },
+    value: { column: "value_amount", cast: "numeric", value: filterValue.decimal(), operators: ["gt", "lt"] },
+    version: { column: "version", cast: "integer", value: filterValue.int4(), operators: ["eq", "gte"] },
   },
   sorts: { name: "name", purchasedOn: "purchased_on" },
   defaultSort: { field: "name", direction: "asc" },
@@ -139,5 +151,39 @@ describe("NFR-15 FR 15: whitelisted filters run as typed parameters on PostgreSQ
     ]);
     const { rows } = await clients[0]!.query("SELECT count(*)::int AS n FROM assets");
     expect(rows[0].n).toBe(3);
+  });
+});
+
+describe("NFR-15 FR 15 (review of PR #86): boundary values reach PostgreSQL only when the column can hold them", () => {
+  it("int4 max, the largest NUMERIC(38,18) and a leap day run; one past the range is 400 before any SQL", async () => {
+    const compiled = list.compile(
+      {
+        filter: [
+          "version.gte:-2147483648",
+          "value.lt:99999999999999999999.999999999999999999",
+          "purchasedOn.lte:2024-02-29",
+        ],
+      },
+      2,
+    );
+    await clients[0]!.query(`SELECT 1 FROM assets WHERE household_id = $1 AND ${compiled.where}`, [
+      householdA,
+      ...compiled.params,
+    ]);
+    for (const filter of [
+      "version.eq:2147483648",
+      "value.gt:123456789012345678901",
+      "purchasedOn.lte:2026-02-30",
+    ]) {
+      const problem = (() => {
+        try {
+          list.compile({ filter }, 2);
+        } catch (error) {
+          return error as ApiProblem;
+        }
+        throw new Error("expected a problem");
+      })();
+      expect(problem.code, filter).toBe("VALIDATION_FAILED");
+    }
   });
 });

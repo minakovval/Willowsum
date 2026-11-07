@@ -131,8 +131,9 @@
 - Запис (POST, PUT, PATCH, DELETE) з `Origin` поза `WS_ALLOWED_ORIGINS` — 403 до вимикача й сеансу; без `Origin` — пропускається
   (небраузерний клієнт), якщо браузер не позначив його `Sec-Fetch-Site: cross-site`/`same-site` (NFR-15 п. 5).
 - Cookie сесії — лише `sessionCookie` / `readSessionCookie` (`http/cookies.ts`): `HttpOnly; Secure; SameSite=Lax`, на HTTPS —
-  `__Secure-`. Версійоване оновлення — `defineVersionedTable` + `updateVersioned` → 409 `VERSION_CONFLICT` з `currentVersion` і
-  `changedFields`. Фільтри й сортування списку — `defineListQuery` (білий список, значення — типізовані параметри; понад 50
+  `__Secure-`. Версійоване оновлення — `defineVersionedTable` (з набором `readable`) + `updateVersioned(…, changes, base)` → 409
+  `VERSION_CONFLICT` з `currentVersion` і `changedFields` (поля `base`, які змінив інший автор; лише читабельні). Фільтри й
+  сортування списку — `defineListQuery` (білий список, значення — суворі `filterValue` і типізовані параметри; понад 50
   фільтрів — 422 `LIMIT_REACHED`). Технічні ліміти NFR-15 п. 17 — `TECHNICAL_LIMITS` і `requireWithinLimit` (422 `LIMIT_REACHED`;
   це не ліміти плану). Тіло запиту ≤ 1 МіБ (413), маршрут може задати менше (`bodyLimitBytes`).
 - `create: true` — заголовок `Idempotency-Key`; модуль додає міграцію з `src/platform/http/idempotency-keys.sql`

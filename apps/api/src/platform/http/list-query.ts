@@ -9,14 +9,28 @@ import { ApiProblem } from "./problem.ts";
  * goes into the SQL as a parameter with an explicit cast (`$3::date`), never as text of the query. Column
  * names come only from the declaration. A small primitive: the list conventions of DAT-01 build on it.
  *
- * On the wire: `filter=<field>.<operator>:<value>` (repeatable; `in` takes values separated by commas) and
- * `sort=<field>` or `sort=-<field>` (descending), several keys separated by commas.
+ * On the wire: `filter=<field>.<operator>:<value>` (repeatable; `in` takes values separated by commas, so a
+ * text value of an `in` filter can never contain a comma) and `sort=<field>` or `sort=-<field>` (descending),
+ * several keys separated by commas.
+ *
+ * Values: use the strict parsers of `filterValue` (decimal integers within the column's range, ISO dates,
+ * decimal strings …). A loose schema such as `z.coerce.number()` accepts "", " " and "0x10", and a number
+ * outside the column's range would reach the cast and fail in PostgreSQL (a 500 instead of a 400).
  */
 export const FILTER_OPERATORS = ["eq", "ne", "lt", "lte", "gt", "gte", "in"] as const;
 export type FilterOperator = (typeof FILTER_OPERATORS)[number];
 
 /** The PostgreSQL types a value may be cast to. */
-export const FILTER_CASTS = ["text", "uuid", "integer", "numeric", "date", "timestamptz", "boolean"] as const;
+export const FILTER_CASTS = [
+  "text",
+  "uuid",
+  "integer",
+  "bigint",
+  "numeric",
+  "date",
+  "timestamptz",
+  "boolean",
+] as const;
 export type FilterCast = (typeof FILTER_CASTS)[number];
 
 const SQL_OPERATORS: Readonly<Record<Exclude<FilterOperator, "in">, string>> = {
@@ -38,10 +52,55 @@ const MAX_FILTER_TEXT = 1024;
 export interface FilterField {
   readonly column: string;
   readonly cast: FilterCast;
-  /** Parses one value (from text): `z.coerce.number().int()`, `z.uuid()`, `z.enum([...])`, `z.iso.date()` … */
+  /** Parses one value from its text: one of `filterValue`, or `z.enum([...])` for a closed set of words. */
   readonly value: z.ZodType<string | number | boolean>;
   readonly operators: readonly FilterOperator[];
 }
+
+const INT4_MIN = -2_147_483_648;
+const INT4_MAX = 2_147_483_647;
+const INT8_MIN = -(2n ** 63n);
+const INT8_MAX = 2n ** 63n - 1n;
+
+/**
+ * Strict value parsers for filters (NFR-15 FR 15): each accepts only the canonical text of its type and only
+ * values the column's PostgreSQL type can hold, so a bad value is 400 VALIDATION_FAILED and never a database
+ * error.
+ */
+export const filterValue = Object.freeze({
+  /** `integer` (int4): a decimal integer without sign tricks, leading zeros, spaces or hex; within int4 or the bounds given. */
+  int4: (bounds: { readonly min?: number; readonly max?: number } = {}) =>
+    z
+      .string()
+      .regex(/^-?(0|[1-9][0-9]{0,9})$/)
+      .transform(Number)
+      .pipe(
+        z
+          .number()
+          .int()
+          .min(Math.max(bounds.min ?? INT4_MIN, INT4_MIN))
+          .max(Math.min(bounds.max ?? INT4_MAX, INT4_MAX)),
+      ),
+  /** `bigint` (int8): kept as its decimal text (beyond 2^53 a JS number would lose digits). */
+  int8: () =>
+    z
+      .string()
+      .regex(/^-?(0|[1-9][0-9]{0,18})$/)
+      .refine((v) => BigInt(v) >= INT8_MIN && BigInt(v) <= INT8_MAX),
+  /** `numeric`: a decimal string (never a float), by default the NUMERIC(38,18) of amounts: 20 + 18 digits. */
+  decimal: (digits: { readonly integer?: number; readonly fraction?: number } = {}) => {
+    const integer = digits.integer ?? 20;
+    const fraction = digits.fraction ?? 18;
+    return z.string().regex(new RegExp(`^-?(0|[1-9][0-9]{0,${integer - 1}})(\\.[0-9]{1,${fraction}})?$`));
+  },
+  /** `date`: `YYYY-MM-DD`, a real calendar day. */
+  isoDate: () => z.iso.date(),
+  /** `timestamptz`: ISO 8601 with an offset or `Z`. */
+  timestamp: () => z.iso.datetime({ offset: true }),
+  uuid: () => z.uuid(),
+  /** `boolean`: exactly `true` or `false`. */
+  boolean: () => z.enum(["true", "false"]).transform((v) => v === "true"),
+});
 
 export interface ListQuerySpec {
   readonly filters: Readonly<Record<string, FilterField>>;

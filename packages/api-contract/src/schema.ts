@@ -59,7 +59,7 @@ export type components = {
     schemas: {
         /** @description RFC 9457 problem details with a machine-readable code (ARC-07 FR 4). */
         Problem: {
-            /** @description VERSION_CONFLICT: the fields of the request whose current value differs from the value sent (field names only) */
+            /** @description VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported) */
             changedFields?: string[];
             /**
              * @description Machine-readable code; new codes may be added

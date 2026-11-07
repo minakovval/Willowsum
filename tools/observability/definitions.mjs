@@ -17,6 +17,7 @@ export const METRICS = Object.freeze({
   "ws.provider.calls": "ws_provider_calls_total",
   "ws.bank_sync.runs": "ws_bank_sync_runs_total",
   "ws.rate_limit.rejections": "ws_rate_limit_rejections_total",
+  "ws.rate_limit.overflow": "ws_rate_limit_overflow_total",
 });
 
 const DURATION = METRICS["http.server.request.duration"];

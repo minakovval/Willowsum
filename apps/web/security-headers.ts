@@ -72,9 +72,19 @@ export function cspProblems(csp: string): string[] {
     const [name, ...sources] = directive.split(/\s+/);
     for (const source of sources) {
       const s = source.toLowerCase();
-      if (s === "http:" || s.startsWith("http://")) problems.push(`${name}: http source ${source}`);
+      if (s === "http:" || s.startsWith("http://") || s === "ws:" || s.startsWith("ws://"))
+        problems.push(`${name}: insecure source ${source}`);
       if (s === "'unsafe-eval'" || s === "'wasm-unsafe-eval'") problems.push(`${name}: ${source}`);
-      if (s === "*" || s === "https:" || (s === "data:" && name === "script-src"))
+      if (s === "'unsafe-inline'" && (name === "script-src" || name === "default-src"))
+        problems.push(`${name}: inline scripts ${source}`);
+      // A bare *, a scheme-only source, or a host pattern (*.example, https://*.example).
+      if (
+        s === "*" ||
+        s === "https:" ||
+        s === "wss:" ||
+        /^([a-z][a-z0-9+.-]*:\/\/)?\*/.test(s) ||
+        (s === "data:" && name === "script-src")
+      )
         problems.push(`${name}: wildcard ${source}`);
     }
   }

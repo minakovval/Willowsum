@@ -432,7 +432,7 @@
             "maximum": 9007199254740991
           },
           "changedFields": {
-            "description": "VERSION_CONFLICT: the fields of the request whose current value differs from the value sent (field names only)",
+            "description": "VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported)",
             "type": "array",
             "items": {
               "type": "string"
