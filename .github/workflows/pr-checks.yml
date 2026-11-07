@@ -214,6 +214,12 @@ jobs:
           node-version: 22
       - name: Static infrastructure rules
         run: node --test tools/infra-check
+      # ARC-09 FR 4, NFR-10 FR 5–6: SLOs, alert rules, routing and the SLO dashboard are generated from
+      # tools/observability/definitions.mjs; every required alert exists and pages within 5 minutes.
+      - name: SLO and alert rules (ARC-09, NFR-10)
+        run: |
+          node --test tools/observability
+          node tools/observability/index.mjs --check
       - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
         with:
           tofu_version: "1.13.2"

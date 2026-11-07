@@ -46,6 +46,64 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
     expect(error.message).not.toContain("sandbox-xyz");
   });
 
+  it("ARC-09 FR 1: telemetry is kept in memory unless WS_TELEMETRY says otherwise; otlp needs the endpoint and its secret header", () => {
+    expect(loadConfig(base, "api", ["ledger"]).telemetry).toEqual({ mode: "test", environment: "local" });
+    expect(loadConfig({ ...base, WS_TELEMETRY: "off" }, "worker", ["ledger"]).telemetry.mode).toBe("off");
+    const authorization = "Basic c3ludGhldGljOnRva2VuLXZhbHVl";
+    const otlp = loadConfig(
+      {
+        ...base,
+        WS_TELEMETRY: "otlp",
+        WS_TELEMETRY_ENVIRONMENT: "production",
+        WS_OTLP_ENDPOINT: "https://otlp-gateway.example.eu/otlp",
+        WS_OTLP_AUTHORIZATION: authorization,
+      },
+      "scheduler",
+      ["ledger"],
+    ).telemetry;
+    expect(otlp).toEqual({
+      mode: "otlp",
+      environment: "production",
+      otlp: { endpoint: "https://otlp-gateway.example.eu/otlp", authorization },
+    });
+    const missing = errorOf(() => loadConfig({ ...base, WS_TELEMETRY: "otlp" }, "api", ["ledger"]));
+    expect(missing.variables).toEqual(["WS_OTLP_AUTHORIZATION", "WS_OTLP_ENDPOINT"]);
+    // Plain http only for a collector on this machine; a URL with credentials or a query is refused — by name.
+    for (const endpoint of [
+      "http://collector.example.eu/otlp",
+      "https://user:pass@collector.example.eu",
+      "https://collector.example.eu/otlp?token=abc",
+      "not a url",
+    ]) {
+      const error = errorOf(() =>
+        loadConfig(
+          { ...base, WS_TELEMETRY: "otlp", WS_OTLP_ENDPOINT: endpoint, WS_OTLP_AUTHORIZATION: authorization },
+          "api",
+          ["ledger"],
+        ),
+      );
+      expect(error.variables).toEqual(["WS_OTLP_ENDPOINT"]);
+      expect(error.message).not.toContain(endpoint);
+    }
+    const weak = errorOf(() =>
+      loadConfig(
+        {
+          ...base,
+          WS_TELEMETRY: "otlp",
+          WS_OTLP_ENDPOINT: "http://localhost:4318",
+          WS_OTLP_AUTHORIZATION: "short",
+        },
+        "api",
+        ["ledger"],
+      ),
+    );
+    expect(weak.variables).toEqual(["WS_OTLP_AUTHORIZATION"]);
+    expect(weak.message).not.toContain("short");
+    expect(
+      errorOf(() => loadConfig({ ...base, WS_TELEMETRY: "grafana" }, "api", ["ledger"])).variables,
+    ).toEqual(["WS_TELEMETRY"]);
+  });
+
   it("criterion «старт із пропущеним обов'язковим секретом»: refuses to start, names the variable, not the value", () => {
     const env: Record<string, string> = { ...base };
     delete env["WS_DB_PASSWORD_LEDGER"];

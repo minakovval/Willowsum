@@ -48,8 +48,14 @@ export const ProblemSchema = z
       .enum(PROBLEM_CODES as [ProblemCode, ...ProblemCode[]])
       .meta({ "x-extensible-enum": true, description: "Machine-readable code; new codes may be added" }),
     detail: z.string().optional(),
-    /** Support id the user can quote; filled by the tracing hook once ARC-09 exists. */
-    supportId: z.string().optional(),
+    /**
+     * The support code of this error (ARC-09 FR 3, NFR-10 FR 4): the trace id the server drew at random for the
+     * request (32 hex digits). Every problem the API serves carries it; clients show it as the error code.
+     */
+    supportId: z.string().optional().meta({
+      description:
+        "Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code",
+    }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(

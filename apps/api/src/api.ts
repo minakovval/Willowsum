@@ -13,6 +13,8 @@ import { registerApi, type ApiOptions } from "./platform/http/api.ts";
 import { moduleIdempotencyStore } from "./platform/http/idempotency.ts";
 import { platformRoutes } from "./platform/http/meta.ts";
 import type { ApiRoute, Principal } from "./platform/http/route.ts";
+import { reportServerErrorToTelemetry } from "./platform/telemetry/errors.ts";
+import { requestTraceId } from "./platform/telemetry/http.ts";
 
 /** Every route of the API, in registry order: what is served and what the contract describes. */
 export const apiRoutes: readonly ApiRoute[] = [...platformRoutes, ...modules.flatMap((m) => m.routes ?? [])];
@@ -46,8 +48,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
         : undefined,
     databases: wiring.databases,
     idempotency: (module) => moduleIdempotencyStore(wiring.databases.for(module)),
-    ...(wiring.supportId ? { supportId: wiring.supportId } : {}),
-    ...(wiring.reportError ? { reportError: wiring.reportError } : {}),
+    // ARC-09: the support id of a problem is the request's trace id; server errors go to telemetry.
+    supportId: wiring.supportId ?? requestTraceId,
+    reportError: wiring.reportError ?? reportServerErrorToTelemetry,
   };
 }
 

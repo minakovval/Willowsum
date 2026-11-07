@@ -1,3 +1,6 @@
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
+import { TELEMETRY_SCOPE } from "../telemetry/scope.ts";
+import { logEvent, recordProviderCall } from "../telemetry/signals.ts";
 import { CircuitBreaker, type BreakerPolicy, type BreakerState } from "./circuit-breaker.ts";
 import { sleep, systemClock, type AdapterClock } from "./clock.ts";
 import { ProviderError } from "./errors.ts";
@@ -10,6 +13,9 @@ import type { ProviderOperation } from "./port.ts";
  * - retries only for operations declared idempotent, only after `timeout` or `unavailable`, at most
  *   `maxAttempts` attempts in all, with exponential backoff and jitter;
  * - a circuit breaker shared by all operations of the provider: 5 failures in a row → 60 s without calls.
+ * Each call is a span, a `ws.provider.calls` count and, on failure, the log event `provider.failure` (ARC-09,
+ * NFR-10 FR 3): the adapter, the operation, the number of attempts and the outcome (failure kind, the
+ * underlying error's class or HTTP status) — never the URL, its parameters, headers, keys or bodies.
  */
 export interface RetryPolicy {
   /** Attempts in all, the first included. */
@@ -93,35 +99,83 @@ export function createProviderClient(options: ProviderClientOptions): ProviderCl
     }
   }
 
+  async function callWithRetries<T>(
+    operation: ProviderOperation,
+    run: (signal: AbortSignal) => Promise<T>,
+    attempts: { count: number },
+  ): Promise<T> {
+    for (let attempt = 1; ; attempt += 1) {
+      attempts.count = attempt;
+      if (!breaker.tryAcquire(clock.now())) throw new ProviderError("circuit-open", provider, operation.name);
+      try {
+        const result = await attemptOnce(operation, run);
+        breaker.success();
+        return result;
+      } catch (raw) {
+        if (!(raw instanceof ProviderError)) {
+          // Not a provider failure: a refused outgoing field (nothing was sent) or a bug in the adapter. It
+          // is passed on unchanged — never retried, never counted, never hidden behind a last known value.
+          // A half-open probe is released without judging the provider. Adapters classify transport
+          // failures themselves (createProviderHttp turns them into «unavailable»).
+          breaker.release();
+          throw raw;
+        }
+        const error = raw;
+        if (error.countsAsFailure) breaker.failure(clock.now());
+        else breaker.neutral();
+        const again = operation.idempotent && error.retryable && attempt < policy.retry.maxAttempts;
+        if (!again) throw error;
+        await sleep(clock, backoffDelay(attempt, policy.retry, random));
+      }
+    }
+  }
+
   return {
     provider,
     policy,
     breakerState: () => breaker.state(clock.now()),
     async call<T>(operation: ProviderOperation, run: (signal: AbortSignal) => Promise<T>): Promise<T> {
-      for (let attempt = 1; ; attempt += 1) {
-        if (!breaker.tryAcquire(clock.now()))
-          throw new ProviderError("circuit-open", provider, operation.name);
-        try {
-          const result = await attemptOnce(operation, run);
-          breaker.success();
-          return result;
-        } catch (raw) {
-          if (!(raw instanceof ProviderError)) {
-            // Not a provider failure: a refused outgoing field (nothing was sent) or a bug in the adapter. It
-            // is passed on unchanged — never retried, never counted, never hidden behind a last known value.
-            // A half-open probe is released without judging the provider. Adapters classify transport
-            // failures themselves (createProviderHttp turns them into «unavailable»).
-            breaker.release();
-            throw raw;
-          }
-          const error = raw;
-          if (error.countsAsFailure) breaker.failure(clock.now());
-          else breaker.neutral();
-          const again = operation.idempotent && error.retryable && attempt < policy.retry.maxAttempts;
-          if (!again) throw error;
-          await sleep(clock, backoffDelay(attempt, policy.retry, random));
+      const span = trace.getTracer(TELEMETRY_SCOPE).startSpan(`provider ${operation.name}`, {
+        kind: SpanKind.CLIENT,
+        attributes: { "ws.provider": provider, "ws.provider.operation": operation.name },
+      });
+      const attempts = { count: 0 };
+      let outcome = "ok";
+      let cause: Record<string, string | number> = {};
+      try {
+        return await callWithRetries(operation, run, attempts);
+      } catch (error) {
+        outcome = error instanceof ProviderError ? error.kind : "error";
+        cause = providerCause(error);
+        throw error;
+      } finally {
+        const attributes = {
+          "ws.provider": provider,
+          "ws.provider.operation": operation.name,
+          "ws.provider.outcome": outcome,
+        };
+        span.setAttributes({ ...attributes, "ws.provider.attempts": Math.max(attempts.count, 1), ...cause });
+        if (outcome !== "ok") {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          logEvent("provider.failure", "warn", { ...attributes, ...cause });
         }
+        span.end();
+        recordProviderCall(attributes);
       }
     },
   };
+}
+
+/** The value-free cause of a failed call: the underlying error's class, or the provider's HTTP status. */
+function providerCause(error: unknown): Record<string, string | number> {
+  const name =
+    error instanceof ProviderError
+      ? error.causeName
+      : error instanceof Error
+        ? error.constructor.name || error.name
+        : undefined;
+  if (name === undefined) return {};
+  const http = /^HTTP ([1-5][0-9]{2})$/.exec(name);
+  if (http) return { "http.response.status_code": Number(http[1]) };
+  return /^[A-Za-z][A-Za-z0-9]{0,63}$/.test(name) ? { "error.type": name } : {};
 }

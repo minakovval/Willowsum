@@ -360,6 +360,7 @@
             "type": "string"
           },
           "supportId": {
+            "description": "Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code",
             "type": "string"
           },
           "errors": {

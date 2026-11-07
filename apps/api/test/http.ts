@@ -97,13 +97,10 @@ export function memoryIdempotency(): IdempotencyStore & { size(): number } {
   };
 }
 
-export async function testApp(
-  routes: readonly ApiRoute[],
-  overrides: Partial<ApiOptions> = {},
-): Promise<FastifyInstance> {
-  const app = Fastify({ logger: false });
+/** The API options of unit tests: every check passes unless overridden; fake databases, memory idempotency. */
+export function testApiOptions(routes: readonly ApiRoute[], overrides: Partial<ApiOptions> = {}): ApiOptions {
   const store = memoryIdempotency();
-  registerApi(app, {
+  return {
     routes,
     authenticate: testAuthenticate,
     checkPermission: () => true,
@@ -123,7 +120,15 @@ export async function testApp(
     databases: fakeDatabases().databases,
     idempotency: () => store,
     ...overrides,
-  });
+  };
+}
+
+export async function testApp(
+  routes: readonly ApiRoute[],
+  overrides: Partial<ApiOptions> = {},
+): Promise<FastifyInstance> {
+  const app = Fastify({ logger: false });
+  registerApi(app, testApiOptions(routes, overrides));
   await app.ready();
   return app;
 }

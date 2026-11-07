@@ -1,5 +1,7 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
+import { ProviderError } from "../adapters/errors.ts";
+import { databaseErrorFields, type DatabaseErrorFields } from "../db/errors.ts";
 import type { HouseholdQueryRunner, ModuleDatabase, ModuleQueryRunner } from "../db/module-db.ts";
 import {
   IDEMPOTENCY_HEADER,
@@ -61,10 +63,16 @@ export interface ApiOptions {
   readonly databases: { for(module: string): ModuleDatabase };
   /** The idempotency store of a module with create routes (default: its own table). */
   readonly idempotency: (module: string) => IdempotencyStore;
-  /** Support id for problems (ARC-09 traces); omitted while it returns undefined. */
+  /**
+   * Support id of a request for its problems: the trace id the server drew for it (ARC-09 FR 3, NFR-10 FR 4;
+   * src/platform/telemetry/http.ts). Omitted while it returns undefined (an app without tracing).
+   */
   readonly supportId?: (request: FastifyRequest) => string | undefined;
-  /** Where server errors are reported (ARC-09 telemetry later); gets a value-free ErrorReport only. */
-  readonly reportError?: (report: ErrorReport) => void;
+  /**
+   * Where server errors are reported (ARC-09 telemetry: src/platform/telemetry/errors.ts); gets a value-free
+   * ErrorReport and the request (for its trace) only.
+   */
+  readonly reportError?: (report: ErrorReport, request: FastifyRequest) => void;
 }
 
 /**
@@ -81,6 +89,13 @@ export interface ErrorReport {
   readonly status: number;
   /** The class of the error (`TypeError`, `DatabaseError` …), letters and digits only. */
   readonly errorClass: string;
+  /**
+   * For a PostgreSQL error (NFR-10 FR 2): the SQLSTATE and the names of the constraint, table, column and
+   * schema — never the message or `detail`, which repeat the values.
+   */
+  readonly database?: DatabaseErrorFields;
+  /** For a provider failure (NFR-10 FR 3): adapter, operation and kind — never the URL, parameters or keys. */
+  readonly provider?: { readonly provider: string; readonly operation: string; readonly kind: string };
 }
 
 /** Seconds a client waits before retrying a module that is switched off. */
@@ -101,13 +116,21 @@ function reportServerError(
   // A module switched off on purpose is not an error.
   if (!reportError || status < 500 || code === "MODULE_UNAVAILABLE") return;
   try {
-    reportError({
-      method: request.method,
-      route: request.routeOptions.url ?? null,
-      code,
-      status,
-      errorClass: errorClass(error),
-    });
+    const database = databaseErrorFields(error);
+    reportError(
+      {
+        method: request.method,
+        route: request.is404 ? null : (request.routeOptions.url ?? null),
+        code,
+        status,
+        errorClass: errorClass(error),
+        ...(database ? { database } : {}),
+        ...(error instanceof ProviderError
+          ? { provider: { provider: error.provider, operation: error.operation, kind: error.kind } }
+          : {}),
+      },
+      request,
+    );
   } catch {
     // Reporting never changes the answer.
   }

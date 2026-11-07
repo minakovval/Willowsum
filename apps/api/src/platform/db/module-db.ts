@@ -1,5 +1,8 @@
+import { SpanKind, SpanStatusCode, trace } from "@opentelemetry/api";
 import pg from "pg";
 import { moduleRoleName, schemaName } from "../modules/rules.ts";
+import { TELEMETRY_SCOPE } from "../telemetry/scope.ts";
+import { databaseErrorAttributes, databaseErrorFields } from "./errors.ts";
 import { CONTEXT_SCHEMA } from "./isolation.ts";
 
 /** Query interface handed to a module's adapters inside one transaction. */
@@ -74,7 +77,34 @@ export class ModuleDatabase {
     return this.run(householdId, (q) => work({ ...q, householdId }));
   }
 
+  /**
+   * Each transaction is a span (ARC-09): the module and, on failure, the SQLSTATE and the names of the
+   * constraint, table, column and schema (NFR-10 FR 2) — never the SQL, its parameters or the message.
+   */
   private async run<T>(householdId: string | null, work: (db: ModuleQueryRunner) => Promise<T>): Promise<T> {
+    const span = trace.getTracer(TELEMETRY_SCOPE).startSpan(`db.transaction ${this.module}`, {
+      kind: SpanKind.CLIENT,
+      attributes: { "db.system.name": "postgresql", "ws.module": this.module },
+    });
+    try {
+      return await this.runBound(householdId, work);
+    } catch (error) {
+      const fields = databaseErrorFields(error);
+      span.setStatus({ code: SpanStatusCode.ERROR });
+      span.setAttributes({
+        "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+        ...(fields ? databaseErrorAttributes(fields) : {}),
+      });
+      throw error;
+    } finally {
+      span.end();
+    }
+  }
+
+  private async runBound<T>(
+    householdId: string | null,
+    work: (db: ModuleQueryRunner) => Promise<T>,
+  ): Promise<T> {
     const client = await this.pool.connect();
     let broken: Error | undefined;
     let open = true;

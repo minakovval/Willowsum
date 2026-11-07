@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PROVIDER_MODES, type ProviderMode } from "../adapters/port.ts";
 import { schemaName } from "../modules/rules.ts";
+import { TELEMETRY_MODES, type TelemetryMode } from "../telemetry/modes.ts";
 
 /**
  * Process configuration (ARC-02 FR 3, CICD-12 FR 3): only environment variables (secrets are injected
@@ -23,6 +24,24 @@ export interface Config {
    * the default, so local development and CI never reach a provider) or `live` (deployed environments).
    */
   readonly providerMode: ProviderMode;
+  /**
+   * Telemetry (ARC-09, ADR-0006): `test` (the default, local development and CI — kept in memory, nothing
+   * leaves the process), `otlp` (deployed environments: OTLP/HTTP to the endpoint, Grafana Cloud EU by the
+   * owner's decision of 2026-11-06) or `off` (trace ids still made, nothing kept). Replacing the service is
+   * a change of these variables only.
+   */
+  readonly telemetry: {
+    readonly mode: TelemetryMode;
+    /** `deployment.environment.name` of every signal (`local`, `ci`, `staging`, `production`). */
+    readonly environment: string;
+    /** Only with mode `otlp`. */
+    readonly otlp?: {
+      /** Base URL; signals go to `<endpoint>/v1/traces`, `/v1/metrics`, `/v1/logs`. */
+      readonly endpoint: string;
+      /** Value of the `Authorization` header (secret). */
+      readonly authorization: string;
+    };
+  };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -53,6 +72,24 @@ export const PLAN_ENTITLEMENT_SOURCES = ["all-enabled"] as const;
 const secret = z.string().min(16);
 const port = z.coerce.number().int().min(1).max(65_535);
 
+/** https, or http only for a collector on this machine; no credentials, query or fragment in the URL. */
+export function isTelemetryEndpoint(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  return (
+    (url.protocol === "https:" || (url.protocol === "http:" && local)) &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === ""
+  );
+}
+
 export function modulePasswordVariable(module: string): string {
   return `WS_DB_PASSWORD_${schemaName(module).toUpperCase()}`;
 }
@@ -71,6 +108,13 @@ export function loadConfig(
     WS_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
     WS_PLAN_ENTITLEMENTS: z.enum(PLAN_ENTITLEMENT_SOURCES).default("all-enabled"),
     WS_PROVIDER_MODE: z.enum(PROVIDER_MODES).default("test"),
+    WS_TELEMETRY: z.enum(TELEMETRY_MODES).default("test"),
+    WS_TELEMETRY_ENVIRONMENT: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{0,31}$/)
+      .default("local"),
+    WS_OTLP_ENDPOINT: z.string().refine(isTelemetryEndpoint).optional(),
+    WS_OTLP_AUTHORIZATION: secret.optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -86,14 +130,32 @@ export function loadConfig(
     // Only the variable names leave this function: zod messages could echo values.
     for (const issue of parsed.error.issues) problems.push(String(issue.path[0]));
   }
+  // The exporter's endpoint and its secret header are required only when telemetry is exported.
+  if (parsed.success && parsed.data.WS_TELEMETRY === "otlp") {
+    if (parsed.data.WS_OTLP_ENDPOINT === undefined) problems.push("WS_OTLP_ENDPOINT");
+    if (parsed.data.WS_OTLP_AUTHORIZATION === undefined) problems.push("WS_OTLP_AUTHORIZATION");
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
+  const telemetryMode = v["WS_TELEMETRY"] as TelemetryMode;
   return {
     role: role as Role,
     port: v["WS_PORT"] as number,
     shutdownTimeoutMs: v["WS_SHUTDOWN_TIMEOUT_MS"] as number,
     planEntitlements: v["WS_PLAN_ENTITLEMENTS"] as Config["planEntitlements"],
     providerMode: v["WS_PROVIDER_MODE"] as ProviderMode,
+    telemetry: {
+      mode: telemetryMode,
+      environment: v["WS_TELEMETRY_ENVIRONMENT"] as string,
+      ...(telemetryMode === "otlp"
+        ? {
+            otlp: {
+              endpoint: v["WS_OTLP_ENDPOINT"] as string,
+              authorization: v["WS_OTLP_AUTHORIZATION"] as string,
+            },
+          }
+        : {}),
+    },
     database: {
       host: v["WS_DB_HOST"] as string,
       port: v["WS_DB_PORT"] as number,

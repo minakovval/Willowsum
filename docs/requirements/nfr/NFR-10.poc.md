@@ -9,7 +9,7 @@
 - Спільні правила: П-8, ARC-09
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/db/errors.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/test/observability-catalogue.test.ts, tools/observability/test/observability.test.mjs
 
 **Мета.** Як команда експлуатації, ми хочемо бачити стан системи і швидко дізнаватися про збої без доступу до персональних даних користувачів, щоб виправляти проблеми до того, як їх помітять користувачі.
 

@@ -72,6 +72,7 @@ export type components = {
                 path: string;
             }[];
             status: number;
+            /** @description Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code */
             supportId?: string;
             title: string;
             type: string;
