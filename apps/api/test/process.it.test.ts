@@ -127,6 +127,61 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     expect(await p.exit).toBe(0);
   });
 
+  it("NFR-14 / NFR-15 FR 5: main.ts wires the headers, the rate limits and the Origin check of the api role", async () => {
+    const port = await freePort();
+    const p = start("api", baseEnv(port));
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+    const live = await fetch(`http://127.0.0.1:${port}/health/live`);
+    expect(live.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(live.headers.get("cache-control")).toBe("no-store");
+    // Locally: no HSTS.
+    expect(live.headers.get("strict-transport-security")).toBeNull();
+    const evil = await fetch(`http://127.0.0.1:${port}/v1/me/permissions`, {
+      method: "POST",
+      headers: { origin: "https://evil.example" },
+    });
+    expect(evil.status).toBe(403);
+    expect(await evil.json()).toMatchObject({ code: "ORIGIN_NOT_ALLOWED" });
+    // At most 121 requests reach a 429 even if a minute boundary falls inside the loop.
+    let refused: Response | undefined;
+    let passed = 0;
+    for (let i = 0; i < 121 && !refused; i++) {
+      const r = await fetch(`http://127.0.0.1:${port}/v1/meta`);
+      if (r.status === 429) refused = r;
+      else passed += 1;
+    }
+    expect(passed).toBeGreaterThanOrEqual(60);
+    expect(refused?.status).toBe(429);
+    expect(Number(refused!.headers.get("retry-after"))).toBeGreaterThanOrEqual(1);
+    p.child.kill("SIGTERM");
+    expect(await p.exit).toBe(0);
+  });
+
+  it("NFR-14: in staging HSTS is sent; the load-test setting switches the rate limits off (and is logged)", async () => {
+    const port = await freePort();
+    const p = start("api", {
+      ...baseEnv(port),
+      WS_TELEMETRY_ENVIRONMENT: "staging",
+      WS_TELEMETRY: "off",
+      WS_RATE_LIMITS: "off-load-test",
+    });
+    await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
+    const live = await fetch(`http://127.0.0.1:${port}/health/live`);
+    expect(live.headers.get("strict-transport-security")).toBe("max-age=31536000; includeSubDomains");
+    const statuses: number[] = [];
+    for (let i = 0; i < 70; i++) statuses.push((await fetch(`http://127.0.0.1:${port}/v1/meta`)).status);
+    expect(new Set(statuses)).toEqual(new Set([200]));
+    p.child.kill("SIGTERM");
+    expect(await p.exit).toBe(0);
+  });
+
+  it("NFR-14 FR 10: the api role refuses to start with in-process counters and more than one instance", async () => {
+    const port = await freePort();
+    const p = start("api", { ...baseEnv(port), WS_API_INSTANCES: "2" });
+    expect(await p.exit).toBe(1);
+    expect(p.output()).toContain("WS_API_INSTANCES");
+  });
+
   it("ARC-09 (review of PR #85): on SIGTERM telemetry is flushed last — the spans of the last requests reach the collector", async () => {
     const received: { path: string; body: string }[] = [];
     const collector = createHttpServer((request, response) => {

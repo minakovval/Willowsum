@@ -27,6 +27,18 @@ export const METRICS = Object.freeze({
   providerCalls: { name: "ws.provider.calls", unit: "{call}", prometheus: "ws_provider_calls_total" },
   /** Every bank synchronisation run (NFR-10 FR 6): outcome success | failure. Fed by bank-sync (FIN). */
   bankSyncRuns: { name: "ws.bank_sync.runs", unit: "{run}", prometheus: "ws_bank_sync_runs_total" },
+  /** Requests refused by a rate limit (NFR-14 FR 5–6): class and route template — never the client's address. */
+  rateLimitRejections: {
+    name: "ws.rate_limit.rejections",
+    unit: "{request}",
+    prometheus: "ws_rate_limit_rejections_total",
+  },
+  /** Hits counted in the shared overflow counter of the in-memory store (a flood from very many addresses). */
+  rateLimitOverflow: {
+    name: "ws.rate_limit.overflow",
+    unit: "{request}",
+    prometheus: "ws_rate_limit_overflow_total",
+  },
 });
 
 /**
@@ -41,6 +53,8 @@ interface Instruments {
   readonly httpDuration: Histogram;
   readonly providerCalls: Counter;
   readonly bankSyncRuns: Counter;
+  readonly rateLimitRejections: Counter;
+  readonly rateLimitOverflow: Counter;
 }
 
 const byMeter = new WeakMap<Meter, Instruments>();
@@ -63,6 +77,14 @@ function instruments(): Instruments {
         unit: METRICS.bankSyncRuns.unit,
         description: "Bank synchronisation runs by outcome",
       }),
+      rateLimitRejections: meter.createCounter(METRICS.rateLimitRejections.name, {
+        unit: METRICS.rateLimitRejections.unit,
+        description: "Requests refused by a rate limit",
+      }),
+      rateLimitOverflow: meter.createCounter(METRICS.rateLimitOverflow.name, {
+        unit: METRICS.rateLimitOverflow.unit,
+        description: "Requests counted in the overflow counter of the rate-limit store",
+      }),
     };
     byMeter.set(meter, found);
   }
@@ -83,6 +105,19 @@ export function recordBankSyncRun(outcome: "success" | "failure", provider?: str
     "ws.outcome": outcome,
     ...(provider ? { "ws.provider": provider } : {}),
   });
+}
+
+/** NFR-14 FR 6: one request answered 429 RATE_LIMITED. The client's address is never an attribute. */
+export function recordRateLimitRejection(limitClass: "public" | "upload" | "default", route?: string): void {
+  instruments().rateLimitRejections.add(1, {
+    "ws.rate_limit.class": limitClass,
+    ...(route ? { "http.route": route } : {}),
+  });
+}
+
+/** NFR-14: one hit counted in the overflow counter of a rate-limit class (never an address). */
+export function recordRateLimitOverflow(limitClass: "public" | "upload" | "default"): void {
+  instruments().rateLimitOverflow.add(1, { "ws.rate_limit.class": limitClass });
 }
 
 /**

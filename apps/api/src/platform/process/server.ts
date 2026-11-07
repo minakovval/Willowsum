@@ -1,5 +1,13 @@
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import { guardApiRoutes } from "../http/api.ts";
+import { API_BODY_LIMIT_BYTES } from "../http/limits.ts";
+import {
+  API_SECURITY_HEADERS,
+  applySecurityHeaders,
+  HSTS_HEADER,
+  HSTS_VALUE,
+  installSecurityHeaders,
+} from "../http/security-headers.ts";
 import { PROBLEM_CONTENT_TYPE, problemBody, type ProblemCode } from "../http/problem.ts";
 import {
   finishRequestTrace,
@@ -16,6 +24,15 @@ export interface ServerOptions {
   readonly readiness: ReadinessCheck;
   /** Mounts the HTTP API (role `api` only, ARC-07). */
   readonly api?: (app: FastifyInstance) => void;
+  /**
+   * HSTS on every answer: staging and production only (NFR-14 table), from the configuration. Default off.
+   */
+  readonly hsts?: boolean;
+  /**
+   * Proxies in front of the API whose `X-Forwarded-For` / `X-Forwarded-Proto` are trusted (NFR-14 FR 8;
+   * `WS_TRUSTED_PROXY_HOPS`). 0 (default): the client's address is the socket's, forwarded headers are ignored.
+   */
+  readonly trustedProxyHops?: number;
 }
 
 /** Seconds a client waits before retrying a request that arrived while this process was stopping. */
@@ -32,8 +49,16 @@ function sendProblem(request: FastifyRequest, reply: FastifyReply, code: Problem
  * and `scheduler` serve only the probes. The probes return no data: «готовий» says only why it is not.
  */
 export function buildServer(options: ServerOptions): FastifyInstance {
+  const hops = options.trustedProxyHops ?? 0;
+  if (!Number.isInteger(hops) || hops < 0) throw new Error("trustedProxyHops is a non-negative integer");
+  const headers = { hsts: options.hsts ?? false };
   const app = Fastify({
     logger: false,
+    // NFR-15 FR 17: request bodies up to 1 MiB (Fastify's default, made explicit); larger → 413.
+    bodyLimit: API_BODY_LIMIT_BYTES,
+    // NFR-14 FR 8: the client's address (request.ip, request.protocol) comes from forwarded headers only
+    // through the configured number of trusted proxies (hop 0 is the socket peer); without them, never.
+    trustProxy: hops === 0 ? false : (_address: string, hop: number) => hop < hops,
     // On shutdown, idle keep-alive connections are closed at once; requests in flight are finished.
     forceCloseConnections: "idle",
     // Requests that still arrive while stopping (on a busy keep-alive connection) are answered below with a
@@ -45,15 +70,40 @@ export function buildServer(options: ServerOptions): FastifyInstance {
     // an unknown path, so such a URL does not tell existing and unknown routes apart (DAT-05 FR 7). Every
     // framework error lands here, also FST_ERR_ASYNC_CONSTRAINT (no async route constraints are used today):
     // if one ever is, map it to its own problem.
+    // Requests Node cannot parse (a malformed request line or header, headers over the size limit, a request
+    // timeout) are answered on the socket before Fastify sees them: with the security headers too (NFR-14 FR 1).
+    clientErrorHandler: (error: Error & { code?: string }, socket) => {
+      if (error.code === "ECONNRESET" || socket.destroyed) return;
+      const [status, reason] =
+        error.code === "HPE_HEADER_OVERFLOW"
+          ? [431, "Request Header Fields Too Large"]
+          : error.code === "ERR_HTTP_REQUEST_TIMEOUT"
+            ? [408, "Request Timeout"]
+            : [400, "Bad Request"];
+      const body = JSON.stringify({ status, title: reason });
+      const lines = [
+        `HTTP/1.1 ${status} ${reason}`,
+        "content-type: application/json; charset=utf-8",
+        `content-length: ${Buffer.byteLength(body)}`,
+        "connection: close",
+        ...Object.entries(API_SECURITY_HEADERS).map(([name, value]) => `${name}: ${value}`),
+        ...(headers.hsts ? [`${HSTS_HEADER}: ${HSTS_VALUE}`] : []),
+      ];
+      if (socket.writable && socket.bytesWritten === 0) socket.write(`${lines.join("\r\n")}\r\n\r\n${body}`);
+      socket.destroy(error);
+    },
     frameworkErrors: (_error, request, frameworkReply) => {
       const reply = frameworkReply as unknown as FastifyReply;
       traceRequest(request);
+      applySecurityHeaders(reply, headers);
       void sendProblem(request, reply, "NOT_FOUND");
       finishRequestTrace(request, reply);
     },
   });
   // Before any route: nothing under /v1 is served unless the API layer mounted it with its checks (ARC-07).
   guardApiRoutes(app);
+  // NFR-14 FR 1: the security headers on every answer (probes, problems, 404, the 503 while stopping).
+  installSecurityHeaders(app, headers);
   // Every request except the probes is traced; its trace id is the support id of its problems (ARC-09).
   instrumentHttp(app);
   // A response finished during shutdown closes its keep-alive connection, so close() is not held open by it.

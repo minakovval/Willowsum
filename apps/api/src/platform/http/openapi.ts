@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_REPLAYED_HEADER, IDEMPOTENCY_TTL_HOURS } from "./idempotency.ts";
 import { PROBLEM_CONTENT_TYPE, ProblemSchema } from "./problem.ts";
-import { isPublic, routeFlags, type ApiRoute } from "./route.ts";
+import { WRITE_METHODS } from "./origin.ts";
+import { RATE_LIMITS } from "./rate-limit.ts";
+import { isPublic, routeFlags, routeRateLimitClass, type ApiRoute } from "./route.ts";
 
 /**
  * The OpenAPI 3.1 contract (ARC-07 FR 2), generated from the same zod schemas that validate requests and
@@ -84,6 +86,24 @@ function operation(route: ApiRoute): Json {
       "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
     );
   }
+  if (WRITE_METHODS.has(route.method)) {
+    responses["403"] = problemResponse(
+      isPublic(route.access)
+        ? "The request comes from a page of another site (ORIGIN_NOT_ALLOWED)"
+        : "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+    );
+  }
+  responses["429"] = {
+    ...problemResponse(
+      `Too many requests from this client in the current minute (RATE_LIMITED; ${RATE_LIMITS[routeRateLimitClass(route)]} per minute for this route)`,
+    ),
+    headers: {
+      "Retry-After": {
+        description: "Seconds until the current one-minute window ends",
+        schema: { type: "integer", minimum: 1 },
+      },
+    },
+  };
   if (route.create) {
     responses["409"] = problemResponse(
       "The idempotency key was used for another request, or that request is still running",

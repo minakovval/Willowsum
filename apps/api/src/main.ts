@@ -14,6 +14,7 @@ import { ModuleDatabases } from "./platform/db/module-db.ts";
 import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/migrate.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
+import { createApiRateLimits } from "./platform/http/rate-limit.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 import { startTelemetry } from "./platform/telemetry/telemetry.ts";
@@ -93,11 +94,25 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
 lifecycle.onStop(() => telemetry.shutdown());
+// NFR-14 FR 9: rate limits are off only by the explicit load-test setting (never in production, config.ts).
+if (config.http.rateLimits !== "on") logEvent("rate_limits.disabled", "warn", { "ws.role": config.role });
 const server = buildServer({
   // Sessions arrive with identity (ACC-01); until then every protected route answers 401.
   ...(config.role === "api"
-    ? { api: (app) => mountApi(app, { databases, entitlements: config.planEntitlements, flags }) }
+    ? {
+        api: (app) =>
+          mountApi(app, {
+            databases,
+            entitlements: config.planEntitlements,
+            flags,
+            // Counters in this process: the configuration allows one API instance with them (NFR-14 FR 10).
+            rateLimits: config.http.rateLimits === "on" ? createApiRateLimits() : "off",
+            allowedOrigins: config.http.allowedOrigins,
+          }),
+      }
     : {}),
+  hsts: config.deployed,
+  trustedProxyHops: config.http.trustedProxyHops,
   // Schema at least this version; for the api role fresh flags too (before that every module answers 503).
   readiness: readinessCheck({
     role: config.role,

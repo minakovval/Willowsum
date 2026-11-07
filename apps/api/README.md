@@ -1,11 +1,11 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05, ARC-09)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05, ARC-09, NFR-14 + NFR-15)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
 [ADR-0002](../../docs/adr/0002-data-isolation.md); HTTP API і контракт — [ADR-0003](../../docs/adr/0003-api-contract.md); прапорці функцій і аварійні вимикачі —
-[ADR-0004](../../docs/adr/0004-feature-flags.md); зовнішні провайдери через адаптери — [ADR-0005](../../docs/adr/0005-provider-adapters.md); спостережуваність — [ADR-0006](../../docs/adr/0006-observability.md).
+[ADR-0004](../../docs/adr/0004-feature-flags.md); зовнішні провайдери через адаптери — [ADR-0005](../../docs/adr/0005-provider-adapters.md); спостережуваність — [ADR-0006](../../docs/adr/0006-observability.md); заголовки, ліміти частоти, Origin і загальні засоби NFR-15 — [ADR-0007](../../docs/adr/0007-http-protections.md).
 
 ## Будова
 
@@ -13,7 +13,7 @@
 | --- | --- |
 | `src/modules/<module>/` | Модуль: `index.ts` (публічний інтерфейс і події), `domain/`, `application/`, `adapters/` (зокрема `adapters/db/migrations/NNNN_slug.sql`), картка `README.md`, генератор синтетичних даних своїх таблиць `synthetic.ts` |
 | `src/modules/index.ts` | Реєстр модулів (генератор додає сюди) |
-| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI), набір інструментів адаптерів провайдерів (`adapters/`: порт і перелік полів, тайм-аут, повтори, запобіжник, останнє відоме значення; еталонний порт `adapters/reference/exchange-rates/`), телеметрія (`telemetry/`: OpenTelemetry, фільтр персональних даних, траси запитів і задач, метрики SLO) |
+| `src/platform/` | Інфраструктурний код без бізнес-правил: БД (`db/`), події (`events/`), опис модулів (`modules/`), HTTP API (`http/`: маршрути, помилки, ідемпотентність, пагінація, OpenAPI, захисні заголовки, ліміти частоти, перевірка Origin, cookie сесії, версійовані оновлення, білі списки фільтрів, технічні ліміти), набір інструментів адаптерів провайдерів (`adapters/`: порт і перелік полів, тайм-аут, повтори, запобіжник, останнє відоме значення; еталонний порт `adapters/reference/exchange-rates/`), телеметрія (`telemetry/`: OpenTelemetry, фільтр персональних даних, траси запитів і задач, метрики SLO) |
 | `src/api.ts` | Збирає API ролі `api`: маршрути платформи й модулів, перевірки feature-flags, access-scope і plan-catalog |
 | `src/wiring.ts` | Налаштування пулів перевірки прапорців і перевірка готовності, які використовує `main.ts` (CICD-06) |
 | `module-rules.json` | Єдиний файл правил: модулі, шар, від яких модулів залежить кожен |
@@ -58,6 +58,10 @@
 | `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
 | `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
 | `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
+| `WS_TRUSTED_PROXY_HOPS` | Скільки проксі перед API мають довіру до `X-Forwarded-For` / `X-Forwarded-Proto` (0–5); 0 — адреса клієнта з сокета, заголовки ігноруються (NFR-14 п. 8) | 0 |
+| `WS_RATE_LIMITS` | Ліміти частоти: `on` або `off-load-test` (лише навантажувальний тест; у `production` відхиляється; при старті — подія `rate_limits.disabled`) (NFR-14 п. 9) | `on` |
+| `WS_API_INSTANCES` | Скільки екземплярів API запущено; лічильники лімітів у пам'яті процесу, тож при > 1 і `WS_RATE_LIMITS=on` роль `api` не стартує (NFR-14 п. 10, ADR-0007) | 1 |
+| `WS_ALLOWED_ORIGINS` | Origin сторінок, яким дозволено запити на запис (через кому, точний `https://host[:port]`; http лише для localhost, у `staging`/`production` — лише https) (NFR-15 п. 5) | локально `http://localhost:5173,http://localhost:4173`; у `staging`/`production` — жодного |
 | `WS_DB_HOST`, `WS_DB_PORT`, `WS_DB_NAME`, `WS_DB_SSL` | Сервер БД | порт 5432, SSL увімкнено |
 | `WS_DB_PROBE_PASSWORD` | Пароль ролі `ws_probe` (лише читання списку міграцій для «готовий») | — |
 | `WS_DB_CONTEXT_PASSWORD` | Пароль ролі `ws_context` (лише прив'язка з'єднань модулів до простору, ARC-03) | — |
@@ -103,7 +107,8 @@
   модуля. Кожен маршрут називає дозвіл (`access-scope`) і ключ функції (`plan-catalog`) або причину, чому він
   публічний (публічні — лише платформні, без даних простору; перелік — у `test/api-routes.test.ts`). Модулі не
   імпортують Fastify.
-- Порядок: до читання тіла (хук `onRequest`) — аварійний вимикач модуля (503 `MODULE_UNAVAILABLE`, `Retry-After: 60`) →
+- Порядок: до читання тіла (хук `onRequest`) — ліміт частоти за адресою клієнта (429 `RATE_LIMITED`, `Retry-After`) →
+  Origin запису (403 `ORIGIN_NOT_ALLOWED`) → аварійний вимикач модуля (503 `MODULE_UNAVAILABLE`, `Retry-After: 60`) →
   сеанс (401) → прапорці функції для простору сеансу (404 `NOT_FOUND`, як невідомий шлях); далі — тіло (415, 413, 400) →
   роль і scope (403) → план (402 `PLAN_LIMIT_REACHED`) → вхід за схемами zod (400) → ідемпотентність → обробник →
   відповідь за схемою відповіді. Прапорець маршруту — `access.feature` (ARC-01 п. 7), а підфункція додає `access.flag`
@@ -116,6 +121,21 @@
   немає або який належить іншому простору, — `requireFound(record)` → 404 (DAT-05). Помилки 5xx ідуть у
   `reportError` лише як метод, шаблон маршруту, код, статус, клас помилки, для помилки БД — SQLSTATE і назви обмеження,
   таблиці, стовпця й схеми, для провайдера — адаптер, операція й вид збою (подія `api.server_error`, ADR-0006).
+- Кожна відповідь (і проби, і помилки) має заголовки NFR-14: `nosniff`, `X-Frame-Options: DENY`, CSP `default-src 'none'; …`,
+  `Referrer-Policy: no-referrer`, CORP `same-origin`, `Cache-Control: no-store`; HSTS — лише в `staging`/`production`.
+  Маршрут задає власні значення в `headers` (`cache-control`, `content-security-policy`, `x-frame-options`, CORP,
+  `referrer-policy`) — вони діють на його успішну відповідь (ADR-0007).
+- Ліміти частоти (NFR-14 п. 5): клас маршруту `rateLimit` — `public` (60/хв; типовий для публічних), `upload` (30/хв;
+  маршрути завантаження файлів оголошують його), `default` (600/хв; типовий для захищених і невідомих шляхів); маршрут може
+  бути лише суворішим. Примітив для власних лімітів (ACC-01) — `createFixedWindowLimiter` (`http/rate-limit.ts`).
+- Запис (POST, PUT, PATCH, DELETE) з `Origin` поза `WS_ALLOWED_ORIGINS` — 403 до вимикача й сеансу; без `Origin` — пропускається
+  (небраузерний клієнт), якщо браузер не позначив його `Sec-Fetch-Site: cross-site`/`same-site` (NFR-15 п. 5).
+- Cookie сесії — лише `sessionCookie` / `readSessionCookie` (`http/cookies.ts`): `HttpOnly; Secure; SameSite=Lax`, на HTTPS —
+  `__Secure-`. Версійоване оновлення — `defineVersionedTable` (з набором `readable`) + `updateVersioned(…, changes, base)` → 409
+  `VERSION_CONFLICT` з `currentVersion` і `changedFields` (поля `base`, які змінив інший автор; лише читабельні). Фільтри й
+  сортування списку — `defineListQuery` (білий список, значення — суворі `filterValue` і типізовані параметри; понад 50
+  фільтрів — 422 `LIMIT_REACHED`). Технічні ліміти NFR-15 п. 17 — `TECHNICAL_LIMITS` і `requireWithinLimit` (422 `LIMIT_REACHED`;
+  це не ліміти плану). Тіло запиту ≤ 1 МіБ (413), маршрут може задати менше (`bodyLimitBytes`).
 - `create: true` — заголовок `Idempotency-Key`; модуль додає міграцію з `src/platform/http/idempotency-keys.sql`
   дослівно. `list: true` — `pageQuery` (`cursor`, `limit` ≤ 100) і `pageOf(item)`.
 - Після зміни маршруту — `pnpm contract:write` і коміт `packages/api-contract/openapi.json` та `src/schema.ts`.
@@ -150,6 +170,6 @@
 - Фонова задача отримує трасу запиту: `jobTraceCarrier()` при постановці, `runJob(назва, carrier, робота)` у воркері;
   планувальник — `runScheduled(назва, робота)`.
 - Метрики для SLO: `http.server.request.duration` (метод, шаблон маршруту, статус), `ws.provider.calls`, `ws.bank_sync.runs`
-  (`recordBankSyncRun`). Правила алертів — `infra/observability/` (генерує `tools/observability`).
+  (`recordBankSyncRun`). Відмови за лімітом частоти — `ws.rate_limit.rejections` (клас і шаблон маршруту, без адреси; 429 — не 5xx). Правила алертів — `infra/observability/` (генерує `tools/observability`).
 - Тести: `testTelemetryForFile()` і `exportedText()` (`telemetry/testing.ts`); синтетичні персональні значення —
   `telemetry/pii.test-helper.ts`.

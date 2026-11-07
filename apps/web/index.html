@@ -8,16 +8,10 @@
     <title>Willowsum</title>
     <!--
       DS-11 item 7: apply a stored manual theme before the first paint (no flash of the light theme).
-      The key and values must match THEME_STORAGE_KEY / THEME_ATTRIBUTE in @willowsum/ui (tested).
+      A classic blocking script from the app's own origin, not inline: the CSP allows scripts from 'self'
+      only (NFR-14 FR 3). The key and values must match THEME_STORAGE_KEY / THEME_ATTRIBUTE in @willowsum/ui (tested).
     -->
-    <script>
-      (function () {
-        try {
-          var t = localStorage.getItem("ws-theme");
-          if (t === "light" || t === "dark") document.documentElement.setAttribute("data-theme", t);
-        } catch (e) {}
-      })();
-    </script>
+    <script src="./theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { ProviderError } from "../adapters/errors.ts";
 import { databaseErrorFields, type DatabaseErrorFields } from "../db/errors.ts";
 import { markRequestProblem, markUnavailableReason } from "../telemetry/http.ts";
+import { recordRateLimitRejection } from "../telemetry/signals.ts";
 import type { HouseholdQueryRunner, ModuleDatabase, ModuleQueryRunner } from "../db/module-db.ts";
 import {
   IDEMPOTENCY_HEADER,
@@ -11,18 +12,28 @@ import {
   requestHash,
   type IdempotencyStore,
 } from "./idempotency.ts";
+import { originAllowed } from "./origin.ts";
 import {
   ApiProblem,
   PROBLEM_CONTENT_TYPE,
   problemBody,
   type ProblemCode,
+  type ProblemExtensions,
   type ProblemFieldError,
 } from "./problem.ts";
+import {
+  clientAddressKey,
+  createApiRateLimits,
+  RateLimited,
+  type ApiRateLimits,
+  type RateLimitClass,
+} from "./rate-limit.ts";
 import {
   API_PREFIX,
   fastifyPath,
   isPublic,
   routeFlags,
+  routeRateLimitClass,
   type ApiRoute,
   type HouseholdFreeDatabase,
   type Principal,
@@ -32,12 +43,13 @@ import {
 
 /**
  * The one HTTP API of every client (ARC-07 FR 1, NFR-05 FR 1–2). For each request, in this order:
- * the module's kill switch (feature-flags, 503 MODULE_UNAVAILABLE) → authentication (401) → the route's flag
- * for the caller's space (feature-flags, 404 as for a route that does not exist) → role and scope
- * (access-scope, 403) → plan (plan-catalog, 402) → input validation with the route's zod schemas (400) →
- * idempotency for create routes (409 / replay) → handler → the response parsed by the route's response
- * schema (fields not in the contract never leave the server). Public (platform) routes have no module, flag
- * or session: only validation and the handler.
+ * the rate limit of the client's address (429 RATE_LIMITED, NFR-14) → the Origin of a write (403
+ * ORIGIN_NOT_ALLOWED, NFR-15 FR 5) → the module's kill switch (feature-flags, 503 MODULE_UNAVAILABLE) →
+ * authentication (401) → the route's flag for the caller's space (feature-flags, 404 as for a route that
+ * does not exist) → role and scope (access-scope, 403) → plan (plan-catalog, 402) → input validation with
+ * the route's zod schemas (400) → idempotency for create routes (409 / replay) → handler → the response
+ * parsed by the route's response schema (fields not in the contract never leave the server). Public
+ * (platform) routes have no module, flag or session: rate limit, Origin, validation and the handler.
  */
 export interface ApiOptions {
   readonly routes: readonly ApiRoute[];
@@ -82,6 +94,16 @@ export interface ApiOptions {
    * ErrorReport and the request (for its trace) only.
    */
   readonly reportError?: (report: ErrorReport, request: FastifyRequest) => void;
+  /**
+   * Rate limits per client address (NFR-14 FR 5–10). Omitted: on, with counters in this process. `"off"`
+   * only for a load test (configuration `WS_RATE_LIMITS=off-load-test`, never in production).
+   */
+  readonly rateLimits?: ApiRateLimits | "off";
+  /**
+   * The origins whose pages may send write requests (NFR-15 FR 5; `WS_ALLOWED_ORIGINS`). Omitted: none, so
+   * every write with an `Origin` header is refused; writes without one (non-browser clients) pass.
+   */
+  readonly allowedOrigins?: ReadonlySet<string>;
 }
 
 /**
@@ -162,7 +184,11 @@ function sendProblem(
   code: ProblemCode,
   request: FastifyRequest,
   supportId: ApiOptions["supportId"],
-  options: { detail?: string | undefined; errors?: readonly ProblemFieldError[] | undefined } = {},
+  options: {
+    detail?: string | undefined;
+    errors?: readonly ProblemFieldError[] | undefined;
+    extensions?: ProblemExtensions | undefined;
+  } = {},
 ): FastifyReply {
   markRequestProblem(request, code);
   const body = problemBody(code, { ...options, supportId: supportId?.(request) });
@@ -203,9 +229,11 @@ export function installProblemHandlers(
       reportServerError(reportError, request, error.code, error);
       if (error.code === "MODULE_UNAVAILABLE")
         void reply.header("retry-after", String(MODULE_UNAVAILABLE_RETRY_AFTER_S));
+      if (error instanceof RateLimited) void reply.header("retry-after", String(error.retryAfterS));
       return sendProblem(reply, error.code, request, supportId, {
         detail: error.detail,
         errors: error.errors,
+        extensions: error.extensions,
       });
     }
     const code = frameworkProblem(error);
@@ -379,6 +407,28 @@ export function assertRoutes(
 export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   assertRoutes(options.routes, options);
   guardApiRoutes(app);
+  const limits = options.rateLimits === "off" ? undefined : (options.rateLimits ?? createApiRateLimits());
+  const allowedOrigins = options.allowedOrigins ?? new Set<string>();
+  /** Counts the request against one class of its client's address; over the limit → 429 RATE_LIMITED. */
+  const limit = async (request: FastifyRequest, limitClass: RateLimitClass): Promise<void> => {
+    if (!limits) return;
+    const decision = await limits.limiters[limitClass].hit(`${limitClass}:${clientAddressKey(request.ip)}`);
+    if (decision.allowed) return;
+    // Counted without the address (NFR-17, ADR-0006); a 429 is not a server error.
+    recordRateLimitRejection(limitClass, request.is404 ? undefined : request.routeOptions.url);
+    throw new RateLimited(limitClass, decision.retryAfterS);
+  };
+  // Before everything else of a request under the API — also an unknown path, whose 404 is answered in the
+  // next hook: the rate limit (an unknown path and a protected route share the `default` class, so a 429
+  // never tells them apart), then the Origin of a write. Other routes of the app (health probes) are not API.
+  app.addHook("onRequest", async (request) => {
+    const config = request.routeOptions.config as
+      { apiRoute?: unknown; rateLimitEntry?: RateLimitClass } | undefined;
+    const api = config?.apiRoute === API_ROUTE_TOKEN;
+    if (!api && !request.is404) return;
+    await limit(request, (api ? config?.rateLimitEntry : undefined) ?? "default");
+    if (!originAllowed(request, allowedOrigins)) throw new ApiProblem("ORIGIN_NOT_ALLOWED");
+  });
   installProblemHandlers(app, options.supportId, options.reportError);
   // Request bodies are JSON only (the contract has no other media type): text/plain is 415, not a string body.
   app.removeContentTypeParser("text/plain");
@@ -386,10 +436,15 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   const principals = new WeakMap<FastifyRequest, Principal>();
   for (const route of options.routes) {
     const access = route.access;
+    const limitClass = routeRateLimitClass(route);
     app.route({
       method: route.method,
       url: fastifyPath(route.path),
-      config: { apiRoute: API_ROUTE_TOKEN },
+      // The class a request is counted in first: a public route's own (no session or flag to wait for), else
+      // `default`. A protected upload route is counted as `upload` too, but only after its session and flags
+      // (its onRequest below): a hidden function must not show itself by an earlier 429 (DAT-05 FR 7).
+      config: { apiRoute: API_ROUTE_TOKEN, rateLimitEntry: isPublic(access) ? limitClass : "default" },
+      ...(route.bodyLimitBytes !== undefined ? { bodyLimit: route.bodyLimitBytes } : {}),
       // Kill switch → session → flags run before the body is read (onRequest), so a switched-off module or a
       // hidden function answers 503 / 401 / 404 whatever body or media type was sent — never 415, 413 or 400
       // first, which would show that the route exists (CICD-06 FR 3, DAT-05 FR 7; ADR-0004).
@@ -419,14 +474,21 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
               // A function that is off for the space does not exist for it: the same 404 as an unknown path.
               for (const flag of routeFlags(access))
                 if (!(await options.checkFlag(principal, flag))) throw new ApiProblem("NOT_FOUND");
+              if (limitClass === "upload") await limit(request, "upload");
               principals.set(request, principal);
             },
           }),
       handler: async (request, reply) => {
+        // The route's own security headers win over the API defaults, on its successful answers only
+        // (NFR-14 FR 1): a problem of the route keeps the defaults (no caching of errors).
+        const routeHeaders = (r: FastifyReply): void => {
+          for (const [name, value] of Object.entries(route.headers ?? {})) void r.header(name, value);
+        };
         const respond = async (status: number, value: unknown): Promise<string> => {
           // Only what the contract declares is sent: unknown fields are stripped, a wrong shape is a 500.
           const body = JSON.stringify(await route.response.schema.parseAsync(value));
           void reply.code(status).header("content-type", "application/json; charset=utf-8");
+          routeHeaders(reply);
           return body;
         };
         if (isPublic(route.access)) {
@@ -464,6 +526,7 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         if (begun.kind === "mismatch") throw new ApiProblem("IDEMPOTENCY_KEY_REUSED");
         if (begun.kind === "in-progress") throw new ApiProblem("IDEMPOTENCY_REQUEST_IN_PROGRESS");
         if (begun.kind === "replay") {
+          routeHeaders(reply);
           return reply
             .code(begun.status)
             .header("content-type", "application/json; charset=utf-8")

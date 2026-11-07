@@ -13,6 +13,8 @@ export const PROBLEMS = {
   UNAUTHENTICATED: { status: 401, title: "Sign-in is required" },
   PLAN_LIMIT_REACHED: { status: 402, title: "The plan of this space does not include this action" },
   FORBIDDEN: { status: 403, title: "Your role does not allow this action" },
+  /** A write request whose `Origin` is not one of the app's own (NFR-15 FR 5): a cross-site request. */
+  ORIGIN_NOT_ALLOWED: { status: 403, title: "Requests from this origin are not allowed" },
   NOT_FOUND: { status: 404, title: "Not found" },
   IDEMPOTENCY_KEY_REUSED: {
     status: 409,
@@ -22,8 +24,20 @@ export const PROBLEMS = {
     status: 409,
     title: "A request with this idempotency key is still being processed",
   },
+  /**
+   * The record changed since the version the client read (NFR-15 FR 13): `currentVersion` and `changedFields`
+   * say what to reload. Nothing was written.
+   */
+  VERSION_CONFLICT: { status: 409, title: "The record was changed by someone else; reload it and try again" },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
+  /**
+   * A technical limit that does not depend on the plan (NFR-15 FR 17: filters per request, bulk size, drafts,
+   * saved views); `limit` is the limit that was reached. Plan limits are 402 PLAN_LIMIT_REACHED instead.
+   */
+  LIMIT_REACHED: { status: 422, title: "A limit of the service was reached" },
+  /** Too many requests from this client in the current minute (NFR-14 FR 5–6); retry after `Retry-After`. */
+  RATE_LIMITED: { status: 429, title: "Too many requests; try again shortly" },
   INTERNAL: { status: 500, title: "Something went wrong on our side" },
   /** The route's module is switched off by its kill switch (CICD-06 FR 3); clients show «Тимчасово недоступно». */
   MODULE_UNAVAILABLE: { status: 503, title: "This function is temporarily unavailable" },
@@ -58,6 +72,25 @@ export const ProblemSchema = z
       description:
         "Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code",
     }),
+    /** For VERSION_CONFLICT: the version of the record now (NFR-15 FR 13). */
+    currentVersion: z.number().int().min(0).optional().meta({
+      description: "VERSION_CONFLICT: the current version of the record",
+    }),
+    /**
+     * For VERSION_CONFLICT: the fields someone else changed — those of the `base` the client sent (the values it
+     * read at its version) that the caller may read and whose stored value now differs. Names only, never values.
+     */
+    changedFields: z.array(z.string()).optional().meta({
+      description:
+        "VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported)",
+    }),
+    /** For LIMIT_REACHED: the limit that was reached (a number of the service, never of the plan). */
+    limit: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .meta({ description: "LIMIT_REACHED: the limit that was reached" }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(
@@ -75,15 +108,24 @@ export class ApiProblem extends Error {
   readonly code: ProblemCode;
   readonly detail: string | undefined;
   readonly errors: readonly ProblemFieldError[] | undefined;
+  /** Extension members of the problem (VERSION_CONFLICT, LIMIT_REACHED); values the server chose, never input. */
+  readonly extensions: ProblemExtensions | undefined;
 
-  constructor(code: ProblemCode, options: { detail?: string; errors?: readonly ProblemFieldError[] } = {}) {
+  constructor(
+    code: ProblemCode,
+    options: { detail?: string; errors?: readonly ProblemFieldError[]; extensions?: ProblemExtensions } = {},
+  ) {
     super(code);
     this.name = "ApiProblem";
     this.code = code;
     this.detail = options.detail;
     this.errors = options.errors;
+    this.extensions = options.extensions;
   }
 }
+
+/** The extension members a problem may carry (declared in ProblemSchema). */
+export type ProblemExtensions = Partial<Pick<Problem, "currentVersion" | "changedFields" | "limit">>;
 
 export function problemBody(
   code: ProblemCode,
@@ -91,6 +133,7 @@ export function problemBody(
     detail?: string | undefined;
     errors?: readonly ProblemFieldError[] | undefined;
     supportId?: string | undefined;
+    extensions?: ProblemExtensions | undefined;
   } = {},
 ): Problem {
   const { status, title } = PROBLEMS[code];
@@ -102,6 +145,13 @@ export function problemBody(
     ...(options.detail !== undefined ? { detail: options.detail } : {}),
     ...(options.supportId !== undefined ? { supportId: options.supportId } : {}),
     ...(options.errors !== undefined ? { errors: [...options.errors] } : {}),
+    ...(options.extensions?.currentVersion !== undefined
+      ? { currentVersion: options.extensions.currentVersion }
+      : {}),
+    ...(options.extensions?.changedFields !== undefined
+      ? { changedFields: [...options.extensions.changedFields] }
+      : {}),
+    ...(options.extensions?.limit !== undefined ? { limit: options.extensions.limit } : {}),
   };
 }
 

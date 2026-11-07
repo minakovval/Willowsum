@@ -29,6 +29,10 @@ export interface ApiWiring {
   readonly authenticate?: (request: FastifyRequest) => Promise<Principal | null>;
   readonly supportId?: ApiOptions["supportId"];
   readonly reportError?: ApiOptions["reportError"];
+  /** Rate limits (NFR-14): omitted — on, counters in this process; `"off"` only for a load test. */
+  readonly rateLimits?: ApiOptions["rateLimits"];
+  /** Origins whose pages may send writes (NFR-15 FR 5); omitted — none. */
+  readonly allowedOrigins?: ApiOptions["allowedOrigins"];
 }
 
 export function apiOptions(wiring: ApiWiring): ApiOptions {
@@ -55,6 +59,8 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
     // ARC-09: the support id of a problem is the request's trace id; server errors go to telemetry.
     supportId: wiring.supportId ?? requestTraceId,
     reportError: wiring.reportError ?? reportServerErrorToTelemetry,
+    ...(wiring.rateLimits !== undefined ? { rateLimits: wiring.rateLimits } : {}),
+    ...(wiring.allowedOrigins !== undefined ? { allowedOrigins: wiring.allowedOrigins } : {}),
   };
 }
 

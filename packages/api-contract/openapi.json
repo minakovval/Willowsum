@@ -97,6 +97,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "503": {
             "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
             "content": {
@@ -242,6 +261,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "503": {
             "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
             "content": {
@@ -306,6 +344,25 @@
               }
             }
           },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
           "default": {
             "description": "Any other error, as problem details",
             "content": {
@@ -345,11 +402,15 @@
               "UNAUTHENTICATED",
               "PLAN_LIMIT_REACHED",
               "FORBIDDEN",
+              "ORIGIN_NOT_ALLOWED",
               "NOT_FOUND",
               "IDEMPOTENCY_KEY_REUSED",
               "IDEMPOTENCY_REQUEST_IN_PROGRESS",
+              "VERSION_CONFLICT",
               "PAYLOAD_TOO_LARGE",
               "UNSUPPORTED_MEDIA_TYPE",
+              "LIMIT_REACHED",
+              "RATE_LIMITED",
               "INTERNAL",
               "MODULE_UNAVAILABLE",
               "SERVICE_UNAVAILABLE"
@@ -363,6 +424,25 @@
           "supportId": {
             "description": "Support code: the trace id the server drew for this request (32 hex digits); clients show it as the error code",
             "type": "string"
+          },
+          "currentVersion": {
+            "description": "VERSION_CONFLICT: the current version of the record",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "changedFields": {
+            "description": "VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported)",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limit": {
+            "description": "LIMIT_REACHED: the limit that was reached",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
           },
           "errors": {
             "type": "array",
