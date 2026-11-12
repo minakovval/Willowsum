@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@willowsum/api-contract": "workspace:*",
     "@willowsum/i18n": "workspace:*",
     "@willowsum/ui": "workspace:*",
     "react": "19.3.1",

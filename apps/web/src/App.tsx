@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
 import { I18nProvider } from "@willowsum/i18n";
 import { HideAmountsProvider, MAIN_ID, ThemeProvider } from "@willowsum/ui";
+import { CheckEmailPage } from "./auth/CheckEmailPage.tsx";
+import { SignUpPage } from "./auth/SignUpPage.tsx";
+import { VerifyPage } from "./auth/VerifyPage.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
-import { canonicalPath, resolveRoute, type Route } from "./routing/routes.ts";
+import { canonicalPath, resolveRoute, type AuthScreen, type Route } from "./routing/routes.ts";
 import { recordVisit, rememberPage } from "./routing/session.ts";
 import { hrefFor, useHashPath } from "./routing/useHashPath.ts";
 
@@ -56,8 +59,21 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       return <SettingsPage />;
     case "importWizard":
       return <ImportWizardPage />;
+    case "auth":
+      return authPage(route.screen);
     case "notFound":
       return <NotFoundPage />;
+  }
+}
+
+function authPage(screen: AuthScreen) {
+  switch (screen) {
+    case "signUp":
+      return <SignUpPage />;
+    case "checkEmail":
+      return <CheckEmailPage />;
+    case "verify":
+      return <VerifyPage />;
   }
 }
 
