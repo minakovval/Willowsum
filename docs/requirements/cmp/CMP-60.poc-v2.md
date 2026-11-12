@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: CMP-60@PoC
-- Залежить від: CMP-12@PoC, CMP-32@PoC v2, CMP-58@PoC v2, CMP-59@PoC, CMP-62@PoC, CMP-63@PoC
+- Залежить від: CMP-12@PoC, CMP-32@PoC v2, CMP-58@PoC v2, CMP-59@PoC, CMP-62@PoC, CMP-63@PoC v2
 - Дизайн: —
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
