@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
 
 This is the single rule set for every agent (and human) changing this repository. It is short on purpose:
 read it fully, then load only the files your task needs. If a task conflicts with this file, stop and ask
@@ -145,18 +145,27 @@ errors) lives only in `packages/domain-kernel`.
    and per edge case.
 4. Branch `<ID>-<slug>`; PR title starts with the ID, e.g. `BUD-03: safe-to-spend widget`.
 5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
-   money calculations, database schema, pipeline and infrastructure also need a security review.
+   money calculations, database schema, pipeline and infrastructure (the PR gets the label `sensitive`) also
+   need a security review in another session. Every review names the head commit (full SHA) it reviewed and
+   ends with a line of its own: `Verdict: Ready` or `Verdict: Not ready` (review-pr), and
+   `Security verdict: Ready` or `Security verdict: Changes requested` (security review). The daily check
+   (ADR-0008) reads exactly these lines (owner, 2026-11-12).
 6. All CI checks green (jobs `requirements`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`). Never skip, disable or weaken a
    test to get green.
-7. The authoring agent merges the PR (squash) only when CI is green on the latest commit and the review
-   session gave «Ready» (plus the security review for sensitive areas). PRs that change requirements, AGENTS.md or
-   skills are merged only when the PR body records the owner's decision they implement (and the decision
-   log in `docs/decisions/` has it). An approval comment from the
-   owner's own GitHub account on the PR is needed only for what acts on the cloud or production: applying
+7. The authoring agent merges the PR (squash; the only merge method) only when CI is green on the latest
+   commit and the review session gave «Ready» (plus the security review for sensitive areas) **on the
+   commit being merged**: before merging, compare the SHA each review names with the PR head; any later
+   commit, even a small fix, needs a re-review (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
+   skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
+   log in `docs/decisions/` has it). The owner's approval on the PR is needed only for what acts on the
+   cloud or production. It is either a comment from the owner's own GitHub account with a line that is exactly
+   «Схвалюю» or «Approved», or the owner's decision from chat recorded in the PR body as a line
+   `Рішення власника (YYYY-MM-DD): схвалено …` (owner, 2026-11-12). Agents never write a «Схвалюю» or
+   «Approved» line, and write the body line only for a decision the owner actually gave. Approval is needed for: applying
    infrastructure (`tofu apply`), deploying or releasing to production, and changing the workflows that do
    this or the trust settings they use (OIDC trust, the production secrets store) or production DNS. Code
    that is only validated (infrastructure as code without apply, KMS and access rules described as code),
-   CI check jobs and the local environment need no approval comment (owner, 2026-11-06). If the owner commented
+   CI check jobs and the local environment need no approval (owner, 2026-11-06). If the owner commented
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.

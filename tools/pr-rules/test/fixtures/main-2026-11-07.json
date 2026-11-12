@@ -326,11 +326,13 @@
     },
     {
      "filename": "docs/requirements/nfr/NFR-14.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-22, П-26, ARC-07, NFR-01, NFR-15\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/nfr14-headers.test.ts, apps/api/test/nfr14-rate-limit.test.ts, apps/api/src/platform/http/rate-limit.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/web/src/security-headers.test.ts, apps/web/src/static.test.ts, apps/api/test/sec86-headers.test.ts, apps/api/test/sec86-rate-limit.test.ts, apps/api/test/sec86-process.it.test.ts, apps/web/src/sec86-web.test.ts, apps/api/test/sec86r2-client-error.test.ts, apps/api/test/sec86r2-rate-limit.test.ts\n \n **Мета.** Як користувач, я хочу, щоб браузер не міг кешувати чи вбудовувати мої фінансові дані на сторонніх сайтах і щоб сервіс не можна було перевантажити запитами, щоб мої дані не витекли через атаки на клієнтську частину.\n "
     },
     {
      "filename": "docs/requirements/nfr/NFR-15.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-5, П-6, П-9, П-10, П-11, П-12, П-24, П-26, ARC-03, ARC-11, CICD-03, NFR-01, NFR-14\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/nfr15-origin.test.ts, apps/api/src/platform/http/nfr15-general.test.ts, apps/api/test/nfr15-db.it.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/api/test/sec86-origin-cookies.test.ts, apps/api/test/sec86-list-query.test.ts, apps/api/test/sec86-db.it.test.ts, apps/api/test/sec86-process.it.test.ts, apps/api/test/sec86r2-list-route.test.ts, apps/api/test/sec86r2-filter-values.it.test.ts, apps/api/test/sec86r2-versioned.it.test.ts\n \n **Мета.** Як власник продукту, я хочу, щоб кожна відома загроза для фінансових даних родини мала задокументований засіб захисту і тест, щоб захоплення акаунта, витік чи підробка даних були неможливими або швидко виявлялися.\n "
     },
     {
      "filename": "docs/traceability/matrix.md",
@@ -700,11 +702,13 @@
     },
     {
      "filename": "docs/requirements/arc/ARC-09.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-8, П-24\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/src/platform/config/config.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/observability-catalogue.test.ts, packages/api-contract/src/index.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/config/config-sec85.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/process.it.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts\n \n 1. Логи, метрики і траси збираються через OpenTelemetry і надсилаються в сервіс із даними в ЄС. Заміна сервісу — лише зміна конфігурації експортера.\n 2. У логах, трасах і звітах про помилки немає персональних і фінансових даних: фільтр на рівні експортера маскує email, суми, IBAN, токени та тіла запитів."
     },
     {
      "filename": "docs/requirements/nfr/NFR-10.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-8, ARC-09\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/db/errors.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/test/observability-catalogue.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/db/errors-sec85.test.ts, apps/api/test/telemetry-db-sec85.it.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts, apps/api/test/telemetry-db-sec85r2.it.test.ts\n \n **Мета.** Як команда експлуатації, ми хочемо бачити стан системи і швидко дізнаватися про збої без доступу до персональних даних користувачів, щоб виправляти проблеми до того, як їх помітять користувачі.\n "
     },
     {
      "filename": "docs/traceability/matrix.md",
@@ -1106,7 +1110,8 @@
     },
     {
      "filename": "docs/requirements/arc/ARC-05.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-9, П-22, П-23, П-24\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/adapters/provider-client.test.ts, apps/api/src/platform/adapters/last-known.test.ts, apps/api/src/platform/adapters/outgoing.test.ts, apps/api/src/platform/adapters/http.test.ts, apps/api/src/platform/adapters/reference/exchange-rates/exchange-rates.test.ts, apps/api/src/platform/config/config.test.ts, apps/api/scripts/lib/provider-sdks.test.ts, apps/api/test/no-network.test.ts, apps/api/test/no-network-loaded.test.ts, apps/api/test/no-network-security.test.ts, apps/api/src/platform/adapters/security-arc05.test.ts, apps/api/scripts/lib/provider-sdks-security.test.ts, apps/api/scripts/lib/provider-sdks-security-r2.test.ts, apps/api/src/platform/adapters/security-arc05-r2.test.ts, apps/api/test/no-network-security-r2.test.ts, apps/api/test/no-network-security-r3.test.ts\n \n 1. Кожен зовнішній сервіс (курси валют, ціни, банки, мапи, пошта, платежі, CAPTCHA, OCR, антивірус, сховище файлів, KMS, AI) викликається лише через внутрішній інтерфейс. Назви провайдерів та їхні SDK не з'являються поза адаптером.\n 2. Кожен інтерфейс має щонайменше дві реалізації: робочу і тестову (синтетичну або пісочницю). Локальна розробка і CI працюють без доступу до зовнішніх сервісів."
     },
     {
      "filename": "docs/traceability/matrix.md",
@@ -1368,7 +1373,8 @@
     },
     {
      "filename": "docs/requirements/cicd/CICD-06.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-14, П-21, ARC-01\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts\n+- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts, apps/api/test/security-cicd06-r3.test.ts, apps/api/test/security-cicd06-r4.test.ts, apps/api/test/security-cicd06-r4.it.test.ts\n \n 1. Кожна нова функція виходить вимкненою прапорцем. Власник вмикає її: спочатку для тестових просторів, потім для частки просторів, потім для всіх.\n 2. Кожен прапорець має власника і дату перегляду. Тимчасовий прапорець видаляється з коду не пізніше ніж через 30 днів після повного вмикання."
     },
     {
      "filename": "docs/traceability/matrix.md",
@@ -1754,15 +1760,18 @@
     },
     {
      "filename": "docs/requirements/arc/ARC-01.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-21, П-22, П-24, ARC-05, ARC-11, CICD-02, CICD-06\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts\n+- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts, apps/api/test/api-flags.test.ts\n \n Бекенд — один застосунок на TypeScript, розділений на незалежні модулі. Зміна всередині одного модуля не змінює поведінки інших, якщо не змінено його публічний інтерфейс.\n "
     },
     {
      "filename": "docs/requirements/cicd/CICD-06.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-14, П-21, ARC-01\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts\n \n 1. Кожна нова функція виходить вимкненою прапорцем. Власник вмикає її: спочатку для тестових просторів, потім для частки просторів, потім для всіх.\n 2. Кожен прапорець має власника і дату перегляду. Тимчасовий прапорець видаляється з коду не пізніше ніж через 30 днів після повного вмикання."
     },
     {
      "filename": "docs/requirements/dat/DAT-05.poc.md",
-     "status": "modified"
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-7, П-8, П-13, П-14, П-24, П-25, П-26, CMP-22, CMP-23, CMP-24\n - Сценарії: UC-DAT-20, UC-DAT-21, UC-DAT-23\n - Модуль: feature-flags\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/not-found.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/test/no-coming-soon.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06-r2.test.ts\n \n **Мета.** Як користувач, я хочу завжди розуміти, що відбувається на екрані — немає даних, дані завантажуються чи сталася помилка — і що мені робити далі, щоб не стикатися з порожніми екранами та заглушками.\n "
     },
     {
      "filename": "docs/traceability/matrix.md",

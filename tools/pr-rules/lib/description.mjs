@@ -4,8 +4,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** A requirement ID at the start of the title, followed by `:`, `,`, a space or `(` (e.g. `DS-01 (#32): …`). */
-const TITLE_ID = /^([A-Z][A-Z0-9]*-\d{2}[a-z]?)(?=[:,\s(])/;
+/**
+ * A requirement ID at the start of the title, optionally as a release slice (`BUD-16@PoC`), followed by `:`, `,`,
+ * a space or `(` (e.g. `DS-01 (#32): …`, `BUD-16@PoC: …`). The ID part must have a file in docs/requirements.
+ */
+const TITLE_ID = /^([A-Z][A-Z0-9]*-\d{2}[a-z]?)(?:@[A-Za-z0-9][A-Za-z0-9.-]*)?(?=[:,\s(])/;
 const ID_FILE = /^([A-Z][A-Z0-9]*-\d{2}[a-z]?)\.md$/;
 
 /** Every requirement ID that has a file in docs/requirements/<module>/ (cards and old one-file requirements). */

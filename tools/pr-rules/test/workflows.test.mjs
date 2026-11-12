@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { test } from 'node:test';
+import { DAILY_CHECK_STEP, DAILY_WORKFLOW } from '../lib/fetch.mjs';
 import { REQUIRED_WORKFLOWS, jobNames } from '../lib/workflows.mjs';
 
 const ROOT = new URL('../../../', import.meta.url).pathname;
@@ -66,6 +67,7 @@ test('ADR-0008: PR rule workflows have least-privilege tokens', () => {
     contents: 'read',
     'pull-requests': 'read',
     checks: 'read',
+    actions: 'read',
     issues: 'write',
   });
   assert.match(daily, /schedule:\n\s+- cron: "\d+ \d+ \* \* \*"/, 'runs every day');
@@ -79,4 +81,11 @@ test('ADR-0008: no checkout keeps the token, and inputs reach scripts only throu
     for (const c of checkouts) assert.match(c[1], /persist-credentials: false/, wf);
     for (const m of text.matchAll(/^\s*run:.*\$\{\{\s*(github\.event|inputs)\./gm)) assert.fail(`${wf}: ${m[0].trim()}`);
   }
+});
+
+test('review #87 item 7: the window starts at the last run whose check step succeeded — the step exists and never fails on findings', () => {
+  const daily = read(`.github/workflows/${DAILY_WORKFLOW}`);
+  assert.match(daily, new RegExp(`^ {6}- name: ${DAILY_CHECK_STEP}\\n {8}id: check$`, 'm'));
+  assert.match(daily, /daily --issue --outputs /, 'the check step writes `alert` instead of failing');
+  assert.match(daily, /if: steps\.check\.outputs\.alert == 'true'\n\s+run: node tools\/pr-rules\/index\.mjs alerted\n/, 'a later step fails the run');
 });

@@ -8,6 +8,8 @@ name: PR sensitive label
 #
 # `pull_request`, not `pull_request_target`: the job runs the PR's own code, so it must never get more than
 # the PR author already has. For a PR from a fork GitHub gives a read-only token; the job then only reports.
+# Rule and requirement files (AGENTS.md, CLAUDE.md, .claude/**, docs/requirements/**) get the label
+# `owner-decision`: the PR body must record the owner decision it implements (AGENTS.md step 7).
 # Informational: not one of the required CI jobs.
 
 on:

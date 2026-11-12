@@ -1,7 +1,7 @@
 // CICD-01 FR 1, FR 3, FR 4 and FR 5 (ADR-0008): the daily check of `main` and of the PRs merged into it.
 // Pure: `evaluate(input)` takes what the workflow fetched from the GitHub REST API (or a recorded fixture) and
 // returns findings; `render` turns them into the alert issue. No network, no clock (the input carries `now`).
-import { classifyPaths, ownerApprovalNeeded } from './paths.mjs';
+import { classifyFiles, ownerApprovalNeeded, ownerDecisionFiles, safeName, unionClassification } from './paths.mjs';
 
 export const SEVERITY = {
   violation: 'Порушення', // the rule was broken: the owner must look
@@ -10,6 +10,14 @@ export const SEVERITY = {
 };
 
 export const BRANCH_MAX_DAYS = 3;
+/** The only place the default branch name is written; the fetched input carries the real one (`main.name`). */
+export const DEFAULT_MAIN = 'main';
+/**
+ * From this date (owner, 2026-11-12) «Verdict: Ready» and «Security verdict: Ready» must be given on the
+ * commit that is merged: a Ready on an older commit is a violation. PRs merged earlier keep the old reading
+ * («to check»), so the history is not rewritten.
+ */
+export const READY_ON_MERGED_COMMIT_FROM = '2026-11-12T00:00:00Z';
 const DAY = 24 * 60 * 60 * 1000;
 
 // Verdict lines, as the review-pr skill and the security review write them: the line starts with the verdict,
@@ -19,25 +27,59 @@ const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(Ready|Not ready|Changes requested
 const VERDICT = new RegExp(`${MARKUP}Verdict${VALUE}`, 'gm');
 const SECURITY_VERDICT = new RegExp(`${MARKUP}Security verdict${VALUE}`, 'gm');
 
+/**
+ * The text a reader sees as the author's own words: without HTML comments, fenced and indented code blocks and
+ * quoted lines, so that an example or a quoted «Verdict: Ready» or «Схвалюю» never counts.
+ */
+export function prose(text) {
+  const out = [];
+  let fence = null;
+  for (const line of (text ?? '').replace(/\r\n?/g, '\n').replace(/<!--[\s\S]*?(?:-->|$)/g, '').split('\n')) {
+    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      continue;
+    }
+    if (f) {
+      fence = f[1];
+      continue;
+    }
+    if (/^(?: {4}|\t)/.test(line) || /^\s*>/.test(line)) continue;
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
 /** The verdict of a review body (`kind`: 'review' or 'security'), or null; the last verdict line wins. */
 export function verdictOf(body, kind) {
   let last = null;
-  for (const m of (body ?? '').matchAll(kind === 'security' ? SECURITY_VERDICT : VERDICT)) last = m[1];
+  for (const m of prose(body).matchAll(kind === 'security' ? SECURITY_VERDICT : VERDICT)) last = m[1];
   return last;
 }
 
 /** The owner's approval comment: a line that is exactly «Схвалюю» or «Approved» (not quoted). */
 export const APPROVAL_LINE = /^\s*(?:схвалюю|approved)\s*[.!]?\s*$/imu;
+/**
+ * The owner's decision from chat recorded in the PR body (owner, 2026-11-12): a line
+ * «Рішення власника (YYYY-MM-DD): схвалено …». The second accepted form of the approval.
+ */
+export const BODY_APPROVAL_LINE = /^\s*(?:\*\*)?Рішення власника\s*\(\d{4}-\d{2}-\d{2}\)\s*:\s*(?:\*\*)?\s*схвалено(?!\p{L})/imu;
+/** A PR body that records an owner decision (heading «Owner decision» or a «Рішення власника» line). */
+export const OWNER_DECISION_REF = /рішення власника|owner[ -]decision/iu;
 /** The owner's «stop»: a line that is exactly «stop» or «стоп». */
 export const STOP_LINE = /^\s*(?:stop|стоп)\s*[.!]?\s*$/imu;
 
-const lines = (text) => (text ?? '').split(/\r?\n/).filter((l) => !/^\s*>/.test(l)).join('\n');
+const lines = (text) => prose(text);
 const short = (sha) => (sha ?? '').slice(0, 7);
 const at = (iso) => Date.parse(iso);
 
 /** Latest verdict of one kind given before the merge: `{ verdict, commit, review }` or null. */
-function latestVerdict(reviews, kind, mergedAt) {
+function latestVerdict(reviews, kind, mergedAt, owner) {
   const given = reviews
+    // Reviews are written from the owner's account (ADR-0008); a review from any other account is not a verdict.
+    .filter((r) => !owner || r.user === owner)
+    // A dismissed review no longer stands; a pending one was never submitted.
+    .filter((r) => r.state !== 'DISMISSED' && r.state !== 'PENDING')
     .filter((r) => r.submitted_at && at(r.submitted_at) <= at(mergedAt))
     .map((r) => ({ verdict: verdictOf(r.body, kind), commit: r.commit_id, review: r }))
     .filter((v) => v.verdict)
@@ -45,11 +87,11 @@ function latestVerdict(reviews, kind, mergedAt) {
   return given.at(-1) ?? null;
 }
 
-function checkReview(pr, kind, findings) {
+function checkReview(pr, kind, findings, owner) {
   const label = kind === 'security' ? 'Security verdict: Ready' : 'Verdict: Ready';
   const rule = kind === 'security' ? 'FR 4' : 'FR 3, FR 5';
   const subject = `PR #${pr.number}`;
-  const last = latestVerdict(pr.reviews ?? [], kind, pr.merged_at);
+  const last = latestVerdict(pr.reviews ?? [], kind, pr.merged_at, owner);
   if (!last) {
     findings.push({ severity: 'violation', rule, subject, message: `злито без рецензії з «${label}»` });
   } else if (last.verdict !== 'Ready') {
@@ -61,7 +103,7 @@ function checkReview(pr, kind, findings) {
     });
   } else if (last.commit !== pr.head_sha) {
     findings.push({
-      severity: 'stale',
+      severity: at(pr.merged_at) >= at(READY_ON_MERGED_COMMIT_FROM) ? 'violation' : 'stale',
       rule,
       subject,
       message: `«${label}» дано на ${short(last.commit)}, а злито ${short(pr.head_sha)}: коміти після рецензії ніхто не рецензував`,
@@ -78,10 +120,14 @@ function checkCi(pr, findings) {
   const runs = (pr.checkRuns ?? []).filter((r) => !r.app || r.app === 'github-actions');
   const bad = [];
   for (const job of pr.requiredJobs) {
-    const run = runs.filter((r) => r.name === job).sort((a, b) => b.id - a.id)[0];
-    if (!run) bad.push(`${job}: не запускалась`);
-    else if (run.status !== 'completed' || run.conclusion !== 'success') bad.push(`${job}: ${run.conclusion ?? run.status}`);
-    else if (at(run.completed_at) > at(pr.merged_at)) bad.push(`${job}: завершилась після злиття`);
+    const all = runs.filter((r) => r.name === job);
+    // The latest run that completed before the merge decides. Later runs (a re-run after the merge, e.g. on
+    // an edit of a merged PR's description) are ignored.
+    const run = all
+      .filter((r) => r.status === 'completed' && r.completed_at && at(r.completed_at) <= at(pr.merged_at))
+      .sort((a, b) => b.id - a.id)[0];
+    if (!run) bad.push(`${job}: ${all.length ? 'завершилась після злиття' : 'не запускалась'}`);
+    else if (run.conclusion !== 'success') bad.push(`${job}: ${run.conclusion}`);
   }
   if (bad.length) {
     findings.push({
@@ -94,19 +140,22 @@ function checkCi(pr, findings) {
 }
 
 function checkOwnerApproval(pr, owner, findings) {
-  const need = ownerApprovalNeeded(pr.files ?? []);
-  if (!need.required) return;
+  const need = ownerApprovalNeeded(pr.files ?? [], { truncated: pr.filesTruncated });
+  const reasons = [...new Set([...need.reasons, ...(pr.baseMap?.approvalReasons ?? [])])];
+  if (!reasons.length) return;
   const subject = `PR #${pr.number}`;
   const approvals = (pr.comments ?? []).filter(
     (c) => c.user === owner && at(c.created_at) <= at(pr.merged_at) && APPROVAL_LINE.test(lines(c.body)),
   );
-  const why = need.reasons.slice(0, 3).join('; ');
+  // Second form: the owner's decision from chat recorded in the PR body (the body as it is when read).
+  if (BODY_APPROVAL_LINE.test(lines(pr.body))) return;
+  const why = reasons.slice(0, 3).join('; ');
   if (approvals.length === 0) {
     findings.push({
       severity: 'violation',
       rule: 'FR 3',
       subject,
-      message: `діє на хмару чи production (${why}), але злито без коментаря власника «Схвалюю»`,
+      message: `діє на хмару чи production (${why}), але злито без коментаря власника «Схвалюю» і без рядка «Рішення власника (дата): схвалено» в описі`,
     });
   } else if (pr.head_date && approvals.every((c) => at(c.created_at) < at(pr.head_date))) {
     findings.push({
@@ -132,9 +181,20 @@ function checkStop(pr, owner, findings) {
   }
 }
 
-/** Is a commit on main the squash-merge commit of a merged PR into main? */
-const fromMergedPr = (commit) =>
-  (commit.pulls ?? []).some((p) => p.merged_at && p.merge_commit_sha === commit.sha && (p.base_ref ?? 'main') === 'main');
+function checkOwnerDecision(pr, findings) {
+  const changed = ownerDecisionFiles(pr.files ?? []);
+  if (!changed.length || OWNER_DECISION_REF.test(lines(pr.body))) return;
+  findings.push({
+    severity: 'stale',
+    rule: 'FR 3',
+    subject: `PR #${pr.number}`,
+    message: `змінює правила чи вимоги (${changed.slice(0, 3).join(', ')}), але в описі немає посилання на рішення власника`,
+  });
+}
+
+/** Is a commit on main the squash-merge commit of a PR merged into main? (Only squash merges are supported.) */
+const fromMergedPr = (commit, mainName) =>
+  (commit.pulls ?? []).some((p) => p.merged_at && p.merge_commit_sha === commit.sha && p.base_ref === mainName);
 
 /**
  * @param {object} input the shape `fetchDailyInput` (lib/fetch.mjs) returns
@@ -143,6 +203,7 @@ const fromMergedPr = (commit) =>
 export function evaluate(input) {
   const findings = [];
   const now = at(input.now);
+  const mainName = input.main?.name ?? DEFAULT_MAIN;
 
   // FR 3: every change of main comes from a merged PR; no force-push.
   if (input.activityError) {
@@ -169,7 +230,7 @@ export function evaluate(input) {
     });
   }
   for (const c of input.commits ?? []) {
-    if (!fromMergedPr(c)) {
+    if (!fromMergedPr(c, mainName)) {
       findings.push({
         severity: 'violation',
         rule: 'FR 3',
@@ -182,17 +243,19 @@ export function evaluate(input) {
   // FR 3, FR 4, FR 5: merged PRs.
   for (const pr of input.pulls ?? []) {
     checkCi(pr, findings);
-    checkReview(pr, 'review', findings);
-    const byPaths = classifyPaths((pr.files ?? []).flatMap((f) => [f.filename, f.previous_filename].filter(Boolean)));
+    checkReview(pr, 'review', findings, input.owner);
+    // A PR that edits the map is judged by the map before it (baseMap) and the current one.
+    const byPaths = unionClassification(classifyFiles(pr.files ?? [], { truncated: pr.filesTruncated }), pr.baseMap);
     const labelled = (pr.labels ?? []).includes('sensitive');
-    if (byPaths.sensitive || labelled) checkReview(pr, 'security', findings);
+    if (byPaths.sensitive || labelled) checkReview(pr, 'security', findings, input.owner);
     checkOwnerApproval(pr, input.owner, findings);
     checkStop(pr, input.owner, findings);
+    checkOwnerDecision(pr, findings);
   }
 
   // FR 1: working branches live at most 3 days (informational).
   for (const b of input.branches ?? []) {
-    if (b.name === 'main' || !b.firstCommitDate) continue;
+    if (b.name === mainName || !b.firstCommitDate) continue;
     const days = Math.floor((now - at(b.firstCommitDate)) / DAY);
     if (days > BRANCH_MAX_DAYS) {
       const pr = b.pr ? `PR #${b.pr.number} ${b.pr.merged ? 'злито' : b.pr.state === 'open' ? 'відкритий' : 'закрито'}` : 'без PR';
@@ -221,7 +284,7 @@ export const needsAlert = (result) => result.summary.violation + result.summary.
 export function render(result, { runUrl } = {}) {
   const { summary, findings } = result;
   const out = [
-    `**Вікно:** ${summary.window?.since} … ${summary.window?.until}`,
+    `**Вікно:** ${summary.window?.since} … ${summary.window?.until}${summary.window?.note ? ` (${summary.window.note})` : ''}`,
     '',
     `Комітів у main: ${summary.commits}; злитих PR: ${summary.pulls.length ? summary.pulls.map((n) => `#${n}`).join(', ') : 'немає'}.`,
     `Порушень: ${summary.violation}; перевірити: ${summary.stale}; довідково: ${summary.info}.`,
@@ -231,7 +294,7 @@ export function render(result, { runUrl } = {}) {
     const items = findings.filter((f) => f.severity === severity);
     if (!items.length) continue;
     out.push('', `### ${SEVERITY[severity]}`, '');
-    for (const f of items) out.push(`- **${f.subject}** (CICD-01 ${f.rule}): ${f.message}`);
+    for (const f of items) out.push(`- **${safeName(f.subject)}** (CICD-01 ${f.rule}): ${safeName(f.message)}`);
   }
   if (!findings.length) out.push('', 'Порушень не знайдено.');
   return `${out.join('\n')}\n`;

@@ -47,6 +47,15 @@ test('CICD-01 FR 2: the ID must be a requirement that exists in docs/requirement
   ok({ title: 'PRC-02: owner decisions 2026-11-06', body: body() });
 });
 
+test('review #87 item 6: the title may name a release slice (`BUD-16@PoC: …`); the ID part must exist', () => {
+  ok({ title: 'CICD-01@PoC: branches and PRs', body: body() });
+  ok({ title: 'CICD-01@PoC v2: later slice', body: body() });
+  ok({ title: 'CICD-01: plain ID', body: body() });
+  fails({ title: 'BUD-99@PoC: no such requirement', body: body() }, /BUD-99, but docs\/requirements\/ has no file/);
+  fails({ title: 'CICD-01@: empty release', body: body() }, /must start with a requirement ID/);
+  fails({ title: 'CICD-01@PoC', body: body() }, /must start with a requirement ID/);
+});
+
 test('CICD-01 FR 2: the real requirement IDs are read from docs/requirements', () => {
   const real = requirementIds(new URL('../../../docs/requirements', import.meta.url).pathname);
   for (const id of ['CICD-01', 'PRC-02', 'DS-01', 'ARC-09', 'NFR-14']) assert.ok(real.has(id), id);

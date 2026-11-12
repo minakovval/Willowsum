@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
-import { evaluate, needsAlert, render, verdictOf } from '../lib/daily.mjs';
+import { evaluate, needsAlert, prose, render, verdictOf } from '../lib/daily.mjs';
 
 // Recorded with `node tools/pr-rules/index.mjs daily --since 2026-11-06T23:00:00Z --until 2026-11-07T12:00:00Z
 // --save-input …` against this repository (PRs #82–#86), then reduced: logins replaced, review bodies cut to
-// their heading and verdict lines, comments to their first line, patches dropped.
+// their heading and verdict lines, comments to their first line, patches dropped (except the requirement
+// files', which only change their «Перевіряється» line).
 const recorded = JSON.parse(fs.readFileSync(new URL('./fixtures/main-2026-11-07.json', import.meta.url), 'utf8'));
 
 const JOBS = ['traceability', 'requirements', 'web', 'secrets', 'local-env', 'api', 'infra'];
@@ -100,10 +101,108 @@ test('CICD-01 criterion 2 / FR 5: a PR merged without «Verdict: Ready» is foun
   assert.equal(only(input({ pulls: [pr({ reviews: [review(1, 'Verdict: Ready', HEAD, '2026-11-12T10:30:00Z')] })] })).severity, 'violation');
 });
 
-test('CICD-01 FR 3: «Ready» on an earlier commit is reported to check (commits after the review)', () => {
+test('owner 2026-11-12: «Ready» must stand on the merged commit — an older commit is a violation', () => {
   const f = only(input({ pulls: [pr({ reviews: [review(1, 'Verdict: Ready', OLD)] })] }));
-  assert.equal(f.severity, 'stale');
+  assert.equal(f.severity, 'violation');
   assert.match(f.message, /дано на bbbbbbb, а злито aaaaaaa/);
+  const files = [{ filename: 'infra/start/x.tf', status: 'modified', patch: '+x' }];
+  const sec = only(input({ pulls: [pr({ files, reviews: [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready', OLD)] })] }));
+  assert.equal(sec.severity, 'violation');
+  assert.equal(sec.rule, 'FR 4');
+  // Merged before the rule (2026-11-12): the old reading, «to check» — the history is not rewritten.
+  const early = { merged_at: '2026-11-11T10:00:00Z', head_date: '2026-11-11T09:00:00Z' };
+  const old = only(input({ pulls: [pr({ ...early, reviews: [review(1, 'Verdict: Ready', OLD, '2026-11-11T09:30:00Z')], checkRuns: green().map((r) => ({ ...r, completed_at: '2026-11-11T09:10:00Z' })) })] }));
+  assert.equal(old.severity, 'stale');
+});
+
+test('review #87 item 9: dismissed reviews do not count; only the owner account’s reviews count', () => {
+  const dismissed = [review(1, 'Verdict: Ready', HEAD, '2026-11-12T09:00:00Z'), { ...review(2, 'Verdict: Ready'), state: 'DISMISSED' }];
+  assert.deepEqual(findings(input({ pulls: [pr({ reviews: dismissed })] })), []);
+  assert.match(only(input({ pulls: [pr({ reviews: [{ ...review(2, 'Verdict: Ready'), state: 'DISMISSED' }] })] })).message, /без рецензії/);
+  // The latest Ready was dismissed: the earlier «Not ready» stands.
+  const back = [review(1, 'Verdict: Not ready', HEAD, '2026-11-12T09:00:00Z'), { ...review(2, 'Verdict: Ready'), state: 'DISMISSED' }];
+  assert.match(only(input({ pulls: [pr({ reviews: back })] })).message, /«Not ready»/);
+  assert.match(only(input({ pulls: [pr({ reviews: [{ ...review(1, 'Verdict: Ready'), user: 'other' }] })] })).message, /без рецензії/);
+});
+
+test('review #87 item 4b/4c: only the merge commit of a PR merged into main counts', () => {
+  const merged = { number: 90, merged_at: '2026-11-12T10:00:00Z', merge_commit_sha: 'c'.repeat(40), base_ref: 'main' };
+  const commit = (pulls, sha = 'c'.repeat(40)) => ({ sha, date: '2026-11-12T10:00:00Z', title: 'x', pulls });
+  const bad = (pulls, sha) => only(input({ commits: [commit(pulls, sha)], pulls: [] })).subject;
+  assert.deepEqual(findings(input({ commits: [commit([merged])], pulls: [] })), []);
+  assert.match(bad([merged], 'd'.repeat(40)), /коміт ddddddd/, 'a branch commit of a merged PR (merge_commit_sha differs)');
+  assert.match(bad([{ ...merged, base_ref: 'release' }]), /коміт ccccccc/, 'merged into another branch');
+  assert.match(bad([{ ...merged, base_ref: undefined }]), /коміт ccccccc/, 'unknown base');
+  // The default branch name comes from the input, not a constant.
+  assert.deepEqual(findings(input({ main: { name: 'trunk', head: 'c'.repeat(40) }, commits: [commit([{ ...merged, base_ref: 'trunk' }])], pulls: [] })), []);
+  assert.match(only(input({ main: { name: 'trunk', head: 'c'.repeat(40) }, commits: [commit([merged])], pulls: [] })).subject, /коміт/);
+});
+
+test('review #87 item 4d: only check runs from github-actions count', () => {
+  const runs = [...green().filter((r) => r.name !== 'api'), { id: 900, name: 'api', app: 'some-app', status: 'completed', conclusion: 'success', completed_at: '2026-11-12T09:50:00Z' }];
+  assert.match(only(input({ pulls: [pr({ checkRuns: runs })] })).message, /api: не запускалась/);
+});
+
+test('review #87 item 5: a re-run after the merge (description edited) is ignored; the last run before the merge decides', () => {
+  const after = { id: 999, name: 'traceability', app: 'github-actions', status: 'completed', conclusion: 'success', completed_at: '2026-11-12T11:00:00Z' };
+  assert.deepEqual(findings(input({ pulls: [pr({ checkRuns: [...green(), after] })] })), []);
+  assert.deepEqual(findings(input({ pulls: [pr({ checkRuns: [...green(), { ...after, conclusion: 'failure' }] })] })), []);
+  const failedBefore = green().map((r) => (r.name === 'traceability' ? { ...r, conclusion: 'failure' } : r));
+  assert.match(only(input({ pulls: [pr({ checkRuns: [...failedBefore, after] })] })).message, /traceability: failure/, 'a green run after the merge does not fix it');
+});
+
+test('review #87 item 4a: a file renamed out of a sensitive path still needs the security verdict', () => {
+  const files = [{ filename: 'apps/web/src/x.ts', previous_filename: 'apps/api/src/modules/ledger/x.ts', status: 'renamed' }];
+  assert.equal(only(input({ pulls: [pr({ files })] })).rule, 'FR 4');
+});
+
+test('review #87 item 9: a PR that edits the map is judged by the base map too', () => {
+  const baseMap = { sensitive: true, categories: ['money'], files: { money: ['apps/web/src/App.tsx'] }, approvalReasons: [] };
+  assert.equal(only(input({ pulls: [pr({ baseMap })] })).rule, 'FR 4');
+  const both = [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready')];
+  const cloud = { sensitive: false, categories: [], files: {}, approvalReasons: ['x.tf: DNS'] };
+  assert.match(only(input({ pulls: [pr({ baseMap: cloud, reviews: both })] })).message, /x\.tf: DNS/);
+});
+
+test('review #87 item 3: a rule or requirement change without a recorded owner decision is reported to check', () => {
+  const files = [{ filename: 'AGENTS.md', status: 'modified', patch: '+x' }];
+  const f = only(input({ pulls: [pr({ files, body: '## Requirement\nx' })] }));
+  assert.equal(f.severity, 'stale');
+  assert.match(f.message, /AGENTS\.md/);
+  assert.deepEqual(findings(input({ pulls: [pr({ files, body: '## Owner decision\n\nApproved in chat on 2026-11-12.' })] })), []);
+  assert.deepEqual(findings(input({ pulls: [pr({ files, body: 'Рішення власника 2026-11-12: …' })] })), []);
+  assert.equal(only(input({ pulls: [pr({ files, body: '<!-- Рішення власника -->' })] })).severity, 'stale', 'a template comment is no reference');
+});
+
+test('owner 2026-11-12: the approval can also be the owner decision from chat recorded in the PR body', () => {
+  const files = [{ filename: '.github/workflows/deploy.yml', status: 'added', content: 'permissions:\n  id-token: write\n' }];
+  const reviews = [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready')];
+  const body = (line) => `## Owner decision\n\n${line}\n`;
+  assert.deepEqual(findings(input({ pulls: [pr({ files, reviews, body: body('Рішення власника (2026-11-12): схвалено розгортання в production.') })] })), []);
+  assert.deepEqual(findings(input({ pulls: [pr({ files, reviews, body: body('**Рішення власника (2026-11-12):** схвалено.') })] })), []);
+  for (const line of ['> Рішення власника (2026-11-12): схвалено', 'Рішення власника: схвалено', 'Рішення власника (2026-11-12): не схвалено', '```\nРішення власника (2026-11-12): схвалено\n```']) {
+    assert.equal(only(input({ pulls: [pr({ files, reviews, body: body(line) })] })).severity, 'violation', line);
+  }
+});
+
+test('review #87 item 4e: a `>`-quoted approval or one inside a list line is not an approval', () => {
+  const files = [{ filename: '.github/workflows/deploy.yml', status: 'added', content: 'permissions:\n  id-token: write\n' }];
+  const reviews = [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready')];
+  for (const body of ['>Схвалюю', '  > Approved', '>> Схвалюю']) {
+    const comments = [{ id: 7, user: 'repo-owner', body, created_at: '2026-11-12T09:45:00Z' }];
+    assert.equal(only(input({ pulls: [pr({ files, reviews, comments })] })).severity, 'violation', body);
+  }
+});
+
+test('review #87 item 4e: prose() drops quoted lines, code and HTML comments (the text approvals and verdicts are read from)', () => {
+  assert.equal(prose('> Схвалюю\n>Approved\n  > Verdict: Ready\nmine'), 'mine');
+  assert.equal(prose('a\n```\nVerdict: Ready\n```\n    Verdict: Ready\n<!-- Схвалюю -->b'), 'a\nb');
+});
+
+test('review #87 item 9: file names in findings cannot inject workflow commands or lines', () => {
+  const c = { sha: 'd'.repeat(40), date: '2026-11-12T10:00:00Z', title: 'x\n::error::y', pulls: [] };
+  const md = render(evaluate(input({ commits: [c], pulls: [] })));
+  assert.ok(!/\n::/.test(md) && !/x\n/.test(md), md);
 });
 
 test('CICD-01 FR 4: a sensitive PR (by paths or label) needs «Security verdict: Ready»', () => {
@@ -175,6 +274,8 @@ test('recorded history (#82–#86): what the daily check reports', () => {
   assert.equal(result.summary.commits, 5);
   assert.deepEqual(result.summary.pulls, [86, 85, 84, 83, 82]);
   const got = result.findings.map((f) => `${f.severity} ${f.subject} ${f.rule}`).sort();
+  // Merged before 2026-11-12: «Ready» on an older commit is «to check» (the rule of the time). The requirement
+  // files only change their «Перевіряється» line, so no owner decision is asked for.
   assert.deepEqual(got, [
     'stale PR #83 FR 3, FR 5', // Ready on 6ce7f5a, merged edf2b77
     'stale PR #83 FR 4', // Security Ready on 6ce7f5a, merged edf2b77

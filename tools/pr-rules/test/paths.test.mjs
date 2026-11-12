@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SENSITIVE_PATHS, categoriesOf, classifyPaths, globToRegExp, labelsFor, ownerApprovalNeeded } from '../lib/paths.mjs';
+import {
+  SENSITIVE_PATHS,
+  categoriesOf,
+  classifyFiles,
+  classifyPaths,
+  globToRegExp,
+  labelsFor,
+  ownerApprovalNeeded,
+  ownerDecisionFiles,
+  safeName,
+  unionClassification,
+} from '../lib/paths.mjs';
 
 test('globs: ** spans segments (also none), * stays inside one segment', () => {
   assert.ok(globToRegExp('**/migrations/**').test('apps/api/src/modules/audit/adapters/db/migrations/0001.sql'));
@@ -52,7 +63,8 @@ test('CICD-01 FR 4: ordinary code, UI and documentation are not sensitive', () =
     '.github/pull_request_template.md',
     'apps/api/src/modules/feature-flags/domain/rollout.ts',
     'apps/api/src/modules/crypto-wallets.md',
-    'tools/req-check/index.mjs',
+    'apps/api/scripts/lib/dependency-rules.test.ts',
+    'tools/synthetic/index.mjs',
   ]) {
     assert.deepEqual(categoriesOf(path), [], path);
   }
@@ -92,4 +104,90 @@ test('CICD-01 FR 3: OIDC trust, the production secrets store and DNS in infrastr
   assert.equal(tf('+Set up the OIDC trust', 'infra/start/README.md').required, false, 'documentation');
   assert.equal(tf('+resource "oci_kms_key" "master" {', 'infra/start/kms.tf').required, false, 'KMS as code: no apply');
   assert.equal(tf('+services: {}', 'infra/local/compose.yaml').required, false, 'local environment');
+  // The same signal outside infra/local needs approval; inside it never does.
+  assert.equal(tf('+resource "oci_vault_secret" "db" {', 'infra/start/x.tf').required, true);
+  assert.equal(tf('+resource "oci_vault_secret" "db" {', 'infra/local/x.tf').required, false, 'local environment, real signal');
+  assert.equal(tf('+x', 'infra/local/oidc-mock.yaml').required, false, 'local environment, signal in the name');
+});
+
+test('review #87 blocking 1: every file named after encryption is sensitive (`**/*crypt*`)', () => {
+  for (const path of [
+    'apps/web/src/vault/crypto.ts',
+    'apps/web/src/vault/decrypt.ts',
+    'packages/vault-crypto/src/seal.ts',
+    'apps/api/src/platform/encrypt.ts',
+  ]) {
+    assert.ok(categoriesOf(path).includes('encryption'), path);
+  }
+});
+
+test('review #87 blocking 2: every gate the required CI jobs run, and the supply chain, is pipeline', () => {
+  for (const path of [
+    'apps/api/scripts/check-modules.ts',
+    'apps/api/scripts/lib/dependency-rules.ts',
+    'apps/api/scripts/lib/provider-sdks.ts',
+    'apps/api/provider-sdks.json',
+    'tools/test-guards/no-network.mjs',
+    'tools/req-check/index.mjs',
+    'tools/local-env/check.mjs',
+    'tools/infra-check/index.mjs',
+    'tools/observability/check.mjs',
+    'eslint.config.js',
+    'apps/api/vitest.config.ts',
+    'apps/api/vitest.integration.config.ts',
+    'vitest.workspace.config.ts',
+    '.github/CODEOWNERS',
+    'package.json',
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+    '.npmrc',
+    '.claude/settings.json',
+  ]) {
+    assert.ok(categoriesOf(path).includes('pipeline'), path);
+  }
+  assert.deepEqual(categoriesOf('apps/api/scripts/lib/dependency-rules.test.ts'), [], 'tests of a gate script: `!` excludes');
+  assert.deepEqual(categoriesOf('apps/web/package.json'), [], 'only the root package.json');
+});
+
+test('review #87 item 3: rule and requirement changes need a recorded owner decision (label `owner-decision`)', () => {
+  const f = (filename, patch, extra = {}) => ({ filename, patch, ...extra });
+  for (const name of ['AGENTS.md', 'CLAUDE.md', '.claude/skills/review-pr/SKILL.md', '.claude/settings.json', 'docs/requirements/bud/BUD-16.poc.md']) {
+    assert.deepEqual(ownerDecisionFiles([f(name, '+x')]), [name], name);
+  }
+  assert.deepEqual(ownerDecisionFiles([f('docs/plans/poc-wave-1.md', '+x'), f('docs/adr/0008-x.md', '+x')]), []);
+  // Only the «Перевіряється» line (test paths) changed: not a requirement change.
+  const testsLine = '@@ -9,7 +9,7 @@\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: a.test.ts\n \n';
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', testsLine)]), []);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', `${testsLine}+3. New criterion\n`)]), ['docs/requirements/arc/ARC-05.poc.md']);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', undefined)]), ['docs/requirements/arc/ARC-05.poc.md'], 'no patch: fails closed');
+  assert.deepEqual(ownerDecisionFiles([f('docs/x.md', testsLine, { previous_filename: 'docs/requirements/arc/ARC-05.poc.md' })]), ['docs/requirements/arc/ARC-05.poc.md'], 'moved out');
+});
+
+test('review #87 item 8: production environment blocks, pushed images and secrets need the owner approval', () => {
+  const wf = (content) => ownerApprovalNeeded([{ filename: '.github/workflows/ops.yml', content }]).required;
+  assert.equal(wf('jobs:\n  a:\n    environment:\n      url: https://x\n      name: production\n'), true, 'url before name');
+  assert.equal(wf('jobs:\n  a:\n    environment: { url: x, name: production }\n'), true, 'flow mapping');
+  assert.equal(wf('jobs:\n  a:\n    environment:\n      name: staging\n    steps:\n      - name: production\n'), false, 'name of a step');
+  assert.equal(wf('steps:\n  - uses: docker/build-push-action@0123\n    with:\n      push: true\n'), true);
+  assert.equal(wf('steps:\n  - uses: docker/build-push-action@0123\n    with:\n      push: false\n'), false, 'build only');
+  assert.equal(wf('env:\n  TOKEN: ${{ secrets.DEPLOY_KEY }}\n'), true);
+  assert.equal(wf('jobs:\n  a:\n    uses: ./.github/workflows/x.yml\n    secrets: inherit\n'), true);
+  assert.equal(wf('env:\n  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n'), false, 'the job token is not a secret');
+});
+
+test('review #87 item 4a: a renamed workflow or infrastructure file is judged by its old name too', () => {
+  assert.equal(ownerApprovalNeeded([{ filename: 'docs/old.yml', previous_filename: '.github/workflows/deploy.yml', patch: '' }]).required, true);
+  assert.equal(ownerApprovalNeeded([{ filename: 'tmp/x.tf', previous_filename: 'infra/start/x.tf', patch: '+resource "oci_vault_secret" "db" {' }]).required, true);
+  assert.deepEqual(classifyFiles([{ filename: 'apps/web/x.ts', previous_filename: 'infra/start/x.tf' }]).categories, ['infrastructure']);
+});
+
+test('review #87 item 9: a PR that edits the map is judged by the base and the head map (union)', () => {
+  const u = unionClassification(classifyPaths(['apps/web/x.ts']), { sensitive: true, categories: ['money'], files: { money: ['apps/web/x.ts'] } });
+  assert.deepEqual(u.categories, ['money']);
+  assert.equal(u.sensitive, true);
+  assert.deepEqual(unionClassification(classifyPaths(['infra/a.tf']), undefined).categories, ['infrastructure']);
+});
+
+test('review #87 item 9: file names are sanitized before logging (no newline, no workflow command)', () => {
+  assert.equal(safeName('a\n::error::x\r'), 'a?: :error: :x?');
 });

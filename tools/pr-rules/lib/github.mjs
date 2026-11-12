@@ -27,13 +27,23 @@ export function client({ token = process.env.GITHUB_TOKEN, repo = process.env.GI
     return { data: res.status === 204 ? null : await res.json(), res };
   }
 
-  /** GET every page (Link: rel="next"), up to `max` items. `pick` extracts the array from a page. */
-  async function paginate(path, { max = 1000, pick = (d) => d } = {}) {
+  /**
+   * GET every page (Link: rel="next"). `pick` extracts the array from a page; `stop(item)` ends paging after a
+   * page whose last item matches (lists sorted newest first). More than `max` items is an error (a check must
+   * not pass on a shortened list) unless `keepFirst` is set for informational lists.
+   */
+  async function paginate(path, { max = 1000, pick = (d) => d, stop, keepFirst = false } = {}) {
     const out = [];
     let next = path;
-    while (next && out.length < max) {
+    while (next) {
+      if (out.length >= max) {
+        if (keepFirst) break;
+        throw new Error(`GET ${path.split('?')[0]}: more than ${max} items; refusing to check a truncated list`);
+      }
       const { data, res } = await request('GET', next);
-      out.push(...pick(data));
+      const page = pick(data);
+      out.push(...page);
+      if (stop && page.length && stop(page.at(-1))) break;
       // Next-page links may use the numeric form /repositories/<id>/…; keep the owner/name form.
       next = /<([^>]+)>;\s*rel="next"/.exec(res.headers.get('link') ?? '')?.[1]?.replace(/\/repositories\/\d+\//, `/repos/${repo}/`);
     }

@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -79,8 +79,14 @@ Post one PR review:
 - Questions for the owner where the requirement itself is unclear on a real product question; small
   details the author decided and recorded are not owner questions.
 
-Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
-The authoring agent merges only after «Ready».
+Name the head commit you reviewed (full SHA) at the top of the review. End the review with the verdict on a
+line of its own, exactly `Verdict: Not ready` if anything is blocking, otherwise `Verdict: Ready`; post it as
+the review summary. A security review (sensitive areas) ends instead with a line `Security verdict: Ready` or
+`Security verdict: Changes requested`. Never write these lines inside quotes or code, and never write a line
+«Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
+these lines.
+The authoring agent merges only after «Ready» given on the commit being merged: it compares the SHA your
+review names with the PR head, and any later commit needs a re-review (owner, 2026-11-12).
 Once the merge conditions in AGENTS.md step 7 hold: do not ask the owner to confirm the merge; merge
 at once and tell the owner it is merged. Changes to auth, permissions, encryption, money, schema,
 pipeline or infrastructure also need a separate security review — say so if the PR has not had one.
