@@ -1,6 +1,6 @@
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { HouseholdFreeDatabase } from "../../../../platform/http/route.ts";
-import type { RateLimitStore } from "../../../../platform/http/rate-limit.ts";
+import type { FixedWindowLimiter } from "../../../../platform/http/rate-limit.ts";
 import type {
   AccountRow,
   ConfirmationRow,
@@ -158,6 +158,12 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         at(when),
       ]);
     },
+    async lockSubject(scope, key) {
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtext('identity:' || $1::text), hashtext(encode($2, 'hex')))`,
+        [scope, key],
+      );
+    },
     async clearEvents(scope, key) {
       await q.query(`DELETE FROM throttle_events WHERE scope = $1 AND subject_key = $2`, [scope, key]);
     },
@@ -238,26 +244,42 @@ export function databaseIdentityStore(db: HouseholdFreeDatabase): IdentityStore 
 }
 
 /**
- * The NFR-14 limiter's store in the identity schema (ADR-0009): counters that survive a restart and are shared
- * by every API instance. Expired windows are removed as new ones are written.
+ * Sign-ups per client address as a sliding window over `throttle_events` (ACC-01 AC12: «за останню годину»; ADR-0009):
+ * a fixed clock-hour window would let 10 through around the hour boundary. Same interface as the NFR-14 limiter
+ * primitive; the key is `<name>:<sha-256 hex>`, serialised per key with a transaction-scoped advisory lock.
  */
-export function databaseRateLimitStore(db: HouseholdFreeDatabase): RateLimitStore {
+export function databaseSlidingLimiter(
+  db: HouseholdFreeDatabase,
+  options: { readonly limit: number; readonly windowMs: number; readonly now: () => number },
+): FixedWindowLimiter {
+  const { limit, windowMs } = options;
   return {
-    shared: true,
-    hit: (key, windowStart, windowMs) =>
+    limit,
+    windowMs,
+    hit: (key) =>
       db.transaction(async (q) => {
-        await q.query(`DELETE FROM rate_limit_windows WHERE key = $1 AND expires_at <= $2`, [
-          key,
-          at(windowStart),
-        ]);
-        const { rows } = await q.query<{ hits: number }>(
-          `INSERT INTO rate_limit_windows (key, window_start, window_ms, hits, expires_at)
-           VALUES ($1, $2, $3, 1, $4)
-           ON CONFLICT (key, window_start, window_ms) DO UPDATE SET hits = rate_limit_windows.hits + 1
-           RETURNING hits`,
-          [key, at(windowStart), windowMs, at(windowStart + windowMs)],
+        await q.query(`SELECT pg_advisory_xact_lock(hashtext('identity:sign-up'), hashtext($1))`, [key]);
+        const subject = Buffer.from(key.slice(key.indexOf(":") + 1), "hex");
+        const now = options.now();
+        const { rows } = await q.query<{ occurred_at: Date }>(
+          `SELECT occurred_at FROM throttle_events
+           WHERE scope = 'sign-up' AND subject_key = $1 AND occurred_at > $2 ORDER BY occurred_at`,
+          [subject, at(now - windowMs)],
         );
-        return rows[0]!.hits;
+        if (rows.length >= limit) {
+          const oldest = rows[rows.length - limit]!.occurred_at.getTime();
+          return {
+            allowed: false,
+            count: rows.length + 1,
+            limit,
+            retryAfterS: Math.max(1, Math.ceil((oldest + windowMs - now) / 1000)),
+          };
+        }
+        await q.query(
+          `INSERT INTO throttle_events (scope, subject_key, occurred_at) VALUES ('sign-up', $1, $2)`,
+          [subject, at(now)],
+        );
+        return { allowed: true, count: rows.length + 1, limit, retryAfterS: 1 };
       }),
   };
 }

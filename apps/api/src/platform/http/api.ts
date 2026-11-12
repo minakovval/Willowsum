@@ -53,8 +53,8 @@ import {
  * the route's zod schemas (400) → idempotency for create routes (409 / replay) → handler → the response
  * parsed by the route's response schema (fields not in the contract never leave the server). Public
  * platform routes have no module, flag or session: rate limit, Origin, validation and the handler. A public
- * route of a module (sign-up and sign-in, ACC-01) has no session either, but its module's kill switch (503) and
- * its flag for everyone (404, `checkFlagForAll`) are checked before the body is read.
+ * route of a module (sign-up and sign-in, ACC-01) has no session either: after the rate limit and the Origin, its
+ * module's kill switch (503) and its flag for everyone (404, `checkFlagForAll`), all before the body is read.
  */
 export interface ApiOptions {
   readonly routes: readonly ApiRoute[];
@@ -505,7 +505,8 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         ? route.module === null
           ? {}
           : {
-              // A module's public route: kill switch, then its flag for everyone, before the body is read.
+              // A module's public route: after the rate limit and Origin (above), the kill switch, then its flag for
+              // everyone — all before the body is read.
               onRequest: async (request: FastifyRequest) => {
                 await moduleOn(request, route.module as string);
                 const flag = access.flag as string;

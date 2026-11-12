@@ -28,7 +28,8 @@ const PASSWORD = "synthetic lower case words"; // ≥ 12 characters, lower case 
 
 let db: RealModulesDatabase;
 let app: ReturnType<typeof buildServer>;
-let t = Date.UTC(2026, 10, 12, 9, 0, 0);
+// Not on the hour: a limit that wrongly used clock-hour windows would show (review of PR #90).
+let t = Date.UTC(2026, 10, 12, 9, 17, 23, 400);
 const mail = syntheticMailSender();
 const captcha = syntheticCaptchaVerifier();
 const pending: Promise<void>[] = [];
@@ -151,7 +152,7 @@ afterAll(async () => {
 
 beforeEach(() => {
   off.clear();
-  t += 2 * HOUR; // every test starts outside the hourly windows of the one before
+  t += 2 * HOUR + 7 * MINUTE + 13_000; // outside the hourly windows of the test before, never on the hour
 });
 
 describe("ACC-01 AC1: sign-up creates an unconfirmed account and sends a confirmation link valid 24 h; no session", () => {
@@ -482,12 +483,30 @@ describe("ACC-01 AC12 / NFR-14 FR 7: at most 5 sign-up attempts per hour from on
   });
 
   it("the counter survives a restart: it lives in the identity schema, keyed by a digest of the address", async () => {
-    const { rows } = await db.owner.query(`SELECT key FROM identity.rate_limit_windows`);
+    const { rows } = await db.owner.query(
+      `SELECT subject_key FROM identity.throttle_events WHERE scope = 'sign-up'`,
+    );
     expect(rows.length).toBeGreaterThan(0);
-    for (const r of rows) {
-      expect(r.key).toMatch(/^sign-up:[0-9a-f]{64}$/);
-      expect(r.key).not.toContain("198.51.");
-    }
+    for (const r of rows) expect((r.subject_key as Buffer).length).toBe(32);
+  });
+
+  it("«за останню годину» is a sliding hour: 5 just before the hour and a 6th just after it → refused", async () => {
+    t = Math.ceil(t / HOUR) * HOUR + HOUR - 1000;
+    const ip = nextIp();
+    for (let i = 0; i < 5; i++)
+      expect(
+        (await signUp({ name: "Синтетик", email: nextEmail("ac12-slide"), password: PASSWORD }, ip))
+          .statusCode,
+      ).toBe(200);
+    t += 2000;
+    const sixth = await signUp({ name: "Синтетик", email: nextEmail("ac12-slide"), password: PASSWORD }, ip);
+    expect(sixth.statusCode).toBe(429);
+    // The oldest of the 5 is 2 s old: the hour ends 3598 s from now.
+    expect(Number(sixth.headers["retry-after"])).toBe(3598);
+    t += 3598_000;
+    expect(
+      (await signUp({ name: "Синтетик", email: nextEmail("ac12-slide"), password: PASSWORD }, ip)).statusCode,
+    ).toBe(200);
   });
 });
 
@@ -630,6 +649,41 @@ describe("ACC-01 AC23, FR 13: «Надіслати ще раз» and «Змін�
     expect(
       (await request("POST", "/v1/registrations/resend", { body: { registrationToken: forNew } })).statusCode,
     ).toBe(404);
+  });
+
+  it("no scope oracle (review of PR #90): X new and Y taken, each signed up twice, resend with the first tokens → identical answers", async () => {
+    const y = await confirmed("ac23-oracle-taken");
+    t += 10 * MINUTE;
+    const x = nextEmail("ac23-oracle-new");
+    const tokenOf = async (email: string) =>
+      (await signUp({ name: "Синтетик", email, password: PASSWORD })).json().registrationToken as string;
+    const first = [await tokenOf(x), await tokenOf(y)];
+    t += 90_000;
+    await tokenOf(x); // X is taken now: an attempt letter
+    await tokenOf(y);
+    await flush();
+    for (const step of [30_000, 61_000]) {
+      t += step;
+      const [a, b] = await Promise.all(
+        first.map((registrationToken) =>
+          request("POST", "/v1/registrations/resend", { body: { registrationToken } }),
+        ),
+      );
+      expect(a!.statusCode, `after ${step} ms`).toBe(b!.statusCode);
+      expect(a!.headers["retry-after"]).toBe(b!.headers["retry-after"]);
+      expect(withoutSupportId(a!.body)).toBe(withoutSupportId(b!.body));
+    }
+  });
+
+  it("a revoked link (after «Змінити email») cannot ask for a new letter", async () => {
+    const { email, token } = await registered("revoked-resend");
+    const link = linkToken(lettersTo(email)[0]!);
+    await request("POST", "/v1/registrations/change-email", { body: { registrationToken: token } });
+    t += 25 * HOUR;
+    const res = await request("POST", "/v1/email-confirmations/resend", { body: { token: link } });
+    expect(res.statusCode).toBe(404);
+    await flush();
+    expect(lettersTo(email)).toHaveLength(1);
   });
 
   it("edge case: after «Змінити email» the earlier link of that sign-up no longer works; a new sign-up mails the new address", async () => {

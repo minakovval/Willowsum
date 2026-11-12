@@ -74,6 +74,8 @@ async function sendRegistrationLetter(
 ): Promise<number> {
   const key = deps.secrets.digest(normalizeEmail(account.email));
   const scope = mailScope(kind);
+  // Parallel requests for one address are checked one after another, so the limit holds (ACC-01 FR 15).
+  await tx.lockSubject(scope, key);
   const wait = mailWaitS(await tx.eventTimes(scope, key, now - MAIL_WINDOW_MS), now);
   if (wait > 0) return wait;
   await tx.addEvent(scope, key, now);
@@ -131,6 +133,8 @@ export async function signUp(
       now,
       now + REGISTRATION_TTL_MS,
     );
+    // The token's own resend limit starts now, whether a letter went or not (NFR-15 FR 1).
+    await tx.addEvent("registration-resend", deps.secrets.digest(registrationToken), now);
     // A taken address gets the attempt letter only within its limit; the answer is the same either way.
     await sendRegistrationLetter(deps, tx, account, kind, now);
     return id;
@@ -139,22 +143,29 @@ export async function signUp(
   return { kind: "check-email", registrationToken, resendAfterS: RESEND_AFTER_S };
 }
 
-/** «Надіслати ще раз» of the «Перевірте пошту» screen (ACC-01 FR 13, 15): the same for a new and a taken address. */
+/**
+ * «Надіслати ще раз» of the «Перевірте пошту» screen (ACC-01 FR 13, 15): the same for a new and a taken address.
+ * The answer (sent or wait) is counted on this token alone; the address's own letter limits then decide silently
+ * whether a letter goes. Counting the answer on the address would tell a taken address from a new one: a taken
+ * address's sign-ups all share the attempt-letter limit, a new one's first sign-up has the confirmation limit.
+ */
 export async function resendForRegistration(
   deps: IdentityDeps,
   registrationToken: string,
 ): Promise<ResendResult> {
   const now = deps.now();
+  const tokenKey = deps.secrets.digest(registrationToken);
   return deps.store.transaction(async (tx) => {
-    const registration = await tx.findRegistration(deps.secrets.digest(registrationToken));
+    const registration = await tx.findRegistration(tokenKey);
     if (!registration || registration.closedAt !== null || registration.expiresAt <= now)
       return { kind: "not-found" } as const;
     const account = await tx.findAccount(registration.accountId);
     if (!account) return { kind: "not-found" } as const;
-    const wait = await sendRegistrationLetter(deps, tx, account, registration.kind, now);
-    return wait > 0
-      ? ({ kind: "wait", retryAfterS: wait } as const)
-      : ({ kind: "sent", resendAfterS: RESEND_AFTER_S } as const);
+    const wait = mailWaitS(await tx.eventTimes("registration-resend", tokenKey, now - MAIL_WINDOW_MS), now);
+    if (wait > 0) return { kind: "wait", retryAfterS: wait } as const;
+    await tx.addEvent("registration-resend", tokenKey, now);
+    await sendRegistrationLetter(deps, tx, account, registration.kind, now);
+    return { kind: "sent", resendAfterS: RESEND_AFTER_S } as const;
   });
 }
 
@@ -205,7 +216,8 @@ export async function resendForLink(deps: IdentityDeps, token: string): Promise<
   const now = deps.now();
   return deps.store.transaction(async (tx) => {
     const link = await tx.findConfirmation(deps.secrets.digest(token));
-    if (!link) return { kind: "not-found" } as const;
+    // Only a link that expired: a revoked one (a newer link, «Змінити email») never asks for a new letter.
+    if (!link || link.revokedAt !== null) return { kind: "not-found" } as const;
     const account = await tx.findAccount(link.accountId);
     if (!account || account.emailConfirmedAt !== null) return { kind: "not-found" } as const;
     const wait = await sendRegistrationLetter(deps, tx, account, "new", now);

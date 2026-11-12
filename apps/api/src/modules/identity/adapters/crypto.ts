@@ -5,8 +5,8 @@ import type { PasswordHasher, Secrets } from "../application/index.ts";
 /**
  * Password hashing (NFR-01, ADR-0009): argon2id through @node-rs/argon2 (a maintained binding of the reference
  * implementation; no own cryptography, AGENTS.md). Parameters of OWASP's Password Storage Cheat Sheet: 19 MiB,
- * 2 passes, 1 lane — about 20 ms on one core. The PHC string stores them, so raising them later re-hashes on
- * the next sign-in without breaking old hashes.
+ * 2 passes, 1 lane — about 20 ms on one core. The PHC string stores them, so raising them later keeps old
+ * hashes verifiable; re-hashing them at sign-in is not built yet.
  */
 /** `Algorithm.Argon2id` of @node-rs/argon2 (a const enum, which type stripping cannot inline). */
 const ARGON2ID = 2;

@@ -71,24 +71,13 @@ CREATE TABLE sign_in_guards (
   changed_at timestamptz NOT NULL DEFAULT now()
 );
 
--- Timed events of the sliding limits (ADR-0009): failed sign-ins (5 in 15 min) and letters per address
--- (one per 60 s, 5 per hour). `scope` names the limit; the key is a SHA-256 digest, never an address.
+-- Timed events of the sliding limits (ADR-0009): failed sign-ins (5 in 15 min), letters per address (one per 60 s,
+-- 5 per hour), «Надіслати ще раз» per sign-up token, sign-ups per client address (5 in any hour). `scope` names the
+-- limit; the key is a SHA-256 digest, never an address or a token.
 CREATE TABLE throttle_events (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  scope text NOT NULL CHECK (scope IN ('sign-in-failure', 'confirmation-mail', 'attempt-mail')),
+  scope text NOT NULL CHECK (scope IN ('sign-in-failure', 'confirmation-mail', 'attempt-mail', 'registration-resend', 'sign-up')),
   subject_key bytea NOT NULL CHECK (length(subject_key) = 32),
   occurred_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX throttle_events_subject ON throttle_events (scope, subject_key, occurred_at);
-
--- Counters of the NFR-14 fixed-window limiter (src/platform/http/rate-limit.ts) that must survive a restart:
--- sign-ups per client address (5 per hour). The key holds a digest of the address, never the address.
-CREATE TABLE rate_limit_windows (
-  key text NOT NULL CHECK (key ~ '^[a-z][a-z0-9-]*:[0-9a-f]{64}$'),
-  window_start timestamptz NOT NULL,
-  window_ms integer NOT NULL CHECK (window_ms >= 1000),
-  hits integer NOT NULL CHECK (hits >= 1),
-  expires_at timestamptz NOT NULL,
-  PRIMARY KEY (key, window_start, window_ms)
-);
-CREATE INDEX rate_limit_windows_expires ON rate_limit_windows (expires_at);

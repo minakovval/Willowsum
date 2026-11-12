@@ -18,8 +18,8 @@ import { identityDeps } from "./services.ts";
 
 /**
  * Identity's public routes (ACC-01@PoC part a; ADR-0009). They work before any session or space, so they are
- * public routes of the module: behind its kill switch and the flag `identity.sign-in` (on only at rollout «all»),
- * rate-limited per client address (60/min, NFR-14), writes refused from other origins (NFR-15 FR 5). Answers
+ * public routes of the module. Before the body is read: the rate limit per client address (60/min, NFR-14), the
+ * Origin of a write (NFR-15 FR 5), the module's kill switch and the flag `identity.sign-in` (on only at «all»). Answers
  * never tell whether an address has an account (NFR-15 FR 1, 2).
  */
 const MODULE = "identity";

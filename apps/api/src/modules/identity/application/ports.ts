@@ -38,7 +38,11 @@ export interface SessionRow {
   readonly endedAt: number | null;
 }
 
-export type ThrottleScope = "sign-in-failure" | "confirmation-mail" | "attempt-mail";
+/**
+ * `confirmation-mail` and `attempt-mail` limit the letters an address gets (ACC-01 FR 15); `registration-resend`
+ * limits one sign-up token's «Надіслати ще раз», whose answer depends on nothing but that token (NFR-15 FR 1).
+ */
+export type ThrottleScope = "sign-in-failure" | "confirmation-mail" | "attempt-mail" | "registration-resend";
 
 /** One transaction of the identity schema. Digests and keys are SHA-256 (32 bytes); never a token or an address. */
 export interface IdentityTx {
@@ -74,6 +78,8 @@ export interface IdentityTx {
   /** Times of the scope's events for the key since `since`, oldest first. */
   eventTimes(scope: ThrottleScope, key: Buffer, since: number): Promise<number[]>;
   addEvent(scope: ThrottleScope, key: Buffer, at: number): Promise<void>;
+  /** Serialises this transaction with every other one on the same scope and key until it ends. */
+  lockSubject(scope: ThrottleScope, key: Buffer): Promise<void>;
   clearEvents(scope: ThrottleScope, key: Buffer): Promise<void>;
   /** The guard of the key, locked for this transaction (created empty when missing). */
   lockGuard(key: Buffer): Promise<SignInGuard>;
@@ -117,7 +123,7 @@ export interface IdentityDeps {
   /** Sends a letter after the answer (never awaited by a request: same time for every outcome). */
   readonly sendLater: (message: MailMessage) => void;
   readonly audit: AccountAudit;
-  /** NFR-14 fixed-window limiter of sign-ups per client address (5 per hour), over a store that survives restarts. */
+  /** Sign-ups per client address: 5 in any hour (sliding window in the identity schema; NFR-14 limiter interface). */
   readonly signUpLimiter: FixedWindowLimiter;
   /** The web app's origin for links in letters, e.g. `https://app.example.org`. */
   readonly webOrigin: string;

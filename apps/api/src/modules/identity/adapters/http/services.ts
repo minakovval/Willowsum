@@ -1,14 +1,13 @@
 import type { CaptchaVerifier } from "../../../../platform/adapters/captcha/index.ts";
 import type { MailMessage, MailSender } from "../../../../platform/adapters/mail/index.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import { createFixedWindowLimiter } from "../../../../platform/http/rate-limit.ts";
 import type { PublicContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import type { IdentityDeps, PasswordHasher, Secrets } from "../../application/index.ts";
 import { SIGN_UP_WINDOW_MS, SIGN_UPS_PER_ADDRESS_PER_HOUR } from "../../domain/index.ts";
 import { argon2Hasher, nodeSecrets } from "../crypto.ts";
-import { databaseIdentityStore, databaseRateLimitStore } from "../db/store.ts";
+import { databaseIdentityStore, databaseSlidingLimiter } from "../db/store.ts";
 
 const BRAND = Symbol("willowsum-identity-services");
 
@@ -78,10 +77,9 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
     secrets: services.secrets,
     captcha: services.captcha,
     webOrigin: services.webOrigin,
-    signUpLimiter: createFixedWindowLimiter({
+    signUpLimiter: databaseSlidingLimiter(db, {
       limit: SIGN_UPS_PER_ADDRESS_PER_HOUR,
       windowMs: SIGN_UP_WINDOW_MS,
-      store: databaseRateLimitStore(db),
       now: services.now,
     }),
     sendLater: (message: MailMessage) =>
