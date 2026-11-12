@@ -13,6 +13,7 @@ import {
   SIGN_IN_LOCK_MS,
   UNCONFIRMED_ACCOUNT_TTL_MS,
 } from "./index.ts";
+import { databaseIdentityStore } from "./adapters/index.ts";
 
 /**
  * ACC-01@PoC part c: the daily task (FR 6, AC8, AC9; NFR-12; ADR-0010) on a real PostgreSQL through the real API.
@@ -308,7 +309,7 @@ describe("ADR-0010: the daily task bounds the growing identity tables without ch
     expect((await rowsOf(id)).sessions).toBe(0);
   });
 
-  it("confirmation links: revoked ones go at once; a used one keeps answering «already used» for 30 days", async () => {
+  it("confirmation links: revoked ones go at once; used and expired ones keep their answer (AC24, AC6)", async () => {
     const email = nextEmail("sweep-links");
     await signUp(email);
     const revoked = linkOf(email);
@@ -318,19 +319,30 @@ describe("ADR-0010: the daily task bounds the growing identity tables without ch
     expect(used).not.toBe(revoked);
     await request("POST", "/v1/email-confirmations", { body: { token: used } });
     const id = (await accountId(email))!;
+    // An unconfirmed account whose only link has expired: its account stays until day 30, so only the sweep
+    // is run at +31 days to see that the sweep itself never removes an expired link.
+    const waiting = nextEmail("sweep-links-expired");
+    await signUp(waiting);
+    const expired = linkOf(waiting);
+    const waitingId = (await accountId(waiting))!;
     await maintenance.dailyCleanup();
     expect((await rowsOf(id)).email_confirmations).toBe(1);
-    t += 29 * DAY;
+    t += 31 * DAY;
+    await databaseIdentityStore(db.databases.for("identity")).transaction((tx) => tx.sweep(t));
+    expect((await request("POST", "/v1/email-confirmations", { body: { token: expired } })).json()).toEqual({
+      result: "expired",
+    });
+    expect((await rowsOf(waitingId)).email_confirmations).toBe(1);
     await maintenance.dailyCleanup();
+    expect((await rowsOf(id)).email_confirmations).toBe(1);
     expect((await request("POST", "/v1/email-confirmations", { body: { token: used } })).json()).toEqual({
       result: "already-used",
     });
-    t += 2 * DAY;
-    await maintenance.dailyCleanup();
-    expect((await rowsOf(id)).email_confirmations).toBe(0);
+    // The expired link went with its unconfirmed account at day 30 (cascade), not with the sweep.
+    expect(await accountId(waiting)).toBeUndefined();
   });
 
-  it("sign-in guards: an unlocked one without the CAPTCHA mark goes; a CAPTCHA mark stays 30 days", async () => {
+  it("sign-in guards: an unlocked one without the CAPTCHA mark goes; a CAPTCHA mark stays", async () => {
     const email = nextEmail("sweep-guards");
     for (let i = 0; i < 5; i++)
       await request("POST", "/v1/sessions", { body: { email, password: "wrong password here" } });
@@ -346,8 +358,11 @@ describe("ADR-0010: the daily task bounds the growing identity tables without ch
       body: { email, password: "wrong password here" },
     });
     expect(attempt.json()).toMatchObject({ code: "CAPTCHA_REQUIRED" });
-    t += 30 * DAY;
+    t += 31 * DAY;
     await maintenance.dailyCleanup();
-    expect(await count(`SELECT count(*)::int AS n FROM identity.sign_in_guards`)).toBe(0);
+    // The CAPTCHA mark is never swept: only a successful sign-in or a reset clears it (AC14).
+    expect(await guards()).toBeGreaterThan(0);
+    const later = await request("POST", "/v1/sessions", { body: { email, password: "wrong password here" } });
+    expect(later.json()).toMatchObject({ code: "CAPTCHA_REQUIRED" });
   });
 });

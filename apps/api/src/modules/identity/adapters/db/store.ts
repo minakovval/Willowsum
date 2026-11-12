@@ -12,8 +12,6 @@ import type {
   ThrottleScope,
 } from "../../application/index.ts";
 import {
-  CAPTCHA_GUARD_RETENTION_MS,
-  CONFIRMATION_RETENTION_MS,
   PASSWORD_RESET_RETENTION_MS,
   SESSION_IDLE_MS,
   THROTTLE_RETENTION_MS,
@@ -337,13 +335,14 @@ function tx(q: ModuleQueryRunner): IdentityTx {
       // SKIP LOCKED: an account a sign-up or a confirmation holds right now is left for the next run; the outer
       // conditions are checked again on the row as it is when it is deleted. Its links, sign-up tokens, sessions
       // and reset links go with it (ON DELETE CASCADE).
+      // A CTE with a locking clause runs once: an IN (…) subquery may be rescanned and exceed the LIMIT.
       const { rows } = await q.query<{ id: string }>(
-        `DELETE FROM accounts
-          WHERE id IN (SELECT id FROM accounts
-                        WHERE email_confirmed_at IS NULL AND updated_at <= $1
-                        ORDER BY updated_at LIMIT $2 FOR UPDATE SKIP LOCKED)
-            AND email_confirmed_at IS NULL AND updated_at <= $1
-          RETURNING id`,
+        `WITH batch AS (SELECT id FROM accounts
+                         WHERE email_confirmed_at IS NULL AND updated_at <= $1
+                         ORDER BY updated_at LIMIT $2 FOR UPDATE SKIP LOCKED)
+         DELETE FROM accounts a USING batch b
+          WHERE a.id = b.id AND a.email_confirmed_at IS NULL AND a.updated_at <= $1
+          RETURNING a.id`,
         [at(signedUpBy), limit],
       );
       return rows.map((r) => r.id);
@@ -356,19 +355,15 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         ]),
         signInGuards: await count(
           `DELETE FROM sign_in_guards
-            WHERE (locked_until IS NULL OR locked_until <= $1)
-              AND (NOT captcha_required OR changed_at <= $2)`,
-          [at(now), at(now - CAPTCHA_GUARD_RETENTION_MS)],
+            WHERE NOT captcha_required AND (locked_until IS NULL OR locked_until <= $1)`,
+          [at(now)],
         ),
         registrations: await count(
           `DELETE FROM registrations WHERE closed_at IS NOT NULL OR expires_at <= $1`,
           [at(now)],
         ),
-        emailConfirmations: await count(
-          `DELETE FROM email_confirmations
-            WHERE revoked_at IS NOT NULL OR expires_at <= $1`,
-          [at(now - CONFIRMATION_RETENTION_MS)],
-        ),
+        // Used and expired links keep answering (AC24, AC6); they go with their account.
+        emailConfirmations: await count(`DELETE FROM email_confirmations WHERE revoked_at IS NOT NULL`, []),
         passwordResets: await count(`DELETE FROM password_resets WHERE created_at <= $1`, [
           at(now - PASSWORD_RESET_RETENTION_MS),
         ]),

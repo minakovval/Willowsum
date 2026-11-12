@@ -108,11 +108,11 @@ export const UNCONFIRMED_ACCOUNT_TTL_MS = 30 * DAY;
  * - password reset links after their 60 min and the hour of the letter limit;
  * - sessions once ended, past their 12 h or 15 min idle;
  * - «Перевірте пошту» tokens once closed or expired (a superseded open one keeps answering as before until then);
- * - revoked confirmation links at once (they answer like unknown ones); used and expired ones 30 days after they
- *   expire («вже використано» and «Посилання недійсне» with «Надіслати ще раз» keep working that long);
- * - sign-in guards once unlocked without the CAPTCHA mark; with the mark, 30 days after the last change.
+ * - revoked confirmation links at once (they answer like unknown ones); used and expired ones are never swept, so
+ *   «вже використано» (AC24) and «Посилання недійсне» with «Надіслати ще раз» (AC6) keep answering; they go with
+ *   their account (cascade);
+ * - sign-in guards once unlocked and without the CAPTCHA mark; a marked guard stays until a successful sign-in or a
+ *   reset clears the mark, so every later attempt still needs the CAPTCHA (AC14).
  */
 export const THROTTLE_RETENTION_MS = Math.max(MAIL_WINDOW_MS, SIGN_UP_WINDOW_MS, SIGN_IN_FAILURE_WINDOW_MS);
 export const PASSWORD_RESET_RETENTION_MS = Math.max(PASSWORD_RESET_TTL_MS, MAIL_WINDOW_MS);
-export const CONFIRMATION_RETENTION_MS = 30 * DAY;
-export const CAPTCHA_GUARD_RETENTION_MS = 30 * DAY;

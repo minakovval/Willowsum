@@ -1,8 +1,30 @@
 import { UNCONFIRMED_ACCOUNT_TTL_MS } from "../domain/index.ts";
-import type { MaintenanceDeps, SweepCounts } from "./ports.ts";
+import type { IdentityStore, IdentityTx, MaintenanceDeps, SweepCounts } from "./ports.ts";
 
 /** Accounts deleted per transaction: a long backlog never holds one long transaction. */
 export const DELETE_BATCH = 200;
+
+/** Further attempts of one batch or sweep that PostgreSQL aborted as a deadlock victim (SQLSTATE 40P01). */
+export const DEADLOCK_RETRIES = 2;
+
+const isDeadlock = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { code?: unknown }).code === "40P01";
+
+/**
+ * A confirmation locks its link row and then the account; the deletion locks the account and then its links
+ * (cascade). When the two meet at the 30-day boundary PostgreSQL aborts one of them. The task's transaction holds
+ * no work outside the database, so it is safe to run again: the batch is retried at once (its rows are rechecked,
+ * so an account the confirmation committed meanwhile is kept), instead of waiting for the next daily run.
+ */
+async function withDeadlockRetry<T>(store: IdentityStore, work: (tx: IdentityTx) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await store.transaction(work);
+    } catch (error) {
+      if (!isDeadlock(error) || attempt >= DEADLOCK_RETRIES) throw error;
+    }
+  }
+}
 
 export interface DailyCleanupReport extends SweepCounts {
   readonly unconfirmedAccounts: number;
@@ -18,7 +40,7 @@ export async function dailyCleanup(deps: MaintenanceDeps): Promise<DailyCleanupR
   const now = deps.now();
   let unconfirmedAccounts = 0;
   for (;;) {
-    const ids = await deps.store.transaction((tx) =>
+    const ids = await withDeadlockRetry(deps.store, (tx) =>
       tx.deleteUnconfirmedAccounts(now - UNCONFIRMED_ACCOUNT_TTL_MS, DELETE_BATCH),
     );
     // In the platform log after the deletion: the id and the state only, never the address (П-10).
@@ -26,6 +48,6 @@ export async function dailyCleanup(deps: MaintenanceDeps): Promise<DailyCleanupR
     unconfirmedAccounts += ids.length;
     if (ids.length < DELETE_BATCH) break;
   }
-  const swept = await deps.store.transaction((tx) => tx.sweep(now));
+  const swept = await withDeadlockRetry(deps.store, (tx) => tx.sweep(now));
   return { unconfirmedAccounts, ...swept };
 }
