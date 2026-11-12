@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { checkSelfContained } from '../lib/checks/self-contained.mjs';
-import { corpus, req, collect, rules } from './helpers.mjs';
+import { corpus, req, slice, collect, rules } from './helpers.mjs';
 
 const run = (files) => collect(checkSelfContained, corpus(files)).list;
 
@@ -45,4 +45,14 @@ test('"$" is an error in prose and a warning inside a code span', () => {
       ['dollar-in-code', 'warning'],
     ],
   );
+});
+
+test('a «(з PoC v2)» line is an error in a PoC slice and allowed in other slices', () => {
+  const body = '3. Форма звернення (з PoC v2): CAPTCHA.';
+  const list = run({
+    'nfr/NFR-15.poc.md': slice('NFR-15', 'PoC', {}, { body }),
+    'nfr/NFR-15.poc-v2.md': slice('NFR-15', 'PoC v2', {}, { body }),
+  });
+  assert.deepEqual(rules(list), ['later-release-in-poc']);
+  assert.equal(list[0].file, 'docs/requirements/nfr/NFR-15.poc.md');
 });

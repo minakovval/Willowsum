@@ -137,24 +137,35 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 None.
 
-### Migrated slices without design (34)
+### Migrated slices without design (45)
 
 - ARC-01@PoC v2
+- ARC-02@PoC v2
+- ARC-03@PoC v2
+- ARC-04@PoC v2
+- ARC-06@PoC v2
 - ARC-07@PoC v2
 - ARC-08@PoC v2
 - ARC-10@PoC v2
+- ARC-11@PoC v2
 - CHT-00@PoC v2
 - CICD-02@PoC v2
+- CICD-04@PoC v2
 - CICD-05@PoC v2
+- CICD-07@PoC v2
 - CICD-08@PoC v2
+- CMP-11@PoC v2
 - CMP-24@PoC v2
 - CMP-26@PoC v2
+- CMP-33@PoC v2
 - CMP-42@PoC v2
+- CMP-47@PoC v2
 - CMP-48@PoC v2
 - CMP-49@PoC v2
 - CMP-58@PoC v2
 - CMP-60@PoC v2
 - CMP-69@PoC v2
+- DS-02@PoC v2
 - DS-03@PoC v2
 - DS-07@PoC v2
 - DS-12@PoC v2
@@ -174,14 +185,21 @@ None.
 - NFR-15@PoC v2
 - NFR-19@PoC v2
 
-### Slices without acceptance criteria (11)
+### Slices without acceptance criteria (18)
 
 - ARC-01@PoC v2
+- ARC-02@PoC v2
+- ARC-03@PoC v2
+- ARC-04@PoC v2
+- ARC-06@PoC v2
 - ARC-07@PoC v2
 - ARC-08@PoC v2
 - ARC-10@PoC v2
+- ARC-11@PoC v2
 - CICD-02@PoC v2
+- CICD-04@PoC v2
 - CICD-05@PoC v2
+- CICD-07@PoC v2
 - CICD-08@PoC v2
 - JRN-05@PoC v2
 - JRN-06@PoC v2

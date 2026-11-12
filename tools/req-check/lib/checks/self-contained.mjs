@@ -1,10 +1,12 @@
 // Check 3: no other requirement IDs inside a requirement body; no forbidden words.
 // IDs are allowed only in the «Зв'язки» link header of a card or a slice (checked by checks/links.mjs).
+// A PoC slice holds only what is built in PoC: no «(з PoC v2)» lines (lead decision 2026-11-12, PRC-01).
 import { ID_LIKE_RE, TECHNICAL_TERMS, FORBIDDEN_WORDS } from '../config.mjs';
 import { codeSpanRanges, inRanges } from '../markdown.mjs';
 import { parseLinkBlock } from '../links.mjs';
 
 const CHECK = 'self-contained';
+const LATER_RELEASE_MARK_RE = /\(\s*з\s+PoC v2\s*\)/g;
 
 /**
  * @param {ReturnType<import('../corpus.mjs').buildCorpus>} corpus
@@ -25,6 +27,13 @@ export function checkSelfContained(corpus, out) {
           const ref = m[0];
           if (ref === d.id || technical.has(ref)) continue;
           out.add({ check: CHECK, rule: 'foreign-id', file: d.rel, line: lineNo, key: ref, message: `mentions another requirement ID "${ref}"; requirement files must be self-contained` });
+        }
+      }
+
+      // A PoC slice must not carry scope of a later release marked «(з PoC v2)»: it belongs in the PoC v2 slice.
+      if (d.kind === 'slice' && d.release === 'PoC') {
+        for (const m of line.matchAll(LATER_RELEASE_MARK_RE)) {
+          out.add({ check: CHECK, rule: 'later-release-in-poc', file: d.rel, line: lineNo, key: m[0], message: `PoC slice has a «${m[0]}» line ("${context(line, m.index)}"); move that scope to the PoC v2 slice` });
         }
       }
 
