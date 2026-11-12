@@ -35,7 +35,7 @@ const RATE_RE = /^(0|[1-9]\d{0,19})(\.\d{1,18})?$/;
 
 /**
  * Plausibility bound of an official rate, in UAH for one unit. The NBU list spans about 0.0003 UAH (the cheapest
- * currencies) to about 1.1·10^5 UAH (a troy ounce of gold, XAU). A rate outside 10^-6 … 10^7 is a broken or hostile
+ * currencies) to about 1.7·10^5 UAH (a troy ounce of gold, XAU). A rate outside 10^-6 … 10^7 is a broken or hostile
  * answer, not a market move (over 300 times below the smallest and 90 times above the largest), so the whole
  * answer is refused and the stored history keeps the last good rates (VAL-05 FR 4).
  */

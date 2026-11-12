@@ -45,7 +45,7 @@
 - [v1] Спільні правила: П-5, П-6, П-10, П-21, ARC-01, NFR-01
 - [v1] Сценарії: UC-VAL-17, UC-VAL-18, UC-VAL-19, UC-VAL-20
 - [MVP] Модуль: fx-rates, market-data
-- [лише PoC] Перевіряється: apps/api/src/modules/fx-rates/fx-rates.it.test.ts, apps/api/src/modules/fx-rates/application/refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/nbu.test.ts, apps/api/src/modules/fx-rates/domain/rates.test.ts, apps/api/src/modules/fx-rates/sec120-rates.it.test.ts, apps/api/src/modules/fx-rates/application/sec120-refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec120-nbu.test.ts, apps/api/src/platform/config/config-val05.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/fx-rates/fx-rates.it.test.ts, apps/api/src/modules/fx-rates/application/refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/nbu.test.ts, apps/api/src/modules/fx-rates/domain/rates.test.ts, apps/api/src/modules/fx-rates/sec120-rates.it.test.ts, apps/api/src/modules/fx-rates/application/sec120-refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec120-nbu.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec121-nbu.test.ts, apps/api/src/platform/config/config-val05.test.ts
 - [PoC v2] Перевіряється: —
 
 [PoC–PoC v2] **Мета.** Як користувач із рахунками в кількох валютах, я хочу, щоб курси валют оновлювалися автоматично, щоб не вводити їх вручну.

@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-10, П-25, П-26, ARC-01, CICD-07, NFR-01
 - Сценарії: —
 - Модуль: fx-rates
-- Перевіряється: apps/api/src/modules/fx-rates/fx-rates.it.test.ts, apps/api/src/modules/fx-rates/application/refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/nbu.test.ts, apps/api/src/modules/fx-rates/domain/rates.test.ts, apps/api/src/modules/fx-rates/sec120-rates.it.test.ts, apps/api/src/modules/fx-rates/application/sec120-refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec120-nbu.test.ts, apps/api/src/platform/config/config-val05.test.ts
+- Перевіряється: apps/api/src/modules/fx-rates/fx-rates.it.test.ts, apps/api/src/modules/fx-rates/application/refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/nbu.test.ts, apps/api/src/modules/fx-rates/domain/rates.test.ts, apps/api/src/modules/fx-rates/sec120-rates.it.test.ts, apps/api/src/modules/fx-rates/application/sec120-refresh.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec120-nbu.test.ts, apps/api/src/modules/fx-rates/adapters/feeds/sec121-nbu.test.ts, apps/api/src/platform/config/config-val05.test.ts
 
 **Мета.** Як користувач із рахунками в кількох валютах, я хочу, щоб курси валют оновлювалися автоматично, щоб не вводити їх вручну.
 

@@ -142,14 +142,10 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     expect(pauses.map((p) => p / MINUTE)).toEqual([15, 15, 60, 120, 240, 480, 960, 1440]);
     const failed = events.filter((e) => e.kind === "failed");
     expect(failed).toHaveLength(9);
-    // The daily update was due 24 h after the success. The retries come first; the error-level event comes with the
-    // first failure once the update has been missed for 24 h (the 8th failure, 31 h 30 min after the due time).
+    // The first failure came 24 h after the success: 24 h without a successful update from that moment on.
     const stale = events.filter((e) => e.kind === "stale");
-    expect(stale).toEqual([
-      { kind: "stale", failures: 8 },
-      { kind: "stale", failures: 9 },
-    ]);
-    expect(events.slice(0, 8).map((e) => e.kind)).toEqual(["updated", ...Array(7).fill("failed")]);
+    expect(stale.length).toBe(9);
+    expect(stale[0]).toEqual({ kind: "stale", failures: 1 });
 
     feed.up = true;
     await time.advance(time.pending()[0]!);
@@ -158,17 +154,23 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await loop.stop();
   });
 
-  it("VAL-05 AC2: a failed daily update is retried without the error-level event until it has been missed for 24 h", async () => {
-    const { time, feed, events, loop } = setup();
+  it("VAL-05 AC2: failures within 24 h of the last success are retried without the error-level event; it comes at exactly 24 h, even when no retry falls there", async () => {
+    const { time, feed, events, letters, loop } = setup();
     await time.advance(FIRST_ATTEMPT_DELAY_MS);
+    const success = T0 + FIRST_ATTEMPT_DELAY_MS;
     feed.up = false;
-    await time.advance(24 * HOUR); // the daily run, due a day after the success, fails: retries only
+    await time.advance(23 * HOUR); // 1 h before the deadline: an attempt fails (the daily run is not yet due)
+    await loop.attempt();
     expect(events.map((e) => e.kind)).toEqual(["updated", "failed"]);
-    await time.advance(24 * HOUR - 1); // every retry within 24 h of the due time: still no error-level event
-    expect(events.filter((e) => e.kind === "failed").length).toBeGreaterThan(5);
+    // Retries after 15 min, 15 min, then 1 h: the last one is cut to the 30 min that remain, never armed past 24 h.
+    await time.advance(30 * MINUTE);
+    await time.advance(30 * MINUTE - 1);
     expect(events.some((e) => e.kind === "stale")).toBe(false);
-    await time.advance(8 * HOUR); // the retry 31 h 30 min after the due time: stale
+    expect(letters).toHaveLength(0);
+    expect(time.pending()).toEqual([1]);
+    await time.advance(1); // exactly 24 h after the success
     expect(events.filter((e) => e.kind === "stale")).toHaveLength(1);
+    expect(letters).toEqual([{ lastSuccessAt: success, failures: 4 }]);
     await loop.stop();
 
     const second = setup();
@@ -176,8 +178,10 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await second.time.advance(FIRST_ATTEMPT_DELAY_MS + 30 * MINUTE);
     // Never a success, but the task started less than 24 h ago: retries only.
     expect(second.events.map((e) => e.kind)).toEqual(["failed", "failed", "failed"]);
-    await second.time.advance(32 * HOUR); // the retry at 31 h 31 min is past 24 h since the start
-    expect(second.events.some((e) => e.kind === "stale")).toBe(true);
+    await second.time.advance(24 * HOUR - FIRST_ATTEMPT_DELAY_MS - 30 * MINUTE - 1);
+    expect(second.events.some((e) => e.kind === "stale")).toBe(false);
+    await second.time.advance(1); // exactly 24 h after the start
+    expect(second.events.filter((e) => e.kind === "stale")).toHaveLength(1);
     await second.loop.stop();
   });
 
@@ -194,14 +198,14 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await time.advance(FIRST_ATTEMPT_DELAY_MS);
     const success = T0 + FIRST_ATTEMPT_DELAY_MS;
     feed.up = false;
-    await time.advance(96 * HOUR); // the daily run and every retry for four days fail
-    expect(events.filter((e) => e.kind === "stale").length).toBeGreaterThan(1);
-    expect(letters).toEqual([{ lastSuccessAt: success, failures: 8 }]);
+    await time.advance(72 * HOUR); // the daily run and every retry for three days fail
+    expect(events.filter((e) => e.kind === "stale").length).toBeGreaterThan(3);
+    expect(letters).toEqual([{ lastSuccessAt: success, failures: 1 }]);
 
     feed.up = true;
     await time.advance(time.pending()[0]!);
     feed.up = false;
-    await time.advance(72 * HOUR);
+    await time.advance(48 * HOUR);
     expect(letters).toHaveLength(2);
     expect(letters[1]!.lastSuccessAt).toBeGreaterThan(success);
     await loop.stop();
