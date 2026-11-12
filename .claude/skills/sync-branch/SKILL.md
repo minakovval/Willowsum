@@ -27,18 +27,26 @@ merge commit pushed, the reviewers' confirmation requested on the new head.
 2. A conflict between the branch and a requirement or rule that main changed is not yours to settle by
    guessing: follow AGENTS.md «Ambiguity» (real product question → stop and write it in the PR body for the
    owner).
-3. In `docs/requirements` the «Перевіряється» lines: take the **union** of both test lists (no duplicates, paths
-   still existing).
-4. Tests are the spec: never weaken or delete a test to make the merge pass.
+3. Requirements: resolve conflicts **only in the sources** (`<module>/<ID>.md`). Keep both sides' lines with
+   their release tags; where both changed the same line, merge the text and keep the tag that each side meant
+   (a line `--move` retagged on one side and reworded on the other gets the new tag and the new text). In the
+   «Перевіряється» lines take the **union** of both test lists (no duplicates, paths still existing), per
+   tagged line.
+4. Release views (`<ID>.<release key>.md`, line 2 «Згенеровано з …») are generated: **never hand-merge a
+   view**. Take either side to clear the conflict, then regenerate them from the merged sources (section 3).
+5. Tests are the spec: never weaken or delete a test to make the merge pass.
 
 ## 3. Generated files
 
-`docs/traceability/` and `docs/validation/req-check-report.md` are generated. Never hand-merge them: take any
-side to clear the conflict, then regenerate:
+The release views, `docs/traceability/` and `docs/validation/req-check-report.md` are generated. Never
+hand-merge them: take any side to clear the conflict, then regenerate, in this order:
 
-`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
+1. `node tools/req-check/index.mjs --views` (writes every view from its source);
+2. `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
 
-Do this after the «Перевіряється» lines are merged, and `git add` the regenerated files.
+Do this after the sources (and their «Перевіряється» lines) are merged, and `git add` the regenerated files.
+Also regenerate when git merged without a conflict but either side changed a source: a view merged by git
+from two sides can differ from what the merged source generates (`view-stale`).
 
 ## 4. Look at the auto-merged hunks
 

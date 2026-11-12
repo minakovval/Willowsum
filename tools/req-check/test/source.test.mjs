@@ -277,6 +277,35 @@ test('--move changes the tags of an item block and regenerates only the affected
   assert.throws(() => moveItems(SOURCE, 'BUD-16', { items: ['FR9'], to: 'MVP' }), /has no FR9/);
 });
 
+test('--move warns about cited numbers that changed and about mentions of the moved items in the same source', () => {
+  const text = SOURCE.replace('#. [PoC v2] Нова в PoC v2.', '#. [PoC v2] Нова в PoC v2, як у FR 3, без «Ліміти».');
+  const line = text.split('\n').findIndex((l) => l.startsWith('#. [PoC v2] Нова')) + 1;
+  // «Ліміти» (only PoC, FR2) moves to only PoC v2: it leaves PoC, and in PoC v2 it becomes FR2, so the old FR2
+  // and FR3 become FR3 and FR4.
+  const res = moveItems(text, 'BUD-16', { items: ['FR2'], to: 'PoC v2' });
+  assert.deepEqual(res.changed, ['PoC', 'PoC v2']);
+  assert.deepEqual(
+    res.shifts.filter((s) => s.release === 'PoC v2').map((s) => `${s.kind}${s.from}→${s.to}`),
+    ['FR2→3', 'FR3→4'],
+  );
+  assert.deepEqual(
+    res.shifts.filter((s) => s.release === 'PoC').map((s) => `${s.kind}${s.from}→${s.to}`),
+    ['FR2→null', 'FR3→2'],
+  );
+  assert.deepEqual(
+    res.citations.map((c) => [c.line, c.release, c.ref, c.to]),
+    [[line, 'PoC v2', 'FR 3', 4]],
+  );
+  assert.deepEqual(res.selfMentions, [{ phrase: 'Ліміти', line }]);
+  // Moving an item out of a view: its number is gone there, and a citation of it is reported too.
+  const out = moveItems(text.replace('#. [PoC] Третя вимога.', '#. [PoC] Третя вимога, після FR 1.'), 'BUD-16', { items: ['FR1'], to: 'MVP' });
+  assert.ok(out.shifts.some((s) => s.release === 'PoC' && s.kind === 'FR' && s.from === 1 && s.to === null));
+  assert.ok(out.citations.some((c) => c.release === 'PoC' && c.ref === 'FR 1' && c.to === null));
+  // Nothing cited, nothing mentioned: no warnings.
+  const clean = moveItems(SOURCE, 'BUD-16', { items: ['FR3'], to: 'PoC v2' });
+  assert.deepEqual([clean.citations, clean.selfMentions], [[], []]);
+});
+
 test('coverage: tests named by item map to source items, across renumbering, and count per release', () => {
   const mentions = findMentions([
     { rel: 'apps/a.test.ts', text: 'describe("BUD-16@PoC budget", () => {\n  it("BUD-16 FR 3, AC1: x", () => {});\n  it("BUD-16 EC1 / FR 9", () => {});\n});' },
@@ -333,8 +362,12 @@ test('CLI: --convert writes the source and the views; --views regenerates; --mov
   assert.equal(fs.readFileSync(req('bud/BUD-16.mvp.md'), 'utf8'), convertRequirement('BUD-16', CARD, SLICES).views.get('MVP'));
 
   logs.length = 0;
+  fs.mkdirSync(path.join(root, 'apps/web'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'apps/web/budget.test.ts'), 'it("BUD-16@PoC FR 3: третя", () => {});\nit("BUD-16 FR 1", () => {});\n');
   assert.equal(main([...base, '--move', 'BUD-16', '--items', 'FR3', '--to', 'PoC v2'], log), 0);
   assert.match(logs.join('\n'), /# Move BUD-16: FR3 → PoC v2/);
+  assert.match(logs.join('\n'), /apps\/web\/budget\.test\.ts:1 — BUD-16@PoC FR3 is no longer in that view/);
+  assert.doesNotMatch(logs.join('\n'), /budget\.test\.ts:2/);
   assert.match(logs.join('\n'), /Views changed: BUD-16@PoC \(regenerated\)/);
   assert.ok(!fs.readFileSync(req('bud/BUD-16.poc.md'), 'utf8').includes('Третя вимога'));
   assert.equal(main(base, () => {}), 0);

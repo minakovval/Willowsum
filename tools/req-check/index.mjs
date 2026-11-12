@@ -307,6 +307,24 @@ function renderMove(opts, res, corpus) {
   L.push('', `Views changed: ${res.changed.map((r) => `${opts.move}@${r}`).join(', ') || 'none'} (regenerated).`, '');
   for (const v of res.variants) L.push(`**Check:** in ${opts.move}@${v.release} source line ${v.line} now sits beside line ${v.other}, which starts the same way: probably two wordings of one item; keep one.`, '');
   L.push('Update by hand if needed: the card part (the «Реліз» line and the table of slices), the module README row.', '');
+  const num = (n) => (n === null ? 'no longer in that view' : `now ${n}`);
+  if (res.shifts.length) {
+    L.push('## Item numbers that changed', '');
+    L.push(res.shifts.map((s) => `- ${opts.move}@${s.release} ${s.kind}${s.from}: ${num(s.to)}`).join('\n'), '');
+  }
+  if (res.citations.length) {
+    L.push('## Warning: citations of changed numbers in the source', '');
+    L.push(res.citations.map((c) => `- source line ${c.line}: «${c.ref}» in ${opts.move}@${c.release} is ${num(c.to)}; reword or renumber it`).join('\n'), '');
+  }
+  if (res.selfMentions.length) {
+    L.push('## Warning: the moved items are still mentioned in the same requirement', '');
+    L.push(res.selfMentions.map((m) => `- «${m.phrase}» — source line ${m.line}`).join('\n'), '');
+  }
+  const refs = staleRefs(opts.root, opts.move, res);
+  if (refs.length) {
+    L.push('## Warning: tests and docs that cite changed numbers', '');
+    L.push(refs.map((r) => `- ${r.file}:${r.line} — ${opts.move}@${r.release} ${r.kind}${r.n} is ${num(r.to)}${r.plain ? ' (plain ID read as its first view)' : ''}`).join('\n'), '');
+  }
   const seen = new Set();
   for (const r of res.changed) {
     const imp = computeImpact(model, registries, `${opts.move}@${r}`);
@@ -320,6 +338,39 @@ function renderMove(opts, res, corpus) {
   const hits = grepPhrases(opts.root, res.phrases, opts.move);
   L.push(hits.length ? hits.map((h) => `- «${h.phrase}» — ${h.file}:${h.line}`).join('\n') : 'None.', '');
   return L.join('\n');
+}
+
+/**
+ * Mentions of the moved requirement's items by number («BUD-12 FR 9», «BUD-12@PoC AC3») in test files and in
+ * docs outside generated files and the decision log, whose number changed in that view. A plain ID is read
+ * as --coverage reads it: the release named for it elsewhere in the file, else its first view.
+ */
+function staleRefs(root, id, res) {
+  if (!res.shifts.length) return [];
+  const files = loadTestFiles(root);
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.isSymbolicLink() || e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      const rel = path.relative(root, p).split(path.sep).join('/');
+      if (e.isDirectory()) {
+        if (!['docs/traceability', 'docs/validation', 'docs/decisions'].includes(rel)) walk(p);
+      } else if (e.name.endsWith('.md')) {
+        const text = fs.readFileSync(p, 'utf8');
+        if (!text.split('\n')[1]?.startsWith('> Згенеровано з ')) files.push({ rel, text });
+      }
+    }
+  };
+  walk(path.resolve(root, 'docs'));
+  const out = [];
+  for (const m of findMentions(files)) {
+    if (m.id !== id) continue;
+    const release = m.release ?? res.releases[0];
+    const s = res.shifts.find((q) => q.release === release && q.kind === m.kind && q.from === m.n);
+    if (s) out.push({ file: m.file, line: m.line, release, kind: m.kind, n: m.n, to: s.to, plain: !m.release });
+  }
+  return out;
 }
 
 /** Lines in docs/requirements, docs/ux, apps and packages that contain a phrase (other requirements only). */

@@ -1,9 +1,12 @@
-<!-- Створено: 2026-11-01 · Оновлено: 2026-11-06 -->
+<!-- Створено: 2026-11-01 · Оновлено: 2026-11-12 -->
 
 ## Requirement
 
 <!-- The PR title must start with the requirement ID, e.g. `BUD-03: safe-to-spend widget`.
-     Link the file: docs/requirements/bud/BUD-03.md (for a migrated requirement: the slice, e.g. BUD-03.poc.md).
+     Link the release view you built from, e.g. docs/requirements/bud/BUD-03.poc.md (generated; for a
+     requirement not migrated yet, its one file). Requirement text is changed only in the source
+     (docs/requirements/bud/BUD-03.md), never in a view; regenerate the views with
+     `node tools/req-check/index.mjs --views`.
      One requirement (or one small group) per PR. Until the owner has approved the design of the target
      release and started its development (PoC: 2026-11-06), PRs for that release change only requirements,
      design and docs — not apps/ or packages/ (AGENTS.md, «Process: design before code»). -->
@@ -16,12 +19,15 @@
 ## Impact (requirement changes)
 
 <!-- Output of `node tools/req-check/index.mjs --impact <ID>`: dependent slices updated here, or follow-up
-     issues. Ran `node --test tools/req-check` and
-     `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors). -->
+     issues. Scope moved with `--move`: its warnings (changed item numbers and their citations, mentions of the
+     moved items) and what was done with each. Ran `node tools/req-check/index.mjs --views`,
+     `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` and
+     `node --test tools/req-check` (0 errors). -->
 
 ## Acceptance criteria covered
 
-<!-- Each criterion / edge case number from the requirement file → the test that covers it.
+<!-- Each criterion / edge case number from the release view → the test that covers it (tests named by item,
+     e.g. `BUD-03@PoC AC2`, so `node tools/req-check/index.mjs --coverage` maps them).
      If the requirement is split across PRs, say which criteria are left. -->
 
 ## How it was tested

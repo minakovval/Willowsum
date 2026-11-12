@@ -14,8 +14,9 @@ missing, not to confirm the author's summary.
 
 1. `AGENTS.md` (hard rules, Definition of Done).
 2. The PR: title, body, diff, CI status (GitHub tools). Take the requirement ID from the title.
-3. The requirement file `docs/requirements/<module>/<ID>.md` (for a card: the slice of the target
-   release, `<ID>.<release key>.md`) and only the sections of `docs/requirements/00-general.md` it
+3. The requirement: for a migrated requirement, the generated **view** of the target release,
+   `docs/requirements/<module>/<ID>.<release key>.md` (not the source `<ID>.md`, which merges every release);
+   for one not migrated yet, its single file. Plus only the sections of `docs/requirements/00-general.md` it
    relies on.
 
 Read the requirement **before** the PR body, so the author's framing does not anchor you.
@@ -26,7 +27,9 @@ head you last reviewed — not the whole PR again. There are at most two rounds;
 ## 2. Check coverage
 
 Build a table: every acceptance criterion and edge case in the requirement → the test that covers it →
-does the test actually assert the behaviour (not just render)? Missing or weak rows are findings.
+does the test actually assert the behaviour (not just render)? Missing or weak rows are findings. Start from
+`node tools/req-check/index.mjs --coverage` (tests named by item, e.g. `BUD-03@PoC AC2`), then read the tests.
+A test named by a number that is not the item it tests is non-blocking unless it hides a missing criterion.
 Time-dependent tests: a test must not re-read `Date.now()` to choose a time window (rate limits, expiry): it fixes the time once per test or injects a clock (re-reading it made CI flaky at minute boundaries, PR #92).
 If the PR covers only part of the requirement, the body must say which criteria are left.
 Mutation testing is required only for critical modules: data isolation, money, authentication, encryption
@@ -69,12 +72,20 @@ non-blocking.
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
-  listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. For a
-  changed card, its «Реліз» line matches its row in the module README (PRC-01 FR 3), its slices are
-  complete for their release, scope removed from PoC moved to PoC v2, and `docs/traceability/` and
-  `docs/validation/req-check-report.md` were regenerated (`node --test tools/req-check` and
-  `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`: 0 errors,
-  no diff).
+  listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. Only
+  sources were edited: a view changed without its source, or not equal to what the source generates, is
+  blocking (CI's `view-stale`). For a changed card part, its «Реліз» line matches its row in the module
+  README, the views are complete for their release, scope removed from PoC moved to PoC v2, and the views,
+  `docs/traceability/` and `docs/validation/req-check-report.md` were regenerated
+  (`node tools/req-check/index.mjs --views`,
+  `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` and
+  `node --test tools/req-check`: 0 errors, no diff). An implementation PR adds its tests to «Перевіряється»
+  in the source, not in a view.
+- Requirement-change PR without code (`change-requirement`, owner, 2026-11-12): one pass, on a lighter
+  model, with the fixed checklist of `change-requirement` step 8; report each row. To check a move, run the
+  same `--move` on a scratch copy of `main` and compare, or read the old and new views side by side
+  (`git diff origin/main -- '<module>/<ID>.*.md'`). A security review is needed only for moved or reworded
+  lines that state a protection, and covers only those lines.
 - New dependencies or services without justification.
 
 ## 4. Verify, do not speculate

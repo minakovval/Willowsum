@@ -17,12 +17,13 @@ the owner (requirement and design changes follow PRC-02).
 ## 1. Load only what you need
 
 1. Read `AGENTS.md` if it is not already in context.
-2. Read the requirement file `docs/requirements/<module>/<ID>.md`. Find it with
-   `ls docs/requirements/*/<ID>.md`. No file → stop and tell the owner. If the file is a card (it has a
-   «Зв'язки» block with «Зрізи»), read the slice of the target release (`<ID>.<poc|poc-v2|mvp|…>.md`;
-   the latest slice at or before that release) instead of a single file; it is complete on its own.
-   Use its «Зв'язки» header for dependencies, screens, П-rules and tests; add the test paths to
-   «Перевіряється» and regenerate `docs/traceability/` in the same PR.
+2. Find the requirement with `ls docs/requirements/*/<ID>*.md`. No file → stop and tell the owner. For a
+   migrated requirement (its `<ID>.md` has a «Зв'язки» block with «Зрізи»), read only the **view** of the
+   target release, `<ID>.<poc|poc-v2|mvp|…>.md` (the latest view at or before that release); it is complete
+   on its own. Do not read the source `<ID>.md` to build: it merges every release. Use the view's «Зв'язки»
+   header for dependencies, screens, П-rules and tests. A requirement not migrated yet is one plain file.
+   Views are generated: never edit one (line 2 says so). Requirement text changes go to the source
+   (`change-requirement`).
 3. From `docs/requirements/00-general.md` read only the sections the requirement depends on
    (roles, plans, П-rules, glossary). Use grep, not a full read.
 4. For UI, read the design files it names in `docs/requirements/ds/` and the components in
@@ -50,8 +51,12 @@ one review round, split it by criteria (e.g. backend and UI) into several PRs no
 
 ## 4. Tests first
 
-Write the tests from the plan. Run them and confirm they fail for the right reason. Name each test
-after the criterion, e.g. `it('BUD-03 AC2: shows daily limit when …')`.
+Write the tests from the plan. Run them and confirm they fail for the right reason. Name each test by item,
+so `node tools/req-check/index.mjs --coverage` maps it: the requirement ID with the release you built, then
+the item — `it('BUD-03@PoC AC2: shows daily limit when …')`, `BUD-16@PoC v2 FR 3`, `BUD-16@PoC EC2` (`FR` =
+functional requirement, `AC` = acceptance criterion, `EC` = edge case, numbered as in that view). A plain ID
+(`BUD-03 AC2`) means the release named for it elsewhere in the test file, else its first view. Before
+pushing, run `--coverage` and check that every AC and EC of your view is covered.
 
 Always include, where relevant:
 - permission tests for Owner, Admin, Editor, Viewer and a scoped member (no data, counts or sums leak);
@@ -76,10 +81,16 @@ Always include, where relevant:
 
 ## 6. Verify
 
+Record the tests in the requirement: add the test file paths to the «Перевіряється» field of the slice text
+in the **source** `<ID>.md`. One untagged line when the list holds for every release; when it differs
+between releases, one tagged line per range (`- [лише PoC] Перевіряється: …`, `- [PoC v2] Перевіряється: …`),
+keeping the other releases' lines. Then run
+`node tools/req-check/index.mjs --views` so the views pick it up. Never edit «Перевіряється» in a view.
+
 Run the repo's checks (typecheck, lint, unit, integration; e2e for UI — see the root `package.json`),
-plus `node --test tools/req-check` and
+plus `node --test tools/req-check`, `node tools/req-check/index.mjs --views` and
 `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
-(0 errors, regenerated files committed). All green before pushing (CI jobs: AGENTS.md step 6).
+(0 errors; the source, the regenerated views and the generated files committed). All green before pushing (CI jobs: AGENTS.md step 6).
 Cloud sessions have no Docker, so `pnpm db:test` fails there unless the admin URL is given:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
 (`infra/local/README.md`).
@@ -91,7 +102,7 @@ Before pushing, run a local check for secret-shaped literals (what the CI job `s
 
 Push the branch and open a PR (draft until CI is green) using `.github/pull_request_template.md`:
 - title `<ID>: <what>`;
-- the table criterion → test;
+- the table criterion → test (the `--coverage` row of your view);
 - open questions for the owner, if any;
 - tick the sensitive-areas box if auth, permissions, encryption, money, schema, pipeline or infrastructure changed;
 - a «Follow-ups» list for non-blocking review findings (or issue links);

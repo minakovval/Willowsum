@@ -72,7 +72,7 @@ export function checkDescription({ title, body, ids, sensitive }) {
 
   const requirement = (secs.get('Requirement') ?? '').trim();
   if (secs.has('Requirement') && !requirement) {
-    problems.push('«Requirement» is empty: link the requirement file (for a migrated requirement, the slice).');
+    problems.push('«Requirement» is empty: link the requirement file (for a migrated requirement, the release view).');
   }
 
   if (secs.has('Acceptance criteria covered')) {
