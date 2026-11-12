@@ -10,9 +10,15 @@ import { itemsOf, parseItemRef } from './items.mjs';
  * @param {string} text  the source text
  * @param {string} id
  * @param {{items: string[], to: string, from?: string}} opts
- * @returns {{text: string, moved: {ref: string, lines: number[], before: string[], after: string[]}[],
- *            changed: string[], phrases: string[], variants: {release: string, line: number, other: number}[]}}
- *   changed = releases whose view text changed; variants = a moved line now beside a line that starts alike
+ * @returns {{text: string, releases: string[], moved: {ref: string, lines: number[], before: string[], after: string[]}[],
+ *            changed: string[], phrases: string[], variants: {release: string, line: number, other: number}[],
+ *            shifts: {release: string, kind: string, from: number, to: number|null}[],
+ *            citations: {line: number, release: string, ref: string, to: number|null}[],
+ *            selfMentions: {phrase: string, line: number}[]}}
+ *   changed = releases whose view text changed; variants = a moved line now beside a line that starts alike;
+ *   shifts = items whose number changed in a view (`to` null: the item left that view); citations = «FR n» /
+ *   «AC n» / «EC n» in the source's other lines that name a shifted number in a view holding that line;
+ *   selfMentions = the moved items' «…» phrases on other lines of the same source
  */
 export function moveItems(text, id, { items, to, from }) {
   const src = parseSource(text);
@@ -85,5 +91,30 @@ export function moveItems(text, id, { items, to, from }) {
       });
     });
   }
-  return { text: out, moved, changed, phrases: [...phrases], variants };
+  // Numbers that moved: the same source line has another number (or none) in a view after the move.
+  const shifts = [];
+  for (const x of changed) {
+    const b = before.get(x);
+    const a = after.get(x);
+    const now = new Map(itemsOf(a.lines).map((it) => [`${it.kind}:${a.lineMap[it.index]}`, it.n]));
+    for (const it of itemsOf(b.lines)) {
+      const n = now.get(`${it.kind}:${b.lineMap[it.index]}`) ?? null;
+      if (n !== it.n) shifts.push({ release: x, kind: it.kind, from: it.n, to: n });
+    }
+  }
+  // Citations of a shifted number in the source's own text, read in the views (before) that hold the line.
+  const citations = [];
+  const selfMentions = [];
+  for (const l of src.body) {
+    if (movedLines.has(l.index)) continue;
+    for (const m of l.text.matchAll(/(?<![\p{L}\p{N}_-])(FR|AC|EC)\s?(\d+)(?![\p{N}])/gu)) {
+      for (const x of changed) {
+        if (!before.get(x).lineMap.includes(l.index)) continue;
+        const sh = shifts.find((q) => q.release === x && q.kind === m[1] && q.from === Number(m[2]));
+        if (sh) citations.push({ line: l.index + 1, release: x, ref: `${m[1]} ${m[2]}`, to: sh.to });
+      }
+    }
+    for (const ph of phrases) if (l.text.includes(ph)) selfMentions.push({ phrase: ph, line: l.index + 1 });
+  }
+  return { text: out, releases, moved, changed, phrases: [...phrases], variants, shifts, citations, selfMentions };
 }

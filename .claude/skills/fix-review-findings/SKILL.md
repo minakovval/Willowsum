@@ -30,6 +30,11 @@ fixes every blocking item, CI green, the new head SHA.
    do not pick one yourself.
 5. Never weaken, skip or delete a test to get green (AGENTS.md step 6); never edit an acceptance test unless
    the requirement changed.
+6. Requirement text: a finding or patch against a release view (`<ID>.<release key>.md`, line 2 «Згенеровано
+   з …») is applied to the source `<ID>.md` instead — the same line, with the release tag that limits it to the
+   releases the finding names — and then `node tools/req-check/index.mjs --views` regenerates the views. Never
+   patch a view. A moved item goes through `--move` (`change-requirement`), and its warnings are handled in the
+   same commit. New tests go into «Перевіряється» of the source.
 
 ## 3. Non-blocking
 
@@ -42,7 +47,10 @@ Run what the changed code needs: `pnpm typecheck`, `pnpm lint`, `pnpm test`; int
 `pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
 without Docker, as in cloud sessions, give the admin URL:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);
-`node --test tools/pr-rules` / `tools/req-check` when those changed; the local secret-shaped literal check.
+`node --test tools/pr-rules` / `tools/req-check` when those changed; when requirements, «Перевіряється» or
+`tools/req-check` changed, also `node tools/req-check/index.mjs --views` and
+`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors,
+regenerated files committed); the local secret-shaped literal check.
 
 ## 5. Push and report
 

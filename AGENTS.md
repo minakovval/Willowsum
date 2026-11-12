@@ -20,10 +20,10 @@ release until the owner has approved its design and started its development.
 
 | What | Where |
 | --- | --- |
-| Product requirements (single source of truth) | `docs/requirements/` — one file per requirement ID, index per module |
+| Product requirements (single source of truth) | `docs/requirements/` — one source file per requirement ID (`bud/BUD-16.md`, edited) and its generated release views (`bud/BUD-16.poc.md`, …, read-only); index per module |
 | Product, releases, roles, plan matrix, general rules П-1…П-26, glossary | `docs/requirements/00-general.md` |
-| Requirement process: release slices, links, traceability; change process | `docs/requirements/prc/` (PRC-01, PRC-02); format in `docs/requirements/README.md` |
-| Traceability matrix, per-release build sequence, coverage (generated) | `docs/traceability/` — regenerate with `node tools/req-check/index.mjs --traceability` |
+| Requirement process: sources, release views, links, traceability; change process | `docs/requirements/prc/` (PRC-01, PRC-02); format in `docs/requirements/README.md` («Source and generated release views») |
+| Release views, traceability matrix, per-release build sequence, coverage (generated) | views next to their sources — regenerate with `node tools/req-check/index.mjs --views`; `docs/traceability/` — with `--traceability` |
 | Architecture and delivery requirements | `docs/requirements/arc/`, `docs/requirements/cicd/` |
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |
@@ -34,25 +34,35 @@ release until the owner has approved its design and started its development.
 | Coverage tables of design decisions, req-check report | `docs/validation/` |
 | External services (integrations list), browser instructions for the owner | `docs/ops/` (`integrations.md`, `browser-tasks/`) |
 
-Requirement files are self-contained: you never need another source to implement one. A requirement
-changes only through a PR to its file that records the owner's decision.
+Requirement views are self-contained: you never need another source to implement one. A requirement
+changes only through a PR to its source file that records the owner's decision.
 
-Migrated requirements are a card (`bud/BUD-16.md`) plus one **release slice** per release
-(`bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, …; ID `BUD-16@PoC`). A slice is complete for its release: to
-build a release, read only the slices of that release (and the latest earlier slice of each requirement
-that has none in it). Links to other requirements, screens, П-rules, use cases, modules and tests live
-only in the fixed «Зв'язки» header at the top of a card or slice; IDs are allowed there and nowhere else
-in the text. Requirements not migrated yet keep the old one-file format. Format and rules:
-`docs/requirements/README.md`, «Release slices and links». Scope that the owner removes from PoC (from
-2026-11-04) moves to PoC v2: it leaves the PoC slice and is added to the PoC v2 slice.
+Each migrated requirement has **one source file** (`bud/BUD-16.md`, owner, 2026-11-12): the card part, then
+`## Джерело зрізів` and the text of every release, each release-specific line tagged with its releases
+(`[PoC]`, `[PoC v2]`, `[PoC–MVP]`, `[лише PoC]`). Its **release views** (`bud/BUD-16.poc.md`,
+`BUD-16.poc-v2.md`, …; ID `BUD-16@PoC`, also called slices) are generated from it. A view is complete for its
+release: to build a release, read only the views of that release (and the latest earlier view of each
+requirement that has none in it). Never edit a view: edit the source and run
+`node tools/req-check/index.mjs --views`; CI fails on a view that differs from its source. Links to other
+requirements, screens, П-rules, use cases, modules and tests live only in the fixed «Зв'язки» header; IDs are
+allowed there and nowhere else in the text. Requirements not migrated yet (JRN-00, JRN-08, SCR-01, SCR-02)
+keep the old one-file format. Format, tags and commands: `docs/requirements/README.md`, «Source and generated
+release views». Scope that the owner removes from PoC (from 2026-11-04) moves to PoC v2: move its items with
+`node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2"`, which changes their tags in the
+source and regenerates the views.
 
 Before changing a requirement, a screen or a shared rule, run
 `node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n|UC-id|module>` and update every
-dependent slice in the same PR or list it as follow-up with an issue in the PR body (PRC-02).
-Regenerate `docs/traceability/` and `docs/validation/req-check-report.md` in the same PR: run
-`node --test tools/req-check` and
-`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
-(0 errors; commit the regenerated files).
+dependent slice in the same PR or list it as follow-up with an issue in the PR body (PRC-02). Edit only
+sources: `--move` moves items between releases (and warns about cited item numbers that shift and about
+the moved items still mentioned elsewhere); rewording is a plain edit of the source. Then regenerate, in the
+same PR and in this order:
+
+- the views: `node tools/req-check/index.mjs --views`;
+- `docs/traceability/` and `docs/validation/req-check-report.md`:
+  `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`;
+- and run `node --test tools/req-check` (0 errors; commit the regenerated files). The skill
+  `change-requirement` has the full procedure.
 
 ## Planned code layout
 
@@ -139,8 +149,8 @@ errors) lives only in `packages/domain-kernel`.
 ## Process: one requirement = one session = one branch = one PR
 
 1. A task names one requirement ID (or a small group in one module). No ID → do not start.
-2. Load only the requirement file (for a migrated requirement: its card and the slice of the target
-   release, plus what its «Зв'язки» header names), the sections of `00-general.md` it relies on, the module card and
+2. Load only the requirement file (for a migrated requirement: the view of the target release,
+   `<ID>.<release key>.md`, plus what its «Зв'язки» header names), the sections of `00-general.md` it relies on, the module card and
    the code of that module. For wide searches use a read-only subagent and keep only its conclusion.
 3. Follow the `implement-requirement` skill. Tests first: one automated test per acceptance criterion
    and per edge case.
@@ -203,7 +213,7 @@ agent uses its own test database (`pnpm db:test`); integration tests run as
 `security-review` (security reviewer of `sensitive` PRs), `fix-review-findings` (author, after reviews),
 `pr-pipeline` (the lead's loop over these), `browser-task` (instructions for the owner's local Claude session
 with a browser), `sync-branch` (merge `origin/main` into a working branch: merge only, checks, confirmation on the new
-head), `change-requirement` (changing requirements, screens or П-rules without code: impact first, scope between releases, decision log), `deploy` (deploying to Oracle Cloud; the server does not exist yet, so unverified steps are marked). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
+head), `change-requirement` (changing requirements, screens or П-rules without code: decisions collected first, impact, `--move` in the source, views regenerated, one batch PR, lighter review), `deploy` (deploying to Oracle Cloud; the server does not exist yet, so unverified steps are marked). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
 a fresh agent with a narrow brief, let reviewers rely on CI — rules in `pr-pipeline`, «Token economy».
 
 **CI minutes** (lead, 2026-11-12; private repository, 2,000 free minutes a month): a new push cancels the

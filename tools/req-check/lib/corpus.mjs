@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { ID_FILE_RE, SLICE_FILE_RE, RELEASE_KEY } from './config.mjs';
-import { parseSource, viewReleases, renderViews, viewFileName } from './source.mjs';
+import { parseSource, viewReleases, renderViews, viewFileName, SOURCE_MARKER } from './source.mjs';
 import { parseHeading } from './markdown.mjs';
 
 const RELEASE_OF_KEY = Object.fromEntries(Object.entries(RELEASE_KEY).map(([r, k]) => [k, r]));
@@ -112,6 +112,13 @@ export function attachSources(docs, raw) {
       }
     }
     sources.push(entry);
+  }
+  // A slice that still says it is generated but has no source behind it (the source section was deleted or
+  // its marker broken) would otherwise be an ordinary hand-written slice that no check compares to anything.
+  for (const x of docs) {
+    if (x.kind === 'slice' && !x.generated && x.lines?.[1]?.startsWith('> Згенеровано з ')) {
+      viewProblems.push({ rule: 'view-orphan', file: x.rel, line: 2, message: `${x.name} says it is generated, but ${x.id}.md has no «${SOURCE_MARKER}» section; restore the source or remove the header` });
+    }
   }
   return { sources, viewProblems };
 }

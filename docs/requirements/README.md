@@ -130,7 +130,9 @@ needs a number that `#.` would not give; `#. ` is reserved and never appears in 
   lines of the «Зв'язки» block are tagged only where they differ between releases. A continuation line
   is a line of its own and needs its own tag when its item has one.
 - A tag must parse and select at least one view; the views are the releases in «Зрізи».
-- Each view on disk must equal what the source generates (`view-stale`, `view-missing`, `view-extra`).
+- Each view on disk must equal what the source generates (`view-stale`, `view-missing`, `view-extra`). A slice
+  file whose line 2 is the «Згенеровано з» header but which no source generates (the source's
+  `## Джерело зрізів` section was deleted or broken) is an error too (`view-orphan`).
   CI regenerates the views with the traceability files and fails on any difference.
 - All other checks (structure, links, criteria, facts, self-containedness, `--impact`, traceability) read the
   generated views; a finding in a view points at the source line it came from, prefixed with the slice ID.
@@ -148,7 +150,7 @@ header below, then the selected lines. Apart from line 2, a view is byte for byt
 | --- | --- |
 | `node tools/req-check/index.mjs --views` | Write every view from its source; remove view files a source no longer lists; then check |
 | `node tools/req-check/index.mjs --convert <ID\|all>` | Turn a card and its slice files into a source; written only when every view round-trips byte for byte, otherwise the requirement keeps its card and slice files and is listed as an exception |
-| `node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]` | Move items (numbered as in the `--from` view, default the first) so that they start in the target release: changes the tags of the item and its continuation lines, regenerates the views, prints the changed views, the dependents (`--impact` of each changed slice), the mentions of the items' «…» phrases elsewhere and any item now beside a variant of itself. The target view must exist; add a new release by hand first («Зрізи», the card's «Реліз» line and table, the release and «Розширює» lines of the slice text) |
+| `node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]` | Move items (numbered as in the `--from` view, default the first) so that they start in the target release: changes the tags of the item and its continuation lines, regenerates the views, prints the changed views, the dependents (`--impact` of each changed slice), the mentions of the items' «…» phrases elsewhere and any item now beside a variant of itself. It also warns about the items whose number changed in a view and every citation of such a number (`FR 15`, `AC 3`) in the same source and in tests and docs (`BUD-12@PoC FR 15`), and about the moved items' phrases still used in other items of the same source; fix each in the same PR. The target view must exist; add a new release by hand first («Зрізи», the card's «Реліз» line and table, the release and «Розширює» lines of the slice text) |
 | `node tools/req-check/index.mjs --coverage` | Per-item and per-release coverage: tests named by item (`ACC-01 FR 12`, `UX-09@PoC AC7`, `BUD-16 EC2`; `item n` = FR, `criterion n` = AC) are mapped to items of the views. An item of a source is one source line, so a test of PoC FR 3 also covers that item in every later view that keeps the line, whatever its number there. A plain ID means the release named for it elsewhere in the test file, else its first slice. Without a «Функціональні вимоги» label, FR n is item n of the first numbered list |
 
 **Rollback.** The last commit in the card plus slice files format is on branch
@@ -174,8 +176,9 @@ Run locally before pushing: `node --test tools/req-check` and
 CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`, `secrets`,
 `local-env`, `api`, `infra`.
 
-**Change process (PRC-02).** Before changing a requirement, a slice, a screen, a canvas board or a
-shared rule, run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>`:
+**Change process (PRC-02).** Edit only sources: move scope between releases with `--move`, reword in the
+source, then regenerate the views with `--views` (never edit or hand-merge a view). Before changing a
+requirement, a slice, a screen, a canvas board or a shared rule, run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>`:
 it lists every dependent slice transitively, with the files, screens, use cases, docs/ux mentions,
 tests and modules to update. Update dependent slices in the same PR or list each one in the PR body as
 follow-up with an issue; regenerate the traceability files and the report; record the owner's decision
