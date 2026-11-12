@@ -13,10 +13,11 @@ export {
   ARGON2_PARAMETERS,
   argon2Hasher,
   authenticateSession,
+  createIdentityMaintenance,
   createIdentityServices,
   SESSION_COOKIE,
 } from "./adapters/index.ts";
-export type { FirstSpace, SessionAccount } from "./application/index.ts";
+export type { DailyCleanupReport, FirstSpace, SessionAccount } from "./application/index.ts";
 export type { IdentityServices, IdentityServicesOptions } from "./adapters/index.ts";
 export {
   CONFIRMATION_TTL_MS,
@@ -30,4 +31,5 @@ export {
   SIGN_IN_FAILURES_LIMIT,
   SIGN_IN_LOCK_MS,
   SIGN_UPS_PER_ADDRESS_PER_HOUR,
+  UNCONFIRMED_ACCOUNT_TTL_MS,
 } from "./domain/index.ts";

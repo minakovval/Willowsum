@@ -131,6 +131,24 @@ export interface IdentityTx {
   endSession(id: string, now: number): Promise<void>;
   /** Ends every session of the account; returns how many were still open. */
   endSessions(accountId: string, now: number): Promise<number>;
+
+  /**
+   * Deletes up to `limit` unconfirmed accounts whose latest sign-up is at or before `signedUpBy`, with all their
+   * rows (ACC-01 FR 6); an account confirmed or held by another transaction meanwhile stays. Returns their ids.
+   */
+  deleteUnconfirmedAccounts(signedUpBy: number, limit: number): Promise<string[]>;
+  /** Deletes what no longer changes an answer or a limit at `now` (ADR-0010); returns the rows per table. */
+  sweep(now: number): Promise<SweepCounts>;
+}
+
+/** Rows deleted per table by the daily task. */
+export interface SweepCounts {
+  readonly throttleEvents: number;
+  readonly signInGuards: number;
+  readonly registrations: number;
+  readonly emailConfirmations: number;
+  readonly passwordResets: number;
+  readonly sessions: number;
 }
 
 /**
@@ -163,6 +181,8 @@ export interface AccountAudit {
   accountChanged(accountId: string, before: string | null, after: string): Promise<void>;
   /** The password was replaced (a reset, or a new sign-up of an unconfirmed address); the value is masked. */
   passwordChanged(accountId: string): Promise<void>;
+  /** The daily task deleted an unconfirmed account (ACC-01 FR 6). */
+  accountDeleted(accountId: string): Promise<void>;
 }
 
 export interface IdentityDeps {
@@ -186,4 +206,11 @@ export interface IdentityDeps {
   readonly webOrigin: string;
   /** The first space on the first sign-in (household module). */
   readonly spaces: FirstSpace;
+}
+
+/** What the daily task needs (ACC-01 FR 6; ADR-0010). */
+export interface MaintenanceDeps {
+  readonly store: IdentityStore;
+  readonly now: () => number;
+  readonly audit: Pick<AccountAudit, "accountDeleted">;
 }

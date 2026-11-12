@@ -5,7 +5,9 @@ import type { HouseholdFreeDatabase, PublicContext } from "../../../../platform/
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import {
+  dailyCleanup,
   sessionAccount,
+  type DailyCleanupReport,
   type FirstSpace,
   type IdentityDeps,
   type PasswordHasher,
@@ -98,6 +100,33 @@ export function authenticateSession(
   return sessionAccount(depsFor(services, db), token);
 }
 
+/**
+ * The daily task of identity (ACC-01 FR 6; ADR-0010), run by the scheduler role: deletes unconfirmed accounts 30
+ * days after their sign-up and sweeps the rows that no longer change an answer or a limit.
+ */
+export function createIdentityMaintenance(options: {
+  readonly db: HouseholdFreeDatabase;
+  readonly audit: Pick<AuditLog, "recordPlatform">;
+  readonly now?: () => number;
+}): { dailyCleanup(): Promise<DailyCleanupReport> } {
+  const deps = {
+    store: databaseIdentityStore(options.db),
+    now: options.now ?? Date.now,
+    audit: {
+      accountDeleted: async (accountId: string) => {
+        await options.audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: "identity.account", id: accountId },
+          action: "delete",
+          changes: [{ field: "state", before: "unconfirmed", after: null, sensitive: false }],
+        });
+      },
+    },
+  };
+  return { dailyCleanup: () => dailyCleanup(deps) };
+}
+
 function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): IdentityDeps {
   return {
     store: databaseIdentityStore(db),
@@ -155,6 +184,10 @@ function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): Identit
           // Sensitive: the log stores only the mask, never a hash (П-10).
           changes: [{ field: "password", before: "set", after: "set", sensitive: true }],
         });
+      },
+      // Deletions are written by the daily task (createIdentityMaintenance), never by a request.
+      accountDeleted: async () => {
+        throw new Error("identity: accounts are deleted only by the daily task");
       },
     },
   };
