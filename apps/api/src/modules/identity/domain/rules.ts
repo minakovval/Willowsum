@@ -92,3 +92,27 @@ export function sessionAlive(
 ): boolean {
   return session.endedAt === null && now < session.expiresAt && now - session.lastSeenAt < SESSION_IDLE_MS;
 }
+
+const DAY = 24 * HOUR;
+
+/**
+ * An unconfirmed account is deleted with its data by the daily task 30 days after its sign-up (ACC-01 FR 6, AC9;
+ * NFR-12). The latest sign-up counts: a new sign-up with the address of an unconfirmed account replaces its
+ * password and is its registration now (owner decision 2026-11-12, ADR-0009 part b).
+ */
+export const UNCONFIRMED_ACCOUNT_TTL_MS = 30 * DAY;
+/**
+ * What the daily task keeps of the growing identity tables (ADR-0010; lead decision). A row goes once it can no
+ * longer change any answer or any limit:
+ * - limit events after the longest window (1 h);
+ * - password reset links after their 60 min and the hour of the letter limit;
+ * - sessions once ended, past their 12 h or 15 min idle;
+ * - «Перевірте пошту» tokens once closed or expired (a superseded open one keeps answering as before until then);
+ * - revoked confirmation links at once (they answer like unknown ones); used and expired ones 30 days after they
+ *   expire («вже використано» and «Посилання недійсне» with «Надіслати ще раз» keep working that long);
+ * - sign-in guards once unlocked without the CAPTCHA mark; with the mark, 30 days after the last change.
+ */
+export const THROTTLE_RETENTION_MS = Math.max(MAIL_WINDOW_MS, SIGN_UP_WINDOW_MS, SIGN_IN_FAILURE_WINDOW_MS);
+export const PASSWORD_RESET_RETENTION_MS = Math.max(PASSWORD_RESET_TTL_MS, MAIL_WINDOW_MS);
+export const CONFIRMATION_RETENTION_MS = 30 * DAY;
+export const CAPTCHA_GUARD_RETENTION_MS = 30 * DAY;

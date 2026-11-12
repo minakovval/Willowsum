@@ -10,7 +10,7 @@ import { mountApi } from "./api.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createHouseholdSpaces } from "./modules/household/index.ts";
-import { createIdentityServices } from "./modules/identity/index.ts";
+import { createIdentityMaintenance, createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
@@ -18,6 +18,7 @@ import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
 import { ModuleDatabases } from "./platform/db/module-db.ts";
 import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/migrate.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
+import { scheduleDaily } from "./platform/process/daily.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { createApiRateLimits } from "./platform/http/rate-limit.ts";
 import { buildServer } from "./platform/process/server.ts";
@@ -171,7 +172,12 @@ const server = buildServer({
 lifecycle.onStop(() => probe.end());
 lifecycle.onStop(() => databases.end());
 lifecycle.onStop(() => server.close());
-// worker and scheduler register their job loops here once the queue exists (ARC-04).
+// The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
+if (config.role === "scheduler") {
+  const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
+  const daily = scheduleDaily([{ name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() }]);
+  lifecycle.onStop(() => daily.stop());
+}
 
 await server.listen({ host: "0.0.0.0", port: config.port });
 logEvent("process.started", "info", { "ws.role": config.role });

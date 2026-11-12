@@ -11,7 +11,14 @@ import type {
   SessionRow,
   ThrottleScope,
 } from "../../application/index.ts";
-import type { SignInGuard } from "../../domain/index.ts";
+import {
+  CAPTCHA_GUARD_RETENTION_MS,
+  CONFIRMATION_RETENTION_MS,
+  PASSWORD_RESET_RETENTION_MS,
+  SESSION_IDLE_MS,
+  THROTTLE_RETENTION_MS,
+  type SignInGuard,
+} from "../../domain/index.ts";
 
 /** The identity schema through the module's own role (ARC-01, ARC-03; tables in migrations/0001_accounts.sql). */
 
@@ -249,11 +256,12 @@ function tx(q: ModuleQueryRunner): IdentityTx {
       await q.query(`DELETE FROM throttle_events WHERE scope = $1 AND subject_key = $2`, [scope, key]);
     },
     async lockGuard(key) {
-      await q.query(`INSERT INTO sign_in_guards (email_key) VALUES ($1) ON CONFLICT (email_key) DO NOTHING`, [
-        key,
-      ]);
+      // One statement creates or locks the row: the daily task may delete an idle guard at any moment, and an
+      // insert followed by a separate SELECT … FOR UPDATE would then find no row.
       const { rows } = await q.query<{ locked_until: Date | null; captcha_required: boolean }>(
-        `SELECT locked_until, captcha_required FROM sign_in_guards WHERE email_key = $1 FOR UPDATE`,
+        `INSERT INTO sign_in_guards (email_key) VALUES ($1)
+         ON CONFLICT (email_key) DO UPDATE SET email_key = EXCLUDED.email_key
+         RETURNING locked_until, captcha_required`,
         [key],
       );
       const r = rows[0]!;
@@ -323,6 +331,52 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         [accountId, at(now)],
       );
       return result.rowCount ?? 0;
+    },
+    async deleteUnconfirmedAccounts(signedUpBy, limit) {
+      // updated_at of an unconfirmed account is its latest sign-up (insertAccount, replaceUnconfirmedAccount).
+      // SKIP LOCKED: an account a sign-up or a confirmation holds right now is left for the next run; the outer
+      // conditions are checked again on the row as it is when it is deleted. Its links, sign-up tokens, sessions
+      // and reset links go with it (ON DELETE CASCADE).
+      const { rows } = await q.query<{ id: string }>(
+        `DELETE FROM accounts
+          WHERE id IN (SELECT id FROM accounts
+                        WHERE email_confirmed_at IS NULL AND updated_at <= $1
+                        ORDER BY updated_at LIMIT $2 FOR UPDATE SKIP LOCKED)
+            AND email_confirmed_at IS NULL AND updated_at <= $1
+          RETURNING id`,
+        [at(signedUpBy), limit],
+      );
+      return rows.map((r) => r.id);
+    },
+    async sweep(now) {
+      const count = async (sql: string, values: unknown[]) => (await q.query(sql, values)).rowCount ?? 0;
+      return {
+        throttleEvents: await count(`DELETE FROM throttle_events WHERE occurred_at <= $1`, [
+          at(now - THROTTLE_RETENTION_MS),
+        ]),
+        signInGuards: await count(
+          `DELETE FROM sign_in_guards
+            WHERE (locked_until IS NULL OR locked_until <= $1)
+              AND (NOT captcha_required OR changed_at <= $2)`,
+          [at(now), at(now - CAPTCHA_GUARD_RETENTION_MS)],
+        ),
+        registrations: await count(
+          `DELETE FROM registrations WHERE closed_at IS NOT NULL OR expires_at <= $1`,
+          [at(now)],
+        ),
+        emailConfirmations: await count(
+          `DELETE FROM email_confirmations
+            WHERE revoked_at IS NOT NULL OR expires_at <= $1`,
+          [at(now - CONFIRMATION_RETENTION_MS)],
+        ),
+        passwordResets: await count(`DELETE FROM password_resets WHERE created_at <= $1`, [
+          at(now - PASSWORD_RESET_RETENTION_MS),
+        ]),
+        sessions: await count(
+          `DELETE FROM sessions WHERE ended_at IS NOT NULL OR expires_at <= $1 OR last_seen_at <= $2`,
+          [at(now), at(now - SESSION_IDLE_MS)],
+        ),
+      };
     },
   };
 }
