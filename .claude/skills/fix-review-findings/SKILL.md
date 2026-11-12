@@ -39,7 +39,9 @@ in the PR body (or open an issue and link it).
 ## 4. Check
 
 Run what the changed code needs: `pnpm typecheck`, `pnpm lint`, `pnpm test`; integration tests as
-`pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time);
+`pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
+without Docker, as in cloud sessions, give the admin URL:
+`WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);
 `node --test tools/pr-rules` / `tools/req-check` when those changed; the local secret-shaped literal check.
 
 ## 5. Push and report
