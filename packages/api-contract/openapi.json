@@ -14,7 +14,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -144,7 +144,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -638,6 +638,405 @@
         }
       }
     },
+    "/v1/password-resets": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "summary": "Ask for a password reset link by email («Відновлення пароля»)",
+        "tags": [
+          "identity"
+        ],
+        "x-willowsum-access": {
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
+          "flags": [
+            "identity.sign-in"
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "email"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Always «if the account exists, we sent a letter» (ACC-01 FR 10, NFR-15 FR 1): the same answer and time for an address with and without an account. An account gets a link valid 60 min that revokes its earlier links, at most one letter per 60 s and 5 per hour",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "requested"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the function is off",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/password-resets/check": {
+      "post": {
+        "operationId": "checkPasswordReset",
+        "summary": "Whether a password reset link can still be used (before the new-password form is shown)",
+        "tags": [
+          "identity"
+        ],
+        "x-willowsum-access": {
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
+          "flags": [
+            "identity.sign-in"
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "valid: the form for the new password may be shown. 410 RESET_LINK_INVALID: «Посилання недійсне» (used, replaced, older than 60 min or unknown). Changes nothing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "valid"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the function is off",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "This password reset link is no longer valid (RESET_LINK_INVALID)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/password-resets/complete": {
+      "post": {
+        "operationId": "completePasswordReset",
+        "summary": "Set a new password with a password reset link",
+        "tags": [
+          "identity"
+        ],
+        "x-willowsum-access": {
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
+          "flags": [
+            "identity.sign-in"
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{43}$"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The password is changed, every session of the account has ended (this browser's cookie is removed too; no new session), the address counts as confirmed and a security notice is on its way. 410 RESET_LINK_INVALID when the link can no longer be used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "password-changed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the function is off",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "This password reset link is no longer valid (RESET_LINK_INVALID)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/registrations": {
       "post": {
         "operationId": "signUp",
@@ -646,7 +1045,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -797,7 +1196,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -922,7 +1321,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -1053,7 +1452,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -1157,7 +1556,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -1266,7 +1665,7 @@
           "identity"
         ],
         "x-willowsum-access": {
-          "public": "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)",
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
           "flags": [
             "identity.sign-in"
           ]
@@ -1447,6 +1846,7 @@
               "FORBIDDEN",
               "ORIGIN_NOT_ALLOWED",
               "NOT_FOUND",
+              "RESET_LINK_INVALID",
               "IDEMPOTENCY_KEY_REUSED",
               "IDEMPOTENCY_REQUEST_IN_PROGRESS",
               "VERSION_CONFLICT",

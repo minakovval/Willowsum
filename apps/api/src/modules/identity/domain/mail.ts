@@ -1,5 +1,5 @@
 /**
- * Letters of identity (ACC-01 FR 4, 8): Ukrainian first (uk-UA), English complete. Plain text with the link in
+ * Letters of identity (ACC-01 FR 4, 8, 10): Ukrainian first (uk-UA), English complete. Plain text with the link in
  * full; no amounts or other data of a space. The letter about a sign-up with a taken address carries only the
  * link to password reset, never a confirmation link (ACC-01 FR 8).
  */
@@ -25,6 +25,14 @@ export function passwordResetLink(webOrigin: string): string {
   return `${webOrigin}/#/password/reset`;
 }
 
+/**
+ * The link of a password reset letter (S-007). The token is in the fragment (the web app routes there): a browser never sends a fragment
+ * to a server, nor in `Referer`, so the token stays out of access logs and of other sites (ADR-0009, part b).
+ */
+export function passwordResetTokenLink(webOrigin: string, token: string): string {
+  return `${passwordResetLink(webOrigin)}?token=${encodeURIComponent(token)}`;
+}
+
 const CONFIRMATION: Record<MailLocale, (name: string, link: string) => Letter> = {
   uk: (name, link) => ({
     subject: "Підтвердьте email для Willowsum",
@@ -34,8 +42,8 @@ const CONFIRMATION: Record<MailLocale, (name: string, link: string) => Letter> =
       "Щоб завершити реєстрацію у Willowsum, підтвердьте свою адресу за посиланням:",
       link,
       "",
-      "Посилання дійсне 24 години і спрацьовує один раз.",
-      "Якщо ви не реєструвалися, просто проігноруйте цей лист.",
+      "Посилання дійсне 24 години і спрацьовує один раз. Діє лише посилання з останнього листа.",
+      "Якщо ви не реєструвалися — нічого не робіть: без цього посилання акаунт не буде активовано.",
     ].join("\n"),
   }),
   en: (name, link) => ({
@@ -46,8 +54,8 @@ const CONFIRMATION: Record<MailLocale, (name: string, link: string) => Letter> =
       "To finish signing up for Willowsum, confirm your address with this link:",
       link,
       "",
-      "The link is valid for 24 hours and works once.",
-      "If you did not sign up, just ignore this email.",
+      "The link is valid for 24 hours and works once. Only the link in the latest email works.",
+      "If you did not sign up, do nothing: without this link the account will not be activated.",
     ].join("\n"),
   }),
 };
@@ -78,6 +86,75 @@ const SIGN_UP_ATTEMPT: Record<MailLocale, (name: string, link: string) => Letter
     ].join("\n"),
   }),
 };
+
+const PASSWORD_RESET: Record<MailLocale, (name: string, link: string) => Letter> = {
+  uk: (name, link) => ({
+    subject: "Відновлення пароля у Willowsum",
+    text: [
+      `Вітаємо, ${name}!`,
+      "",
+      "Щоб задати новий пароль у Willowsum, перейдіть за посиланням:",
+      link,
+      "",
+      "Посилання дійсне 60 хвилин і спрацьовує один раз; попередні посилання відновлення вже не діють.",
+      "Після зміни пароля всі сесії акаунта буде завершено.",
+      "Якщо ви не просили відновити пароль — нічого не робіть: пароль не зміниться.",
+    ].join("\n"),
+  }),
+  en: (name, link) => ({
+    subject: "Reset your Willowsum password",
+    text: [
+      `Hello, ${name}!`,
+      "",
+      "To set a new password for Willowsum, follow this link:",
+      link,
+      "",
+      "The link is valid for 60 minutes and works once; earlier reset links no longer work.",
+      "When the password changes, every session of the account ends.",
+      "If you did not ask to reset your password, do nothing: it will not change.",
+    ].join("\n"),
+  }),
+};
+
+const PASSWORD_CHANGED: Record<MailLocale, (name: string, link: string) => Letter> = {
+  uk: (name, link) => ({
+    subject: "Пароль у Willowsum змінено",
+    text: [
+      `Вітаємо, ${name}!`,
+      "",
+      "Пароль вашого акаунта у Willowsum щойно змінено через відновлення пароля. Усі сесії акаунта завершено.",
+      "Якщо це були не ви, негайно відновіть пароль тут:",
+      link,
+    ].join("\n"),
+  }),
+  en: (name, link) => ({
+    subject: "Your Willowsum password was changed",
+    text: [
+      `Hello, ${name}!`,
+      "",
+      "The password of your Willowsum account was just changed through a password reset. Every session of the account has ended.",
+      "If it was not you, reset your password now:",
+      link,
+    ].join("\n"),
+  }),
+};
+
+export function passwordResetLetter(
+  name: string,
+  link: string,
+  locale: MailLocale = DEFAULT_MAIL_LOCALE,
+): Letter {
+  return PASSWORD_RESET[locale](name, link);
+}
+
+/** The security notice after a reset (ACC-01 AC17): it carries only the link to the reset page, no token. */
+export function passwordChangedLetter(
+  name: string,
+  link: string,
+  locale: MailLocale = DEFAULT_MAIL_LOCALE,
+): Letter {
+  return PASSWORD_CHANGED[locale](name, link);
+}
 
 export function confirmationLetter(
   name: string,

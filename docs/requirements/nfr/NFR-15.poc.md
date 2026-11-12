@@ -9,7 +9,7 @@
 - Спільні правила: П-5, П-6, П-9, П-10, П-11, П-12, П-24, П-26, ARC-03, ARC-11, CICD-03, NFR-01, NFR-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/test/nfr15-origin.test.ts, apps/api/src/platform/http/nfr15-general.test.ts, apps/api/test/nfr15-db.it.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/api/test/sec86-origin-cookies.test.ts, apps/api/test/sec86-list-query.test.ts, apps/api/test/sec86-db.it.test.ts, apps/api/test/sec86-process.it.test.ts, apps/api/test/sec86r2-list-route.test.ts, apps/api/test/sec86r2-filter-values.it.test.ts, apps/api/test/sec86r2-versioned.it.test.ts, apps/api/src/modules/identity/identity.it.test.ts, apps/api/test/sec90-identity.it.test.ts
+- Перевіряється: apps/api/test/nfr15-origin.test.ts, apps/api/src/platform/http/nfr15-general.test.ts, apps/api/test/nfr15-db.it.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/api/test/sec86-origin-cookies.test.ts, apps/api/test/sec86-list-query.test.ts, apps/api/test/sec86-db.it.test.ts, apps/api/test/sec86-process.it.test.ts, apps/api/test/sec86r2-list-route.test.ts, apps/api/test/sec86r2-filter-values.it.test.ts, apps/api/test/sec86r2-versioned.it.test.ts, apps/api/src/modules/identity/identity.it.test.ts, apps/api/test/sec90-identity.it.test.ts, apps/api/src/modules/identity/password-reset.it.test.ts
 
 **Мета.** Як власник продукту, я хочу, щоб кожна відома загроза для фінансових даних родини мала задокументований засіб захисту і тест, щоб захоплення акаунта, витік чи підробка даних були неможливими або швидко виявлялися.
 

@@ -20,7 +20,8 @@ import { principalHeader, servedRoutes, testAuthenticate, testWiring } from "./h
 
 /**
  * Routes that may be called without a session; each serves no household data. Adding one is a reviewed change.
- * Identity's are sign-up, email confirmation and sign-in themselves (ACC-01): they work before a session exists.
+ * Identity's are sign-up, email confirmation, sign-in and password reset themselves (ACC-01): they work before a
+ * session exists.
  */
 const PUBLIC_ROUTES = [
   "getMeta",
@@ -32,6 +33,9 @@ const PUBLIC_ROUTES = [
   "signIn",
   "getSession",
   "signOut",
+  "requestPasswordReset",
+  "checkPasswordReset",
+  "completePasswordReset",
 ];
 
 const members = [

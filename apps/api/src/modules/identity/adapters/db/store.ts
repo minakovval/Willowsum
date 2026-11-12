@@ -6,6 +6,7 @@ import type {
   ConfirmationRow,
   IdentityStore,
   IdentityTx,
+  PasswordResetRow,
   RegistrationRow,
   SessionRow,
   ThrottleScope,
@@ -34,20 +35,31 @@ const toAccount = (r: AccountDb): AccountRow => ({
 });
 
 const ACCOUNT_COLUMNS = "id, email, display_name, password_hash, email_confirmed_at";
+const LOCK_CLAUSE = { share: " FOR SHARE", update: " FOR UPDATE" } as const;
+
+interface ResetDb {
+  id: string;
+  account_id: string;
+  created_at: Date;
+  expires_at: Date;
+  used_at: Date | null;
+  revoked_at: Date | null;
+}
 
 function tx(q: ModuleQueryRunner): IdentityTx {
   return {
-    async findAccountByEmail(normalizedEmail) {
+    async findAccountByEmail(normalizedEmail, lock) {
       const { rows } = await q.query<AccountDb>(
-        `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE email_normalized = $1`,
+        `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE email_normalized = $1${lock ? LOCK_CLAUSE[lock] : ""}`,
         [normalizedEmail],
       );
       return rows[0] ? toAccount(rows[0]) : null;
     },
-    async findAccount(id) {
-      const { rows } = await q.query<AccountDb>(`SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = $1`, [
-        id,
-      ]);
+    async findAccount(id, lock) {
+      const { rows } = await q.query<AccountDb>(
+        `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = $1${lock ? LOCK_CLAUSE[lock] : ""}`,
+        [id],
+      );
       return rows[0] ? toAccount(rows[0]) : null;
     },
     async insertAccount(a) {
@@ -67,6 +79,21 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         [accountId, at(now)],
       );
       return (result.rowCount ?? 0) > 0;
+    },
+    async replaceUnconfirmedAccount(accountId, account, now) {
+      const result = await q.query(
+        `UPDATE accounts SET display_name = $2, password_hash = $3, updated_at = $4
+         WHERE id = $1 AND email_confirmed_at IS NULL`,
+        [accountId, account.displayName, account.passwordHash, at(now)],
+      );
+      return (result.rowCount ?? 0) > 0;
+    },
+    async setPassword(accountId, passwordHash, now) {
+      await q.query(`UPDATE accounts SET password_hash = $2, updated_at = $3 WHERE id = $1`, [
+        accountId,
+        passwordHash,
+        at(now),
+      ]);
     },
     async insertConfirmation(accountId, digest, now, expiresAt) {
       await q.query(
@@ -122,8 +149,10 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         kind: "new" | "existing";
         expires_at: Date;
         closed_at: Date | null;
+        superseded_at: Date | null;
       }>(
-        `SELECT id, account_id, kind, expires_at, closed_at FROM registrations WHERE token_digest = $1 FOR UPDATE`,
+        `SELECT id, account_id, kind, expires_at, closed_at, superseded_at FROM registrations
+         WHERE token_digest = $1 FOR UPDATE`,
         [digest],
       );
       const r = rows[0];
@@ -134,6 +163,7 @@ function tx(q: ModuleQueryRunner): IdentityTx {
             kind: r.kind,
             expiresAt: r.expires_at.getTime(),
             closedAt: ms(r.closed_at),
+            supersededAt: ms(r.superseded_at),
           } satisfies RegistrationRow)
         : null;
     },
@@ -142,6 +172,57 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         id,
         at(now),
       ]);
+    },
+    async supersedeRegistrations(accountId, now) {
+      await q.query(
+        `UPDATE registrations SET superseded_at = $2
+         WHERE account_id = $1 AND closed_at IS NULL AND superseded_at IS NULL`,
+        [accountId, at(now)],
+      );
+    },
+    async insertPasswordReset(accountId, digest, now, expiresAt) {
+      await q.query(
+        `INSERT INTO password_resets (account_id, token_digest, created_at, expires_at) VALUES ($1, $2, $3, $4)`,
+        [accountId, digest, at(now), at(expiresAt)],
+      );
+    },
+    async revokePasswordResets(accountId, now) {
+      await q.query(
+        `UPDATE password_resets SET revoked_at = $2
+         WHERE account_id = $1 AND used_at IS NULL AND revoked_at IS NULL`,
+        [accountId, at(now)],
+      );
+    },
+    async findPasswordReset(digest, lock) {
+      const { rows } = await q.query<ResetDb>(
+        `SELECT id, account_id, created_at, expires_at, used_at, revoked_at FROM password_resets
+         WHERE token_digest = $1${lock ? " FOR UPDATE" : ""}`,
+        [digest],
+      );
+      const r = rows[0];
+      return r
+        ? ({
+            id: r.id,
+            accountId: r.account_id,
+            createdAt: r.created_at.getTime(),
+            expiresAt: r.expires_at.getTime(),
+            usedAt: ms(r.used_at),
+            revokedAt: ms(r.revoked_at),
+          } satisfies PasswordResetRow)
+        : null;
+    },
+    async usePasswordReset(id, now) {
+      await q.query(`UPDATE password_resets SET used_at = $2 WHERE id = $1 AND used_at IS NULL`, [
+        id,
+        at(now),
+      ]);
+    },
+    async passwordResetTimes(accountId, since) {
+      const { rows } = await q.query<{ created_at: Date }>(
+        `SELECT created_at FROM password_resets WHERE account_id = $1 AND created_at > $2 ORDER BY created_at`,
+        [accountId, at(since)],
+      );
+      return rows.map((r) => r.created_at.getTime());
     },
     async eventTimes(scope: ThrottleScope, key, since) {
       const { rows } = await q.query<{ occurred_at: Date }>(
@@ -235,6 +316,13 @@ function tx(q: ModuleQueryRunner): IdentityTx {
     },
     async endSession(id, now) {
       await q.query(`UPDATE sessions SET ended_at = $2 WHERE id = $1 AND ended_at IS NULL`, [id, at(now)]);
+    },
+    async endSessions(accountId, now) {
+      const result = await q.query(
+        `UPDATE sessions SET ended_at = $2 WHERE account_id = $1 AND ended_at IS NULL`,
+        [accountId, at(now)],
+      );
+      return result.rowCount ?? 0;
     },
   };
 }

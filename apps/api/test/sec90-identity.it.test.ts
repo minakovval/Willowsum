@@ -401,6 +401,7 @@ describe("sec90 DB isolation (ARC-03, ADR-0009)", () => {
     expect(tables).toEqual([
       "accounts",
       "email_confirmations",
+      "password_resets",
       "registrations",
       "sessions",
       "sign_in_guards",

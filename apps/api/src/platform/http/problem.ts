@@ -26,6 +26,11 @@ export const PROBLEMS = {
   /** A write request whose `Origin` is not one of the app's own (NFR-15 FR 5): a cross-site request. */
   ORIGIN_NOT_ALLOWED: { status: 403, title: "Requests from this origin are not allowed" },
   NOT_FOUND: { status: 404, title: "Not found" },
+  /**
+   * A password reset link that can no longer change the password (ACC-01 FR 10, NFR-15 FR 3): used, replaced by a
+   * newer link, older than 60 minutes or unknown — one answer for all; the client shows «Посилання недійсне».
+   */
+  RESET_LINK_INVALID: { status: 410, title: "This password reset link is no longer valid" },
   IDEMPOTENCY_KEY_REUSED: {
     status: 409,
     title: "This idempotency key was already used for a different request",

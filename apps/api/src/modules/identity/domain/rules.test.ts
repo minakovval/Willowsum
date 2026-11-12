@@ -8,8 +8,13 @@ import {
   nameSchema,
   normalizeEmail,
   passwordLength,
+  passwordChangedLetter,
+  passwordResetLetter,
   passwordResetLink,
+  passwordResetTokenLink,
+  PASSWORD_RESET_TTL_MS,
   passwordSchema,
+  resetLinkUsable,
   sessionAlive,
   SESSION_IDLE_MS,
   signInGate,
@@ -96,5 +101,57 @@ describe("ACC-01 FR 4, FR 8: the letters", () => {
       expect(letter.text).not.toContain("/verify");
       expect(letter.text.match(/https?:\/\//g)).toHaveLength(1);
     }
+  });
+});
+
+describe("ACC-01 FR 10, AC16 / NFR-15 FR 3: a reset link is valid 60 min and works once", () => {
+  it("usable before 60 min; not at 60 min, not after use, not after a newer link revoked it", () => {
+    expect(PASSWORD_RESET_TTL_MS).toBe(60 * MIN);
+    const link = { expiresAt: T + PASSWORD_RESET_TTL_MS, usedAt: null, revokedAt: null };
+    expect(resetLinkUsable(link, T)).toBe(true);
+    expect(resetLinkUsable(link, T + 60 * MIN - 1)).toBe(true);
+    expect(resetLinkUsable(link, T + 60 * MIN)).toBe(false);
+    expect(resetLinkUsable({ ...link, usedAt: T }, T + MIN)).toBe(false);
+    expect(resetLinkUsable({ ...link, revokedAt: T }, T + MIN)).toBe(false);
+  });
+});
+
+describe("ACC-01 FR 10, AC16, AC17: the reset letters", () => {
+  const origin = "https://app.example.org";
+  const token = "B".repeat(43);
+
+  it("the reset link carries the token in the fragment only (never sent to a server or in Referer)", () => {
+    expect(passwordResetTokenLink(origin, token)).toBe(`${origin}/#/password/reset?token=${token}`);
+  });
+
+  it("the reset letter: the link, 60 minutes, once, earlier links revoked; uk first, en complete", () => {
+    const link = passwordResetTokenLink(origin, token);
+    const uk = passwordResetLetter("Олена", link);
+    expect(uk.text).toContain(link);
+    expect(uk.text).toContain("60 хвилин");
+    expect(uk.text).toContain("один раз");
+    const en = passwordResetLetter("Olena", link, "en");
+    expect(en.text).toContain(link);
+    expect(en.text).toContain("60 minutes");
+  });
+
+  it("the security notice after a reset: no token, only the reset page", () => {
+    for (const locale of ["uk", "en"] as const) {
+      const letter = passwordChangedLetter("Олена", passwordResetLink(origin), locale);
+      expect(letter.text).toContain(`${origin}/#/password/reset`);
+      expect(letter.text).not.toContain("#token=");
+      expect(letter.text.match(/https?:\/\//g)).toHaveLength(1);
+    }
+    expect(passwordChangedLetter("Олена", passwordResetLink(origin)).subject).toBe(
+      "Пароль у Willowsum змінено",
+    );
+  });
+
+  it("owner decision 2026-11-12: the confirmation letter says «якщо ви не реєструвалися — нічого не робіть»", () => {
+    const uk = confirmationLetter("Олена", confirmationLink(origin, token));
+    expect(uk.text.toLowerCase()).toContain("якщо ви не реєструвалися — нічого не робіть");
+    expect(confirmationLetter("Olena", confirmationLink(origin, token), "en").text).toContain(
+      "If you did not sign up, do nothing",
+    );
   });
 });

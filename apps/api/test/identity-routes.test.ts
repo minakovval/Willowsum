@@ -24,7 +24,7 @@ async function serve(options: { killed?: string[]; flagOn?: boolean } = {}) {
 }
 
 describe("identity routes are public routes of the module, each behind identity.sign-in", () => {
-  it("all eight are public, owned by identity and name the flag", () => {
+  it("all eleven are public, owned by identity and name the flag", () => {
     expect(routes.map((r) => r.operationId)).toEqual([
       "signUp",
       "resendRegistrationEmail",
@@ -34,6 +34,9 @@ describe("identity routes are public routes of the module, each behind identity.
       "signIn",
       "getSession",
       "signOut",
+      "requestPasswordReset",
+      "checkPasswordReset",
+      "completePasswordReset",
     ]);
     for (const r of routes) {
       expect(r.module).toBe("identity");

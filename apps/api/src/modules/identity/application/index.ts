@@ -11,5 +11,7 @@ export {
   signOut,
   signUp,
 } from "./accounts.ts";
+export { completePasswordReset, passwordResetState, requestPasswordReset } from "./password-reset.ts";
+export type { CompleteResetResult, ResetLinkState } from "./password-reset.ts";
 export type { ConfirmResult, ResendResult, SessionAccount, SignInResult, SignUpResult } from "./accounts.ts";
 export type * from "./ports.ts";

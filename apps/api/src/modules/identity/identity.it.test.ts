@@ -403,7 +403,7 @@ describe("ACC-01 AC7, FR 5: an unconfirmed account cannot sign in", () => {
   });
 });
 
-describe("ACC-01 AC11, FR 8 / NFR-15 FR 1: a taken address gets the same answer; its owner gets a letter with the reset link only", () => {
+describe("ACC-01 AC11, AC25, FR 8 / NFR-15 FR 1: a taken address gets the same answer; a confirmed owner gets a letter with the reset link only", () => {
   it("the answer is byte for byte the same (but for the random token); the account is not changed", async () => {
     const taken = await confirmed("ac11");
     const before = await db.owner.query(
@@ -432,8 +432,9 @@ describe("ACC-01 AC11, FR 8 / NFR-15 FR 1: a taken address gets the same answer;
     expect(after.rows).toEqual(before.rows);
   });
 
-  it("an unconfirmed taken address too: same answer, attempt letter, no new confirmation link", async () => {
+  it("an unconfirmed taken address (owner decision 2026-11-12): same answer, a new confirmation link replaces the old", async () => {
     const { email } = await registered("ac11-unconfirmed");
+    const old = linkToken(lettersTo(email)[0]!);
     t += MINUTE;
     const res = await signUp({ name: "Синтетик", email: email.toUpperCase(), password: PASSWORD });
     expect(res.statusCode).toBe(200);
@@ -441,8 +442,11 @@ describe("ACC-01 AC11, FR 8 / NFR-15 FR 1: a taken address gets the same answer;
     const letters = lettersTo(email);
     expect(letters.map((l) => l.subject)).toEqual([
       "Підтвердьте email для Willowsum",
-      "Спроба реєстрації з вашою адресою у Willowsum",
+      "Підтвердьте email для Willowsum",
     ]);
+    expect((await request("POST", "/v1/email-confirmations", { body: { token: old } })).json()).toEqual({
+      result: "invalid",
+    });
   });
 
   it("attempt letters to one address: at most 5 per hour; the answer stays the same", async () => {

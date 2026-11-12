@@ -8,9 +8,14 @@ const HOUR = 60 * MINUTE;
 export const CONFIRMATION_TTL_MS = 24 * HOUR;
 /** The «Перевірте пошту» screen's token lives as long as the link it stands for. */
 export const REGISTRATION_TTL_MS = 24 * HOUR;
+/** A password reset link is valid 60 min and works once; a newer one revokes the older (ACC-01 FR 10, NFR-15 FR 3). */
+export const PASSWORD_RESET_TTL_MS = 60 * MINUTE;
 /** «Надіслати ще раз»: at most once per 60 s … (ACC-01 FR 15) */
 export const MAIL_COOLDOWN_MS = MINUTE;
-/** … and at most 5 letters per hour per address, for confirmations and for sign-up attempt letters alike. */
+/**
+ * … and at most 5 letters per hour per address, for confirmations and for sign-up attempt letters alike. Password
+ * reset letters keep the same limit per account (ADR-0009, part b): a request over it changes nothing.
+ */
 export const MAIL_PER_HOUR = 5;
 export const MAIL_WINDOW_MS = HOUR;
 /** Sign-ups per client address per hour (ACC-01, NFR-14 FR 7). */
@@ -70,6 +75,14 @@ export function afterFailure(failures: number, now: number): SignInGuard | null 
   return failures >= SIGN_IN_FAILURES_LIMIT
     ? { lockedUntil: now + SIGN_IN_LOCK_MS, captchaRequired: true }
     : null;
+}
+
+/** Can a password reset link still change the password at `now`? Used, revoked (a newer one) or 60 min old → no. */
+export function resetLinkUsable(
+  link: { readonly expiresAt: number; readonly usedAt: number | null; readonly revokedAt: number | null },
+  now: number,
+): boolean {
+  return link.usedAt === null && link.revokedAt === null && now < link.expiresAt;
 }
 
 /** Is a session still valid at `now`? Its absolute end and its idleness both end it. */
