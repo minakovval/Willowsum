@@ -6,11 +6,11 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (0 of 71)
+### Screens without a slice (0 of 69)
 
 None.
 
-### Migrated slices without design (97)
+### Migrated slices without design (91)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -19,9 +19,7 @@ None.
 - ARC-05@PoC
 - ARC-06@PoC
 - ARC-07@PoC
-- ARC-08@PoC
 - ARC-09@PoC
-- ARC-10@PoC
 - ARC-11@PoC
 - CHT-00@PoC
 - CICD-01@PoC
@@ -58,8 +56,6 @@ None.
 - CMP-33@PoC
 - CMP-42@PoC
 - CMP-47@PoC
-- CMP-48@PoC
-- CMP-49@PoC
 - CMP-53@PoC
 - CMP-55@PoC
 - CMP-59@PoC
@@ -84,13 +80,11 @@ None.
 - DS-15@PoC
 - DS-16@PoC
 - DS-17@PoC
-- DS-22@PoC
 - GRID-00@PoC
 - IMP-10@PoC
 - NFR-01@PoC
 - NFR-02@PoC
 - NFR-03@PoC
-- NFR-04@PoC
 - NFR-05@PoC
 - NFR-06@PoC
 - NFR-07@PoC
@@ -110,7 +104,7 @@ None.
 - VAL-04@PoC
 - VAL-05@PoC
 
-### Slices without acceptance criteria (24)
+### Slices without acceptance criteria (22)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -119,9 +113,7 @@ None.
 - ARC-05@PoC
 - ARC-06@PoC
 - ARC-07@PoC
-- ARC-08@PoC
 - ARC-09@PoC
-- ARC-10@PoC
 - ARC-11@PoC
 - CICD-01@PoC
 - CICD-02@PoC
@@ -141,39 +133,68 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 ## PoC v2
 
-### Screens without a slice (0 of 20)
+### Screens without a slice (0 of 25)
 
 None.
 
-### Migrated slices without design (9)
+### Migrated slices without design (32)
 
 - ARC-01@PoC v2
+- ARC-07@PoC v2
+- ARC-08@PoC v2
+- ARC-10@PoC v2
+- CHT-00@PoC v2
+- CICD-02@PoC v2
+- CICD-05@PoC v2
+- CICD-08@PoC v2
 - CMP-24@PoC v2
 - CMP-26@PoC v2
+- CMP-48@PoC v2
+- CMP-49@PoC v2
 - CMP-58@PoC v2
 - CMP-60@PoC v2
 - CMP-69@PoC v2
 - DS-03@PoC v2
+- DS-12@PoC v2
+- DS-15@PoC v2
+- DS-16@PoC v2
+- DS-22@PoC v2
+- IMP-10@PoC v2
 - NFR-01@PoC v2
+- NFR-02@PoC v2
+- NFR-04@PoC v2
+- NFR-07@PoC v2
+- NFR-08@PoC v2
+- NFR-09@PoC v2
+- NFR-10@PoC v2
+- NFR-11@PoC v2
+- NFR-12@PoC v2
+- NFR-15@PoC v2
 - NFR-19@PoC v2
 
-### Slices without acceptance criteria (4)
+### Slices without acceptance criteria (11)
 
 - ARC-01@PoC v2
+- ARC-07@PoC v2
+- ARC-08@PoC v2
+- ARC-10@PoC v2
+- CICD-02@PoC v2
+- CICD-05@PoC v2
+- CICD-08@PoC v2
 - JRN-05@PoC v2
 - JRN-06@PoC v2
+- NFR-09@PoC v2
 - NFR-19@PoC v2
 
 Not migrated in PoC v2: 0 slices without design links (links are unknown until migration).
 
 ## MVP
 
-### Screens without a slice (5 of 140)
+### Screens without a slice (4 of 138)
 
 | Screen | Title | Requirements in the screen map | Waiting for |
 | --- | --- | --- | --- |
 | S-023 | Клавіатурні скорочення | UX-04 | a «Дизайн» link |
-| S-031 | Сторінка не знайдена | SCR-01 | migration |
 | S-033 | Зберегти зміни? (Зберегти / Не зберігати / Скасувати) | SCR-02, UX-09 | migration |
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | a «Дизайн» link |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | a «Дизайн» link |
