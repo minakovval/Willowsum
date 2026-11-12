@@ -11,6 +11,8 @@ export {
   signOut,
   signUp,
 } from "./accounts.ts";
+export { dailyCleanup, DEADLOCK_RETRIES, DELETE_BATCH } from "./maintenance.ts";
+export type { DailyCleanupReport } from "./maintenance.ts";
 export { completePasswordReset, passwordResetState, requestPasswordReset } from "./password-reset.ts";
 export type { CompleteResetResult, ResetLinkState } from "./password-reset.ts";
 export type { ConfirmResult, ResendResult, SessionAccount, SignInResult, SignUpResult } from "./accounts.ts";

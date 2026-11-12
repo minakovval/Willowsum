@@ -118,15 +118,22 @@ export async function signUp(
   const registrationToken = deps.secrets.token();
   const normalizedEmail = normalizeEmail(input.email);
   const changed = await deps.store.transaction(async (tx) => {
-    const id = await tx.insertAccount({
-      email: input.email.trim(),
-      normalizedEmail,
-      displayName: input.name,
-      passwordHash,
-      now,
-    });
+    const insert = () =>
+      tx.insertAccount({
+        email: input.email.trim(),
+        normalizedEmail,
+        displayName: input.name,
+        passwordHash,
+        now,
+      });
+    let id = await insert();
     let account =
       id === null ? await tx.findAccountByEmail(normalizedEmail, "update") : await tx.findAccount(id);
+    if (!account && id === null) {
+      // The daily task deleted the unconfirmed account with this address in between (ACC-01 FR 6): a new one.
+      id = await insert();
+      account = id === null ? null : await tx.findAccount(id);
+    }
     if (!account) throw new Error("identity: the account of a sign-up is missing");
     let kind: "new" | "existing" = id === null ? "existing" : "new";
     let replaced = false;
