@@ -133,6 +133,14 @@ export interface IdentityTx {
   endSessions(accountId: string, now: number): Promise<number>;
 }
 
+/**
+ * Creates the first space of an account on its first sign-in (ACC-01 FR 7): the household module's
+ * `ensureFirstSpace`, wired by main.ts. Idempotent, also under concurrent sign-ins.
+ */
+export interface FirstSpace {
+  ensureFirstSpace(owner: { readonly accountId: string; readonly displayName: string }): Promise<unknown>;
+}
+
 export interface IdentityStore {
   transaction<T>(work: (tx: IdentityTx) => Promise<T>): Promise<T>;
 }
@@ -176,4 +184,6 @@ export interface IdentityDeps {
   readonly signUpLimiter: FixedWindowLimiter;
   /** The web app's origin for links in letters, e.g. `https://app.example.org`. */
   readonly webOrigin: string;
+  /** The first space on the first sign-in (household module). */
+  readonly spaces: FirstSpace;
 }

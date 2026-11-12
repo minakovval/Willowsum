@@ -8,7 +8,7 @@ import { syntheticMailSender, type MailMessage } from "../src/platform/adapters/
 import { buildServer } from "../src/platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { fakeFlags } from "./http.ts";
-import { realModules, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { householdSpaces, realModules, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #90 (ACC-01@PoC part a): enumeration, lockout races, CAPTCHA failing closed, single-use
@@ -114,6 +114,7 @@ function build(deployed: boolean): Target {
     captcha,
     audit: createAuditLog(db.databases.for("audit")),
     webOrigin: WEB,
+    spaces: householdSpaces(db),
     now: () => t,
     hasher,
     deliver: (task) => {

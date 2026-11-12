@@ -9,6 +9,7 @@ import pg from "pg";
 import { mountApi } from "./api.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { createHouseholdSpaces } from "./modules/household/index.ts";
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
@@ -95,6 +96,10 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
   onReloadHealth: flagReloadHealthLog,
 });
 
+const audit = createAuditLog(databases.for("audit"));
+// Spaces (ACC-01 part c): the first space on the first sign-in, and the space of a session.
+const spaces = createHouseholdSpaces(databases.for("household"), audit);
+
 // Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production
 // the configuration allows only the live adapters (ACC-01 FR 12: no server without CAPTCHA there).
 const identity =
@@ -105,8 +110,9 @@ const identity =
           from: config.identity.mail!.from,
         })),
         captcha: captchaVerifier(config.providerMode, () => ({ secret: config.identity.captchaSecret! })),
-        audit: createAuditLog(databases.for("audit")),
+        audit,
         webOrigin: config.identity.webOrigin,
+        spaces,
       })
     : undefined;
 
@@ -129,8 +135,7 @@ lifecycle.onStop(() => telemetry.shutdown());
 // NFR-14 FR 9: rate limits are off only by the explicit load-test setting (never in production, config.ts).
 if (config.http.rateLimits !== "on") logEvent("rate_limits.disabled", "warn", { "ws.role": config.role });
 const server = buildServer({
-  // Sessions of identity (ACC-01) carry no space yet: the space and its role come with ACC-01 part c (first
-  // sign-in creates «Родина <Прізвище>»); until then every protected route answers 401.
+  // A protected route's caller is the session's account in its space (ACC-01 part c, ADR-0010).
   ...(config.role === "api"
     ? {
         api: (app) =>
@@ -141,7 +146,7 @@ const server = buildServer({
             // Counters in this process: the configuration allows one API instance with them (NFR-14 FR 10).
             rateLimits: config.http.rateLimits === "on" ? createApiRateLimits() : "off",
             allowedOrigins: config.http.allowedOrigins,
-            ...(identity ? { identity } : {}),
+            ...(identity ? { identity, spaces } : {}),
             deployed: config.deployed,
           }),
       }

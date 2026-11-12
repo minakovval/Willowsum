@@ -30,6 +30,9 @@ let databases: ModuleDatabases;
 let tables: { table: string; module: string }[] = [];
 /** One more row of household B per table, never loaded: used for a forbidden insert. */
 const extraB = new Map<string, SyntheticRow>();
+/** Rows loaded per household and table: PER_HOUSEHOLD, or fewer where the table allows fewer. */
+const loaded = new Map<string, number>();
+const rowsOf = (table: string): number => loaded.get(table) ?? PER_HOUSEHOLD;
 
 const moduleOfSchema = new Map(realModules.map((m) => [schemaName(m), m]));
 
@@ -69,7 +72,11 @@ beforeAll(async () => {
     throw new Error(
       `Customer-data tables need a synthetic generator (<module>/synthetic.ts): ${missing.join(", ")}`,
     );
-  const counts = Object.fromEntries(tables.map((t) => [t.table, PER_HOUSEHOLD + 1]));
+  // A table that holds at most N rows per household (a space's own record) gets N; one more row is generated
+  // for household B and never loaded (the forbidden insert below).
+  for (const g of generators)
+    if (g.maxPerHousehold !== undefined) loaded.set(g.table, Math.min(PER_HOUSEHOLD, g.maxPerHousehold));
+  const counts = Object.fromEntries(tables.map((t) => [t.table, rowsOf(t.table) + 1]));
   const used = generators.filter((g) => g.table in counts);
   const seen = new Map<string, number>();
   // The superuser owner bypasses row policies while loading.
@@ -77,7 +84,7 @@ beforeAll(async () => {
     const key = `${table}/${household.index}`;
     const n = (seen.get(key) ?? 0) + 1;
     seen.set(key, n);
-    if (n <= PER_HOUSEHOLD) await insert(owner, table, row);
+    if (n <= rowsOf(table)) await insert(owner, table, row);
     else if (household.id === householdB.id) extraB.set(table, row);
   }
 });
@@ -91,6 +98,7 @@ afterAll(async () => {
 describe("ARC-03 criterion: another household's data — 0 for every customer-data table, even without a code filter", () => {
   it("finds the customer-data tables of every module (the list grows with each module)", () => {
     expect(tables.map((t) => t.table)).toContain("audit.entries");
+    expect(tables.map((t) => t.table)).toContain("household.households");
   });
 
   it("a query without any household filter returns the bound household's rows only", async () => {
@@ -103,7 +111,7 @@ describe("ARC-03 criterion: another household's data — 0 for every customer-da
         );
         return [all.rows[0]!.n, other.rows[0]!.n];
       });
-      expect(counts, table).toEqual([PER_HOUSEHOLD, 0]);
+      expect(counts, table).toEqual([rowsOf(table), 0]);
     }
   });
 
@@ -157,7 +165,7 @@ describe("ARC-03 criterion: another household's data — 0 for every customer-da
         `SELECT count(*)::int AS n FROM ${table} WHERE ${HOUSEHOLD_COLUMN} = $1`,
         [householdB.id],
       );
-      expect(left.rows[0]!.n, table).toBe(PER_HOUSEHOLD);
+      expect(left.rows[0]!.n, table).toBe(rowsOf(table));
     }
   });
 });

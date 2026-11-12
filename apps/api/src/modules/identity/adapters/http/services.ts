@@ -1,10 +1,17 @@
 import type { CaptchaVerifier } from "../../../../platform/adapters/captcha/index.ts";
 import type { MailMessage, MailSender } from "../../../../platform/adapters/mail/index.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import type { PublicContext } from "../../../../platform/http/route.ts";
+import type { HouseholdFreeDatabase, PublicContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
-import type { IdentityDeps, PasswordHasher, Secrets } from "../../application/index.ts";
+import {
+  sessionAccount,
+  type FirstSpace,
+  type IdentityDeps,
+  type PasswordHasher,
+  type Secrets,
+  type SessionAccount,
+} from "../../application/index.ts";
 import { SIGN_UP_WINDOW_MS, SIGN_UPS_PER_ADDRESS_PER_HOUR } from "../../domain/index.ts";
 import { argon2Hasher, nodeSecrets } from "../crypto.ts";
 import { databaseIdentityStore, databaseSlidingLimiter } from "../db/store.ts";
@@ -21,6 +28,8 @@ export interface IdentityServices {
   readonly captcha: CaptchaVerifier;
   readonly audit: Pick<AuditLog, "recordPlatform">;
   readonly webOrigin: string;
+  /** The household module's first space (ACC-01 FR 7): created on the first sign-in. */
+  readonly spaces: FirstSpace;
   readonly now: () => number;
   readonly hasher: PasswordHasher;
   readonly secrets: Secrets;
@@ -36,6 +45,7 @@ export interface IdentityServicesOptions {
   readonly captcha: CaptchaVerifier;
   readonly audit: Pick<AuditLog, "recordPlatform">;
   readonly webOrigin: string;
+  readonly spaces: FirstSpace;
   readonly now?: () => number;
   readonly hasher?: PasswordHasher;
   readonly deliver?: (task: () => Promise<void>) => void;
@@ -51,6 +61,7 @@ export function createIdentityServices(options: IdentityServicesOptions): Identi
     captcha: options.captcha,
     audit: options.audit,
     webOrigin: options.webOrigin,
+    spaces: options.spaces,
     now: options.now ?? Date.now,
     hasher: options.hasher ?? argon2Hasher(),
     secrets: nodeSecrets,
@@ -72,7 +83,22 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
   const services = ctx.services as IdentityServices | undefined;
   // Wired by src/api.ts; without it (or the module database) nothing of identity runs.
   if (!services || services[BRAND] !== true || !ctx.db) throw new ApiProblem("INTERNAL");
-  const db = ctx.db;
+  return depsFor(services, ctx.db);
+}
+
+/**
+ * The account of a session token for the protected routes of every module (src/api.ts builds the caller from it
+ * and the account's space): a live session of a confirmed account, or null. Its use moves its idle deadline.
+ */
+export function authenticateSession(
+  services: IdentityServices,
+  db: HouseholdFreeDatabase,
+  token: string,
+): Promise<SessionAccount | null> {
+  return sessionAccount(depsFor(services, db), token);
+}
+
+function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): IdentityDeps {
   return {
     store: databaseIdentityStore(db),
     now: services.now,
@@ -80,6 +106,7 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
     secrets: services.secrets,
     captcha: services.captcha,
     webOrigin: services.webOrigin,
+    spaces: services.spaces,
     signUpLimiter: databaseSlidingLimiter(db, {
       limit: SIGN_UPS_PER_ADDRESS_PER_HOUR,
       windowMs: SIGN_UP_WINDOW_MS,

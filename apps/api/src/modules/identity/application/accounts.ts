@@ -288,7 +288,15 @@ export async function signIn(
     captchaPassed = true;
   }
   const decoy = await decoyHash(deps);
-  return deps.store.transaction(async (tx): Promise<SignInResult> => {
+  type Signed =
+    | Exclude<SignInResult, { kind: "signed-in" }>
+    | {
+        kind: "signed-in";
+        sessionToken: string;
+        maxAgeS: number;
+        account: { accountId: string; displayName: string };
+      };
+  const result = await deps.store.transaction(async (tx): Promise<Signed> => {
     // Under the guard's row lock: parallel attempts for one email are counted one after another.
     const guard = await tx.lockGuard(key);
     const now = deps.now();
@@ -325,8 +333,23 @@ export async function signIn(
     }
     const sessionToken = deps.secrets.token();
     await tx.insertSession(account.id, deps.secrets.digest(sessionToken), now, now + SESSION_ABSOLUTE_MS);
-    return { kind: "signed-in", sessionToken, maxAgeS: SESSION_ABSOLUTE_MS / 1000 };
+    return {
+      kind: "signed-in",
+      sessionToken,
+      maxAgeS: SESSION_ABSOLUTE_MS / 1000,
+      account: { accountId: account.id, displayName: account.displayName },
+    };
   });
+  if (result.kind !== "signed-in") return result;
+  // The first sign-in creates the first space (ACC-01 FR 7); every later one finds it. A session is handed out only
+  // with a space: when the space cannot be made, the new session ends and the sign-in fails.
+  try {
+    await deps.spaces.ensureFirstSpace(result.account);
+  } catch (error) {
+    await signOut(deps, result.sessionToken);
+    throw error;
+  }
+  return { kind: "signed-in", sessionToken: result.sessionToken, maxAgeS: result.maxAgeS };
 }
 
 /** The account of a session token, if the session is alive; its use moves its idle deadline. */
