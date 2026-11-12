@@ -66,7 +66,7 @@ Scope: UI components (one requirement per component). Source: tab 11 of the Will
 | [CMP-39](CMP-39.md) | AssetGalleryWidget — Віджет галереї активів | MVP; v1 (стан недоступності за планом) | M |
 | [CMP-40](CMP-40.md) | SummaryWidget — Підсумковий віджет | MVP; v1 (стан недоступності за планом) | M |
 | [CMP-41](CMP-41.md) | AssetTypeWidget — Віджет типу активу | MVP; v1 (стан недоступності за планом) | M |
-| [CMP-42](CMP-42.md) | LineChart — Лінійний графік | PoC (десктоп від 1280 px, світла тема); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
+| [CMP-42](CMP-42.md) | LineChart — Лінійний графік | PoC (десктоп від 1280 px, світла тема); PoC v2 (текстове резюме і таблиця тих самих даних для допоміжних технологій); MVP (вузькі й середні ширини, режим «Приховати суми») | M |
 | [CMP-43](CMP-43.md) | SmallMultiples — Малі множини | v1 | S |
 | [CMP-44](CMP-44.md) | Sparkline — Спарклайн | MVP | M |
 | [CMP-45](CMP-45.md) | Treemap — Мозаїка часток | MVP | M |
