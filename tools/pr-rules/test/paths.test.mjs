@@ -147,6 +147,9 @@ test('review #87 blocking 2: every gate the required CI jobs run, and the supply
     'tsconfig.base.json',
     'apps/web/tsconfig.json',
     'packages/api-contract/scripts/generate.ts',
+    'packages/ui/scripts/build-tokens.mjs',
+    'apps/web/vite.config.ts',
+    'packages/ui/vite.config.mjs',
     '.prettierrc.json',
     '.prettierignore',
   ]) {

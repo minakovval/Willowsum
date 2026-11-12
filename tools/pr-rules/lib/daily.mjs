@@ -26,7 +26,9 @@ const DAY = 24 * 60 * 60 * 1000;
 // ends it: «Verdict: Ready once B1 is fixed» is no verdict. «Not ready» and «Changes requested» both mean
 // not ready.
 const MARKUP = String.raw`^\s*(?:#{1,6}\s*)?[*_]*\s*`;
-const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(Ready|Not ready|Changes requested)[»"”]?[.!]?(?:[*_]*[.!]?[ \t]*$|[*_]+[.!:;,]?[ \t])`;
+// Only «Ready» has the strict end: a negative value counts with any text after it («Not ready — see B1»), so
+// the check never fails open on a negative verdict. A trailing NBSP or «…» counts as space or punctuation.
+const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(?:(Not ready|Changes requested)\b|(Ready)[»"”]?[.!…]?(?:[*_]*[.!…]?[ \t\u00a0]*$|[*_]+[.!:;,…]?[ \t\u00a0]))`;
 const VERDICT = new RegExp(`${MARKUP}Verdict${VALUE}`, 'gm');
 const SECURITY_VERDICT = new RegExp(`${MARKUP}Security verdict${VALUE}`, 'gm');
 
@@ -75,7 +77,7 @@ export function prose(text) {
 /** The verdict of a review body (`kind`: 'review' or 'security'), or null; the last verdict line wins. */
 export function verdictOf(body, kind) {
   let last = null;
-  for (const m of prose(body).matchAll(kind === 'security' ? SECURITY_VERDICT : VERDICT)) last = m[1];
+  for (const m of prose(body).matchAll(kind === 'security' ? SECURITY_VERDICT : VERDICT)) last = m[1] ?? m[2];
   return last;
 }
 
@@ -86,8 +88,11 @@ export const APPROVAL_LINE = /^\s*(?:схвалюю|approved)\s*[.!]?\s*$/imu;
  * «Рішення власника (YYYY-MM-DD): схвалено …». The second accepted form of the approval.
  */
 export const BODY_APPROVAL_LINE = /^\s*(?:\*\*)?Рішення власника\s*\(\d{4}-\d{2}-\d{2}\)\s*:\s*(?:\*\*)?\s*схвалено(?!\p{L})(.*)$/imu;
-/** A negation anywhere after «схвалено» («схвалено не буде», «… not approved») makes the line no approval. */
-const NEGATION = /(?:^|[^\p{L}])(?:не|ні|not|no)(?!\p{L})/iu;
+/**
+ * A negation or refusal anywhere after «схвалено» («схвалено не буде», «відхилено», «never», «… not approved»)
+ * makes the line no approval.
+ */
+const NEGATION = /(?:^|[^\p{L}])(?:не|ні|відхилено|not|no|never)(?!\p{L})/iu;
 
 /** Does the body hold the owner's chat decision as an approval line (not quoted, not code, not negated)? */
 export function bodyApproval(body) {
@@ -107,10 +112,11 @@ export const OWNER_DECISION_LINE = /^\s*(?:[-*+]\s+)?(?:\*\*)?Рішення в�
 export function recordsOwnerDecision(body) {
   const text = prose(body);
   if (OWNER_DECISION_LINE.test(text)) return true;
-  const m = /^#{1,6}[ \t]*Owner decision[ \t]*#*[ \t]*$/im.exec(text);
+  const m = /^(#{1,6})[ \t]*Owner decision[ \t]*#*[ \t]*$/im.exec(text);
   if (!m) return false;
   const rest = text.slice(m.index + m[0].length);
-  const next = /^#{1,6}[ \t]/m.exec(rest);
+  // A subheading (deeper level) stays inside the section; a heading of the same or a higher level ends it.
+  const next = new RegExp(`^#{1,${m[1].length}}[ \\t]`, 'm').exec(rest);
   return (next ? rest.slice(0, next.index) : rest).trim() !== '';
 }
 /** The owner's «stop»: a line that is exactly «stop» or «стоп». */

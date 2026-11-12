@@ -51,9 +51,11 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
   implements, and the change matches that decision; a PR that acts on the cloud or production (applies
   infrastructure, deploys or releases to production, or changes the workflows that do this or their trust
-  settings: OIDC, production secrets store; or production DNS) has an approval comment from the owner's own
-  GitHub account on that PR — otherwise blocking. Infrastructure code that is only validated (no apply),
-  CI check jobs and the local environment need no such comment. The decision is also in the decision log (`docs/decisions/`).
+  settings: OIDC, production secrets store; or production DNS) has the owner's approval on that PR — a comment
+  from the owner's own GitHub account with a line that is exactly «Схвалюю» or «Approved», or the owner's
+  decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …` (owner,
+  2026-11-12) — otherwise blocking. Infrastructure code that is only validated (no apply), CI check jobs and
+  the local environment need no approval. The decision is also in the decision log (`docs/decisions/`).
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or

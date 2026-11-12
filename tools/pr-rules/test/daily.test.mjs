@@ -330,3 +330,40 @@ test('review #87 r2 item 4: the unfilled template does not record an owner decis
   const files = [{ filename: 'AGENTS.md', status: 'modified', patch: '+x' }];
   assert.equal(only(input({ pulls: [pr({ files, body: template })] })).severity, 'stale', 'merged with the unfilled template');
 });
+
+test('review #87 r3 blocking 1: a negative verdict with text after it is still a negative verdict', () => {
+  assert.equal(verdictOf('Verdict: Not ready — see B1', 'review'), 'Not ready');
+  assert.equal(verdictOf('Verdict: Changes requested (B1, B2)', 'review'), 'Changes requested');
+  assert.equal(verdictOf('Verdict: Changes requested: B1', 'review'), 'Changes requested');
+  assert.equal(verdictOf('Verdict: Not ready, see blocking 1', 'review'), 'Not ready');
+  assert.equal(verdictOf('Security verdict: Changes requested (B1)', 'security'), 'Changes requested');
+  assert.equal(verdictOf('Security verdict: Changes requested — B1', 'security'), 'Changes requested');
+  assert.equal(verdictOf('Verdict: Ready once B1 is fixed', 'review'), null, '«Ready» keeps the strict end');
+  // Ready, then «Not ready — see B1» on the same commit, then merge: a violation.
+  const reviews = [review(1, 'Verdict: Ready', HEAD, '2026-11-12T09:00:00Z'), review(2, 'Verdict: Not ready — see B1')];
+  const f = only(input({ pulls: [pr({ reviews })] }));
+  assert.equal(f.severity, 'violation');
+  assert.match(f.message, /останній вердикт був «Not ready»/);
+  const files = [{ filename: 'infra/start/x.tf', status: 'modified', patch: '+x' }];
+  const sec = [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready', HEAD, '2026-11-12T09:00:00Z'), review(3, 'Security verdict: Changes requested (B1)')];
+  assert.match(only(input({ pulls: [pr({ files, reviews: sec })] })).message, /«Changes requested»/);
+});
+
+test('review #87 r3: a trailing NBSP or «…» after «Ready» counts as space or punctuation', () => {
+  assert.equal(verdictOf('Verdict: Ready\u00a0', 'review'), 'Ready');
+  assert.equal(verdictOf('Verdict: Ready…', 'review'), 'Ready');
+  assert.equal(verdictOf('**Verdict: Ready**…\u00a0rest', 'review'), 'Ready');
+  assert.equal(verdictOf('Verdict: Ready\u00a0once fixed', 'review'), null);
+});
+
+test('review #87 r3: refusals «відхилено» and «never» make the body line no approval', () => {
+  assert.equal(bodyApproval('Рішення власника (2026-11-12): схвалено? відхилено'), false);
+  assert.equal(bodyApproval('Рішення власника (2026-11-12): схвалено — never for production'), false);
+  assert.equal(bodyApproval('Рішення власника (2026-11-12): схвалено розгортання'), true);
+});
+
+test('review #87 r3: a subheading under «## Owner decision» stays inside the section', () => {
+  assert.equal(recordsOwnerDecision('## Owner decision\n\n### Details\n\nOwner, 2026-11-12: «так».\n\n## Impact\nx'), true);
+  assert.equal(recordsOwnerDecision('## Owner decision\n\n## Impact\n\ntext'), false, 'a same-level heading ends it');
+  assert.equal(recordsOwnerDecision('### Owner decision\n\n## Impact\n\ntext'), false, 'a higher-level heading ends it');
+});

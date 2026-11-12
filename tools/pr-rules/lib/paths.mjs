@@ -104,7 +104,10 @@ export const SENSITIVE_PATHS = {
     '**/package.json', // each workspace package defines the gate commands its CI job runs
     '**/tsconfig*.json', // the strictness of the typecheck gate
     'packages/api-contract/scripts/**', // `contract:check`
-    '.prettierrc*',
+    'packages/*/scripts/**', // package build and check scripts (e.g. the `pnpm build` gate)
+    '**/vite.config.*', // Vitest falls back to it when a package has no vitest config
+    '**/.prettierrc*', // Prettier takes the nearest config of each file
+    '**/prettier.config.*',
     '.prettierignore',
     'pnpm-workspace.yaml',
     'pnpm-lock.yaml',
@@ -121,7 +124,7 @@ export const SENSITIVE_PATHS = {
     'apps/api/scripts/**',
     '!apps/api/scripts/**/*.test.ts', // a test of a gate script is not itself a gate
     'apps/api/provider-sdks.json',
-    'eslint.config.js',
+    '**/eslint.config.*', // ESLint 10 takes the nearest config of each linted file: a nested one replaces the root rules
     '**/vitest*.config.ts',
     // Claude Code settings: hooks run commands in every agent session.
     '.claude/settings*.json',
