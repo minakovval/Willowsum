@@ -1,10 +1,13 @@
-import { render } from "@testing-library/react";
+import { configure, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { App } from "../App.tsx";
 import { AuthApiProvider, createAuthClient } from "./api.ts";
 import { resetRegistration } from "./registration.ts";
 
 /** Test helpers of the ACC-01 screens: a fake API on the app's origin (no network, ARC-05) and the app at a route. */
+// Answers come through promises: under a loaded CI runner the default 1 s of waitFor/findBy is too tight.
+configure({ asyncUtilTimeout: 5000 });
+
 export interface Call {
   readonly method: string;
   readonly path: string;

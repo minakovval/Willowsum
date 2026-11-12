@@ -49,7 +49,7 @@ origin (CSP `connect-src 'self'`); `pnpm dev` and `preview` pass `/v1` to `WS_AP
 
 | Setting | What |
 | --- | --- |
-| `VITE_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key (public; build time). Without it — local, CI, tests — a synthetic widget with no network, whose fixed token only the API's synthetic verifier accepts. Production builds must set it (the API refuses the synthetic verifier there) |
+| `VITE_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key (public; build time). Without it — local, CI, tests — a synthetic widget with no network, whose fixed token only the API's synthetic verifier accepts. Required for the deploy build: `pnpm --filter @willowsum/web build:production` (mode `production`) fails without a well-formed key; `pnpm build` (mode `ci`, local and CI) does not need it |
 
 `fields.tsx` (Field and password field with «Показати пароль» and the Caps Lock hint, CMP-02), `AuthLayout.tsx` (narrow
 card, notice with «Помилка» and the code — CMP-19/CMP-24, inactive button with the reason) and `captcha/` are minimal
@@ -57,7 +57,7 @@ versions inside the app until the design-system components exist in `packages/ui
 
 ## Scripts
 
-`pnpm dev` (from the repo root) · `pnpm --filter @willowsum/web build` → `apps/web/dist/` ·
+`pnpm dev` (from the repo root) · `pnpm --filter @willowsum/web build` → `apps/web/dist/` (mode `ci`, synthetic CAPTCHA without a key) · `build:production` (the deploy build; needs `VITE_CAPTCHA_SITE_KEY`) ·
 `pnpm --filter @willowsum/web preview` (serves `dist/` with the production headers and CSP) ·
 `pnpm --filter @willowsum/web test`.
 
