@@ -6,7 +6,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (0 of 62)
+### Screens without a slice (0 of 60)
 
 None.
 
@@ -132,7 +132,7 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 ## PoC v2
 
-### Screens without a slice (0 of 32)
+### Screens without a slice (0 of 34)
 
 None.
 
