@@ -35,6 +35,7 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
      production actions: the owner's approval (AGENTS.md step 7);
    - the owner has not commented «stop» or asked a question on the PR.
    Do not ask the owner to confirm the merge.
+   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then re-review the merge.
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases.
