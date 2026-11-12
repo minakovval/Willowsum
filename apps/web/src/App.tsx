@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { I18nProvider } from "@willowsum/i18n";
 import { HideAmountsProvider, MAIN_ID, ThemeProvider } from "@willowsum/ui";
 import { CheckEmailPage } from "./auth/CheckEmailPage.tsx";
+import { SignInPage } from "./auth/SignInPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
@@ -74,6 +75,8 @@ function authPage(screen: AuthScreen) {
       return <CheckEmailPage />;
     case "verify":
       return <VerifyPage />;
+    case "signIn":
+      return <SignInPage />;
   }
 }
 
