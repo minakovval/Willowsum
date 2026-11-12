@@ -11,6 +11,14 @@ export {
   post,
   reverse,
 } from "./journal.ts";
+export { alertIntegrityFindings, integrityAlertMessage, integrityPeriodKey } from "./integrity-alert.ts";
+export type {
+  IntegrityAlert,
+  IntegrityAlertDeps,
+  IntegrityAlertEvent,
+  IntegrityAlertStore,
+  IntegrityAlertSummary,
+} from "./integrity-alert.ts";
 export type {
   Entry,
   EntrySource,

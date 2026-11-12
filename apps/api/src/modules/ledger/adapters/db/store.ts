@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import type {
   Entry,
+  IntegrityAlertStore,
   IntegrityFindings,
   LedgerAccount,
   LedgerStore,
@@ -205,4 +206,36 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
 
 export function databaseLedgerStore(db: ModuleDatabase): LedgerStore {
   return { inHousehold: (householdId, work) => db.inHousehold(householdId, (q) => work(tx(q))) };
+}
+
+/**
+ * The claims of discrepancy periods (migrations/0002_integrity_alerts.sql), bound to no space. Append-only: every
+ * change is the next row; the latest row is the state. Two writers of the same next row: the primary key lets one in.
+ */
+export function databaseIntegrityAlertStore(db: ModuleDatabase): IntegrityAlertStore {
+  /** Appends the next state unless the latest one already is `period`; true when this call appended it. */
+  const advance = (period: string | null, at: number, when: (latest: string | null) => boolean) =>
+    db.transaction(async (q) => {
+      const { rows } = await q.query<{ seq: number; period: string | null }>(
+        `SELECT seq, period FROM integrity_alerts ORDER BY seq DESC LIMIT 1`,
+      );
+      const latest = rows[0];
+      if (!when(latest?.period ?? null)) return false;
+      const inserted = await q.query(
+        `INSERT INTO integrity_alerts (seq, period, recorded_at) VALUES ($1, $2, $3)
+         ON CONFLICT (seq) DO NOTHING RETURNING seq`,
+        [(latest?.seq ?? 0) + 1, period, new Date(at)],
+      );
+      return inserted.rows.length === 1;
+    });
+  return {
+    // Changed findings end the previous period: any other latest state lets the claim in.
+    claim: (period, at) => advance(period, at, (latest) => latest !== period),
+    async release(period, at) {
+      await advance(null, at, (latest) => latest === period);
+    },
+    async endPeriod(at) {
+      await advance(null, at, (latest) => latest !== null);
+    },
+  };
 }

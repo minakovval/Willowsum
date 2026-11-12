@@ -179,8 +179,25 @@ lifecycle.onStop(() => server.close());
 // The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
 if (config.role === "scheduler") {
   const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
-  // FIN-04 FR 9: the ledger's daily integrity check over every space (a failure is an «error» log event).
-  const ledgerCheck = createLedgerIntegrityCheck(databases.for("ledger"), () => spaces.spaceIds());
+  // The owner's alert letters (VAL-05 FR 4, FIN-04 FR 10; owner decision 2026-11-12: PoC alerts are app emails).
+  const alertMail = config.alerts.email
+    ? {
+        to: config.alerts.email,
+        mail: mailSender(config.providerMode, () => ({
+          apiKey: config.identity.mail!.apiKey,
+          from: config.identity.mail!.from,
+        })),
+      }
+    : undefined;
+  // FIN-04 FR 9, FR 10: the ledger's daily integrity check over every space (a failure is an «error» log event) and
+  // one letter to the product owner per discrepancy period; without a recipient, an «error» event instead.
+  const ledgerCheck = createLedgerIntegrityCheck(
+    databases.for("ledger"),
+    () => spaces.spaceIds(),
+    undefined,
+    undefined,
+    alertMail ? { alertMail } : {},
+  );
   const daily = scheduleDaily([
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -196,17 +213,7 @@ if (config.role === "scheduler") {
     db: databases.for("fx-rates"),
     mode: config.providerMode,
     // VAL-05 FR 4 (owner decision 2026-11-12): one letter to the product owner per stale period, via the mail adapter.
-    ...(config.alerts.email
-      ? {
-          alertMail: {
-            to: config.alerts.email,
-            mail: mailSender(config.providerMode, () => ({
-              apiKey: config.identity.mail!.apiKey,
-              from: config.identity.mail!.from,
-            })),
-          },
-        }
-      : {}),
+    ...(alertMail ? { alertMail } : {}),
     report: (event) => {
       const attributes = { "ws.module": "fx-rates", "ws.job.name": "fx-rates.refresh" };
       // FR 4, AC2: 24 h without a successful update is an error-level event in the server log.

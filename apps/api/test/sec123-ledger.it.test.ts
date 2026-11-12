@@ -125,6 +125,18 @@ describe("sec123 — correction (FIN-04 FR 5, AC3): atomic, never in place, the 
     expect(await entryCount(s.householdId)).toBe(1);
   });
 
+  it("a correction whose replacement key belongs to a third entry is refused; nothing is reversed", async () => {
+    const s = await space();
+    const first = await ledger.post(s.householdId, spend(s, "-50"));
+    const otherKey = randomUUID();
+    await ledger.post(s.householdId, spend(s, "-20", otherKey));
+    expect(await code(ledger.correct(s.householdId, first.id, spend(s, "-70", otherKey)))).toBe(
+      "IDEMPOTENCY_KEY_REUSED",
+    );
+    expect(await balance(s)).toBe("-70");
+    expect(await entryCount(s.householdId)).toBe(2);
+  });
+
   // BLOCKING 2 — journal.ts reverseIn(): a repeated key returns the entry it names whatever it is. reverse(X, k) with
   // k already used by another entry (a post, or the reversal of Y) reports success and returns that entry; X stays
   // unreversed, so a deletion silently does nothing to the balance.

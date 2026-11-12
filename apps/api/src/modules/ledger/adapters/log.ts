@@ -1,5 +1,5 @@
 import { logEvent } from "../../../platform/telemetry/signals.ts";
-import type { IntegrityCheck } from "../application/index.ts";
+import type { IntegrityAlertEvent, IntegrityCheck } from "../application/index.ts";
 
 /**
  * A failed integrity check in the server log (FIN-04 FR 10, AC7): an event of level «error» with the check and the
@@ -24,4 +24,16 @@ export function logIntegrityCheckFailed(spaces: number): void {
     "ws.job.name": "ledger.integrity-check",
     "ws.ledger.spaces": spaces,
   });
+}
+
+/**
+ * The alert letter of a discrepancy period (owner decision 2026-11-12): sent («info»), not sent («error», the error
+ * class only; the next daily run tries again) or not possible without a recipient («error»). Never the address.
+ */
+export function logIntegrityAlertEvent(event: IntegrityAlertEvent): void {
+  const attributes = { "ws.module": "ledger", "ws.job.name": "ledger.integrity-check" };
+  if (event.kind === "alert-sent") logEvent("ledger.integrity_alert_sent", "info", attributes);
+  else if (event.kind === "alert-failed")
+    logEvent("ledger.integrity_alert_failed", "error", { ...attributes, "error.type": event.errorClass });
+  else logEvent("alerts.recipient_missing", "error", attributes);
 }
