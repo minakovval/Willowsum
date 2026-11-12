@@ -231,6 +231,8 @@ export interface ServerLogLine {
   readonly span_id?: string;
   readonly resource: Attributes;
   readonly attributes: Attributes;
+  /** Lines dropped just before this one because standard output was not draining. */
+  readonly dropped_lines?: number;
 }
 
 export function serverLogLine(record: ReadableLogRecord): ServerLogLine {
@@ -246,24 +248,62 @@ export function serverLogLine(record: ReadableLogRecord): ServerLogLine {
   };
 }
 
+/** A writable stream the server log lines go to (process.stdout by default). */
+export interface ServerLogStream {
+  write(chunk: string): boolean;
+  readonly writableLength: number;
+}
+
+/** At most this many bytes of log lines wait in the process for a slow standard output; newer lines are dropped. */
+export const SERVER_LOG_MAX_PENDING_BYTES = 1024 * 1024;
+/** How long forceFlush and shutdown wait for standard output to drain before giving up. */
+export const SERVER_LOG_FLUSH_TIMEOUT_MS = 2_000;
+
 /**
  * Structured logs on the server without export (mode `off`; PoC by the owner's decision of 2026-11-12, NFR-10
  * FR 1): each log record is written to standard output as one JSON line. Like every exporter it is wrapped by
  * the redaction filter (telemetry.ts), so a line holds exactly what OTLP would have sent.
+ *
+ * Standard output to a pipe or socket is asynchronous in Node: a reader that stalls makes the stream buffer in
+ * the process. Lines beyond SERVER_LOG_MAX_PENDING_BYTES are dropped (and counted on the next line written), so
+ * memory stays bounded; forceFlush and shutdown wait (bounded) until the stream has drained, so the lines are
+ * not lost when the process exits after its stop hooks.
  */
 export class JsonLinesLogExporter implements LogRecordExporter {
-  private readonly write: (line: string) => void;
+  private readonly out: ((line: string) => void) | ServerLogStream;
+  private dropped = 0;
 
-  constructor(write: (line: string) => void = (line) => void process.stdout.write(line)) {
-    this.write = write;
+  constructor(out: ((line: string) => void) | ServerLogStream = process.stdout) {
+    this.out = out;
   }
 
   export(records: ReadableLogRecord[], done: (result: ExportResult) => void): void {
-    for (const record of records) this.write(`${JSON.stringify(serverLogLine(record))}\n`);
+    for (const record of records) {
+      const line = serverLogLine(record);
+      const text = `${JSON.stringify(this.dropped > 0 ? { ...line, dropped_lines: this.dropped } : line)}\n`;
+      if (typeof this.out === "function") {
+        this.out(text);
+        continue;
+      }
+      if (this.out.writableLength + Buffer.byteLength(text) > SERVER_LOG_MAX_PENDING_BYTES) {
+        this.dropped += 1;
+        continue;
+      }
+      this.dropped = 0;
+      this.out.write(text);
+    }
     done(ok);
   }
 
-  async shutdown(): Promise<void> {}
+  async shutdown(): Promise<void> {
+    await this.forceFlush();
+  }
 
-  async forceFlush(): Promise<void> {}
+  async forceFlush(): Promise<void> {
+    const out = this.out;
+    if (typeof out === "function") return;
+    const deadline = Date.now() + SERVER_LOG_FLUSH_TIMEOUT_MS;
+    while (out.writableLength > 0 && Date.now() < deadline)
+      await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }

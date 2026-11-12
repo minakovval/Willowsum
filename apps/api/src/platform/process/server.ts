@@ -121,9 +121,16 @@ export function buildServer(options: ServerOptions): FastifyInstance {
     if (closing) reply.header("connection", "close");
   });
   app.get("/health/live", async () => ({ status: "live" }));
+  // The probe is reachable from the internet (the PoC «alive» check) and never rate-limited: concurrent probes
+  // share one in-flight check, so a burst costs one query on the probe pool, not one per request.
+  let inFlight: ReturnType<ReadinessCheck> | undefined;
+  const readiness = () =>
+    (inFlight ??= options.readiness().finally(() => {
+      inFlight = undefined;
+    }));
   app.get("/health/ready", async (_request, reply) => {
     try {
-      const result = await options.readiness();
+      const result = await readiness();
       if (result.ready) return { status: "ready" };
       return reply.code(503).send({ status: "not-ready", reason: result.reason });
     } catch {

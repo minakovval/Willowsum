@@ -33,6 +33,7 @@ import {
   redactingLogRecordExporter,
   redactingMetricExporter,
   redactingSpanExporter,
+  type ServerLogStream,
 } from "./exporters.ts";
 import type { TelemetryMode } from "./modes.ts";
 
@@ -50,8 +51,8 @@ export interface TelemetryOptions {
   readonly otlp?: { readonly endpoint: string; readonly authorization: string };
   /** How often metrics are exported (default 30 s; part of the ≤ 5 min alert budget, infra/observability). */
   readonly metricIntervalMs?: number;
-  /** Mode `off`: where the structured log lines go (default: standard output). */
-  readonly writeLogLine?: (line: string) => void;
+  /** Mode `off`: where the structured log lines go (default: standard output, bounded and flushed). */
+  readonly writeLogLine?: ((line: string) => void) | ServerLogStream;
 }
 
 export interface Telemetry {
