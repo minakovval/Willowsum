@@ -370,9 +370,16 @@ describe("ARC-07: route declarations", () => {
     );
   });
 
-  it("a public route must say why and belongs to the platform", () => {
+  it("a public route must say why; a module's public route names its flag, a platform one has none (ADR-0009)", () => {
     expect(() => defineRoute({ ...getThing, access: { public: " " } })).toThrow(/why/);
-    expect(() => defineRoute({ ...getThing, access: { public: "status" } })).toThrow(/platform/);
+    expect(() => defineRoute({ ...getThing, access: { public: "status" } })).toThrow(/names its flag/);
+    expect(() => defineRoute({ ...getThing, access: { public: "status", flag: " " } })).toThrow(
+      /names its flag/,
+    );
+    expect(() =>
+      defineRoute({ ...getThing, module: null, access: { public: "status", flag: "things" } }),
+    ).toThrow(/platform public route has no flag/);
+    expect(() => defineRoute({ ...getThing, access: { public: "status", flag: "things" } })).not.toThrow();
   });
 
   it("FR 3: every route is under /v1; path parameters match the schema; create is POST; a list is paginated", () => {

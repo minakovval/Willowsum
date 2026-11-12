@@ -50,6 +50,13 @@ export const FLAGS = {
     description:
       "Робота з власним простором через API; вимикає всі маршрути простору з ключем household.core",
   },
+  "identity.sign-in": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-12",
+    description:
+      "Реєстрація, підтвердження email, вхід і вихід (ACC-01); до входу простору немає, тож діє лише етап «all»",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

@@ -10,7 +10,7 @@ import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { IDEMPOTENCY_TABLE_SQL } from "../src/platform/http/idempotency.ts";
 import { fastifyPath, isPublic, type ApiRoute } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
-import { principalHeader, testAuthenticate, testWiring } from "./http.ts";
+import { principalHeader, servedRoutes, testAuthenticate, testWiring } from "./http.ts";
 
 /**
  * ARC-07 criterion «маршрут без перевірки прав і плану — 0»: an automated permission test for every role on
@@ -18,8 +18,21 @@ import { principalHeader, testAuthenticate, testWiring } from "./http.ts";
  * writing a test, and a route that skips a check fails here.
  */
 
-/** Routes that may be called without a session; each serves no household data. Adding one is a reviewed change. */
-const PUBLIC_ROUTES = ["getMeta"];
+/**
+ * Routes that may be called without a session; each serves no household data. Adding one is a reviewed change.
+ * Identity's are sign-up, email confirmation and sign-in themselves (ACC-01): they work before a session exists.
+ */
+const PUBLIC_ROUTES = [
+  "getMeta",
+  "signUp",
+  "resendRegistrationEmail",
+  "changeRegistrationEmail",
+  "confirmEmail",
+  "resendConfirmationEmail",
+  "signIn",
+  "getSession",
+  "signOut",
+];
 
 const members = [
   ...ROLES.map((role) => ({ role, scoped: false })),
@@ -180,12 +193,7 @@ describe("NFR-05 FR 1: the api server serves the contract's routes and the two p
       api: (a) => mountApi(a, testWiring()),
     });
     await app.ready();
-    const served = new Set<string>();
-    for (const line of app.printRoutes({ commonPrefix: false }).split("\n")) {
-      const m = line.match(/(\/\S*) \(([^)]+)\)/);
-      if (!m) continue;
-      for (const method of m[2]!.split(", ")) if (method !== "HEAD") served.add(`${method} ${m[1]}`);
-    }
+    const served = servedRoutes(app);
     const expected = [
       ...apiRoutes.map((r) => `${r.method} ${fastifyPath(r.path)}`),
       "GET /health/live",

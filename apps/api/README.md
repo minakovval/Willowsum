@@ -62,6 +62,9 @@
 | `WS_RATE_LIMITS` | Ліміти частоти: `on` або `off-load-test` (лише навантажувальний тест; у `production` відхиляється; при старті — подія `rate_limits.disabled`) (NFR-14 п. 9) | `on` |
 | `WS_API_INSTANCES` | Скільки екземплярів API запущено; лічильники лімітів у пам'яті процесу, тож при > 1 і `WS_RATE_LIMITS=on` роль `api` не стартує (NFR-14 п. 10, ADR-0007) | 1 |
 | `WS_ALLOWED_ORIGINS` | Origin сторінок, яким дозволено запити на запис (через кому, точний `https://host[:port]`; http лише для localhost, у `staging`/`production` — лише https) (NFR-15 п. 5) | локально `http://localhost:5173,http://localhost:4173`; у `staging`/`production` — жодного |
+| `WS_WEB_ORIGIN` | Origin вебзастосунку для посилань у листах (ACC-01, ADR-0009); у `staging`/`production` роль `api` без https-значення не стартує | `http://localhost:5173` |
+| `WS_CAPTCHA_SECRET` | Лише з `WS_PROVIDER_MODE=live`, секрет: ключ сайту Cloudflare Turnstile (ACC-01 п. 12). У `staging`/`production` роль `api` стартує лише з `live` і цим ключем | — |
+| `WS_MAIL_API_KEY`, `WS_MAIL_FROM` | Лише з `WS_PROVIDER_MODE=live`: ключ API пошти Resend (секрет) і відправник (`Willowsum <no-reply@домен>`) (NFR-17) | — |
 | `WS_DB_HOST`, `WS_DB_PORT`, `WS_DB_NAME`, `WS_DB_SSL` | Сервер БД | порт 5432, SSL увімкнено |
 | `WS_DB_PROBE_PASSWORD` | Пароль ролі `ws_probe` (лише читання списку міграцій для «готовий») | — |
 | `WS_DB_CONTEXT_PASSWORD` | Пароль ролі `ws_context` (лише прив'язка з'єднань модулів до простору, ARC-03) | — |

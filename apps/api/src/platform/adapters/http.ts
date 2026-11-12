@@ -33,6 +33,16 @@ export interface ProviderHttp {
     values: Readonly<Record<string, string>>,
     parse?: (body: unknown) => T,
   ): Promise<T>;
+  /**
+   * POST a JSON body to the operation's path. `pathValues` fill its placeholders only; `body` holds the other
+   * outgoing fields. Both are checked against the operation before anything is sent.
+   */
+  postJson<T = unknown>(
+    operation: ProviderOperation,
+    pathValues: Readonly<Record<string, string>>,
+    body: Readonly<Record<string, unknown>>,
+    parse?: (body: unknown) => T,
+  ): Promise<T>;
 }
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
@@ -86,6 +96,59 @@ export function requestUrl(
 export function createProviderHttp(options: ProviderHttpOptions): ProviderHttp {
   const base = checkBaseUrl(options.baseUrl);
   const { client } = options;
+  const send = <T>(
+    operation: ProviderOperation,
+    url: URL,
+    init: { method: "GET" | "POST"; body?: string },
+    parse?: (body: unknown) => T,
+  ): Promise<T> => {
+    const fail = (kind: "unavailable" | "rejected" | "invalid-response", cause?: string) =>
+      new ProviderError(kind, client.provider, operation.name, cause);
+    return client.call(operation, async (signal) => {
+      const fetchFn = options.fetch ?? ((request: Request) => globalThis.fetch(request));
+      let response: Response;
+      try {
+        response = await fetchFn(
+          new Request(url, {
+            method: init.method,
+            // A redirect (to http:// or another host) is never followed: a 3xx is «rejected».
+            redirect: "manual",
+            headers: {
+              accept: "application/json",
+              ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
+              ...options.headers,
+            },
+            ...(init.body !== undefined ? { body: init.body } : {}),
+            signal,
+          }),
+        );
+      } catch (error) {
+        // The transport failed (DNS, refused, TLS, reset, abort): the provider was not reached.
+        throw fail("unavailable", error instanceof Error ? error.name : typeof error);
+      }
+      if (response.status === 429 || response.status >= 500) {
+        await response.body?.cancel();
+        throw fail("unavailable", `HTTP ${response.status}`);
+      }
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw fail("rejected", `HTTP ${response.status}`);
+      }
+      let body: unknown;
+      try {
+        body = await response.json();
+      } catch {
+        throw fail("invalid-response");
+      }
+      if (!parse) return body as T;
+      try {
+        return parse(body);
+      } catch (error) {
+        if (error instanceof ProviderError) throw error;
+        throw fail("invalid-response");
+      }
+    });
+  };
   return {
     async getJson<T>(
       operation: ProviderOperation,
@@ -94,48 +157,20 @@ export function createProviderHttp(options: ProviderHttpOptions): ProviderHttp {
     ): Promise<T> {
       // Both checks run before client.call: nothing is sent and the breaker is untouched.
       assertOutgoing(client.provider, operation, values);
-      const url = requestUrl(base, operation, values);
-      const fail = (kind: "unavailable" | "rejected" | "invalid-response", cause?: string) =>
-        new ProviderError(kind, client.provider, operation.name, cause);
-      return client.call(operation, async (signal) => {
-        const fetchFn = options.fetch ?? ((request: Request) => globalThis.fetch(request));
-        let response: Response;
-        try {
-          response = await fetchFn(
-            new Request(url, {
-              method: "GET",
-              // A redirect (to http:// or another host) is never followed: a 3xx is «rejected».
-              redirect: "manual",
-              headers: { accept: "application/json", ...options.headers },
-              signal,
-            }),
-          );
-        } catch (error) {
-          // The transport failed (DNS, refused, TLS, reset, abort): the provider was not reached.
-          throw fail("unavailable", error instanceof Error ? error.name : typeof error);
-        }
-        if (response.status === 429 || response.status >= 500) {
-          await response.body?.cancel();
-          throw fail("unavailable", `HTTP ${response.status}`);
-        }
-        if (!response.ok) {
-          await response.body?.cancel();
-          throw fail("rejected", `HTTP ${response.status}`);
-        }
-        let body: unknown;
-        try {
-          body = await response.json();
-        } catch {
-          throw fail("invalid-response");
-        }
-        if (!parse) return body as T;
-        try {
-          return parse(body);
-        } catch (error) {
-          if (error instanceof ProviderError) throw error;
-          throw fail("invalid-response");
-        }
-      });
+      return send(operation, requestUrl(base, operation, values), { method: "GET" }, parse);
+    },
+    async postJson<T>(
+      operation: ProviderOperation,
+      pathValues: Readonly<Record<string, string>>,
+      body: Readonly<Record<string, unknown>>,
+      parse?: (body: unknown) => T,
+    ): Promise<T> {
+      // Path placeholders and body fields are both outgoing fields of the operation (FR 5).
+      assertOutgoing(client.provider, operation, { ...pathValues, ...body });
+      const url = requestUrl(base, operation, pathValues);
+      // Only the template's placeholders may sit in the URL of a POST: anything else would become a query.
+      if (url.search !== "") throw new Error("A POST sends its fields in the body, not in the query");
+      return send(operation, url, { method: "POST", body: JSON.stringify(body) }, parse);
     },
   };
 }

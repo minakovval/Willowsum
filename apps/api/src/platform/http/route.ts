@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../db/module-db.ts";
 import { API_BODY_LIMIT_BYTES } from "./limits.ts";
 import { pageQuery } from "./pagination.ts";
+import { PROBLEMS, type ProblemCode } from "./problem.ts";
 import { RATE_LIMITS, RATE_LIMIT_CLASSES, type RateLimitClass } from "./rate-limit.ts";
 import { ROUTE_HEADER_VALUE_RE, ROUTE_OVERRIDABLE_HEADERS, type RouteHeaders } from "./security-headers.ts";
 
@@ -31,7 +32,7 @@ export interface Principal {
  */
 export type RouteAccess =
   | { readonly permission: string; readonly feature: string; readonly flag?: string }
-  | { readonly public: string };
+  | { readonly public: string; readonly flag?: string };
 
 export const HTTP_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 export type HttpMethod = (typeof HTTP_METHODS)[number];
@@ -52,8 +53,33 @@ export interface RouteInput<R extends RouteRequest> {
   readonly body: Infer<R["body"]>;
 }
 
+/**
+ * What a public route of a module sees of its HTTP request (ACC-01: sign-up and sign-in work before any
+ * session or space). The client address is the rate-limit key form (an IPv4 address or an IPv6 /64), kept in
+ * memory and hashed before it is stored — never logged (NFR-17, ADR-0006).
+ */
+export interface RouteHttp {
+  readonly clientAddress: string;
+  /** HTTPS for cookies (deployed, or the request's protocol): session cookies are `__Secure-` then. */
+  readonly https: boolean;
+  /** The value of one cookie of the request (only through cookies.ts: one value, `__Secure-` on HTTPS). */
+  sessionCookie(name: string): string | undefined;
+  /** Adds a `Set-Cookie` header built by cookies.ts (`sessionCookie` / `clearedSessionCookie`). */
+  setCookie(header: string): void;
+}
+
+/**
+ * A public route has no session. A platform public route (module null) gets nothing else; a public route of a
+ * module (sign-up, sign-in — ACC-01) gets its module's database outside any household (customer tables show no
+ * rows), its HTTP request and the services its module was wired with (src/api.ts).
+ */
 export interface PublicContext {
   readonly principal: null;
+  /** The route's own module database, outside any household; null for platform routes. */
+  readonly db: HouseholdFreeDatabase | null;
+  readonly http: RouteHttp;
+  /** What src/api.ts wired for the route's module (its ports and settings), or undefined. */
+  readonly services: unknown;
 }
 
 /**
@@ -110,6 +136,11 @@ export interface RouteDefinition<
   readonly headers?: RouteHeaders;
   /** A body limit below the API's 1 MiB (NFR-15 FR 17), in bytes. */
   readonly bodyLimitBytes?: number;
+  /**
+   * Problem codes of the route's own outcomes besides the ones every route has (e.g. INVALID_CREDENTIALS,
+   * SIGN_IN_LOCKED): documented in the contract under their status.
+   */
+  readonly problems?: readonly ProblemCode[];
   readonly handler: (input: RouteInput<R>, ctx: RouteContext<A>) => Promise<z.input<S>>;
 }
 
@@ -170,7 +201,10 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
   if (!access) fail("declares no access (permission and feature, or public)");
   else if (isPublic(access)) {
     if (!access.public.trim()) fail("a public route must say why it is public");
-    if (route.module !== null) fail("public routes are platform routes (module null)");
+    // A module's public route is a function of that module: behind its kill switch and a flag (CICD-06).
+    if (route.module !== null && !access.flag?.trim())
+      fail("a public route of a module names its flag (feature-flags)");
+    if (route.module === null && access.flag !== undefined) fail("a platform public route has no flag");
   } else if (!access.permission?.trim() || !access.feature?.trim()) {
     fail("needs both a permission (access-scope) and a feature key (plan-catalog)");
   } else if (access.flag !== undefined && !access.flag.trim()) {
@@ -219,6 +253,8 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
       route.bodyLimitBytes > API_BODY_LIMIT_BYTES)
   )
     fail(`bodyLimitBytes is 1–${API_BODY_LIMIT_BYTES}`);
+  for (const code of route.problems ?? [])
+    if (!Object.hasOwn(PROBLEMS, code)) fail(`unknown problem code ${String(code)}`);
   if (!(route.response.schema instanceof z.ZodObject)) fail("the response is a JSON object");
   return route as unknown as ApiRoute;
 }

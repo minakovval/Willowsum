@@ -6,6 +6,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
+import type { IdentityServices } from "./modules/identity/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
 import type { ModuleDatabase } from "./platform/db/module-db.ts";
@@ -24,7 +25,14 @@ export interface ApiWiring {
   readonly entitlements: EntitlementSource;
   /** Flags and kill switches (feature-flags: `createFlagRuntimeFor(databases.for("feature-flags"))`). */
   readonly flags: Pick<FlagRuntime, "isModuleAvailable" | "isEnabled"> &
-    Partial<Pick<FlagRuntime, "moduleState">>;
+    Partial<Pick<FlagRuntime, "moduleState" | "isEnabledForAll">>;
+  /**
+   * The identity module's ports and settings (ACC-01): mail, CAPTCHA, clock, web origin. Omitted: its public
+   * routes answer 500 (never in the API process, main.ts wires them).
+   */
+  readonly identity?: IdentityServices;
+  /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
+  readonly deployed?: boolean;
   /** The session of a request. Until identity (ACC-01) exists, nothing is signed in. */
   readonly authenticate?: (request: FastifyRequest) => Promise<Principal | null>;
   readonly supportId?: ApiOptions["supportId"];
@@ -45,6 +53,11 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
       ? { moduleState: (module: string) => wiring.flags.moduleState!(module) }
       : {}),
     checkFlag: (principal, flag) => wiring.flags.isEnabled(principal.householdId, flag),
+    ...(wiring.flags.isEnabledForAll
+      ? { checkFlagForAll: (flag: string) => wiring.flags.isEnabledForAll!(flag) }
+      : {}),
+    services: (module) => (module === "identity" ? wiring.identity : undefined),
+    secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
     permissions: new Set(PERMISSION_KEYS),

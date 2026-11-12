@@ -23,7 +23,9 @@ import { fakeFlags, householdA, principalHeader, testApp, testAuthenticate, test
  */
 
 const protectedRoutes = apiRoutes.filter((r) => !isPublic(r.access));
-const publicRoutes = apiRoutes.filter((r) => isPublic(r.access));
+// Platform public routes (no module): never behind a kill switch. A module's public routes (identity, ACC-01) are
+// behind its kill switch and flag: test/identity-routes.test.ts.
+const publicRoutes = apiRoutes.filter((r) => isPublic(r.access) && r.module === null);
 const modulesWithRoutes = [...new Set(protectedRoutes.map((r) => r.module as string))];
 
 function concreteUrl(route: ApiRoute): string {

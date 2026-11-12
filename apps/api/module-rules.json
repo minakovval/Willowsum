@@ -13,6 +13,10 @@
       "layer": "platform",
       "dependsOn": ["audit", "plan-catalog"]
     },
+    "identity": {
+      "layer": "platform",
+      "dependsOn": ["audit"]
+    },
     "plan-catalog": {
       "layer": "platform",
       "dependsOn": []

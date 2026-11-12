@@ -164,6 +164,12 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
       WS_TELEMETRY_ENVIRONMENT: "staging",
       WS_TELEMETRY: "off",
       WS_RATE_LIMITS: "off-load-test",
+      // ACC-01 FR 12: a deployed api role runs the live CAPTCHA and mail adapters (synthetic values; no call is made).
+      WS_PROVIDER_MODE: "live",
+      WS_WEB_ORIGIN: "https://app.example.org",
+      WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
+      WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
+      WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
     });
     await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
     const live = await fetch(`http://127.0.0.1:${port}/health/live`);
@@ -183,6 +189,14 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
       expect.objectContaining({ event: "rate_limits.disabled", severity: "WARN" }),
     );
     expect(events).toContainEqual(expect.objectContaining({ event: "process.started", severity: "INFO" }));
+  });
+
+  it("ACC-01 FR 12: in staging the api role refuses to start without the live CAPTCHA (named, never echoed)", async () => {
+    const port = await freePort();
+    const p = start("api", { ...baseEnv(port), WS_TELEMETRY_ENVIRONMENT: "staging", WS_TELEMETRY: "off" });
+    expect(await p.exit).toBe(1);
+    expect(p.output()).toContain("WS_PROVIDER_MODE");
+    expect(p.output()).toContain("WS_WEB_ORIGIN");
   });
 
   it("NFR-14 FR 10: the api role refuses to start with in-process counters and more than one instance", async () => {

@@ -8,6 +8,7 @@ export {
   createFlagRuntime,
   flagsReadiness,
   flagOn,
+  flagOnForAll,
   flagsOn,
   KILL_SWITCH_MAX_DELAY_MS,
   LOAD_WAIT_MS,

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { IDEMPOTENCY_HEADER, IDEMPOTENCY_REPLAYED_HEADER, IDEMPOTENCY_TTL_HOURS } from "./idempotency.ts";
-import { PROBLEM_CONTENT_TYPE, ProblemSchema } from "./problem.ts";
+import { PROBLEM_CONTENT_TYPE, PROBLEMS, ProblemSchema } from "./problem.ts";
 import { WRITE_METHODS } from "./origin.ts";
 import { RATE_LIMITS } from "./rate-limit.ts";
 import { isPublic, routeFlags, routeRateLimitClass, type ApiRoute } from "./route.ts";
@@ -86,6 +86,12 @@ function operation(route: ApiRoute): Json {
       "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
     );
   }
+  if (isPublic(route.access) && route.module !== null) {
+    responses["404"] = problemResponse("Not found (NOT_FOUND): the function is off");
+    responses["503"] = problemResponse(
+      "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+    );
+  }
   if (WRITE_METHODS.has(route.method)) {
     responses["403"] = problemResponse(
       isPublic(route.access)
@@ -109,6 +115,16 @@ function operation(route: ApiRoute): Json {
       "The idempotency key was used for another request, or that request is still running",
     );
   }
+  // The route's own outcomes, each under its status: the code and its title (ACC-01: sign-in and sign-up).
+  for (const code of route.problems ?? []) {
+    const { status, title } = PROBLEMS[code];
+    const key = String(status);
+    const own = `${title} (${code})`;
+    const existing = responses[key] as Json | undefined;
+    responses[key] = existing
+      ? { ...existing, description: `${existing["description"] as string}; ${own}` }
+      : problemResponse(own);
+  }
   responses["default"] = problemResponse("Any other error, as problem details");
   return {
     operationId: route.operationId,
@@ -118,7 +134,10 @@ function operation(route: ApiRoute): Json {
       ? { deprecated: true, [DEPRECATED_SINCE_EXTENSION]: route.deprecatedSince }
       : {}),
     [ACCESS_EXTENSION]: isPublic(route.access)
-      ? { public: route.access.public }
+      ? {
+          public: route.access.public,
+          ...(route.access.flag !== undefined ? { flags: [route.access.flag] } : {}),
+        }
       : {
           permission: route.access.permission,
           feature: route.access.feature,

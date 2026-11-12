@@ -138,3 +138,23 @@ export async function testApp(
   await app.ready();
   return app;
 }
+
+/**
+ * Every `METHOD path` the app serves (HEAD left out), from Fastify's route tree: a child line continues its
+ * parent's path (`/v1/session` → `s` is `/v1/sessions`), so the full path is rebuilt from the indentation.
+ */
+export function servedRoutes(app: { printRoutes(options: { commonPrefix: false }): string }): Set<string> {
+  const served = new Set<string>();
+  const stack: string[] = [];
+  for (const line of app.printRoutes({ commonPrefix: false }).split("\n")) {
+    const m = line.match(/^([│ ├└─]*)(\S+)(?: \(([^)]+)\))?$/u);
+    if (!m || !m[1]) continue;
+    const depth = Math.round(m[1].length / 4) - 1;
+    stack.length = depth;
+    const path = `${stack.join("")}${m[2]}`;
+    stack.push(m[2]!);
+    for (const method of (m[3] ?? "").split(", ").filter(Boolean))
+      if (method !== "HEAD" && method !== "-") served.add(`${method} ${path}`);
+  }
+  return served;
+}

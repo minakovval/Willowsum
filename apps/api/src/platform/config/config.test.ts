@@ -11,6 +11,16 @@ const base = {
   WS_DB_PASSWORD_BANK_MONOBANK: "another-secret-value-02",
 };
 
+/** What the api role needs with live providers (ACC-01 FR 12: CAPTCHA and mail), synthetic values. */
+const liveIdentity = {
+  WS_WEB_ORIGIN: "https://app.example.org",
+  WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
+  WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
+  WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
+};
+/** A deployed api role runs the live providers only (ACC-01 FR 12). */
+const deployedApi = { WS_PROVIDER_MODE: "live", ...liveIdentity };
+
 function errorOf(fn: () => unknown): ConfigError {
   try {
     fn();
@@ -40,7 +50,9 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
 
   it("ARC-05 FR 2: provider ports run their test implementation unless WS_PROVIDER_MODE=live; another value is refused by name", () => {
     expect(loadConfig(base, "api", ["ledger"]).providerMode).toBe("test");
-    expect(loadConfig({ ...base, WS_PROVIDER_MODE: "live" }, "api", ["ledger"]).providerMode).toBe("live");
+    expect(
+      loadConfig({ ...base, WS_PROVIDER_MODE: "live", ...liveIdentity }, "api", ["ledger"]).providerMode,
+    ).toBe("live");
     const error = errorOf(() => loadConfig({ ...base, WS_PROVIDER_MODE: "sandbox-xyz" }, "api", ["ledger"]));
     expect(error.variables).toEqual(["WS_PROVIDER_MODE"]);
     expect(error.message).not.toContain("sandbox-xyz");
@@ -113,6 +125,7 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
       for (const mode of [undefined, "test"]) {
         const env = {
           ...base,
+          ...deployedApi,
           WS_TELEMETRY_ENVIRONMENT: environment,
           ...(mode ? { WS_TELEMETRY: mode } : {}),
         };
@@ -120,7 +133,7 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
       }
       const env = { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "otlp", ...otlpVars };
       expect(loadConfig(env, "worker", ["ledger"]).telemetry.mode).toBe("otlp");
-      const off = { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off" };
+      const off = { ...base, ...deployedApi, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off" };
       expect(loadConfig(off, "api", ["ledger"]).telemetry.mode).toBe("off");
     }
     // Elsewhere the default stays `test`.
@@ -131,7 +144,7 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
   });
 
   it("PoC (owner, 2026-11-12): production runs without export — WS_TELEMETRY=off needs no OTLP variables; test stays refused", () => {
-    const production = { ...base, WS_TELEMETRY_ENVIRONMENT: "production" };
+    const production = { ...base, ...deployedApi, WS_TELEMETRY_ENVIRONMENT: "production" };
     const off = loadConfig({ ...production, WS_TELEMETRY: "off" }, "api", ["ledger"]);
     expect(off.telemetry).toEqual({ mode: "off", environment: "production" });
     expect(off.deployed).toBe(true);
