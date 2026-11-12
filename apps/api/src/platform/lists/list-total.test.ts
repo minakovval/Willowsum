@@ -17,8 +17,13 @@ const group = (currency: string, date: string | null, sum: string, count = 1): A
   count,
 });
 
-/** UAH per one unit, by currency and date; the rate of a date or the nearest earlier one, like fx-rates. */
-function officialRates(pivot: Record<string, Record<string, string>>): DatedRates & { asked: string[] } {
+/**
+ * UAH per one unit, by currency and date; the rate of a date or the nearest earlier one, like fx-rates. `asked`
+ * lists every rate asked for, `calls` how many reads the total made.
+ */
+function officialRates(
+  pivot: Record<string, Record<string, string>>,
+): DatedRates & { asked: string[]; calls: number } {
   const asked: string[] = [];
   const uahPer = (currency: string, date: string): { rate: Decimal; date: string } | null => {
     if (currency === "UAH") return { rate: new Decimal(1), date };
@@ -28,17 +33,23 @@ function officialRates(pivot: Record<string, Record<string, string>>): DatedRate
     const d = dates.at(-1);
     return d === undefined ? null : { rate: new Decimal(pivot[currency]![d]!), date: d };
   };
-  return {
+  const one = (from: string, to: string, date: string): ExchangeRate | null => {
+    asked.push(`${from}>${to}@${date}`);
+    const a = uahPer(from, date);
+    const b = uahPer(to, date);
+    if (!a || !b) return null;
+    const on = a.date < b.date ? a.date : b.date;
+    return exchangeRate({ base: from, quote: to, rate: a.rate.dividedBy(b.rate), date: on, source: "NBU" });
+  };
+  const fake = {
     asked,
-    async rate(from, to, date): Promise<ExchangeRate | null> {
-      asked.push(`${from}>${to}@${date}`);
-      const a = uahPer(from, date);
-      const b = uahPer(to, date);
-      if (!a || !b) return null;
-      const on = a.date < b.date ? a.date : b.date;
-      return exchangeRate({ base: from, quote: to, rate: a.rate.dividedBy(b.rate), date: on, source: "NBU" });
+    calls: 0,
+    async rates(requests: readonly { from: string; to: string; date: string }[]) {
+      fake.calls += 1;
+      return requests.map((r) => one(r.from, r.to, r.date));
     },
   };
+  return fake;
 }
 
 const totals = (rates: DatedRates) => createListTotals({ rates, now: () => NOW });
@@ -77,7 +88,7 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(result).toMatchObject({ approximate: false, nearestRateCount: 0, noRateCount: 0 });
   });
 
-  it("DAT-01@PoC AC5: the official NBU rate (40), not the bank's actual rate (41): −25,00 €, not −24,39 €", async () => {
+  it("DAT-01@PoC AC5, EC4: the official NBU rate (40), not the bank's actual rate (41): −25,00 €, not −24,39 €", async () => {
     // A group carries only currency, date and sum: a bank or user rate has no way into the total.
     const result = await totals(officialRates({ EUR: { "2026-10-01": "40" } })).total(
       [group("UAH", "2026-10-01", "-1000")],
@@ -106,19 +117,72 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(result).toMatchObject({ approximate: true, nearestRateCount: 4 });
   });
 
-  it("DAT-01@PoC EC4: a cross rate through the hryvnia (USD → EUR) is the official one of the date", async () => {
+  it("DAT-01@PoC FR 12: a cross rate through the hryvnia (USD → EUR) is the official one of the date", async () => {
     const rates = officialRates({ EUR: { "2026-10-01": "40" }, USD: { "2026-10-01": "36" } });
     const result = await totals(rates).total([group("USD", "2026-10-01", "-100")], "EUR");
     expect(result.total?.equals(money("-90", "EUR"))).toBe(true);
   });
 
-  it("DAT-01@PoC FR 12: no rate at all → no total and the marker «немає курсу», never 0", async () => {
-    const result = await totals(officialRates({ EUR: { "2026-11-01": "40" } })).total(
-      [group("EUR", "2026-11-03", "-100"), group("UAH", "2026-10-01", "-1000", 2)],
+  it("DAT-01@PoC AC6: no EUR rate on or before 05.01 → partial −100,00 € «без 1 запису: немає курсу», not 0, not a later rate", async () => {
+    const rates = officialRates({ EUR: { "2026-11-01": "40" } });
+    const result = await totals(rates).total(
+      [group("EUR", "2026-11-03", "-100"), group("UAH", "2026-01-05", "-1000")],
       "EUR",
     );
+    expect(result.total?.equals(money("-100", "EUR"))).toBe(true);
+    expect(result).toMatchObject({
+      count: 2,
+      partial: true,
+      noRateCount: 1,
+      approximate: false,
+      converted: true,
+    });
+  });
+
+  it("DAT-01@PoC EC5: records without any rate are left out; the rest keep «приблизно» and its count", async () => {
+    const rates = officialRates({ EUR: { "2026-10-30": "40" } });
+    const result = await totals(rates).total(
+      [
+        group("EUR", "2026-11-03", "-10"),
+        group("UAH", "2026-11-01", "-400", 3), // nearest earlier rate (30.10)
+        group("UAH", "2026-10-01", "-4000", 2), // before every rate: left out
+        group("GBP", "2026-11-01", "-1"), // never quoted: left out
+      ],
+      "EUR",
+    );
+    expect(result.total?.equals(money("-20", "EUR"))).toBe(true);
+    expect(result).toMatchObject({
+      count: 7,
+      partial: true,
+      noRateCount: 3,
+      approximate: true,
+      nearestRateCount: 3,
+    });
+  });
+
+  it("DAT-01@PoC EC5: no record has a rate → no total at all, only the marker; never 0", async () => {
+    const result = await totals(officialRates({})).total([group("UAH", "2026-10-01", "-1000", 2)], "EUR");
     expect(result.total).toBeNull();
-    expect(result).toMatchObject({ count: 3, noRateCount: 2, approximate: false, converted: true });
+    expect(result).toMatchObject({ count: 2, partial: true, noRateCount: 2 });
+  });
+
+  it("DAT-01@PoC FR 12: every rate of a total is read in one call, each (currency, date) once", async () => {
+    const rates = officialRates({ EUR: { "2016-01-01": "40" }, USD: { "2016-01-01": "32" } });
+    const days = Array.from({ length: 400 }, (_, i) =>
+      new Date(Date.UTC(2025, 0, 1 + i)).toISOString().slice(0, 10),
+    );
+    const groups = days.flatMap((d) => [group("UAH", d, "-1"), group("USD", d, "-1"), group("EUR", d, "-1")]);
+    const result = await totals(rates).total([...groups, group("UAH", days[0]!, "-1")], "EUR");
+    expect(rates.calls).toBe(1);
+    expect(rates.asked).toHaveLength(800);
+    expect(result).toMatchObject({ count: 1201, partial: false, noRateCount: 0 });
+  });
+
+  it("DAT-01@PoC FR 12: a failed rate read fails the total, it is never shown as «немає курсу»", async () => {
+    const broken: DatedRates = { rates: () => Promise.reject(new Error("connection terminated")) };
+    await expect(totals(broken).total([group("UAH", "2026-10-01", "-1")], "EUR")).rejects.toThrow(
+      "connection terminated",
+    );
   });
 
   it("DAT-01@PoC FR 12: one currency → its exact sum, no «конвертовано», no rate asked; an empty list → 0", async () => {
@@ -131,7 +195,7 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(result.converted).toBe(false);
     expect(rates.asked).toEqual([]);
     const empty = await totals(rates).total([], "UAH");
-    expect(empty).toMatchObject({ count: 0, converted: false, noRateCount: 0 });
+    expect(empty).toMatchObject({ count: 0, converted: false, partial: false, noRateCount: 0 });
     expect(empty.total?.isZero()).toBe(true);
   });
 

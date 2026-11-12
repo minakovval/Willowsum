@@ -33,6 +33,14 @@ export interface FxRateStore {
   /** The latest date on or before `date` that has rates of all `currencies` from one source, with those rates. */
   ratesOnOrBefore(currencies: readonly string[], date: string): Promise<RatesOfDate | null>;
   /**
+   * `ratesOnOrBefore` for many requests in one query (DAT-01@PoC FR 12: list totals): for each request, the
+   * latest date on or before its `date` with rates of its one or two `currencies` from one source, or null.
+   * Never a rate from after the request's date. The result is in the order of `requests`.
+   */
+  ratesOnOrBeforeEach(
+    requests: readonly { readonly currencies: readonly string[]; readonly date: string }[],
+  ): Promise<(RatesOfDate | null)[]>;
+  /**
    * Claims the one alert of a stale period (FR 4): true for the first claim only, across restarts and scheduler
    * instances. `release` gives the claim back when the letter could not be sent, so a later attempt sends it.
    */

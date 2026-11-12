@@ -2,27 +2,40 @@ import { Money, convert, type ExchangeRate } from "@willowsum/domain-kernel";
 import type { AmountGroup } from "./list-engine.ts";
 
 /**
- * The totals row of a list in several currencies (DAT-01@PoC FR 12, AC2–AC5, edge cases 2–4). Amounts in other
+ * The totals row of a list in several currencies (DAT-01@PoC FR 12, AC2–AC6, edge cases 2–5). Amounts in other
  * currencies are converted into the reporting currency at the free official reference rate (NBU; other pairs
  * cross through the hryvnia), never at the bank's actual rate or one the user typed: a transaction at the rate of
- * its own date, a value or balance at today's rate. With no rate on a transaction's date the nearest earlier rate
+ * its own date, a value or balance at today's rate. With no rate on a transaction's date the latest earlier rate
  * is used, and the total is «приблизно» with the number of such transactions; once the rate of that date exists
- * the same call gives the exact total. With no rate at all for some amount the total is not given: the row says
- * «немає курсу» with the number of records, never a total that silently counts them as 0.
+ * the same call gives the exact total. A record whose currency has no rate on or before its date at all is left
+ * out (owner decision 2026-11-12): the total is the partial sum of the rest, marked «без N записів: немає курсу»;
+ * such a record never counts as 0 and is never converted at a later date's rate. With no rate for any record there
+ * is no total, only the marker. All the rates of one total are read at once (one query in fx-rates).
  */
 
+/** One rate the total needs: `from` → `to` on `date` (YYYY-MM-DD). */
+export interface DatedRateRequest {
+  readonly from: string;
+  readonly to: string;
+  readonly date: string;
+}
+
 /**
- * Official dated rates, as the fx-rates module reads them (`FxRates.rate`): the rate of `date` or the nearest
- * earlier one, or null when there is none. The caller wires it; the engine never calls a provider.
+ * Official dated rates, as the fx-rates module reads them (`officialDatedRates`): for each request the rate of
+ * its date or the nearest earlier one, or null when there is none, in the order of the requests, in one read. The
+ * caller wires it; the engine never calls a provider. A failure rejects: it is never shown as «немає курсу».
  */
 export interface DatedRates {
-  rate(from: string, to: string, date: string): Promise<ExchangeRate | null>;
+  rates(requests: readonly DatedRateRequest[]): Promise<readonly (ExchangeRate | null)[]>;
 }
 
 export interface ListTotal {
   /** Matching records within the caller's permissions. */
   readonly count: number;
-  /** The total in the reporting currency (unrounded: rounding is for display), or null when `noRateCount` > 0. */
+  /**
+   * The total in the reporting currency (unrounded: rounding is for display). Without the records counted in
+   * `noRateCount` (a partial total); null only when no record has a rate.
+   */
   readonly total: Money | null;
   /** Some amount was in another currency: the row shows the hint «конвертовано». */
   readonly converted: boolean;
@@ -30,7 +43,9 @@ export interface ListTotal {
   readonly approximate: boolean;
   /** How many transactions were converted at the nearest earlier rate («N транзакцій за найближчим курсом»). */
   readonly nearestRateCount: number;
-  /** How many records have no rate at all: then there is no total, only the marker «немає курсу». */
+  /** Some records are left out of the total: the marker «без N записів: немає курсу». */
+  readonly partial: boolean;
+  /** How many records have no rate on or before their date at all (N of the marker). */
   readonly noRateCount: number;
 }
 
@@ -54,33 +69,52 @@ export function createListTotals(deps: { rates: DatedRates; now: () => number })
   return {
     async total(groups, reportingCurrency) {
       const today = kyivToday(deps.now());
+      const dateOf = (group: AmountGroup): string => group.date ?? today;
+      // Every distinct (currency, date) the total needs, read in one call.
+      const requests: DatedRateRequest[] = [];
+      const index = new Map<string, number>();
+      for (const group of groups) {
+        if (group.currency === reportingCurrency) continue;
+        const key = `${group.currency}|${dateOf(group)}`;
+        if (index.has(key)) continue;
+        index.set(key, requests.length);
+        requests.push({ from: group.currency, to: reportingCurrency, date: dateOf(group) });
+      }
+      const rates = requests.length === 0 ? [] : await deps.rates.rates(requests);
+      if (rates.length !== requests.length) throw new Error("list totals: one rate per request expected");
+
       let total = Money.zero(reportingCurrency);
+      let counted = 0;
       let converted = false;
       let nearestRateCount = 0;
       let noRateCount = 0;
       for (const group of groups) {
         if (group.currency === reportingCurrency) {
           total = total.plus(group.sum);
+          counted += group.count;
           continue;
         }
         converted = true;
-        const date = group.date ?? today;
-        const rate = await deps.rates.rate(group.currency, reportingCurrency, date);
+        const date = dateOf(group);
+        const rate = rates[index.get(`${group.currency}|${date}`)!] ?? null;
         if (rate === null) {
           noRateCount += group.count;
           continue;
         }
+        // `convert` refuses a rate dated after `date`: never a later date's rate.
         const conversion = convert(group.sum, rate, date);
         total = total.plus(conversion.to);
+        counted += group.count;
         // Only dated records count as «за найближчим курсом»; today's values use the latest official rate.
         if (conversion.approximate && group.date !== null) nearestRateCount += group.count;
       }
       return {
         count: groups.reduce((n, g) => n + g.count, 0),
-        total: noRateCount > 0 ? null : total,
+        total: noRateCount > 0 && counted === 0 ? null : total,
         converted,
-        approximate: noRateCount === 0 && nearestRateCount > 0,
+        approximate: nearestRateCount > 0,
         nearestRateCount,
+        partial: noRateCount > 0,
         noRateCount,
       };
     },

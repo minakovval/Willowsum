@@ -8,7 +8,11 @@ import { z } from "zod";
 import { createFxRates, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/db/migrate.ts";
-import { ModuleDatabases } from "../src/platform/db/module-db.ts";
+import {
+  ModuleDatabases,
+  type ModuleDatabase,
+  type ModuleQueryRunner,
+} from "../src/platform/db/module-db.ts";
 import { filterValue } from "../src/platform/http/list-query.ts";
 import { defineList, type ListRequest } from "../src/platform/lists/list-engine.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
@@ -171,22 +175,120 @@ describe("DAT-01@PoC: totals at the official rate of each transaction's date (Po
     expect(total).toMatchObject({ approximate: false, nearestRateCount: 0 });
   });
 
-  it("DAT-01@PoC AC5: bank rate 41 on the record, official NBU rate 40 → −25,00 €, not −24,39 €", async () => {
+  it("DAT-01@PoC AC5, EC4: bank rate 41 on the record, official NBU rate 40 → −25,00 €, not −24,39 €", async () => {
     await eurRate("2026-10-01", "40");
     await seed(spaceA, [{ on: "2026-10-01", amount: "-1000.00", currency: "UAH", bankRate: "41" }]);
     const { total } = await listOf(spaceA);
     expect(total.total?.equals(eur("-25"))).toBe(true);
   });
 
-  it("DAT-01@PoC FR 12: a transaction older than every rate → no total, the marker «немає курсу», never 0", async () => {
+  it("DAT-01@PoC AC6: a transaction older than every EUR rate → partial −100,00 € «без 1 запису: немає курсу», never 0 or a later rate", async () => {
     await eurRate("2026-11-01", "40");
     await seed(spaceA, [
       { on: "2026-11-03", amount: "-100.00", currency: "EUR" },
       { on: "2026-01-05", amount: "-1000.00", currency: "UAH" },
     ]);
     const { total } = await listOf(spaceA);
+    expect(total.total?.equals(eur("-100"))).toBe(true);
+    expect(total).toMatchObject({ count: 2, partial: true, noRateCount: 1, approximate: false });
+  });
+
+  it("DAT-01@PoC EC5: no record has any rate → no total, only the marker", async () => {
+    await eurRate("2026-11-01", "40");
+    await seed(spaceA, [{ on: "2026-01-05", amount: "-1000.00", currency: "UAH" }]);
+    const { total } = await listOf(spaceA);
     expect(total.total).toBeNull();
-    expect(total.noRateCount).toBe(1);
+    expect(total).toMatchObject({ partial: true, noRateCount: 1 });
+  });
+});
+
+/** The fx-rates database with every query counted (one read per total, not one per currency and day). */
+function countingDatabase(): { db: ModuleDatabase; queries: () => number } {
+  const real = databases.for("fx-rates");
+  let queries = 0;
+  const db = {
+    module: real.module,
+    transaction: <T>(work: (q: ModuleQueryRunner) => Promise<T>) =>
+      real.transaction((q) =>
+        work({
+          query: (text, values) => {
+            queries += 1;
+            return q.query(text, values);
+          },
+        }),
+      ),
+  } as unknown as ModuleDatabase;
+  return { db, queries: () => queries };
+}
+
+describe("DAT-01@PoC FR 12: all the rates of a total in one query (security review of PR #129)", () => {
+  it("DAT-01@PoC FR 12: 1 095 days in UAH, USD and GBP → one rate query; each the rate of its date or the latest earlier one", async () => {
+    // Rates on weekdays only; GBP and USD from 2024, EUR from 2023; GBP from another source on Mondays.
+    const values: string[] = [];
+    for (let i = 0; i < 1100; i++) {
+      const d = new Date(Date.UTC(2023, 0, 2 + i));
+      const day = d.toISOString().slice(0, 10);
+      if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+      values.push(`('${day}', 'EUR', ${40 + (i % 7)}, 'NBU', now())`);
+      if (day >= "2024-01-01") {
+        values.push(`('${day}', 'USD', ${36 + (i % 5)}, 'NBU', now())`);
+        values.push(`('${day}', 'GBP', ${48 + (i % 3)}, '${d.getUTCDay() === 1 ? "OTHER" : "NBU"}', now())`);
+      }
+    }
+    await owner.query(
+      `INSERT INTO fx_rates.rates (rate_date, currency, rate, source, fetched_at) VALUES ${values.join(", ")}`,
+    );
+    const days = Array.from({ length: 1095 }, (_, i) =>
+      new Date(Date.UTC(2023, 0, 1 + i)).toISOString().slice(0, 10),
+    );
+    const groups = days.flatMap((d) =>
+      ["UAH", "USD", "GBP"].map((currency) => ({
+        currency,
+        date: d,
+        sum: Money.of("-1", currency),
+        count: 1,
+      })),
+    );
+    const counting = countingDatabase();
+    const fx = createFxRates({ db: counting.db, now: () => NOW });
+    const result = await createListTotals({ rates: officialDatedRates(fx), now: () => NOW }).total(
+      groups,
+      "EUR",
+    );
+    expect(counting.queries()).toBe(1);
+    expect(result.count).toBe(3285);
+    expect(result.noRateCount).toBeGreaterThan(0); // USD and GBP before 2024, the 1 January of 2023
+    expect(result.total).not.toBeNull();
+
+    // The batch read gives exactly what the one-by-one read gives (`rate`: latest date on or before, one source).
+    const sample = days.filter((_, i) => i % 37 === 0);
+    const requests = sample.flatMap((date) =>
+      ["UAH", "USD", "GBP"].map((from) => ({ from, to: "EUR", date })),
+    );
+    const batch = await fx.rates(requests);
+    for (const [i, r] of requests.entries()) {
+      const single = await fx.rate(r.from, r.to, r.date).then(
+        (q) => q.rate,
+        () => null,
+      );
+      const got = batch[i] ?? null;
+      expect(got && { rate: got.rate.toFixed(), date: got.date, source: got.source }).toEqual(
+        single && { rate: single.rate.toFixed(), date: single.date, source: single.source },
+      );
+      if (got) expect(got.date <= r.date).toBe(true);
+    }
+  });
+
+  it("DAT-01@PoC FR 12: a database error while reading the rates fails the total, never «немає курсу»", async () => {
+    await eurRate("2026-10-01", "40");
+    await seed(spaceA, [{ on: "2026-10-01", amount: "-1000.00", currency: "UAH" }]);
+    const result = await databases.for("listings").inHousehold(spaceA, (q) => transactions.run(q, {}));
+    await owner.query("ALTER TABLE fx_rates.rates RENAME TO rates_gone");
+    try {
+      await expect(totals().total(result.groups, "EUR")).rejects.toThrow();
+    } finally {
+      await owner.query("ALTER TABLE fx_rates.rates_gone RENAME TO rates");
+    }
   });
 });
 

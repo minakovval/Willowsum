@@ -19,6 +19,7 @@ export type {
   FxRefreshEvent,
   FxRefreshLoop,
   QuotedRate,
+  RateRequest,
 } from "./application/index.ts";
 export {
   NBU_SOURCE,
