@@ -115,7 +115,7 @@ requirement is kept in the README of that module.
 | ADM | [adm/](adm/README.md) | Platform admin panel: feature catalogue, plan x feature matrix, versions, staff | 9 | MVP 5, v1 4 |
 | AST | [ast/](ast/README.md) | Physical assets, liabilities and collateral, lots, locations, groups, media | 17 | MVP 13, v1 3, v2 1 |
 | VAL | [val/](val/README.md) | Valuation: observations, current-value policy, FX, ownership shares, net worth, map | 11 | PoC 2, MVP 6, v1 3 |
-| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | PoC 6, MVP 3, v1 6, v2 4 |
+| FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | PoC 4, PoC v2 2, MVP 3, v1 6, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | MVP 1, v1 2 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 14, PoC v2 3, MVP 3 |
@@ -141,8 +141,8 @@ requirement is kept in the README of that module.
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 17, PoC v2 1, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 16, PoC v2 1, MVP 6 |
-| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 42, PoC v2 3, MVP 26, v1 3 |
-| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 12, PoC v2 4, MVP 28, v1 5, v2 9 |
+| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 40, MVP 26, v1 3, PoC v2 5 |
+| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 11, MVP 28, v1 5, v2 9, PoC v2 5 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |

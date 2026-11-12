@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FIN-01@PoC
-- Залежить від: ACC-08@PoC v2, FIN-04@PoC, VAL-04@PoC, VAL-05@PoC
+- Залежить від: ACC-08@PoC v2, FIN-04@PoC, VAL-04@PoC, VAL-05@PoC v2
 - Дизайн: S-050, S-051, S-052, S-053
 - Спільні правила: П-5, П-6, П-8, П-10, П-24, П-25, П-26, CMP-22, CMP-32, CMP-60
 - Сценарії: UC-FIN-01, UC-FIN-02, UC-FIN-03, UC-FIN-04, UC-FIN-05, UC-FIN-06, UC-FIN-07, UC-FIN-09, UC-FIN-11, UC-FIN-13, UC-FIN-10
