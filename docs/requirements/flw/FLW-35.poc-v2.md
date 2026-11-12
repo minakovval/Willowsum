@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: FLW-35@PoC
-- Залежить від: BUD-03@PoC v2, BUD-11@PoC v2, BUD-12@PoC, BUD-13@PoC v2, FIN-03@PoC v2
+- Залежить від: BUD-03@PoC v2, BUD-11@PoC v2, BUD-12@PoC v2, BUD-13@PoC v2, FIN-03@PoC v2
 - Дизайн: S-046, S-047, S-049, S-058, S-121
 - Спільні правила: П-10, П-11, П-17, П-24, П-25, П-26, SCR-02
 - Сценарії: UC-BUD-01, UC-BUD-02, UC-BUD-59, UC-BUD-63, UC-BUD-64, UC-BUD-65, UC-BUD-66, UC-BUD-67, UC-BUD-72, UC-FIN-34, UC-FIN-39, UC-IMP-12, UC-IMP-30, UC-IMP-31, UC-IMP-32, UC-IMP-33, UC-IMP-34, UC-IMP-35

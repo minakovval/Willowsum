@@ -119,7 +119,7 @@ requirement is kept in the README of that module.
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | MVP 1, v1 2 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
 | BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 14, PoC v2 3, MVP 3 |
-| FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | PoC 3 |
+| FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | PoC v2 3 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
 | INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
 | NOT | [not/](not/README.md) | Reminders, notifications and notification triggers | 2 | MVP 1, v1 1 |
@@ -131,7 +131,7 @@ requirement is kept in the README of that module.
 | PLT | [plt/](plt/README.md) | Widgets, quick actions and other platforms | 2 | v1-mobile 1, v2 1 |
 | GRID | [grid/](grid/README.md) | Layout grid, navigation shell and page templates | 8 | PoC 5, MVP 3 |
 | WGT | [wgt/](wgt/README.md) | Home widgets: widget framework, registry, edit mode, one file per widget | 25 | MVP 25 |
-| CHT | [cht/](cht/README.md) | Charts: reusable chart components (time series, spending vs budget, composition) | 4 | PoC 3, MVP 1 |
+| CHT | [cht/](cht/README.md) | Charts: reusable chart components (time series, spending vs budget, composition) | 4 | PoC 2, PoC v2 1, MVP 1 |
 | L10N | [l10n/](l10n/README.md) | Localisation framework and translations | 2 | MVP 2 |
 | LEG | [leg/](leg/README.md) | Legal documents, consent and in-app privacy settings | 1 | MVP 1 |
 | VLT | [vlt/](vlt/README.md) | Personal documents vault: categories, encryption classes, sharing, emergency access | 21 | MVP 18, v2 3 |
