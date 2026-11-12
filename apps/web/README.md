@@ -22,7 +22,8 @@ rewrites.
 | `/settings` | | «Налаштування», from the profile menu |
 | `/signup` | `#/signup` | S-001 «Реєстрація» (focus mode, no navigation) |
 | `/signup/check-email` | | S-002 «Перевірте пошту» with «Надіслати ще раз» (countdown) and «Змінити email»; without a sign-up in progress it opens `/signup` |
-| `/verify` | `#/verify?token=…` | The confirmation link of the letter; S-003 «Посилання недійсне»; a used link opens `/login` (S-004, part a2-2) or «Бюджет» with a session. The token is in the fragment and leaves the address bar once read |
+| `/verify` | `#/verify?token=…` | The confirmation link of the letter; S-003 «Посилання недійсне»; a used link opens `/login` (or «Бюджет» with a session). The token is in the fragment and leaves the address bar once read |
+| `/login` | `#/login` | S-004 «Вхід» with the lockout, CAPTCHA and «Спершу підтвердіть email» states |
 | anything else | | «Сторінку не знайдено» with «На Бюджет» |
 | `/gallery/tokens` | `#/gallery/tokens` | DS-22 sample page: colours of both themes with computed contrast, chart palette, amounts, type scale, spacing, radii, shadows and overlay, layers, motion, breakpoints, icons, the mark. Theme, language and «Приховати суми» switches. Not linked from the navigation; `noindex` |
 
@@ -33,22 +34,22 @@ rewrites.
 | DS-22 | Partly | Token gallery as above. Still to add: photo placeholders, charts, map, interaction states, automated axe and screenshot checks |
 | DS-11 | Item 7 | `index.html` applies the stored theme before the first paint (`public/theme-init.js`, a blocking script in `<head>`; not inline, so the CSP allows scripts from `'self'` only) |
 | NFR-14@PoC | FR 2–4, criterion 4 | `security-headers.ts`: the headers and CSP of every static path (HSTS, nosniff, Referrer-Policy, closed Permissions-Policy, COOP, `X-Frame-Options: DENY`, CSP of the table; HTML shell `no-cache`, hashed `assets/` immutable). `vite preview` sends them; the CSP check runs in CI (`src/security-headers.test.ts`). The staging server or CDN must send exactly `webHeaders(path)` — checked on staging by CICD-07 (ADR-0007) |
-| ACC-01@PoC | Part a2-1 | Client side of AC2, AC4, AC5, AC6, AC10 (sign-up), AC12, AC18–AC22, AC23, AC24, FR 3, FR 11, FR 12 (sign-up) and the UI states of S-001…S-003 (`src/auth/*.test.tsx`); server side in `apps/api` (part a1). S-004 «Вхід» (`/login`: AC7, AC13–AC15, lockout and CAPTCHA states) is part a2-2; «Забули пароль?» comes with part b |
+| ACC-01@PoC | Part a2 | Client side of AC2, AC4–AC7, AC10, AC12–AC15, AC18–AC24, FR 3, FR 11, FR 12 and the UI states of S-001…S-004 (`src/auth/*.test.tsx`); server side in `apps/api` (part a1). «Забули пароль?» comes with part b |
 | DS-02 | Item 12 | Tab title «Willowsum · <page>», the mark as favicon |
 | DS-14 | Item 8 | Focus moves to `main` after navigation |
 | UX-09@PoC / CMP-69@PoC / CMP-71@PoC / GRID-00@PoC | Partly | L1 «Гроші» and «Планування» with their L2 pages, start page and brand link to «Бюджет», last L2 page per section in the session, active section → root and scroll up, «+ Додати» (Транзакція with «T», Рахунок, Ціль), profile menu → «Налаштування», G→T/B/G/A, collapsible sidebar, focus-mode wizard, «На Бюджет» on not found. Still to do with their screens: page tabs (item 3), breadcrumbs on L3 records, list state on «Назад» (item 9), unsaved-changes dialog in the wizard (AC6), the «До розбору» count source, profile name and space from `identity`. No «Приховати суми» action: the mode is not in PoC (owner decision 2026-11-05); the app pages always show amounts, only the gallery demonstrates the mode |
 
 ## Sign-up and sign-in (ACC-01@PoC, part a2)
 
-`src/auth/`: the screens S-001…S-003 on the identity API (`/v1/registrations…`, `/v1/email-confirmations…`,
-`/v1/session`) through the typed client of `@willowsum/api-contract`. The API is on the app's own
+`src/auth/`: the screens S-001…S-004 on the identity API (`/v1/registrations…`, `/v1/email-confirmations…`,
+`/v1/sessions`, `/v1/session`) through the typed client of `@willowsum/api-contract`. The API is on the app's own
 origin (CSP `connect-src 'self'`); `pnpm dev` and `preview` pass `/v1` to `WS_API_ORIGIN` (default
 `http://localhost:8080`). With the flag `identity.sign-in` off the API answers 404 and the screens say «Реєстрація і
 вхід зараз недоступні»; every error shows the request's support code («Код: …», ARC-09).
 
 | Setting | What |
 | --- | --- |
-| `VITE_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key (public; build time). Without it — local, CI, tests — a synthetic widget with no network, whose fixed token only the API's synthetic verifier accepts. Production builds must set it (the API refuses the synthetic verifier there) |
+| `VITE_CAPTCHA_SITE_KEY` | Cloudflare Turnstile site key (public; build time). Without it — local, CI, tests — a synthetic widget with no network, whose fixed token only the API's synthetic verifier accepts. Required for the deploy build: `pnpm --filter @willowsum/web build:production` (mode `production`) fails without a well-formed key; `pnpm build` (mode `ci`, local and CI) does not need it |
 
 `fields.tsx` (Field and password field with «Показати пароль» and the Caps Lock hint, CMP-02), `AuthLayout.tsx` (narrow
 card, notice with «Помилка» and the code — CMP-19/CMP-24, inactive button with the reason) and `captcha/` are minimal
@@ -56,7 +57,7 @@ versions inside the app until the design-system components exist in `packages/ui
 
 ## Scripts
 
-`pnpm dev` (from the repo root) · `pnpm --filter @willowsum/web build` → `apps/web/dist/` ·
+`pnpm dev` (from the repo root) · `pnpm --filter @willowsum/web build` → `apps/web/dist/` (mode `ci`, synthetic CAPTCHA without a key) · `build:production` (the deploy build; needs `VITE_CAPTCHA_SITE_KEY`) ·
 `pnpm --filter @willowsum/web preview` (serves `dist/` with the production headers and CSP) ·
 `pnpm --filter @willowsum/web test`.
 

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useT } from "@willowsum/i18n";
 import { Icon } from "@willowsum/ui";
 import { START_PATH } from "../routing/routes.ts";
-import { hrefFor } from "../routing/useHashPath.ts";
+import { hrefFor, pathFromHash } from "../routing/useHashPath.ts";
 import { outcome, useAuthApi, type Outcome } from "./api.ts";
 import { AuthLayout, LinkLine, Notice, SubmitButton } from "./AuthLayout.tsx";
 import { failureOf, type Failure } from "./failure.ts";
@@ -28,18 +28,34 @@ type Result = "confirmed" | "expired" | "already-used" | "invalid";
  * Бюджет» when a session is active. The address is not shown on S-003: the link's token does not reveal it.
  */
 export function VerifyPage() {
+  const [link, setLink] = useState(() => ({ token: hashParam("token"), n: 0 }));
+
+  useEffect(() => {
+    forgetHashQuery(VERIFY_PATH);
+    // A second link opened while this page is shown changes only the fragment: no new page, no remount. Read its
+    // token and drop it from the address bar as well.
+    const onHashChange = () => {
+      if (pathFromHash(window.location.hash) !== VERIFY_PATH) return;
+      const token = hashParam("token");
+      if (token === null) return;
+      forgetHashQuery(VERIFY_PATH);
+      setLink((l) => ({ token, n: l.n + 1 }));
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  return <VerifyLink key={link.n} token={link.token} />;
+}
+
+function VerifyLink({ token }: { readonly token: string | null }) {
   const t = useT();
   const api = useAuthApi();
-  const [token] = useState(() => hashParam("token"));
   const wellFormed = token !== null && TOKEN_SHAPE.test(token);
   const [result, setResult] = useState<Result | null>(wellFormed ? null : "invalid");
   const [failure, setFailure] = useState<Failure | null>(null);
   const [attempt, setAttempt] = useState(0);
   const pending = useRef<{ attempt: number; promise: Promise<Outcome<{ result: Result }>> } | null>(null);
-
-  useEffect(() => {
-    forgetHashQuery(VERIFY_PATH);
-  }, []);
 
   useEffect(() => {
     if (token === null || !wellFormed) return;

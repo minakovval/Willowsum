@@ -114,12 +114,13 @@ export type Route =
   | { kind: "auth"; screen: AuthScreen }
   | { kind: "notFound" };
 
-/** ACC-01@PoC screens outside the app shell (focus mode, GRID-06): S-001, S-002, S-003 (with the link page). */
-export type AuthScreen = "signUp" | "checkEmail" | "verify";
+/** ACC-01@PoC screens outside the app shell (focus mode, GRID-06): S-001, S-002, S-003 (with the link page), S-004. */
+export type AuthScreen = "signUp" | "checkEmail" | "verify" | "signIn";
 export const AUTH_PATHS: Readonly<Record<string, AuthScreen>> = {
   "/signup": "signUp",
   "/signup/check-email": "checkEmail",
   "/verify": "verify",
+  "/login": "signIn",
 };
 
 export const sectionOf = (p: PageDef): SectionDef => SECTIONS.find((s) => s.id === p.sectionId)!;

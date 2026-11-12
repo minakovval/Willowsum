@@ -1,5 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
+import { confirmationLink } from "../../../api/src/modules/identity/domain/mail.ts";
+import { pathFromHash } from "../routing/useHashPath.ts";
+import { hashParam, VERIFY_PATH } from "./navigation.ts";
 import { fakeApi, plain, problem, renderAt, resetAuthState, SUPPORT_ID, TOKEN } from "./testing.tsx";
 
 /** ACC-01@PoC: the confirmation link page and S-003 «Посилання недійсне» (canvas PocLinkInvalid): AC5, AC6, AC24. */
@@ -139,5 +142,17 @@ describe("ACC-01@PoC confirmation link", () => {
     const alert = await screen.findByRole("alert");
     expect(plain(alert.textContent)).toContain("Реєстрація і вхід зараз недоступні. Спробуйте пізніше");
     expect(plain(alert.textContent)).toContain(`Код: ${SUPPORT_ID}`);
+  });
+});
+
+describe("the letter's link and the web route agree", () => {
+  it("confirmationLink round-trips through the hash route: path /verify, the same token, nothing before the fragment", () => {
+    const origin = "https://app.example.org";
+    const url = new URL(confirmationLink(origin, TOKEN));
+    expect(url.origin).toBe(origin);
+    expect(url.pathname).toBe("/");
+    expect(url.search).toBe("");
+    expect(pathFromHash(url.hash)).toBe(VERIFY_PATH);
+    expect(hashParam("token", url.hash)).toBe(TOKEN);
   });
 });
