@@ -7,6 +7,7 @@ import {
   naturalBalance,
   postingsFor,
   refKey,
+  reversalOf,
   type AccountRef,
   type LedgerEvent,
   type Posting,
@@ -238,6 +239,18 @@ describe("ARC-11 criteria on random event sequences (property tests)", () => {
       const total = [...net(postings).values()].reduce((a, b) => a.plus(b), new Decimal(0));
       expect(total.isZero()).toBe(true);
     }
+  });
+
+  it("FIN-04 FR 5: a reversal returns every account to where it was before the entry", () => {
+    const all: Posting[] = [];
+    for (const event of randomEvents(11, 300)) {
+      const postings = postingsFor(event);
+      const back = reversalOf(postings);
+      expect(code(() => assertBalanced(back, currencyOf))).toBe("ok");
+      for (const v of net([...postings, ...back]).values()) expect(v.isZero()).toBe(true);
+      all.push(...postings, ...back);
+    }
+    for (const v of net(all).values()) expect(v.isZero()).toBe(true);
   });
 });
 

@@ -29,6 +29,8 @@ export interface HouseholdSpaces {
   }): Promise<SpaceMembership & { readonly created: boolean }>;
   /** The space and role an account works in (PoC: its one space), or null. */
   membershipOf(accountId: string): Promise<SpaceMembership | null>;
+  /** The ids of every space with a member, for the scheduler's daily checks over all spaces (FIN-04 FR 9). */
+  spaceIds(): Promise<string[]>;
 }
 
 /** `db` is the household module's own database (`ModuleDatabases.for("household")`). */
@@ -67,5 +69,6 @@ export function createHouseholdSpaces(db: ModuleDatabase, audit: Pick<AuditLog, 
   return {
     ensureFirstSpace: (owner) => ensureFirstSpace(deps, owner),
     membershipOf: (accountId) => store.membershipOf(accountId),
+    spaceIds: () => store.spaceIds(),
   };
 }

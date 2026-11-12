@@ -26,6 +26,8 @@ export interface SpacesStore {
   inSpace<T>(householdId: string, work: (tx: SpacesTx) => Promise<T>): Promise<T>;
   /** The space an account works in: in PoC its one space (the earliest, should there be more). */
   membershipOf(accountId: string): Promise<SpaceMembership | null>;
+  /** The ids of every space with a member (read outside any space, like the membership). */
+  spaceIds(): Promise<string[]>;
 }
 
 /** Writes the space's audit entries (the household's own log, П-10). */

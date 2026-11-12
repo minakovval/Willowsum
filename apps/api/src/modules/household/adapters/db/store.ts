@@ -40,5 +40,12 @@ export function databaseSpacesStore(db: ModuleDatabase): SpacesStore {
     inSpace: (householdId, work) => db.inHousehold(householdId, (q) => work(tx(q))),
     // The directory is read outside any space: the session has to find its space before one is bound.
     membershipOf: (accountId) => db.transaction((q) => membership(q, accountId)),
+    spaceIds: () =>
+      db.transaction(async (q) => {
+        const { rows } = await q.query<{ space_id: string }>(
+          `SELECT DISTINCT space_id FROM account_spaces ORDER BY space_id`,
+        );
+        return rows.map((r) => r.space_id);
+      }),
   };
 }

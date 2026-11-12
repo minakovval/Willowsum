@@ -98,6 +98,7 @@ beforeAll(async () => {
       return spaces.ensureFirstSpace(owner);
     },
     membershipOf: (accountId) => spaces.membershipOf(accountId),
+    spaceIds: () => spaces.spaceIds(),
   };
   const services = createIdentityServices({
     mail,
