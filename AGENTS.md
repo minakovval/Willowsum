@@ -144,9 +144,10 @@ errors) lives only in `packages/domain-kernel`.
    the code of that module. For wide searches use a read-only subagent and keep only its conclusion.
 3. Follow the `implement-requirement` skill. Tests first: one automated test per acceptance criterion
    and per edge case.
-4. Branch `<ID>-<slug>`; PR title starts with the ID, e.g. `BUD-03: safe-to-spend widget`.
+4. Branch `<ID>-<slug>`, or the working branch the lead names («Parallel branches» below); PR title starts
+   with the ID, e.g. `BUD-03: safe-to-spend widget`.
 5. Review is done in a **different** session with the `review-pr` skill. A security review in another
-   session is needed only for PRs labelled `sensitive` (CI sets it from file paths: auth, permissions,
+   session (`security-review` skill) is needed only for PRs labelled `sensitive` (CI sets it from file paths: auth, permissions,
    encryption, money calculations, database schema, pipeline, infrastructure). Every review names the head
    commit (full SHA) it reviewed and ends with a line of its own: `Verdict: Ready` or
    `Verdict: Changes requested` (review-pr), and `Security verdict: Ready` or
@@ -165,7 +166,8 @@ errors) lives only in `packages/domain-kernel`.
    - A recurring finding moves into automation: a repeated class of finding becomes a CI check or a test;
      before pushing, agents run a local check for secret-shaped literals (what the CI job `secrets` checks).
    - Keep PRs small: split a large requirement part (e.g. backend and UI) so each PR fits one review round.
-6. All CI checks green (jobs `requirements`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`). Never skip, disable or weaken a
+6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`;
+   a job its path filter skips counts as passed, see «CI minutes» below). Never skip, disable or weaken a
    test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest
    commit and the review session gave «Ready» (plus the security review for sensitive areas) **on the
@@ -189,6 +191,25 @@ errors) lives only in `packages/domain-kernel`.
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.
+
+**Parallel branches** (owner, 2026-11-12): up to 3 working branches at a time — the lead's branch
+`claude/adoring-cray-feh4dh` and `claude/adoring-cray-feh4dh-<task>` — each in its own git worktree with its
+own PR. The same review, CI and merge rules apply to each; a branch is deleted after its PR is merged. Each
+agent uses its own test database (`pnpm db:test`); integration tests run as
+`pnpm db:test run -- pnpm test:integration`, because PostgreSQL roles are shared by the whole cluster
+(`infra/local/README.md`).
+
+**Skills** (`.claude/skills/`, owner, 2026-11-12): `implement-requirement` (author), `review-pr` (reviewer),
+`security-review` (security reviewer of `sensitive` PRs), `fix-review-findings` (author, after reviews),
+`pr-pipeline` (the lead's loop over these), `browser-task` (instructions for the owner's local Claude session
+with a browser). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
+a fresh agent with a narrow brief, let reviewers rely on CI — rules in `pr-pipeline`, «Token economy».
+
+**CI minutes** (lead, 2026-11-12; private repository, 2,000 free minutes a month): a new push cancels the
+PR's run in progress; the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env` and `infra`
+when the PR's paths do not need them (docs-only PRs skip all four; a skipped job concludes `skipped` and
+counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
+scheduled or frequent workflows without counting their minutes.
 
 ## Process: design before code
 

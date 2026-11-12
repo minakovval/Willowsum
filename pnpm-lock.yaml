@@ -102,6 +102,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@willowsum/api-contract':
+        specifier: workspace:*
+        version: link:../../packages/api-contract
       '@willowsum/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

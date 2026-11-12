@@ -72,3 +72,11 @@ test('review #87 item 4a: `description` needs «Sensitive areas touched» ticked
   assert.match(r.stdout, /infrastructure/);
   assert.equal((await run('description', { files, body: body.replace('- [ ] yes', '- [x] yes') })).code, 0);
 });
+
+test('CI minutes: `changes` skips heavy jobs for a docs-only PR and runs all of them for code', async () => {
+  const docs = await run('changes', { files: [{ filename: 'docs/ops/integrations.md', status: 'modified' }] });
+  assert.equal(docs.code, 0, docs.stdout);
+  assert.match(docs.stdout, /^web=false\napi=false\nlocal-env=false\ninfra=false$/m);
+  const code = await run('changes', { files: [{ filename: 'infra/start/network.tf', status: 'modified' }] });
+  assert.match(code.stdout, /^web=true\napi=true\nlocal-env=false\ninfra=true$/m);
+});

@@ -156,7 +156,7 @@ beforeEach(() => {
 });
 
 describe("ACC-01 AC1: sign-up creates an unconfirmed account and sends a confirmation link valid 24 h; no session", () => {
-  it("unconfirmed account, «check your email», no cookie; the letter links to /verify with a token valid 24 h", async () => {
+  it("unconfirmed account, «check your email», no cookie; the letter links to #/verify with a token valid 24 h", async () => {
     const email = nextEmail("ac1");
     const res = await signUp({ name: "Олена Синтетична", email, password: PASSWORD });
     expect(res.statusCode).toBe(200);
@@ -170,7 +170,7 @@ describe("ACC-01 AC1: sign-up creates an unconfirmed account and sends a confirm
     const letters = lettersTo(email);
     expect(letters).toHaveLength(1);
     expect(letters[0]!.subject).toBe("Підтвердьте email для Willowsum");
-    expect(letters[0]!.text).toContain(`${WEB}/verify?token=`);
+    expect(letters[0]!.text).toContain(`${WEB}/#/verify?token=`);
     expect(letters[0]!.text).toContain("24 години");
     const { rows } = await db.owner.query(
       `SELECT a.email_confirmed_at, extract(epoch FROM c.expires_at - c.created_at)::int AS ttl, a.password_hash
@@ -423,7 +423,7 @@ describe("ACC-01 AC11, AC25, FR 8 / NFR-15 FR 1: a taken address gets the same a
     const letters = lettersTo(taken);
     const attempt = letters.at(-1)!;
     expect(attempt.subject).toBe("Спроба реєстрації з вашою адресою у Willowsum");
-    expect(attempt.text).toContain(`${WEB}/password/reset`);
+    expect(attempt.text).toContain(`${WEB}/#/password/reset`);
     expect(attempt.text).not.toContain("/verify");
     const after = await db.owner.query(
       `SELECT display_name, password_hash, email_confirmed_at, updated_at FROM identity.accounts WHERE email_normalized = $1`,

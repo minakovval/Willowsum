@@ -104,7 +104,7 @@ function tokenIn(message: MailMessage, pattern: RegExp): string {
   if (!m) throw new Error("no link in the letter");
   return m[1]!;
 }
-const resetToken = (m: MailMessage) => tokenIn(m, /\/password\/reset#token=([A-Za-z0-9_-]{43})/);
+const resetToken = (m: MailMessage) => tokenIn(m, /\/#\/password\/reset\?token=([A-Za-z0-9_-]{43})/);
 const confirmToken = (m: MailMessage) => tokenIn(m, /\/verify\?token=([A-Za-z0-9_-]{43})/);
 
 function setCookies(res: { headers: Record<string, unknown> }): string[] {
@@ -205,8 +205,9 @@ describe("ACC-01 AC16, FR 10: a reset request mails a single-use link valid 60 m
     await flush();
     const letters = resetLetters(email);
     expect(letters).toHaveLength(1);
-    expect(letters[0]!.text).toContain(`${WEB}/password/reset#token=`);
-    expect(letters[0]!.text).not.toContain("?token=");
+    expect(letters[0]!.text).toContain(`${WEB}/#/password/reset?token=`);
+    // The token sits after `#` only, never in a query string a browser would send to a server.
+    expect(letters[0]!.text).not.toMatch(/https?:\/\/[^#\s]*\?token=/);
     expect(letters[0]!.text).toContain("60 хвилин");
     const { rows } = await db.owner.query(
       `SELECT extract(epoch FROM r.expires_at - r.created_at)::int AS ttl, r.used_at, r.revoked_at
@@ -427,7 +428,7 @@ describe("ACC-01 AC17 / NFR-15 FR 3: a reset changes the password and ends every
     await flush();
     const notice = lettersTo(email).at(-1)!;
     expect(notice.subject).toBe("Пароль у Willowsum змінено");
-    expect(notice.text).toContain(`${WEB}/password/reset`);
+    expect(notice.text).toContain(`${WEB}/#/password/reset`);
     expect(notice.text).not.toContain(token);
     expect(notice.text).not.toContain(NEW_PASSWORD);
   });

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { THEME_ATTRIBUTE, THEME_STORAGE_KEY } from "@willowsum/ui";
-import viteConfig from "../vite.config.ts";
+import viteConfig, { requireCaptchaSiteKey } from "../vite.config.ts";
 
 const appRoot = fileURLToPath(new URL("../", import.meta.url));
 
@@ -47,4 +47,30 @@ describe("static checks", () => {
       expect(css).not.toMatch(/z-index:\s*-?\d/);
     },
   );
+
+  it("ACC-01 FR 12: a production build fails without the Turnstile site key; local and CI builds do not need it", () => {
+    const plugin = requireCaptchaSiteKey();
+    expect(plugin.apply).toBe("build");
+    const resolve = (mode: string, env: Record<string, string>) =>
+      (plugin.configResolved as unknown as (c: { mode: string; env: Record<string, string> }) => void)({
+        mode,
+        env,
+      });
+    expect(() => resolve("production", {})).toThrow(/VITE_CAPTCHA_SITE_KEY/);
+    expect(() => resolve("production", { VITE_CAPTCHA_SITE_KEY: "not a key" })).toThrow(
+      /VITE_CAPTCHA_SITE_KEY/,
+    );
+    expect(() =>
+      resolve("production", { VITE_CAPTCHA_SITE_KEY: ["0x4", "dummy", "site", "key"].join("-") }),
+    ).not.toThrow();
+    expect(() => resolve("ci", {})).not.toThrow();
+    const scripts = (
+      JSON.parse(readFileSync(join(appRoot, "package.json"), "utf8")) as { scripts: Record<string, string> }
+    ).scripts;
+    expect(scripts["build"]).toBe("vite build --mode ci");
+    expect(scripts["build:production"]).toBe("vite build --mode production");
+    expect(
+      (viteConfig as { plugins?: { name?: string }[] }).plugins?.some((p) => p?.name === plugin.name),
+    ).toBe(true);
+  });
 });

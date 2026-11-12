@@ -51,11 +51,12 @@ NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: частина c — 
   `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
   `SIGN_IN_FAILURE_WINDOW_MS`, `SIGN_IN_FAILURES_LIMIT`, `SIGN_IN_LOCK_MS`, `SIGN_UPS_PER_ADDRESS_PER_HOUR`).
 
-Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/verify?token=…` (24 год) і лист про
-спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/password/reset`; лист скидання з посиланням
-`<WS_WEB_ORIGIN>/password/reset#token=…` (токен у фрагменті, 60 хв) і безпекове сповіщення про зміну пароля (лише
-посилання на сторінку скидання). Надсилаються після відповіді; невдача — подія `identity.mail_failed` лише з класом
-помилки; невдача роботи після відповіді — `identity.task_failed`.
+Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/#/verify?token=…` (24 год) і лист про
+спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/#/password/reset`; лист скидання з посиланням
+`<WS_WEB_ORIGIN>/#/password/reset?token=…` (60 хв) і безпекове сповіщення про зміну пароля (лише посилання на сторінку
+скидання). Веб маршрутизує у фрагменті URL, тож токени не потрапляють на сервер і в Referer. Надсилаються після
+відповіді; невдача — подія `identity.mail_failed` лише з класом помилки; невдача роботи після відповіді —
+`identity.task_failed`.
 
 ## Залежності
 

@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode ci",
+    "build:production": "vite build --mode production",
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
+    "@willowsum/api-contract": "workspace:*",
     "@willowsum/i18n": "workspace:*",
     "@willowsum/ui": "workspace:*",
     "react": "19.3.1",

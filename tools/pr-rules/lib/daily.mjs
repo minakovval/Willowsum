@@ -1,6 +1,7 @@
 // CICD-01 FR 1, FR 3, FR 4 and FR 5 (ADR-0008): the daily check of `main` and of the PRs merged into it.
 // Pure: `evaluate(input)` takes what the workflow fetched from the GitHub REST API (or a recorded fixture) and
 // returns findings; `render` turns them into the alert issue. No network, no clock (the input carries `now`).
+import { jobsToRun } from './ci-paths.mjs';
 import { classifyFiles, ownerApprovalNeeded, ownerDecisionFiles, safeName, unionClassification } from './paths.mjs';
 
 export const SEVERITY = {
@@ -178,6 +179,8 @@ function checkCi(pr, findings) {
     return;
   }
   const runs = (pr.checkRuns ?? []).filter((r) => !r.app || r.app === 'github-actions');
+  // A job skipped by its path filter (ci-paths.mjs) passes only when the PR's files did not need it.
+  const needed = jobsToRun(pr.files ?? [], { truncated: pr.filesTruncated });
   const bad = [];
   for (const job of pr.requiredJobs) {
     const all = runs.filter((r) => r.name === job);
@@ -187,6 +190,7 @@ function checkCi(pr, findings) {
       .filter((r) => r.status === 'completed' && r.completed_at && at(r.completed_at) <= at(pr.merged_at))
       .sort((a, b) => b.id - a.id)[0];
     if (!run) bad.push(`${job}: ${all.length ? 'завершилась після злиття' : 'не запускалась'}`);
+    else if (run.conclusion === 'skipped' && needed[job] === false) continue;
     else if (run.conclusion !== 'success') bad.push(`${job}: ${run.conclusion}`);
   }
   if (bad.length) {
