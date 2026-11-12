@@ -32,6 +32,8 @@ const page = (sectionId: SectionId, id: string, icon: IconName, label: MessageKe
 /**
  * UX-09@PoC, CMP-69@PoC: L1 «Гроші» (root «Транзакції») and «Планування» (root «Бюджет»). No
  * «Головна», «Активи» or «Ще». «Борги» is always visible (its page shows the empty state).
+ * «Чи можу я дозволити» (BUD-04, S-142) and the bank connection screens (S-060…S-062) are PoC v2:
+ * not registered here (the `shell.nav.afford` text and the `afford` icon are kept for PoC v2).
  */
 export const SECTIONS: readonly SectionDef[] = [
   {
@@ -53,7 +55,6 @@ export const SECTIONS: readonly SectionDef[] = [
       page("planning", "budget", "budget", "shell.nav.budget"),
       page("planning", "goals", "goals", "shell.nav.goals"),
       page("planning", "recurring", "recurring", "shell.nav.recurring"),
-      page("planning", "afford", "afford", "shell.nav.afford"),
       page("planning", "debts", "debts", "shell.nav.debts"),
     ],
   },

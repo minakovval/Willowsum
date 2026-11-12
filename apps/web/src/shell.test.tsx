@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
+import { CHILDREN, resolveRoute, SECTIONS } from "./routing/routes.ts";
 import { resetNavigationSession } from "./routing/session.ts";
 
 /**
@@ -62,9 +63,10 @@ describe("UX-09@PoC navigation", () => {
     expect(navLink("Бюджет").getAttribute("aria-current")).toBe("page");
   });
 
-  it("UX-09 item 2: «Планування» has «Бюджет», «Цілі», «Регулярні платежі», «Чи можу я дозволити», «Борги» (always visible)", () => {
+  it("UX-09 item 2: «Планування» has «Бюджет», «Цілі», «Регулярні платежі», «Борги» (always visible); no «Чи можу я дозволити» (PoC v2)", () => {
     render(<App />);
-    expect(pageLabels()).toEqual(["Бюджет", "Цілі", "Регулярні платежі", "Чи можу я дозволити", "Борги"]);
+    expect(pageLabels()).toEqual(["Бюджет", "Цілі", "Регулярні платежі", "Борги"]);
+    expect(within(nav()).queryByRole("link", { name: /Чи можу я дозволити/ })).toBeNull();
     follow(navLink("Борги"));
     expect(h1()).toBe("Борги");
     expect(screen.getByText("Тут поки нічого немає")).toBeTruthy();
@@ -76,6 +78,56 @@ describe("UX-09@PoC navigation", () => {
     expect(pageLabels()).toEqual(["Транзакції", "Рахунки"]);
     for (const absent of ["До розбору", "Пари", "Підключення"]) {
       expect(within(nav()).queryByRole("link", { name: new RegExp(`^${absent}`) })).toBeNull();
+    }
+  });
+
+  it("UX-09 item 2 (PoC v2 routes): «Чи можу я дозволити» and the bank connection pages are not registered", () => {
+    for (const path of [
+      "/planning/afford",
+      "/money/connections",
+      "/money/connections/new",
+      "/money/connections/1/source",
+      "/money/accounts/connections",
+      "/money/accounts/connect",
+      "/money/accounts/reconnect",
+      "/money/accounts/monobank-token",
+    ]) {
+      expect(resolveRoute(path).kind, path).toBe("notFound");
+    }
+    const paths = [
+      ...SECTIONS.flatMap((s) => [s.path, ...s.pages.map((p) => p.path)]),
+      ...CHILDREN.map((c) => c.path),
+    ];
+    expect(paths.filter((p) => /afford|connect|bank|mono|token/.test(p))).toEqual([]);
+    expect(SECTIONS.flatMap((s) => s.pages.map((p) => p.id))).toEqual([
+      "transactions",
+      "accounts",
+      "budget",
+      "goals",
+      "recurring",
+      "debts",
+    ]);
+  });
+
+  it("UX-09 items 2, 18: «Рахунки» and «Налаштування» offer no bank connection entry points", () => {
+    for (const hash of ["#/money/accounts", "#/settings"]) {
+      window.location.hash = hash;
+      const { unmount } = render(<App />);
+      // The page really rendered, so the absence checks below are meaningful.
+      expect(h1()).toBeTruthy();
+      for (const absent of [
+        /Підключення/,
+        /Підключити/,
+        /Перепідключити/,
+        /monobank/i,
+        /токен/i,
+        /Керувати підключеннями/,
+      ]) {
+        expect(screen.queryByText(absent), `${hash} ${absent}`).toBeNull();
+        expect(screen.queryByRole("link", { name: absent }), `${hash} ${absent}`).toBeNull();
+        expect(screen.queryByRole("tab", { name: absent }), `${hash} ${absent}`).toBeNull();
+      }
+      unmount();
     }
   });
 
