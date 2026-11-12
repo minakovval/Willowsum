@@ -80,9 +80,9 @@ describe("NFR-01 FR 10: a session ends after 15 min idle or 12 h in all", () => 
 });
 
 describe("ACC-01 FR 4, FR 8: the letters", () => {
-  it("confirmation: the link to /verify, valid 24 h; Ukrainian first, English complete", () => {
+  it("confirmation: the link to the web app's #/verify (token in the fragment), valid 24 h; Ukrainian first, English complete", () => {
     const link = confirmationLink("https://app.example.org", "A".repeat(43));
-    expect(link).toBe(`https://app.example.org/verify?token=${"A".repeat(43)}`);
+    expect(link).toBe(`https://app.example.org/#/verify?token=${"A".repeat(43)}`);
     const uk = confirmationLetter("Олена", link);
     expect(uk.text).toContain(link);
     expect(uk.text).toContain("24 години");
@@ -92,7 +92,7 @@ describe("ACC-01 FR 4, FR 8: the letters", () => {
   it("sign-up attempt with a taken address: only the password-reset link, never a confirmation link", () => {
     for (const locale of ["uk", "en"] as const) {
       const letter = signUpAttemptLetter("Олена", passwordResetLink("https://app.example.org"), locale);
-      expect(letter.text).toContain("https://app.example.org/password/reset");
+      expect(letter.text).toContain("https://app.example.org/#/password/reset");
       expect(letter.text).not.toContain("/verify");
       expect(letter.text.match(/https?:\/\//g)).toHaveLength(1);
     }

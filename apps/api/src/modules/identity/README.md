@@ -39,8 +39,8 @@ ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15 — серверна ча
   `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
   `SIGN_IN_FAILURE_WINDOW_MS`, `SIGN_IN_FAILURES_LIMIT`, `SIGN_IN_LOCK_MS`, `SIGN_UPS_PER_ADDRESS_PER_HOUR`).
 
-Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/verify?token=…` (24 год) і лист про
-спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/password/reset`. Надсилаються після відповіді;
+Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/#/verify?token=…` (24 год; токен у фрагменті URL — не потрапляє на сервер і в Referer) і лист про
+спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/#/password/reset`. Надсилаються після відповіді;
 невдача — подія `identity.mail_failed` лише з класом помилки.
 
 ## Залежності
