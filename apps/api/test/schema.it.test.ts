@@ -23,14 +23,15 @@ beforeAll(async () => {
   await owner.connect();
   await migrateRealModules(owner, db.url);
   await migrate(owner, { modules: ["homes"], modulesDir: fixtures });
-  // The household fixture lacks its region and key reference: the check after the migrations stops the run.
-  await expect(migrate(owner, { modules: ["household"], modulesDir: fixtures })).rejects.toThrow(
-    /household\.households: needs data_region/,
-  );
   vdb = await createTestDatabase();
   vowner = new pg.Client({ connectionString: vdb.url });
   await vowner.connect();
   await migrate(vowner, { modules: ["homes"], modulesDir: fixtures });
+  // The household fixture lacks its region and key reference: the check after the migrations stops the run. It
+  // goes to the second database: the first one has the real household module (ACC-01 part c).
+  await expect(migrate(vowner, { modules: ["household"], modulesDir: fixtures })).rejects.toThrow(
+    /household\.households: needs data_region/,
+  );
   // The violations fixture breaks every rule, so the guard and the post-migration check would refuse it as a
   // migration. It is applied by hand as the superuser instead (the guard does not act for it), its objects
   // handed to the module's owner role, and its customer tables isolated as the runner would.
@@ -165,23 +166,33 @@ describe("ARC-03 criterion «таблиця з даними клієнтів б�
   });
 
   it("ARC-03 FR 3: the household table must carry its data region («eu») and its own key reference", async () => {
-    expect(await schemaProblems(owner, ["household"], none)).toEqual([
+    // The second database also holds the violations fixture, whose database-wide problems are not this test's.
+    const householdProblems = async (client: pg.Client) =>
+      (await schemaProblems(client, ["household"], none)).filter((p) => p.startsWith("household.households"));
+    expect(await householdProblems(vowner)).toEqual([
       "household.households: needs data_region platform_types.data_region NOT NULL (ARC-03 FR 3)",
       "household.households: needs encryption_key_ref text NOT NULL (ARC-03 FR 3)",
     ]);
-    await owner.query("BEGIN");
+    await vowner.query("BEGIN");
     try {
-      await owner.query(
+      await vowner.query(
         `ALTER TABLE household.households ADD COLUMN data_region platform_types.data_region NOT NULL DEFAULT 'eu',
                                           ADD COLUMN encryption_key_ref text NOT NULL DEFAULT 'k'`,
       );
-      expect(await schemaProblems(owner, ["household"], none)).toEqual([]);
-      await expect(owner.query("SELECT 'us'::platform_types.data_region")).rejects.toThrow(
+      // The second database also holds the violations fixture, whose database-wide problems are not this test's.
+      const householdProblems = async (client: pg.Client) =>
+        (await schemaProblems(client, ["household"], none)).filter((p) =>
+          p.startsWith("household.households"),
+        );
+      expect(await householdProblems(vowner)).toEqual([]);
+      await expect(vowner.query("SELECT 'us'::platform_types.data_region")).rejects.toThrow(
         /data_region_known/,
       );
     } finally {
-      await owner.query("ROLLBACK");
+      await vowner.query("ROLLBACK");
     }
+    // The real household module's table carries both.
+    expect(await householdProblems(owner)).toEqual([]);
   });
 
   it("a migration whose household_id is not uuid NOT NULL fails and leaves nothing behind", async () => {

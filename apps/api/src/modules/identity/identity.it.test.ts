@@ -5,7 +5,7 @@ import { syntheticMailSender, type MailMessage } from "../../platform/adapters/m
 import { buildServer } from "../../platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../../platform/telemetry/testing.ts";
 import { fakeFlags } from "../../../test/http.ts";
-import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
+import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { createAuditLog } from "../audit/index.ts";
 import {
   argon2Hasher,
@@ -125,6 +125,7 @@ beforeAll(async () => {
     captcha,
     audit: createAuditLog(db.databases.for("audit")),
     webOrigin: WEB,
+    spaces: householdSpaces(db),
     now: () => t,
     hasher: argon2Hasher(),
     deliver: (task) => {
@@ -822,6 +823,7 @@ describe("ARC-09 / NFR-10 / NFR-17: emails, names, passwords and tokens never re
       captcha,
       audit: createAuditLog(db.databases.for("audit")),
       webOrigin: WEB,
+      spaces: householdSpaces(db),
       now: () => t,
       deliver: (task) => {
         pending.push(task());

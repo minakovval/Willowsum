@@ -34,6 +34,11 @@ export interface SyntheticTable {
   /** «<schema>.<table>». */
   readonly table: string;
   readonly perHousehold: number;
+  /**
+   * The most rows one household can hold (a unique key on household_id, e.g. a space's own record): tests that
+   * load several rows per household load at most this many.
+   */
+  readonly maxPerHousehold?: number;
   rows(context: SyntheticContext): Iterable<SyntheticRow>;
 }
 
@@ -42,5 +47,10 @@ export function defineSyntheticTable(table: SyntheticTable): SyntheticTable {
     throw new Error(`Synthetic table «${table.table}» must be named <schema>.<table>`);
   if (!Number.isInteger(table.perHousehold) || table.perHousehold < 0)
     throw new Error(`${table.table}: perHousehold must be a non-negative integer`);
+  if (
+    table.maxPerHousehold !== undefined &&
+    (!Number.isInteger(table.maxPerHousehold) || table.maxPerHousehold < 1 || table.perHousehold > table.maxPerHousehold)
+  )
+    throw new Error(`${table.table}: maxPerHousehold must be an integer ≥ 1 and ≥ perHousehold`);
   return table;
 }

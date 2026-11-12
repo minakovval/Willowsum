@@ -8,13 +8,14 @@
 
 Реєстрація, вхід, 2FA, passkey, сесії, step-up, блокування входу. Зараз (ACC-01@PoC, частини a і b): реєстрація за email і
 паролем, підтвердження email, вхід з блокуванням і CAPTCHA, серверна сесія, вихід, скидання пароля з завершенням усіх
-сесій. Рішення — [ADR-0009](../../../../../docs/adr/0009-identity-sign-in.md).
+сесій; частина c — перший простір під час першого входу (через порт `FirstSpace`, який реалізує `household`). Рішення — [ADR-0009](../../../../../docs/adr/0009-identity-sign-in.md),
+[ADR-0010](../../../../../docs/adr/0010-first-space-and-daily-cleanup.md).
 
 ## Вимоги
 
-ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10 і AC25 — серверна частина); NFR-01@PoC (п. 7, 9, 10),
-NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: частина c — простір «Родина <Прізвище>» при
-першому вході, видалення непідтверджених акаунтів через 30 днів; ACC-04 — тайм-аут сесії і лист про новий пристрій.
+ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10 і AC25; частина c: п. 7, AC5 — серверна
+частина); NFR-01@PoC (п. 7, 9, 10), NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: щоденна задача (п. 6, AC8, AC9);
+ACC-04 — тайм-аут сесії і лист про новий пристрій.
 
 ## Публічний інтерфейс
 
@@ -43,9 +44,13 @@ NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: частина c — 
     сесії немає), email підтверджено, блокування входу адреси знято, безпекове сповіщення; 410 `RESET_LINK_INVALID`.
   - Повторна реєстрація з адресою непідтвердженого акаунта замінює його ім'я і пароль і скасовує посилання (рішення
     власника 2026-11-12); підтверджений акаунт не змінюється.
-- `createIdentityServices({ mail, captcha, audit, webOrigin, now?, hasher?, deliver? })` → `IdentityServices` — порти і
-  налаштування, які `src/api.ts` передає маршрутам (`ctx.services`); `main.ts` вибирає реалізації пошти й CAPTCHA за
-  `WS_PROVIDER_MODE`.
+- `createIdentityServices({ mail, captcha, audit, webOrigin, spaces, now?, hasher?, deliver? })` → `IdentityServices` —
+  порти і налаштування, які `src/api.ts` передає маршрутам (`ctx.services`); `main.ts` вибирає реалізації пошти й
+  CAPTCHA за `WS_PROVIDER_MODE`. `spaces` (порт `FirstSpace`) — `ensureFirstSpace` модуля `household`: вхід
+  підтвердженого акаунта створює перший простір «Родина <Прізвище>», якщо простору ще немає; якщо простір не вдалося
+  створити, нова сесія завершується, а вхід відповідає 500.
+- `authenticateSession(services, db, token)` → `{ accountId, name, email }` або null — жива сесія підтвердженого акаунта
+  (рухає строк бездіяльності); `src/api.ts` будує з неї і простору акаунта того, хто викликає захищені маршрути.
 - `argon2Hasher(parameters?)`, `ARGON2_PARAMETERS`, `SESSION_COOKIE` і числа правил (`CONFIRMATION_TTL_MS`,
   `PASSWORD_RESET_TTL_MS`,
   `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
@@ -61,7 +66,8 @@ NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: частина c — 
 ## Залежності
 
 Шар: platform. Модулі: audit (`apps/api/module-rules.json`) — зміни стану акаунта в журнал платформи (автор `system`,
-сутність `identity.account`, поле `state`, без email).
+сутність `identity.account`, поле `state`, без email). `household` — лише через порт `FirstSpace`, який передає
+`main.ts`; identity його не імпортує.
 
 ## Події
 

@@ -9,7 +9,14 @@ export const identityModule = defineModule({
   routes: identityRoutes,
 });
 
-export { ARGON2_PARAMETERS, argon2Hasher, createIdentityServices, SESSION_COOKIE } from "./adapters/index.ts";
+export {
+  ARGON2_PARAMETERS,
+  argon2Hasher,
+  authenticateSession,
+  createIdentityServices,
+  SESSION_COOKIE,
+} from "./adapters/index.ts";
+export type { FirstSpace, SessionAccount } from "./application/index.ts";
 export type { IdentityServices, IdentityServicesOptions } from "./adapters/index.ts";
 export {
   CONFIRMATION_TTL_MS,

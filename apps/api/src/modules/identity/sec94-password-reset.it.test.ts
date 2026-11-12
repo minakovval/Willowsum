@@ -5,7 +5,7 @@ import { syntheticMailSender, type MailMessage } from "../../platform/adapters/m
 import { buildServer } from "../../platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../../platform/telemetry/testing.ts";
 import { fakeFlags } from "../../../test/http.ts";
-import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
+import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { createAuditLog } from "../audit/index.ts";
 import { argon2Hasher, createIdentityServices } from "./index.ts";
 
@@ -57,6 +57,7 @@ beforeAll(async () => {
     captcha: syntheticCaptchaVerifier(),
     audit: createAuditLog(db.databases.for("audit")),
     webOrigin: WEB,
+    spaces: householdSpaces(db),
     now: () => {
       if (armed) order.push("work");
       if (failWith !== null) {

@@ -13,6 +13,10 @@
       "layer": "platform",
       "dependsOn": ["audit", "plan-catalog"]
     },
+    "household": {
+      "layer": "platform",
+      "dependsOn": ["audit"]
+    },
     "identity": {
       "layer": "platform",
       "dependsOn": ["audit"]

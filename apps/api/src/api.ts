@@ -6,11 +6,13 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
-import type { IdentityServices } from "./modules/identity/index.ts";
+import type { HouseholdSpaces } from "./modules/household/index.ts";
+import { authenticateSession, SESSION_COOKIE, type IdentityServices } from "./modules/identity/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
 import type { ModuleDatabase } from "./platform/db/module-db.ts";
 import { registerApi, type ApiOptions } from "./platform/http/api.ts";
+import { cookieContext, readSessionCookie } from "./platform/http/cookies.ts";
 import { moduleIdempotencyStore } from "./platform/http/idempotency.ts";
 import { platformRoutes } from "./platform/http/meta.ts";
 import type { ApiRoute, Principal } from "./platform/http/route.ts";
@@ -31,9 +33,14 @@ export interface ApiWiring {
    * routes answer 500 (never in the API process, main.ts wires them).
    */
   readonly identity?: IdentityServices;
+  /**
+   * The household module's spaces (ACC-01 part c): with `identity`, the caller of a protected route is the account
+   * of the session cookie in its space with its role there.
+   */
+  readonly spaces?: Pick<HouseholdSpaces, "membershipOf">;
   /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly deployed?: boolean;
-  /** The session of a request. Until identity (ACC-01) exists, nothing is signed in. */
+  /** The session of a request; by default the session cookie (with identity and spaces), else nobody. */
   readonly authenticate?: (request: FastifyRequest) => Promise<Principal | null>;
   readonly supportId?: ApiOptions["supportId"];
   readonly reportError?: ApiOptions["reportError"];
@@ -47,7 +54,7 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
   const entitlements = createEntitlements(wiring.entitlements);
   return {
     routes: apiRoutes,
-    authenticate: wiring.authenticate ?? (async () => null),
+    authenticate: wiring.authenticate ?? sessionAuthenticator(wiring),
     moduleAvailable: (module) => wiring.flags.isModuleAvailable(module),
     ...(wiring.flags.moduleState
       ? { moduleState: (module: string) => wiring.flags.moduleState!(module) }
@@ -74,6 +81,40 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
     reportError: wiring.reportError ?? reportServerErrorToTelemetry,
     ...(wiring.rateLimits !== undefined ? { rateLimits: wiring.rateLimits } : {}),
     ...(wiring.allowedOrigins !== undefined ? { allowedOrigins: wiring.allowedOrigins } : {}),
+  };
+}
+
+const IDENTITY_FLAG = "identity.sign-in";
+
+/**
+ * The caller of a protected route (ACC-01 part c; ADR-0010): the live session of the cookie (identity), then the
+ * account's space and role (household). The space comes from the session, never from the request (П-5). While
+ * identity is switched off (kill switch) or its flag is not on for everyone, no session is served: the switch
+ * that hides sign-in also signs everybody out of the API.
+ */
+function sessionAuthenticator(wiring: ApiWiring): (request: FastifyRequest) => Promise<Principal | null> {
+  const { identity, spaces } = wiring;
+  if (!identity || !spaces) return async () => null;
+  const db = wiring.databases.for("identity");
+  return async (request) => {
+    const token = readSessionCookie(
+      request,
+      SESSION_COOKIE,
+      cookieContext(request, wiring.deployed ?? false),
+    );
+    if (token === undefined) return null;
+    if (!(await wiring.flags.isModuleAvailable("identity"))) return null;
+    if (!(await (wiring.flags.isEnabledForAll?.(IDENTITY_FLAG) ?? Promise.resolve(false)))) return null;
+    const account = await authenticateSession(identity, db, token);
+    if (!account) return null;
+    const membership = await spaces.membershipOf(account.accountId);
+    if (!membership) return null;
+    return {
+      userId: account.accountId,
+      householdId: membership.householdId,
+      role: membership.role,
+      scoped: false,
+    };
   };
 }
 
