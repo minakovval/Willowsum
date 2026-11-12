@@ -7,6 +7,13 @@
 //   node tools/req-check/index.mjs --traceability        also write docs/traceability/ (matrix, releases, coverage)
 //   node tools/req-check/index.mjs --impact <target>     list what depends on a requirement, slice, screen, board,
 //                                                        П-rule, use case or module (transitively), then exit
+//   node tools/req-check/index.mjs --views               write the release views generated from the requirement sources
+//   node tools/req-check/index.mjs --convert <ID|all>    turn a card and its slice files into a source (only when the
+//                                                        round trip is exact), write the views, report exceptions
+//   node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]
+//                                                        move items to another release (changes their tags), write the
+//                                                        views, report dependents
+//   node tools/req-check/index.mjs --coverage            per-item and per-release coverage by tests named by item
 //
 // Options: --root <dir> (repository root, default cwd), --requirements <dir> (default docs/requirements),
 // --baseline <file> (default tools/req-check/baseline.json), --no-baseline, --quiet,
@@ -22,6 +29,11 @@ import { CHECKS } from './lib/findings.mjs';
 import { loadRegistries } from './lib/registries.mjs';
 import { renderTraceability } from './lib/traceability.mjs';
 import { computeImpact, renderImpact } from './lib/impact.mjs';
+import { convertRequirement, viewFileName } from './lib/source.mjs';
+import { moveItems } from './lib/move.mjs';
+import { findMentions, computeCoverage, renderCoverage } from './lib/coverage.mjs';
+import { SLICE_FILE_RE } from './lib/config.mjs';
+import { buildModel } from './lib/model.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -67,7 +79,7 @@ function isLink(p) {
 }
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -82,19 +94,119 @@ export function parseArgs(argv) {
     else if (a === '--traceability') opts.traceability = true;
     else if (a === '--impact') opts.impact = next();
     else if (a === '--traceability-dir') opts.traceabilityDir = next();
+    else if (a === '--views') opts.views = true;
+    else if (a === '--convert') opts.convert = next();
+    else if (a === '--move') opts.move = next();
+    else if (a === '--items') opts.items = next();
+    else if (a === '--to') opts.to = next();
+    else if (a === '--from') opts.from = next();
+    else if (a === '--coverage') opts.coverage = true;
     else if (a === '--update-baseline') opts.updateBaseline = true;
     else if (a === '--no-baseline') opts.useBaseline = false;
     else if (a === '--quiet') opts.quiet = true;
     else if (a === '--help' || a === '-h') opts.help = true;
     else throw new Error(`unknown option ${a}`);
   }
+  if (opts.move && (!opts.items || !opts.to)) throw new Error('--move needs --items and --to');
   return opts;
+}
+
+const reqPath = (root, rel) => path.resolve(root, rel);
+const write = (root, rel, text) => {
+  const p = reqPath(root, rel);
+  if (fs.existsSync(p) && !fs.lstatSync(p).isFile()) throw new Error(`${rel} is not a regular file; refusing to overwrite it`);
+  fs.writeFileSync(p, text);
+};
+
+/** Write the views of the given sources (all when ids is null); remove view files a source no longer lists. */
+export function writeViews(root, corpus, ids = null) {
+  let written = 0;
+  let removed = 0;
+  for (const s of corpus.sources) {
+    if (ids && !ids.includes(s.id)) continue;
+    const dir = path.dirname(reqPath(root, s.rel));
+    for (const v of s.views.values()) {
+      const p = reqPath(root, v.rel);
+      if (fs.existsSync(p) && fs.readFileSync(p, 'utf8') === v.text) continue;
+      write(root, v.rel, v.text);
+      written++;
+    }
+    const keep = new Set([...s.views.keys()].map((r) => viewFileName(s.id, r)));
+    for (const name of fs.readdirSync(dir)) {
+      const m = SLICE_FILE_RE.exec(name);
+      if (!m || m[1] !== s.id || keep.has(name) || !fs.lstatSync(path.join(dir, name)).isFile()) continue;
+      fs.rmSync(path.join(dir, name));
+      removed++;
+    }
+  }
+  return { written, removed };
+}
+
+/** Convert cards with slice files to sources; only exact round trips are written. */
+export function convertAll(root, reqDir, which) {
+  const corpus = loadCorpus(root, reqDir);
+  const model = buildModel(corpus);
+  const done = [];
+  const exceptions = [];
+  const read = (rel) => fs.readFileSync(reqPath(root, rel), 'utf8');
+  for (const f of model.features.values()) {
+    if (which !== 'all' && f.id !== which) continue;
+    if (!f.card || f.doc.source) continue;
+    const slices = f.slices.map((s) => ({ release: s.release, text: read(s.doc.rel) }));
+    if (!slices.length) {
+      exceptions.push({ id: f.id, reason: 'a card without slice files' });
+      continue;
+    }
+    const r = convertRequirement(f.id, read(f.doc.rel), slices);
+    if (!r.ok) {
+      exceptions.push({ id: f.id, reason: r.reason });
+      continue;
+    }
+    write(root, f.doc.rel, r.source);
+    for (const s of f.slices) write(root, s.doc.rel, r.views.get(s.release));
+    done.push(f.id);
+  }
+  if (which !== 'all' && !done.length && !exceptions.length) throw new Error(`--convert: ${which} is not a card with slice files (or is already a source)`);
+  return { done, exceptions };
+}
+
+/** Test files of the repository (apps, packages, tools), as {rel, text}. */
+export function loadTestFiles(root) {
+  const out = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.isSymbolicLink() || e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.(test|spec)\.[cm]?[jt]sx?$/.test(e.name)) out.push({ rel: path.relative(root, p).split(path.sep).join('/'), text: fs.readFileSync(p, 'utf8') });
+    }
+  };
+  for (const top of ['apps', 'packages', 'tools']) walk(path.resolve(root, top));
+  return out;
 }
 
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
     log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--update-baseline] [--no-baseline] [--root dir]');
+    return 0;
+  }
+  if (opts.convert) {
+    const { done, exceptions } = convertAll(opts.root, opts.requirements, opts.convert);
+    log(`req-check: converted ${done.length} requirements to sources; round trip byte-identical for every view (apart from the view header).`);
+    if (exceptions.length) log(`req-check: not converted (kept as card + slice files): ${exceptions.map((e) => `${e.id} (${e.reason})`).join('; ')}`);
+    return 0;
+  }
+  if (opts.move) {
+    const corpus0 = loadCorpus(opts.root, opts.requirements);
+    const s = corpus0.sources.find((x) => x.id === opts.move);
+    if (!s) throw new Error(`--move: ${opts.move} is not a requirement source`);
+    const res = moveItems(fs.readFileSync(reqPath(opts.root, s.rel), 'utf8'), s.id, { items: opts.items.split(',').map((x) => x.trim()).filter(Boolean), to: opts.to, from: opts.from ?? undefined });
+    write(opts.root, s.rel, res.text);
+    const corpus1 = loadCorpus(opts.root, opts.requirements);
+    writeViews(opts.root, corpus1, [s.id]);
+    log(renderMove(opts, res, loadCorpus(opts.root, opts.requirements)));
     return 0;
   }
   const corpus = loadCorpus(opts.root, opts.requirements);
@@ -107,6 +219,18 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     if (!impact) throw new Error(`--impact: "${opts.impact}" is not a known requirement, slice, screen, board name, П-rule, use case or module`);
     log(renderImpact(impact));
     return 0;
+  }
+
+  if (opts.coverage) {
+    log(renderCoverage(computeCoverage(result.model, findMentions(loadTestFiles(opts.root)))));
+    return 0;
+  }
+
+  if (opts.views) {
+    const { written, removed } = writeViews(opts.root, corpus);
+    log(`req-check: views written from ${corpus.sources.length} sources (${written} files changed, ${removed} removed)`);
+    // Check what is on disk now.
+    return main(argv.filter((a) => a !== '--views'), log);
   }
 
   if (opts.updateBaseline) {
@@ -166,9 +290,60 @@ export function main(argv = process.argv.slice(2), log = console.log) {
   }
 
   const perCheck = CHECKS.map((c) => `${c} ${findings.filter((f) => f.check === c && f.severity === 'error' && !f.baselined).length}`).join(', ');
-  log(`req-check: ${corpus.docs.filter((d) => d.kind === 'requirement').length} requirement files, ${corpus.docs.filter((d) => d.kind === 'slice').length} slice files; ${errors.length} new errors (${perCheck}); ${baselined.length} baselined; ${warnings.length} warnings; baseline ${baseline.findings.length} entries${stale.length ? `, ${stale.length} stale` : ''}.`);
+  log(`req-check: ${corpus.docs.filter((d) => d.kind === 'requirement').length} requirement files, ${corpus.docs.filter((d) => d.kind === 'slice').length} slice files (${corpus.docs.filter((d) => d.generated).length} generated from ${corpus.sources.length} sources); ${errors.length} new errors (${perCheck}); ${baselined.length} baselined; ${warnings.length} warnings; baseline ${baseline.findings.length} entries${stale.length ? `, ${stale.length} stale` : ''}.`);
   if (stale.length && !opts.quiet) log(`req-check: stale baseline entries (fixed, remove them): ${stale.join(', ')}`);
   return errors.length ? 1 : 0;
+}
+
+/** Report of a --move: what changed, dependents (--impact) and mentions of the moved items' key phrases. */
+function renderMove(opts, res, corpus) {
+  const registries = loadRegistries(opts.root);
+  const model = buildModel(corpus);
+  const L = [`# Move ${opts.move}: ${opts.items} → ${opts.to}`, ''];
+  for (const m of res.moved) {
+    L.push(`- ${m.ref}: source lines ${m.lines.join(', ')}`);
+    m.after.forEach((a, i) => L.push(`  - \`${m.before[i].slice(0, 70)}\` → \`${a.slice(0, 70)}\``));
+  }
+  L.push('', `Views changed: ${res.changed.map((r) => `${opts.move}@${r}`).join(', ') || 'none'} (regenerated).`, '');
+  for (const v of res.variants) L.push(`**Check:** in ${opts.move}@${v.release} source line ${v.line} now sits beside line ${v.other}, which starts the same way: probably two wordings of one item; keep one.`, '');
+  L.push('Update by hand if needed: the card part (the «Реліз» line and the table of slices), the module README row.', '');
+  const seen = new Set();
+  for (const r of res.changed) {
+    const imp = computeImpact(model, registries, `${opts.move}@${r}`);
+    if (!imp) continue;
+    const rows = imp.slices.filter((a) => a.slice.id !== opts.move && !seen.has(a.slice.sid));
+    for (const a of rows) seen.add(a.slice.sid);
+    L.push(`## Dependents of ${opts.move}@${r} (--impact)`, '');
+    L.push(rows.length ? rows.map((a) => `- ${a.slice.sid} — ${a.why}${a.via ? ` (via ${a.via})` : ''}`).join('\n') : 'None.', '');
+  }
+  L.push('## Key phrases of the moved items elsewhere', '');
+  const hits = grepPhrases(opts.root, res.phrases, opts.move);
+  L.push(hits.length ? hits.map((h) => `- «${h.phrase}» — ${h.file}:${h.line}`).join('\n') : 'None.', '');
+  return L.join('\n');
+}
+
+/** Lines in docs/requirements, docs/ux, apps and packages that contain a phrase (other requirements only). */
+function grepPhrases(root, phrases, id, limit = 40) {
+  const hits = [];
+  if (!phrases.length) return hits;
+  const walk = (dir) => {
+    if (!fs.existsSync(dir) || hits.length >= limit) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.isSymbolicLink() || e.name === 'node_modules' || e.name === 'dist' || e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (/\.(md|tsx?|mjs|json)$/.test(e.name) && !e.name.startsWith(`${id}.`)) {
+        const rel = path.relative(root, p).split(path.sep).join('/');
+        const lines = fs.readFileSync(p, 'utf8').split('\n');
+        if (lines[1]?.startsWith('> Згенеровано з ')) continue; // a generated view: its source is searched
+        lines.forEach((line, i) => {
+          for (const ph of phrases) if (hits.length < limit && line.includes(ph)) hits.push({ phrase: ph, file: rel, line: i + 1 });
+        });
+      }
+    }
+  };
+  for (const top of ['docs/requirements', 'docs/ux', 'apps', 'packages']) walk(path.resolve(root, top));
+  return hits;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
