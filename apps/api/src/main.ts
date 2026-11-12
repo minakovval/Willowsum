@@ -9,6 +9,7 @@ import pg from "pg";
 import { mountApi } from "./api.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
 import { createHouseholdSpaces } from "./modules/household/index.ts";
 import { createIdentityMaintenance, createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
@@ -179,6 +180,26 @@ if (config.role === "scheduler") {
   const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
   const daily = scheduleDaily([{ name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() }]);
   lifecycle.onStop(() => daily.stop());
+  // Exchange rates once a day with retries (VAL-05): the NBU in deployed environments, synthetic locally and in CI.
+  // Not wrapped in runScheduled: it logs every failed run at error level, and VAL-05 FR 4 keeps the error level for
+  // 24 h without a successful update; a failed attempt is a warning.
+  const fx = startFxRatesRefresh({
+    db: databases.for("fx-rates"),
+    mode: config.providerMode,
+    report: (event) => {
+      const attributes = { "ws.module": "fx-rates", "ws.job.name": "fx-rates.refresh" };
+      // FR 4, AC2: 24 h without a successful update is an error-level event in the server log.
+      if (event.kind === "stale")
+        logEvent("fx_rates.stale", "error", {
+          ...attributes,
+          "ws.provider.attempts": Math.min(event.failures, 100),
+        });
+      else if (event.kind === "updated")
+        logEvent("fx_rates.updated", "info", { ...attributes, "ws.outcome": "success" });
+      else logEvent("fx_rates.attempt_failed", "warn", { ...attributes, "error.type": event.errorClass });
+    },
+  });
+  lifecycle.onStop(() => fx.stop());
 }
 
 await server.listen({ host: "0.0.0.0", port: config.port });
