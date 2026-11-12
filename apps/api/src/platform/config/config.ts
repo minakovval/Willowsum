@@ -68,6 +68,12 @@ export interface Config {
     readonly captchaSecret?: string;
     /** The mail API key and sender (`WS_MAIL_API_KEY`, `WS_MAIL_FROM`); with `WS_PROVIDER_MODE=live`. */
     readonly mail?: { readonly apiKey: string; readonly from: string };
+    /**
+     * The family's addresses that may sign up (`WS_SIGNUP_ALLOWLIST`, from the secret store; ACC-01 FR 16), trimmed
+     * and lower case. Required for the api role in staging and production; not set locally and in CI, where every
+     * address may sign up. Personal data: never logged.
+     */
+    readonly signUpAllowlist?: ReadonlySet<string>;
   };
   readonly database: {
     readonly host: string;
@@ -135,6 +141,27 @@ export function isTelemetryEndpoint(value: string): boolean {
   );
 }
 
+/** One plain ASCII address: a dot-atom local part, a domain of at least two labels; at most 254 characters. */
+const ALLOWLIST_ADDRESS = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/;
+
+/**
+ * `WS_SIGNUP_ALLOWLIST` (ACC-01 FR 16): addresses separated by commas, spaces or line breaks. Each is trimmed and
+ * lowered, the same normalisation identity uses for the login key, so «Olena@Example.TEST » matches
+ * «olena@example.test». Only ASCII addresses are accepted (the sign-up form accepts no other), so Unicode
+ * normalisation cannot make two spellings meet. Undefined when nothing is listed or any entry is not an address:
+ * a typo must stop the start, not silently close (or open) sign-up for someone.
+ */
+export function parseSignUpAllowlist(value: string): ReadonlySet<string> | undefined {
+  const entries = value.split(/[\s,]+/).filter((entry) => entry !== "");
+  if (entries.length === 0) return undefined;
+  const list = new Set<string>();
+  for (const entry of entries) {
+    if (entry.length > 254 || !ALLOWLIST_ADDRESS.test(entry)) return undefined;
+    list.add(entry.toLowerCase());
+  }
+  return list;
+}
+
 export function modulePasswordVariable(module: string): string {
   return `WS_DB_PASSWORD_${schemaName(module).toUpperCase()}`;
 }
@@ -177,6 +204,11 @@ export function loadConfig(
     WS_MAIL_FROM: z
       .string()
       .regex(/^[^\r\n<>]{0,100}<[^\s@<>]+@[^\s@<>]+>$|^[^\s@<>]+@[^\s@<>]+$/)
+      .optional(),
+    // The family's addresses (ACC-01 FR 16); a secret-store value, never in the repository.
+    WS_SIGNUP_ALLOWLIST: z
+      .string()
+      .refine((v) => parseSignUpAllowlist(v) !== undefined)
       .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
@@ -235,6 +267,8 @@ export function loadConfig(
     if (deployed && d.WS_PROVIDER_MODE !== "live") problems.push("WS_PROVIDER_MODE");
     if (deployed && (d.WS_WEB_ORIGIN === undefined || !d.WS_WEB_ORIGIN.startsWith("https://")))
       problems.push("WS_WEB_ORIGIN");
+    // ACC-01 FR 16: a public API never runs with sign-up open to every address.
+    if (deployed && d.WS_SIGNUP_ALLOWLIST === undefined) problems.push("WS_SIGNUP_ALLOWLIST");
     if (d.WS_PROVIDER_MODE === "live") {
       if (d.WS_CAPTCHA_SECRET === undefined) problems.push("WS_CAPTCHA_SECRET");
       if (d.WS_MAIL_API_KEY === undefined) problems.push("WS_MAIL_API_KEY");
@@ -284,6 +318,9 @@ export function loadConfig(
       v["WS_MAIL_API_KEY"] !== undefined &&
       v["WS_MAIL_FROM"] !== undefined
         ? { mail: { apiKey: v["WS_MAIL_API_KEY"] as string, from: v["WS_MAIL_FROM"] as string } }
+        : {}),
+      ...(v["WS_SIGNUP_ALLOWLIST"] !== undefined
+        ? { signUpAllowlist: parseSignUpAllowlist(v["WS_SIGNUP_ALLOWLIST"] as string)! }
         : {}),
     },
     database: {

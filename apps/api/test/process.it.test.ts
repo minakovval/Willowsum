@@ -170,6 +170,8 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
       WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
       WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
       WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
+      // ACC-01 FR 16: the family's addresses (synthetic).
+      WS_SIGNUP_ALLOWLIST: "olena.synthetic@example.test",
     });
     await waitFor(`http://127.0.0.1:${port}/health/ready`, 200, 20_000);
     const live = await fetch(`http://127.0.0.1:${port}/health/live`);

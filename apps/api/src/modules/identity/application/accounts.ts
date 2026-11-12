@@ -73,13 +73,13 @@ async function sendRegistrationLetter(
   now: number,
   send = true,
 ): Promise<number> {
-  const key = deps.secrets.digest(normalizeEmail(account.email));
+  const normalizedEmail = normalizeEmail(account.email);
+  const key = deps.secrets.digest(normalizedEmail);
   const scope = mailScope(kind);
-  // Parallel requests for one address are checked one after another, so the limit holds (ACC-01 FR 15).
-  await tx.lockSubject(scope, key);
-  const wait = mailWaitS(await tx.eventTimes(scope, key, now - MAIL_WINDOW_MS), now);
-  // `send = false` (a superseded sign-up): the same lock and reads, then nothing.
-  if (wait > 0 || !send) return wait;
+  const wait = await mailLimit(tx, scope, key, now);
+  // `send = false` (a superseded sign-up), or an address taken off the family's list since its sign-up (ACC-01
+  // FR 16): the same lock and reads, then nothing.
+  if (wait > 0 || !send || !deps.signUpAllowed(normalizedEmail)) return wait;
   await tx.addEvent(scope, key, now);
   if (kind === "existing") {
     const letter = signUpAttemptLetter(account.displayName, passwordResetLink(deps.webOrigin));
@@ -93,6 +93,15 @@ async function sendRegistrationLetter(
   const letter = confirmationLetter(account.displayName, confirmationLink(deps.webOrigin, token));
   deps.sendLater({ to: account.email, ...letter });
   return 0;
+}
+
+/**
+ * The mail limit of a subject, read under its lock: parallel requests for one address are checked one after
+ * another, so the limit holds (ACC-01 FR 15). Returns the seconds to wait; records nothing.
+ */
+async function mailLimit(tx: IdentityTx, scope: ThrottleScope, key: Buffer, now: number): Promise<number> {
+  await tx.lockSubject(scope, key);
+  return mailWaitS(await tx.eventTimes(scope, key, now - MAIL_WINDOW_MS), now);
 }
 
 export async function signUp(
@@ -117,6 +126,19 @@ export async function signUp(
   const now = deps.now();
   const registrationToken = deps.secrets.token();
   const normalizedEmail = normalizeEmail(input.email);
+  if (!deps.signUpAllowed(normalizedEmail)) {
+    // ACC-01 FR 16, AC26: an address outside the family's list. No account, no letter, no audit entry; the answer
+    // is the same (the password was hashed above, as for every address). The token's buttons must answer like any
+    // other, so it is stored, tied to no account and to no address. The address's mail limit is read under its
+    // lock as for a listed address's letter; nothing is recorded on it.
+    await deps.store.transaction(async (tx) => {
+      const tokenKey = deps.secrets.digest(registrationToken);
+      await tx.insertRegistration(null, "outside", tokenKey, now, now + REGISTRATION_TTL_MS);
+      await tx.addEvent("registration-resend", tokenKey, now);
+      await mailLimit(tx, mailScope("new"), deps.secrets.digest(normalizedEmail), now);
+    });
+    return { kind: "check-email", registrationToken, resendAfterS: RESEND_AFTER_S };
+  }
   const changed = await deps.store.transaction(async (tx) => {
     const insert = () =>
       tx.insertAccount({
@@ -188,11 +210,17 @@ export async function resendForRegistration(
     const registration = await tx.findRegistration(tokenKey);
     if (!registration || registration.closedAt !== null || registration.expiresAt <= now)
       return { kind: "not-found" } as const;
-    const account = await tx.findAccount(registration.accountId);
-    if (!account) return { kind: "not-found" } as const;
+    const account = registration.accountId === null ? null : await tx.findAccount(registration.accountId);
+    if (!account && registration.kind !== "outside") return { kind: "not-found" } as const;
     const wait = mailWaitS(await tx.eventTimes("registration-resend", tokenKey, now - MAIL_WINDOW_MS), now);
     if (wait > 0) return { kind: "wait", retryAfterS: wait } as const;
     await tx.addEvent("registration-resend", tokenKey, now);
+    if (!account || registration.kind === "outside") {
+      // ACC-01 AC26: an address outside the family's list — the same answer and the same lock and reads as a
+      // letter's, then nothing. No address is stored with the token, so the token's own key stands in.
+      await mailLimit(tx, mailScope("new"), tokenKey, now);
+      return { kind: "sent", resendAfterS: RESEND_AFTER_S } as const;
+    }
     // A superseded sign-up answers the same but sends nothing: a newer sign-up owns the address's links.
     await sendRegistrationLetter(
       deps,
@@ -218,7 +246,11 @@ export async function changeEmail(deps: IdentityDeps, registrationToken: string)
     if (!registration || registration.closedAt !== null || registration.expiresAt <= now) return false;
     await tx.closeRegistration(registration.id, now);
     // A superseded sign-up never revokes the links of the newer one.
-    if (registration.kind === "new" && registration.supersededAt === null) {
+    if (
+      registration.kind === "new" &&
+      registration.accountId !== null &&
+      registration.supersededAt === null
+    ) {
       const account = await tx.findAccount(registration.accountId);
       if (account && account.emailConfirmedAt === null) await tx.revokeConfirmations(account.id, now);
     }

@@ -14,7 +14,7 @@ import {
   type Secrets,
   type SessionAccount,
 } from "../../application/index.ts";
-import { SIGN_UP_WINDOW_MS, SIGN_UPS_PER_ADDRESS_PER_HOUR } from "../../domain/index.ts";
+import { SIGN_UP_WINDOW_MS, SIGN_UPS_PER_ADDRESS_PER_HOUR, signUpAllowlist } from "../../domain/index.ts";
 import { argon2Hasher, nodeSecrets } from "../crypto.ts";
 import { databaseIdentityStore, databaseSlidingLimiter } from "../db/store.ts";
 
@@ -32,6 +32,8 @@ export interface IdentityServices {
   readonly webOrigin: string;
   /** The household module's first space (ACC-01 FR 7): created on the first sign-in. */
   readonly spaces: FirstSpace;
+  /** May this login key sign up (ACC-01 FR 16)? From `signUpAllowlist`; the list itself is not kept here. */
+  readonly signUpAllowed: (normalizedEmail: string) => boolean;
   readonly now: () => number;
   readonly hasher: PasswordHasher;
   readonly secrets: Secrets;
@@ -48,6 +50,12 @@ export interface IdentityServicesOptions {
   readonly audit: Pick<AuditLog, "recordPlatform">;
   readonly webOrigin: string;
   readonly spaces: FirstSpace;
+  /**
+   * The family's addresses that may sign up (`WS_SIGNUP_ALLOWLIST`; ACC-01 FR 16), matched as login keys (trimmed,
+   * lower case). Omitted: every address may (local development and CI; the configuration requires it in staging
+   * and production).
+   */
+  readonly signUpAllowlist?: Iterable<string>;
   readonly now?: () => number;
   readonly hasher?: PasswordHasher;
   readonly deliver?: (task: () => Promise<void>) => void;
@@ -64,6 +72,7 @@ export function createIdentityServices(options: IdentityServicesOptions): Identi
     audit: options.audit,
     webOrigin: options.webOrigin,
     spaces: options.spaces,
+    signUpAllowed: signUpAllowlist(options.signUpAllowlist),
     now: options.now ?? Date.now,
     hasher: options.hasher ?? argon2Hasher(),
     secrets: nodeSecrets,
@@ -136,6 +145,7 @@ function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): Identit
     captcha: services.captcha,
     webOrigin: services.webOrigin,
     spaces: services.spaces,
+    signUpAllowed: services.signUpAllowed,
     signUpLimiter: databaseSlidingLimiter(db, {
       limit: SIGN_UPS_PER_ADDRESS_PER_HOUR,
       windowMs: SIGN_UP_WINDOW_MS,

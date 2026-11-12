@@ -15,6 +15,8 @@ const live = {
   WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
   WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
   WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
+  // ACC-01 FR 16: the family's addresses (synthetic).
+  WS_SIGNUP_ALLOWLIST: "olena.synthetic@example.test",
 };
 
 /** `live` without the named variables. */
@@ -67,6 +69,7 @@ describe("ACC-01 FR 12: CAPTCHA is mandatory on public environments", () => {
         webOrigin: "https://app.example.org",
         captchaSecret: live.WS_CAPTCHA_SECRET,
         mail: { apiKey: live.WS_MAIL_API_KEY, from: live.WS_MAIL_FROM },
+        signUpAllowlist: new Set([live.WS_SIGNUP_ALLOWLIST]),
       });
       let message = "";
       try {
