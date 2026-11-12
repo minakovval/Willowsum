@@ -173,6 +173,16 @@ describe("ARC-02: one image, three roles, checked configuration, probes, gracefu
     expect(new Set(statuses)).toEqual(new Set([200]));
     p.child.kill("SIGTERM");
     expect(await p.exit).toBe(0);
+    // WS_TELEMETRY=off (the PoC, owner 2026-11-12): no export, the events are structured JSON lines on stdout.
+    const events = p
+      .output()
+      .split("\n")
+      .filter((l) => l.startsWith("{"))
+      .map((l) => JSON.parse(l) as { event?: unknown; severity?: unknown });
+    expect(events).toContainEqual(
+      expect.objectContaining({ event: "rate_limits.disabled", severity: "WARN" }),
+    );
+    expect(events).toContainEqual(expect.objectContaining({ event: "process.started", severity: "INFO" }));
   });
 
   it("NFR-14 FR 10: the api role refuses to start with in-process counters and more than one instance", async () => {

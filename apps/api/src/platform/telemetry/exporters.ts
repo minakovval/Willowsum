@@ -1,5 +1,5 @@
 import type { Attributes, Link } from "@opentelemetry/api";
-import { ExportResultCode, type ExportResult } from "@opentelemetry/core";
+import { ExportResultCode, hrTimeToTimeStamp, type ExportResult } from "@opentelemetry/core";
 import { resourceFromAttributes, type Resource } from "@opentelemetry/resources";
 import type { LogRecordExporter, ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import type {
@@ -220,4 +220,50 @@ export class MemoryExporters {
     this.logStore.items = [];
     this.metricStore.items = [];
   }
+}
+
+/** One structured log line on the server (mode `off`): JSON, one record per line. */
+export interface ServerLogLine {
+  readonly time: string;
+  readonly severity?: string;
+  readonly event: unknown;
+  readonly trace_id?: string;
+  readonly span_id?: string;
+  readonly resource: Attributes;
+  readonly attributes: Attributes;
+}
+
+export function serverLogLine(record: ReadableLogRecord): ServerLogLine {
+  return {
+    time: hrTimeToTimeStamp(record.hrTime),
+    ...(record.severityText !== undefined ? { severity: record.severityText } : {}),
+    event: record.body,
+    ...(record.spanContext
+      ? { trace_id: record.spanContext.traceId, span_id: record.spanContext.spanId }
+      : {}),
+    resource: record.resource.attributes,
+    attributes: record.attributes,
+  };
+}
+
+/**
+ * Structured logs on the server without export (mode `off`; PoC by the owner's decision of 2026-11-12, NFR-10
+ * FR 1): each log record is written to standard output as one JSON line. Like every exporter it is wrapped by
+ * the redaction filter (telemetry.ts), so a line holds exactly what OTLP would have sent.
+ */
+export class JsonLinesLogExporter implements LogRecordExporter {
+  private readonly write: (line: string) => void;
+
+  constructor(write: (line: string) => void = (line) => void process.stdout.write(line)) {
+    this.write = write;
+  }
+
+  export(records: ReadableLogRecord[], done: (result: ExportResult) => void): void {
+    for (const record of records) this.write(`${JSON.stringify(serverLogLine(record))}\n`);
+    done(ok);
+  }
+
+  async shutdown(): Promise<void> {}
+
+  async forceFlush(): Promise<void> {}
 }

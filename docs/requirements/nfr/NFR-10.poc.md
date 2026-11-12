@@ -9,17 +9,17 @@
 - Спільні правила: П-8, ARC-09
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/db/errors.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/test/observability-catalogue.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/db/errors-sec85.test.ts, apps/api/test/telemetry-db-sec85.it.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts, apps/api/test/telemetry-db-sec85r2.it.test.ts
+- Перевіряється: apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/server-logs.test.ts, apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/db/errors.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/test/observability-catalogue.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/db/errors-sec85.test.ts, apps/api/test/telemetry-db-sec85.it.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts, apps/api/test/telemetry-db-sec85r2.it.test.ts
 
 **Мета.** Як команда експлуатації, ми хочемо бачити стан системи і швидко дізнаватися про збої без доступу до персональних даних користувачів, щоб виправляти проблеми до того, як їх помітять користувачі.
 
 **Функціональні вимоги**
-1. Логи централізовані. Вони не містять персональних і фінансових даних: сум, назв рахунків, IBAN, адрес, координат, тіл запитів.
+1. Логи структуровані і зберігаються на сервері; у цьому релізі вони не надсилаються в зовнішній сервіс. Вони не містять персональних і фінансових даних: сум, назв рахунків, IBAN, адрес, координат, тіл запитів.
 2. Необроблені помилки бази даних логуються лише як код стану, назва обмеження, таблиці і стовпця, без значень користувача.
 3. Запити до зовнішніх провайдерів (наприклад, геокодування) і їхні помилки логуються без URL, параметрів запиту і ключів.
 4. Кожна відповідь з помилкою містить ідентифікатор запиту, згенерований сервером випадково; ідентифікатор від клієнта не приймається.
-5. Розподілений трейсинг охоплює 100 % запитів до API. Є дашборди цілей рівня сервісу (SLO) для доступності і продуктивності.
-6. Тривоги: частка збоїв синхронізації банків понад 5 % за годину, частка помилок 5xx понад 1 %, порушення SLO. Черговий отримує тривогу не пізніше ніж за 5 хв.
+5. Кожен запит до API має трасу; її ідентифікатор є в кожному записі логу цього запиту і його фонових задач. Дашбордів цілей рівня сервісу (SLO) у цьому релізі немає.
+6. Тривог і чергового в цьому релізі немає. Про недоступність сервісу власник дізнається з перевірки «живий»: запланований робочий процес GitHub Actions кожні 5–10 хв звертається до перевірки готовності API production (`/health/ready`); коли перевірка не проходить, він відкриває в репозиторії задачу або оновлює вже відкриту, і GitHub надсилає власнику продукту лист; коли перевірка знову проходить, задача закривається.
 7. Продуктова аналітика працює лише зі згодою користувача і не містить сум, назв рахунків, адрес і координат.
 8. Звіти адмін-панелі показують лише агреговані показники без сум, транзакцій і активів клієнтів.
 
@@ -31,10 +31,10 @@
 
 | Критерій | Поріг | Спосіб перевірки |
 | --- | --- | --- |
-| Логи | Централізовані; 0 персональних і фінансових даних | Автоматичний сканер логів на персональні дані; тести маскування |
-| Трейсинг і метрики | Трейсинг 100 % API-запитів; SLO-дашборди доступності і продуктивності | Огляд дашбордів перед релізом |
-| Тривоги | Збої синхронізації > 5 % за годину; 5xx > 1 %; порушення SLO → черговий ≤ 5 хв | Тестові тривоги щомісяця |
+| Логи | Структуровані, на сервері; 0 персональних і фінансових даних | Тести маскування |
+| Ідентифікатор траси | У кожному записі логу запиту і його фонових задач | Автотест |
+| Перевірка «живий» | Кожні 5–10 хв; недоступність production → відкрита або оновлена задача і лист власнику після першої невдалої перевірки | Пробний запуск на недоступній адресі під час налаштування |
 | Продуктова аналітика | Лише зі згодою; без сум, назв рахунків, адрес | Перевірка схеми подій перед релізом |
 
 1. **Given** запит із сумою і назвою рахунку завершився помилкою бази даних **When** помилка потрапляє в лог **Then** лог містить код стану і назви обмеження, таблиці і стовпця, але не містить суми і назви рахунку.
-2. **Given** частка помилок 5xx перевищила 1 % **When** спрацьовує тривога **Then** черговий отримує її не пізніше ніж за 5 хв.
+2. **Given** перевірка готовності API production не відповідає **When** виконується запланована перевірка «живий» **Then** у репозиторії відкрито задачу або оновлено вже відкриту, і власник продукту отримує лист.
