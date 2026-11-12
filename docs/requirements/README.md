@@ -139,13 +139,13 @@ requirement is kept in the README of that module.
 | INT | [int/](int/README.md) | Open data access (API) | 1 | v2 1 |
 | PLN | [pln/](pln/README.md) | Long-term forecast, retirement modelling, estate planning | 3 | v2 3 |
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
-| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 18, v1-mobile 1 |
-| DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 17, MVP 6 |
-| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 44, PoC v2 1, MVP 26, v1 3 |
+| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 17, PoC v2 1, v1-mobile 1 |
+| DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 16, PoC v2 1, MVP 6 |
+| CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 42, PoC v2 3, MVP 26, v1 3 |
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 13, PoC v2 3, MVP 28, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
-| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 10, PoC v2 1 |
+| ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |
 | CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
 | PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 

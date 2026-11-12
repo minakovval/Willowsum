@@ -6,7 +6,7 @@
 - Розширює: —
 - Залежить від: —
 - Дизайн: —
-- Спільні правила: П-9, ARC-08
+- Спільні правила: П-9
 - Сценарії: —
 - Модуль: —
 - Перевіряється: tools/local-env/test/compose.test.mjs, tools/local-env/test/state.test.mjs, tools/local-env/test/info.test.mjs, tools/local-env/test/smoke.it.mjs

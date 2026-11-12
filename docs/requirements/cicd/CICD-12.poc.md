@@ -6,7 +6,7 @@
 - Розширює: —
 - Залежить від: —
 - Дизайн: —
-- Спільні правила: П-9, П-23, ARC-06, ARC-08, NFR-01
+- Спільні правила: П-9, П-23, ARC-06, NFR-01
 - Сценарії: —
 - Модуль: —
 - Перевіряється: apps/api/src/platform/config/config.test.ts, apps/api/test/process.it.test.ts
