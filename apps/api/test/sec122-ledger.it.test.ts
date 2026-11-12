@@ -161,6 +161,9 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
     expect([...new Set(rows.map((r) => `${r.table_name}:${r.privilege_type}`))].sort()).toEqual([
       "accounts:SELECT",
       "entries:SELECT",
+      // FIN-04 FR 10: the claim log of the integrity letter, append-only like the journal.
+      "integrity_alerts:INSERT",
+      "integrity_alerts:SELECT",
       "postings:INSERT",
       "postings:SELECT",
     ]);

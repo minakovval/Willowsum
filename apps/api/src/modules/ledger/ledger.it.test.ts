@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { syntheticMailSender, type MailSender } from "../../platform/adapters/mail/index.ts";
 import { exportedText, testTelemetryForFile } from "../../platform/telemetry/testing.ts";
 import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { databaseLedgerStore } from "./adapters/index.ts";
@@ -584,5 +585,129 @@ describe("FIN-04 AC7 (core): the daily integrity check finds broken entries and 
       ...Object.values(broken),
     ])
       expect(logged).not.toContain(secret);
+  });
+});
+
+describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per period (claims in the ledger schema)", () => {
+  // Fixed per test: the claim time comes from the injected clock, never from re-reading the system time.
+  const NOW = Date.UTC(2026, 10, 12, 3, 17, 0, 0);
+  const clock = { now: () => NOW };
+
+  /** An entry without postings, written past the triggers as only a restore could (an «empty-entry» finding). */
+  async function breakSpace(householdId: string): Promise<string> {
+    const id = randomUUID();
+    await db.owner.query("BEGIN");
+    await db.owner.query("SET LOCAL session_replication_role = replica");
+    await db.owner.query(
+      `INSERT INTO ledger.entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+       VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
+      [householdId, id],
+    );
+    await db.owner.query("COMMIT");
+    return id;
+  }
+
+  /** The latest state of the claim log: the open period, or null. */
+  const state = async () =>
+    (
+      await db.owner.query<{ period: string | null; at: Date }>(
+        `SELECT period, recorded_at AS at FROM ledger.integrity_alerts ORDER BY seq DESC LIMIT 1`,
+      )
+    ).rows[0] ?? null;
+
+  const checkWith = (householdIds: string[], mail: MailSender | undefined) =>
+    createLedgerIntegrityCheck(
+      db.databases.for("ledger"),
+      async () => householdIds,
+      () => undefined,
+      () => undefined,
+      { clock, ...(mail ? { alertMail: { mail, to: "owner@example.test" } } : {}) },
+    );
+
+  /** A clean run over an empty space: ends the period a previous test may have left open. */
+  const cleanRun = async (mail: MailSender | undefined = syntheticMailSender()) =>
+    checkWith([randomUUID()], mail).run();
+
+  it("FIN-04@PoC AC7: one letter per period across check instances; a clean run ends the period", async () => {
+    const outbox = syntheticMailSender();
+    await cleanRun(outbox);
+    expect(outbox.sent).toEqual([]);
+    expect((await state())?.period ?? null).toBeNull();
+
+    const s = await space();
+    const kept = await ledger.post(
+      s.householdId,
+      input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("3150.25") }),
+    );
+    const brokenId = await breakSpace(s.householdId);
+    await checkWith([s.householdId], outbox).run();
+    // A second scheduler instance (or a restart) on the next daily run: the claim in the database holds.
+    await checkWith([s.householdId], outbox).run();
+    expect(outbox.sent).toHaveLength(1);
+    expect(await state()).toEqual({
+      period: "unbalanced-entry=0;empty-entry=1;reversal-mismatch=0",
+      at: new Date(NOW),
+    });
+    const letter = outbox.sent[0]!;
+    expect(letter.to).toBe("owner@example.test");
+    expect(letter.text).toContain("Запис без проводок: 1.");
+    for (const secret of ["3150", s.householdId, s.cash.id, s.savings.id, kept.id, brokenId])
+      expect(`${letter.subject}\n${letter.text}`).not.toContain(secret);
+
+    // A clean run ends the period; the same discrepancy afterwards is a new period with a new letter.
+    await cleanRun(outbox);
+    expect(await state()).toEqual({ period: null, at: new Date(NOW) });
+    await checkWith([s.householdId], outbox).run();
+    expect(outbox.sent).toHaveLength(2);
+  });
+
+  it("FIN-04@PoC EC4: a letter that could not be sent releases its claim; the next run sends it", async () => {
+    await cleanRun();
+    const s = await space();
+    await breakSpace(s.householdId);
+    const failing: MailSender = { send: () => Promise.reject(new TypeError("mail down")) };
+    await expect(checkWith([s.householdId], failing).run()).resolves.toMatchObject({ "empty-entry": 1 });
+    expect((await state())?.period).toBeNull();
+    const logged = await exportedText(telemetry);
+    expect(logged).toContain("ledger.integrity_alert_failed");
+    expect(logged).toContain('"error.type":"TypeError"');
+    const outbox = syntheticMailSender();
+    await checkWith([s.householdId], outbox).run();
+    expect(outbox.sent).toHaveLength(1);
+    expect(await exportedText(telemetry)).toContain("ledger.integrity_alert_sent");
+  });
+
+  it("FIN-04@PoC EC5: no recipient — an «error» event, no claim, the check still returns its findings", async () => {
+    await cleanRun();
+    const before = await state();
+    const s = await space();
+    await breakSpace(s.householdId);
+    await expect(checkWith([s.householdId], undefined).run()).resolves.toMatchObject({ "empty-entry": 1 });
+    expect(await state()).toEqual(before);
+    const logged = await exportedText(telemetry);
+    expect(logged).toContain("alerts.recipient_missing");
+    expect(logged).not.toContain("owner@example.test");
+  });
+
+  it("the claim log is append-only for the module role and every role; a key with an id or an amount is refused", async () => {
+    const asLedger = (sql: string, values: unknown[] = []) =>
+      code(db.databases.for("ledger").transaction((q) => q.query(sql, values)));
+    const next = async () =>
+      Number(
+        (await db.owner.query(`SELECT coalesce(max(seq), 0) + 1 AS n FROM ledger.integrity_alerts`)).rows[0]
+          .n,
+      );
+    expect(await asLedger(`UPDATE integrity_alerts SET recorded_at = now() WHERE false`)).toBe("42501");
+    expect(await asLedger(`DELETE FROM integrity_alerts WHERE false`)).toBe("42501");
+    expect(await asLedger(`TRUNCATE integrity_alerts`)).toBe("42501");
+    expect(await code(db.owner.query(`DELETE FROM ledger.integrity_alerts`))).toBe("42501");
+    const seq = await next();
+    expect(await asLedger(`INSERT INTO integrity_alerts VALUES ($1, $2, now())`, [seq, randomUUID()])).toBe(
+      "23514",
+    );
+    expect(
+      await asLedger(`INSERT INTO integrity_alerts VALUES ($1, 'unbalanced-entry=3150.25', now())`, [seq]),
+    ).toBe("23514");
+    expect(await asLedger(`INSERT INTO integrity_alerts VALUES (0, NULL, now())`)).toBe("23514");
   });
 });
