@@ -16,7 +16,7 @@ merge commit pushed, the reviewers' confirmation requested on the new head.
 1. Work only in the branch's own worktree. Commit or stash your changes first.
 2. `git fetch origin main`, then `git merge origin/main`.
 3. **Never rebase, never force-push.** Rebasing rewrites the commits the reviews name by SHA and forces a
-   full re-review; a force-push is also against AGENTS.md step 7 (the process protects `main`, history stays).
+   full re-review; a force-push does the same to published history (AGENTS.md step 7 ties every verdict to the exact head SHA).
    If the merge goes wrong: `git merge --abort`, then start again; do not reset published commits.
 
 ## 2. Conflicts

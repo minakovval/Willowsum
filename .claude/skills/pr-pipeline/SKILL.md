@@ -18,6 +18,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its own
    database (`pnpm db:test`), what to report (PR URL, head SHA, checks).
+   The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
+   may rewrite the footer, which is fine.
 3. **PR opened** → subscribe to its activity; then in parallel:
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.
