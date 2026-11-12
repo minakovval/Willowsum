@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: IMP-08@PoC
-- Залежить від: IMP-01@PoC, IMP-03@PoC, IMP-04@PoC, IMP-05@PoC, IMP-06@PoC v2, IMP-07@PoC
+- Залежить від: IMP-01@PoC, IMP-03@PoC, IMP-04@PoC v2, IMP-05@PoC, IMP-06@PoC v2, IMP-07@PoC
 - Дизайн: S-025, S-163, S-170, S-171, S-174
 - Спільні правила: П-13, П-15, П-16, П-24, П-25, П-26, CMP-74
 - Сценарії: UC-IMP-01, UC-IMP-10, UC-IMP-11, UC-IMP-13, UC-IMP-17, UC-IMP-21
