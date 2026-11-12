@@ -18,6 +18,7 @@ describe("sec#120: refresh and cross-rate guards", () => {
       saveUpdate: async (u: unknown) => void saved.push(u),
       lastSuccessAt: async () => null,
       ratesOnOrBefore: async () => null,
+      ratesOnOrBeforeEach: async (requests) => requests.map(() => null),
       claimStaleAlert: async () => false,
       releaseStaleAlert: async () => undefined,
     } satisfies FxRateStore;

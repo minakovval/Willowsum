@@ -13,11 +13,27 @@ import { ApiProblem } from "./problem.ts";
  * text value of an `in` filter can never contain a comma) and `sort=<field>` or `sort=-<field>` (descending),
  * several keys separated by commas.
  *
+ * List operators of DAT-01 FR 4: `has` («містить», text only: a case-insensitive substring whose `%`, `_` and
+ * `\` match literally), `empty` and `nempty` («порожнє» / «непорожнє», without a value: `filter=vintage.empty:`).
+ * A field may be one key of a JSONB column of type attributes (`attribute`, text only); a record without that
+ * attribute is «порожнє» (DAT-01 EC1). The key goes into the SQL as a parameter as well.
+ *
  * Values: use the strict parsers of `filterValue` (decimal integers within the column's range, ISO dates,
  * decimal strings …). A loose schema such as `z.coerce.number()` accepts "", " " and "0x10", and a number
  * outside the column's range would reach the cast and fail in PostgreSQL (a 500 instead of a 400).
  */
-export const FILTER_OPERATORS = ["eq", "ne", "lt", "lte", "gt", "gte", "in"] as const;
+export const FILTER_OPERATORS = [
+  "eq",
+  "ne",
+  "lt",
+  "lte",
+  "gt",
+  "gte",
+  "in",
+  "has",
+  "empty",
+  "nempty",
+] as const;
 export type FilterOperator = (typeof FILTER_OPERATORS)[number];
 
 /** The PostgreSQL types a value may be cast to. */
@@ -33,7 +49,9 @@ export const FILTER_CASTS = [
 ] as const;
 export type FilterCast = (typeof FILTER_CASTS)[number];
 
-const SQL_OPERATORS: Readonly<Record<Exclude<FilterOperator, "in">, string>> = {
+type ComparisonOperator = Exclude<FilterOperator, "in" | "has" | "empty" | "nempty">;
+
+const SQL_OPERATORS: Readonly<Record<ComparisonOperator, string>> = {
   eq: "=",
   ne: "<>",
   lt: "<",
@@ -44,8 +62,9 @@ const SQL_OPERATORS: Readonly<Record<Exclude<FilterOperator, "in">, string>> = {
 
 const IDENTIFIER_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 const FIELD_RE = /^[a-z][A-Za-z0-9]{0,63}$/;
+const ATTRIBUTE_RE = /^[a-z][a-z0-9_]{0,62}$/;
 /** One filter of the request: a field, an operator and the value text. */
-const FILTER_RE = /^([a-z][A-Za-z0-9]{0,63})\.([a-z]{2,3}):([\s\S]*)$/;
+const FILTER_RE = /^([a-z][A-Za-z0-9]{0,63})\.([a-z]{2,6}):([\s\S]*)$/;
 const MAX_SORT_KEYS = 3;
 const MAX_FILTER_TEXT = 1024;
 
@@ -55,6 +74,8 @@ export interface FilterField {
   /** Parses one value from its text: one of `filterValue`, or `z.enum([...])` for a closed set of words. */
   readonly value: z.ZodType<string | number | boolean>;
   readonly operators: readonly FilterOperator[];
+  /** One key of a type attribute inside the JSONB `column` (DAT-01 FR 4); such a field is text. */
+  readonly attribute?: string;
 }
 
 const INT4_MIN = -2_147_483_648;
@@ -164,6 +185,10 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
       throw new Error(`list query: filter ${field} has an invalid name, column or cast`);
     if (f.operators.length === 0 || !f.operators.every((o) => FILTER_OPERATORS.includes(o)))
       throw new Error(`list query: filter ${field} has invalid operators`);
+    if (f.cast !== "text" && f.operators.includes("has"))
+      throw new Error(`list query: filter ${field} uses «has» on a ${f.cast} column`);
+    if (f.attribute !== undefined && (!ATTRIBUTE_RE.test(f.attribute) || f.cast !== "text"))
+      throw new Error(`list query: filter ${field} has an invalid attribute (a text key of a JSONB column)`);
   }
   for (const [field, column] of Object.entries(spec.sorts))
     if (!FIELD_RE.test(field) || !IDENTIFIER_RE.test(column))
@@ -198,16 +223,33 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
         const field = Object.hasOwn(spec.filters, name) ? filters.get(name) : undefined;
         if (!field || !(field.operators as readonly string[]).includes(op))
           invalid("filter", "unknown_filter");
+        // The field's expression: its column, or one key of the attributes column (the key is a parameter).
+        let target = quote(field.column);
+        if (field.attribute !== undefined) {
+          params.push(field.attribute);
+          target = `(${target} ->> $${firstParam + params.length - 1}::text)`;
+        }
+        if (op === "empty" || op === "nempty") {
+          if (text !== "") invalid("filter", "invalid_value");
+          const blank = field.cast === "text" ? `(${target} IS NULL OR ${target} = '')` : `${target} IS NULL`;
+          conditions.push(op === "empty" ? blank : `NOT ${blank}`);
+          continue;
+        }
         const placeholder = `$${firstParam + params.length}`;
         if (op === "in") {
           const values = text.split(",");
           requireWithinLimit(values.length, TECHNICAL_LIMITS.filtersPerRequest);
           params.push(values.map((v) => parseValue(field, v)));
-          conditions.push(`${quote(field.column)} = ANY(${placeholder}::${field.cast}[])`);
+          conditions.push(`${target} = ANY(${placeholder}::${field.cast}[])`);
+        } else if (op === "has") {
+          const value = String(parseValue(field, text));
+          if (value === "") invalid("filter", "invalid_value");
+          params.push(`%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+          conditions.push(`${target} ILIKE ${placeholder}::text ESCAPE '\\'`);
         } else {
           params.push(parseValue(field, text));
           conditions.push(
-            `${quote(field.column)} ${SQL_OPERATORS[op as Exclude<FilterOperator, "in">]} ${placeholder}::${field.cast}`,
+            `${target} ${SQL_OPERATORS[op as ComparisonOperator]} ${placeholder}::${field.cast}`,
           );
         }
       }

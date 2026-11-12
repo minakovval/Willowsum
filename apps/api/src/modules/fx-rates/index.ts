@@ -8,6 +8,7 @@ export const fxRatesModule = defineModule({
 });
 
 export { createFxRates, startFxRatesRefresh } from "./adapters/index.ts";
+export { officialDatedRates } from "./application/index.ts";
 export type {
   FxAttemptOutcome,
   FxClock,
@@ -18,6 +19,7 @@ export type {
   FxRefreshEvent,
   FxRefreshLoop,
   QuotedRate,
+  RateRequest,
 } from "./application/index.ts";
 export {
   NBU_SOURCE,

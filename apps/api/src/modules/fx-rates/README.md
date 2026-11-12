@@ -27,6 +27,10 @@ VAL-05@PoC (п. 1–5, AC1–AC5; стан інтерфейсу «оновлен
   - `convert(money, to, date)` → `{ conversion: Conversion, updatedAt, stale }` — `Conversion` з domain-kernel (сума, курс, дата
     курсу, джерело, `approximate`, якщо курс не на цю дату); сума лишається в оригінальній валюті;
   - `freshness()` → `{ updatedAt, stale }` — час останнього успішного оновлення (ISO, UTC) і чи минуло 24 год.
+- `rates([{ from, to, date }, …])` → `(ExchangeRate | null)[]` — багато курсів одним запитом до історії: для кожного
+  курс дати або найближчий попередній (ніколи не пізнішої дати); немає курсу — `null`; помилка бази відхиляє весь виклик.
+- `officialDatedRates(fxRates)` → `{ rates(requests) }` — курси для підсумків списку (DAT-01@PoC FR 12,
+  `platform/lists/list-total.ts`): усі курси одного підсумку одним запитом; немає курсу — `null` (ніколи не 0).
 - `startFxRatesRefresh({ db, mode, report, alertMail?, feed?, clock?, firstDelayMs? })` → `{ attempt(), stop() }` — щоденне завдання
   ролі `scheduler`: перша спроба через хвилину після старту, далі раз на добу; після збою — 3 повтори через 15 хв, потім
   1 год, 2 год, 4 год … не більше 24 год. Звіт `report`: `updated`, `failed`, `stale` (24 год без успіху: від останнього успішного оновлення, а до першого — від старту; повтор

@@ -63,6 +63,7 @@ function memoryStore(): FxRateStore & { saved: PivotRate[][]; claims: Set<string
     },
     lastSuccessAt: async () => last,
     ratesOnOrBefore: async () => null,
+    ratesOnOrBeforeEach: async (requests) => requests.map(() => null),
   };
 }
 
