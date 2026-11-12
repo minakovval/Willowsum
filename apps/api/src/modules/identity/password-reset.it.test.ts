@@ -271,6 +271,14 @@ describe("ACC-01 AC16, FR 10: a reset request mails a single-use link valid 60 m
     expect(again.statusCode).toBe(410);
     expect((await checkReset(token)).statusCode).toBe(410);
     expect((await accountRow(email)).password_hash).toBe(hash);
+    // The link itself is marked used (not merely revoked with the others).
+    const { createHash } = await import("node:crypto");
+    const { rows } = await db.owner.query(
+      `SELECT used_at, revoked_at FROM identity.password_resets WHERE token_digest = $1`,
+      [createHash("sha256").update(token).digest()],
+    );
+    expect(rows[0].used_at).not.toBeNull();
+    expect(rows[0].revoked_at).toBeNull();
   });
 
   it("an unknown or malformed token: 410 or 400, no hashing", async () => {
@@ -676,6 +684,21 @@ describe("Owner decision 2026-11-12: a new sign-up of an unconfirmed address rep
     expect(account.display_name).toBe("Олена Синтетична");
     const entries = await auditOf(account.id);
     expect(entries.map((e) => e.changes[0]!.field)).toEqual(["state", "password", "state"]);
+  });
+
+  it("a re-registration within the letter limit (no new letter) still revokes the attacker's link", async () => {
+    const email = nextEmail("squat-limited");
+    await signUp({ name: "Чужий Синтетик", email, password: NEW_PASSWORD });
+    await flush();
+    const attackerLink = confirmToken(lettersTo(email).at(-1)!);
+    t += 20_000; // within 60 s of the last letter: no new confirmation letter goes
+    await signUp({ name: "Олена Синтетична", email, password: PASSWORD });
+    await flush();
+    expect(lettersTo(email)).toHaveLength(1);
+    expect(
+      (await request("POST", "/v1/email-confirmations", { body: { token: attackerLink } })).json(),
+    ).toEqual({ result: "invalid" });
+    expect((await signIn({ email, password: NEW_PASSWORD })).statusCode).toBe(401);
   });
 
   it("the answer is identical byte for byte (but for the random token) for a new and an unconfirmed address", async () => {
