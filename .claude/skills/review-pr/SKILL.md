@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -51,9 +51,11 @@ If the PR covers only part of the requirement, the body must say which criteria 
 - Owner decision: a PR changing requirements, AGENTS.md or skills states in its body the owner decision it
   implements, and the change matches that decision; a PR that acts on the cloud or production (applies
   infrastructure, deploys or releases to production, or changes the workflows that do this or their trust
-  settings: OIDC, production secrets store; or production DNS) has an approval comment from the owner's own
-  GitHub account on that PR — otherwise blocking. Infrastructure code that is only validated (no apply),
-  CI check jobs and the local environment need no such comment. The decision is also in the decision log (`docs/decisions/`).
+  settings: OIDC, production secrets store; or production DNS) has the owner's approval on that PR — a comment
+  from the owner's own GitHub account with a line that is exactly «Схвалюю» or «Approved», or the owner's
+  decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …` (owner,
+  2026-11-12) — otherwise blocking. Infrastructure code that is only validated (no apply), CI check jobs and
+  the local environment need no approval. The decision is also in the decision log (`docs/decisions/`).
 - Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
@@ -79,8 +81,14 @@ Post one PR review:
 - Questions for the owner where the requirement itself is unclear on a real product question; small
   details the author decided and recorded are not owner questions.
 
-Verdict: «Changes requested» if anything is blocking, otherwise «Ready». Post it as the review summary.
-The authoring agent merges only after «Ready».
+Name the head commit you reviewed (full SHA) at the top of the review. End the review with the verdict on a
+line of its own: `Verdict: Changes requested` if anything is blocking, otherwise `Verdict: Ready`; post it as
+the review summary. A security review (sensitive areas) ends instead with a line `Security verdict: Ready` or
+`Security verdict: Changes requested`. Never write these lines inside quotes or code, and never write a line
+«Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
+these lines.
+The authoring agent merges only after «Ready» given on the commit being merged: it compares the SHA your
+review names with the PR head, and any later commit needs a re-review (owner, 2026-11-12).
 Once the merge conditions in AGENTS.md step 7 hold: do not ask the owner to confirm the merge; merge
 at once and tell the owner it is merged. Changes to auth, permissions, encryption, money, schema,
 pipeline or infrastructure also need a separate security review — say so if the PR has not had one.

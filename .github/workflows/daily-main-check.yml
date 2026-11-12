@@ -1,0 +1,63 @@
+name: Daily main check
+
+# CICD-01 FR 3 (ADR-0008): the free GitHub plan cannot block pushes to main, so once a day this checks main
+# and the PRs merged into it since the last scheduled run whose check step succeeded (minus an hour, at most
+# 7 days; 25 hours when there is none), and alerts the owner through a GitHub issue with the label
+# `main-check` (opened by this workflow, or commented on while open). It reports:
+# - commits on main that are not the merge commit of a merged PR; force-pushes and direct pushes (activity log);
+# - merged PRs without green required CI on the last commit, without «Verdict: Ready», without
+#   «Security verdict: Ready» when sensitive (FR 4), or — when they act on the cloud or production — without
+#   the owner's approval (comment «Схвалюю»/«Approved» or the owner decision recorded in the body); a Ready
+#   given on an older commit than the merged one; rule or requirement changes without an owner decision;
+# - working branches older than 3 days (FR 1, for information).
+# The check step succeeds whenever the window was checked (a failure there is a crash, and is itself alerted);
+# a later step fails the run when the owner must look.
+# Read-only API calls; the only write is the alert issue. No external services and no secrets.
+
+on:
+  schedule:
+    - cron: "41 5 * * *"
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Window start, ISO 8601 (default: the last successful scheduled run, at most 7 days; else 25 hours)"
+        required: false
+      until:
+        description: "Window end, ISO 8601 (default: now)"
+        required: false
+
+permissions: {}
+
+concurrency:
+  group: daily-main-check
+  cancel-in-progress: false
+
+jobs:
+  main-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read # commits, compare, activity log, workflow files
+      pull-requests: read # merged PRs, their files and reviews
+      checks: read # check runs of the merged heads
+      actions: read # the last successful run of this workflow (window start)
+      issues: write # the alert issue and its label
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: PR rules unit tests
+        run: node --test tools/pr-rules
+      - name: Check main and merged PRs
+        id: check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SINCE: ${{ inputs.since }}
+          UNTIL: ${{ inputs.until }}
+        run: node tools/pr-rules/index.mjs daily --issue --outputs ${SINCE:+--since "$SINCE"} ${UNTIL:+--until "$UNTIL"}
+      - name: Fail when the owner must look
+        if: steps.check.outputs.alert == 'true'
+        run: node tools/pr-rules/index.mjs alerted

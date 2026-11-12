@@ -1,0 +1,1969 @@
+{
+ "now": "2026-11-07T12:00:00.000Z",
+ "window": {
+  "since": "2026-11-06T23:00:00.000Z",
+  "until": "2026-11-07T12:00:00.000Z"
+ },
+ "owner": "repo-owner",
+ "main": {
+  "name": "main",
+  "head": "c017296c987926460073d66cb405254544b1cc6f"
+ },
+ "activities": [
+  {
+   "timestamp": "2026-11-07T11:21:07Z",
+   "activity_type": "pr_merge",
+   "before": "3fd3e091ff4a5a3842c5fbb7b45824262164447e",
+   "after": "c017296c987926460073d66cb405254544b1cc6f",
+   "actor": "repo-owner"
+  },
+  {
+   "timestamp": "2026-11-07T08:34:53Z",
+   "activity_type": "pr_merge",
+   "before": "7fa77aa001a7226253186b44e4d70c38206bc488",
+   "after": "3fd3e091ff4a5a3842c5fbb7b45824262164447e",
+   "actor": "repo-owner"
+  },
+  {
+   "timestamp": "2026-11-07T01:35:18Z",
+   "activity_type": "pr_merge",
+   "before": "281680d1cedc2799fb55db57192ba7e462621153",
+   "after": "7fa77aa001a7226253186b44e4d70c38206bc488",
+   "actor": "repo-owner"
+  },
+  {
+   "timestamp": "2026-11-07T00:06:14Z",
+   "activity_type": "pr_merge",
+   "before": "7050c567874c708f4018165d5faaee0a0d2190f4",
+   "after": "281680d1cedc2799fb55db57192ba7e462621153",
+   "actor": "repo-owner"
+  },
+  {
+   "timestamp": "2026-11-06T23:37:16Z",
+   "activity_type": "pr_merge",
+   "before": "3a1d4f3788e4e38f9541b787acea48f4cca583b6",
+   "after": "7050c567874c708f4018165d5faaee0a0d2190f4",
+   "actor": "repo-owner"
+  }
+ ],
+ "commits": [
+  {
+   "sha": "c017296c987926460073d66cb405254544b1cc6f",
+   "date": "2026-11-07T11:21:07Z",
+   "title": "NFR-14: security headers, per-IP rate limits, Origin check (+ NFR-15 general controls) (#86)",
+   "pulls": [
+    {
+     "number": 86,
+     "merged_at": "2026-11-07T11:21:07Z",
+     "merge_commit_sha": "c017296c987926460073d66cb405254544b1cc6f",
+     "base_ref": "main"
+    }
+   ]
+  },
+  {
+   "sha": "3fd3e091ff4a5a3842c5fbb7b45824262164447e",
+   "date": "2026-11-07T08:34:53Z",
+   "title": "ARC-09: observability — OpenTelemetry, exporter-level PII filter, trace id as error code, SLO and alerts as code (+ NFR-10) (#85)",
+   "pulls": [
+    {
+     "number": 85,
+     "merged_at": "2026-11-07T08:34:53Z",
+     "merge_commit_sha": "3fd3e091ff4a5a3842c5fbb7b45824262164447e",
+     "base_ref": "main"
+    }
+   ]
+  },
+  {
+   "sha": "7fa77aa001a7226253186b44e4d70c38206bc488",
+   "date": "2026-11-07T01:35:18Z",
+   "title": "ARC-05: provider adapter kit (timeout, retries, circuit breaker, last known value), SDK guard, no-network tests (#84)",
+   "pulls": [
+    {
+     "number": 84,
+     "merged_at": "2026-11-07T01:35:18Z",
+     "merge_commit_sha": "7fa77aa001a7226253186b44e4d70c38206bc488",
+     "base_ref": "main"
+    }
+   ]
+  },
+  {
+   "sha": "281680d1cedc2799fb55db57192ba7e462621153",
+   "date": "2026-11-07T00:06:14Z",
+   "title": "CICD-06: follow-up to review of #82 (flag dependencies, timeouts, tests) (#83)",
+   "pulls": [
+    {
+     "number": 83,
+     "merged_at": "2026-11-07T00:06:14Z",
+     "merge_commit_sha": "281680d1cedc2799fb55db57192ba7e462621153",
+     "base_ref": "main"
+    }
+   ]
+  },
+  {
+   "sha": "7050c567874c708f4018165d5faaee0a0d2190f4",
+   "date": "2026-11-06T23:37:16Z",
+   "title": "CICD-06: feature flags, staged rollout and module kill switches (+ DAT-05 AC5–AC7 server side) (#82)",
+   "pulls": [
+    {
+     "number": 82,
+     "merged_at": "2026-11-06T23:37:17Z",
+     "merge_commit_sha": "7050c567874c708f4018165d5faaee0a0d2190f4",
+     "base_ref": "main"
+    }
+   ]
+  }
+ ],
+ "pulls": [
+  {
+   "number": 86,
+   "title": "NFR-14: security headers, per-IP rate limits, Origin check (+ NFR-15 general controls)",
+   "merged_at": "2026-11-07T11:21:07Z",
+   "base_ref": "main",
+   "head_sha": "e0ca73a762e72f95ad76aaa71aca35bcff79c9d1",
+   "head_date": "2026-11-07T11:18:06Z",
+   "merge_commit_sha": "c017296c987926460073d66cb405254544b1cc6f",
+   "labels": [],
+   "files": [
+    {
+     "filename": "apps/api/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/main.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config-nfr14.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/cookies.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/limits.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/list-query.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/nfr15-general.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/openapi.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/origin.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/problem.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/rate-limit.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/rate-limit.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/route.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/security-headers.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/http/versioned.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/process/server.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/redaction.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/signals.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/nfr14-contract.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/nfr14-headers.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/nfr14-rate-limit.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/nfr15-db.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/nfr15-origin.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/process.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/sec86-db.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86-headers.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86-list-query.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86-origin-cookies.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86-process.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86-rate-limit.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86r2-client-error.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86r2-filter-values.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86r2-list-route.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86r2-rate-limit.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/sec86r2-versioned.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/web/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/web/index.html",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/web/public/theme-init.js",
+     "status": "added"
+    },
+    {
+     "filename": "apps/web/security-headers.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/web/src/sec86-web.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/web/src/security-headers.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/web/src/static.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/web/tsconfig.json",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/web/vite.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/adr/0007-http-protections.md",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/decisions/state-2026-11-05.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/requirements/nfr/NFR-14.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-22, П-26, ARC-07, NFR-01, NFR-15\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/nfr14-headers.test.ts, apps/api/test/nfr14-rate-limit.test.ts, apps/api/src/platform/http/rate-limit.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/web/src/security-headers.test.ts, apps/web/src/static.test.ts, apps/api/test/sec86-headers.test.ts, apps/api/test/sec86-rate-limit.test.ts, apps/api/test/sec86-process.it.test.ts, apps/web/src/sec86-web.test.ts, apps/api/test/sec86r2-client-error.test.ts, apps/api/test/sec86r2-rate-limit.test.ts\n \n **Мета.** Як користувач, я хочу, щоб браузер не міг кешувати чи вбудовувати мої фінансові дані на сторонніх сайтах і щоб сервіс не можна було перевантажити запитами, щоб мої дані не витекли через атаки на клієнтську частину.\n "
+    },
+    {
+     "filename": "docs/requirements/nfr/NFR-15.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-5, П-6, П-9, П-10, П-11, П-12, П-24, П-26, ARC-03, ARC-11, CICD-03, NFR-01, NFR-14\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/nfr15-origin.test.ts, apps/api/src/platform/http/nfr15-general.test.ts, apps/api/test/nfr15-db.it.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/api/test/sec86-origin-cookies.test.ts, apps/api/test/sec86-list-query.test.ts, apps/api/test/sec86-db.it.test.ts, apps/api/test/sec86-process.it.test.ts, apps/api/test/sec86r2-list-route.test.ts, apps/api/test/sec86r2-filter-values.it.test.ts, apps/api/test/sec86r2-versioned.it.test.ts\n \n **Мета.** Як власник продукту, я хочу, щоб кожна відома загроза для фінансових даних родини мала задокументований засіб захисту і тест, щоб захоплення акаунта, витік чи підробка даних були неможливими або швидко виявлялися.\n "
+    },
+    {
+     "filename": "docs/traceability/matrix.md",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/openapi.json",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/src/schema.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "tools/observability/definitions.mjs",
+     "status": "modified"
+    }
+   ],
+   "reviews": [
+    {
+     "id": 5811291536,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6acc4dd5e9cba1f8f77639382b00760f97fca75b",
+     "submitted_at": "2026-11-07T09:15:08Z",
+     "body": "## Independent review: NFR-14@PoC + NFR-15@PoC general controls (head 6acc4dd)\nVerdict: Not ready"
+    },
+    {
+     "id": 5811350207,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6acc4dd5e9cba1f8f77639382b00760f97fca75b",
+     "submitted_at": "2026-11-07T09:30:50Z",
+     "body": "## Security review: NFR-14 headers and limits (coverage)\nSecurity verdict: Ready"
+    },
+    {
+     "id": 5811787219,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "591cfefd237b98b31897f7a5ef6cc68b08e249d3",
+     "submitted_at": "2026-11-07T11:02:24Z",
+     "body": "## Re-review: NFR-14@PoC + NFR-15@PoC general controls (head 591cfef)\nVerdict: Ready"
+    },
+    {
+     "id": 5811865652,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "591cfefd237b98b31897f7a5ef6cc68b08e249d3",
+     "submitted_at": "2026-11-07T11:14:31Z",
+     "body": "## Security review: NFR-14 headers and limits (coverage), round 2\nSecurity verdict: Changes requested"
+    }
+   ],
+   "comments": [],
+   "checkRuns": [
+    {
+     "id": 128388856870,
+     "name": "local-env",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:19:13Z"
+    },
+    {
+     "id": 128388856852,
+     "name": "secrets",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:18:28Z"
+    },
+    {
+     "id": 128388856832,
+     "name": "requirements",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:18:36Z"
+    },
+    {
+     "id": 128388856800,
+     "name": "web",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:20:21Z"
+    },
+    {
+     "id": 128388856773,
+     "name": "infra",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:18:32Z"
+    },
+    {
+     "id": 128388856728,
+     "name": "api",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:20:43Z"
+    },
+    {
+     "id": 128388856632,
+     "name": "traceability",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T11:18:19Z"
+    }
+   ],
+   "requiredJobs": [
+    "traceability",
+    "requirements",
+    "web",
+    "secrets",
+    "local-env",
+    "api",
+    "infra"
+   ]
+  },
+  {
+   "number": 85,
+   "title": "ARC-09: observability — OpenTelemetry, exporter-level PII filter, trace id as error code, SLO and alerts as code (+ NFR-10)",
+   "merged_at": "2026-11-07T08:34:53Z",
+   "base_ref": "main",
+   "head_sha": "ad0f51f60aa0c7b71f5fd40f249d14dee8f394f8",
+   "head_date": "2026-11-07T08:27:23Z",
+   "merge_commit_sha": "3fd3e091ff4a5a3842c5fbb7b45824262164447e",
+   "labels": [],
+   "files": [
+    {
+     "filename": ".github/workflows/pr-checks.yml",
+     "status": "modified"
+    },
+    {
+     "filename": ".gitleaksignore",
+     "status": "added"
+    },
+    {
+     "filename": ".prettierignore",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/package.json",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/main.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/runtime.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/provider-client.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/telemetry-arc09.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config-sec85.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/db/errors-sec85.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/db/errors.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/db/errors.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/db/module-db.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/problem.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/process/server.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/errors.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/exporters-sec85.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/exporters.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/http.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/jobs.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/jobs.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/modes.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/otlp.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/pii.test-helper.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/redaction-sec85.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/redaction-sec85r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/redaction.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/redaction.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/scope.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/signals.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/telemetry.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/telemetry.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/telemetry/testing.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/wiring.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-flags.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/fixtures/db-modules/wallets/adapters/db/migrations/0001_accounts.sql",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/http.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/observability-catalogue.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/process.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/telemetry-db-sec85.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-db-sec85r2.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-db.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-flags-r3.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-http-r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-http-sec85.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-http-sec85r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/telemetry-http.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/0006-observability.md",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/decisions/state-2026-11-05.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/requirements/arc/ARC-09.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-8, П-24\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/src/platform/config/config.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/observability-catalogue.test.ts, packages/api-contract/src/index.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/config/config-sec85.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/process.it.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts\n \n 1. Логи, метрики і траси збираються через OpenTelemetry і надсилаються в сервіс із даними в ЄС. Заміна сервісу — лише зміна конфігурації експортера.\n 2. У логах, трасах і звітах про помилки немає персональних і фінансових даних: фільтр на рівні експортера маскує email, суми, IBAN, токени та тіла запитів."
+    },
+    {
+     "filename": "docs/requirements/nfr/NFR-10.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-8, ARC-09\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/telemetry/redaction.test.ts, apps/api/src/platform/telemetry/telemetry.test.ts, apps/api/src/platform/telemetry/otlp.test.ts, apps/api/src/platform/db/errors.test.ts, apps/api/test/telemetry-db.it.test.ts, apps/api/src/platform/adapters/telemetry-arc09.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/src/platform/telemetry/jobs.test.ts, apps/api/test/observability-catalogue.test.ts, tools/observability/test/observability.test.mjs, apps/api/src/platform/telemetry/redaction-sec85.test.ts, apps/api/src/platform/telemetry/exporters-sec85.test.ts, apps/api/src/platform/db/errors-sec85.test.ts, apps/api/test/telemetry-db-sec85.it.test.ts, apps/api/test/telemetry-http-sec85.test.ts, apps/api/test/telemetry-http-r2.test.ts, apps/api/test/telemetry-flags-r3.test.ts, apps/api/src/platform/telemetry/redaction-sec85r2.test.ts, apps/api/test/telemetry-http-sec85r2.test.ts, apps/api/test/telemetry-db-sec85r2.it.test.ts\n \n **Мета.** Як команда експлуатації, ми хочемо бачити стан системи і швидко дізнаватися про збої без доступу до персональних даних користувачів, щоб виправляти проблеми до того, як їх помітять користувачі.\n "
+    },
+    {
+     "filename": "docs/traceability/matrix.md",
+     "status": "modified"
+    },
+    {
+     "filename": "infra/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "infra/observability/README.md",
+     "status": "added"
+    },
+    {
+     "filename": "infra/observability/alertmanager.yaml",
+     "status": "added"
+    },
+    {
+     "filename": "infra/observability/dashboard-slo.json",
+     "status": "added"
+    },
+    {
+     "filename": "infra/observability/rules.yaml",
+     "status": "added"
+    },
+    {
+     "filename": "package.json",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/openapi.json",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/src/index.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/src/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/src/schema.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "pnpm-lock.yaml",
+     "status": "modified"
+    },
+    {
+     "filename": "tools/observability/definitions.mjs",
+     "status": "added"
+    },
+    {
+     "filename": "tools/observability/index.mjs",
+     "status": "added"
+    },
+    {
+     "filename": "tools/observability/lib.mjs",
+     "status": "added"
+    },
+    {
+     "filename": "tools/observability/package.json",
+     "status": "added"
+    },
+    {
+     "filename": "tools/observability/test/all.mjs",
+     "status": "added"
+    },
+    {
+     "filename": "tools/observability/test/observability.test.mjs",
+     "status": "added"
+    }
+   ],
+   "reviews": [
+    {
+     "id": 5809417806,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6042ac3f4ef6381564c123559f64e5d7604e4cb7",
+     "submitted_at": "2026-11-07T02:13:55Z",
+     "body": "Independent review of head 6042ac3 against ARC-09@PoC, NFR-10@PoC, ADR-0006 and AGENTS.md (`review-pr` skill).\nVerdict: Not ready"
+    },
+    {
+     "id": 5809528138,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6042ac3f4ef6381564c123559f64e5d7604e4cb7",
+     "submitted_at": "2026-11-07T02:33:56Z",
+     "body": "## Security review: ARC-09 telemetry privacy (coverage)\nSecurity verdict: Changes requested"
+    },
+    {
+     "id": 5810914031,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "e6232dd78bff644378e434cfff2d23350e2950c1",
+     "submitted_at": "2026-11-07T07:59:41Z",
+     "body": "Re-review of head e6232dd (`review-pr` skill, separate session). Scope: the previous items of review 5809417806 and security review 5809528138, the diff `6042ac3..e6232dd`, and anything new that blocks. I checked each item with a probe or a mutation (tests run, then the file restored).\nVerdict: Not ready"
+    },
+    {
+     "id": 5811042622,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "7d56a8a6c3556057bc3f56d4cf3ceae72f88b06a",
+     "submitted_at": "2026-11-07T08:22:54Z",
+     "body": "## Security review: ARC-09 telemetry privacy (coverage), round 2\nSecurity verdict: Ready"
+    },
+    {
+     "id": 5811091807,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "ad0f51f60aa0c7b71f5fd40f249d14dee8f394f8",
+     "submitted_at": "2026-11-07T08:34:09Z",
+     "body": "Final re-check of head ad0f51f (`review-pr` skill, separate session). Scope: `git diff e6232dd ad0f51f`, which is 7d56a8a (fix for re-review 5810914031) plus ad0f51f (security round 2). I checked the previous blocking item by mutation: change the code, run the tests, restore the file.\nVerdict: Ready"
+    }
+   ],
+   "comments": [],
+   "checkRuns": [
+    {
+     "id": 128352795874,
+     "name": "requirements",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:27:47Z"
+    },
+    {
+     "id": 128352795805,
+     "name": "web",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:28:45Z"
+    },
+    {
+     "id": 128352795729,
+     "name": "local-env",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:28:30Z"
+    },
+    {
+     "id": 128352795724,
+     "name": "infra",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:27:48Z"
+    },
+    {
+     "id": 128352795714,
+     "name": "secrets",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:27:45Z"
+    },
+    {
+     "id": 128352795675,
+     "name": "traceability",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:27:38Z"
+    },
+    {
+     "id": 128352795485,
+     "name": "api",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T08:30:07Z"
+    }
+   ],
+   "requiredJobs": [
+    "traceability",
+    "requirements",
+    "web",
+    "secrets",
+    "local-env",
+    "api",
+    "infra"
+   ]
+  },
+  {
+   "number": 84,
+   "title": "ARC-05: provider adapter kit (timeout, retries, circuit breaker, last known value), SDK guard, no-network tests",
+   "merged_at": "2026-11-07T01:35:18Z",
+   "base_ref": "main",
+   "head_sha": "4a9f400a61a25ddf34b9d4a8fc29aa4c912ed030",
+   "head_date": "2026-11-07T01:29:23Z",
+   "merge_commit_sha": "7fa77aa001a7226253186b44e4d70c38206bc488",
+   "labels": [],
+   "files": [
+    {
+     "filename": "apps/api/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/provider-sdks.json",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/analyze.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/scripts/lib/check.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/scripts/lib/dependency-rules.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/scripts/lib/provider-sdks-security-r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/provider-sdks-security.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/provider-sdks.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/provider-sdks.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/scaffold.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/circuit-breaker.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/clock.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/errors.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/http.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/http.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/last-known.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/last-known.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/outgoing.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/outgoing.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/port.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/provider-client.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/provider-client.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/reference/exchange-rates/exchange-rates.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/reference/exchange-rates/http.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/reference/exchange-rates/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/reference/exchange-rates/port.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/reference/exchange-rates/synthetic.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/security-arc05-r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/security-arc05.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/adapters/testing.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/config/config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/scripts/send.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/src/http/upload.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/src/modules/alpha/adapters/payments.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/src/modules/alpha/application/charge.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/src/modules/alpha/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/fixtures/provider-sdks/src/platform/adapters/mail.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-network-loaded.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-network-security-r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-network-security-r3.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-network-security.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-network.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/vitest.integration.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/web/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/adr/0005-provider-adapters.md",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/decisions/state-2026-11-05.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/requirements/arc/ARC-05.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-9, П-22, П-23, П-24\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/platform/adapters/provider-client.test.ts, apps/api/src/platform/adapters/last-known.test.ts, apps/api/src/platform/adapters/outgoing.test.ts, apps/api/src/platform/adapters/http.test.ts, apps/api/src/platform/adapters/reference/exchange-rates/exchange-rates.test.ts, apps/api/src/platform/config/config.test.ts, apps/api/scripts/lib/provider-sdks.test.ts, apps/api/test/no-network.test.ts, apps/api/test/no-network-loaded.test.ts, apps/api/test/no-network-security.test.ts, apps/api/src/platform/adapters/security-arc05.test.ts, apps/api/scripts/lib/provider-sdks-security.test.ts, apps/api/scripts/lib/provider-sdks-security-r2.test.ts, apps/api/src/platform/adapters/security-arc05-r2.test.ts, apps/api/test/no-network-security-r2.test.ts, apps/api/test/no-network-security-r3.test.ts\n \n 1. Кожен зовнішній сервіс (курси валют, ціни, банки, мапи, пошта, платежі, CAPTCHA, OCR, антивірус, сховище файлів, KMS, AI) викликається лише через внутрішній інтерфейс. Назви провайдерів та їхні SDK не з'являються поза адаптером.\n 2. Кожен інтерфейс має щонайменше дві реалізації: робочу і тестову (синтетичну або пісочницю). Локальна розробка і CI працюють без доступу до зовнішніх сервісів."
+    },
+    {
+     "filename": "docs/traceability/matrix.md",
+     "status": "modified"
+    },
+    {
+     "filename": "eslint.config.js",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/domain-kernel/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/i18n/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/ui/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "tools/synthetic/vitest.config.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "tools/test-guards/no-network.d.mts",
+     "status": "added"
+    },
+    {
+     "filename": "tools/test-guards/no-network.mjs",
+     "status": "added"
+    }
+   ],
+   "reviews": [
+    {
+     "id": 5808870725,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "150e5d7556d607f61c70663b9e5e4dcbd8ae54d0",
+     "submitted_at": "2026-11-07T00:30:56Z",
+     "body": "## Review of ARC-05@PoC (head `150e5d7`)\nVerdict: Not ready"
+    },
+    {
+     "id": 5808934362,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "150e5d7556d607f61c70663b9e5e4dcbd8ae54d0",
+     "submitted_at": "2026-11-07T00:42:00Z",
+     "body": "## Security review: ARC-05 provider adapters (coverage)\nSecurity verdict: Changes requested"
+    },
+    {
+     "id": 5809059443,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "5a95cf03a571814f876884ce80d7ae15e0141f01",
+     "submitted_at": "2026-11-07T01:03:24Z",
+     "body": "## Re-review of ARC-05@PoC (head `5a95cf0`)\nVerdict: Ready"
+    },
+    {
+     "id": 5809088527,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "5a95cf03a571814f876884ce80d7ae15e0141f01",
+     "submitted_at": "2026-11-07T01:08:40Z",
+     "body": "## Security review: ARC-05 provider adapters (coverage), round 2\nSecurity verdict: Changes requested"
+    },
+    {
+     "id": 5809174795,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "f32907dad25ab77be5ab6691428400a2386d453c",
+     "submitted_at": "2026-11-07T01:24:40Z",
+     "body": "## Security review: ARC-05 provider adapters (coverage), round 3\nSecurity verdict: Changes requested"
+    },
+    {
+     "id": 5809232576,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "4a9f400a61a25ddf34b9d4a8fc29aa4c912ed030",
+     "submitted_at": "2026-11-07T01:35:00Z",
+     "body": "## Security review: ARC-05 provider adapters (coverage), round 4\nSecurity verdict: Ready"
+    }
+   ],
+   "comments": [],
+   "checkRuns": [
+    {
+     "id": 128256128107,
+     "name": "requirements",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:30:15Z"
+    },
+    {
+     "id": 128256127825,
+     "name": "api",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:32:11Z"
+    },
+    {
+     "id": 128256127778,
+     "name": "traceability",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:29:59Z"
+    },
+    {
+     "id": 128256127742,
+     "name": "local-env",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:30:53Z"
+    },
+    {
+     "id": 128256127727,
+     "name": "web",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:31:06Z"
+    },
+    {
+     "id": 128256127719,
+     "name": "infra",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:30:08Z"
+    },
+    {
+     "id": 128256127579,
+     "name": "secrets",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T01:30:04Z"
+    }
+   ],
+   "requiredJobs": [
+    "traceability",
+    "requirements",
+    "web",
+    "secrets",
+    "local-env",
+    "api",
+    "infra"
+   ]
+  },
+  {
+   "number": 83,
+   "title": "CICD-06: follow-up to review of #82 (flag dependencies, timeouts, tests)",
+   "merged_at": "2026-11-07T00:06:14Z",
+   "base_ref": "main",
+   "head_sha": "edf2b77656da6d1e26da17cbd26a31faeac8a590",
+   "head_date": "2026-11-07T00:03:06Z",
+   "merge_commit_sha": "281680d1cedc2799fb55db57192ba7e462621153",
+   "labels": [],
+   "files": [
+    {
+     "filename": "apps/api/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/main.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/runtime.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/runtime.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/review.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/review.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/wiring.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/api-flags.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/flags-pool.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/http.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/idempotency.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/main-wiring.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/not-found.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06-r3.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06-r4.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06-r4.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/0004-feature-flags.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/decisions/state-2026-11-05.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/requirements/cicd/CICD-06.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-14, П-21, ARC-01\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts\n+- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts, apps/api/test/security-cicd06-r3.test.ts, apps/api/test/security-cicd06-r4.test.ts, apps/api/test/security-cicd06-r4.it.test.ts\n \n 1. Кожна нова функція виходить вимкненою прапорцем. Власник вмикає її: спочатку для тестових просторів, потім для частки просторів, потім для всіх.\n 2. Кожен прапорець має власника і дату перегляду. Тимчасовий прапорець видаляється з коду не пізніше ніж через 30 днів після повного вмикання."
+    },
+    {
+     "filename": "docs/traceability/matrix.md",
+     "status": "modified"
+    }
+   ],
+   "reviews": [
+    {
+     "id": 5808568466,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6ce7f5a60fdf96426049c1303efe75e48bafc447",
+     "submitted_at": "2026-11-06T23:48:37Z",
+     "body": "## Review of the CICD-06 follow-up at `6ce7f5a` (base `main` @ `7050c56`, the squash of #82)\nVerdict: Ready"
+    },
+    {
+     "id": 5808644172,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "6ce7f5a60fdf96426049c1303efe75e48bafc447",
+     "submitted_at": "2026-11-06T23:59:09Z",
+     "body": "## Security review: CICD-06 follow-up (coverage)\nSecurity verdict: Ready"
+    }
+   ],
+   "comments": [],
+   "checkRuns": [
+    {
+     "id": 128228006692,
+     "name": "infra",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:03:32Z"
+    },
+    {
+     "id": 128228006535,
+     "name": "local-env",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:04:25Z"
+    },
+    {
+     "id": 128228006490,
+     "name": "web",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:04:14Z"
+    },
+    {
+     "id": 128228006488,
+     "name": "api",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:05:51Z"
+    },
+    {
+     "id": 128228006478,
+     "name": "secrets",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:03:25Z"
+    },
+    {
+     "id": 128228006432,
+     "name": "requirements",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:03:34Z"
+    },
+    {
+     "id": 128228006238,
+     "name": "traceability",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-07T00:03:20Z"
+    }
+   ],
+   "requiredJobs": [
+    "traceability",
+    "requirements",
+    "web",
+    "secrets",
+    "local-env",
+    "api",
+    "infra"
+   ]
+  },
+  {
+   "number": 82,
+   "title": "CICD-06: feature flags, staged rollout and module kill switches (+ DAT-05 AC5–AC7 server side)",
+   "merged_at": "2026-11-06T23:37:17Z",
+   "base_ref": "main",
+   "head_sha": "fafa3f97e83ebe3d660e3c40e7dd947ac6e4b7c6",
+   "head_date": "2026-11-06T23:15:22Z",
+   "merge_commit_sha": "7050c567874c708f4018165d5faaee0a0d2190f4",
+   "labels": [],
+   "files": [
+    {
+     "filename": ".github/workflows/pr-checks.yml",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/module-rules.json",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/package.json",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/schema-exemptions.json",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/scripts/check-flags.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/flags.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/flags-cli.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/scripts/lib/flags-cli.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/main.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/adapters/db/migrations/0002_platform_entries.sql",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/adapters/db/store.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/application/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/application/record.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/audit.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/domain/entry.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/domain/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/audit/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/README.md",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/adapters/db/migrations/0001_flags.sql",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/adapters/db/store.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/adapters/http/routes.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/adapters/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/admin.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/admin.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/memory-store.test-helper.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/ports.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/runtime.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/application/runtime.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/catalogue.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/review.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/review.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/rollout.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/domain/rollout.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/feature-flags.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/index.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/index.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/feature-flags/synthetic.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/src/modules/index.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/api.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/openapi.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/openapi.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/problem.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/src/platform/http/route.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-flags.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/api-routes.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-security-r2.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-security-r3.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-security-r4.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/api-security.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/compat.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/contract.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/flags-pool.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/http.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/idempotency.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/main-wiring.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/no-coming-soon.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/not-found.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/process.it.test.ts",
+     "status": "modified"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06-r2.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06.it.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "apps/api/test/security-cicd06.test.ts",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/0003-api-contract.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/adr/0004-feature-flags.md",
+     "status": "added"
+    },
+    {
+     "filename": "docs/adr/README.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/decisions/state-2026-11-05.md",
+     "status": "modified"
+    },
+    {
+     "filename": "docs/requirements/arc/ARC-01.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-21, П-22, П-24, ARC-05, ARC-11, CICD-02, CICD-06\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts\n+- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts, apps/api/test/api-flags.test.ts\n \n Бекенд — один застосунок на TypeScript, розділений на незалежні модулі. Зміна всередині одного модуля не змінює поведінки інших, якщо не змінено його публічний інтерфейс.\n "
+    },
+    {
+     "filename": "docs/requirements/cicd/CICD-06.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-14, П-21, ARC-01\n - Сценарії: —\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: apps/api/src/modules/feature-flags/domain/rollout.test.ts, apps/api/src/modules/feature-flags/domain/review.test.ts, apps/api/src/modules/feature-flags/application/runtime.test.ts, apps/api/src/modules/feature-flags/application/admin.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/scripts/lib/flags-cli.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06.it.test.ts, apps/api/test/security-cicd06-r2.test.ts, apps/api/test/main-wiring.test.ts, apps/api/test/flags-pool.it.test.ts\n \n 1. Кожна нова функція виходить вимкненою прапорцем. Власник вмикає її: спочатку для тестових просторів, потім для частки просторів, потім для всіх.\n 2. Кожен прапорець має власника і дату перегляду. Тимчасовий прапорець видаляється з коду не пізніше ніж через 30 днів після повного вмикання."
+    },
+    {
+     "filename": "docs/requirements/dat/DAT-05.poc.md",
+     "status": "modified",
+     "patch": "@@ -9,7 +9,7 @@\n - Спільні правила: П-7, П-8, П-13, П-14, П-24, П-25, П-26, CMP-22, CMP-23, CMP-24\n - Сценарії: UC-DAT-20, UC-DAT-21, UC-DAT-23\n - Модуль: feature-flags\n-- Перевіряється: —\n+- Перевіряється: apps/api/test/not-found.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/test/no-coming-soon.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06-r2.test.ts\n \n **Мета.** Як користувач, я хочу завжди розуміти, що відбувається на екрані — немає даних, дані завантажуються чи сталася помилка — і що мені робити далі, щоб не стикатися з порожніми екранами та заглушками.\n "
+    },
+    {
+     "filename": "docs/traceability/matrix.md",
+     "status": "modified"
+    },
+    {
+     "filename": "package.json",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/openapi.json",
+     "status": "modified"
+    },
+    {
+     "filename": "packages/api-contract/src/schema.ts",
+     "status": "modified"
+    }
+   ],
+   "reviews": [
+    {
+     "id": 5808020873,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "ac5330ea75ed20eb82039e7979c7de87a1b0c1f5",
+     "submitted_at": "2026-11-06T22:44:20Z",
+     "body": "## Independent review: CICD-06@PoC + DAT-05@PoC AC5–AC7 (server side), head `ac5330e`\nVerdict: Ready"
+    },
+    {
+     "id": 5808053807,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "ac5330ea75ed20eb82039e7979c7de87a1b0c1f5",
+     "submitted_at": "2026-11-06T22:48:21Z",
+     "body": "## Security review: CICD-06 flags and kill switches (coverage)\nSecurity verdict: Ready"
+    },
+    {
+     "id": 5808181519,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "fa5d9cb5d225b764ba54bcffad9306c030feb618",
+     "submitted_at": "2026-11-06T23:03:31Z",
+     "body": "## Re-review at `fa5d9cb` (follow-up to my review of `ac5330e`)\nVerdict: Ready"
+    },
+    {
+     "id": 5808244247,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "fa5d9cb5d225b764ba54bcffad9306c030feb618",
+     "submitted_at": "2026-11-06T23:10:16Z",
+     "body": "## Security review: CICD-06 flags and kill switches (coverage), round 2\nSecurity verdict: Changes requested"
+    },
+    {
+     "id": 5808428472,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "fafa3f97e83ebe3d660e3c40e7dd947ac6e4b7c6",
+     "submitted_at": "2026-11-06T23:30:09Z",
+     "body": "## Re-review at `fafa3f9` (round 3; follow-up to my review of `fa5d9cb`)\nVerdict: Ready"
+    },
+    {
+     "id": 5808483659,
+     "user": "repo-owner",
+     "state": "COMMENTED",
+     "commit_id": "fafa3f97e83ebe3d660e3c40e7dd947ac6e4b7c6",
+     "submitted_at": "2026-11-06T23:36:54Z",
+     "body": "## Security review: CICD-06 flags and kill switches (coverage), round 3\nSecurity verdict: Ready"
+    }
+   ],
+   "comments": [],
+   "checkRuns": [
+    {
+     "id": 128210940038,
+     "name": "requirements",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:15:49Z"
+    },
+    {
+     "id": 128210939999,
+     "name": "local-env",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:16:39Z"
+    },
+    {
+     "id": 128210939996,
+     "name": "infra",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:15:47Z"
+    },
+    {
+     "id": 128210939936,
+     "name": "secrets",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:15:41Z"
+    },
+    {
+     "id": 128210939918,
+     "name": "traceability",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:15:36Z"
+    },
+    {
+     "id": 128210939839,
+     "name": "web",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:16:56Z"
+    },
+    {
+     "id": 128210939660,
+     "name": "api",
+     "app": "github-actions",
+     "status": "completed",
+     "conclusion": "success",
+     "completed_at": "2026-11-06T23:17:10Z"
+    }
+   ],
+   "requiredJobs": [
+    "traceability",
+    "requirements",
+    "web",
+    "secrets",
+    "local-env",
+    "api",
+    "infra"
+   ]
+  }
+ ],
+ "branches": [
+  {
+   "name": "ACC-01-acc-sub-adm-slices",
+   "firstCommitDate": "2026-11-05T10:09:46Z",
+   "pr": {
+    "number": 41,
+    "state": "closed",
+    "merged": true
+   }
+  },
+  {
+   "name": "ACC-08-poc-v2",
+   "firstCommitDate": "2026-11-04T10:38:25Z",
+   "pr": {
+    "number": 28,
+    "state": "closed",
+    "merged": true
+   }
+  },
+  {
+   "name": "ARC-01-arc-nfr-cicd-slices",
+   "firstCommitDate": "2026-11-04T18:39:03Z",
+   "pr": {
+    "number": 38,
+    "state": "closed",
+    "merged": true
+   }
+  },
+  {
+   "name": "ARC-01-merge-without-owner",
+   "firstCommitDate": "2026-11-04T06:23:35Z",
+   "pr": {
+    "number": 27,
+    "state": "closed",
+    "merged": true
+   }
+  },
+  {
+   "name": "ARC-01-poc-release",
+   "firstCommitDate": "2026-11-03T21:04:23Z",
+   "pr": {
+    "number": 25,
+    "state": "closed",
+    "merged": true
+   }
+  },
+  {
+   "name": "ARC-01-release-slices",
+   "firstCommitDate": "2026-11-04T16:32:54Z",
+   "pr": {
+    "number": 34,
+    "state": "closed",
+    "merged": true
+   }
+  }
+ ]
+}

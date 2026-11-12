@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
 
 Input: a requirement ID (or a small group from the same module). Output: one PR whose title starts with
 the ID, CI green, every acceptance criterion covered by a test.
@@ -95,10 +95,15 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 
 Then ask for review by a different agent session with the `review-pr` skill. Merge (squash) yourself only
 when CI is green on the latest commit, the review verdict is «Ready» (and the security review, for sensitive
-areas), and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
+areas) on the commit being merged — compare the SHA each review names with the PR head; after any later
+commit ask for a re-review — and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
 AGENTS.md or skills states in its body the owner decision it implements. A PR that acts on the cloud or
 production (applies infrastructure, deploys or releases to production, or changes the workflows that do this
 or their trust settings: OIDC, production secrets store; or production DNS) also needs an approval comment from
-the owner's own GitHub account on that PR; infrastructure code without apply does not. Never merge your own PR without that independent review.
+the owner's own GitHub account on that PR with a line that is exactly «Схвалюю» or «Approved», or the owner's
+decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …`. Never write a
+«Схвалюю» or «Approved» line yourself, not even after the owner has decided: when the owner approves in chat,
+record it in the PR body as that `Рішення власника` line, and write that line only for a decision the owner
+actually gave. Infrastructure code without apply needs no approval. Never merge your own PR without that independent review.
 Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the owner
 it is merged.

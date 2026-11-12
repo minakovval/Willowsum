@@ -1,0 +1,40 @@
+name: PR description
+
+# CICD-01 FR 2 and criterion «PR без ID вимоги в назві — блокується» (ADR-0008): the title starts with the ID
+# of a requirement that has a file in docs/requirements/, and the description follows
+# .github/pull_request_template.md (requirement, criteria → tests, how it was tested, sensitive areas ticked
+# when sensitive files change). Its own workflow, so that editing the description re-runs only this job.
+# The job keeps the name `traceability`, one of the required CI jobs in AGENTS.md.
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-description-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  traceability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # the PR's changed files (is it sensitive?)
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: PR rules unit tests
+        run: node --test tools/pr-rules
+      # Title and body are read from the event file, never interpolated into the script.
+      - name: PR title starts with a requirement ID; the description follows the template
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/pr-rules/index.mjs description
