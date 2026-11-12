@@ -44,6 +44,9 @@ If a criterion is unclear or conflicts with another rule on a real product quest
 release, legal or compliance, money, access or infrastructure), stop and list the question for the owner;
 do not guess. Small product details follow AGENTS.md «Ambiguity»: decide, record the decision in the PR
 body and the decision log in `docs/decisions/`. If the work will not fit one session, split it by criteria into several PRs now.
+Keep each PR small enough for one review round: split a large requirement part (e.g. backend and UI) into
+separate PRs (owner, 2026-11-12). Mutation testing is required only for data isolation, money,
+authentication and encryption.
 
 ## 3. Branch
 
@@ -84,6 +87,7 @@ plus `node --test tools/req-check` and
 `traceability`, `secrets`, `local-env`, `api` and `infra`.
 Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missing criteria, leaks
 through scope, floats, hard-coded limits, personal data in logs.
+Before pushing, run a local check for secret-shaped literals (what the CI job `secrets` checks).
 
 ## 7. PR
 
@@ -91,12 +95,19 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 - title `<ID>: <what>`;
 - the table criterion → test;
 - open questions for the owner, if any;
-- tick the sensitive-areas box if auth, permissions, encryption, money, schema, pipeline or infrastructure changed.
+- tick the sensitive-areas box if auth, permissions, encryption, money, schema, pipeline or infrastructure changed;
+- a «Follow-ups» list for non-blocking review findings (or issue links);
+- a row in `docs/ops/integrations.md` updated if the PR adds or changes an external service.
 
-Then ask for review by a different agent session with the `review-pr` skill. Merge (squash) yourself only
+Then ask for review by a different agent session with the `review-pr` skill; a PR labelled `sensitive` (CI
+sets it from file paths) also needs a security review in another session. Review rounds (owner,
+2026-11-12): only a security bypass, data loss or leak, or a violation of the requirement or a shared rule
+blocks; a re-review checks only your fixes; at most two rounds, after which the reviewer gives a ready fix
+with a test — apply it and ask the reviewer to confirm it on the new head. A recurring class of finding
+becomes a CI check or a test. Merge (squash) yourself only
 when CI is green on the latest commit, the review verdict is «Ready» (and the security review, for sensitive
 areas) on the commit being merged — compare the SHA each review names with the PR head; after any later
-commit ask for a re-review — and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
+commit ask for a re-review of that commit — and the owner has not commented «stop» or asked a question on the PR. A PR that changes requirements,
 AGENTS.md or skills states in its body the owner decision it implements. A PR that acts on the cloud or
 production (applies infrastructure, deploys or releases to production, or changes the workflows that do this
 or their trust settings: OIDC, production secrets store; or production DNS) also needs an approval comment from

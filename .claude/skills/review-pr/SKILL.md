@@ -20,13 +20,22 @@ missing, not to confirm the author's summary.
 
 Read the requirement **before** the PR body, so the author's framing does not anchor you.
 
+**Re-review** (owner, 2026-11-12): check only the fixes and your own previous findings — the diff since the
+head you last reviewed — not the whole PR again. There are at most two rounds; see «5. Report».
+
 ## 2. Check coverage
 
 Build a table: every acceptance criterion and edge case in the requirement → the test that covers it →
 does the test actually assert the behaviour (not just render)? Missing or weak rows are findings.
 If the PR covers only part of the requirement, the body must say which criteria are left.
+Mutation testing is required only for critical modules: data isolation, money, authentication, encryption
+(owner, 2026-11-12); do not ask for it elsewhere.
 
 ## 3. Check the hard rules
+
+A finding is blocking only if it is a security bypass, data loss or leak, or a violation of the requirement
+the PR claims (its FR/AC) or of a shared rule (AGENTS.md, П-rules) (owner, 2026-11-12). Everything else is
+non-blocking.
 
 - Money: any `number`, `parseFloat`, `Math.round` or float arithmetic on amounts; currency conversion
   without a dated rate.
@@ -75,8 +84,10 @@ locally if needed. Drop findings you cannot support.
 ## 5. Report
 
 Post one PR review:
-- **Blocking** — violates a requirement criterion or a hard rule; each with file:line and the failing path.
-- **Non-blocking** — clarity, naming, small improvements.
+- **Blocking** — only as defined in «3. Check the hard rules»; each with file:line and the failing path.
+- **Non-blocking** — everything else. The author lists them under «Follow-ups» in the PR body or opens an
+  issue; they never start a new round by themselves.
+- A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
   details the author decided and recorded are not owner questions.
@@ -87,8 +98,13 @@ the review summary. A security review (sensitive areas) ends instead with a line
 `Security verdict: Changes requested`. Never write these lines inside quotes or code, and never write a line
 «Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
 these lines.
+
+**At most two rounds** (owner, 2026-11-12). If something blocking remains after round 2, give a ready fix
+with a test in the review (a patch or exact code) and the verdict `Changes requested`; after the author
+applies it, confirm that specific fix briefly, with a verdict that names the final head SHA.
+
 The authoring agent merges only after «Ready» given on the commit being merged: it compares the SHA your
-review names with the PR head, and any later commit needs a re-review (owner, 2026-11-12).
+review names with the PR head, and any later commit needs a re-review of that commit (owner, 2026-11-12).
 Once the merge conditions in AGENTS.md step 7 hold: do not ask the owner to confirm the merge; merge
-at once and tell the owner it is merged. Changes to auth, permissions, encryption, money, schema,
-pipeline or infrastructure also need a separate security review — say so if the PR has not had one.
+at once and tell the owner it is merged. A PR labelled `sensitive` (CI sets it from file paths) also needs
+a separate security review — say so if it has not had one; other PRs need none (owner, 2026-11-12).
