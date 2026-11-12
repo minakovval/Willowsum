@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-10, П-24, П-25, П-26, ARC-11, NFR-06
 - Сценарії: UC-FIN-45, UC-FIN-46, UC-FIN-47
 - Модуль: ledger, accounts
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/ledger/domain/postings.test.ts, apps/api/src/modules/ledger/application/journal.test.ts, apps/api/src/modules/ledger/ledger.it.test.ts
 
 **Мета.** Як продукт, ми хочемо, щоб кожна зміна вартості та грошей фіксувалася збалансованими проводками, щоб net worth на будь-яку дату був точним і відтворюваним.
 

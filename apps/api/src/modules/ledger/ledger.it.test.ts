@@ -1,0 +1,375 @@
+import { randomUUID } from "node:crypto";
+import { Money } from "@willowsum/domain-kernel";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
+import { databaseLedgerStore } from "./adapters/index.ts";
+import { post as postWith, type LedgerStore } from "./application/index.ts";
+import { createLedger, type Ledger, type LedgerAccount, type PostInput } from "./index.ts";
+
+/**
+ * FIN-04@PoC (wave 1, part 1: AC1, AC2, AC4) and ARC-11 on a real PostgreSQL, through the ledger module's own role:
+ * balanced atomic posting sets, rollback, balance on a date and the database constraints (also those of reversals). Spaces and ids are random; amounts are synthetic.
+ */
+
+let db: RealModulesDatabase;
+let ledger: Ledger;
+
+beforeAll(async () => {
+  db = await setupRealModules(6);
+  ledger = createLedger(db.databases.for("ledger"));
+});
+
+afterAll(async () => {
+  await db?.close();
+});
+
+const eur = (amount: string) => Money.of(amount, "EUR");
+const code = (p: Promise<unknown>) =>
+  p.then(
+    () => "ok",
+    (e: { code?: string }) => e.code ?? String(e),
+  );
+
+async function space(): Promise<{ householdId: string; cash: LedgerAccount; savings: LedgerAccount }> {
+  const householdId = randomUUID();
+  const open = (currency = "EUR") =>
+    ledger.openAccount(householdId, { module: "accounts", id: randomUUID() }, { type: "asset", currency });
+  return { householdId, cash: await open(), savings: await open() };
+}
+
+const input = (event: PostInput["event"], operationDate = "2026-06-15", key = randomUUID()): PostInput => ({
+  source: { module: "transactions", id: randomUUID() },
+  idempotencyKey: key,
+  operationDate,
+  event,
+});
+
+/** The superuser's view of an entry's rows (bypasses the policy): for checking what is stored. */
+async function stored(entryId: string) {
+  const entry = await db.owner.query(`SELECT * FROM ledger.entries WHERE id = $1`, [entryId]);
+  const postings = await db.owner.query(
+    `SELECT debit_account_id, credit_account_id, amount::text AS amount, currency FROM ledger.postings
+      WHERE entry_id = $1 ORDER BY seq`,
+    [entryId],
+  );
+  return { entry: entry.rows, postings: postings.rows };
+}
+
+/** SQL as the ledger module's role, bound to a space; resolves to the SQLSTATE or "ok". */
+const asModule = (householdId: string, sql: string, values: unknown[] = []) =>
+  code(db.databases.for("ledger").inHousehold(householdId, (q) => q.query(sql, values)));
+
+describe("FIN-04 AC1: an event becomes a posting set whose debits equal its credits per currency", () => {
+  it("FIN-04 FR 7: a spending — one posting from the account to the service account «Зовнішні кошти», in one transaction", async () => {
+    const s = await space();
+    const entry = await ledger.post(
+      s.householdId,
+      input({ type: "transaction", account: s.cash.id, amount: eur("-42.17") }),
+    );
+    expect(entry).toMatchObject({
+      eventType: "transaction",
+      operationDate: "2026-06-15",
+      rulesVersion: 1,
+      reversesEntryId: null,
+    });
+    const rows = await stored(entry.id);
+    expect(rows.entry).toHaveLength(1);
+    expect(rows.postings).toEqual([
+      {
+        debit_account_id: expect.any(String),
+        credit_account_id: s.cash.id,
+        amount: "42.170000000000000000",
+        currency: "EUR",
+      },
+    ]);
+    // The other side is the space's service account «Зовнішні кошти» in EUR, made on first use.
+    const external = await db.owner.query(
+      `SELECT type, currency, service_kind FROM ledger.accounts WHERE id = $1`,
+      [rows.postings[0].debit_account_id],
+    );
+    expect(external.rows).toEqual([{ type: "equity", currency: "EUR", service_kind: "external-funds" }]);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("-42.17");
+  });
+
+  it("FIN-04 FR 4: a mortgage payment — two postings, both debits and the credit in one entry", async () => {
+    const s = await space();
+    const liability = await ledger.openAccount(
+      s.householdId,
+      { module: "liabilities", id: randomUUID() },
+      { type: "liability", currency: "EUR" },
+    );
+    const interest = await ledger.openAccount(
+      s.householdId,
+      { module: "liabilities", id: randomUUID() },
+      { type: "expense", currency: "EUR" },
+    );
+    const entry = await ledger.post(
+      s.householdId,
+      input({
+        type: "mortgage-payment",
+        liability: liability.id,
+        interestExpense: interest.id,
+        account: s.cash.id,
+        principal: eur("800"),
+        interest: eur("200"),
+      }),
+    );
+    expect(
+      entry.postings.map((p) => [p.debitAccountId, p.creditAccountId, p.amount.toDecimalString()]),
+    ).toEqual([
+      [liability.id, s.cash.id, "800"],
+      [interest.id, s.cash.id, "200"],
+    ]);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-12-31")).toDecimalString()).toBe("-1000");
+    expect((await ledger.balanceAt(s.householdId, liability.id, "2026-12-31")).toDecimalString()).toBe(
+      "-800",
+    );
+  });
+
+  it("ARC-11: a repeated event (same idempotency key) returns the entry it made; concurrent repeats make one", async () => {
+    const s = await space();
+    const event = input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("100") });
+    const results = await Promise.all(Array.from({ length: 5 }, () => ledger.post(s.householdId, event)));
+    expect(new Set(results.map((e) => e.id)).size).toBe(1);
+    const again = await ledger.post(s.householdId, event);
+    expect(again.id).toBe(results[0]!.id);
+    const n = await db.owner.query(`SELECT count(*)::int AS n FROM ledger.entries WHERE household_id = $1`, [
+      s.householdId,
+    ]);
+    expect(n.rows[0].n).toBe(1);
+    expect((await ledger.balanceAt(s.householdId, s.savings.id, "2026-12-31")).toDecimalString()).toBe("100");
+  });
+
+  it("an account in another currency than the amount is refused; nothing is written", async () => {
+    const s = await space();
+    const usd = await ledger.openAccount(
+      s.householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "asset", currency: "USD" },
+    );
+    expect(
+      await code(
+        ledger.post(
+          s.householdId,
+          input({ type: "transfer", from: s.cash.id, to: usd.id, amount: eur("5") }),
+        ),
+      ),
+    ).toBe("UNBALANCED");
+    const n = await db.owner.query(`SELECT count(*)::int AS n FROM ledger.entries WHERE household_id = $1`, [
+      s.householdId,
+    ]);
+    expect(n.rows[0].n).toBe(0);
+  });
+
+  it("ARC-11: an event type without a rule is refused", async () => {
+    const s = await space();
+    const event = { type: "gift", account: s.cash.id, amount: eur("1") } as unknown as PostInput["event"];
+    expect(await code(ledger.post(s.householdId, input(event)))).toBe("UNKNOWN_EVENT_TYPE");
+  });
+});
+
+describe("FIN-04 AC2, FR 1: a posting set that fails half-way leaves nothing (one ACID transaction)", () => {
+  it("the entry is written, its postings fail (a key the database refuses): no entry, no posting, no account", async () => {
+    const s = await space();
+    const real = databaseLedgerStore(db.databases.for("ledger"));
+    // After the entry row is in, the postings name an account of another currency: the database refuses them.
+    const failing: LedgerStore = {
+      inHousehold: (householdId, work) =>
+        real.inHousehold(householdId, (tx) =>
+          work({
+            ...tx,
+            insertPostings: (entryId, postings) =>
+              tx.insertPostings(entryId, [...postings, { ...postings[0]!, amount: Money.of("1", "USD") }]),
+          }),
+        ),
+    };
+    const event = input({ type: "transaction", account: s.cash.id, amount: eur("3150") });
+    expect(await code(postWith({ store: failing, newId: randomUUID }, s.householdId, event))).toBe("23503");
+    const counts = await db.owner.query(
+      `SELECT (SELECT count(*) FROM ledger.entries WHERE household_id = $1)::int AS entries,
+              (SELECT count(*) FROM ledger.postings WHERE household_id = $1)::int AS postings,
+              (SELECT count(*) FROM ledger.accounts WHERE household_id = $1 AND service_kind IS NOT NULL)::int AS service`,
+      [s.householdId],
+    );
+    expect(counts.rows[0]).toEqual({ entries: 0, postings: 0, service: 0 });
+    // The same event then posts normally: the failed attempt left no idempotency key behind.
+    const entry = await ledger.post(s.householdId, event);
+    expect((await stored(entry.id)).postings).toHaveLength(1);
+  });
+
+  it("a failure after the postings (before commit) rolls them back too", async () => {
+    const s = await space();
+    const real = databaseLedgerStore(db.databases.for("ledger"));
+    const failing: LedgerStore = {
+      inHousehold: (householdId, work) =>
+        real.inHousehold(householdId, async (tx) => {
+          await work(tx);
+          throw new Error("crash before commit");
+        }),
+    };
+    const event = input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("10") });
+    await expect(postWith({ store: failing, newId: randomUUID }, s.householdId, event)).rejects.toThrow(
+      "crash before commit",
+    );
+    const n = await db.owner.query(`SELECT count(*)::int AS n FROM ledger.postings WHERE household_id = $1`, [
+      s.householdId,
+    ]);
+    expect(n.rows[0].n).toBe(0);
+  });
+});
+
+describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to that date inclusive", () => {
+  it("entries before, on and after the date; and «as known at» a moment (ARC-11)", async () => {
+    const s = await space();
+    const add = (amount: string, date: string) =>
+      ledger.post(
+        s.householdId,
+        input({ type: "transaction", account: s.cash.id, amount: eur(amount) }, date),
+      );
+    await add("3000", "2026-01-15");
+    const early = await add("150.25", "2026-06-30");
+    const known = early.recordedAt;
+    await add("-0.25", "2026-06-30");
+    await add("-500", "2026-07-01");
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("3150");
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-29")).toDecimalString()).toBe("3000");
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-07-01")).toDecimalString()).toBe("2650");
+    // As the system knew it right after the 150.25: the later entries were not recorded yet.
+    expect(
+      (
+        await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30", { asKnownAt: known })
+      ).toDecimalString(),
+    ).toBe("3150.25");
+    expect(await code(ledger.balanceAt(s.householdId, randomUUID(), "2026-06-30"))).toBe("UNKNOWN_ACCOUNT");
+  });
+});
+
+describe("ARC-03: a space sees and posts only its own journal", () => {
+  it("another space's accounts and entries do not exist for it", async () => {
+    const mine = await space();
+    const other = await space();
+    const theirs = await ledger.post(
+      other.householdId,
+      input({ type: "transfer", from: other.cash.id, to: other.savings.id, amount: eur("7") }),
+    );
+    expect(
+      await code(
+        ledger.post(
+          mine.householdId,
+          input({ type: "transfer", from: mine.cash.id, to: other.cash.id, amount: eur("7") }),
+        ),
+      ),
+    ).toBe("UNKNOWN_ACCOUNT");
+    expect(await code(ledger.balanceAt(mine.householdId, other.cash.id, "2026-12-31"))).toBe(
+      "UNKNOWN_ACCOUNT",
+    );
+    // Even SQL without a filter, in the module's role, sees only the bound space.
+    const seen = await db.databases
+      .for("ledger")
+      .inHousehold(
+        mine.householdId,
+        async (q) =>
+          (await q.query<{ n: number }>(`SELECT count(*)::int AS n FROM entries WHERE id = $1`, [theirs.id]))
+            .rows[0]!.n,
+      );
+    expect(seen).toBe(0);
+    // A posting naming another space's account is refused by the database too (keys include the space).
+    const own = await ledger.post(
+      mine.householdId,
+      input({ type: "transfer", from: mine.cash.id, to: mine.savings.id, amount: eur("1") }),
+    );
+    expect(
+      await asModule(mine.householdId, `INSERT INTO postings VALUES ($1, $2, 2, $3, $4, 1, 'EUR')`, [
+        mine.householdId,
+        own.id,
+        mine.cash.id,
+        other.cash.id,
+      ]),
+    ).toBe("23503");
+  });
+});
+
+describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed or deleted journal rows", () => {
+  let s: Awaited<ReturnType<typeof space>>;
+  let entryId: string;
+  let usd: LedgerAccount;
+  beforeAll(async () => {
+    s = await space();
+    usd = await ledger.openAccount(
+      s.householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "asset", currency: "USD" },
+    );
+    entryId = (
+      await ledger.post(
+        s.householdId,
+        input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("10") }),
+      )
+    ).id;
+  });
+  const posting = (debit: string, credit: string, amount: string, currency: string) =>
+    asModule(s.householdId, `INSERT INTO postings VALUES ($1, $2, 9, $3, $4, $5, $6)`, [
+      s.householdId,
+      entryId,
+      debit,
+      credit,
+      amount,
+      currency,
+    ]);
+
+  it("a posting is balanced by its row: positive amount, two different accounts, both in its currency", async () => {
+    expect(await posting(s.savings.id, s.cash.id, "0", "EUR")).toBe("23514");
+    expect(await posting(s.savings.id, s.cash.id, "-1", "EUR")).toBe("23514");
+    expect(await posting(s.cash.id, s.cash.id, "1", "EUR")).toBe("23514");
+    expect(await posting(usd.id, s.cash.id, "1", "EUR")).toBe("23503");
+    expect(await posting(s.cash.id, usd.id, "1", "EUR")).toBe("23503");
+    expect(await posting(usd.id, s.cash.id, "1", "USD")).toBe("23503");
+    expect(await posting(s.savings.id, s.cash.id, "1", "EUR")).toBe("ok");
+  });
+
+  it("append-only: UPDATE, DELETE and TRUNCATE are refused for the module role; the time of recording is the database's", async () => {
+    for (const table of ["entries", "postings", "accounts"]) {
+      expect(await asModule(s.householdId, `UPDATE ${table} SET household_id = household_id`), table).toBe(
+        "42501",
+      );
+      expect(await asModule(s.householdId, `DELETE FROM ${table}`), table).toBe("42501");
+      expect(await asModule(s.householdId, `TRUNCATE ${table}`), table).toBe("42501");
+      // Refused by privilege before any row is touched (the triggers alone would let a no-row statement pass).
+      expect(
+        await asModule(s.householdId, `UPDATE ${table} SET household_id = household_id WHERE false`),
+        table,
+      ).toBe("42501");
+      expect(await asModule(s.householdId, `DELETE FROM ${table} WHERE false`), table).toBe("42501");
+    }
+    const id = randomUUID();
+    expect(
+      await asModule(
+        s.householdId,
+        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, recorded_at)
+         VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text, '2020-01-01')`,
+        [s.householdId, id],
+      ),
+    ).toBe("42501");
+  });
+
+  it("append-only for every role: even the owner of the database cannot change or delete a journal row", async () => {
+    expect(
+      await code(db.owner.query(`UPDATE ledger.postings SET amount = 1 WHERE entry_id = $1`, [entryId])),
+    ).toBe("42501");
+    expect(await code(db.owner.query(`DELETE FROM ledger.entries WHERE id = $1`, [entryId]))).toBe("42501");
+  });
+
+  it("an entry is reversed at most once, and a reversal is never reversed — by the keys", async () => {
+    const insertReversal = (id: string, of: string) =>
+      asModule(
+        s.householdId,
+        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
+         VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
+        [s.householdId, id, of],
+      );
+    const r1 = randomUUID();
+    expect(await insertReversal(r1, entryId)).toBe("ok");
+    expect(await insertReversal(randomUUID(), entryId)).toBe("23505");
+    expect(await insertReversal(randomUUID(), r1)).toBe("23503");
+  });
+});

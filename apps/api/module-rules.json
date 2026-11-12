@@ -25,6 +25,10 @@
       "layer": "platform",
       "dependsOn": ["audit"]
     },
+    "ledger": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "plan-catalog": {
       "layer": "platform",
       "dependsOn": []
