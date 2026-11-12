@@ -73,8 +73,8 @@ export interface FxRefreshLoop {
 /**
  * The daily background task with retries (VAL-05 FR 1, FR 2, FR 4; AC1, AC2). After a success the next update
  * is a day later. After a failure it is retried: three times at a short pause, then at 1 h, 2 h, 4 h, … but never
- * more than 24 h apart. Once 24 h have passed without a successful update, every failed attempt reports a
- * `stale` event (an error-level event in the server log), and the first of them in a stale period sends the one
+ * more than 24 h apart. Once the update has been missed for 24 h (counted from when it was due, a day after the last
+ * success, or from the start before the first success), every failed attempt reports a `stale` event (an error-level event in the server log), and the first of them in a stale period sends the one
  * alert letter of that period (claimed in the store, so a restart or a second scheduler sends no second letter).
  */
 export function startFxRefresh(
@@ -108,7 +108,11 @@ export function startFxRefresh(
       deps.report({ kind: "failed", failures, errorClass });
       const last = await deps.store.lastSuccessAt().catch(() => null);
       const now = deps.clock.now();
-      if (now - (last ?? startedAt) >= STALE_AFTER_MS) {
+      // AC2 orders it «retries → 24 h without success → event»: the 24 h count from the moment the missed daily
+      // update was due (a day after the last success), not from the success itself, so a single failed daily run
+      // is retried before anything is logged at error level or mailed. Before the first success: from the start.
+      const missedSince = last === null ? startedAt : last + REFRESH_INTERVAL_MS;
+      if (now - missedSince >= STALE_AFTER_MS) {
         deps.report({ kind: "stale", failures });
         if (deps.alert) await sendAlertOnce(deps, deps.alert, last, failures, now);
       }

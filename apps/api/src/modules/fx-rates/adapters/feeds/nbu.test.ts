@@ -6,6 +6,8 @@ import { recordingFetch } from "../../../../platform/adapters/testing.ts";
 import {
   FX_RATE_FEEDS,
   fxRateFeed,
+  NBU_RATE_MAX,
+  NBU_RATE_MIN,
   nbuRateFeed,
   OFFICIAL_RATES_PORT,
   parseNbuRates,
@@ -57,6 +59,24 @@ describe("VAL-05@PoC: the NBU adapter (ARC-05) and the synthetic feed", () => {
       "2026-11-12",
     );
     expect(r!.rate.toFixed()).toBe("41.123456789012345678");
+  });
+
+  it("VAL-05 FR3: a rate outside the plausibility bound (10^-6 … 10^7 UAH per unit) refuses the whole answer; the bounds themselves pass", () => {
+    const one = (rate: string) =>
+      parseNbuRates(`[{"cc":"EUR","rate":${rate},"exchangedate":"12.11.2026"}]`, "2026-11-12");
+    expect([NBU_RATE_MIN, NBU_RATE_MAX]).toEqual(["0.000001", "10000000"]);
+    expect(one(NBU_RATE_MIN)[0]!.rate.toFixed()).toBe("0.000001");
+    expect(one(NBU_RATE_MAX)[0]!.rate.toFixed()).toBe("10000000");
+    for (const rate of ["0.00000099", "10000000.01", "45000000000"]) expect(() => one(rate), rate).toThrow();
+    // One implausible row refuses the answer, so no partial update replaces stored rates.
+    expect(() =>
+      parseNbuRates(
+        '[{"cc":"USD","rate":41.4,"exchangedate":"12.11.2026"},{"cc":"EUR","rate":0.0000001,"exchangedate":"12.11.2026"}]',
+        "2026-11-12",
+      ),
+    ).toThrow();
+    // The recorded answer (the cheapest currency to a troy ounce of gold) stays inside the bound.
+    expect(parseNbuRates(RECORDED, "2026-11-12").length).toBeGreaterThan(0);
   });
 
   it("ARC-05 FR5: the NBU adapter sends only the date and the format, nothing about a space", async () => {

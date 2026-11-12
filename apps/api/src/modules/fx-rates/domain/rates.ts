@@ -51,7 +51,11 @@ export function crossRate(
 const HOUR_MS = 60 * 60 * 1000;
 /** Rates are updated once a day (FR 2). */
 export const REFRESH_INTERVAL_MS = 24 * HOUR_MS;
-/** No successful update for this long → an error-level event in the server log (FR 4, AC2). */
+/**
+ * FR 4, AC2: the update missed for this long → an error-level event in the server log and the alert letter. The
+ * refresh task counts it from when the missed update was due (a day after the last success), so retries come
+ * first; the «stale» mark next to amounts (`freshness`) counts it from the last success.
+ */
 export const STALE_AFTER_MS = 24 * HOUR_MS;
 /** Failures retried at the short pause before the exponential pauses start (assumption of VAL-05@PoC). */
 export const QUICK_RETRIES = 3;

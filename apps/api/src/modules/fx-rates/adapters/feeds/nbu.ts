@@ -30,7 +30,17 @@ export interface NbuFeedOptions {
   readonly policy?: ProviderClientOptions["policy"];
 }
 
-const RATE_RE = /^(0|[1-9]\d*)(\.\d+)?$/;
+/** At most 20 integer digits and 18 decimals: exactly what NUMERIC(38,18) stores, so nothing is rounded or overflows. */
+const RATE_RE = /^(0|[1-9]\d{0,19})(\.\d{1,18})?$/;
+
+/**
+ * Plausibility bound of an official rate, in UAH for one unit. The NBU list spans about 0.0003 UAH (the cheapest
+ * currencies) to about 1.1·10^5 UAH (a troy ounce of gold, XAU). A rate outside 10^-6 … 10^7 is a broken or hostile
+ * answer, not a market move (over 300 times below the smallest and 90 times above the largest), so the whole
+ * answer is refused and the stored history keeps the last good rates (VAL-05 FR 4).
+ */
+export const NBU_RATE_MIN = "0.000001";
+export const NBU_RATE_MAX = "10000000";
 const item = z.object({
   cc: z.string(),
   // A JSON number, kept as its source text (a string rate is not the NBU format and is refused).
@@ -51,14 +61,21 @@ export function parseNbuRates(text: string, requestedDate: string): PivotRate[] 
   );
   const items = z.array(item).min(1).parse(body);
   const rates: PivotRate[] = [];
+  const seen = new Set<string>();
   for (const it of items) {
     // Units the platform does not know (the SDR «XDR») are skipped; the hryvnia is the pivot itself.
     if (!isCurrencyCode(it.cc) || it.cc === PIVOT_CURRENCY) continue;
     const [day, month, year] = it.exchangedate.split(".");
     const date = `${year}-${month}-${day}`;
+    // A later date is refused. Requiring exactly the asked date waits for a check of the live feed on a weekend
+    // date (security review of PR #120; follow-up for the first deployment).
     if (date > requestedDate) throw new Error("A rate of a later date than asked");
+    // Two rates of one currency would make the stored one depend on the order of the answer.
+    if (seen.has(it.cc)) throw new Error("A currency listed twice");
+    seen.add(it.cc);
     const rate = new Decimal(it.rate.numberText);
     if (rate.lte(0)) throw new Error("A rate is positive");
+    if (rate.lt(NBU_RATE_MIN) || rate.gt(NBU_RATE_MAX)) throw new Error("A rate outside the plausible range");
     rates.push({ currency: it.cc, rate, date, source: NBU_SOURCE });
   }
   if (rates.length === 0) throw new Error("No known currency in the answer");

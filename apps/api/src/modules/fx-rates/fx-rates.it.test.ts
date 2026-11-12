@@ -127,7 +127,7 @@ describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
   it("VAL-05 AC2, AC4: with the provider down the task fails, amounts still use the last successful rates and the date of the last update", async () => {
     await updateWith(nbu());
     const updatedAt = new Date(t).toISOString();
-    t += 25 * HOUR;
+    t += 49 * HOUR; // the daily update was due 24 h after the success and has been missed for 25 h
     nbuUp = false;
     expect(await updateWith(nbu())).toBe("failed");
     expect(recorder.requests.length).toBeGreaterThan(1); // retried by the adapter
@@ -182,9 +182,9 @@ describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
   it("VAL-05 AC2: after 24 h without success the owner gets one letter without amounts; later failures and a restart send none", async () => {
     await updateWith(nbu());
     nbuUp = false;
-    t += 23 * HOUR;
+    t += 47 * HOUR;
     expect(await updateWith(nbu())).toBe("failed");
-    expect(mail.sent).toHaveLength(0); // less than 24 h: retries only
+    expect(mail.sent).toHaveLength(0); // the update due a day after the success, missed for less than 24 h: retries only
     for (let i = 0; i < 4; i++) {
       t += 2 * HOUR;
       expect(await updateWith(nbu())).toBe("failed"); // each call is a fresh loop, as after a restart
@@ -199,7 +199,7 @@ describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
     nbuUp = true;
     expect(await updateWith(nbu())).toBe("updated");
     nbuUp = false;
-    t += 25 * HOUR;
+    t += 49 * HOUR;
     await updateWith(nbu());
     expect(mail.sent).toHaveLength(2); // a new stale period
   });

@@ -42,4 +42,15 @@ describe("VAL-05@PoC FR4: the recipient of the app's alert letters (WS_ALERT_EMA
     });
     expect(loadConfig(BASE, "scheduler", []).alerts).toEqual({});
   });
+
+  it("VAL-05 FR3, FR4: a deployed scheduler is refused unless WS_PROVIDER_MODE=live (no synthetic rates or mail)", () => {
+    for (const environment of ["staging", "production"]) {
+      const env = { ...DEPLOYED, WS_TELEMETRY_ENVIRONMENT: environment, ...LIVE_MAIL };
+      expect(problems(env), environment).toContain("WS_PROVIDER_MODE");
+      expect(problems({ ...env, WS_PROVIDER_MODE: "test" }), environment).toContain("WS_PROVIDER_MODE");
+      expect(problems({ ...env, WS_PROVIDER_MODE: "live" }), environment).not.toContain("WS_PROVIDER_MODE");
+    }
+    // Locally and in CI the synthetic implementations stay the default.
+    expect(loadConfig(BASE, "scheduler", []).providerMode).toBe("test");
+  });
 });
