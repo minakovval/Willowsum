@@ -18,6 +18,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its own
    database (`pnpm db:test`), what to report (PR URL, head SHA, checks).
+   The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
+   may rewrite the footer, which is fine.
 3. **PR opened** → subscribe to its activity; then in parallel:
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.
@@ -35,6 +37,7 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
      production actions: the owner's approval (AGENTS.md step 7);
    - the owner has not commented «stop» or asked a question on the PR.
    Do not ask the owner to confirm the merge.
+   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then re-review the merge.
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases.
