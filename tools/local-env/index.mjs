@@ -6,7 +6,8 @@
 //   pnpm local:smoke   end-to-end check of all three services
 //   pnpm local:down    stop; data is kept
 //   pnpm local:reset   stop and delete all local data (volumes), then start empty
-//   pnpm db:test       a throwaway test database for this agent; prints DATABASE_URL (lib/db-test.mjs)
+//   pnpm db:test       a throwaway test database for this agent; prints DATABASE_URL with the password hidden and
+//                      writes the full URL to infra/local/.state/db-test/<name>.env (0600, git-ignored; lib/db-test.mjs)
 //                      `pnpm db:test drop <name>`, `pnpm db:test list`,
 //                      `pnpm db:test run -- <command>`: a fresh database, DATABASE_URL set, a cluster-wide lock
 //                      held (integration runs on one cluster queue up), the database dropped afterwards

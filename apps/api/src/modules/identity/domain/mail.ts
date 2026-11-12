@@ -12,13 +12,17 @@ export interface Letter {
   readonly text: string;
 }
 
-/** The web app's pages the letters link to (S-003 / confirmation, S-007 password reset). */
+/**
+ * The web app's pages the letters link to (S-003 / confirmation, S-007 password reset). The web app routes in the URL
+ * fragment (`#/…`), and so the token travels there: a browser never sends the fragment to a server or in a Referer,
+ * so the token stays out of access logs and third-party requests (review of PR #90, follow-up 3).
+ */
 export function confirmationLink(webOrigin: string, token: string): string {
-  return `${webOrigin}/verify?token=${encodeURIComponent(token)}`;
+  return `${webOrigin}/#/verify?token=${encodeURIComponent(token)}`;
 }
 
 export function passwordResetLink(webOrigin: string): string {
-  return `${webOrigin}/password/reset`;
+  return `${webOrigin}/#/password/reset`;
 }
 
 const CONFIRMATION: Record<MailLocale, (name: string, link: string) => Letter> = {
