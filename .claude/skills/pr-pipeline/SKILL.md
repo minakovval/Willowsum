@@ -72,7 +72,7 @@ Owner request 2026-11-12; rules decided by the lead.
 1. Pick the agent's model by risk:
    - the strongest model for implementing sensitive features and for security reviews of critical modules
      (isolation, money, auth, encryption);
-   - a lighter model (the Agent tool's `model: "sonnet"`) for `review-pr` on non-sensitive PRs, PRs that change
+   - a lighter, cheaper model (the Agent tool's model option) for `review-pr` on non-sensitive PRs, PRs that change
      only docs or requirements, applying ready reviewer patches (`fix-review-findings`), follow-up PRs and
      status checks.
 2. Round-2 re-reviews go to a fresh agent with a narrow brief (the diff since the last head plus the previous
