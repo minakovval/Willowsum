@@ -114,11 +114,12 @@ async function daily() {
     const until = flag('--until') ? date(flag('--until')) : new Date();
     let since;
     let note;
+    let gap;
     if (flag('--since')) since = date(flag('--since'));
-    else ({ since, note } = await windowStart(client(), until));
+    else ({ since, note, gap } = await windowStart(client(), until));
     if (since >= until) throw new Error('--since must be before --until');
     try {
-      input = await fetchDailyInput(client(), { since, until, note });
+      input = await fetchDailyInput(client(), { since, until, note, gap });
     } catch (e) {
       // Fail closed: a check that could not run is an alert, not a quiet red run.
       const report = `**Вікно:** ${since.toISOString()} … ${until.toISOString()}\n\nПеревірку не вдалося виконати (${safeName(errorClass(e))}): ${safeName(String(e.message).slice(0, 500))}\n`;

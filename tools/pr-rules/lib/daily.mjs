@@ -22,32 +22,54 @@ const DAY = 24 * 60 * 60 * 1000;
 
 // Verdict lines, as the review-pr skill and the security review write them: the line starts with the verdict,
 // optionally as a heading or in bold, the value optionally in «» (`## Verdict: Ready`, `**Verdict: «Ready».**`).
+// The value ends the line (trailing punctuation and closing markup only), or the closing bold/italic markup
+// ends it: «Verdict: Ready once B1 is fixed» is no verdict. «Not ready» and «Changes requested» both mean
+// not ready.
 const MARKUP = String.raw`^\s*(?:#{1,6}\s*)?[*_]*\s*`;
-const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(Ready|Not ready|Changes requested)\b`;
+const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(Ready|Not ready|Changes requested)[»"”]?[.!]?(?:[*_]*[.!]?[ \t]*$|[*_]+[.!:;,]?[ \t])`;
 const VERDICT = new RegExp(`${MARKUP}Verdict${VALUE}`, 'gm');
 const SECURITY_VERDICT = new RegExp(`${MARKUP}Security verdict${VALUE}`, 'gm');
 
 /**
- * The text a reader sees as the author's own words: without HTML comments, fenced and indented code blocks and
- * quoted lines, so that an example or a quoted «Verdict: Ready» or «Схвалюю» never counts.
+ * The text a reader sees as the author's own words: without HTML comments, `<pre>`-like HTML blocks, fenced and
+ * indented code blocks and quoted lines, so that an example or a quoted «Verdict: Ready» or «Схвалюю» never
+ * counts — and without hiding text a reader does see (an unclosed `<!--` in the middle of a line is plain text).
  */
 export function prose(text) {
   const out = [];
   let fence = null;
-  for (const line of (text ?? '').replace(/\r\n?/g, '\n').replace(/<!--[\s\S]*?(?:-->|$)/g, '').split('\n')) {
-    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+  let html = null; // the end of an open HTML block: a comment, or <pre>/<script>/<style>/<textarea>
+  for (const line of (text ?? '').replace(/\r\n?/g, '\n').split('\n')) {
     if (fence) {
-      if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
+      // A closing fence has no info string: «```js» inside a fence is code.
+      const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(line);
+      if (close && close[1][0] === fence[0] && close[1].length >= fence.length) fence = null;
       continue;
     }
+    if (html) {
+      if (html.test(line)) html = null;
+      continue;
+    }
+    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line);
     if (f) {
       fence = f[1];
+      continue;
+    }
+    const comment = /^ {0,3}<!--/.exec(line);
+    if (comment && !line.slice(comment[0].length).includes('-->')) {
+      html = /-->/;
+      continue;
+    }
+    const tag = /^ {0,3}<(pre|script|style|textarea)(?=[\s>]|$)/i.exec(line);
+    if (tag) {
+      if (!new RegExp(`</${tag[1]}>`, 'i').test(line)) html = new RegExp(`</${tag[1]}>`, 'i');
       continue;
     }
     if (/^(?: {4}|\t)/.test(line) || /^\s*>/.test(line)) continue;
     out.push(line);
   }
-  return out.join('\n');
+  // Inline comments, also over several lines of one paragraph (never across a blank line).
+  return out.join('\n').replace(/<!--(?:(?!\n[ \t]*\n)[\s\S])*?-->/g, '');
 }
 
 /** The verdict of a review body (`kind`: 'review' or 'security'), or null; the last verdict line wins. */
@@ -63,9 +85,34 @@ export const APPROVAL_LINE = /^\s*(?:схвалюю|approved)\s*[.!]?\s*$/imu;
  * The owner's decision from chat recorded in the PR body (owner, 2026-11-12): a line
  * «Рішення власника (YYYY-MM-DD): схвалено …». The second accepted form of the approval.
  */
-export const BODY_APPROVAL_LINE = /^\s*(?:\*\*)?Рішення власника\s*\(\d{4}-\d{2}-\d{2}\)\s*:\s*(?:\*\*)?\s*схвалено(?!\p{L})/imu;
-/** A PR body that records an owner decision (heading «Owner decision» or a «Рішення власника» line). */
-export const OWNER_DECISION_REF = /рішення власника|owner[ -]decision/iu;
+export const BODY_APPROVAL_LINE = /^\s*(?:\*\*)?Рішення власника\s*\(\d{4}-\d{2}-\d{2}\)\s*:\s*(?:\*\*)?\s*схвалено(?!\p{L})(.*)$/imu;
+/** A negation anywhere after «схвалено» («схвалено не буде», «… not approved») makes the line no approval. */
+const NEGATION = /(?:^|[^\p{L}])(?:не|ні|not|no)(?!\p{L})/iu;
+
+/** Does the body hold the owner's chat decision as an approval line (not quoted, not code, not negated)? */
+export function bodyApproval(body) {
+  for (const line of prose(body).split('\n')) {
+    const m = BODY_APPROVAL_LINE.exec(line);
+    if (m && !NEGATION.test(m[1])) return true;
+  }
+  return false;
+}
+/** A line that records an owner decision: it starts (as a list item or bold too) with «Рішення власника». */
+export const OWNER_DECISION_LINE = /^\s*(?:[-*+]\s+)?(?:\*\*)?Рішення власника(?!\p{L})/imu;
+
+/**
+ * Does a PR body record the owner's decision? A «Рішення власника …» line, or text under `## Owner decision`
+ * once the template's comment is removed (the heading alone, as in the unfilled template, is not enough).
+ */
+export function recordsOwnerDecision(body) {
+  const text = prose(body);
+  if (OWNER_DECISION_LINE.test(text)) return true;
+  const m = /^#{1,6}[ \t]*Owner decision[ \t]*#*[ \t]*$/im.exec(text);
+  if (!m) return false;
+  const rest = text.slice(m.index + m[0].length);
+  const next = /^#{1,6}[ \t]/m.exec(rest);
+  return (next ? rest.slice(0, next.index) : rest).trim() !== '';
+}
 /** The owner's «stop»: a line that is exactly «stop» or «стоп». */
 export const STOP_LINE = /^\s*(?:stop|стоп)\s*[.!]?\s*$/imu;
 
@@ -148,7 +195,7 @@ function checkOwnerApproval(pr, owner, findings) {
     (c) => c.user === owner && at(c.created_at) <= at(pr.merged_at) && APPROVAL_LINE.test(lines(c.body)),
   );
   // Second form: the owner's decision from chat recorded in the PR body (the body as it is when read).
-  if (BODY_APPROVAL_LINE.test(lines(pr.body))) return;
+  if (bodyApproval(pr.body)) return;
   const why = reasons.slice(0, 3).join('; ');
   if (approvals.length === 0) {
     findings.push({
@@ -183,7 +230,7 @@ function checkStop(pr, owner, findings) {
 
 function checkOwnerDecision(pr, findings) {
   const changed = ownerDecisionFiles(pr.files ?? []);
-  if (!changed.length || OWNER_DECISION_REF.test(lines(pr.body))) return;
+  if (!changed.length || recordsOwnerDecision(pr.body)) return;
   findings.push({
     severity: 'stale',
     rule: 'FR 3',
@@ -204,6 +251,16 @@ export function evaluate(input) {
   const findings = [];
   const now = at(input.now);
   const mainName = input.main?.name ?? DEFAULT_MAIN;
+
+  // The window could not start at the last checked run: the time before it may never have been checked.
+  if (input.window?.gap) {
+    findings.push({
+      severity: 'stale',
+      rule: 'FR 3',
+      subject: 'вікно перевірки',
+      message: `${input.window.note ?? 'вікно неповне'}; час до ${input.window.since} міг лишитися неперевіреним — запустіть перевірку вручну з since`,
+    });
+  }
 
   // FR 3: every change of main comes from a merged PR; no force-push.
   if (input.activityError) {

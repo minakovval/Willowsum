@@ -80,7 +80,7 @@ Post one PR review:
   details the author decided and recorded are not owner questions.
 
 Name the head commit you reviewed (full SHA) at the top of the review. End the review with the verdict on a
-line of its own, exactly `Verdict: Not ready` if anything is blocking, otherwise `Verdict: Ready`; post it as
+line of its own: `Verdict: Changes requested` if anything is blocking, otherwise `Verdict: Ready`; post it as
 the review summary. A security review (sensitive areas) ends instead with a line `Security verdict: Ready` or
 `Security verdict: Changes requested`. Never write these lines inside quotes or code, and never write a line
 «Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly

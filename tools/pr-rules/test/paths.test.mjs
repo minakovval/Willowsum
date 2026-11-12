@@ -142,11 +142,17 @@ test('review #87 blocking 2: every gate the required CI jobs run, and the supply
     'pnpm-workspace.yaml',
     '.npmrc',
     '.claude/settings.json',
+    'apps/api/package.json',
+    'packages/ui/package.json',
+    'tsconfig.base.json',
+    'apps/web/tsconfig.json',
+    'packages/api-contract/scripts/generate.ts',
+    '.prettierrc.json',
+    '.prettierignore',
   ]) {
     assert.ok(categoriesOf(path).includes('pipeline'), path);
   }
   assert.deepEqual(categoriesOf('apps/api/scripts/lib/dependency-rules.test.ts'), [], 'tests of a gate script: `!` excludes');
-  assert.deepEqual(categoriesOf('apps/web/package.json'), [], 'only the root package.json');
 });
 
 test('review #87 item 3: rule and requirement changes need a recorded owner decision (label `owner-decision`)', () => {

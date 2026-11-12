@@ -101,6 +101,11 @@ export const SENSITIVE_PATHS = {
     '.dockerignore',
     // Supply chain: the scripts CI runs, the workspace, the registry and the locked dependency tree.
     'package.json',
+    '**/package.json', // each workspace package defines the gate commands its CI job runs
+    '**/tsconfig*.json', // the strictness of the typecheck gate
+    'packages/api-contract/scripts/**', // `contract:check`
+    '.prettierrc*',
+    '.prettierignore',
     'pnpm-workspace.yaml',
     'pnpm-lock.yaml',
     '.npmrc',
@@ -145,8 +150,9 @@ const OWNER_DECISION = matcher(OWNER_DECISION_PATHS);
 /** Both names of every changed file (a rename is classified by where it came from and where it went). */
 export const changedPaths = (files) => files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
 
-/** File names are attacker-chosen: no control characters and no `::` workflow commands in logs. */
-export const safeName = (text) => String(text).replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, '?').replace(/::/g, ': :');
+/** File names are attacker-chosen: no control characters, no `::` and no legacy `##[` workflow commands in logs. */
+export const safeName = (text) =>
+  String(text).replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, '?').replace(/::/g, ': :').replace(/##\[/g, '# #[');
 
 /** Documentation (Markdown, also the PR template) changes no behaviour, so it is never sensitive by itself. */
 const isDoc = (path) => /\.md$/i.test(path);
@@ -226,12 +232,13 @@ export function labelsFor(classification) {
 const WORKFLOW_SIGNALS = [
   [/\bid-token:\s*write\b/, 'requests an OIDC token (id-token: write)'],
   [/\b(?:tofu|terraform)\s+(?:-chdir=\S+\s+)?apply\b/, 'applies infrastructure'],
-  [/^\s*environment:\s*['"]?production\b/m, 'uses the production environment'],
-  [/^\s*environment:\s*\{[^}\n]*\bname:\s*['"]?production\b/m, 'uses the production environment'],
+  // Environment names and expression contexts are case-insensitive in GitHub Actions.
+  [/^[+\- ]?\s*environment:\s*['"]?production\b/im, 'uses the production environment'],
+  [/^[+\- ]?\s*environment:\s*\{[^}\n]*\bname:\s*['"]?production\b/im, 'uses the production environment'],
   [productionEnvironmentBlock, 'uses the production environment'],
   [/\b(?:docker|podman)\s+push\b|\bcosign\s+sign\b/, 'publishes or signs an image'],
   [pushingBuildAction, 'publishes an image (docker/build-push-action with push: true)'],
-  [/\bsecrets\.(?!GITHUB_TOKEN\b)[A-Za-z_]|\bsecrets\s*\[|^\s*secrets:\s*inherit\b/m, 'uses a secret other than GITHUB_TOKEN'],
+  [usesSecret, 'uses a secret other than GITHUB_TOKEN'],
 ];
 
 /** `environment:` as a block whose `name:` (in any position) is production. */
@@ -243,8 +250,20 @@ function productionEnvironmentBlock(text) {
     for (let j = i + 1; j < lines.length; j++) {
       if (!lines[j].trim() || /^\s*#/.test(lines[j])) continue;
       if (/^(\s*)/.exec(lines[j])[1].length <= m[1].length) break;
-      if (/^\s*name:\s*['"]?production\b/.test(lines[j])) return true;
+      if (/^\s*name:\s*['"]?production\b/i.test(lines[j])) return true;
     }
+  }
+  return false;
+}
+
+/**
+ * The `secrets` context in any expression (`secrets.X`, `secrets['X']`, `toJSON(secrets)`, any letter case) other
+ * than the job token, or `secrets: inherit`.
+ */
+function usesSecret(text) {
+  if (/^[+\- ]?\s*secrets:\s*['"]?inherit\b/m.test(text)) return true;
+  for (const [, expr] of text.matchAll(/\$\{\{([\s\S]*?)\}\}/g)) {
+    if (/\bsecrets\b(?!\s*\.\s*GITHUB_TOKEN\b)/i.test(expr.replace(/'(?:[^']|'')*'/g, "''"))) return true;
   }
   return false;
 }

@@ -101,7 +101,9 @@ AGENTS.md or skills states in its body the owner decision it implements. A PR th
 production (applies infrastructure, deploys or releases to production, or changes the workflows that do this
 or their trust settings: OIDC, production secrets store; or production DNS) also needs an approval comment from
 the owner's own GitHub account on that PR with a line that is exactly «Схвалюю» or «Approved», or the owner's
-decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …`; never write
-such a line yourself unless the owner gave that decision. Infrastructure code without apply needs no approval. Never merge your own PR without that independent review.
+decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …`. Never write a
+«Схвалюю» or «Approved» line yourself, not even after the owner has decided: when the owner approves in chat,
+record it in the PR body as that `Рішення власника` line, and write that line only for a decision the owner
+actually gave. Infrastructure code without apply needs no approval. Never merge your own PR without that independent review.
 Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the owner
 it is merged.

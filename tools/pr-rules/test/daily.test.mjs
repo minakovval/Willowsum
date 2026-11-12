@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
-import { evaluate, needsAlert, prose, render, verdictOf } from '../lib/daily.mjs';
+import { bodyApproval, evaluate, needsAlert, prose, recordsOwnerDecision, render, verdictOf } from '../lib/daily.mjs';
 
 // Recorded with `node tools/pr-rules/index.mjs daily --since 2026-11-06T23:00:00Z --until 2026-11-07T12:00:00Z
 // --save-input …` against this repository (PRs #82–#86), then reduced: logins replaced, review bodies cut to
@@ -290,4 +290,43 @@ test('recorded history (#82–#86): what the daily check reports', () => {
   const md = render(result, { runUrl: 'https://example.invalid/run/1' });
   assert.match(md, /### Порушення\n\n- \*\*PR #86\*\*/);
   assert.match(md, /Запуск перевірки: https:\/\/example.invalid\/run\/1/);
+});
+
+test('review #87 r2 item 8 (N14): the verdict value must end the line; «Ready once …» is no verdict', () => {
+  assert.equal(verdictOf('Verdict: Ready once B1 is fixed', 'review'), null);
+  assert.equal(verdictOf('Security verdict: Ready after the fix', 'security'), null);
+  assert.equal(verdictOf('Verdict: Ready.', 'review'), 'Ready');
+  assert.equal(verdictOf('Verdict: Ready!', 'review'), 'Ready');
+  assert.equal(verdictOf('Verdict: «Ready»', 'review'), 'Ready');
+  assert.equal(verdictOf('**Verdict: «Ready»**. Nothing is blocking.', 'review'), 'Ready', 'bold closes the verdict (as in #70)');
+  assert.equal(verdictOf('**Verdict: «Changes requested»**: 2 blocking items.', 'review'), 'Changes requested');
+  assert.equal(verdictOf('Verdict: Not ready', 'review'), 'Not ready', 'both negative words are read');
+  assert.equal(verdictOf('Verdict: Changes requested', 'review'), 'Changes requested');
+});
+
+test('review #87 r2 item 7: the body approval line must approve — negations do not count', () => {
+  assert.equal(bodyApproval('Рішення власника (2026-11-12): схвалено розгортання.'), true);
+  assert.equal(bodyApproval('Рішення власника (2026-11-12): схвалено'), true);
+  for (const line of [
+    'Рішення власника (2026-11-12): схвалено не буде',
+    'Рішення власника (2026-11-12): схвалено, але не зараз',
+    'Рішення власника (2026-11-12): не схвалено',
+    'Рішення власника (2026-11-12): схвалено? ні',
+    'Рішення власника (2026-11-12): схвалено — not yet',
+    'Рішення власника (2026-11-12): схваленою не є',
+    '> Рішення власника (2026-11-12): схвалено',
+  ]) {
+    assert.equal(bodyApproval(line), false, line);
+  }
+});
+
+test('review #87 r2 item 4: the unfilled template does not record an owner decision', () => {
+  const template = fs.readFileSync(new URL('../../../.github/pull_request_template.md', import.meta.url), 'utf8');
+  assert.equal(recordsOwnerDecision(template), false, 'heading and template comment only');
+  assert.equal(recordsOwnerDecision(template.replace('## Owner decision\n', '## Owner decision\n\nOwner, 2026-11-12: «так».\n')), true);
+  assert.equal(recordsOwnerDecision('## Owner decision\n\n## Impact\nx'), false);
+  assert.equal(recordsOwnerDecision('- Рішення власника 2026-11-12: …'), true);
+  assert.equal(recordsOwnerDecision('<!-- Рішення власника -->'), false);
+  const files = [{ filename: 'AGENTS.md', status: 'modified', patch: '+x' }];
+  assert.equal(only(input({ pulls: [pr({ files, body: template })] })).severity, 'stale', 'merged with the unfilled template');
 });

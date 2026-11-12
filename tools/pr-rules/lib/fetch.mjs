@@ -52,10 +52,12 @@ export async function baseMapFor(gh, files, ref) {
 /**
  * Window start: the start of the last scheduled run whose check step succeeded (minus an hour of overlap),
  * at most WINDOW_MAX_DAYS back; WINDOW_FALLBACK_HOURS when there is none or the Actions API cannot be read.
- * A failed or skipped day is thus covered by the next run. Read-only (`actions: read`).
+ * A failed or skipped day is thus covered by the next run. When the start is not the last checked run (the
+ * cap, the fallback after earlier runs, an unreadable run log) the window is marked `gap`: the check reports
+ * it, because this run's success moves the next window past the unchecked time. Read-only (`actions: read`).
  */
 export async function windowStart(gh, until) {
-  const fallback = (note) => ({ since: new Date(until.getTime() - WINDOW_FALLBACK_HOURS * HOUR), note });
+  const fallback = (note, gap) => ({ since: new Date(until.getTime() - WINDOW_FALLBACK_HOURS * HOUR), note, ...(gap ? { gap } : {}) });
   const floor = until.getTime() - WINDOW_MAX_DAYS * 24 * HOUR;
   try {
     const { workflow_runs: runs } = await gh.get(
@@ -64,14 +66,14 @@ export async function windowStart(gh, until) {
     for (const run of runs ?? []) {
       const started = Date.parse(run.run_started_at ?? run.created_at);
       if (!(started < until.getTime())) continue;
-      if (started < floor) return { since: new Date(floor), note: `останній успішний запуск старший за ${WINDOW_MAX_DAYS} дн.` };
+      if (started < floor) return { since: new Date(floor), note: `останній успішний запуск старший за ${WINDOW_MAX_DAYS} дн.`, gap: true };
       const { jobs } = await gh.get(`/{repo}/actions/runs/${run.id}/jobs?per_page=100`);
       const checked = (jobs ?? []).some((j) => (j.steps ?? []).some((s) => s.name === DAILY_CHECK_STEP && s.conclusion === 'success'));
       if (checked) return { since: new Date(Math.max(floor, started - HOUR)), note: `від запуску ${run.id}` };
     }
-    return fallback(`успішного запуску не знайдено: ${WINDOW_FALLBACK_HOURS} год`);
+    return fallback(`успішного запуску не знайдено: ${WINDOW_FALLBACK_HOURS} год`, (runs ?? []).length > 0);
   } catch (e) {
-    return fallback(`журнал запусків не прочитано (${errorClass(e)}): ${WINDOW_FALLBACK_HOURS} год`);
+    return fallback(`журнал запусків не прочитано (${errorClass(e)}): ${WINDOW_FALLBACK_HOURS} год`, true);
   }
 }
 
@@ -160,7 +162,7 @@ async function mergedPull(gh, p) {
 }
 
 /** Read everything the daily check needs for the window [since, until]. */
-export async function fetchDailyInput(gh, { since, until, note }) {
+export async function fetchDailyInput(gh, { since, until, note, gap }) {
   const repo = await gh.get('/{repo}');
   const main = repo.default_branch;
   const head = (await gh.get(`/{repo}/branches/${encodeURIComponent(main)}`)).commit.sha;
@@ -243,7 +245,7 @@ export async function fetchDailyInput(gh, { since, until, note }) {
 
   return {
     now: until.toISOString(),
-    window: { since: since.toISOString(), until: until.toISOString(), ...(note ? { note } : {}) },
+    window: { since: since.toISOString(), until: until.toISOString(), ...(note ? { note } : {}), ...(gap ? { gap } : {}) },
     owner: repo.owner.login,
     main: { name: main, head },
     activities,

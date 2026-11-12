@@ -147,12 +147,12 @@ errors) lives only in `packages/domain-kernel`.
 5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
    money calculations, database schema, pipeline and infrastructure (the PR gets the label `sensitive`) also
    need a security review in another session. Every review names the head commit (full SHA) it reviewed and
-   ends with a line of its own: `Verdict: Ready` or `Verdict: Not ready` (review-pr), and
+   ends with a line of its own: `Verdict: Ready` or `Verdict: Changes requested` (review-pr), and
    `Security verdict: Ready` or `Security verdict: Changes requested` (security review). The daily check
    (ADR-0008) reads exactly these lines (owner, 2026-11-12).
 6. All CI checks green (jobs `requirements`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`). Never skip, disable or weaken a
    test to get green.
-7. The authoring agent merges the PR (squash; the only merge method) only when CI is green on the latest
+7. The authoring agent merges the PR (squash) only when CI is green on the latest
    commit and the review session gave «Ready» (plus the security review for sensitive areas) **on the
    commit being merged**: before merging, compare the SHA each review names with the PR head; any later
    commit, even a small fix, needs a re-review (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
