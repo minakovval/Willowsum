@@ -307,15 +307,26 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
       )
     ).id;
   });
+  /** A new entry with this one posting, in one transaction of the module role (a posting joins only a new entry). */
   const posting = (debit: string, credit: string, amount: string, currency: string) =>
-    asModule(s.householdId, `INSERT INTO postings VALUES ($1, $2, 9, $3, $4, $5, $6)`, [
-      s.householdId,
-      entryId,
-      debit,
-      credit,
-      amount,
-      currency,
-    ]);
+    code(
+      db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+        const id = randomUUID();
+        await q.query(
+          `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+           VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
+          [s.householdId, id],
+        );
+        await q.query(`INSERT INTO postings VALUES ($1, $2, 1, $3, $4, $5, $6)`, [
+          s.householdId,
+          id,
+          debit,
+          credit,
+          amount,
+          currency,
+        ]);
+      }),
+    );
 
   it("a posting is balanced by its row: positive amount, two different accounts, both in its currency", async () => {
     expect(await posting(s.savings.id, s.cash.id, "0", "EUR")).toBe("23514");
@@ -361,11 +372,20 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
 
   it("an entry is reversed at most once, and a reversal is never reversed — by the keys", async () => {
     const insertReversal = (id: string, of: string) =>
-      asModule(
-        s.householdId,
-        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
-         VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
-        [s.householdId, id, of],
+      code(
+        db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+          await q.query(
+            `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
+             VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
+            [s.householdId, id, of],
+          );
+          await q.query(`INSERT INTO postings VALUES ($1, $2, 1, $3, $4, 10, 'EUR')`, [
+            s.householdId,
+            id,
+            s.cash.id,
+            s.savings.id,
+          ]);
+        }),
       );
     const r1 = randomUUID();
     expect(await insertReversal(r1, entryId)).toBe("ok");

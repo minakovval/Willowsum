@@ -111,6 +111,27 @@ export function assertDate(value: string): void {
   if (!valid) throw new LedgerError("INVALID_DATE", "A date must be a calendar date YYYY-MM-DD");
 }
 
+/** A moment in strict ISO 8601, as `recordedAt` is written: date, `T`, time, up to 6 fraction digits, `Z` or ±hh:mm. */
+const MOMENT_RE =
+  /^(\d{4}-\d{2}-\d{2})T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d{1,6})?(Z|[+-](0\d|1[0-4]):[0-5]\d)$/;
+
+/** Checks a moment before it reaches the database, so a bad one is INVALID_DATE and never a raw 22007. */
+export function assertMoment(value: string): void {
+  const m = MOMENT_RE.exec(value);
+  if (m !== null) {
+    try {
+      assertDate(m[1]!);
+      return;
+    } catch {
+      // falls through to the moment's own error
+    }
+  }
+  throw new LedgerError(
+    "INVALID_DATE",
+    "asKnownAt must be an ISO 8601 time, e.g. 2026-06-30T10:00:00.000000Z",
+  );
+}
+
 function assertId(id: string, code: string): void {
   if (!isId(id)) throw new LedgerError(code, "An identifier must be a UUID");
 }
@@ -235,8 +256,7 @@ export async function balanceAt(
 ): Promise<Money> {
   assertDate(date);
   assertId(accountId, "UNKNOWN_ACCOUNT");
-  if (options.asKnownAt !== undefined && Number.isNaN(Date.parse(options.asKnownAt)))
-    throw new LedgerError("INVALID_DATE", "asKnownAt must be an ISO 8601 time");
+  if (options.asKnownAt !== undefined) assertMoment(options.asKnownAt);
   return deps.store.inHousehold(householdId, async (tx) => {
     const [account] = await tx.accounts([accountId]);
     if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");

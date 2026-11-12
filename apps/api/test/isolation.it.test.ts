@@ -79,7 +79,9 @@ beforeAll(async () => {
   const counts = Object.fromEntries(tables.map((t) => [t.table, rowsOf(t.table) + 1]));
   const used = generators.filter((g) => g.table in counts);
   const seen = new Map<string, number>();
-  // The superuser owner bypasses row policies while loading.
+  // The superuser owner bypasses row policies while loading. One transaction: tables whose rows are only valid
+  // together at commit (a ledger entry with its postings) load as the module writes them.
+  await owner.query("BEGIN");
   for (const { table, household, row } of generate({ seed: SEED, households: 2, tables: used, counts })) {
     const key = `${table}/${household.index}`;
     const n = (seen.get(key) ?? 0) + 1;
@@ -87,6 +89,7 @@ beforeAll(async () => {
     if (n <= rowsOf(table)) await insert(owner, table, row);
     else if (household.id === householdB.id) extraB.set(table, row);
   }
+  await owner.query("COMMIT");
 });
 
 afterAll(async () => {

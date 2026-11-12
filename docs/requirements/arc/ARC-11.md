@@ -33,7 +33,7 @@
 - Спільні правила: П-1, П-2, П-3, П-10, П-24, ARC-01, NFR-05, NFR-06
 - Сценарії: —
 - Модуль: ledger
-- Перевіряється: apps/api/src/modules/ledger/domain/postings.test.ts, apps/api/src/modules/ledger/application/journal.test.ts, apps/api/src/modules/ledger/ledger.it.test.ts
+- Перевіряється: apps/api/src/modules/ledger/domain/postings.test.ts, apps/api/src/modules/ledger/application/journal.test.ts, apps/api/src/modules/ledger/application/sec122-journal.test.ts, apps/api/src/modules/ledger/ledger.it.test.ts, apps/api/test/sec122-ledger.it.test.ts
 
 Модуль ledger — єдине джерело правди про гроші та вартість у бухгалтерському сенсі: залишки рахунків, вартість активів у балансі, зобов'язання і net worth на будь-яку дату обчислюються з його проводок. Модуль не знає про категорії, бюджети, мерчантів і тексти: він приймає події, перетворює їх на збалансовані проводки за правилами і віддає баланси.
 

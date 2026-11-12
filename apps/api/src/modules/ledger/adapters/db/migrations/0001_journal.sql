@@ -91,3 +91,35 @@ CREATE TRIGGER entries_append_only BEFORE UPDATE OR DELETE ON entries FOR EACH R
 CREATE TRIGGER entries_no_truncate BEFORE TRUNCATE ON entries FOR EACH STATEMENT EXECUTE FUNCTION reject_change();
 CREATE TRIGGER postings_append_only BEFORE UPDATE OR DELETE ON postings FOR EACH ROW EXECUTE FUNCTION reject_change();
 CREATE TRIGGER postings_no_truncate BEFORE TRUNCATE ON postings FOR EACH STATEMENT EXECUTE FUNCTION reject_change();
+
+-- A posting set is written whole in one transaction (FIN-04 FR 2, AC2) and never grows later: a posting joins only
+-- an entry recorded by this transaction (recorded_at is the transaction's now(), which module SQL cannot set), and
+-- at commit every entry has at least one posting. Checked as the caller, so the row policy still applies.
+CREATE FUNCTION posting_joins_new_entry() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  fresh boolean;
+BEGIN
+  EXECUTE pg_catalog.format(
+    'SELECT EXISTS (SELECT 1 FROM %I.entries WHERE household_id = $1 AND id = $2 AND recorded_at = pg_catalog.now())',
+    TG_TABLE_SCHEMA) INTO fresh USING NEW.household_id, NEW.entry_id;
+  IF NOT fresh THEN
+    RAISE EXCEPTION 'a posting can only be written with its entry, in the same transaction' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER postings_with_their_entry AFTER INSERT ON postings
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION posting_joins_new_entry();
+
+CREATE FUNCTION entry_has_postings() RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  found boolean;
+BEGIN
+  EXECUTE pg_catalog.format('SELECT EXISTS (SELECT 1 FROM %I.postings WHERE household_id = $1 AND entry_id = $2)',
+    TG_TABLE_SCHEMA) INTO found USING NEW.household_id, NEW.id;
+  IF NOT found THEN
+    RAISE EXCEPTION 'a ledger entry needs at least one posting' USING ERRCODE = '23514';
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE CONSTRAINT TRIGGER entries_have_postings AFTER INSERT ON entries
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION entry_has_postings();
