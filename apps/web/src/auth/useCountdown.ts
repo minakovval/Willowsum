@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 const secondsLeft = (deadline: number | null): number =>
   deadline === null ? 0 : Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
@@ -15,7 +15,9 @@ export function useCountdown(deadline: number | null): number {
     current = { deadline, seconds: secondsLeft(deadline) };
     setState(current);
   }
-  useEffect(() => {
+  // A layout effect, so the ticking starts in the same commit that shows the deadline. A passive effect could
+  // still be pending when time moves on (seen in CI: the first tick of the AC14 lockout was lost).
+  useLayoutEffect(() => {
     if (deadline === null) return;
     const id = window.setInterval(() => {
       const seconds = secondsLeft(deadline);

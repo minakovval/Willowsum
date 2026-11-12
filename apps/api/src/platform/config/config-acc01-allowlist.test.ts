@@ -61,9 +61,12 @@ describe("ACC-01 FR 16: WS_SIGNUP_ALLOWLIST — the family's addresses, required
     it(`${environment}: the worker and scheduler roles do not need it`, () => {
       for (const role of ["worker", "scheduler"])
         expect(() =>
-          loadConfig({ ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off" }, role, [
-            "identity",
-          ]),
+          // A deployed scheduler runs the live providers only (VAL-05 FR 3, FR 4).
+          loadConfig(
+            { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off", WS_PROVIDER_MODE: "live" },
+            role,
+            ["identity"],
+          ),
         ).not.toThrow();
     });
   }
