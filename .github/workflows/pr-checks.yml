@@ -2,6 +2,14 @@ name: PR checks
 
 # PR checks (CICD-02). More checks are added as the code grows. The `traceability` job (PR title and
 # description, CICD-01 FR 2) is in pr-description.yml: it also runs when the description is edited.
+#
+# CI minutes (lead decision 2026-11-12; private repository, 2,000 free minutes a month):
+# - a new push cancels the PR's run still in progress (concurrency, keyed by the PR);
+# - the pnpm store is cached, keyed by the lockfile;
+# - the `changes` job decides from the PR's changed paths (tools/pr-rules/lib/ci-paths.mjs) which heavy jobs
+#   (web, api, local-env, infra) are needed; a job that is not needed is skipped by its `if` and its check
+#   concludes `skipped`. The daily check of main accepts a skipped job only when the same function says the
+#   merged PR did not need it. `requirements`, `secrets` and `changes` (and `traceability`) always run.
 
 on:
   pull_request:
@@ -9,7 +17,36 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    # Which heavy jobs this PR needs, by its changed paths. On any error every job runs.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # the PR's changed files
+    outputs:
+      web: ${{ steps.paths.outputs.web }}
+      api: ${{ steps.paths.outputs.api }}
+      local_env: ${{ steps.paths.outputs.local-env }}
+      infra: ${{ steps.paths.outputs.infra }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Heavy jobs needed by the changed paths
+        id: paths
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/pr-rules/index.mjs changes
+
   requirements:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -43,6 +80,8 @@ jobs:
           if [ -f "$RUNNER_TEMP/req-check-report.md" ]; then cat "$RUNNER_TEMP/req-check-report.md" >> "$GITHUB_STEP_SUMMARY"; fi
 
   web:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.web != 'false' }}
     # Front-end packages: types, lint, formatting, unit tests and the static build.
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -55,6 +94,15 @@ jobs:
           node-version: 22
       - name: Enable pnpm (version from package.json via corepack)
         run: corepack enable
+      - name: pnpm store path
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache the pnpm store (keyed by the lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-node22-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-node22-
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
@@ -80,6 +128,8 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: false
 
   local-env:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.local_env != 'false' }}
     # CICD-04: the local environment starts with one command and every service answers (smoke test).
     # CI uses the same compose file with freshly generated, throwaway credentials and synthetic data.
     runs-on: ubuntu-latest
@@ -110,6 +160,8 @@ jobs:
         run: node tools/local-env/index.mjs down
 
   api:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03).
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -138,6 +190,15 @@ jobs:
           node-version: 22
       - name: Enable pnpm (version from package.json via corepack)
         run: corepack enable
+      - name: pnpm store path
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache the pnpm store (keyed by the lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-node22-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-node22-
       - run: pnpm install --frozen-lockfile
       - name: Module boundaries, dependency rules and event contracts (ARC-01)
         run: pnpm --filter @willowsum/api check:modules
@@ -187,6 +248,8 @@ jobs:
           done
 
   infra:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.infra != 'false' }}
     # CICD-07: the «Старт» infrastructure code (infra/start) is formatted, valid for the pinned OpenTofu
     # and OCI provider, and keeps the static rules (tools/infra-check). No cloud access: nothing is
     # planned or applied here and no secrets are used.

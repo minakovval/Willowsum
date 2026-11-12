@@ -34,7 +34,7 @@ test('jobNames: job keys, or a plain `name:`', () => {
 
 test('CICD-01 FR 3: the required CI jobs are exactly the ones AGENTS.md lists', () => {
   const jobs = REQUIRED_WORKFLOWS.flatMap((wf) => jobNames(read(wf))).sort();
-  assert.deepEqual(jobs, ['api', 'infra', 'local-env', 'requirements', 'secrets', 'traceability', 'web']);
+  assert.deepEqual(jobs, ['api', 'changes', 'infra', 'local-env', 'requirements', 'secrets', 'traceability', 'web']);
   const listed = /All CI checks green \(jobs ([^)]+)\)/.exec(read('AGENTS.md').replace(/\n\s*/g, ' '))[1];
   assert.deepEqual([...listed.matchAll(/`([\w-]+)`/g)].map((m) => m[1]).sort(), jobs);
 });

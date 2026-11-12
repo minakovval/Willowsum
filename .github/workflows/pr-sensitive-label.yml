@@ -18,6 +18,11 @@ on:
 
 permissions: {}
 
+# A newer push replaces the run still in progress (labels are only ever added, so nothing is lost).
+concurrency:
+  group: pr-sensitive-label-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   sensitive-label:
     runs-on: ubuntu-latest

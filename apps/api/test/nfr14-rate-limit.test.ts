@@ -84,7 +84,9 @@ async function send(server: FastifyInstance, request: InjectOptions, times: numb
 }
 
 /** The middle of a window, so a test never straddles two. */
-const fixedNow = () => Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 15_000;
+// Fixed once per run, so a run crossing a minute boundary cannot start a new rate-limit window mid-test.
+const FIXEDNOW_AT = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 15_000;
+const fixedNow = () => FIXEDNOW_AT;
 
 describe("NFR-14 AC1 / FR 5–6: the 61st public request in a minute gets 429 RATE_LIMITED with Retry-After", () => {
   it("60 pass, the 61st is 429 with the problem code and Retry-After = seconds to the end of the window", async () => {
