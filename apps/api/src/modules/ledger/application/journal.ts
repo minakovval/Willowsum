@@ -239,7 +239,12 @@ async function reverseIn(
   assertKey(idempotencyKey);
   assertId(entryId, "ENTRY_NOT_FOUND");
   const repeated = await tx.entryByKey(idempotencyKey);
-  if (repeated) return repeated;
+  if (repeated) {
+    // A repeat returns only the reversal this key made for this entry; another entry's key is never "the reversal".
+    if (repeated.reversesEntryId !== entryId)
+      throw new LedgerError("IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another entry");
+    return repeated;
+  }
   const original = await tx.entry(entryId);
   if (!original) throw new LedgerError("ENTRY_NOT_FOUND", "No such entry in this space");
   if (original.reversesEntryId !== null)
@@ -291,10 +296,28 @@ export async function correct(
   entryId: string,
   replacement: PostInput,
 ): Promise<{ readonly reversal: Entry; readonly entry: Entry }> {
+  assertKey(replacement.idempotencyKey);
+  const reversalKey = await correctionReversalKey(replacement.idempotencyKey);
   return deps.store.inHousehold(householdId, async (tx) => {
-    const reversal = await reverseIn(tx, deps, entryId, `${replacement.idempotencyKey}#reversal`);
+    // A repeat has both halves; a replacement key already used by another entry (the original's own, say) would
+    // otherwise reverse the original and return an old entry as the replacement, losing the change.
+    const madeReversal = await tx.entryByKey(reversalKey);
+    const madeEntry = await tx.entryByKey(replacement.idempotencyKey);
+    if ((madeReversal === null) !== (madeEntry === null) || madeEntry?.id === entryId)
+      throw new LedgerError("IDEMPOTENCY_KEY_REUSED", "This idempotency key belongs to another entry");
+    const reversal = await reverseIn(tx, deps, entryId, reversalKey);
     return { reversal, entry: await postIn(tx, deps, replacement) };
   });
+}
+
+/**
+ * The key of a correction's reversal, derived from the replacement's key with a fixed length (73 characters), so
+ * every valid replacement key (1–200 characters) also gives a valid reversal key.
+ */
+async function correctionReversalKey(replacementKey: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(replacementKey));
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  return `reversal:${hex}`;
 }
 
 /** A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. */
@@ -350,12 +373,23 @@ export async function dailyIntegrityCheck(deps: {
   readonly store: LedgerStore;
   readonly spaces: () => Promise<readonly string[]>;
   readonly report: (check: IntegrityCheck, entries: number) => void;
+  /** Spaces whose check could not run (an error in their query); reported with the count only, the rest go on. */
+  readonly failed?: (spaces: number) => void;
 }): Promise<IntegrityFindings> {
   const total = Object.fromEntries(INTEGRITY_CHECKS.map((c) => [c, 0])) as IntegrityFindings;
+  let failed = 0;
   for (const householdId of await deps.spaces()) {
-    const found = await deps.store.inHousehold(householdId, (tx) => tx.integrity());
+    let found: IntegrityFindings;
+    try {
+      found = await deps.store.inHousehold(householdId, (tx) => tx.integrity());
+    } catch {
+      // One space's failure does not hide the findings of the others.
+      failed++;
+      continue;
+    }
     for (const check of INTEGRITY_CHECKS) total[check] += found[check];
   }
   for (const check of INTEGRITY_CHECKS) if (total[check] > 0) deps.report(check, total[check]);
+  if (failed > 0) deps.failed?.(failed);
   return total;
 }

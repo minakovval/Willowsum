@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { Money } from "@willowsum/domain-kernel";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
-import { databaseLedgerStore, logIntegrityViolation } from "./adapters/index.ts";
+import { databaseLedgerStore, logIntegrityCheckFailed, logIntegrityViolation } from "./adapters/index.ts";
 import {
   balanceAt,
   correct,
@@ -87,7 +87,8 @@ export function createLedgerIntegrityCheck(
   db: ModuleDatabase,
   spaces: () => Promise<readonly string[]>,
   report: (check: IntegrityCheck, entries: number) => void = logIntegrityViolation,
+  failed: (spaces: number) => void = logIntegrityCheckFailed,
 ): { run(): Promise<IntegrityFindings> } {
   const store = databaseLedgerStore(db);
-  return { run: () => dailyIntegrityCheck({ store, spaces, report }) };
+  return { run: () => dailyIntegrityCheck({ store, spaces, report, failed }) };
 }

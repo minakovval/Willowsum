@@ -29,13 +29,19 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
     події за правилами (`EVENT_TYPES`: `transaction`, `transfer`, `balance-adjustment`, `asset-purchase`,
     `asset-revaluation`, `asset-sale`, `mortgage-payment`, `rental-income`) в одній транзакції; повтор ключа повертає
     наявний запис.
-  - `reverse(householdId, entryId, idempotencyKey)` → сторно; `correct(householdId, entryId, replacement)` → сторно і
-    новий запис в одній транзакції.
+  - `reverse(householdId, entryId, idempotencyKey)` → сторно; повтор ключа повертає лише сторно цього запису, ключ
+    іншого запису — `IDEMPOTENCY_KEY_REUSED`. `correct(householdId, entryId, replacement)` → сторно і новий запис в
+    одній транзакції; ключ сторно виводиться з ключа заміни фіксованої довжини (`reversal:` і SHA-256, 73 символи),
+    тож підходить будь-який ключ заміни 1–200 символів; ключ заміни, вже вжитий іншим записом (зокрема ключ самого
+    запису), — `IDEMPOTENCY_KEY_REUSED`.
   - `balanceAt(householdId, accountId, date, { asKnownAt? })` → `Money` зі знаком типу рахунку.
 - `createLedgerIntegrityCheck(db, spaces, report?)` → `{ run }` — щоденна перевірка цілісності (планувальник,
-  `main.ts`); порушення — подія `ledger.integrity_violation` рівня «помилка» без сум і назв.
+  `main.ts`); порушення — подія `ledger.integrity_violation` рівня «помилка» без сум і назв. Простір, перевірка якого
+  впала з помилкою, не зупиняє інші: їхні порушення звітуються, а кількість таких просторів — подія
+  `ledger.integrity_check_failed` рівня «помилка» (`ws.ledger.spaces`, без ідентифікаторів).
 - `LedgerError` (коди: `UNKNOWN_EVENT_TYPE`, `EMPTY_POSTING_SET`, `INVALID_POSTING`, `INVALID_EVENT`, `UNBALANCED`,
-  `UNKNOWN_ACCOUNT`, `ENTRY_NOT_FOUND`, `ALREADY_REVERSED`, `REVERSAL_OF_REVERSAL`, `INVALID_DATE`, …),
+  `UNKNOWN_ACCOUNT`, `ENTRY_NOT_FOUND`, `ALREADY_REVERSED`, `REVERSAL_OF_REVERSAL`, `IDEMPOTENCY_KEY_REUSED`,
+  `INVALID_DATE`, …),
   `ACCOUNT_TYPES`, `SERVICE_ACCOUNTS`, `EVENT_TYPES`, `RULES_VERSION`, `INTEGRITY_CHECKS`, типи `Entry`, `PostInput`,
   `LedgerEvent`, `LedgerAccount`.
 

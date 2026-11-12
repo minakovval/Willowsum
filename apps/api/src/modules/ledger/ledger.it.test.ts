@@ -46,7 +46,11 @@ async function space(): Promise<{ householdId: string; cash: LedgerAccount; savi
   return { householdId, cash: await open(), savings: await open() };
 }
 
-const input = (event: PostInput["event"], operationDate = "2026-06-15", key = randomUUID()): PostInput => ({
+const input = (
+  event: PostInput["event"],
+  operationDate = "2026-06-15",
+  key: string = randomUUID(),
+): PostInput => ({
   source: { module: "transactions", id: randomUUID() },
   idempotencyKey: key,
   operationDate,
@@ -266,6 +270,25 @@ describe("FIN-04 AC3: a change or a deletion reverses the old postings; nothing 
     expect(await code(ledger.reverse(s.householdId, first.id, "delete-2"))).toBe("ALREADY_REVERSED");
     expect(await code(ledger.reverse(s.householdId, reversal.id, "delete-3"))).toBe("REVERSAL_OF_REVERSAL");
     expect(await code(ledger.reverse(s.householdId, randomUUID(), "delete-4"))).toBe("ENTRY_NOT_FOUND");
+  });
+
+  it("a change whose replacement key has 192–200 characters is accepted, and its repeat returns the same pair", async () => {
+    const s = await space();
+    for (const length of [192, 200]) {
+      const first = await ledger.post(
+        s.householdId,
+        input({ type: "transaction", account: s.cash.id, amount: eur("-50") }),
+      );
+      const replacement = input(
+        { type: "transaction", account: s.cash.id, amount: eur("-70") },
+        "2026-06-15",
+        "k".repeat(length - String(length).length) + String(length),
+      );
+      const a = await ledger.correct(s.householdId, first.id, replacement);
+      const b = await ledger.correct(s.householdId, first.id, replacement);
+      expect([b.reversal.id, b.entry.id]).toEqual([a.reversal.id, a.entry.id]);
+    }
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-12-31")).toDecimalString()).toBe("-140");
   });
 
   it("concurrent deletions of one entry make one reversal", async () => {

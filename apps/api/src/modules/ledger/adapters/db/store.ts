@@ -50,7 +50,7 @@ const INTEGRITY = `
       AS empty_entry,
     (SELECT count(*) FROM entries r WHERE r.household_id = $1 AND r.reverses_entry_id IS NOT NULL AND (
         NOT EXISTS (SELECT 1 FROM entries o WHERE o.household_id = r.household_id AND o.id = r.reverses_entry_id
-                      AND o.reverses_entry_id IS NULL)
+                      AND o.reverses_entry_id IS NULL AND o.operation_date = r.operation_date)
         OR EXISTS (SELECT 1 FROM per_account n WHERE n.entry_id IN (r.id, r.reverses_entry_id)
                     GROUP BY n.account_id HAVING sum(n.net) <> 0)))::int
       AS reversal_mismatch`;

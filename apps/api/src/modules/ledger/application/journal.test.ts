@@ -168,6 +168,28 @@ describe("FIN-04 AC7 (core): the daily integrity check", () => {
     expect(total).toEqual({ "unbalanced-entry": 3, "empty-entry": 0, "reversal-mismatch": 1 });
   });
 
+  it("FIN-04 FR 9: one space whose check fails is counted and the other spaces are still checked and reported", async () => {
+    const H3 = "33333333-3333-4333-8333-333333333333";
+    const reports: [IntegrityCheck, number][] = [];
+    const failures: number[] = [];
+    const ok = findings({ [H1]: { "empty-entry": 1 }, [H3]: { "reversal-mismatch": 2 } });
+    const total = await dailyIntegrityCheck({
+      store: {
+        inHousehold: (householdId, work) =>
+          householdId === H2 ? Promise.reject(new Error("query failed")) : ok.inHousehold(householdId, work),
+      },
+      spaces: async () => [H1, H2, H3],
+      report: (check, entries) => reports.push([check, entries]),
+      failed: (spaces) => failures.push(spaces),
+    });
+    expect(reports).toEqual([
+      ["empty-entry", 1],
+      ["reversal-mismatch", 2],
+    ]);
+    expect(failures).toEqual([1]);
+    expect(total).toEqual({ "unbalanced-entry": 0, "empty-entry": 1, "reversal-mismatch": 2 });
+  });
+
   it("a clean journal reports nothing", async () => {
     const reports: unknown[] = [];
     await dailyIntegrityCheck({
@@ -176,5 +198,16 @@ describe("FIN-04 AC7 (core): the daily integrity check", () => {
       report: (...r) => reports.push(r),
     });
     expect(reports).toEqual([]);
+  });
+
+  it("no failed space, no failure report", async () => {
+    const failures: number[] = [];
+    await dailyIntegrityCheck({
+      store: findings({}),
+      spaces: async () => [H1, H2],
+      report: () => undefined,
+      failed: (spaces) => failures.push(spaces),
+    });
+    expect(failures).toEqual([]);
   });
 });
