@@ -37,10 +37,18 @@ export interface PasswordResetRow {
  */
 export type AccountLock = "share" | "update";
 
+/**
+ * What a sign-up found (ACC-01 FR 8, 16): it created the account (`new`), found one with the address (`existing`,
+ * never changed), or the address is outside the family's list (`outside`: no account, no letter; the token answers
+ * like any other). Clients cannot tell them apart.
+ */
+export type RegistrationKind = "new" | "existing" | "outside";
+
 export interface RegistrationRow {
   readonly id: string;
-  readonly accountId: string;
-  readonly kind: "new" | "existing";
+  /** Null exactly for `outside`. */
+  readonly accountId: string | null;
+  readonly kind: RegistrationKind;
   readonly expiresAt: number;
   readonly closedAt: number | null;
   /** A later sign-up replaced the unconfirmed account's password: the token answers as before but acts on nothing. */
@@ -93,9 +101,10 @@ export interface IdentityTx {
   findConfirmation(digest: Buffer): Promise<ConfirmationRow | null>;
   useConfirmation(id: string, now: number): Promise<void>;
 
+  /** `accountId` is null exactly for an `outside` sign-up. */
   insertRegistration(
-    accountId: string,
-    kind: "new" | "existing",
+    accountId: string | null,
+    kind: RegistrationKind,
     digest: Buffer,
     now: number,
     expiresAt: number,
@@ -206,6 +215,11 @@ export interface IdentityDeps {
   readonly webOrigin: string;
   /** The first space on the first sign-in (household module). */
   readonly spaces: FirstSpace;
+  /**
+   * May this login key (`normalizeEmail`) sign up (ACC-01 FR 16)? The family's list from the server's configuration;
+   * without one (local development and CI) every address may.
+   */
+  readonly signUpAllowed: (normalizedEmail: string) => boolean;
 }
 
 /** What the daily task needs (ACC-01 FR 6; ADR-0010). */

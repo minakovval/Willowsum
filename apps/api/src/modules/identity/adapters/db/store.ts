@@ -7,6 +7,7 @@ import type {
   IdentityStore,
   IdentityTx,
   PasswordResetRow,
+  RegistrationKind,
   RegistrationRow,
   SessionRow,
   ThrottleScope,
@@ -150,8 +151,8 @@ function tx(q: ModuleQueryRunner): IdentityTx {
     async findRegistration(digest) {
       const { rows } = await q.query<{
         id: string;
-        account_id: string;
-        kind: "new" | "existing";
+        account_id: string | null;
+        kind: RegistrationKind;
         expires_at: Date;
         closed_at: Date | null;
         superseded_at: Date | null;

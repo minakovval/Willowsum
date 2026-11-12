@@ -114,6 +114,8 @@ const identity =
         audit,
         webOrigin: config.identity.webOrigin,
         spaces,
+        // ACC-01 FR 16: sign-up only for the family's addresses (required in staging and production).
+        ...(config.identity.signUpAllowlist ? { signUpAllowlist: config.identity.signUpAllowlist } : {}),
       })
     : undefined;
 

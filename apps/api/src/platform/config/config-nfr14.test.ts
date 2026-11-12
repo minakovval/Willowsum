@@ -19,6 +19,8 @@ const deployed = (environment: string) => ({
   WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
   WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
   WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
+  // ACC-01 FR 16: the family's addresses (synthetic).
+  WS_SIGNUP_ALLOWLIST: "olena.synthetic@example.test",
 });
 
 function variablesOf(fn: () => unknown): readonly string[] {

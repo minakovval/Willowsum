@@ -40,3 +40,15 @@ export const nameSchema = z
   .refine((n) => ![...n].some((c) => c.charCodeAt(0) < 0x20 || c.charCodeAt(0) === 0x7f), {
     error: "invalid_characters",
   });
+
+/**
+ * Who may sign up (ACC-01 FR 16): the family's addresses from the server's configuration, compared as login keys
+ * (`normalizeEmail`: trimmed, lower case). Without a list (locally and in CI; the api role refuses to start
+ * without one in staging and production) every address may. The check is a set lookup: its cost does not depend
+ * on whether the address is listed.
+ */
+export function signUpAllowlist(entries: Iterable<string> | undefined): (normalizedEmail: string) => boolean {
+  if (entries === undefined) return () => true;
+  const list = new Set([...entries].map(normalizeEmail));
+  return (normalizedEmail) => list.has(normalizedEmail);
+}
