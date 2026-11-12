@@ -7,7 +7,11 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
 import { mountApi } from "./api.ts";
+import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { createIdentityServices } from "./modules/identity/index.ts";
+import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
+import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
 import { ModuleDatabases } from "./platform/db/module-db.ts";
@@ -91,13 +95,42 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
   onReloadHealth: flagReloadHealthLog,
 });
 
+// Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production
+// the configuration allows only the live adapters (ACC-01 FR 12: no server without CAPTCHA there).
+const identity =
+  config.role === "api"
+    ? createIdentityServices({
+        mail: mailSender(config.providerMode, () => ({
+          apiKey: config.identity.mail!.apiKey,
+          from: config.identity.mail!.from,
+        })),
+        captcha: captchaVerifier(config.providerMode, () => ({ secret: config.identity.captchaSecret! })),
+        audit: createAuditLog(databases.for("audit")),
+        webOrigin: config.identity.webOrigin,
+      })
+    : undefined;
+
+// The password hashing binding loads now, not at the first sign-up: without it the api role does not start.
+if (identity) {
+  try {
+    await identity.hasher.hash(identity.secrets.token());
+  } catch (error) {
+    logEvent("identity.hasher_unavailable", "error", {
+      "ws.module": "identity",
+      "error.type": error instanceof Error ? error.constructor.name : "Error",
+    });
+    process.exit(1);
+  }
+}
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
 lifecycle.onStop(() => telemetry.shutdown());
 // NFR-14 FR 9: rate limits are off only by the explicit load-test setting (never in production, config.ts).
 if (config.http.rateLimits !== "on") logEvent("rate_limits.disabled", "warn", { "ws.role": config.role });
 const server = buildServer({
-  // Sessions arrive with identity (ACC-01); until then every protected route answers 401.
+  // Sessions of identity (ACC-01) carry no space yet: the space and its role come with ACC-01 part c (first
+  // sign-in creates «Родина <Прізвище>»); until then every protected route answers 401.
   ...(config.role === "api"
     ? {
         api: (app) =>
@@ -108,6 +141,8 @@ const server = buildServer({
             // Counters in this process: the configuration allows one API instance with them (NFR-14 FR 10).
             rateLimits: config.http.rateLimits === "on" ? createApiRateLimits() : "off",
             allowedOrigins: config.http.allowedOrigins,
+            ...(identity ? { identity } : {}),
+            deployed: config.deployed,
           }),
       }
     : {}),

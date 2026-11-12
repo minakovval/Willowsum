@@ -57,6 +57,18 @@ export interface Config {
     /** Origins whose pages may send write requests (`WS_ALLOWED_ORIGINS`; default below in loadConfig). */
     readonly allowedOrigins: ReadonlySet<string>;
   };
+  /**
+   * Sign-up and sign-in (ACC-01, ADR-0009). In staging and production the api role starts only with the live
+   * CAPTCHA and mail adapters configured (ACC-01 FR 12: no server without CAPTCHA on a public environment).
+   */
+  readonly identity: {
+    /** The web app's origin, for links in letters (`WS_WEB_ORIGIN`; locally the Vite dev server). */
+    readonly webOrigin: string;
+    /** Secret key of the CAPTCHA site (`WS_CAPTCHA_SECRET`); with `WS_PROVIDER_MODE=live`. */
+    readonly captchaSecret?: string;
+    /** The mail API key and sender (`WS_MAIL_API_KEY`, `WS_MAIL_FROM`); with `WS_PROVIDER_MODE=live`. */
+    readonly mail?: { readonly apiKey: string; readonly from: string };
+  };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -89,6 +101,9 @@ export const RATE_LIMIT_MODES = ["on", "off-load-test"] as const;
  * (`WS_API_INSTANCES` > 1) and limits on, the process refuses to start until a shared store exists (ADR-0007).
  */
 export const MAX_INSTANCES_WITH_MEMORY_RATE_LIMITS = 1;
+
+/** The web app's local dev server (Vite): the origin of links in letters outside staging and production. */
+export const LOCAL_WEB_ORIGIN = "http://localhost:5173";
 
 /** Mirrors plan-catalog's ENTITLEMENT_SOURCES (a test keeps them equal; platform code cannot import modules). */
 export const PLAN_ENTITLEMENT_SOURCES = ["all-enabled"] as const;
@@ -152,6 +167,17 @@ export function loadConfig(
       .string()
       .refine((v) => parseAllowedOrigins(v) !== undefined)
       .optional(),
+    WS_WEB_ORIGIN: z
+      .string()
+      .refine((v) => parseAllowedOrigins(v)?.size === 1)
+      .optional(),
+    WS_CAPTCHA_SECRET: secret.optional(),
+    WS_MAIL_API_KEY: secret.optional(),
+    // A display name and an address on one line, e.g. `Willowsum <no-reply@example.org>`.
+    WS_MAIL_FROM: z
+      .string()
+      .regex(/^[^\r\n<>]{0,100}<[^\s@<>]+@[^\s@<>]+>$|^[^\s@<>]+@[^\s@<>]+$/)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -202,6 +228,19 @@ export function loadConfig(
     )
       problems.push("WS_ALLOWED_ORIGINS");
   }
+  if (parsed.success && role === "api") {
+    const d = parsed.data;
+    const deployed = DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT);
+    // ACC-01 FR 12: staging and production never run the synthetic CAPTCHA (or mail): live adapters only.
+    if (deployed && d.WS_PROVIDER_MODE !== "live") problems.push("WS_PROVIDER_MODE");
+    if (deployed && (d.WS_WEB_ORIGIN === undefined || !d.WS_WEB_ORIGIN.startsWith("https://")))
+      problems.push("WS_WEB_ORIGIN");
+    if (d.WS_PROVIDER_MODE === "live") {
+      if (d.WS_CAPTCHA_SECRET === undefined) problems.push("WS_CAPTCHA_SECRET");
+      if (d.WS_MAIL_API_KEY === undefined) problems.push("WS_MAIL_API_KEY");
+      if (d.WS_MAIL_FROM === undefined) problems.push("WS_MAIL_FROM");
+    }
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
   const telemetryMode = (v["WS_TELEMETRY"] ?? "test") as TelemetryMode;
@@ -235,6 +274,17 @@ export function loadConfig(
           : DEPLOYED_ENVIRONMENTS.has(v["WS_TELEMETRY_ENVIRONMENT"] as string)
             ? new Set<string>()
             : LOCAL_ALLOWED_ORIGINS,
+    },
+    identity: {
+      webOrigin: (v["WS_WEB_ORIGIN"] as string | undefined) ?? LOCAL_WEB_ORIGIN,
+      ...(v["WS_PROVIDER_MODE"] === "live" && v["WS_CAPTCHA_SECRET"] !== undefined
+        ? { captchaSecret: v["WS_CAPTCHA_SECRET"] as string }
+        : {}),
+      ...(v["WS_PROVIDER_MODE"] === "live" &&
+      v["WS_MAIL_API_KEY"] !== undefined &&
+      v["WS_MAIL_FROM"] !== undefined
+        ? { mail: { apiKey: v["WS_MAIL_API_KEY"] as string, from: v["WS_MAIL_FROM"] as string } }
+        : {}),
     },
     database: {
       host: v["WS_DB_HOST"] as string,

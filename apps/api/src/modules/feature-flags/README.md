@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-09)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-12 (ACC-01: `identity.sign-in`, `isEnabledForAll`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -27,7 +27,7 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 - `createFlagRuntimeFor(db, options?)` → `FlagRuntime` (одна на процес API, `src/api.ts`):
   `isModuleAvailable(module)`, `moduleState(module)` (`on`, `killed` — вимикач, `unknown` — немає придатного стану; API
   відповідає 503 в обох останніх, але телеметрія рахує `unknown` як збій, ADR-0006), `isEnabled(householdId, flag)`,
-  `enabledFlags(householdId)`, `refresh()`, `loaded`, `fresh`. Опція `onReloadHealth(клас помилки | undefined)` — один раз,
+  `enabledFlags(householdId)`, `isEnabledForAll(flag)`, `refresh()`, `loaded`, `fresh`. Опція `onReloadHealth(клас помилки | undefined)` — один раз,
   коли перечитування починають падати, і один раз після відновлення (`main.ts` логує `flags.reload_failed` / `recovered`).
   Стан кешується; його вік рахується від початку завантаження; перший запит після `REFRESH_MS` (15 с) перечитує його і
   чекає не довше `LOAD_WAIT_MS` (2 с). Невдале чи зависле перечитування лишає останній стан, поки йому менше
@@ -55,7 +55,11 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 До читання тіла API відповідає 503 `MODULE_UNAVAILABLE`, поки вимикач модуля ввімкнено, і 404 `NOT_FOUND`, поки прапорець
 вимкнений для простору (ADR-0004).
 
-Прапорці: `household.core` — `operational`, власник `product-owner`, перегляд до 2027-02-04.
+Прапорці: `household.core` — `operational`, власник `product-owner`, перегляд до 2027-02-04; `identity.sign-in` — `release`
+(ACC-01: реєстрація і вхід), власник `product-owner`, перегляд до 2027-02-12.
+
+Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на
+етапі `all` (і так само кожен прапорець із `requires`), бо до входу немає простору для тестової групи чи частки (ADR-0009).
 
 ## Залежності
 

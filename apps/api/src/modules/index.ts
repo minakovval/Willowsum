@@ -1,6 +1,7 @@
 // Registry of backend modules (ARC-01). scripts/new-module.ts adds each new module here; the event
 // catalogue and the contract check read this list.
 import type { ModuleDefinition } from "../platform/modules/define.ts";
+import { identityModule } from "./identity/index.ts";
 import { featureFlagsModule } from "./feature-flags/index.ts";
 import { planCatalogModule } from "./plan-catalog/index.ts";
 import { accessScopeModule } from "./access-scope/index.ts";
@@ -11,5 +12,6 @@ export const modules: readonly ModuleDefinition[] = [
   accessScopeModule,
   planCatalogModule,
   featureFlagsModule,
+  identityModule,
   // new-module: insert above this line
 ];

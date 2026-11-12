@@ -35,6 +35,11 @@ export interface FlagRuntime {
   isEnabled(householdId: string, flag: string): Promise<boolean>;
   /** The flags that are on for this space (only those: a client never learns of a hidden function). */
   enabledFlags(householdId: string): Promise<FlagKey[]>;
+  /**
+   * Is the flag on for everyone (rollout «all», and so is every flag it requires)? For functions used before
+   * any space exists (sign-up and sign-in, ACC-01): with no space there is no test space or share to be in.
+   */
+  isEnabledForAll(flag: string): Promise<boolean>;
   /** Reloads the state now; waits at most LOAD_WAIT_MS and never fails (see `fresh`). */
   refresh(): Promise<void>;
   /** Has the state been loaded at least once? */
@@ -74,6 +79,23 @@ export async function flagOn(
     if (depth > MAX_REQUIRES_DEPTH)
       throw new Error(`Flag ${flag}: «requires» chains too deep (feature-flags)`);
     if (!(await isOnFor(key, snapshot.rollouts.get(key) ?? OFF, householdId, isTestHousehold))) return false;
+    key = catalogue[key]!.requires;
+  }
+  return true;
+}
+
+/** Is the flag at rollout «all», and every flag it requires too? (No space: no test space or share.) */
+export function flagOnForAll(
+  snapshot: FlagSnapshot,
+  flag: string,
+  catalogue: FlagCatalogue = FLAGS,
+): boolean {
+  let key: string | undefined = flag;
+  for (let depth = 0; key !== undefined; depth++) {
+    if (!Object.hasOwn(catalogue, key)) throw new Error(`Unknown flag ${key} (feature-flags)`);
+    if (depth > MAX_REQUIRES_DEPTH)
+      throw new Error(`Flag ${flag}: «requires» chains too deep (feature-flags)`);
+    if ((snapshot.rollouts.get(key) ?? OFF).stage !== "all") return false;
     key = catalogue[key]!.requires;
   }
   return true;
@@ -223,6 +245,11 @@ export function createFlagRuntime(store: FlagStore, options: FlagRuntimeOptions 
     enabledFlags: async (householdId) => {
       const s = await current();
       return s === undefined ? [] : flagsOn(s, householdId, isTest(householdId));
+    },
+    isEnabledForAll: async (flag) => {
+      if (!Object.hasOwn(FLAGS, flag)) throw new Error(`Unknown flag ${flag} (feature-flags)`);
+      const s = await current();
+      return s !== undefined && flagOnForAll(s, flag);
     },
   };
 }

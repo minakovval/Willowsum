@@ -3,6 +3,7 @@ import {
   checkFlagsReady,
   createFlagRuntime,
   flagOn,
+  flagOnForAll,
   flagsOn,
   flagsReadiness,
   KILL_SWITCH_MAX_DELAY_MS,
@@ -260,6 +261,58 @@ describe("CICD-06: a sub-function's flag is on only while the flag it requires i
     expect(
       await flagOn(snap(["x.core", "x.core.export"]), "x.core.export", h, async () => false, catalogue),
     ).toBe(true);
+  });
+});
+
+describe("ACC-01 / ADR-0009: a flag «for everyone» (functions used before any space exists)", () => {
+  const catalogue = {
+    "x.core": { kind: "operational" },
+    "x.core.export": { kind: "release", requires: "x.core" },
+  };
+  const snap = (
+    rollouts: Record<string, { stage: "off" | "test" | "all" } | { stage: "share"; percent: number }>,
+  ) => ({
+    rollouts: new Map(Object.entries(rollouts)),
+    killed: new Set<string>(),
+    fullyEnabledAt: new Map(),
+  });
+
+  it("on only at «all» (a test group or a share needs a space), and only while every flag it requires is at «all»", () => {
+    expect(flagOnForAll(snap({ "x.core": { stage: "all" } }), "x.core", catalogue)).toBe(true);
+    for (const stage of [
+      { stage: "off" as const },
+      { stage: "test" as const },
+      { stage: "share" as const, percent: 99 },
+    ])
+      expect(flagOnForAll(snap({ "x.core": stage }), "x.core", catalogue)).toBe(false);
+    expect(flagOnForAll(snap({}), "x.core", catalogue)).toBe(false);
+    expect(flagOnForAll(snap({ "x.core.export": { stage: "all" } }), "x.core.export", catalogue)).toBe(false);
+    expect(
+      flagOnForAll(
+        snap({ "x.core": { stage: "all" }, "x.core.export": { stage: "all" } }),
+        "x.core.export",
+        catalogue,
+      ),
+    ).toBe(true);
+  });
+
+  it("the runtime answers from its state; an unknown flag is a programming error; no state → off", async () => {
+    const store = memoryFlagStore();
+    const runtime = createFlagRuntime(store);
+    await store.setRollout("identity.sign-in", { stage: "test" });
+    await runtime.refresh();
+    expect(await runtime.isEnabledForAll("identity.sign-in")).toBe(false);
+    await store.setRollout("identity.sign-in", { stage: "all" });
+    await runtime.refresh();
+    expect(await runtime.isEnabledForAll("identity.sign-in")).toBe(true);
+    await expect(runtime.isEnabledForAll("nope")).rejects.toThrow(/Unknown flag/);
+    const failing = createFlagRuntime({
+      ...memoryFlagStore(),
+      snapshot: async () => {
+        throw new Error("down");
+      },
+    });
+    expect(await failing.isEnabledForAll("identity.sign-in")).toBe(false);
   });
 });
 

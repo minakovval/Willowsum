@@ -5,6 +5,7 @@
  */
 export const FEATURES = {
   "household.core": "Робота з власним простором: перегляд і зміна його даних через API",
+  "identity.sign-in": "Реєстрація за email і паролем, підтвердження email, вхід і вихід (ACC-01)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

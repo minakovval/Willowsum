@@ -12,6 +12,7 @@ import {
   principalHeader,
   testApp,
   testWiring,
+  servedRoutes,
 } from "./http.ts";
 import { IDEMPOTENCY_REPLAYED_HEADER } from "../src/platform/http/idempotency.ts";
 import { mountApi, apiRoutes } from "../src/api.ts";
@@ -257,13 +258,8 @@ describe("ARC-07 criterion «маршрут без перевірки прав �
       api: (a) => mountApi(a, testWiring()),
     });
     await app.ready();
-    const served = new Set<string>();
-    // printRoutes in common-prefix-free form: one line per route with its methods.
-    for (const line of app.printRoutes({ commonPrefix: false }).split("\n")) {
-      const m = line.match(/(\/v1\S*) \(([^)]+)\)/);
-      if (!m) continue;
-      for (const method of m[2]!.split(", ")) if (method !== "HEAD") served.add(`${method} ${m[1]}`);
-    }
+    // Every served route under /v1 (the route tree rebuilt into full paths).
+    const served = new Set([...servedRoutes(app)].filter((r) => r.split(" ")[1]!.startsWith("/v1")));
     const declared = new Set(apiRoutes.map((r) => `${r.method} ${fastifyPath(r.path)}`));
     expect([...served].sort()).toEqual([...declared].sort());
     await app.close();

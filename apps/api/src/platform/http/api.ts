@@ -12,6 +12,7 @@ import {
   requestHash,
   type IdempotencyStore,
 } from "./idempotency.ts";
+import { cookieContext, readSessionCookie } from "./cookies.ts";
 import { originAllowed } from "./origin.ts";
 import {
   ApiProblem,
@@ -38,6 +39,8 @@ import {
   type HouseholdFreeDatabase,
   type Principal,
   type ProtectedContext,
+  type PublicContext,
+  type RouteHttp,
   type RouteInput,
 } from "./route.ts";
 
@@ -49,7 +52,9 @@ import {
  * does not exist) → role and scope (access-scope, 403) → plan (plan-catalog, 402) → input validation with
  * the route's zod schemas (400) → idempotency for create routes (409 / replay) → handler → the response
  * parsed by the route's response schema (fields not in the contract never leave the server). Public
- * (platform) routes have no module, flag or session: rate limit, Origin, validation and the handler.
+ * platform routes have no module, flag or session: rate limit, Origin, validation and the handler. A public
+ * route of a module (sign-up and sign-in, ACC-01) has no session either: after the rate limit and the Origin, its
+ * module's kill switch (503) and its flag for everyone (404, `checkFlagForAll`), all before the body is read.
  */
 export interface ApiOptions {
   readonly routes: readonly ApiRoute[];
@@ -71,6 +76,15 @@ export interface ApiOptions {
   readonly moduleState?: (module: string) => Promise<"on" | "killed" | "unknown">;
   /** Is the flag on for the caller's space (feature-flags, CICD-06 FR 1)? */
   readonly checkFlag: (principal: Principal, flag: string) => Promise<boolean>;
+  /**
+   * Is the flag on for everyone (feature-flags: rollout «all»)? Public routes of a module have no space to
+   * evaluate a share or a test space for. Omitted: off, so such routes answer 404.
+   */
+  readonly checkFlagForAll?: (flag: string) => Promise<boolean>;
+  /** What a module's public routes get as `ctx.services` (its ports and settings, src/api.ts). */
+  readonly services?: (module: string) => unknown;
+  /** The app is served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
+  readonly secureCookies?: boolean;
   /** Every permission, feature key and flag that exists; a route naming another one is refused at start. */
   readonly permissions: ReadonlySet<string>;
   readonly features: ReadonlySet<string>;
@@ -229,7 +243,7 @@ export function installProblemHandlers(
       reportServerError(reportError, request, error.code, error);
       if (error.code === "MODULE_UNAVAILABLE")
         void reply.header("retry-after", String(MODULE_UNAVAILABLE_RETRY_AFTER_S));
-      if (error instanceof RateLimited) void reply.header("retry-after", String(error.retryAfterS));
+      if (error.retryAfterS !== undefined) void reply.header("retry-after", String(error.retryAfterS));
       return sendProblem(reply, error.code, request, supportId, {
         detail: error.detail,
         errors: error.errors,
@@ -381,7 +395,12 @@ export function assertRoutes(
       throw new Error(`Route ${where}: operationId ${route.operationId} is not unique`);
     seen.add(where);
     operations.add(route.operationId);
-    if (isPublic(route.access)) continue;
+    if (isPublic(route.access)) {
+      const flag = route.access.flag;
+      if (flag !== undefined && !options.flags.has(flag))
+        throw new Error(`Route ${where}: unknown flag ${flag} (feature-flags)`);
+      continue;
+    }
     if (!options.permissions.has(route.access.permission)) {
       throw new Error(`Route ${where}: unknown permission ${route.access.permission} (access-scope)`);
     }
@@ -434,6 +453,40 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   app.removeContentTypeParser("text/plain");
   // The session found by a route's onRequest hook, for its handler (one entry per request, gone with it).
   const principals = new WeakMap<FastifyRequest, Principal>();
+  /**
+   * A module switched off by its kill switch answers «temporarily unavailable»; the rest works. Without a
+   * usable flag state every module answers the same, but that is an outage, not a decision.
+   */
+  const moduleOn = async (request: FastifyRequest, module: string): Promise<void> => {
+    const state = options.moduleState
+      ? await options.moduleState(module)
+      : (await options.moduleAvailable(module))
+        ? "on"
+        : // Without the reason, an unavailable module counts as an outage, never as a deliberate switch.
+          "unknown";
+    if (state === "killed") {
+      markUnavailableReason(request, "kill_switch");
+      throw new ApiProblem("MODULE_UNAVAILABLE");
+    }
+    if (state === "unknown") {
+      markUnavailableReason(request, "flags_unknown");
+      throw new FlagStateUnavailable();
+    }
+  };
+  /** The request as a public route sees it (cookies only through cookies.ts). */
+  const routeHttp = (request: FastifyRequest, reply: FastifyReply): RouteHttp => {
+    const cookies = cookieContext(request, options.secureCookies ?? false);
+    const set: string[] = [];
+    return Object.freeze({
+      clientAddress: clientAddressKey(request.ip),
+      https: cookies.https,
+      sessionCookie: (name: string) => readSessionCookie(request, name, cookies),
+      setCookie: (header: string) => {
+        set.push(header);
+        void reply.header("set-cookie", [...set]);
+      },
+    });
+  };
   for (const route of options.routes) {
     const access = route.access;
     const limitClass = routeRateLimitClass(route);
@@ -449,26 +502,21 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
       // hidden function answers 503 / 401 / 404 whatever body or media type was sent — never 415, 413 or 400
       // first, which would show that the route exists (CICD-06 FR 3, DAT-05 FR 7; ADR-0004).
       ...(isPublic(access)
-        ? {}
+        ? route.module === null
+          ? {}
+          : {
+              // A module's public route: after the rate limit and Origin (above), the kill switch, then its flag for
+              // everyone — all before the body is read.
+              onRequest: async (request: FastifyRequest) => {
+                await moduleOn(request, route.module as string);
+                const flag = access.flag as string;
+                if (!(await (options.checkFlagForAll?.(flag) ?? Promise.resolve(false))))
+                  throw new ApiProblem("NOT_FOUND");
+              },
+            }
         : {
             onRequest: async (request: FastifyRequest) => {
-              // A module switched off by its kill switch answers «temporarily unavailable»; the rest works.
-              // Without a usable flag state every module answers the same, but that is an outage, not a decision.
-              const module = route.module as string;
-              const state = options.moduleState
-                ? await options.moduleState(module)
-                : (await options.moduleAvailable(module))
-                  ? "on"
-                  : // Without the reason, an unavailable module counts as an outage, never as a deliberate switch.
-                    "unknown";
-              if (state === "killed") {
-                markUnavailableReason(request, "kill_switch");
-                throw new ApiProblem("MODULE_UNAVAILABLE");
-              }
-              if (state === "unknown") {
-                markUnavailableReason(request, "flags_unknown");
-                throw new FlagStateUnavailable();
-              }
+              await moduleOn(request, route.module as string);
               const principal = await options.authenticate(request);
               if (!principal) throw new ApiProblem("UNAUTHENTICATED");
               // A function that is off for the space does not exist for it: the same 404 as an unknown path.
@@ -493,9 +541,18 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         };
         if (isPublic(route.access)) {
           const input = parseInput(route, request);
-          return reply.send(
-            await respond(route.response.status, await route.handler(input, { principal: null })),
-          );
+          const db = route.module === null ? null : options.databases.for(route.module);
+          const ctx: PublicContext = Object.freeze({
+            principal: null,
+            db: db
+              ? Object.freeze({
+                  transaction: <T>(work: (q: ModuleQueryRunner) => Promise<T>) => db.transaction(work),
+                })
+              : null,
+            http: routeHttp(request, reply),
+            services: route.module === null ? undefined : options.services?.(route.module),
+          });
+          return reply.send(await respond(route.response.status, await route.handler(input, ctx)));
         }
         const module = route.module as string;
         const principal = principals.get(request);

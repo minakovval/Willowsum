@@ -183,14 +183,13 @@ export function createApiRateLimits(
 
 /** 429 RATE_LIMITED with the seconds for `Retry-After` (NFR-14 FR 6). */
 export class RateLimited extends ApiProblem {
-  readonly retryAfterS: number;
+  declare readonly retryAfterS: number;
   readonly limitClass: RateLimitClass;
 
   constructor(limitClass: RateLimitClass, retryAfterS: number) {
-    super("RATE_LIMITED");
+    super("RATE_LIMITED", { retryAfterS });
     this.name = "RateLimited";
     this.limitClass = limitClass;
-    this.retryAfterS = retryAfterS;
   }
 }
 

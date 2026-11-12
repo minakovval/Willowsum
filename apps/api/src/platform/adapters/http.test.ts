@@ -136,3 +136,34 @@ describe("ARC-05: HTTP transport of working adapters", () => {
     expect(() => checkBaseUrl("https://user:pw@x.test/")).toThrow(/credentials/);
   });
 });
+
+describe("ARC-05 FR 5: POST with a JSON body (ACC-01: mail and CAPTCHA adapters)", () => {
+  const POST_PORT = defineProviderPort("notes", {
+    create: { idempotent: false, fields: ["title", "book"], path: "books/{book}/notes" },
+  });
+
+  it("fills only path placeholders from pathValues, sends the body as JSON, checks every field first", async () => {
+    const { recorder, http } = setup(() => jsonResponse({ id: "n1" }));
+    const op = POST_PORT.operations.create;
+    expect(await http.postJson(op, { book: "b1" }, { title: "Synthetic" })).toEqual({ id: "n1" });
+    const request = recorder.requests[0]!;
+    expect(request.method).toBe("POST");
+    expect(request.url).toBe("https://prices.test/api/books/b1/notes");
+    expect(await request.clone().json()).toEqual({ title: "Synthetic" });
+    await expect(
+      http.postJson(op, { book: "b1" }, { title: "x", email: "nobody@example.test" }),
+    ).rejects.toThrow(OutgoingFieldError);
+    // A path value that is not a placeholder would land in the query: refused, nothing sent.
+    await expect(http.postJson(op, { book: "b1", title: "x" }, {})).rejects.toThrow(/body, not in the query/);
+    expect(recorder.requests).toHaveLength(1);
+  });
+
+  it("a write is not retried after a failure", async () => {
+    const { recorder, http } = setup(() => new Response("", { status: 503 }));
+    const error = await http
+      .postJson(POST_PORT.operations.create, { book: "b1" }, { title: "x" })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(recorder.requests).toHaveLength(1);
+  });
+});

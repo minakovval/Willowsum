@@ -13,6 +13,12 @@ const deployed = (environment: string) => ({
   ...base,
   WS_TELEMETRY_ENVIRONMENT: environment,
   WS_TELEMETRY: "off",
+  // ACC-01 FR 12: a deployed api role runs the live CAPTCHA and mail adapters (synthetic values).
+  WS_PROVIDER_MODE: "live",
+  WS_WEB_ORIGIN: "https://app.example.org",
+  WS_CAPTCHA_SECRET: "synthetic-synthetic-synthetic",
+  WS_MAIL_API_KEY: "synthetic-synthetic-synthetic",
+  WS_MAIL_FROM: "Willowsum <no-reply@example.org>",
 });
 
 function variablesOf(fn: () => unknown): readonly string[] {

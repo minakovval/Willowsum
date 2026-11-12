@@ -11,6 +11,16 @@ export const PROBLEMS = {
   MALFORMED_REQUEST: { status: 400, title: "The request body could not be read" },
   INVALID_CURSOR: { status: 400, title: "The page cursor is not valid" },
   UNAUTHENTICATED: { status: 401, title: "Sign-in is required" },
+  /**
+   * Sign-in failed (ACC-01 FR 9, NFR-15 FR 2): one answer for an unknown email and a wrong password, byte for
+   * byte, so it never tells which one was wrong or that an account exists.
+   */
+  INVALID_CREDENTIALS: { status: 401, title: "Wrong email or password" },
+  /**
+   * The CAPTCHA was missing or did not pass (ACC-01 FR 12): at sign-up, and at every sign-in attempt for an email
+   * after its lockout. Nothing else of the request was checked.
+   */
+  CAPTCHA_REQUIRED: { status: 400, title: "Complete the CAPTCHA and try again" },
   PLAN_LIMIT_REACHED: { status: 402, title: "The plan of this space does not include this action" },
   FORBIDDEN: { status: 403, title: "Your role does not allow this action" },
   /** A write request whose `Origin` is not one of the app's own (NFR-15 FR 5): a cross-site request. */
@@ -38,6 +48,11 @@ export const PROBLEMS = {
   LIMIT_REACHED: { status: 422, title: "A limit of the service was reached" },
   /** Too many requests from this client in the current minute (NFR-14 FR 5–6); retry after `Retry-After`. */
   RATE_LIMITED: { status: 429, title: "Too many requests; try again shortly" },
+  /**
+   * Sign-in for this email is locked after 5 failed attempts in 15 minutes (ACC-01, NFR-14 FR 7): retry after
+   * `Retry-After`, then with a CAPTCHA. The same for an email without an account.
+   */
+  SIGN_IN_LOCKED: { status: 429, title: "Sign-in is temporarily locked; try again later" },
   INTERNAL: { status: 500, title: "Something went wrong on our side" },
   /** The route's module is switched off by its kill switch (CICD-06 FR 3); clients show «Тимчасово недоступно». */
   MODULE_UNAVAILABLE: { status: 503, title: "This function is temporarily unavailable" },
@@ -110,10 +125,17 @@ export class ApiProblem extends Error {
   readonly errors: readonly ProblemFieldError[] | undefined;
   /** Extension members of the problem (VERSION_CONFLICT, LIMIT_REACHED); values the server chose, never input. */
   readonly extensions: ProblemExtensions | undefined;
+  /** Whole seconds the client waits before retrying: sent as `Retry-After` (SIGN_IN_LOCKED, RATE_LIMITED). */
+  readonly retryAfterS: number | undefined;
 
   constructor(
     code: ProblemCode,
-    options: { detail?: string; errors?: readonly ProblemFieldError[]; extensions?: ProblemExtensions } = {},
+    options: {
+      detail?: string;
+      errors?: readonly ProblemFieldError[];
+      extensions?: ProblemExtensions;
+      retryAfterS?: number;
+    } = {},
   ) {
     super(code);
     this.name = "ApiProblem";
@@ -121,6 +143,12 @@ export class ApiProblem extends Error {
     this.detail = options.detail;
     this.errors = options.errors;
     this.extensions = options.extensions;
+    if (
+      options.retryAfterS !== undefined &&
+      (!Number.isInteger(options.retryAfterS) || options.retryAfterS < 1)
+    )
+      throw new Error("retryAfterS is a positive integer");
+    this.retryAfterS = options.retryAfterS;
   }
 }
 

@@ -1,8 +1,14 @@
 {
-  "$comment": "ARC-03: tables in module schemas without household_id (no customer data), each with the reason. Checked by scripts/check-schema.ts; a customer-data table never goes here.",
+  "$comment": "ARC-03: tables in module schemas without household_id (no data of a space), each with the reason. Checked by scripts/check-schema.ts; a table of a space's data never goes here. Accounts and sign-in data of persons (identity) are not data of a space: a login exists before its first space (ADR-0009).",
   "tables": {
     "audit.platform_entries": "Platform audit log (П-10) for changes that belong to no household: feature flag rollouts and module kill switches (CICD-06). Opaque staff ids, flag keys, module names and setting values; no customer data.",
     "feature_flags.flags": "Rollout state of each feature flag (CICD-06): platform-wide setting (stage, share in %), no customer data. Test spaces are in feature_flags.test_households under the household policy.",
-    "feature_flags.kill_switches": "Kill switch of each module (CICD-06 FR 3): platform-wide setting (module name, on/off), no customer data."
+    "feature_flags.kill_switches": "Kill switch of each module (CICD-06 FR 3): platform-wide setting (module name, on/off), no customer data.",
+    "identity.accounts": "Account data of a person, not of a space (ADR-0009): a login exists before its first space and may later belong to several, so it has no household_id; only the identity module's role reaches it, and no space's data is in it. Email, display name and the argon2id hash of the password.",
+    "identity.email_confirmations": "Account data of a person, not of a space (ADR-0009): a login exists before its first space and may later belong to several, so it has no household_id; only the identity module's role reaches it, and no space's data is in it. SHA-256 digests of email confirmation links, their expiry and use.",
+    "identity.registrations": "Account data of a person, not of a space (ADR-0009): a login exists before its first space and may later belong to several, so it has no household_id; only the identity module's role reaches it, and no space's data is in it. SHA-256 digests of the opaque token of a sign-up's «Перевірте пошту» screen.",
+    "identity.sessions": "Account data of a person, not of a space (ADR-0009): a login exists before its first space and may later belong to several, so it has no household_id; only the identity module's role reaches it, and no space's data is in it. SHA-256 digests of session tokens, their start, last use and end.",
+    "identity.sign_in_guards": "Sign-in lockout per typed email (ACC-01, NFR-14 FR 7, ADR-0009), also for addresses without an account, so it cannot belong to a space: a SHA-256 digest of the address, the lock end and the CAPTCHA mark.",
+    "identity.throttle_events": "Timed events of the sign-in, mail, resend and sign-up limits (ACC-01, NFR-14 FR 7, ADR-0009) before any space exists: a SHA-256 digest of the address or token, the limit and the time."
   }
 }
