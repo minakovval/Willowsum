@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-13, CMP-13, CMP-26, CMP-32, CMP-63, NFR-08
 - Сценарії: UC-DAT-01, UC-DAT-02, UC-DAT-03, UC-DAT-04
 - Модуль: transactions, saved-views, asset-registry
-- Перевіряється: —
+- Перевіряється: apps/api/src/platform/lists/list-total.test.ts, apps/api/src/platform/lists/list-engine.test.ts, apps/api/test/dat01-list.it.test.ts
 
 **Мета.** Як користувач з великою кількістю активів, транзакцій і документів, я хочу працювати з будь-яким списком однаково — сортувати, фільтрувати, обирати колонки і зберігати свої вигляди, щоб швидко знаходити потрібне без окремого інтерфейсу для кожного типу.
 

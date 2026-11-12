@@ -54,3 +54,22 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
     freshness,
   };
 }
+
+/**
+ * The official rates as the list totals read them (DAT-01@PoC FR 12; `platform/lists/list-total.ts`): the rate of
+ * the date or the nearest earlier one, and null — never a zero rate — when there is none.
+ */
+export function officialDatedRates(fx: Pick<FxRates, "rate">): {
+  rate(from: string, to: string, date: string): Promise<ExchangeRate | null>;
+} {
+  return {
+    async rate(from, to, date) {
+      try {
+        return (await fx.rate(from, to, date)).rate;
+      } catch (error) {
+        if (error instanceof RateUnavailableError) return null;
+        throw error;
+      }
+    },
+  };
+}
