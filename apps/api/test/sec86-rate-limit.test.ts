@@ -56,7 +56,9 @@ afterEach(async () => {
   app = undefined;
 });
 
-const middle = () => Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 20_000;
+// Fixed once per run, so a run crossing a minute boundary cannot start a new rate-limit window mid-test.
+const MIDDLE_AT = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 20_000;
+const middle = () => MIDDLE_AT;
 
 async function serve(
   options: { trustedProxyHops?: number; api?: Partial<ApiOptions> } = {},

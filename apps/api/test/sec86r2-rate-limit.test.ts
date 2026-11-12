@@ -28,7 +28,9 @@ afterEach(async () => {
   app = undefined;
 });
 
-const fixedNow = () => Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 15_000;
+// Fixed once per run, so a run crossing a minute boundary cannot start a new rate-limit window mid-test.
+const FIXEDNOW_AT = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 15_000;
+const fixedNow = () => FIXEDNOW_AT;
 
 describe("NFR-14 FR 8: ip:port and [v6]:port (round 2)", () => {
   it("well-formed forms give the address (v4) or its /64 (v6); a zone id is dropped", () => {

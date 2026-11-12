@@ -81,7 +81,10 @@ afterEach(async () => {
   app = undefined;
 });
 
-const middle = () => Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 20_000;
+// Fixed once per test run: re-reading the wall clock on every call let a run that crossed a minute boundary
+// start a new rate-limit window mid-test, so the 429 never came (flaky in CI).
+const MIDDLE = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 20_000;
+const middle = () => MIDDLE;
 
 async function serve(options: { hsts?: boolean; api?: Partial<ApiOptions> } = {}): Promise<FastifyInstance> {
   app = buildServer({
