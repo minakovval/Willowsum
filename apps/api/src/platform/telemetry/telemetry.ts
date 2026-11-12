@@ -28,10 +28,12 @@ import {
   type SpanProcessor,
 } from "@opentelemetry/sdk-trace";
 import {
+  JsonLinesLogExporter,
   MemoryExporters,
   redactingLogRecordExporter,
   redactingMetricExporter,
   redactingSpanExporter,
+  type ServerLogStream,
 } from "./exporters.ts";
 import type { TelemetryMode } from "./modes.ts";
 
@@ -49,6 +51,8 @@ export interface TelemetryOptions {
   readonly otlp?: { readonly endpoint: string; readonly authorization: string };
   /** How often metrics are exported (default 30 s; part of the ≤ 5 min alert budget, infra/observability). */
   readonly metricIntervalMs?: number;
+  /** Mode `off`: where the structured log lines go (default: standard output, bounded and flushed). */
+  readonly writeLogLine?: ((line: string) => void) | ServerLogStream;
 }
 
 export interface Telemetry {
@@ -109,6 +113,9 @@ export function startTelemetry(options: TelemetryOptions): Telemetry {
     spanExporter = memory.spans;
     logExporter = memory.logs;
     metricExporter = memory.metrics;
+  } else {
+    // `off`: nothing is exported; log records still become structured lines on the server (PoC).
+    logExporter = new JsonLinesLogExporter(options.writeLogLine);
   }
   const batch = options.mode === "otlp";
   const spanProcessors: SpanProcessor[] = spanExporter

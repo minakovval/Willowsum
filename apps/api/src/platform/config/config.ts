@@ -27,9 +27,9 @@ export interface Config {
   readonly providerMode: ProviderMode;
   /**
    * Telemetry (ARC-09, ADR-0006): `test` (the default, local development and CI — kept in memory, nothing
-   * leaves the process), `otlp` (deployed environments: OTLP/HTTP to the endpoint, Grafana Cloud EU by the
-   * owner's decision of 2026-11-06) or `off` (trace ids still made, nothing kept). Replacing the service is
-   * a change of these variables only.
+   * leaves the process), `otlp` (export over OTLP/HTTP to the endpoint; from MVP) or `off` (no export:
+   * structured log lines on standard output, trace ids still made; the PoC in production, owner's decision of
+   * 2026-11-12). Replacing the service or turning export on is a change of these variables only.
    */
   readonly telemetry: {
     readonly mode: TelemetryMode;
@@ -168,7 +168,8 @@ export function loadConfig(
     for (const issue of parsed.error.issues) problems.push(String(issue.path[0]));
   }
   // A deployed environment must choose its telemetry explicitly and may not keep it in memory: a forgotten
-  // WS_TELEMETRY there would silently lose every signal. Elsewhere the default stays `test`.
+  // WS_TELEMETRY there would silently lose every signal. `otlp` exports; `off` (the PoC, owner 2026-11-12)
+  // keeps the structured logs on the server without export. Elsewhere the default stays `test`.
   if (
     parsed.success &&
     DEPLOYED_ENVIRONMENTS.has(parsed.data.WS_TELEMETRY_ENVIRONMENT) &&

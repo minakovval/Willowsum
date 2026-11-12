@@ -178,12 +178,16 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 | S-192 | Рівень складності (Базовий / Розширений) | UX-01, UX-08 | a «Дизайн» link |
 | S-193 | Онбординг (показати чек-лист знову) | UX-01 | a «Дизайн» link |
 
-### Migrated slices without design (102)
+### Migrated slices without design (107)
 
 - ARC-01@MVP
+- ARC-04@MVP
+- ARC-09@MVP
 - ARC-10@MVP
+- ARC-11@MVP
 - CHT-00@MVP
 - CICD-02@MVP
+- CICD-04@MVP
 - CICD-05@MVP
 - CICD-09@MVP
 - CICD-11@MVP
@@ -273,6 +277,7 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 - NFR-07@MVP
 - NFR-08@MVP
 - NFR-09@MVP
+- NFR-10@MVP
 - NFR-11@MVP
 - NFR-12@MVP
 - NFR-14@MVP
@@ -283,11 +288,15 @@ Not migrated in PoC v2: 0 slices without design links (links are unknown until m
 - NFR-19@MVP
 - VAL-05@MVP
 
-### Slices without acceptance criteria (14)
+### Slices without acceptance criteria (18)
 
 - ARC-01@MVP
+- ARC-04@MVP
+- ARC-09@MVP
 - ARC-10@MVP
+- ARC-11@MVP
 - CICD-02@MVP
+- CICD-04@MVP
 - CICD-05@MVP
 - CICD-09@MVP
 - CICD-11@MVP

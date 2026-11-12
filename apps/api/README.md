@@ -1,6 +1,6 @@
 # @willowsum/api — бекенд
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-07 (ARC-05, ARC-09, NFR-14 + NFR-15)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-12 (телеметрія `off` у PoC: структуровані логи без експорту)
 
 Один застосунок на TypeScript, розділений на модулі з жорсткими межами (ARC-01). Стек і правила —
 [ADR-0001](../../docs/adr/0001-backend-stack.md); ізоляція просторів, схема даних, міграції й аудит —
@@ -54,7 +54,7 @@
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005) | `test` |
-| `WS_TELEMETRY` | Телеметрія (ARC-09, ADR-0006): `test` (у пам'яті процесу, нічого не виходить з машини), `otlp` (OTLP/HTTP на `WS_OTLP_ENDPOINT`; Grafana Cloud EU) або `off`. Для `staging` і `production` обов'язкова і не `test` | `test` (поза `staging`/`production`) |
+| `WS_TELEMETRY` | Телеметрія (ARC-09, ADR-0006): `test` (у пам'яті процесу, нічого не виходить з машини), `otlp` (експорт OTLP/HTTP на `WS_OTLP_ENDPOINT`; з MVP) або `off` (без експорту: логи після фільтра — рядки JSON у стандартний вивід, траси й метрики не зберігаються; так працює production у PoC, рішення власника 2026-11-12). Для `staging` і `production` обов'язкова і не `test` | `test` (поза `staging`/`production`) |
 | `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
 | `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
 | `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
@@ -157,7 +157,13 @@
 ## Телеметрія (ARC-09, NFR-10)
 
 - Траси, метрики й логи — OpenTelemetry у всіх ролях (`src/platform/telemetry/`, ADR-0006). Сервіс — лише конфігурація:
-  `WS_TELEMETRY`, `WS_OTLP_ENDPOINT`, `WS_OTLP_AUTHORIZATION`; локально і в CI — `test` (пам'ять).
+  `WS_TELEMETRY`, `WS_OTLP_ENDPOINT`, `WS_OTLP_AUTHORIZATION`; локально і в CI — `test` (пам'ять). У PoC експорту немає
+  (`off`): на сервері лишаються структуровані логи — кожен запис після того самого фільтра одним рядком JSON
+  (`time`, `severity`, `event`, `trace_id`, `span_id`, `resource`, `attributes`) у стандартний вивід; у пам'яті чекає
+  не більше 1 МіБ рядків (новіші відкидаються, наступний рядок несе `dropped_lines`), зупинка чекає спорожнення виводу
+  до 2 с. Рядки життєвого циклу `started` і `stopped` пише `main.ts` напряму, з тими самими полями `time`, `severity`,
+  `event`. Експорт (`otlp`) і
+  правила алертів — з MVP; увімкнення — лише конфігурація.
 - Кожен експортер обгорнуто фільтром: атрибут іде далі, лише якщо його ключ є в `ATTRIBUTE_RULES` (`telemetry/redaction.ts`),
   значення відповідає граматиці ключа і жоден детектор (email, IBAN, картка, суми, валюта, токени, координати, запит URL)
   не спрацював. Назва спана — метод і шаблон маршруту або технічна назва; тіло логу — назва події. Повідомлення помилок,

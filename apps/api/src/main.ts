@@ -135,12 +135,18 @@ lifecycle.onStop(() => server.close());
 
 await server.listen({ host: "0.0.0.0", port: config.port });
 logEvent("process.started", "info", { "ws.role": config.role });
-console.log(JSON.stringify({ event: "started", role: config.role, port: config.port }));
+/**
+ * Lifecycle lines written directly to stdout, outside telemetry: «stopped» comes after telemetry has stopped.
+ * Same base fields as the server log lines of `WS_TELEMETRY=off` (time, severity, event), no personal data.
+ */
+const lifecycleLine = (event: string, severity: "INFO" | "WARN", fields: Record<string, string | number>) =>
+  console.log(JSON.stringify({ time: new Date().toISOString(), severity, event, ...fields }));
+lifecycleLine("started", "INFO", { role: config.role, port: config.port });
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, () => {
     void lifecycle.stop().then((outcome) => {
-      console.log(JSON.stringify({ event: "stopped", role: config.role, outcome }));
+      lifecycleLine("stopped", outcome === "clean" ? "INFO" : "WARN", { role: config.role, outcome });
       process.exit(outcome === "clean" ? 0 : 1);
     });
   });

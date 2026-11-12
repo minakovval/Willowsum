@@ -130,6 +130,16 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
       ).toBe("test");
   });
 
+  it("PoC (owner, 2026-11-12): production runs without export — WS_TELEMETRY=off needs no OTLP variables; test stays refused", () => {
+    const production = { ...base, WS_TELEMETRY_ENVIRONMENT: "production" };
+    const off = loadConfig({ ...production, WS_TELEMETRY: "off" }, "api", ["ledger"]);
+    expect(off.telemetry).toEqual({ mode: "off", environment: "production" });
+    expect(off.deployed).toBe(true);
+    expect(
+      errorOf(() => loadConfig({ ...production, WS_TELEMETRY: "test" }, "api", ["ledger"])).variables,
+    ).toEqual(["WS_TELEMETRY"]);
+  });
+
   it("review of PR #85: an endpoint with a bare «?» or «#» is refused (the signal paths would land after it)", () => {
     for (const endpoint of [
       "https://otlp-gateway.example.eu/otlp?",

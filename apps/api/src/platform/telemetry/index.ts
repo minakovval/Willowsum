@@ -4,12 +4,15 @@ export { databaseErrorAttributes, databaseErrorFields } from "../db/errors.ts";
 export type { DatabaseErrorFields } from "../db/errors.ts";
 export { errorReportAttributes, reportServerErrorToTelemetry } from "./errors.ts";
 export {
+  JsonLinesLogExporter,
   MEMORY_LIMIT,
   MemoryExporters,
   redactLogRecord,
   redactResourceMetrics,
   redactSpan,
+  serverLogLine,
 } from "./exporters.ts";
+export type { ServerLogLine } from "./exporters.ts";
 export {
   annotateRequestError,
   instrumentHttp,
