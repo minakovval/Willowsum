@@ -28,9 +28,14 @@ const DAY = 24 * 60 * 60 * 1000;
 const MARKUP = String.raw`^\s*(?:#{1,6}\s*)?[*_]*\s*`;
 // Only «Ready» has the strict end: a negative value counts with any text after it («Not ready — see B1»), so
 // the check never fails open on a negative verdict. A trailing NBSP or «…» counts as space or punctuation.
-const VALUE = String.raw`:\s*[*_]*\s*[«"“]?(?:(Not ready|Changes requested)\b|(Ready)[»"”]?[.!…]?(?:[*_]*[.!…]?[ \t\u00a0]*$|[*_]+[.!:;,…]?[ \t\u00a0]))`;
-const VERDICT = new RegExp(`${MARKUP}Verdict${VALUE}`, 'gm');
-const SECURITY_VERDICT = new RegExp(`${MARKUP}Security verdict${VALUE}`, 'gm');
+const READY = String.raw`:\s*[*_]*\s*[«"“]?(Ready)[»"”]?[.!…]?(?:[*_]*[.!…]?[ \t\u00a0]*$|[*_]+[.!:;,…]?[ \t\u00a0])`;
+// A negative value is read in any letter case and spacing («Verdict: Not Ready», «Security Verdict : changes
+// requested»): a negative line that is not recognised would be dropped, and an earlier «Ready» would stand.
+const anyCase = (s) =>
+  s.replace(/[a-z]/gi, (c) => `[${c.toLowerCase()}${c.toUpperCase()}]`).replace(/ /g, String.raw`[\s\u00a0-]+`);
+const NEGATIVE = String.raw`\s*:\s*[*_\x60]*\s*[«"“]?(${anyCase('not ready')}|${anyCase('changes requested')})\b`;
+const VERDICT = new RegExp(`${MARKUP}(?:Verdict${READY}|${anyCase('verdict')}${NEGATIVE})`, 'gm');
+const SECURITY_VERDICT = new RegExp(`${MARKUP}(?:Security verdict${READY}|${anyCase('security verdict')}${NEGATIVE})`, 'gm');
 
 /**
  * The text a reader sees as the author's own words: without HTML comments, `<pre>`-like HTML blocks, fenced and
@@ -92,7 +97,7 @@ export const BODY_APPROVAL_LINE = /^\s*(?:\*\*)?Рішення власника\
  * A negation or refusal anywhere after «схвалено» («схвалено не буде», «відхилено», «never», «… not approved»)
  * makes the line no approval.
  */
-const NEGATION = /(?:^|[^\p{L}])(?:не|ні|відхилено|not|no|never)(?!\p{L})/iu;
+const NEGATION = /(?:^|[^\p{L}])(?:не|ні|відхилено|скасовано|відкликано|not|no|never|rejected|denied)(?!\p{L})/iu;
 
 /** Does the body hold the owner's chat decision as an approval line (not quoted, not code, not negated)? */
 export function bodyApproval(body) {
@@ -117,7 +122,9 @@ export function recordsOwnerDecision(body) {
   const rest = text.slice(m.index + m[0].length);
   // A subheading (deeper level) stays inside the section; a heading of the same or a higher level ends it.
   const next = new RegExp(`^#{1,${m[1].length}}[ \\t]`, 'm').exec(rest);
-  return (next ? rest.slice(0, next.index) : rest).trim() !== '';
+  // Subheadings alone (no text under them) record nothing.
+  const section = next ? rest.slice(0, next.index) : rest;
+  return section.replace(/^#{1,6}[ \t].*$/gm, '').trim() !== '';
 }
 /** The owner's «stop»: a line that is exactly «stop» or «стоп». */
 export const STOP_LINE = /^\s*(?:stop|стоп)\s*[.!]?\s*$/imu;

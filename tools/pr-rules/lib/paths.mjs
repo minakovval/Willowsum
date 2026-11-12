@@ -125,7 +125,7 @@ export const SENSITIVE_PATHS = {
     '!apps/api/scripts/**/*.test.ts', // a test of a gate script is not itself a gate
     'apps/api/provider-sdks.json',
     '**/eslint.config.*', // ESLint 10 takes the nearest config of each linted file: a nested one replaces the root rules
-    '**/vitest*.config.ts',
+    '**/vitest*.config.*',
     // Claude Code settings: hooks run commands in every agent session.
     '.claude/settings*.json',
   ],

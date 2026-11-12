@@ -367,3 +367,15 @@ test('review #87 r3: a subheading under «## Owner decision» stays inside the s
   assert.equal(recordsOwnerDecision('## Owner decision\n\n## Impact\n\ntext'), false, 'a same-level heading ends it');
   assert.equal(recordsOwnerDecision('### Owner decision\n\n## Impact\n\ntext'), false, 'a higher-level heading ends it');
 });
+
+test('review #87 r4: «скасовано», «відкликано», «rejected», «denied» are refusals', () => {
+  for (const w of ['скасовано', 'відкликано', 'rejected', 'denied']) {
+    assert.equal(bodyApproval(`Рішення власника (2026-11-12): схвалено, потім ${w}`), false, w);
+  }
+});
+
+test('review #87 r4: «## Owner decision» with only a subheading under it records nothing', () => {
+  assert.equal(recordsOwnerDecision('## Owner decision\n\n### Details\n\n## Impact\ntext'), false);
+  assert.equal(recordsOwnerDecision('## Owner decision\n### Details\n#### More\n'), false);
+  assert.equal(recordsOwnerDecision('## Owner decision\n### Details\nOwner, 2026-11-12: «так».\n'), true);
+});
