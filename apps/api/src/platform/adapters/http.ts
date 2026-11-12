@@ -34,6 +34,15 @@ export interface ProviderHttp {
     parse?: (body: unknown) => T,
   ): Promise<T>;
   /**
+   * GET like `getJson`, but `parse` receives the body as text: for an answer whose JSON numbers must not
+   * become floats (a provider that sends rates as JSON numbers reads them from the source text).
+   */
+  getText<T>(
+    operation: ProviderOperation,
+    values: Readonly<Record<string, string>>,
+    parse: (text: string) => T,
+  ): Promise<T>;
+  /**
    * POST a JSON body to the operation's path. `pathValues` fill its placeholders only; `body` holds the other
    * outgoing fields. Both are checked against the operation before anything is sent.
    */
@@ -99,7 +108,7 @@ export function createProviderHttp(options: ProviderHttpOptions): ProviderHttp {
   const send = <T>(
     operation: ProviderOperation,
     url: URL,
-    init: { method: "GET" | "POST"; body?: string },
+    init: { method: "GET" | "POST"; body?: string; text?: boolean },
     parse?: (body: unknown) => T,
   ): Promise<T> => {
     const fail = (kind: "unavailable" | "rejected" | "invalid-response", cause?: string) =>
@@ -136,7 +145,7 @@ export function createProviderHttp(options: ProviderHttpOptions): ProviderHttp {
       }
       let body: unknown;
       try {
-        body = await response.json();
+        body = init.text ? await response.text() : await response.json();
       } catch {
         throw fail("invalid-response");
       }
@@ -158,6 +167,16 @@ export function createProviderHttp(options: ProviderHttpOptions): ProviderHttp {
       // Both checks run before client.call: nothing is sent and the breaker is untouched.
       assertOutgoing(client.provider, operation, values);
       return send(operation, requestUrl(base, operation, values), { method: "GET" }, parse);
+    },
+    async getText<T>(
+      operation: ProviderOperation,
+      values: Readonly<Record<string, string>>,
+      parse: (text: string) => T,
+    ): Promise<T> {
+      assertOutgoing(client.provider, operation, values);
+      return send(operation, requestUrl(base, operation, values), { method: "GET", text: true }, (body) =>
+        parse(body as string),
+      );
     },
     async postJson<T>(
       operation: ProviderOperation,

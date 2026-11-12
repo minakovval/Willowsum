@@ -13,6 +13,10 @@
       "layer": "platform",
       "dependsOn": ["audit", "plan-catalog"]
     },
+    "fx-rates": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "household": {
       "layer": "platform",
       "dependsOn": ["audit"]
