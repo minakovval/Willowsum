@@ -1,4 +1,5 @@
 # CMP-16@MVP · CommandPalette — Командна панель
+> Згенеровано з [CMP-16.md](CMP-16.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** S
 

@@ -1,4 +1,5 @@
 # CMP-45@MVP · Treemap — Мозаїка часток
+> Згенеровано з [CMP-45.md](CMP-45.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

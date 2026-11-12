@@ -1,4 +1,5 @@
 # NFR-01@v1-mobile · Безпека
+> Згенеровано з [NFR-01.md](NFR-01.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** M
 

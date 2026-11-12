@@ -1,4 +1,5 @@
 # CMP-74@PoC · Progress — Прогрес процесу
+> Згенеровано з [CMP-74.md](CMP-74.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

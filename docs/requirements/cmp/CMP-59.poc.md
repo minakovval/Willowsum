@@ -1,4 +1,5 @@
 # CMP-59@PoC · IconButton — Кнопка-іконка
+> Згенеровано з [CMP-59.md](CMP-59.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

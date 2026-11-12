@@ -1,4 +1,5 @@
 # CMP-62@MVP · SortMenu — Меню сортування
+> Згенеровано з [CMP-62.md](CMP-62.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

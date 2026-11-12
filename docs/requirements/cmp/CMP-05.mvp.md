@@ -1,4 +1,5 @@
 # CMP-05@MVP · Switch — Перемикач
+> Згенеровано з [CMP-05.md](CMP-05.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

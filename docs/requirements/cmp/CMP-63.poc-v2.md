@@ -1,4 +1,5 @@
 # CMP-63@PoC v2 · ColumnPicker — Вибір колонок
+> Згенеровано з [CMP-63.md](CMP-63.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # VAL-11@v1-mobile · Мапа портфеля
+> Згенеровано з [VAL-11.md](VAL-11.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** S
 

@@ -1,4 +1,5 @@
 # VLT-08@v1-mobile · Набір «В подорож»
+> Згенеровано з [VLT-08.md](VLT-08.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** S
 

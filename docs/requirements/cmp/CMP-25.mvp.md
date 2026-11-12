@@ -1,4 +1,5 @@
 # CMP-25@MVP · Tooltip — Підказка
+> Згенеровано з [CMP-25.md](CMP-25.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

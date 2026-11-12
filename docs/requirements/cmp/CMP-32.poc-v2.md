@@ -1,4 +1,5 @@
 # CMP-32@PoC v2 · FilterBar — Панель фільтрів
+> Згенеровано з [CMP-32.md](CMP-32.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

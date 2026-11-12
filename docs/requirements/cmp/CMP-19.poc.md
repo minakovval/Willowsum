@@ -1,4 +1,5 @@
 # CMP-19@PoC · Banner — Банер
+> Згенеровано з [CMP-19.md](CMP-19.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-10@MVP · PageHeader — Заголовок сторінки
+> Згенеровано з [CMP-10.md](CMP-10.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

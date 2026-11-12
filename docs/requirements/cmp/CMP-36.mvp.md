@@ -1,4 +1,5 @@
 # CMP-36@MVP · AssetGallery — Галерея активів
+> Згенеровано з [CMP-36.md](CMP-36.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

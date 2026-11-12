@@ -1,4 +1,5 @@
 # CMP-53@PoC · Card — Картка
+> Згенеровано з [CMP-53.md](CMP-53.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

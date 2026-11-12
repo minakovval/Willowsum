@@ -1,4 +1,5 @@
 # CMP-17@MVP · Tree — Дерево
+> Згенеровано з [CMP-17.md](CMP-17.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

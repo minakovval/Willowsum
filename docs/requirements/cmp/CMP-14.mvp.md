@@ -1,4 +1,5 @@
 # CMP-14@MVP · Stepper — Індикатор кроків
+> Згенеровано з [CMP-14.md](CMP-14.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

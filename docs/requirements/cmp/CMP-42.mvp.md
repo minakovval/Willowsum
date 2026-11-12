@@ -1,4 +1,5 @@
 # CMP-42@MVP · LineChart — Лінійний графік
+> Згенеровано з [CMP-42.md](CMP-42.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

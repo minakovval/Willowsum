@@ -1,4 +1,5 @@
 # ACC-12@v2 · Аварійний доступ (digital legacy)
+> Згенеровано з [ACC-12.md](ACC-12.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v2 · **Пріоритет:** C
 

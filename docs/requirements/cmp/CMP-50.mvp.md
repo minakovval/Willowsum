@@ -1,4 +1,5 @@
 # CMP-50@MVP · Waterfall — Каскадна діаграма
+> Згенеровано з [CMP-50.md](CMP-50.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** S
 

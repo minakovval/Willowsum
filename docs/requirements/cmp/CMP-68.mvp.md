@@ -1,4 +1,5 @@
 # CMP-68@MVP · MiniMap — Міні-мапа
+> Згенеровано з [CMP-68.md](CMP-68.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** S
 

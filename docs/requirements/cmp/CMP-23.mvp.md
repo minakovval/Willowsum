@@ -1,4 +1,5 @@
 # CMP-23@MVP · EmptyState — Порожній стан
+> Згенеровано з [CMP-23.md](CMP-23.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

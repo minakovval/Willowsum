@@ -1,4 +1,5 @@
 # CMP-42@PoC v2 · LineChart — Лінійний графік
+> Згенеровано з [CMP-42.md](CMP-42.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

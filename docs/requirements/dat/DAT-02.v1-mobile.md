@@ -1,4 +1,5 @@
 # DAT-02@v1-mobile · Глобальний пошук
+> Згенеровано з [DAT-02.md](DAT-02.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** S
 

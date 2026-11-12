@@ -1,4 +1,5 @@
 # NFR-04@v1-mobile · Продуктивність
+> Згенеровано з [NFR-04.md](NFR-04.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** M
 

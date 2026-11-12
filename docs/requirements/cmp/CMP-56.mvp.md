@@ -1,4 +1,5 @@
 # CMP-56@MVP · ConnectionCard — Картка підключення
+> Згенеровано з [CMP-56.md](CMP-56.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

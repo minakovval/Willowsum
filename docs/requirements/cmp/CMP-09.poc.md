@@ -1,4 +1,5 @@
 # CMP-09@PoC · GoalProgress — Прогрес цілі
+> Згенеровано з [CMP-09.md](CMP-09.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

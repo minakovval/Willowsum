@@ -1,4 +1,5 @@
 # CMP-11@PoC v2 · Tabs — Вкладки
+> Згенеровано з [CMP-11.md](CMP-11.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

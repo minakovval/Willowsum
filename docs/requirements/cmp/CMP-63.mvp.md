@@ -1,4 +1,5 @@
 # CMP-63@MVP · ColumnPicker — Вибір колонок
+> Згенеровано з [CMP-63.md](CMP-63.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

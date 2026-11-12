@@ -1,4 +1,5 @@
 # CMP-01@PoC · Button — Кнопка
+> Згенеровано з [CMP-01.md](CMP-01.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-28@PoC v2 · TransactionRow — Рядок транзакції
+> Згенеровано з [CMP-28.md](CMP-28.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

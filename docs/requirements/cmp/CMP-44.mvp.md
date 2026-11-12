@@ -1,4 +1,5 @@
 # CMP-44@MVP · Sparkline — Спарклайн
+> Згенеровано з [CMP-44.md](CMP-44.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 
