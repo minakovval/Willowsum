@@ -71,6 +71,7 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
         WS_TELEMETRY_ENVIRONMENT: "production",
         WS_OTLP_ENDPOINT: "https://otlp-gateway.example.eu/otlp",
         WS_OTLP_AUTHORIZATION: authorization,
+        WS_PROVIDER_MODE: "live", // a deployed scheduler runs the live providers only (VAL-05 FR 3, FR 4)
       },
       "scheduler",
       ["ledger"],

@@ -154,13 +154,23 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await loop.stop();
   });
 
-  it("VAL-05 AC2: failures within 24 h of the last success are retried without the error-level event", async () => {
-    const { time, feed, events, loop } = setup();
+  it("VAL-05 AC2: failures within 24 h of the last success are retried without the error-level event; it comes at exactly 24 h, even when no retry falls there", async () => {
+    const { time, feed, events, letters, loop } = setup();
     await time.advance(FIRST_ATTEMPT_DELAY_MS);
-    await time.advance(23 * HOUR);
+    const success = T0 + FIRST_ATTEMPT_DELAY_MS;
     feed.up = false;
-    await time.advance(HOUR); // the daily run fails, 24 h after the success: stale
+    await time.advance(23 * HOUR); // 1 h before the deadline: an attempt fails (the daily run is not yet due)
+    await loop.attempt();
+    expect(events.map((e) => e.kind)).toEqual(["updated", "failed"]);
+    // Retries after 15 min, 15 min, then 1 h: the last one is cut to the 30 min that remain, never armed past 24 h.
+    await time.advance(30 * MINUTE);
+    await time.advance(30 * MINUTE - 1);
+    expect(events.some((e) => e.kind === "stale")).toBe(false);
+    expect(letters).toHaveLength(0);
+    expect(time.pending()).toEqual([1]);
+    await time.advance(1); // exactly 24 h after the success
     expect(events.filter((e) => e.kind === "stale")).toHaveLength(1);
+    expect(letters).toEqual([{ lastSuccessAt: success, failures: 4 }]);
     await loop.stop();
 
     const second = setup();
@@ -168,8 +178,10 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await second.time.advance(FIRST_ATTEMPT_DELAY_MS + 30 * MINUTE);
     // Never a success, but the task started less than 24 h ago: retries only.
     expect(second.events.map((e) => e.kind)).toEqual(["failed", "failed", "failed"]);
-    await second.time.advance(32 * HOUR); // the retry at 31 h 31 min is past 24 h since the start
-    expect(second.events.some((e) => e.kind === "stale")).toBe(true);
+    await second.time.advance(24 * HOUR - FIRST_ATTEMPT_DELAY_MS - 30 * MINUTE - 1);
+    expect(second.events.some((e) => e.kind === "stale")).toBe(false);
+    await second.time.advance(1); // exactly 24 h after the start
+    expect(second.events.filter((e) => e.kind === "stale")).toHaveLength(1);
     await second.loop.stop();
   });
 

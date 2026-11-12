@@ -7,7 +7,14 @@ import type { FxRateFeed } from "../../application/index.ts";
 import { nbuRateFeed, type NbuFeedOptions } from "./nbu.ts";
 import { syntheticRateFeed } from "./synthetic.ts";
 
-export { NBU_BASE_URL, OFFICIAL_RATES_PORT, nbuRateFeed, parseNbuRates } from "./nbu.ts";
+export {
+  NBU_BASE_URL,
+  NBU_RATE_MAX,
+  NBU_RATE_MIN,
+  OFFICIAL_RATES_PORT,
+  nbuRateFeed,
+  parseNbuRates,
+} from "./nbu.ts";
 export type { NbuFeedOptions } from "./nbu.ts";
 export { SYNTHETIC_CURRENCIES, syntheticRateFeed } from "./synthetic.ts";
 

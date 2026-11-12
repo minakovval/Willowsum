@@ -289,6 +289,10 @@ export function loadConfig(
   }
   if (parsed.success && role === "scheduler") {
     const d = parsed.data;
+    // VAL-05 FR 3, FR 4: a deployed scheduler stores official NBU rates and mails the owner through the live mail
+    // adapter; the synthetic feed and mail sender never run there (as for the api role, ACC-01 FR 12).
+    if (DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) && d.WS_PROVIDER_MODE !== "live")
+      problems.push("WS_PROVIDER_MODE");
     // VAL-05 FR 4: alert letters go through the live mail adapter, which needs its key and sender. A deployed scheduler
     // without the address still starts (main.ts logs `alerts.recipient_missing` at error level).
     if (d.WS_PROVIDER_MODE === "live" && d.WS_ALERT_EMAIL !== undefined) {
