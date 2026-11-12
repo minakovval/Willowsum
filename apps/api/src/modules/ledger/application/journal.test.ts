@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LedgerEvent } from "../domain/index.ts";
 import {
   assertDate,
+  assertMoment,
   balanceAt,
   dailyIntegrityCheck,
   post,
@@ -69,6 +70,28 @@ describe("ARC-11: an event without a rule, or with an invalid date, is refused b
     expect(await code(balanceAt(deps, H1, A, "2026-13-01"))).toBe("INVALID_DATE");
     expect(await code(balanceAt(deps, H1, "not-a-uuid", "2026-06-30"))).toBe("UNKNOWN_ACCOUNT");
     expect(await code(balanceAt(deps, H1, A, "2026-06-30", { asKnownAt: "yesterday" }))).toBe("INVALID_DATE");
+  });
+
+  it("ARC-11: «as known at» is a strict ISO 8601 moment, refused as INVALID_DATE before the database", async () => {
+    // Date.parse accepts every one of these; PostgreSQL would refuse some of them with a raw 22007.
+    for (const bad of [
+      "2026-06-30",
+      "2026-06-30 10:00:00Z",
+      "2026-06-30T10:00:00",
+      "2026-06-30T10:00Z",
+      "2026-02-30T10:00:00Z",
+      "2026-06-30T24:00:00Z",
+      "2026-06-30T10:00:00.1234567Z",
+      "+012026-06-30T10:00:00Z",
+      "Tue, 30 Jun 2026 10:00:00 GMT",
+      "June 30, 2026",
+      "",
+    ]) {
+      expect(() => assertMoment(bad), bad).toThrow(expect.objectContaining({ code: "INVALID_DATE" }));
+      expect(await code(balanceAt(deps, H1, A, "2026-06-30", { asKnownAt: bad })), bad).toBe("INVALID_DATE");
+    }
+    for (const good of ["2026-06-30T10:00:00Z", "2026-06-30T10:00:00.123456Z", "2026-06-30T12:30:00.5+02:00"])
+      assertMoment(good);
   });
 });
 

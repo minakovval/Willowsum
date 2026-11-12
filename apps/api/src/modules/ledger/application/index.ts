@@ -2,6 +2,7 @@
 // Uses ports; adapters are wired in ../index.ts.
 export {
   assertDate,
+  assertMoment,
   balanceAt,
   correct,
   dailyIntegrityCheck,

@@ -308,6 +308,46 @@ describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to tha
     ).toBe("3150.25");
     expect(await code(ledger.balanceAt(s.householdId, randomUUID(), "2026-06-30"))).toBe("UNKNOWN_ACCOUNT");
   });
+
+  it("reversals of entries dated before, on and after 2026-06-30 count on the original's date", async () => {
+    const s = await space();
+    const add = (amount: string, date: string) =>
+      ledger.post(
+        s.householdId,
+        input({ type: "transaction", account: s.cash.id, amount: eur(amount) }, date),
+      );
+    await add("1000", "2026-01-15");
+    const before = await add("-200", "2026-06-29");
+    const on = await add("-30.5", "2026-06-30");
+    const after = await add("-400", "2026-07-01");
+    const balance = async (date: string, asKnownAt?: string) =>
+      (
+        await ledger.balanceAt(s.householdId, s.cash.id, date, asKnownAt === undefined ? {} : { asKnownAt })
+      ).toDecimalString();
+    expect([await balance("2026-06-29"), await balance("2026-06-30"), await balance("2026-07-01")]).toEqual([
+      "800",
+      "769.5",
+      "369.5",
+    ]);
+    const known = after.recordedAt;
+
+    const reversals = [];
+    for (const original of [before, on, after])
+      reversals.push(await ledger.reverse(s.householdId, original.id, randomUUID()));
+    expect(reversals.map((r) => r.operationDate)).toEqual(["2026-06-29", "2026-06-30", "2026-07-01"]);
+    // Each reversal is dated as its original: up to the cut-off, the later one has no effect at all.
+    expect([await balance("2026-06-28"), await balance("2026-06-29"), await balance("2026-06-30")]).toEqual([
+      "1000",
+      "1000",
+      "1000",
+    ]);
+    expect(await balance("2026-07-01")).toBe("1000");
+    // As known before the reversals were recorded, the old balances are reproduced.
+    expect([await balance("2026-06-30", known), await balance("2026-07-01", known)]).toEqual([
+      "769.5",
+      "369.5",
+    ]);
+  });
 });
 
 describe("ARC-03: a space sees and posts only its own journal", () => {
@@ -374,15 +414,26 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
       )
     ).id;
   });
+  /** A new entry with this one posting, in one transaction of the module role (a posting joins only a new entry). */
   const posting = (debit: string, credit: string, amount: string, currency: string) =>
-    asModule(s.householdId, `INSERT INTO postings VALUES ($1, $2, 9, $3, $4, $5, $6)`, [
-      s.householdId,
-      entryId,
-      debit,
-      credit,
-      amount,
-      currency,
-    ]);
+    code(
+      db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+        const id = randomUUID();
+        await q.query(
+          `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+           VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
+          [s.householdId, id],
+        );
+        await q.query(`INSERT INTO postings VALUES ($1, $2, 1, $3, $4, $5, $6)`, [
+          s.householdId,
+          id,
+          debit,
+          credit,
+          amount,
+          currency,
+        ]);
+      }),
+    );
 
   it("a posting is balanced by its row: positive amount, two different accounts, both in its currency", async () => {
     expect(await posting(s.savings.id, s.cash.id, "0", "EUR")).toBe("23514");
@@ -428,11 +479,20 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
 
   it("an entry is reversed at most once, and a reversal is never reversed — by the keys", async () => {
     const insertReversal = (id: string, of: string) =>
-      asModule(
-        s.householdId,
-        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
-         VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
-        [s.householdId, id, of],
+      code(
+        db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+          await q.query(
+            `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
+             VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
+            [s.householdId, id, of],
+          );
+          await q.query(`INSERT INTO postings VALUES ($1, $2, 1, $3, $4, 10, 'EUR')`, [
+            s.householdId,
+            id,
+            s.cash.id,
+            s.savings.id,
+          ]);
+        }),
       );
     const r1 = randomUUID();
     expect(await insertReversal(r1, entryId)).toBe("ok");
