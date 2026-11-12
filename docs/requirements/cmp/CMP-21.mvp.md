@@ -1,4 +1,5 @@
 # CMP-21@MVP · Dialog — Діалог
+> Згенеровано з [CMP-21.md](CMP-21.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

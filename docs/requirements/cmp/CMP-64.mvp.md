@@ -1,4 +1,5 @@
 # CMP-64@MVP · Chip — Чип
+> Згенеровано з [CMP-64.md](CMP-64.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-71@MVP · BrandMark — Знак і назва продукту
+> Згенеровано з [CMP-71.md](CMP-71.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

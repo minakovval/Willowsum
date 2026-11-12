@@ -63,15 +63,16 @@ jobs:
       # (tools/req-check/facts.json) and release slices with their link headers. Known findings are in tools/req-check/baseline.json; new ones fail.
       - name: Check docs/requirements
         run: node tools/req-check/index.mjs --report "$RUNNER_TEMP/req-check-report.md"
-      # Release slices and link headers (check 6) feed docs/traceability/ (PRC-01). Regenerate it and the
-      # committed report (both deterministic) and fail when the committed files differ (PRC-02).
-      - name: Traceability files and report are up to date
+      # Release slices and link headers (check 6) feed docs/traceability/ (PRC-01). Regenerate the release views
+      # of the requirement sources (check 7: <ID>.<release>.md is generated from <ID>.md), the traceability files
+      # and the committed report (all deterministic) and fail when the committed files differ (PRC-02).
+      - name: Release views, traceability files and report are up to date
         run: |
-          node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md
-          if [ -n "$(git status --porcelain -- docs/traceability docs/validation/req-check-report.md)" ]; then
-            git status --porcelain -- docs/traceability docs/validation/req-check-report.md
-            git --no-pager diff --stat -- docs/traceability docs/validation/req-check-report.md
-            echo "::error::docs/traceability or docs/validation/req-check-report.md is out of date. Run: node tools/req-check/index.mjs --traceability --report docs/validation/req-check-report.md and commit the result."
+          node tools/req-check/index.mjs --quiet --views --traceability --report docs/validation/req-check-report.md
+          if [ -n "$(git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md)" ]; then
+            git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md
+            git --no-pager diff --stat -- docs/requirements docs/traceability docs/validation/req-check-report.md
+            echo "::error::Release views, docs/traceability or docs/validation/req-check-report.md are out of date. Edit the source <ID>.md, not a view; run: node tools/req-check/index.mjs --views --traceability --report docs/validation/req-check-report.md and commit the result."
             exit 1
           fi
       - name: Publish the report to the job summary

@@ -1,4 +1,5 @@
 # CMP-29@v1-mobile · NotificationItem — Сповіщення в центрі сповіщень
+> Згенеровано з [CMP-29.md](CMP-29.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** M
 

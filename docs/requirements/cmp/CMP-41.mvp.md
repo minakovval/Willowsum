@@ -1,4 +1,5 @@
 # CMP-41@MVP · AssetTypeWidget — Віджет типу активу
+> Згенеровано з [CMP-41.md](CMP-41.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

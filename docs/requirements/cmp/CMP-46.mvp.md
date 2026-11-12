@@ -1,4 +1,5 @@
 # CMP-46@MVP · InvestmentChart — Графік інвестиції
+> Згенеровано з [CMP-46.md](CMP-46.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

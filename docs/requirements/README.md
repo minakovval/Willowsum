@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -24,8 +24,13 @@ Requirements are being migrated, in batches, from one file per requirement to a 
 
 | File | Contents |
 | --- | --- |
-| `bud/BUD-16.md` — card | Heading, «Реліз» line naming every slice's release, link header with «Зрізи» and «Модуль», purpose, table of slices. No functional requirements and no criteria |
-| `bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, `BUD-16.mvp.md`, `BUD-16.v1-mobile.md`, `BUD-16.v1.md`, `BUD-16.v2.md` — slices | One per release in which the requirement's scope changes. Heading `# BUD-16@PoC v2 · <title>`, `**Реліз:** PoC v2 · **Пріоритет:** S`, link header, then the full requirement text for that release |
+| `bud/BUD-16.md` — card (the source) | Heading, «Реліз» line naming every slice's release, link header with «Зрізи» and «Модуль», purpose, table of slices; then `## Джерело зрізів` and the slice text with release tags. The card part has no functional requirements and no criteria |
+| `bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, `BUD-16.mvp.md`, `BUD-16.v1-mobile.md`, `BUD-16.v1.md`, `BUD-16.v2.md` — slices (generated views) | One per release in which the requirement's scope changes. Heading `# BUD-16@PoC v2 · <title>`, the «згенеровано» header, `**Реліз:** PoC v2 · **Пріоритет:** S`, link header, then the full requirement text for that release |
+
+Since 2026-11-12 (owner decision, PRC-01) the card of a migrated requirement is its **source**: one file
+that also holds the text of every slice, each release-specific line tagged with its releases. The slice files
+are **views generated** from it (see «Source and generated release views» below); they keep their paths and
+their content, and are read exactly as before. Only the source is edited.
 
 A slice ID is written `BUD-16@PoC`, `BUD-16@PoC v2`, `BUD-16@MVP`. Release order: PoC → PoC v2 → MVP →
 v1-mobile → v1 → v2 («Сейф» is part of MVP). A slice is **complete for its release**: every functional
@@ -63,6 +68,94 @@ A card's link header has only «Зрізи» (its slices, in release order, matc
 
 **Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
 slice stays self-contained: no other requirement IDs (the checker enforces it).
+
+## Source and generated release views
+
+Owner decision of 2026-11-12 (PRC-01). A migrated requirement has **one source file**, `bud/BUD-16.md`. Its
+release views `bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, … are generated from it by
+`node tools/req-check/index.mjs --views`, the way `docs/traceability/` is. To implement a release, read only
+that release's view (as before); to change a requirement, edit only the source and regenerate.
+
+**Shape of the source.** The card part, unchanged (heading, «Реліз» line, «Зв'язки» with «Зрізи» and
+«Модуль», purpose, table of slices), then a blank line, the fixed line `## Джерело зрізів`, then the
+**slice text**: every line that any view has after its heading, merged once, with release tags.
+
+```markdown
+## Джерело зрізів
+
+[лише PoC] **Реліз:** PoC · **Пріоритет:** S
+[PoC v2] **Реліз:** PoC v2 · **Пріоритет:** S
+
+**Зв'язки**
+- [лише PoC] Розширює: —
+- [PoC v2] Розширює: BUD-16@PoC
+- [лише PoC] Залежить від: BUD-02@PoC
+- [PoC v2] Залежить від: BUD-02@PoC v2, BUD-05@PoC v2
+- Модуль: budget
+…
+**Функціональні вимоги**
+#. [PoC] Пункт, що діє з PoC в усіх релізах.
+#. [лише PoC] Пункт, що діє лише в PoC (у PoC v2 його прибрано або замінено).
+#. [PoC v2] Нове формулювання того самого пункту з PoC v2.
+| [PoC v2] Рядок таблиці | так |
+[PoC v2]
+```
+
+**Release tags.** A tag is `[…]` at the start of a line's text: after the indentation and a list marker
+(`1. `, `#. `, `- `), after the opening `| ` of a table row, or at the very start of any other line (a tagged
+empty line is just `[PoC v2]`). One space after the tag belongs to the tag. Inside the brackets,
+comma-separated terms:
+
+| Term | Releases |
+| --- | --- |
+| `PoC v2` | PoC v2 and every later release |
+| `PoC–MVP` | PoC to MVP, inclusive (en dash, no spaces) |
+| `лише PoC` | PoC only |
+
+Release order: PoC → PoC v2 → MVP → v1-mobile → v1 → v2. A line **without a tag** is in every view. The
+view of release R holds every line whose tag includes R — tagged for R, or for an earlier release and not
+ended before R — in source order, so an item tagged `[PoC]` stays in every later view until a tag ends it
+(`[PoC–PoC v2]`, `[лише PoC]`) and a per-release variant replaces it. Rewording is two lines with adjacent
+ranges, old then new; a renumbered item is one line.
+
+**Numbering.** `#.` at the start of an item is numbered when the view is generated: the previous number of
+the same list in that view plus one (1 first). A numbered line closes deeper lists; any other non-blank line
+closes the lists at its indentation and deeper. Write an explicit number (`7. [MVP] …`) only where the view
+needs a number that `#.` would not give; `#. ` is reserved and never appears in a view.
+
+**Rules** (req-check, check 7):
+
+- Every list item of the slice text (functional requirements, criteria, edge cases, any `1. `, `#. ` or
+  `- ` line, also indented ones) carries a tag, also when it holds in every release (`[PoC]`); the field
+  lines of the «Зв'язки» block are tagged only where they differ between releases. A continuation line
+  is a line of its own and needs its own tag when its item has one.
+- A tag must parse and select at least one view; the views are the releases in «Зрізи».
+- Each view on disk must equal what the source generates (`view-stale`, `view-missing`, `view-extra`).
+  CI regenerates the views with the traceability files and fails on any difference.
+- All other checks (structure, links, criteria, facts, self-containedness, `--impact`, traceability) read the
+  generated views; a finding in a view points at the source line it came from, prefixed with the slice ID.
+
+**Generated view.** Line 1 is the heading `# BUD-16@PoC v2 · <title>` (title from the card), line 2 the
+header below, then the selected lines. Apart from line 2, a view is byte for byte the slice file it replaced.
+
+```markdown
+> Згенеровано з [BUD-16.md](BUD-16.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
+```
+
+**Commands.**
+
+| Command | What it does |
+| --- | --- |
+| `node tools/req-check/index.mjs --views` | Write every view from its source; remove view files a source no longer lists; then check |
+| `node tools/req-check/index.mjs --convert <ID\|all>` | Turn a card and its slice files into a source; written only when every view round-trips byte for byte, otherwise the requirement keeps its card and slice files and is listed as an exception |
+| `node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]` | Move items (numbered as in the `--from` view, default the first) so that they start in the target release: changes the tags of the item and its continuation lines, regenerates the views, prints the changed views, the dependents (`--impact` of each changed slice), the mentions of the items' «…» phrases elsewhere and any item now beside a variant of itself. The target view must exist; add a new release by hand first («Зрізи», the card's «Реліз» line and table, the release and «Розширює» lines of the slice text) |
+| `node tools/req-check/index.mjs --coverage` | Per-item and per-release coverage: tests named by item (`ACC-01 FR 12`, `UX-09@PoC AC7`, `BUD-16 EC2`; `item n` = FR, `criterion n` = AC) are mapped to items of the views. An item of a source is one source line, so a test of PoC FR 3 also covers that item in every later view that keeps the line, whatever its number there. A plain ID means the release named for it elsewhere in the test file, else its first slice. Without a «Функціональні вимоги» label, FR n is item n of the first numbered list |
+
+**Rollback.** The last commit in the card plus slice files format is on branch
+`claude/adoring-cray-feh4dh-requirements-format-v1` (5f563b03e90ef636e5aaab624b6ed5e2100d3efb). To roll back
+and keep later edits: run `--views`, then for each source cut the card part back out (everything before the
+blank line and `## Джерело зрізів`) and delete line 2 of each view; the views are then the slice files again,
+edited by hand.
 
 **Not yet migrated.** A file without a link header keeps working as before: it counts as one implicit
 slice per release on its «Реліз» line, without links, shown as «не мігровано» in the matrix. Only

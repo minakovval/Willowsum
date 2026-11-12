@@ -1,4 +1,5 @@
 # CMP-08@PoC · Delta — Зміна
+> Згенеровано з [CMP-08.md](CMP-08.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

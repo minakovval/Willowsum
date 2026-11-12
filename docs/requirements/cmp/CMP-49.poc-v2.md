@@ -1,4 +1,5 @@
 # CMP-49@PoC v2 · RingProgress — Кільце прогресу
+> Згенеровано з [CMP-49.md](CMP-49.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

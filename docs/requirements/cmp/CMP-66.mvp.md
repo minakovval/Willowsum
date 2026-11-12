@@ -1,4 +1,5 @@
 # CMP-66@MVP · GroupHeader — Заголовок групи активів
+> Згенеровано з [CMP-66.md](CMP-66.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # ARC-07@PoC v2 · API і клієнти
+> Згенеровано з [ARC-07.md](ARC-07.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

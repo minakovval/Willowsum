@@ -1,4 +1,5 @@
 # WGT-27@MVP · Віджет «Net worth»
+> Згенеровано з [WGT-27.md](WGT-27.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

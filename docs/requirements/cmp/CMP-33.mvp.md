@@ -1,4 +1,5 @@
 # CMP-33@MVP · Icon — Іконка
+> Згенеровано з [CMP-33.md](CMP-33.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # NFR-19@PoC · Критерії готовності вимоги (Definition of Done)
+> Згенеровано з [NFR-19.md](NFR-19.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

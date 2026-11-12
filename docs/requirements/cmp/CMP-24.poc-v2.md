@@ -1,4 +1,5 @@
 # CMP-24@PoC v2 · ErrorState — Стан помилки
+> Згенеровано з [CMP-24.md](CMP-24.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

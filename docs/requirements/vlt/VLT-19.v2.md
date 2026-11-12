@@ -1,4 +1,5 @@
 # VLT-19@v2 · Приватна картка в Apple Wallet / Google Wallet
+> Згенеровано з [VLT-19.md](VLT-19.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v2 · **Пріоритет:** C
 

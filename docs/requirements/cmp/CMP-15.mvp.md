@@ -1,4 +1,5 @@
 # CMP-15@MVP · Checklist — Список налаштування
+> Згенеровано з [CMP-15.md](CMP-15.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

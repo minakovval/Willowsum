@@ -1,4 +1,5 @@
 # CMP-35@MVP · AssetMap — Мапа активів
+> Згенеровано з [CMP-35.md](CMP-35.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** S
 

@@ -1,4 +1,5 @@
 # CMP-24@MVP · ErrorState — Стан помилки
+> Згенеровано з [CMP-24.md](CMP-24.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

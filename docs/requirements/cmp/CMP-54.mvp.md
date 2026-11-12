@@ -1,4 +1,5 @@
 # CMP-54@MVP · Widget — Віджет
+> Згенеровано з [CMP-54.md](CMP-54.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 
