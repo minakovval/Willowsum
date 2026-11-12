@@ -118,7 +118,7 @@ requirement is kept in the README of that module.
 | FIN | [fin/](fin/README.md) | Accounts, bank aggregation, transactions, journal, recurring payments | 19 | PoC 6, MVP 3, v1 6, v2 4 |
 | INV | [inv/](inv/README.md) | Investment instruments, prices and FX service, cost basis | 3 | MVP 1, v1 2 |
 | CRY | [cry/](cry/README.md) | Crypto exchange journals and wallet/exchange/bank transfer pairing | 2 | v1 2 |
-| BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 16, PoC v2 1, MVP 3 |
+| BUD | [bud/](bud/README.md) | Budget, categories, safe-to-spend, savings goals, spending reports | 20 | PoC 14, PoC v2 3, MVP 3 |
 | FCS | [fcs/](fcs/README.md) | Forecasts: period spending forecast, pace check and warnings, pace and forecast chart | 3 | PoC 3 |
 | DOC | [doc/](doc/README.md) | Document storage, document types, expiry dates and links, OCR migration | 3 | MVP 2, v2 1 |
 | INS | [ins/](ins/README.md) | Insurance policies, coverage analysis and insurance schedule | 2 | MVP 2 |
@@ -126,7 +126,7 @@ requirement is kept in the README of that module.
 | DAT | [dat/](dat/README.md) | Universal list, global search, bulk actions, shared data rules | 5 | PoC 3, PoC v2 1, MVP 1 |
 | SUP | [sup/](sup/README.md) | Support and help centre | 1 | PoC v2 1 |
 | RPT | [rpt/](rpt/README.md) | Standard reports and report schedules | 2 | MVP 1, v2 1 |
-| IMP | [imp/](imp/README.md) | File import engine: uploads, batches, multi-currency events, pairing, recipes | 19 | PoC 16, MVP 3 |
+| IMP | [imp/](imp/README.md) | File import engine: uploads, batches, multi-currency events, pairing, recipes | 19 | PoC 15, PoC v2 1, MVP 3 |
 | UX | [ux/](ux/README.md) | Onboarding, complexity levels, navigation, home screen, hide amounts, personalisation | 9 | PoC 1, MVP 5, v2 3 |
 | PLT | [plt/](plt/README.md) | Widgets, quick actions and other platforms | 2 | v1-mobile 1, v2 1 |
 | GRID | [grid/](grid/README.md) | Layout grid, navigation shell and page templates | 8 | PoC 5, MVP 3 |
@@ -142,7 +142,7 @@ requirement is kept in the README of that module.
 | NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 17, PoC v2 1, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 16, PoC v2 1, MVP 6 |
 | CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 42, PoC v2 3, MVP 26, v1 3 |
-| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 13, PoC v2 3, MVP 28, v1 5, v2 9 |
+| FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 12, PoC v2 4, MVP 28, v1 5, v2 9 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |

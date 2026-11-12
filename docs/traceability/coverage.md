@@ -6,7 +6,7 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (0 of 69)
+### Screens without a slice (0 of 65)
 
 None.
 
@@ -133,11 +133,11 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 ## PoC v2
 
-### Screens without a slice (0 of 25)
+### Screens without a slice (0 of 29)
 
 None.
 
-### Migrated slices without design (32)
+### Migrated slices without design (34)
 
 - ARC-01@PoC v2
 - ARC-07@PoC v2
@@ -149,12 +149,14 @@ None.
 - CICD-08@PoC v2
 - CMP-24@PoC v2
 - CMP-26@PoC v2
+- CMP-42@PoC v2
 - CMP-48@PoC v2
 - CMP-49@PoC v2
 - CMP-58@PoC v2
 - CMP-60@PoC v2
 - CMP-69@PoC v2
 - DS-03@PoC v2
+- DS-07@PoC v2
 - DS-12@PoC v2
 - DS-15@PoC v2
 - DS-16@PoC v2
