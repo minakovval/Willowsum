@@ -379,3 +379,21 @@ test('review #87 r4: «## Owner decision» with only a subheading under it recor
   assert.equal(recordsOwnerDecision('## Owner decision\n### Details\n#### More\n'), false);
   assert.equal(recordsOwnerDecision('## Owner decision\n### Details\nOwner, 2026-11-12: «так».\n'), true);
 });
+
+// Lead decision 2026-11-12 (CI minutes): a heavy job skipped by its path filter (ci-paths.mjs) passes only when
+// the merged PR's files did not need it.
+test('CI minutes: a path-skipped job passes only when the PR did not need it', () => {
+  const skip = (names) => green().map((r) => (names.includes(r.name) ? { ...r, conclusion: 'skipped' } : r));
+  const docs = [{ filename: 'docs/ops/integrations.md', status: 'modified' }];
+  const heavy = ['web', 'api', 'local-env', 'infra'];
+  assert.deepEqual(findings(input({ pulls: [pr({ files: docs, checkRuns: skip(heavy) })] })), []);
+  // Code changed: a skipped `web` is a violation.
+  assert.match(only(input({ pulls: [pr({ checkRuns: skip(['web']) })] })).message, /web: skipped/);
+  // Always-run jobs never pass as skipped, even for a docs-only PR.
+  assert.match(only(input({ pulls: [pr({ files: docs, checkRuns: skip(['secrets']) })] })).message, /secrets: skipped/);
+  // A truncated file list fails closed.
+  const truncated = findings(input({ pulls: [pr({ files: docs, filesTruncated: true, checkRuns: skip(['api']) })] }));
+  assert.ok(truncated.some((f) => /api: skipped/.test(f.message)), JSON.stringify(truncated));
+  // Web app only: local-env and infra may be skipped, api may not.
+  assert.deepEqual(findings(input({ pulls: [pr({ checkRuns: skip(['local-env', 'infra']) })] })), []);
+});

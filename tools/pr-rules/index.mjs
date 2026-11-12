@@ -2,6 +2,8 @@
 // CICD-01 (ADR-0008) entry point for the workflows. Subcommands:
 //   label        — PR job: label a sensitive PR by its file paths (`sensitive`, `sensitive:<category>`).
 //   description  — PR job: title starts with an existing requirement ID; the description follows the template.
+//   changes      — PR job: which path-filtered CI jobs (web, api, local-env, infra) this PR needs; writes
+//                  `<job>=true|false` to $GITHUB_OUTPUT (lib/ci-paths.mjs). Any error runs every job.
 //   alerted      — scheduled job, after `daily --outputs` found something: fail the run.
 //   daily        — scheduled job: check main and the PRs merged into it; open or update the alert issue.
 //                  Flags: --since <ISO> --until <ISO> (default: from the last successful scheduled run, at most
@@ -11,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { jobsToRun, outputLines } from './lib/ci-paths.mjs';
 import { checkDescription, requirementIds } from './lib/description.mjs';
 import { evaluate, needsAlert, render } from './lib/daily.mjs';
 import { baseMapFor, errorClass, fetchDailyInput, upsertAlertIssue, windowStart } from './lib/fetch.mjs';
@@ -101,6 +104,22 @@ async function description() {
   process.exitCode = 1;
 }
 
+async function changes() {
+  const pr = pullRequestEvent();
+  let run;
+  try {
+    const files = await changedFiles(client(), pr.number);
+    run = jobsToRun(files, { truncated: files.length < (pr.changed_files ?? 0) });
+  } catch (e) {
+    console.log(`::warning::Changed files unavailable (${safeName(errorClass(e))}); every job runs.`);
+    run = jobsToRun([]);
+  }
+  const lines = outputLines(run);
+  console.log(lines);
+  summary(`Задачі CI за шляхами файлів: ${lines.replace(/\n/g, ', ')}`);
+  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `${lines}\n`);
+}
+
 async function daily() {
   let input;
   if (flag('--input')) {
@@ -155,9 +174,9 @@ function alerted() {
   process.exitCode = 1;
 }
 
-const commands = { label, description, daily, alerted };
+const commands = { label, description, changes, daily, alerted };
 if (!commands[command]) {
-  console.error('Usage: node tools/pr-rules/index.mjs label|description|daily|alerted [flags]');
+  console.error('Usage: node tools/pr-rules/index.mjs label|description|changes|daily|alerted [flags]');
   process.exit(2);
 }
 await commands[command]();

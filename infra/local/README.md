@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-06
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-12
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -22,6 +22,26 @@ Requires Docker with the compose plugin and Node 22. From the repository root:
 | `pnpm local:smoke` | End-to-end check: SQL query, mail over SMTP, S3 put/get, and refusal without credentials. |
 | `pnpm local:down` | Stops; data is kept. |
 | `pnpm local:reset` | Stops, deletes all local data (volumes), starts empty. |
+
+## Test database per agent (`pnpm db:test`)
+
+Owner decision 2026-11-12: each agent (up to 3 branches work in parallel) gets its own throwaway database.
+
+| Command | What it does |
+| --- | --- |
+| `pnpm db:test` | Creates `ws_t_<branch>_<random>` and prints its `DATABASE_URL` (superuser of that local server). |
+| `pnpm db:test run -- <command>` | Fresh database, `DATABASE_URL` set for the command, dropped afterwards; holds a cluster-wide lock meanwhile. |
+| `pnpm db:test list` / `pnpm db:test drop <name>` | Lists / drops this tool's databases (it refuses any other name). |
+
+Server: `WS_TEST_PG_ADMIN_URL` (a superuser URL of a machine's own local PostgreSQL, e.g. in a cloud session
+without Docker) wins; otherwise the `pnpm local:up` PostgreSQL, started if needed.
+
+**Limitation.** PostgreSQL roles belong to the whole cluster, not to a database. The integration tests set the
+passwords of the module login roles (`ws_mod_<schema>`, `ws_context`, `ws_probe`) and some drop and recreate
+roles, so two integration runs on one cluster break each other even in separate databases. Run them only as
+`pnpm db:test run -- pnpm test:integration`: the lock makes runs on one cluster wait for each other. Separate
+databases are enough for everything else (migrations, `check:schema`, running the API). Run-scoped role names
+would remove the wait but change the isolation guard (ADR-0002); that is a follow-up.
 
 ## Credentials
 
