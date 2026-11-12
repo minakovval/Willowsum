@@ -9,7 +9,7 @@
 - Спільні правила: П-8, П-15, П-24, П-25, П-26, NFR-01, NFR-12, NFR-15
 - Сценарії: UC-ACC-01, UC-ACC-06, UC-ACC-08, UC-ACC-09
 - Модуль: identity, household
-- Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/test/identity-routes.test.ts, apps/api/src/platform/adapters/mail/mail.test.ts, apps/api/src/platform/adapters/captcha/captcha.test.ts, apps/api/src/platform/config/config-acc01.test.ts, apps/api/test/sec90-identity.it.test.ts, apps/web/src/auth/signUp.test.tsx, apps/web/src/auth/checkEmail.test.tsx, apps/web/src/auth/verify.test.tsx, apps/web/src/auth/signIn.test.tsx, apps/web/src/auth/passwordField.test.tsx, apps/web/src/auth/captcha/captcha.test.tsx, apps/web/src/auth/rules.test.ts
+- Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/test/identity-routes.test.ts, apps/api/src/platform/adapters/mail/mail.test.ts, apps/api/src/platform/adapters/captcha/captcha.test.ts, apps/api/src/platform/config/config-acc01.test.ts, apps/api/test/sec90-identity.it.test.ts, apps/web/src/auth/signUp.test.tsx, apps/web/src/auth/checkEmail.test.tsx, apps/web/src/auth/verify.test.tsx, apps/web/src/auth/signIn.test.tsx, apps/web/src/auth/sec93.test.tsx, apps/web/src/auth/passwordField.test.tsx, apps/web/src/auth/captcha/captcha.test.tsx, apps/web/src/auth/rules.test.ts
 
 **Мета.** Як новий користувач, я хочу зареєструватися за email і паролем і швидко входити в продукт, щоб за кілька хвилин почати вести облік свого капіталу і не помилятися під час введення пароля.
 
