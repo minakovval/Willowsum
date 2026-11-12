@@ -1,6 +1,13 @@
 import { Decimal } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
-import { crossRate, kyivDate, retryDelayMs, RateUnavailableError } from "./index.ts";
+import {
+  crossRate,
+  kyivDate,
+  retryDelayMs,
+  RateUnavailableError,
+  staleAlertMessage,
+  stalePeriodKey,
+} from "./index.ts";
 
 const HOUR = 60 * 60 * 1000;
 const day = new Map([
@@ -45,5 +52,23 @@ describe("VAL-05@PoC domain: cross rates through the hryvnia and the retry pause
   it("VAL-05 FR1: the rates date is the calendar date in Kyiv", () => {
     expect(kyivDate(Date.UTC(2026, 10, 11, 22, 30))).toBe("2026-11-12");
     expect(kyivDate(Date.UTC(2026, 10, 12, 21, 59))).toBe("2026-11-12");
+  });
+
+  it("VAL-05 FR4: the alert letter states facts only — no amounts, rates or currencies", () => {
+    const letter = staleAlertMessage({ lastSuccessAt: Date.UTC(2026, 10, 12, 14, 0, 0, 0), failures: 7 });
+    expect(letter.subject).toBe("Willowsum: курси валют не оновлювалися понад 24 год");
+    expect(letter.text).toContain("Останнє успішне оновлення: 2026-11-12 14:00 UTC.");
+    expect(letter.text).toContain("Невдалих спроб поспіль: 7.");
+    const all = `${letter.subject}\n${letter.text}`;
+    expect(all).not.toMatch(/\d+[.,]\d+/);
+    expect(all).not.toMatch(/[$€£₴]|\b(UAH|EUR|USD|PLN|GBP|CHF|грн)\b/i);
+    expect(staleAlertMessage({ lastSuccessAt: null, failures: 3 }).text).toContain(
+      "Успішного оновлення ще не було.",
+    );
+  });
+
+  it("VAL-05 FR4: a stale period is keyed by the last successful update", () => {
+    expect(stalePeriodKey(null)).toBe("never");
+    expect(stalePeriodKey(Date.UTC(2026, 10, 12, 14, 0))).toBe("2026-11-12T14:00:00.000Z");
   });
 });

@@ -42,11 +42,21 @@ function manualClock(start: number) {
   };
 }
 
-function memoryStore(): FxRateStore & { saved: PivotRate[][] } {
+function memoryStore(): FxRateStore & { saved: PivotRate[][]; claims: Set<string> } {
   const saved: PivotRate[][] = [];
+  const claims = new Set<string>();
   let last: number | null = null;
   return {
     saved,
+    claims,
+    async claimStaleAlert(period) {
+      if (claims.has(period)) return false;
+      claims.add(period);
+      return true;
+    },
+    async releaseStaleAlert(period) {
+      claims.delete(period);
+    },
     async saveUpdate(update) {
       saved.push([...update.rates]);
       last = update.completedAt;
@@ -77,13 +87,22 @@ function scriptedFeed(): FxRateFeed & { up: boolean; calls: string[] } {
 
 const T0 = Date.UTC(2026, 10, 12, 6, 0);
 
-function setup() {
+function setup(store = memoryStore(), alertFails = () => false) {
   const time = manualClock(T0);
   const feed = scriptedFeed();
-  const store = memoryStore();
   const events: FxRefreshEvent[] = [];
-  const loop = startFxRefresh({ feed, store, clock: time.clock, report: (e) => events.push(e) });
-  return { time, feed, store, events, loop };
+  const letters: { lastSuccessAt: number | null; failures: number }[] = [];
+  const loop = startFxRefresh({
+    feed,
+    store,
+    clock: time.clock,
+    report: (e) => events.push(e),
+    alert: async (info) => {
+      if (alertFails()) throw new Error("mail down");
+      letters.push(info);
+    },
+  });
+  return { time, feed, store, events, letters, loop };
 }
 
 describe("VAL-05@PoC: the daily update task with retries", () => {
@@ -159,6 +178,51 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     const [a, b] = await Promise.all([loop.attempt(), loop.attempt()]);
     expect([a, b]).toEqual(["updated", "updated"]);
     expect(feed.calls).toHaveLength(1);
+    await loop.stop();
+  });
+
+  it("VAL-05 AC2: one alert letter per stale period — retries of the same period send no more, a new period sends one again", async () => {
+    const { time, feed, events, letters, loop } = setup();
+    await time.advance(FIRST_ATTEMPT_DELAY_MS);
+    const success = T0 + FIRST_ATTEMPT_DELAY_MS;
+    feed.up = false;
+    await time.advance(72 * HOUR); // the daily run and every retry for three days fail
+    expect(events.filter((e) => e.kind === "stale").length).toBeGreaterThan(3);
+    expect(letters).toEqual([{ lastSuccessAt: success, failures: 1 }]);
+
+    feed.up = true;
+    await time.advance(time.pending()[0]!);
+    feed.up = false;
+    await time.advance(48 * HOUR);
+    expect(letters).toHaveLength(2);
+    expect(letters[1]!.lastSuccessAt).toBeGreaterThan(success);
+    await loop.stop();
+  });
+
+  it("VAL-05 AC2: the claim of a period is shared, so a restarted task sends no second letter for it", async () => {
+    const store = memoryStore();
+    const first = setup(store);
+    first.feed.up = false;
+    await first.time.advance(32 * HOUR); // the retry at 31 h 31 min is the first past 24 h
+    await first.loop.stop();
+    const second = setup(store);
+    second.feed.up = false;
+    await second.time.advance(32 * HOUR);
+    await second.loop.stop();
+    expect([first.letters.length, second.letters.length]).toEqual([1, 0]);
+  });
+
+  it("VAL-05 AC2: a letter that could not be sent is retried at the next attempt, then sent once", async () => {
+    let mailDown = true;
+    const { time, feed, events, letters, loop } = setup(memoryStore(), () => mailDown);
+    feed.up = false;
+    await time.advance(32 * HOUR);
+    expect(events.some((e) => e.kind === "alert-failed")).toBe(true);
+    expect(letters).toEqual([]);
+    mailDown = false;
+    await time.advance(48 * HOUR);
+    expect(letters).toHaveLength(1);
+    expect(events.filter((e) => e.kind === "alert-sent")).toHaveLength(1);
     await loop.stop();
   });
 });

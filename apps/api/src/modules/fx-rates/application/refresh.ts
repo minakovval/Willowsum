@@ -1,5 +1,11 @@
-import { kyivDate, retryDelayMs, REFRESH_INTERVAL_MS, STALE_AFTER_MS } from "../domain/index.ts";
-import type { FxClock, FxRateFeed, FxRateStore, FxRefreshEvent } from "./ports.ts";
+import {
+  kyivDate,
+  retryDelayMs,
+  REFRESH_INTERVAL_MS,
+  STALE_AFTER_MS,
+  stalePeriodKey,
+} from "../domain/index.ts";
+import type { FxClock, FxRateFeed, FxRateStore, FxRefreshEvent, FxStaleAlert } from "./ports.ts";
 
 /** The first attempt waits a minute after the start: a crash loop never calls the provider on every start. */
 export const FIRST_ATTEMPT_DELAY_MS = 60 * 1000;
@@ -9,6 +15,8 @@ export interface FxRefreshDeps {
   readonly store: FxRateStore;
   readonly clock: FxClock;
   readonly report: (event: FxRefreshEvent) => void;
+  /** The alert letter to the product owner; without it (no recipient configured) only the log event remains. */
+  readonly alert?: FxStaleAlert;
   /** Wraps each attempt (the scheduler traces it as a scheduled task). */
   readonly run?: <T>(work: () => Promise<T>) => Promise<T>;
 }
@@ -27,6 +35,32 @@ export async function refreshRates(deps: Pick<FxRefreshDeps, "feed" | "store" | 
   return rates.length;
 }
 
+const classOf = (error: unknown): string =>
+  error instanceof Error ? error.constructor.name || error.name : typeof error;
+
+async function sendAlertOnce(
+  deps: FxRefreshDeps,
+  alert: FxStaleAlert,
+  lastSuccessAt: number | null,
+  failures: number,
+  now: number,
+): Promise<void> {
+  const period = stalePeriodKey(lastSuccessAt);
+  try {
+    if (!(await deps.store.claimStaleAlert(period, now))) return;
+  } catch (error) {
+    deps.report({ kind: "alert-failed", errorClass: classOf(error) });
+    return;
+  }
+  try {
+    await alert({ lastSuccessAt, failures });
+    deps.report({ kind: "alert-sent" });
+  } catch (error) {
+    deps.report({ kind: "alert-failed", errorClass: classOf(error) });
+    await deps.store.releaseStaleAlert(period).catch(() => undefined);
+  }
+}
+
 export type FxAttemptOutcome = "updated" | "failed";
 
 export interface FxRefreshLoop {
@@ -40,7 +74,8 @@ export interface FxRefreshLoop {
  * The daily background task with retries (VAL-05 FR 1, FR 2, FR 4; AC1, AC2). After a success the next update
  * is a day later. After a failure it is retried: three times at a short pause, then at 1 h, 2 h, 4 h, … but never
  * more than 24 h apart. Once 24 h have passed without a successful update, every failed attempt reports a
- * `stale` event (an error-level event in the server log). The clock is read once per attempt.
+ * `stale` event (an error-level event in the server log), and the first of them in a stale period sends the one
+ * alert letter of that period (claimed in the store, so a restart or a second scheduler sends no second letter).
  */
 export function startFxRefresh(
   deps: FxRefreshDeps,
@@ -69,10 +104,14 @@ export function startFxRefresh(
       return "updated";
     } catch (error) {
       failures += 1;
-      const errorClass = error instanceof Error ? error.constructor.name || error.name : typeof error;
+      const errorClass = classOf(error);
       deps.report({ kind: "failed", failures, errorClass });
       const last = await deps.store.lastSuccessAt().catch(() => null);
-      if (deps.clock.now() - (last ?? startedAt) >= STALE_AFTER_MS) deps.report({ kind: "stale", failures });
+      const now = deps.clock.now();
+      if (now - (last ?? startedAt) >= STALE_AFTER_MS) {
+        deps.report({ kind: "stale", failures });
+        if (deps.alert) await sendAlertOnce(deps, deps.alert, last, failures, now);
+      }
       return "failed";
     }
   };

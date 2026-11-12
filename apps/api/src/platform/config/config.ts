@@ -75,6 +75,12 @@ export interface Config {
      */
     readonly signUpAllowlist?: ReadonlySet<string>;
   };
+  /**
+   * Alerts of the app itself (CICD-07 FR 6; owner decision 2026-11-12: PoC alerts are letters from the app's mail
+   * adapter). `email` — the product owner's address (`WS_ALERT_EMAIL`); a deployed scheduler without it logs
+   * `alerts.recipient_missing` at error level. Personal data: never logged.
+   */
+  readonly alerts: { readonly email?: string };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -210,6 +216,12 @@ export function loadConfig(
       .string()
       .refine((v) => parseSignUpAllowlist(v) !== undefined)
       .optional(),
+    // One plain address (CICD-07 FR 6): the product owner, recipient of the app's alert letters.
+    WS_ALERT_EMAIL: z
+      .string()
+      .max(254)
+      .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -275,6 +287,15 @@ export function loadConfig(
       if (d.WS_MAIL_FROM === undefined) problems.push("WS_MAIL_FROM");
     }
   }
+  if (parsed.success && role === "scheduler") {
+    const d = parsed.data;
+    // VAL-05 FR 4: alert letters go through the live mail adapter, which needs its key and sender. A deployed scheduler
+    // without the address still starts (main.ts logs `alerts.recipient_missing` at error level).
+    if (d.WS_PROVIDER_MODE === "live" && d.WS_ALERT_EMAIL !== undefined) {
+      if (d.WS_MAIL_API_KEY === undefined) problems.push("WS_MAIL_API_KEY");
+      if (d.WS_MAIL_FROM === undefined) problems.push("WS_MAIL_FROM");
+    }
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
   const telemetryMode = (v["WS_TELEMETRY"] ?? "test") as TelemetryMode;
@@ -323,6 +344,7 @@ export function loadConfig(
         ? { signUpAllowlist: parseSignUpAllowlist(v["WS_SIGNUP_ALLOWLIST"] as string)! }
         : {}),
     },
+    alerts: v["WS_ALERT_EMAIL"] !== undefined ? { email: v["WS_ALERT_EMAIL"] as string } : {},
     database: {
       host: v["WS_DB_HOST"] as string,
       port: v["WS_DB_PORT"] as number,

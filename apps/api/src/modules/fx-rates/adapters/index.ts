@@ -1,6 +1,8 @@
 // Adapters of fx-rates: database (ModuleDatabase, schema «fx_rates») and the rate feeds (ARC-05).
 import { systemClock, type ProviderMode } from "../../../platform/adapters/index.ts";
+import type { MailSender } from "../../../platform/adapters/mail/index.ts";
 import type { ModuleDatabase } from "../../../platform/db/module-db.ts";
+import { staleAlertMessage } from "../domain/index.ts";
 import {
   createFxRateReader,
   startFxRefresh,
@@ -42,6 +44,11 @@ export function startFxRatesRefresh(options: {
   run?: FxRefreshDeps["run"];
   feed?: FxRateFeed;
   clock?: FxClock;
+  /**
+   * The alert letter after 24 h without an update (FR 4, AC2): the app's mail adapter and the product owner's
+   * address (`WS_ALERT_EMAIL`). Without it only the error-level log event is written.
+   */
+  alertMail?: { mail: MailSender; to: string };
   firstDelayMs?: number;
 }): FxRefreshLoop {
   return startFxRefresh(
@@ -51,7 +58,15 @@ export function startFxRatesRefresh(options: {
       clock: options.clock ?? systemClock,
       report: options.report,
       ...(options.run ? { run: options.run } : {}),
+      ...(options.alertMail ? { alert: mailAlert(options.alertMail) } : {}),
     },
     options.firstDelayMs !== undefined ? { firstDelayMs: options.firstDelayMs } : {},
   );
+}
+
+/** The stale-rates letter through the mail adapter; its text holds no amounts (domain `staleAlertMessage`). */
+function mailAlert({ mail, to }: { mail: MailSender; to: string }) {
+  return async (info: { lastSuccessAt: number | null; failures: number }) => {
+    await mail.send({ to, ...staleAlertMessage(info) });
+  };
 }

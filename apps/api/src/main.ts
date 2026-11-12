@@ -180,12 +180,27 @@ if (config.role === "scheduler") {
   const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
   const daily = scheduleDaily([{ name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() }]);
   lifecycle.onStop(() => daily.stop());
+  // VAL-05 FR 4: without the owner's address no alert letter can go out; say so loudly (the address is never logged).
+  if (config.deployed && !config.alerts.email)
+    logEvent("alerts.recipient_missing", "error", { "ws.module": "fx-rates", "ws.role": config.role });
   // Exchange rates once a day with retries (VAL-05): the NBU in deployed environments, synthetic locally and in CI.
   // Not wrapped in runScheduled: it logs every failed run at error level, and VAL-05 FR 4 keeps the error level for
   // 24 h without a successful update; a failed attempt is a warning.
   const fx = startFxRatesRefresh({
     db: databases.for("fx-rates"),
     mode: config.providerMode,
+    // VAL-05 FR 4 (owner decision 2026-11-12): one letter to the product owner per stale period, via the mail adapter.
+    ...(config.alerts.email
+      ? {
+          alertMail: {
+            to: config.alerts.email,
+            mail: mailSender(config.providerMode, () => ({
+              apiKey: config.identity.mail!.apiKey,
+              from: config.identity.mail!.from,
+            })),
+          },
+        }
+      : {}),
     report: (event) => {
       const attributes = { "ws.module": "fx-rates", "ws.job.name": "fx-rates.refresh" };
       // FR 4, AC2: 24 h without a successful update is an error-level event in the server log.
@@ -196,7 +211,10 @@ if (config.role === "scheduler") {
         });
       else if (event.kind === "updated")
         logEvent("fx_rates.updated", "info", { ...attributes, "ws.outcome": "success" });
-      else logEvent("fx_rates.attempt_failed", "warn", { ...attributes, "error.type": event.errorClass });
+      else if (event.kind === "failed")
+        logEvent("fx_rates.attempt_failed", "warn", { ...attributes, "error.type": event.errorClass });
+      else if (event.kind === "alert-sent") logEvent("fx_rates.alert_sent", "info", attributes);
+      else logEvent("fx_rates.alert_failed", "error", { ...attributes, "error.type": event.errorClass });
     },
   });
   lifecycle.onStop(() => fx.stop());

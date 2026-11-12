@@ -11,5 +11,7 @@ export {
   crossRate,
   kyivDate,
   retryDelayMs,
+  staleAlertMessage,
+  stalePeriodKey,
 } from "./rates.ts";
 export type { PivotRate } from "./rates.ts";

@@ -79,3 +79,42 @@ const KYIV_DATE = new Intl.DateTimeFormat("en-CA", {
 export function kyivDate(ms: number): string {
   return KYIV_DATE.format(new Date(ms));
 }
+
+/**
+ * The stale period an alert belongs to: everything after one successful update (or, before the first one, the
+ * whole time without any). At most one alert letter goes out per period (FR 4, AC2).
+ */
+export function stalePeriodKey(lastSuccessAt: number | null): string {
+  return lastSuccessAt === null ? "never" : new Date(lastSuccessAt).toISOString();
+}
+
+/** `2026-11-12 14:00 UTC`: minutes only, so the letter carries no decimal-looking number. */
+function utcMinute(ms: number): string {
+  return `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")} UTC`;
+}
+
+/**
+ * The alert letter to the product owner (FR 4, AC2; owner decision 2026-11-12: PoC alerts are letters from the
+ * app). Facts only: since when there is no update and how many attempts failed. No amounts, rates, currencies,
+ * account names or personal data.
+ */
+export function staleAlertMessage(info: { lastSuccessAt: number | null; failures: number }): {
+  subject: string;
+  text: string;
+} {
+  const since =
+    info.lastSuccessAt === null
+      ? "Успішного оновлення ще не було."
+      : `Останнє успішне оновлення: ${utcMinute(info.lastSuccessAt)}.`;
+  return {
+    subject: "Willowsum: курси валют не оновлювалися понад 24 год",
+    text: [
+      "Щоденне оновлення курсів валют не вдається понад 24 години.",
+      since,
+      `Невдалих спроб поспіль: ${info.failures}.`,
+      "Застосунок показує суми за останніми успішними курсами і продовжує повторні спроби.",
+      "Подробиці — подія fx_rates.stale у журналі сервера.",
+      "Наступний такий лист прийде лише після нового успішного оновлення і нових 24 годин без нього.",
+    ].join("\n"),
+  };
+}

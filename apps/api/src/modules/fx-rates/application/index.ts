@@ -3,4 +3,4 @@ export { createFxRateReader } from "./rates.ts";
 export type { FxConversion, FxFreshness, FxRates, QuotedRate } from "./rates.ts";
 export { FIRST_ATTEMPT_DELAY_MS, refreshRates, startFxRefresh } from "./refresh.ts";
 export type { FxAttemptOutcome, FxRefreshDeps, FxRefreshLoop } from "./refresh.ts";
-export type { FxClock, FxRateFeed, FxRateStore, FxRefreshEvent, RatesOfDate } from "./ports.ts";
+export type { FxClock, FxRateFeed, FxRateStore, FxRefreshEvent, FxStaleAlert, RatesOfDate } from "./ports.ts";

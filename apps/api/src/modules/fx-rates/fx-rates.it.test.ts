@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { syntheticMailSender } from "../../platform/adapters/mail/index.ts";
 import { recordingFetch } from "../../platform/adapters/testing.ts";
 import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { nbuRateFeed } from "./adapters/index.ts";
@@ -48,6 +49,9 @@ function nbu(): FxRateFeed {
   return nbuRateFeed({ fetch: recorder.fetch, clock, random: () => 0 });
 }
 
+const mail = syntheticMailSender();
+const OWNER = "owner@example.test";
+
 async function updateWith(feed: FxRateFeed) {
   const loop = startFxRatesRefresh({
     db: db.databases.for("fx-rates"),
@@ -55,6 +59,7 @@ async function updateWith(feed: FxRateFeed) {
     feed,
     clock,
     report: (e) => events.push(e),
+    alertMail: { mail, to: OWNER },
   });
   const outcome = await loop.attempt();
   await loop.stop();
@@ -70,10 +75,11 @@ afterAll(async () => {
   await db.close();
 });
 beforeEach(async () => {
-  await db.owner.query("TRUNCATE fx_rates.rates, fx_rates.updates");
+  await db.owner.query("TRUNCATE fx_rates.rates, fx_rates.updates, fx_rates.stale_alerts");
   t = Date.UTC(2026, 10, 12, 14, 0);
   nbuUp = true;
   events.length = 0;
+  mail.clear();
 });
 
 describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
@@ -125,7 +131,7 @@ describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
     nbuUp = false;
     expect(await updateWith(nbu())).toBe("failed");
     expect(recorder.requests.length).toBeGreaterThan(1); // retried by the adapter
-    expect(events.at(-1)).toMatchObject({ kind: "stale" });
+    expect(events.map((e) => e.kind)).toEqual(expect.arrayContaining(["stale", "alert-sent"]));
 
     const shown = await reader().convert(Money.of("1000.00", "PLN"), "EUR", "2026-11-13");
     expect([
@@ -171,5 +177,30 @@ describe("VAL-05@PoC: exchange rate feed and history (real PostgreSQL)", () => {
     await loop.stop();
     const { rows } = await db.owner.query(`SELECT DISTINCT source FROM fx_rates.rates`);
     expect(rows).toEqual([{ source: "synthetic" }]);
+  });
+
+  it("VAL-05 AC2: after 24 h without success the owner gets one letter without amounts; later failures and a restart send none", async () => {
+    await updateWith(nbu());
+    nbuUp = false;
+    t += 23 * HOUR;
+    expect(await updateWith(nbu())).toBe("failed");
+    expect(mail.sent).toHaveLength(0); // less than 24 h: retries only
+    for (let i = 0; i < 4; i++) {
+      t += 2 * HOUR;
+      expect(await updateWith(nbu())).toBe("failed"); // each call is a fresh loop, as after a restart
+    }
+    expect(mail.sent).toHaveLength(1);
+    const [letter] = mail.sent;
+    expect(letter!.to).toBe(OWNER);
+    expect(letter!.text).toContain("Останнє успішне оновлення: 2026-11-12 14:00 UTC.");
+    expect(`${letter!.subject} ${letter!.text}`).not.toMatch(/\d+[.,]\d+|\b(UAH|EUR|PLN|USD)\b/);
+    expect(events.filter((e) => e.kind === "stale").length).toBe(4);
+
+    nbuUp = true;
+    expect(await updateWith(nbu())).toBe("updated");
+    nbuUp = false;
+    t += 25 * HOUR;
+    await updateWith(nbu());
+    expect(mail.sent).toHaveLength(2); // a new stale period
   });
 });

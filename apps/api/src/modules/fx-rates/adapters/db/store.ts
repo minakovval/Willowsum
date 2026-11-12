@@ -33,6 +33,18 @@ export function databaseFxRateStore(db: ModuleDatabase): FxRateStore {
       );
       return rows[0]?.at ? rows[0].at.getTime() : null;
     },
+    async claimStaleAlert(period, at) {
+      const { rows } = await db.transaction((q) =>
+        q.query(
+          `INSERT INTO stale_alerts (period, claimed_at) VALUES ($1, $2) ON CONFLICT (period) DO NOTHING RETURNING period`,
+          [period, new Date(at)],
+        ),
+      );
+      return rows.length === 1;
+    },
+    async releaseStaleAlert(period) {
+      await db.transaction((q) => q.query(`DELETE FROM stale_alerts WHERE period = $1`, [period]));
+    },
     async ratesOnOrBefore(currencies, date): Promise<RatesOfDate | null> {
       const wanted = [...new Set(currencies)];
       return db.transaction(async (q) => {

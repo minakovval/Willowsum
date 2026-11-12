@@ -32,7 +32,16 @@ export interface FxRateStore {
   lastSuccessAt(): Promise<number | null>;
   /** The latest date on or before `date` that has rates of all `currencies` from one source, with those rates. */
   ratesOnOrBefore(currencies: readonly string[], date: string): Promise<RatesOfDate | null>;
+  /**
+   * Claims the one alert of a stale period (FR 4): true for the first claim only, across restarts and scheduler
+   * instances. `release` gives the claim back when the letter could not be sent, so a later attempt sends it.
+   */
+  claimStaleAlert(period: string, at: number): Promise<boolean>;
+  releaseStaleAlert(period: string): Promise<void>;
 }
+
+/** Sends the alert letter of a stale period to the product owner (the app's mail adapter). */
+export type FxStaleAlert = (info: { lastSuccessAt: number | null; failures: number }) => Promise<void>;
 
 /** Time of the refresh loop: the scheduler passes the system clock, tests their own. */
 export interface FxClock {
@@ -46,4 +55,7 @@ export type FxRefreshEvent =
   | { readonly kind: "updated"; readonly currencies: number }
   | { readonly kind: "failed"; readonly failures: number; readonly errorClass: string }
   /** No successful update for 24 h or more (FR 4, AC2): an error-level event. */
-  | { readonly kind: "stale"; readonly failures: number };
+  | { readonly kind: "stale"; readonly failures: number }
+  /** The alert letter of this stale period was sent, or could not be sent (retried at the next attempt). */
+  | { readonly kind: "alert-sent" }
+  | { readonly kind: "alert-failed"; readonly errorClass: string };
