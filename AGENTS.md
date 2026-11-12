@@ -32,6 +32,7 @@ release until the owner has approved its design and started its development.
 | Screen map (screens S-NNN, entry points), use cases, user journeys | `docs/ux/` |
 | Design artifacts (canvas, design system, Claude Doc, release sheet), snapshots, recovery | `docs/design/ARTIFACTS.md`; snapshots in `design/` |
 | Coverage tables of design decisions, req-check report | `docs/validation/` |
+| External services (integrations list), browser instructions for the owner | `docs/ops/` (`integrations.md`, `browser-tasks/`) |
 
 Requirement files are self-contained: you never need another source to implement one. A requirement
 changes only through a PR to its file that records the owner's decision.
@@ -144,18 +145,32 @@ errors) lives only in `packages/domain-kernel`.
 3. Follow the `implement-requirement` skill. Tests first: one automated test per acceptance criterion
    and per edge case.
 4. Branch `<ID>-<slug>`; PR title starts with the ID, e.g. `BUD-03: safe-to-spend widget`.
-5. Review is done in a **different** session with the `review-pr` skill. Auth, permissions, encryption,
-   money calculations, database schema, pipeline and infrastructure (the PR gets the label `sensitive`) also
-   need a security review in another session. Every review names the head commit (full SHA) it reviewed and
-   ends with a line of its own: `Verdict: Ready` or `Verdict: Changes requested` (review-pr), and
-   `Security verdict: Ready` or `Security verdict: Changes requested` (security review). The daily check
-   (ADR-0008) reads exactly these lines (owner, 2026-11-12).
+5. Review is done in a **different** session with the `review-pr` skill. A security review in another
+   session is needed only for PRs labelled `sensitive` (CI sets it from file paths: auth, permissions,
+   encryption, money calculations, database schema, pipeline, infrastructure). Every review names the head
+   commit (full SHA) it reviewed and ends with a line of its own: `Verdict: Ready` or
+   `Verdict: Changes requested` (review-pr), and `Security verdict: Ready` or
+   `Security verdict: Changes requested` (security review). The daily check (ADR-0008) reads exactly these
+   lines (owner, 2026-11-12). Review rounds (owner, 2026-11-12):
+   - Only these block: a security bypass, data loss or leak, or a violation of the requirement the PR
+     claims (its FR/AC or a shared rule). Everything else is non-blocking: it goes to «Follow-ups» in the PR
+     body or to an issue and never starts a new round by itself.
+   - A re-review checks only the fixes and its own previous findings (the diff since the last reviewed head),
+     not the whole PR again.
+   - At most two rounds. If something blocking remains after round 2, the reviewer supplies a ready fix with
+     a test; the author applies it, and the reviewer briefly confirms that fix, still with a verdict that
+     names the final head SHA.
+   - Mutation testing is required only for critical modules: data isolation, money, authentication,
+     encryption.
+   - A recurring finding moves into automation: a repeated class of finding becomes a CI check or a test;
+     before pushing, agents run a local check for secret-shaped literals (what the CI job `secrets` checks).
+   - Keep PRs small: split a large requirement part (e.g. backend and UI) so each PR fits one review round.
 6. All CI checks green (jobs `requirements`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`). Never skip, disable or weaken a
    test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest
    commit and the review session gave «Ready» (plus the security review for sensitive areas) **on the
    commit being merged**: before merging, compare the SHA each review names with the PR head; any later
-   commit, even a small fix, needs a re-review (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
+   commit, even a small fix, needs a re-review of that fix (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
    skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
    log in `docs/decisions/` has it). The owner's approval on the PR is needed only for what acts on the
    cloud or production. It is either a comment from the owner's own GitHub account with a line that is exactly
@@ -237,6 +252,19 @@ owner on 2026-11-06):
   views, icons, placeholders, wording, which of two texts to follow when the intent is clear) the lead
   agent decides, records in the PR body and the decision log, and tells the owner afterwards.
 - **Tests are the spec:** never change an acceptance test to fit the code unless the requirement changed.
+
+## External services and owner actions
+
+Owner decision of 2026-11-12:
+
+- `docs/ops/integrations.md` is the single list of all third-party services: purpose, account, how we
+  interact, where credentials live, data sent, region, plan, requirements, status. The PR that adds or
+  changes an integration updates its row.
+- Agents never hold the owner's accounts or keys. When the owner must act in a browser (accounts,
+  settings, DNS, legal acceptance), the lead writes a ready instruction in `docs/ops/browser-tasks/` for the
+  owner's local Claude session with a browser. That session does the work itself and stops only for
+  sign-in, payment, legal acceptance and saving secrets to the owner's password manager. Secrets never go
+  to chat, issues, PRs or the repository.
 
 ## Definition of Done
 
