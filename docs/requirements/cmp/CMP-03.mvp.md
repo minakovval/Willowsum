@@ -1,4 +1,5 @@
 # CMP-03@MVP · Select — Список вибору
+> Згенеровано з [CMP-03.md](CMP-03.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-38@MVP · AssetMapWidget — Віджет мапи активів
+> Згенеровано з [CMP-38.md](CMP-38.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** S
 

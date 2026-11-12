@@ -1,4 +1,5 @@
 # CMP-67@MVP · FolderCard — Картка папки
+> Згенеровано з [CMP-67.md](CMP-67.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

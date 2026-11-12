@@ -1,4 +1,5 @@
 # CMP-47@MVP · BarChart — Стовпчиковий графік
+> Згенеровано з [CMP-47.md](CMP-47.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

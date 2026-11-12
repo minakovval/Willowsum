@@ -1,4 +1,5 @@
 # CMP-34@MVP · AssetPlaceholder — Заглушка зображення
+> Згенеровано з [CMP-34.md](CMP-34.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-39@MVP · AssetGalleryWidget — Віджет галереї активів
+> Згенеровано з [CMP-39.md](CMP-39.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

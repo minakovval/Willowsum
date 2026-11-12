@@ -1,4 +1,5 @@
 # CMP-13@MVP · Pagination — Пагінація
+> Згенеровано з [CMP-13.md](CMP-13.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CMP-04@MVP · Checkbox — Прапорець
+> Згенеровано з [CMP-04.md](CMP-04.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

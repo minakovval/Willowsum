@@ -1,4 +1,5 @@
 # CMP-26@PoC · Table — Таблиця
+> Згенеровано з [CMP-26.md](CMP-26.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

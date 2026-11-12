@@ -1,4 +1,5 @@
 # CMP-07@PoC · Amount — Сума
+> Згенеровано з [CMP-07.md](CMP-07.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

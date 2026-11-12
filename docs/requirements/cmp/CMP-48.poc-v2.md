@@ -1,4 +1,5 @@
 # CMP-48@PoC v2 · DonutChart — Кільцева діаграма
+> Згенеровано з [CMP-48.md](CMP-48.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

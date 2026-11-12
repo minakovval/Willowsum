@@ -1,4 +1,5 @@
 # CMP-70@MVP · KpiTile — Плитка показника
+> Згенеровано з [CMP-70.md](CMP-70.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

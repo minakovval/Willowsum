@@ -1,4 +1,5 @@
 # CMP-58@MVP · ViewSwitch — Перемикач вигляду
+> Згенеровано з [CMP-58.md](CMP-58.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

@@ -1,4 +1,5 @@
 # CICD-10@v1-mobile · Мобільні застосунки
+> Згенеровано з [CICD-10.md](CICD-10.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** M
 

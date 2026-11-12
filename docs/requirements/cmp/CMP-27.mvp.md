@@ -1,4 +1,5 @@
 # CMP-27@MVP · ListRow — Рядок списку
+> Згенеровано з [CMP-27.md](CMP-27.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

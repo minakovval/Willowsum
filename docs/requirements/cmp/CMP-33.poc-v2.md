@@ -1,4 +1,5 @@
 # CMP-33@PoC v2 · Icon — Іконка
+> Згенеровано з [CMP-33.md](CMP-33.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

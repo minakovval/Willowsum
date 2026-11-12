@@ -1,4 +1,5 @@
 # CMP-71@PoC · BrandMark — Знак і назва продукту
+> Згенеровано з [CMP-71.md](CMP-71.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

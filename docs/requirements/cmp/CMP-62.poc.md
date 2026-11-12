@@ -1,4 +1,5 @@
 # CMP-62@PoC · SortMenu — Меню сортування
+> Згенеровано з [CMP-62.md](CMP-62.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

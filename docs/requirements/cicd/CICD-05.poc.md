@@ -1,4 +1,5 @@
 # CICD-05@PoC · Розгортання в production і відкат
+> Згенеровано з [CICD-05.md](CICD-05.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

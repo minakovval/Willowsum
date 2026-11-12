@@ -1,4 +1,5 @@
 # CMP-55@MVP · BudgetRow — Рядок бюджету
+> Згенеровано з [CMP-55.md](CMP-55.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

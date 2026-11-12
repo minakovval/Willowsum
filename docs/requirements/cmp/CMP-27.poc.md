@@ -1,4 +1,5 @@
 # CMP-27@PoC · ListRow — Рядок списку
+> Згенеровано з [CMP-27.md](CMP-27.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

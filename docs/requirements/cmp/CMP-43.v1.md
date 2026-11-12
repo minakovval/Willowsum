@@ -1,4 +1,5 @@
 # CMP-43@v1 · SmallMultiples — Малі множини
+> Згенеровано з [CMP-43.md](CMP-43.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1 · **Пріоритет:** S
 

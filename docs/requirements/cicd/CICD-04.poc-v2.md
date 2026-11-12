@@ -1,4 +1,5 @@
 # CICD-04@PoC v2 · Середовища
+> Згенеровано з [CICD-04.md](CICD-04.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

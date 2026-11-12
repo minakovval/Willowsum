@@ -1,4 +1,5 @@
 # CMP-69@PoC v2 · AppNavigation — Навігація застосунку
+> Згенеровано з [CMP-69.md](CMP-69.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

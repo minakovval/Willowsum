@@ -1,4 +1,5 @@
 # CMP-40@v1 · SummaryWidget — Підсумковий віджет
+> Згенеровано з [CMP-40.md](CMP-40.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1 · **Пріоритет:** M
 

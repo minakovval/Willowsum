@@ -1,4 +1,5 @@
 # SUB-05@v1 · Back office
+> Згенеровано з [SUB-05.md](SUB-05.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1 · **Пріоритет:** S
 

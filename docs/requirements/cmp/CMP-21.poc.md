@@ -1,4 +1,5 @@
 # CMP-21@PoC · Dialog — Діалог
+> Згенеровано з [CMP-21.md](CMP-21.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC · **Пріоритет:** M
 

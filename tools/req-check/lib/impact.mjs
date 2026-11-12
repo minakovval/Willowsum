@@ -116,7 +116,8 @@ export function computeImpact(model, registries, target) {
     target,
     kind: seeded.kind,
     slices: slices.map((s) => ({ ...affected.get(s.sid), slice: s })),
-    files: uniq(slices.flatMap((s) => [s.doc.rel, s.feature.doc.rel, `${s.feature.doc.rel.split('/').slice(0, -1).join('/')}/README.md`])),
+    // A generated view is edited through its source (the requirement file), then regenerated with --views.
+    files: uniq(slices.flatMap((s) => [s.doc.generated ? s.doc.generated.sourceRel : s.doc.rel, s.feature.doc.rel, `${s.feature.doc.rel.split('/').slice(0, -1).join('/')}/README.md`])),
     design: uniq(slices.flatMap((s) => s.links.design)),
     useCases: uniq(slices.flatMap((s) => s.links.useCases)),
     shared: uniq(slices.flatMap((s) => s.links.shared)),
@@ -151,6 +152,7 @@ export function renderImpact(impact) {
   sec('Tests («Перевіряється»)', impact.tests, 'None linked yet.');
   sec('Code modules', impact.modules.map((m) => `${m} — apps/api/src/modules/${m}`));
   sec('Generated and external artifacts', [
+    'Release views of the changed sources (<ID>.<release>.md) — regenerate: node tools/req-check/index.mjs --views',
     'docs/traceability/ — regenerate: node tools/req-check/index.mjs --traceability',
     'docs/validation/req-check-report.md — regenerate: node tools/req-check/index.mjs --report docs/validation/req-check-report.md',
     'Release-features Google Sheet (outside the repository) — update the rows of the affected requirements by hand',

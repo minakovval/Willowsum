@@ -1,4 +1,5 @@
 # CMP-56@PoC v2 · ConnectionCard — Картка підключення
+> Згенеровано з [CMP-56.md](CMP-56.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** PoC v2 · **Пріоритет:** M
 

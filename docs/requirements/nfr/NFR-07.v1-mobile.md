@@ -1,4 +1,5 @@
 # NFR-07@v1-mobile · Платформи
+> Згенеровано з [NFR-07.md](NFR-07.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** M
 

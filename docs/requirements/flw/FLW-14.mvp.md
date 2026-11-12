@@ -1,4 +1,5 @@
 # FLW-14@MVP · Перегляд Головної і net worth
+> Згенеровано з [FLW-14.md](FLW-14.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** MVP · **Пріоритет:** M
 

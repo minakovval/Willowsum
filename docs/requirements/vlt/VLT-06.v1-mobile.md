@@ -1,4 +1,5 @@
 # VLT-06@v1-mobile · Захист перегляду
+> Згенеровано з [VLT-06.md](VLT-06.md) командою `node tools/req-check/index.mjs --views`. Не редагувати: змінюйте джерело.
 
 **Реліз:** v1-mobile · **Пріоритет:** S
 
