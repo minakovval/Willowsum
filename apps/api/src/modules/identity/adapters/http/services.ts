@@ -24,7 +24,10 @@ export interface IdentityServices {
   readonly now: () => number;
   readonly hasher: PasswordHasher;
   readonly secrets: Secrets;
-  /** Runs a letter's delivery after the answer has gone (default: the next turn of the event loop). */
+  /**
+   * Runs work after the answer has gone (default: the next turn of the event loop): letters, and the lookup of a
+   * password reset request.
+   */
   readonly deliver: (task: () => Promise<void>) => void;
 }
 
@@ -94,6 +97,18 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
           });
         }
       }),
+    afterResponse: (task) =>
+      services.deliver(async () => {
+        try {
+          await task();
+        } catch (error) {
+          // The class only: nothing of the request (an address) reaches telemetry (ARC-09, NFR-10).
+          logEvent("identity.task_failed", "error", {
+            "ws.module": "identity",
+            "error.type": errorClass(error),
+          });
+        }
+      }),
     audit: {
       accountChanged: async (accountId, before, after) => {
         await services.audit.recordPlatform({
@@ -102,6 +117,16 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
           entity: { type: "identity.account", id: accountId },
           action: before === null ? "create" : "update",
           changes: [{ field: "state", before, after, sensitive: false }],
+        });
+      },
+      passwordChanged: async (accountId) => {
+        await services.audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "web",
+          entity: { type: "identity.account", id: accountId },
+          action: "update",
+          // Sensitive: the log stores only the mask, never a hash (П-10).
+          changes: [{ field: "password", before: "set", after: "set", sensitive: true }],
         });
       },
     },

@@ -71,13 +71,15 @@ async function sendRegistrationLetter(
   account: AccountRow,
   kind: "new" | "existing",
   now: number,
+  send = true,
 ): Promise<number> {
   const key = deps.secrets.digest(normalizeEmail(account.email));
   const scope = mailScope(kind);
   // Parallel requests for one address are checked one after another, so the limit holds (ACC-01 FR 15).
   await tx.lockSubject(scope, key);
   const wait = mailWaitS(await tx.eventTimes(scope, key, now - MAIL_WINDOW_MS), now);
-  if (wait > 0) return wait;
+  // `send = false` (a superseded sign-up): the same lock and reads, then nothing.
+  if (wait > 0 || !send) return wait;
   await tx.addEvent(scope, key, now);
   if (kind === "existing") {
     const letter = signUpAttemptLetter(account.displayName, passwordResetLink(deps.webOrigin));
@@ -115,7 +117,7 @@ export async function signUp(
   const now = deps.now();
   const registrationToken = deps.secrets.token();
   const normalizedEmail = normalizeEmail(input.email);
-  const created = await deps.store.transaction(async (tx) => {
+  const changed = await deps.store.transaction(async (tx) => {
     const id = await tx.insertAccount({
       email: input.email.trim(),
       normalizedEmail,
@@ -123,9 +125,27 @@ export async function signUp(
       passwordHash,
       now,
     });
-    const account = id === null ? await tx.findAccountByEmail(normalizedEmail) : await tx.findAccount(id);
+    let account =
+      id === null ? await tx.findAccountByEmail(normalizedEmail, "update") : await tx.findAccount(id);
     if (!account) throw new Error("identity: the account of a sign-up is missing");
-    const kind = id === null ? "existing" : "new";
+    let kind: "new" | "existing" = id === null ? "existing" : "new";
+    let replaced = false;
+    if (
+      id === null &&
+      account.emailConfirmedAt === null &&
+      (await tx.replaceUnconfirmedAccount(account.id, { displayName: input.name, passwordHash }, now))
+    ) {
+      // Pre-account squatting (owner decision 2026-11-12): a new sign-up with the address of an unconfirmed
+      // account replaces its password (the latest wins); every earlier link is revoked, so only the newest
+      // letter's link can confirm, and it confirms the newest password. The earlier sign-ups' «Перевірте пошту»
+      // tokens keep answering as before (closing them would tell their holder the address had no confirmed
+      // account) but no longer send a letter or revoke a link.
+      await tx.revokeConfirmations(account.id, now);
+      await tx.supersedeRegistrations(account.id, now);
+      account = { ...account, displayName: input.name, passwordHash };
+      kind = "new";
+      replaced = true;
+    }
     await tx.insertRegistration(
       account.id,
       kind,
@@ -135,11 +155,13 @@ export async function signUp(
     );
     // The token's own resend limit starts now, whether a letter went or not (NFR-15 FR 1).
     await tx.addEvent("registration-resend", deps.secrets.digest(registrationToken), now);
-    // A taken address gets the attempt letter only within its limit; the answer is the same either way.
+    // A confirmed address gets the attempt letter only within its limit; the answer is the same either way.
     await sendRegistrationLetter(deps, tx, account, kind, now);
-    return id;
+    return id !== null ? { created: id } : replaced ? { replaced: account.id } : null;
   });
-  if (created !== null) await deps.audit.accountChanged(created, null, "unconfirmed");
+  // One audit entry for a new account and for a replaced password alike (the same work on the response path).
+  if (changed && "created" in changed) await deps.audit.accountChanged(changed.created, null, "unconfirmed");
+  if (changed && "replaced" in changed) await deps.audit.passwordChanged(changed.replaced);
   return { kind: "check-email", registrationToken, resendAfterS: RESEND_AFTER_S };
 }
 
@@ -164,7 +186,15 @@ export async function resendForRegistration(
     const wait = mailWaitS(await tx.eventTimes("registration-resend", tokenKey, now - MAIL_WINDOW_MS), now);
     if (wait > 0) return { kind: "wait", retryAfterS: wait } as const;
     await tx.addEvent("registration-resend", tokenKey, now);
-    await sendRegistrationLetter(deps, tx, account, registration.kind, now);
+    // A superseded sign-up answers the same but sends nothing: a newer sign-up owns the address's links.
+    await sendRegistrationLetter(
+      deps,
+      tx,
+      account,
+      registration.kind,
+      now,
+      registration.supersededAt === null,
+    );
     return { kind: "sent", resendAfterS: RESEND_AFTER_S } as const;
   });
 }
@@ -180,7 +210,8 @@ export async function changeEmail(deps: IdentityDeps, registrationToken: string)
     const registration = await tx.findRegistration(deps.secrets.digest(registrationToken));
     if (!registration || registration.closedAt !== null || registration.expiresAt <= now) return false;
     await tx.closeRegistration(registration.id, now);
-    if (registration.kind === "new") {
+    // A superseded sign-up never revokes the links of the newer one.
+    if (registration.kind === "new" && registration.supersededAt === null) {
       const account = await tx.findAccount(registration.accountId);
       if (account && account.emailConfirmedAt === null) await tx.revokeConfirmations(account.id, now);
     }
@@ -264,7 +295,8 @@ export async function signIn(
     const recheck = signInGate(guard, now);
     if (recheck.kind === "locked") return { kind: "locked", retryAfterS: recheck.retryAfterS };
     if (recheck.kind === "captcha" && !captchaPassed) return { kind: "captcha" };
-    const account = await tx.findAccountByEmail(normalizedEmail);
+    // Shared lock: a password reset of this account waits for this sign-in, or this sign-in sees the new hash.
+    const account = await tx.findAccountByEmail(normalizedEmail, "share");
     const ok = await deps.hasher.verify(account?.passwordHash ?? decoy, normalizePassword(input.password));
     if (!account || !ok) {
       await tx.addEvent("sign-in-failure", key, now);

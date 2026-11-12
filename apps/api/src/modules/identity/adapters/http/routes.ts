@@ -4,7 +4,10 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
 import {
   changeEmail,
+  completePasswordReset,
   confirmEmail,
+  passwordResetState,
+  requestPasswordReset,
   resendForLink,
   resendForRegistration,
   sessionAccount,
@@ -24,7 +27,8 @@ import { identityDeps } from "./services.ts";
  */
 const MODULE = "identity";
 const FLAG = "identity.sign-in";
-const PUBLIC = "Sign-up, email confirmation and sign-in work before a session or a space exists (ACC-01)";
+const PUBLIC =
+  "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)";
 
 /** The session cookie: `__Secure-session` on HTTPS (cookies.ts, NFR-15 FR 5). */
 export const SESSION_COOKIE = "session";
@@ -271,6 +275,83 @@ export const signOutRoute = defineRoute({
   },
 });
 
+export const requestPasswordResetRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/password-resets",
+  operationId: "requestPasswordReset",
+  summary: "Ask for a password reset link by email («Відновлення пароля»)",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  request: { body: z.object({ email: emailSchema }) },
+  response: {
+    status: 200,
+    description:
+      "Always «if the account exists, we sent a letter» (ACC-01 FR 10, NFR-15 FR 1): the same answer and time for an address with and without an account. An account gets a link valid 60 min that revokes its earlier links, at most one letter per 60 s and 5 per hour",
+    schema: z.object({ status: z.literal("requested") }),
+  },
+  handler: async ({ body }, ctx) => {
+    requestPasswordReset(identityDeps(ctx), body.email);
+    return { status: "requested" as const };
+  },
+});
+
+export const checkPasswordResetRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/password-resets/check",
+  operationId: "checkPasswordReset",
+  summary: "Whether a password reset link can still be used (before the new-password form is shown)",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["RESET_LINK_INVALID"],
+  request: { body: z.object({ token }) },
+  response: {
+    status: 200,
+    description:
+      "valid: the form for the new password may be shown. 410 RESET_LINK_INVALID: «Посилання недійсне» (used, replaced, older than 60 min or unknown). Changes nothing",
+    schema: z.object({ status: z.literal("valid") }),
+  },
+  handler: async ({ body }, ctx) => {
+    if ((await passwordResetState(identityDeps(ctx), body.token)) !== "valid")
+      throw new ApiProblem("RESET_LINK_INVALID");
+    return { status: "valid" as const };
+  },
+});
+
+export const completePasswordResetRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/password-resets/complete",
+  operationId: "completePasswordReset",
+  summary: "Set a new password with a password reset link",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["RESET_LINK_INVALID"],
+  request: {
+    body: z.object({
+      token,
+      /** At least 12 characters, no composition rules (ACC-01 business rules). */
+      password: passwordSchema,
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "The password is changed, every session of the account has ended (this browser's cookie is removed too; no new session), the address counts as confirmed and a security notice is on its way. 410 RESET_LINK_INVALID when the link can no longer be used",
+    schema: z.object({ status: z.literal("password-changed") }),
+  },
+  handler: async ({ body }, ctx) => {
+    const result = await completePasswordReset(identityDeps(ctx), {
+      token: body.token,
+      password: body.password,
+    });
+    if (result.kind === "invalid") throw new ApiProblem("RESET_LINK_INVALID");
+    ctx.http.setCookie(clearedSessionCookie(SESSION_COOKIE, { https: ctx.http.https }));
+    return { status: "password-changed" as const };
+  },
+});
+
 export const identityRoutes = [
   signUpRoute,
   resendRegistrationRoute,
@@ -280,4 +361,7 @@ export const identityRoutes = [
   signInRoute,
   currentSessionRoute,
   signOutRoute,
+  requestPasswordResetRoute,
+  checkPasswordResetRoute,
+  completePasswordResetRoute,
 ];

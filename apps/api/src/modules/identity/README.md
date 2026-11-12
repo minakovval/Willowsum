@@ -6,13 +6,14 @@
 
 ## Призначення
 
-Реєстрація, вхід, 2FA, passkey, сесії, step-up, блокування входу. Зараз (ACC-01@PoC, частина a): реєстрація за email і
-паролем, підтвердження email, вхід з блокуванням і CAPTCHA, серверна сесія, вихід. Рішення — [ADR-0009](../../../../../docs/adr/0009-identity-sign-in.md).
+Реєстрація, вхід, 2FA, passkey, сесії, step-up, блокування входу. Зараз (ACC-01@PoC, частини a і b): реєстрація за email і
+паролем, підтвердження email, вхід з блокуванням і CAPTCHA, серверна сесія, вихід, скидання пароля з завершенням усіх
+сесій. Рішення — [ADR-0009](../../../../../docs/adr/0009-identity-sign-in.md).
 
 ## Вимоги
 
-ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15 — серверна частина); NFR-01@PoC (п. 7, 9, 10), NFR-14@PoC (п. 7), NFR-15@PoC
-(п. 1, 2, 5). Далі: частина b — скидання пароля і завершення всіх сесій; частина c — простір «Родина <Прізвище>» при
+ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10 і AC25 — серверна частина); NFR-01@PoC (п. 7, 9, 10),
+NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5). Далі: частина c — простір «Родина <Прізвище>» при
 першому вході, видалення непідтверджених акаунтів через 30 днів; ACC-04 — тайм-аут сесії і лист про новий пристрій.
 
 ## Публічний інтерфейс
@@ -32,16 +33,29 @@ ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15 — серверна ча
   - `POST /v1/sessions` (`signIn`) → `signed-in` (cookie `__Secure-session`) або `email-not-confirmed` з
     `registrationToken`; 401 `INVALID_CREDENTIALS`, 429 `SIGN_IN_LOCKED`, 400 `CAPTCHA_REQUIRED`.
   - `GET /v1/session` (`getSession`) → `{ name, email }` або 401; `DELETE /v1/session` (`signOut`).
+  - `POST /v1/password-resets` (`requestPasswordReset`) — email → завжди `{ status: "requested" }`; пошук акаунта,
+    посилання (60 хв, одноразове, новіше скасовує попередні; лист не частіше раз на 60 с і 5 на годину) і лист — після
+    відповіді.
+  - `POST /v1/password-resets/check` (`checkPasswordReset`) — токен → `{ status: "valid" }` або 410
+    `RESET_LINK_INVALID`; нічого не змінює.
+  - `POST /v1/password-resets/complete` (`completePasswordReset`) — токен і новий пароль (≥ 12 символів) →
+    `{ status: "password-changed" }`: пароль змінено, усі сесії акаунта завершено (cookie цього браузера видалено, нової
+    сесії немає), email підтверджено, блокування входу адреси знято, безпекове сповіщення; 410 `RESET_LINK_INVALID`.
+  - Повторна реєстрація з адресою непідтвердженого акаунта замінює його ім'я і пароль і скасовує посилання (рішення
+    власника 2026-11-12); підтверджений акаунт не змінюється.
 - `createIdentityServices({ mail, captcha, audit, webOrigin, now?, hasher?, deliver? })` → `IdentityServices` — порти і
   налаштування, які `src/api.ts` передає маршрутам (`ctx.services`); `main.ts` вибирає реалізації пошти й CAPTCHA за
   `WS_PROVIDER_MODE`.
 - `argon2Hasher(parameters?)`, `ARGON2_PARAMETERS`, `SESSION_COOKIE` і числа правил (`CONFIRMATION_TTL_MS`,
+  `PASSWORD_RESET_TTL_MS`,
   `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
   `SIGN_IN_FAILURE_WINDOW_MS`, `SIGN_IN_FAILURES_LIMIT`, `SIGN_IN_LOCK_MS`, `SIGN_UPS_PER_ADDRESS_PER_HOUR`).
 
 Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/verify?token=…` (24 год) і лист про
-спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/password/reset`. Надсилаються після відповіді;
-невдача — подія `identity.mail_failed` лише з класом помилки.
+спробу реєстрації з наявним email — лише з посиланням `<WS_WEB_ORIGIN>/password/reset`; лист скидання з посиланням
+`<WS_WEB_ORIGIN>/password/reset#token=…` (токен у фрагменті, 60 хв) і безпекове сповіщення про зміну пароля (лише
+посилання на сторінку скидання). Надсилаються після відповіді; невдача — подія `identity.mail_failed` лише з класом
+помилки; невдача роботи після відповіді — `identity.task_failed`.
 
 ## Залежності
 
@@ -68,7 +82,8 @@ SHA-256.
 | --- | --- |
 | `accounts` | Email (як введено і нормалізований, унікальний), ім'я, хеш argon2id, `email_confirmed_at` |
 | `email_confirmations` | Посилання підтвердження: SHA-256 токена, строк (24 год), `used_at`, `revoked_at` |
-| `registrations` | Токен екрана «Перевірте пошту»: акаунт, `kind` (`new` / `existing`), строк, `closed_at` |
+| `registrations` | Токен екрана «Перевірте пошту»: акаунт, `kind` (`new` / `existing`), строк, `closed_at`, `superseded_at` (пізніша реєстрація замінила пароль непідтвердженого акаунта) |
+| `password_resets` | Посилання скидання пароля: SHA-256 токена, строк (60 хв), `used_at`, `revoked_at` |
 | `sessions` | SHA-256 токена сесії, `last_seen_at`, `expires_at` (12 год), `ended_at` |
 | `sign_in_guards` | Блокування входу на email (SHA-256 адреси): `locked_until`, `captcha_required` |
 | `throttle_events` | Події ковзних лімітів: невдалі входи, листи підтвердження і про спробу реєстрації (на адресу), «Надіслати ще раз» (на токен реєстрації), реєстрації (на адресу клієнта, будь-яка година) |
