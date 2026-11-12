@@ -113,13 +113,15 @@ describe("UX-09@PoC navigation", () => {
     for (const hash of ["#/money/accounts", "#/settings"]) {
       window.location.hash = hash;
       const { unmount } = render(<App />);
+      // The page really rendered, so the absence checks below are meaningful.
+      expect(h1()).toBeTruthy();
       for (const absent of [
         /Підключення/,
         /Підключити/,
         /Перепідключити/,
         /monobank/i,
         /токен/i,
-        /Джерела даних/,
+        /Керувати підключеннями/,
       ]) {
         expect(screen.queryByText(absent), `${hash} ${absent}`).toBeNull();
         expect(screen.queryByRole("link", { name: absent }), `${hash} ${absent}`).toBeNull();
