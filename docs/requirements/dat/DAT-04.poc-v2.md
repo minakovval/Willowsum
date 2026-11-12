@@ -1,11 +1,11 @@
-# DAT-04@PoC · Єдиний імпорт і майстер міграції
+# DAT-04@PoC v2 · Єдиний імпорт і майстер міграції
 
-**Реліз:** PoC · **Пріоритет:** M
+**Реліз:** PoC v2 · **Пріоритет:** M
 
 **Зв'язки**
 - Розширює: —
-- Залежить від: FIN-01@PoC, FIN-03@PoC, IMP-04@PoC
-- Дизайн: S-163, S-164, S-165, S-167, S-168, S-169
+- Залежить від: FIN-01@PoC v2, FIN-03@PoC v2, IMP-04@PoC
+- Дизайн: S-163, S-164, S-165, S-167, S-168, S-169, PocDataImport1, PocDataImport2, PocDataImport3, PocDataImport4, PocDataImport5
 - Спільні правила: П-10, П-12, П-21, П-24, П-25, П-26
 - Сценарії: UC-DAT-14, UC-DAT-17, UC-DAT-19
 - Модуль: import-sessions, transactions

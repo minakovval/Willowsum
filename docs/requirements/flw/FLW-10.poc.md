@@ -4,7 +4,7 @@
 
 **Зв'язки**
 - Розширює: —
-- Залежить від: DAT-04@PoC, FIN-01@PoC, IMP-01@PoC, IMP-04@PoC, IMP-06@PoC, IMP-07@PoC, IMP-08@PoC, IMP-14@PoC, IMP-16@PoC
+- Залежить від: FIN-01@PoC, IMP-01@PoC, IMP-04@PoC, IMP-06@PoC, IMP-07@PoC, IMP-08@PoC, IMP-14@PoC, IMP-16@PoC
 - Дизайн: S-046, S-163, S-170, S-171, S-174
 - Спільні правила: П-10, П-12, П-24, П-25, П-26, NFR-12, SCR-02
 - Сценарії: UC-IMP-01, UC-IMP-10, UC-IMP-17, UC-IMP-21

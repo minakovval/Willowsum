@@ -376,12 +376,12 @@
 | S-162 | screen | Імпорт (вибір джерела: виписка, дані, міграція, журнал криптобіржі, документи; майстер виписок також із S-046 і S-025; вкладки «Історія» і «Шаблони») | `/more/import` | Ще | MVP | DAT-04, IMP-01, IMP-08, GRID-05, FLW-10, FLW-17 | NA; лише перегляд для Viewer | Ow Ad Ed (Vw — перегляд партій) |
 | S-294 | screen | Імпорт → вкладка «Шаблони» (шаблони імпорту простору) | `/more/import/templates` | Ще | PoC | IMP-07 | E L ERR | Ow Ad Ed (Vw — перегляд) |
 | S-163 | screen | Історія імпорту (партії, «Відкотити» 7 днів, файл помилок) | `/more/import/history` | Ще | PoC | DAT-04, IMP-01, IMP-04, IMP-14, IMP-16, IMP-19, FLW-10 | E L ERR NA | Ow Ad Ed Vw |
-| S-164 | wizard step | Імпорт даних: тип і файл | `/more/import/data/file` | Ще | PoC | DAT-04, FLW-10 | ERR; файл порожній, не таблиця, > 10 000 рядків | Ow Ad Ed |
-| S-165 | wizard step | Імпорт даних: зіставлення колонок (зберегти схему) | `/more/import/data/mapping` | Ще | PoC | DAT-04, FLW-10, FLW-49 | ERR | Ow Ad Ed |
+| S-164 | wizard step | Імпорт даних: тип і файл | `/more/import/data/file` | Ще | PoC v2 | DAT-04, FLW-10 | ERR; файл порожній, не таблиця, > 10 000 рядків | Ow Ad Ed |
+| S-165 | wizard step | Імпорт даних: зіставлення колонок (зберегти схему) | `/more/import/data/mapping` | Ще | PoC v2 | DAT-04, FLW-10, FLW-49 | ERR | Ow Ad Ed |
 | S-166 | wizard step | Імпорт даних: режим («Створити нові» / «Оновити існуючі») | `/more/import/data/mode` | Ще | MVP | DAT-04, FLW-10 | — | Ow Ad Ed |
-| S-167 | wizard step | Імпорт даних: перевірка (кількості, помилки, ліміт плану) | `/more/import/data/check` | Ще | PoC | DAT-04, FLW-10 | ERR UPG | Ow Ad Ed |
-| S-168 | wizard step | Імпорт даних: прогрес | `/more/import/data/progress` | Ще | PoC | DAT-04, FLW-10, FLW-49 | L ERR | Ow Ad Ed |
-| S-169 | wizard step | Імпорт даних: результат | `/more/import/data/result` | Ще | PoC | DAT-04, FLW-10 | ERR | Ow Ad Ed |
+| S-167 | wizard step | Імпорт даних: перевірка (кількості, помилки, ліміт плану) | `/more/import/data/check` | Ще | PoC v2 | DAT-04, FLW-10 | ERR UPG | Ow Ad Ed |
+| S-168 | wizard step | Імпорт даних: прогрес | `/more/import/data/progress` | Ще | PoC v2 | DAT-04, FLW-10, FLW-49 | L ERR | Ow Ad Ed |
+| S-169 | wizard step | Імпорт даних: результат | `/more/import/data/result` | Ще | PoC v2 | DAT-04, FLW-10 | ERR | Ow Ad Ed |
 | S-170 | wizard step | Імпорт виписок: рахунок і файли (підбір шаблону, пароль PDF) | `/more/import/statement/files` | Ще | PoC | IMP-01, IMP-07, IMP-08, IMP-12, IMP-13, IMP-15, FLW-17 | L ERR; формат змінився | Ow Ad Ed |
 | S-171 | wizard step | Імпорт виписок: перевірка розпізнавання (оригінал ↔ рядки, банери партії) | `/more/import/statement/review` | Ще | PoC | IMP-04, IMP-05, IMP-06, IMP-08, IMP-15, IMP-17, IMP-18, FLW-17 | E L ERR; розбіжність контрольних сум, розрив, чужий рахунок | Ow Ad Ed (Vw — перегляд) |
 | S-172 | screen | Редактор правил розпізнавання (рецепт, сирі клітинки) | `/more/import/statement/rules` | Ще | PoC | IMP-06, IMP-07, IMP-09 | L ERR; < 600 px — недоступний | Ow Ad Ed |

@@ -6,11 +6,11 @@ Per release: screens of the screen map without a slice that links them, migrated
 
 ## PoC
 
-### Screens without a slice (0 of 71)
+### Screens without a slice (0 of 66)
 
 None.
 
-### Migrated slices without design (97)
+### Migrated slices without design (96)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -21,7 +21,6 @@ None.
 - ARC-07@PoC
 - ARC-08@PoC
 - ARC-09@PoC
-- ARC-10@PoC
 - ARC-11@PoC
 - CHT-00@PoC
 - CICD-01@PoC
@@ -110,7 +109,7 @@ None.
 - VAL-04@PoC
 - VAL-05@PoC
 
-### Slices without acceptance criteria (24)
+### Slices without acceptance criteria (23)
 
 - ARC-01@PoC
 - ARC-02@PoC
@@ -121,7 +120,6 @@ None.
 - ARC-07@PoC
 - ARC-08@PoC
 - ARC-09@PoC
-- ARC-10@PoC
 - ARC-11@PoC
 - CICD-01@PoC
 - CICD-02@PoC
@@ -141,25 +139,39 @@ Not migrated in PoC: 0 slices without design links (links are unknown until migr
 
 ## PoC v2
 
-### Screens without a slice (0 of 20)
+### Screens without a slice (0 of 25)
 
 None.
 
-### Migrated slices without design (9)
+### Migrated slices without design (20)
 
 - ARC-01@PoC v2
+- ARC-07@PoC v2
+- ARC-10@PoC v2
+- CHT-00@PoC v2
+- CICD-02@PoC v2
 - CMP-24@PoC v2
 - CMP-26@PoC v2
 - CMP-58@PoC v2
 - CMP-60@PoC v2
 - CMP-69@PoC v2
 - DS-03@PoC v2
+- DS-12@PoC v2
 - NFR-01@PoC v2
+- NFR-02@PoC v2
+- NFR-07@PoC v2
+- NFR-08@PoC v2
+- NFR-10@PoC v2
+- NFR-12@PoC v2
+- NFR-15@PoC v2
 - NFR-19@PoC v2
 
-### Slices without acceptance criteria (4)
+### Slices without acceptance criteria (7)
 
 - ARC-01@PoC v2
+- ARC-07@PoC v2
+- ARC-10@PoC v2
+- CICD-02@PoC v2
 - JRN-05@PoC v2
 - JRN-06@PoC v2
 - NFR-19@PoC v2

@@ -14,7 +14,7 @@ Scope: CI/CD and operations requirements. Source: tab 13 of the Willowsum produc
 | ID | Title | Release | Priority |
 | --- | --- | --- | --- |
 | [CICD-01](CICD-01.md) | Гілки, PR і захист основної гілки | PoC | M |
-| [CICD-02](CICD-02.md) | Обов'язкові перевірки PR | PoC (E2E-тести лише на ширині 1280 px, без перевірки доступності axe); MVP (ширини 390 і 768 px, перевірка доступності axe) | M |
+| [CICD-02](CICD-02.md) | Обов'язкові перевірки PR | PoC (E2E-тести лише на ширині 1280 px, без перевірки доступності axe); PoC v2 (E2E-тести адмін-панелі); MVP (ширини 390 і 768 px, перевірка доступності axe) | M |
 | [CICD-03](CICD-03.md) | Збірка і ланцюг постачання | PoC | M |
 | [CICD-04](CICD-04.md) | Середовища | PoC (одне розгорнуте середовище — production, без staging); MVP (staging) | M |
 | [CICD-05](CICD-05.md) | Розгортання в production і відкат | PoC (smoke-тести без Головної); MVP (smoke-тест Головної) | M |
