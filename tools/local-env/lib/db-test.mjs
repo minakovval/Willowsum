@@ -10,6 +10,7 @@
 // runs on one cluster queue up instead of colliding. Run-scoped role names would remove the queue but touch the
 // isolation guard (ADR-0002); they are a follow-up.
 import crypto from 'node:crypto';
+import path from 'node:path';
 
 /** Prefix of every database this tool creates; `drop` refuses any other name. */
 export const PREFIX = 'ws_t_';
@@ -84,7 +85,33 @@ export function psqlConnection(url) {
   return { args: ['-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-d', u.toString()], env: password ? { PGPASSWORD: password } : {} };
 }
 
-/** Lines printed after `create`: the name and the URL to export. */
-export function createdMessage(name, url) {
-  return [`Test database: ${name}`, `DATABASE_URL=${url}`, `Drop it when done: pnpm db:test drop ${name}`].join('\n');
+/** The URL with its password (and any `password=` parameter) hidden, for printing. */
+export function redactUrl(url) {
+  const u = new URL(url);
+  if (u.password) u.password = '***';
+  u.searchParams.delete('password');
+  return u.toString();
+}
+
+/** Where `create` writes the full DATABASE_URL (git-ignored state directory, mode 0600). */
+export function dbEnvFile(stateDir, name) {
+  return path.join(stateDir, 'db-test', `${name}.env`);
+}
+
+/** The env file's content: shell- and dotenv-compatible (`. file`, `node --env-file=file`). */
+export function dbEnvContent(url) {
+  return `DATABASE_URL='${url.replace(/'/g, `'\\''`)}'\n`;
+}
+
+/**
+ * Lines printed after `create`: the name, the URL with the password hidden, and the file with the full URL.
+ * Secrets are never printed (agent output ends up in chat; AGENTS.md, info.mjs).
+ */
+export function createdMessage(name, url, envFile) {
+  return [
+    `Test database: ${name}`,
+    `DATABASE_URL (password hidden): ${redactUrl(url)}`,
+    `Full URL in ${envFile} (git-ignored): set -a; . ${envFile}; set +a`,
+    `Drop it when done: pnpm db:test drop ${name}`,
+  ].join('\n');
 }

@@ -11,6 +11,7 @@
 //                      `pnpm db:test run -- <command>`: a fresh database, DATABASE_URL set, a cluster-wide lock
 //                      held (integration runs on one cluster queue up), the database dropped afterwards
 import { spawn, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable } from './lib/docker.mjs';
 import { ensureBucket, ensureWritable } from './lib/s3.mjs';
@@ -22,6 +23,8 @@ import {
   adminUrlFromState,
   createdMessage,
   databaseUrl,
+  dbEnvContent,
+  dbEnvFile,
   isTestDbName,
   psqlConnection,
   resolveServer,
@@ -146,10 +149,15 @@ async function dbTest() {
   const admin = await adminConnection();
   if (sub === 'create') {
     const name = createDb(admin);
-    console.log(createdMessage(name, databaseUrl(admin.url, name)));
+    const url = databaseUrl(admin.url, name);
+    const file = dbEnvFile(STATE_DIR, name);
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(file, dbEnvContent(url), { mode: 0o600 });
+    console.log(createdMessage(name, url, rel(file)));
   } else if (sub === 'drop') {
     if (!rest[0]) fail('usage: pnpm db:test drop <name>');
     dropDb(admin, rest[0]);
+    fs.rmSync(dbEnvFile(STATE_DIR, rest[0]), { force: true });
     console.log(`Dropped ${rest[0]}.`);
   } else if (sub === 'list') {
     console.log(sql(admin, `SELECT datname FROM pg_database WHERE datname LIKE '${PREFIX}%' ORDER BY 1;\n`) || '(none)');

@@ -5,8 +5,11 @@ import {
   adminUrlFromState,
   createdMessage,
   databaseUrl,
+  dbEnvContent,
+  dbEnvFile,
   isTestDbName,
   psqlConnection,
+  redactUrl,
   resolveServer,
   sanitizeTag,
   testDbName,
@@ -39,7 +42,13 @@ test('URLs: the database is swapped, credentials kept; psql gets the password th
   assert.ok(c.args.includes('ON_ERROR_STOP=1'));
   const state = { WS_LOCAL_PG_PORT: '5433', WS_LOCAL_PG_USER: 'willowsum', WS_LOCAL_PG_PASSWORD: PW, WS_LOCAL_PG_DB: 'willowsum' };
   assert.equal(adminUrlFromState(state), `postgres://willowsum:${PW}@127.0.0.1:5433/willowsum`);
-  assert.match(createdMessage('ws_t_x_abcdef01', 'postgres://h/ws_t_x_abcdef01'), /^DATABASE_URL=postgres:\/\/h\/ws_t_x_abcdef01$/m);
+  const msg = createdMessage('ws_t_x_abcdef01', databaseUrl(admin, 'ws_t_x_abcdef01'), 'infra/local/.state/db-test/ws_t_x_abcdef01.env');
+  assert.ok(!msg.includes(PW), 'create never prints the password');
+  assert.match(msg, /^DATABASE_URL \(password hidden\): postgres:\/\/u:\*\*\*@127\.0\.0\.1:5432\/ws_t_x_abcdef01$/m);
+  assert.match(msg, /infra\/local\/\.state\/db-test\/ws_t_x_abcdef01\.env/);
+  assert.ok(!redactUrl(`postgres://u@h/d?password=${PW}`).includes(PW));
+  assert.equal(dbEnvFile('/s', 'ws_t_x_abcdef01'), '/s/db-test/ws_t_x_abcdef01.env');
+  assert.equal(dbEnvContent("postgres://u:a'b@h/d"), "DATABASE_URL='postgres://u:a'\\''b@h/d'\n");
 });
 
 test('server: WS_TEST_PG_ADMIN_URL wins, else the local:up stack with Docker, else a clear error', () => {

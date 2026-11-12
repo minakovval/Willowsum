@@ -68,3 +68,28 @@ test('pnpm store is cached with a pinned action keyed by the lockfile', () => {
     assert.match(block, /hashFiles\('pnpm-lock\.yaml'\)/, job);
   }
 });
+
+// Review #92 (review-pr, non-blocking 2): a heavy job that starts reading docs/, design/ or .claude/ would be
+// skipped silently on a docs-only PR. Only the module catalogue (docs/requirements/arc/ARC-01*) may be read,
+// and isDocsOnly treats it as code.
+test('heavy jobs read nothing under docs/, design/ or .claude/ except the ARC-01 catalogue', () => {
+  const ROOTS = ['apps', 'packages', 'infra', 'tools/infra-check', 'tools/local-env', 'tools/observability', 'tools/synthetic', 'tools/test-guards', 'tools/design'];
+  const SKIP = new Set(['node_modules', 'dist', 'coverage', '.state', '.terraform']);
+  const CODE = /\.(m?[jt]sx?|json|ya?ml|tf|sh)$/;
+  const LITERAL = /["'`](?:\.\.\/)*(docs|design|\.claude)(?:\/[^"'`]*)?["'`]/g;
+  const hits = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(path.join(ROOT, dir))) return;
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) {
+        if (!SKIP.has(e.name)) walk(rel);
+      } else if (CODE.test(e.name)) {
+        for (const m of read(rel).matchAll(LITERAL)) hits.push(`${rel}: ${m[0]}`);
+      }
+    }
+  };
+  ROOTS.forEach(walk);
+  assert.deepEqual(hits, ['apps/api/src/platform/modules/catalogue.ts: "docs/requirements/arc"']);
+  assert.equal(isDocsOnly('docs/requirements/arc/ARC-01.md'), false);
+});

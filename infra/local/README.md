@@ -29,7 +29,7 @@ Owner decision 2026-11-12: each agent (up to 3 branches work in parallel) gets i
 
 | Command | What it does |
 | --- | --- |
-| `pnpm db:test` | Creates `ws_t_<branch>_<random>` and prints its `DATABASE_URL` (superuser of that local server). |
+| `pnpm db:test` | Creates `ws_t_<branch>_<random>`, prints its `DATABASE_URL` with the password hidden and writes the full one to `infra/local/.state/db-test/<name>.env` (git-ignored; `set -a; . <file>; set +a`). |
 | `pnpm db:test run -- <command>` | Fresh database, `DATABASE_URL` set for the command, dropped afterwards; holds a cluster-wide lock meanwhile. |
 | `pnpm db:test list` / `pnpm db:test drop <name>` | Lists / drops this tool's databases (it refuses any other name). |
 
