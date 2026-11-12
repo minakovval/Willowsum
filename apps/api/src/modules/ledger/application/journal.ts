@@ -6,6 +6,7 @@ import {
   naturalBalance,
   postingsFor,
   refKey,
+  reversalOf,
   RULES_VERSION,
   type AccountRef,
   type AccountType,
@@ -58,6 +59,12 @@ export interface NewEntry {
   readonly reversesEntryId: string | null;
 }
 
+/** The checks of the daily integrity check (FIN-04 FR 9, AC7; ARC-11 «Перевірки цілісності»). */
+export const INTEGRITY_CHECKS = ["unbalanced-entry", "empty-entry", "reversal-mismatch"] as const;
+export type IntegrityCheck = (typeof INTEGRITY_CHECKS)[number];
+/** How many entries fail each check. */
+export type IntegrityFindings = Record<IntegrityCheck, number>;
+
 /** One transaction of the ledger schema, bound to one space. */
 export interface LedgerTx {
   /** The space's accounts among `ids` (another space's accounts are not seen). */
@@ -70,6 +77,8 @@ export interface LedgerTx {
   ): Promise<LedgerAccount>;
   entry(id: string): Promise<Entry | null>;
   entryByKey(idempotencyKey: string): Promise<Entry | null>;
+  /** The id of the entry that reverses `entryId`, if any. */
+  reversalOf(entryId: string): Promise<string | null>;
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
@@ -79,6 +88,7 @@ export interface LedgerTx {
     date: string,
     asKnownAt: string | null,
   ): Promise<{ debits: string; credits: string }>;
+  integrity(): Promise<IntegrityFindings>;
 }
 
 export interface LedgerStore {
@@ -199,9 +209,71 @@ async function postIn(tx: LedgerTx, deps: JournalDeps, input: PostInput): Promis
   );
 }
 
+async function reverseIn(
+  tx: LedgerTx,
+  deps: JournalDeps,
+  entryId: string,
+  idempotencyKey: string,
+): Promise<Entry> {
+  assertKey(idempotencyKey);
+  assertId(entryId, "ENTRY_NOT_FOUND");
+  const repeated = await tx.entryByKey(idempotencyKey);
+  if (repeated) return repeated;
+  const original = await tx.entry(entryId);
+  if (!original) throw new LedgerError("ENTRY_NOT_FOUND", "No such entry in this space");
+  if (original.reversesEntryId !== null)
+    throw new LedgerError("REVERSAL_OF_REVERSAL", "A reversal is not reversed; post a new entry instead");
+  if ((await tx.reversalOf(entryId)) !== null)
+    throw new LedgerError("ALREADY_REVERSED", "This entry has already been reversed");
+  const postings = original.postings.map((p): Posting => ({
+    debit: { account: p.debitAccountId },
+    credit: { account: p.creditAccountId },
+    amount: p.amount,
+  }));
+  // Dated as the original, so balances on every later date are as if the original had not been posted.
+  return write(
+    tx,
+    deps,
+    {
+      source: original.source,
+      eventType: "reversal",
+      operationDate: original.operationDate,
+      idempotencyKey,
+      reversesEntryId: entryId,
+    },
+    reversalOf(postings),
+  );
+}
+
 /** Posts an event (FIN-04 FR 2, AC1, AC2): its balanced posting set in one database transaction. Idempotent. */
 export async function post(deps: JournalDeps, householdId: string, input: PostInput): Promise<Entry> {
   return deps.store.inHousehold(householdId, (tx) => postIn(tx, deps, input));
+}
+
+/** Deleting an event (FIN-04 FR 5, AC3): a reversal entry that exactly offsets the original. Idempotent by key. */
+export async function reverse(
+  deps: JournalDeps,
+  householdId: string,
+  entryId: string,
+  idempotencyKey: string,
+): Promise<Entry> {
+  return deps.store.inHousehold(householdId, (tx) => reverseIn(tx, deps, entryId, idempotencyKey));
+}
+
+/**
+ * Changing an event (FIN-04 FR 5, AC3): the reversal of the old entry and the new entry, in one transaction.
+ * Nothing is changed in place. Idempotent by the replacement's key.
+ */
+export async function correct(
+  deps: JournalDeps,
+  householdId: string,
+  entryId: string,
+  replacement: PostInput,
+): Promise<{ readonly reversal: Entry; readonly entry: Entry }> {
+  return deps.store.inHousehold(householdId, async (tx) => {
+    const reversal = await reverseIn(tx, deps, entryId, `${replacement.idempotencyKey}#reversal`);
+    return { reversal, entry: await postIn(tx, deps, replacement) };
+  });
 }
 
 /** A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. */
@@ -247,4 +319,23 @@ export async function balanceAt(
       Money.of(totals.credits, account.currency),
     );
   });
+}
+
+/**
+ * The daily integrity check (FIN-04 FR 9, FR 10, AC7; ARC-11): every space's entries are balanced, not empty, and
+ * every reversal exactly offsets its entry. Each failing check is reported once with the number of entries only —
+ * no amounts, accounts or spaces; the user is shown nothing.
+ */
+export async function dailyIntegrityCheck(deps: {
+  readonly store: LedgerStore;
+  readonly spaces: () => Promise<readonly string[]>;
+  readonly report: (check: IntegrityCheck, entries: number) => void;
+}): Promise<IntegrityFindings> {
+  const total = Object.fromEntries(INTEGRITY_CHECKS.map((c) => [c, 0])) as IntegrityFindings;
+  for (const householdId of await deps.spaces()) {
+    const found = await deps.store.inHousehold(householdId, (tx) => tx.integrity());
+    for (const check of INTEGRITY_CHECKS) total[check] += found[check];
+  }
+  for (const check of INTEGRITY_CHECKS) if (total[check] > 0) deps.report(check, total[check]);
+  return total;
 }

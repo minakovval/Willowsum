@@ -1,7 +1,13 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import type { Entry, LedgerAccount, LedgerStore, LedgerTx } from "../../application/index.ts";
-import { SERVICE_ACCOUNTS } from "../../domain/index.ts";
+import type {
+  Entry,
+  IntegrityFindings,
+  LedgerAccount,
+  LedgerStore,
+  LedgerTx,
+} from "../../application/index.ts";
+import { LedgerError, SERVICE_ACCOUNTS } from "../../domain/index.ts";
 
 /** The ledger schema through the module's own role (FIN-04, ARC-11; tables in migrations/0001_journal.sql). */
 
@@ -21,6 +27,33 @@ const ENTRY_COLUMNS = `id, source_module, source_id, event_type, operation_date:
   reverses_entry_id`;
 
 const ACCOUNT_COLUMNS = "id, type, currency";
+
+/**
+ * The daily integrity check (FIN-04 FR 9, AC7) per space. A posting carries one positive amount for both sides (row
+ * constraints), so an entry is unbalanced in a currency exactly when a posting's account is not in the posting's
+ * currency — which the keys forbid, but a restore or a dropped key could let in.
+ */
+const INTEGRITY = `
+  WITH legs AS (
+    SELECT entry_id, debit_account_id AS account_id, amount AS signed FROM postings WHERE household_id = $1
+    UNION ALL
+    SELECT entry_id, credit_account_id, -amount FROM postings WHERE household_id = $1),
+  per_account AS (SELECT entry_id, account_id, sum(signed) AS net FROM legs GROUP BY 1, 2)
+  SELECT
+    (SELECT count(DISTINCT p.entry_id) FROM postings p WHERE p.household_id = $1 AND EXISTS (
+        SELECT 1 FROM (VALUES (p.debit_account_id), (p.credit_account_id)) AS side(account_id)
+         WHERE NOT EXISTS (SELECT 1 FROM accounts a WHERE a.household_id = p.household_id
+                             AND a.id = side.account_id AND a.currency = p.currency)))::int
+      AS unbalanced_entry,
+    (SELECT count(*) FROM entries e WHERE e.household_id = $1
+        AND NOT EXISTS (SELECT 1 FROM postings p WHERE p.household_id = e.household_id AND p.entry_id = e.id))::int
+      AS empty_entry,
+    (SELECT count(*) FROM entries r WHERE r.household_id = $1 AND r.reverses_entry_id IS NOT NULL AND (
+        NOT EXISTS (SELECT 1 FROM entries o WHERE o.household_id = r.household_id AND o.id = r.reverses_entry_id
+                      AND o.reverses_entry_id IS NULL)
+        OR EXISTS (SELECT 1 FROM per_account n WHERE n.entry_id IN (r.id, r.reverses_entry_id)
+                    GROUP BY n.account_id HAVING sum(n.net) <> 0)))::int
+      AS reversal_mismatch`;
 
 function tx(q: HouseholdQueryRunner): LedgerTx {
   const entries = async (where: string, value: string): Promise<Entry | null> => {
@@ -91,25 +124,39 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
     },
     entry: (id) => entries("id", id),
     entryByKey: (key) => entries("idempotency_key", key),
+    async reversalOf(entryId) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT id FROM entries WHERE household_id = $1 AND reverses_entry_id = $2`,
+        [q.householdId, entryId],
+      );
+      return rows[0]?.id ?? null;
+    },
     async insertEntry(e) {
-      const { rowCount } = await q.query(
-        `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version,
+      try {
+        const { rowCount } = await q.query(
+          `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version,
              idempotency_key, reverses_entry_id)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
            ON CONFLICT (household_id, idempotency_key) DO NOTHING`,
-        [
-          q.householdId,
-          e.id,
-          e.source.module,
-          e.source.id,
-          e.eventType,
-          e.operationDate,
-          e.rulesVersion,
-          e.idempotencyKey,
-          e.reversesEntryId,
-        ],
-      );
-      return rowCount === 1;
+          [
+            q.householdId,
+            e.id,
+            e.source.module,
+            e.source.id,
+            e.eventType,
+            e.operationDate,
+            e.rulesVersion,
+            e.idempotencyKey,
+            e.reversesEntryId,
+          ],
+        );
+        return rowCount === 1;
+      } catch (error) {
+        // A concurrent reversal of the same entry won the unique key: the entry is reversed once only.
+        if ((error as { constraint?: string }).constraint === "entries_household_id_reverses_entry_id_key")
+          throw new LedgerError("ALREADY_REVERSED", "This entry has already been reversed");
+        throw error;
+      }
     },
     async insertPostings(entryId, postings) {
       // One statement for the whole set: it is written completely or not at all.
@@ -139,6 +186,19 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
         [q.householdId, accountId, date, asKnownAt],
       );
       return rows[0]!;
+    },
+    async integrity(): Promise<IntegrityFindings> {
+      const { rows } = await q.query<{
+        unbalanced_entry: number;
+        empty_entry: number;
+        reversal_mismatch: number;
+      }>(INTEGRITY, [q.householdId]);
+      const r = rows[0]!;
+      return {
+        "unbalanced-entry": r.unbalanced_entry,
+        "empty-entry": r.empty_entry,
+        "reversal-mismatch": r.reversal_mismatch,
+      };
     },
   };
 }

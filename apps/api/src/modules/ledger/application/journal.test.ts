@@ -1,11 +1,22 @@
 import { Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import type { LedgerEvent } from "../domain/index.ts";
-import { assertDate, balanceAt, post, type Entry, type LedgerStore } from "./index.ts";
+import {
+  assertDate,
+  balanceAt,
+  dailyIntegrityCheck,
+  post,
+  reverse,
+  type Entry,
+  type IntegrityCheck,
+  type IntegrityFindings,
+  type LedgerStore,
+} from "./index.ts";
 
 /** FIN-04@PoC on the use cases with stub stores: guards before the database, the daily check's report. */
 
 const H1 = "11111111-1111-4111-8111-111111111111";
+const H2 = "22222222-2222-4222-8222-222222222222";
 const A = "00000000-0000-4000-8000-00000000000a";
 const SOURCE = { module: "transactions", id: "00000000-0000-4000-8000-0000000000f1" };
 
@@ -61,7 +72,7 @@ describe("ARC-11: an event without a rule, or with an invalid date, is refused b
   });
 });
 
-describe("ARC-11: a repeat is decided before anything is written", () => {
+describe("FIN-04 FR 5, ARC-11: repeats and reversals are decided before anything is written", () => {
   const ENTRY: Entry = {
     id: "00000000-0000-4000-8000-0000000000e0",
     source: SOURCE,
@@ -96,5 +107,51 @@ describe("ARC-11: a repeat is decided before anything is written", () => {
     const event = { type: "transaction" as const, account: A, amount: Money.of("-5", "EUR") };
     const input = { source: SOURCE, idempotencyKey: "k", operationDate: "2026-06-30", event };
     expect(await post({ store: stub({ entryByKey: ENTRY }), newId: () => A }, H1, input)).toBe(ENTRY);
+  });
+
+  it("FIN-04 FR 5: an entry already reversed is not reversed again", async () => {
+    const store = stub({ entry: ENTRY, reversalOf: "00000000-0000-4000-8000-0000000000e9" });
+    expect(await code(reverse({ store, newId: () => A }, H1, ENTRY.id, "k2"))).toBe("ALREADY_REVERSED");
+  });
+});
+
+describe("FIN-04 AC7 (core): the daily integrity check", () => {
+  const findings = (byHousehold: Record<string, Partial<IntegrityFindings>>): LedgerStore => ({
+    inHousehold: (householdId, work) =>
+      work({
+        integrity: async () => ({
+          "unbalanced-entry": 0,
+          "empty-entry": 0,
+          "reversal-mismatch": 0,
+          ...byHousehold[householdId],
+        }),
+      } as never),
+  });
+
+  it("FIN-04 FR 9, FR 10: each failing check is reported once with the number of entries over all spaces", async () => {
+    const reports: [IntegrityCheck, number][] = [];
+    const total = await dailyIntegrityCheck({
+      store: findings({
+        [H1]: { "unbalanced-entry": 2 },
+        [H2]: { "unbalanced-entry": 1, "reversal-mismatch": 1 },
+      }),
+      spaces: async () => [H1, H2],
+      report: (check, entries) => reports.push([check, entries]),
+    });
+    expect(reports).toEqual([
+      ["unbalanced-entry", 3],
+      ["reversal-mismatch", 1],
+    ]);
+    expect(total).toEqual({ "unbalanced-entry": 3, "empty-entry": 0, "reversal-mismatch": 1 });
+  });
+
+  it("a clean journal reports nothing", async () => {
+    const reports: unknown[] = [];
+    await dailyIntegrityCheck({
+      store: findings({}),
+      spaces: async () => [H1, H2],
+      report: (...r) => reports.push(r),
+    });
+    expect(reports).toEqual([]);
   });
 });

@@ -127,6 +127,7 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
     const checked = barrier(N, 300);
     const racing: SpacesStore = {
       membershipOf: async () => null,
+      spaceIds: () => store.spaceIds(),
       inSpace: (householdId, work) =>
         store.inSpace(householdId, (tx) =>
           work({
@@ -152,6 +153,14 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
     expect(results.filter((r) => r.created)).toHaveLength(1);
     expect(new Set(results.map((r) => r.householdId)).size).toBe(1);
     expect(await spaceCount(accountId)).toBe(1);
+  });
+
+  it("FIN-04 FR 9: the scheduler's daily checks get the id of every space with a member", async () => {
+    const a = await spaces.ensureFirstSpace({ accountId: randomUUID(), displayName: "Віра Перелік" });
+    const b = await spaces.ensureFirstSpace({ accountId: randomUUID(), displayName: "Олег Перелік" });
+    const ids = await spaces.spaceIds();
+    expect(ids).toEqual(expect.arrayContaining([a.householdId, b.householdId]));
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("an account without a space has no membership", async () => {

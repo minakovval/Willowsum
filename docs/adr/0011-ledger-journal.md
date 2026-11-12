@@ -40,5 +40,5 @@ Ledger — перший грошовий модуль. Модулів `accounts`
 ## Наслідки
 
 - Модулі-джерела (`accounts`, `transactions`) проводять події лише через `createLedger(db)`: `openAccount`, `post`,
-  `balanceAt` (частина 2 додає `reverse` і `correct`).
+  `reverse`, `correct`, `balanceAt`.
 - Нові типи подій — нові правила в `domain/rules.ts`; зміна наявного правила — нова версія правил.

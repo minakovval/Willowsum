@@ -26,10 +26,11 @@ ACC-01@PoC п. 7 (AC5 — серверна частина); ACC-08@PoC п. 1 (н
     акаунта немає жодного простору. Ідемпотентний, також для паралельних викликів (замок на акаунт у транзакції). Аудит —
     у журналі простору: `household.space` (`name`, `dataRegion`) і `household.member` (`role`).
   - `membershipOf(accountId)` → `{ householdId, role }` або null — простір і роль акаунта (у PoC — його один простір).
+  - `spaceIds()` → ідентифікатори всіх просторів з учасником — для щоденних перевірок планувальника (FIN-04 п. 9).
 - `firstSpaceName`, `SPACE_NAME_MAX`, `SPACE_ROLES`, типи `SpaceRole`, `SpaceMembership`.
 
-Хто викликає: `main.ts` передає `ensureFirstSpace` модулю identity (порт `FirstSpace`), а `membershipOf` — у `src/api.ts`,
-який будує того, хто викликає захищені маршрути.
+Хто викликає: `main.ts` передає `ensureFirstSpace` модулю identity (порт `FirstSpace`), `membershipOf` — у `src/api.ts`,
+який будує того, хто викликає захищені маршрути, а `spaceIds` — щоденній перевірці журналу (ledger).
 
 ## Залежності
 

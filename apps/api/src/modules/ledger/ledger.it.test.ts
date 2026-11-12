@@ -1,16 +1,25 @@
 import { randomUUID } from "node:crypto";
 import { Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { exportedText, testTelemetryForFile } from "../../platform/telemetry/testing.ts";
 import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { databaseLedgerStore } from "./adapters/index.ts";
 import { post as postWith, type LedgerStore } from "./application/index.ts";
-import { createLedger, type Ledger, type LedgerAccount, type PostInput } from "./index.ts";
+import {
+  createLedger,
+  createLedgerIntegrityCheck,
+  type Ledger,
+  type LedgerAccount,
+  type PostInput,
+} from "./index.ts";
 
 /**
- * FIN-04@PoC (wave 1, part 1: AC1, AC2, AC4) and ARC-11 on a real PostgreSQL, through the ledger module's own role:
- * balanced atomic posting sets, rollback, balance on a date and the database constraints (also those of reversals). Spaces and ids are random; amounts are synthetic.
+ * FIN-04@PoC (wave 1: AC1–AC4, core of AC7) and ARC-11 on a real PostgreSQL, through the ledger module's own role:
+ * balanced atomic posting sets, rollback, reversal instead of change, balance on a date, the database constraints
+ * and the daily integrity check. Spaces and ids are random; amounts are synthetic.
  */
 
+const telemetry = testTelemetryForFile();
 let db: RealModulesDatabase;
 let ledger: Ledger;
 
@@ -218,8 +227,63 @@ describe("FIN-04 AC2, FR 1: a posting set that fails half-way leaves nothing (on
   });
 });
 
+describe("FIN-04 AC3: a change or a deletion reverses the old postings; nothing is changed in place", () => {
+  it("a changed amount: the old entry stays, a reversal offsets it, the new entry is separate", async () => {
+    const s = await space();
+    const first = await ledger.post(
+      s.householdId,
+      input({ type: "transaction", account: s.cash.id, amount: eur("-50") }, "2026-05-10"),
+    );
+    const before = await stored(first.id);
+    const { reversal, entry } = await ledger.correct(
+      s.householdId,
+      first.id,
+      input({ type: "transaction", account: s.cash.id, amount: eur("-70") }, "2026-05-10"),
+    );
+    expect(await stored(first.id)).toEqual(before);
+    expect(reversal).toMatchObject({
+      eventType: "reversal",
+      reversesEntryId: first.id,
+      operationDate: "2026-05-10",
+      source: first.source,
+    });
+    expect(
+      reversal.postings.map((p) => [p.debitAccountId, p.creditAccountId, p.amount.toDecimalString()]),
+    ).toEqual(first.postings.map((p) => [p.creditAccountId, p.debitAccountId, p.amount.toDecimalString()]));
+    expect(entry.id).not.toBe(first.id);
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-05-31")).toDecimalString()).toBe("-70");
+  });
+
+  it("a deletion: the reversal returns the balance; an entry is reversed once; a reversal is not reversed", async () => {
+    const s = await space();
+    const first = await ledger.post(
+      s.householdId,
+      input({ type: "balance-adjustment", account: s.cash.id, amount: eur("-50") }),
+    );
+    const reversal = await ledger.reverse(s.householdId, first.id, "delete-1");
+    expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-12-31")).toDecimalString()).toBe("0");
+    expect((await ledger.reverse(s.householdId, first.id, "delete-1")).id).toBe(reversal.id);
+    expect(await code(ledger.reverse(s.householdId, first.id, "delete-2"))).toBe("ALREADY_REVERSED");
+    expect(await code(ledger.reverse(s.householdId, reversal.id, "delete-3"))).toBe("REVERSAL_OF_REVERSAL");
+    expect(await code(ledger.reverse(s.householdId, randomUUID(), "delete-4"))).toBe("ENTRY_NOT_FOUND");
+  });
+
+  it("concurrent deletions of one entry make one reversal", async () => {
+    const s = await space();
+    const first = await ledger.post(
+      s.householdId,
+      input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("5") }),
+    );
+    const outcomes = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => code(ledger.reverse(s.householdId, first.id, `concurrent-${i}`))),
+    );
+    expect(outcomes.filter((o) => o === "ok")).toHaveLength(1);
+    expect(outcomes.filter((o) => o !== "ok").every((o) => o === "ALREADY_REVERSED")).toBe(true);
+  });
+});
+
 describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to that date inclusive", () => {
-  it("entries before, on and after the date; and «as known at» a moment (ARC-11)", async () => {
+  it("entries before, on and after the date, with a reversal; and «as known at» a moment (ARC-11)", async () => {
     const s = await space();
     const add = (amount: string, date: string) =>
       ledger.post(
@@ -229,12 +293,14 @@ describe("FIN-04 AC4: the balance on 2026-06-30 is the sum of postings up to tha
     await add("3000", "2026-01-15");
     const early = await add("150.25", "2026-06-30");
     const known = early.recordedAt;
+    const reversed = await add("-999.99", "2026-03-01");
+    await ledger.reverse(s.householdId, reversed.id, randomUUID());
     await add("-0.25", "2026-06-30");
     await add("-500", "2026-07-01");
     expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30")).toDecimalString()).toBe("3150");
     expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-29")).toDecimalString()).toBe("3000");
     expect((await ledger.balanceAt(s.householdId, s.cash.id, "2026-07-01")).toDecimalString()).toBe("2650");
-    // As the system knew it right after the 150.25: the later entries were not recorded yet.
+    // As the system knew it right after the 150.25: the reversal and the later entries were not recorded yet.
     expect(
       (
         await ledger.balanceAt(s.householdId, s.cash.id, "2026-06-30", { asKnownAt: known })
@@ -263,6 +329,7 @@ describe("ARC-03: a space sees and posts only its own journal", () => {
     expect(await code(ledger.balanceAt(mine.householdId, other.cash.id, "2026-12-31"))).toBe(
       "UNKNOWN_ACCOUNT",
     );
+    expect(await code(ledger.reverse(mine.householdId, theirs.id, randomUUID()))).toBe("ENTRY_NOT_FOUND");
     // Even SQL without a filter, in the module's role, sees only the bound space.
     const seen = await db.databases
       .for("ledger")
@@ -371,5 +438,68 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
     expect(await insertReversal(r1, entryId)).toBe("ok");
     expect(await insertReversal(randomUUID(), entryId)).toBe("23505");
     expect(await insertReversal(randomUUID(), r1)).toBe("23503");
+  });
+});
+
+describe("FIN-04 AC7 (core): the daily integrity check finds broken entries and logs an «error» without amounts", () => {
+  it("a clean journal: nothing reported; broken rows (written past the constraints): each check counted", async () => {
+    const s = await space();
+    const usd = await ledger.openAccount(
+      s.householdId,
+      { module: "accounts", id: randomUUID() },
+      { type: "asset", currency: "USD" },
+    );
+    const kept = await ledger.post(
+      s.householdId,
+      input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("3150") }),
+    );
+    const check = createLedgerIntegrityCheck(db.databases.for("ledger"), async () => [s.householdId]);
+    expect(await check.run()).toEqual({ "unbalanced-entry": 0, "empty-entry": 0, "reversal-mismatch": 0 });
+    expect(await exportedText(telemetry)).not.toContain("ledger.integrity_violation");
+
+    // Damage as only a restore or a dropped constraint could: the superuser skips the keys and triggers.
+    const broken = { unbalanced: randomUUID(), empty: randomUUID(), reversal: randomUUID() };
+    await db.owner.query("BEGIN");
+    await db.owner.query("SET LOCAL session_replication_role = replica");
+    const entry = (id: string, type = "transfer", reverses: string | null = null) =>
+      db.owner.query(
+        `INSERT INTO ledger.entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
+         VALUES ($1, $2::uuid, 'transactions', $2::uuid, $3, '2026-06-01', 1, $2::uuid::text, $4)`,
+        [s.householdId, id, type, reverses],
+      );
+    const postingRow = (e: string, debit: string, credit: string, amount: string) =>
+      db.owner.query(`INSERT INTO ledger.postings VALUES ($1, $2, 1, $3, $4, $5, 'EUR')`, [
+        s.householdId,
+        e,
+        debit,
+        credit,
+        amount,
+      ]);
+    await entry(broken.unbalanced);
+    await postingRow(broken.unbalanced, usd.id, s.cash.id, "50");
+    await entry(broken.empty);
+    await entry(broken.reversal, "reversal", kept.id);
+    await postingRow(broken.reversal, s.cash.id, s.savings.id, "3100");
+    await db.owner.query("COMMIT");
+
+    expect(await check.run()).toEqual({ "unbalanced-entry": 1, "empty-entry": 1, "reversal-mismatch": 1 });
+    const logged = await exportedText(telemetry);
+    expect(logged).toContain("ledger.integrity_violation");
+    expect(logged).toContain('"severity":"ERROR"');
+    // The check and the count pass the redaction filter; nothing else of the space does.
+    for (const check of ["unbalanced-entry", "empty-entry", "reversal-mismatch"])
+      expect(logged).toContain(`"ws.ledger.check":"${check}","ws.ledger.entries":1`);
+    expect(logged).not.toContain("ws.telemetry.redacted");
+    for (const secret of [
+      "3150",
+      "3100",
+      "50.0",
+      s.householdId,
+      s.cash.id,
+      usd.id,
+      kept.id,
+      ...Object.values(broken),
+    ])
+      expect(logged).not.toContain(secret);
   });
 });

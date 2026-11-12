@@ -57,6 +57,11 @@ export function assertBalanced(postings: readonly Posting[], currencyOf: (ref: A
   }
 }
 
+/** The reversal of a posting set (FIN-04 FR 5): the same postings with debit and credit swapped. */
+export function reversalOf(postings: readonly Posting[]): Posting[] {
+  return postings.map((p) => ({ debit: p.credit, credit: p.debit, amount: p.amount }));
+}
+
 /**
  * The balance of an account from its debit and credit totals, with the sign of its type (FIN-04 FR 6): debits
  * minus credits for assets and expenses, credits minus debits for liabilities, equity and income.

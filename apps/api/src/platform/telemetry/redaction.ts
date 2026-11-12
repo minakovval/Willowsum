@@ -80,6 +80,10 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   // Jobs and scheduled tasks (ARC-09 FR 3), bank synchronisation (NFR-10 FR 6).
   "ws.job.name": str(NAME_RE, 64),
   "ws.outcome": str(/^(success|failure)$/, 16),
+  // The ledger's daily integrity check (FIN-04 AC7): which check failed and for how many entries — never amounts,
+  // accounts or spaces.
+  "ws.ledger.check": closed(/^(unbalanced-entry|empty-entry|reversal-mismatch)$/, 32),
+  "ws.ledger.entries": int(1, 1_000_000_000),
   // Exceptions: the class only (`exception.message` and `exception.stacktrace` are never exported).
   "exception.type": str(CLASS_RE, 64),
   // How many attributes the filter dropped from this item (a signal that code sends something it should not).

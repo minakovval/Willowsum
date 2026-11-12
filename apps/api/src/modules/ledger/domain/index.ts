@@ -7,6 +7,7 @@ export {
   MAX_POSTINGS,
   naturalBalance,
   refKey,
+  reversalOf,
   SERVICE_ACCOUNTS,
   type AccountRef,
   type AccountType,

@@ -12,6 +12,7 @@ import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
 import { createHouseholdSpaces } from "./modules/household/index.ts";
 import { createIdentityMaintenance, createIdentityServices } from "./modules/identity/index.ts";
+import { createLedgerIntegrityCheck } from "./modules/ledger/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
@@ -178,7 +179,12 @@ lifecycle.onStop(() => server.close());
 // The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
 if (config.role === "scheduler") {
   const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
-  const daily = scheduleDaily([{ name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() }]);
+  // FIN-04 FR 9: the ledger's daily integrity check over every space (a failure is an «error» log event).
+  const ledgerCheck = createLedgerIntegrityCheck(databases.for("ledger"), () => spaces.spaceIds());
+  const daily = scheduleDaily([
+    { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
+    { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
+  ]);
   lifecycle.onStop(() => daily.stop());
   // VAL-05 FR 4: without the owner's address no alert letter can go out; say so loudly (the address is never logged).
   if (config.deployed && !config.alerts.email)
