@@ -9,7 +9,7 @@
 - Спільні правила: П-24, NFR-11, NFR-19
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: tools/pr-rules/test/paths.test.mjs, tools/pr-rules/test/description.test.mjs, tools/pr-rules/test/daily.test.mjs, tools/pr-rules/test/workflows.test.mjs
 
 1. Одна основна гілка main; робочі гілки живуть не довше 3 днів. Незавершена функція зливається вимкненою прапорцем.
 2. Зміна потрапляє в main лише через PR. Назва PR починається з ID вимоги; опис перелічує критерії приймання і тести, що їх покривають.

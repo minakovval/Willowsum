@@ -1,0 +1,7 @@
+{
+  "name": "@willowsum/pr-rules",
+  "private": true,
+  "description": "Branch and PR rules of CICD-01 (ADR-0008): the «sensitive» label by file paths, the PR description check and the daily check of main and merged PRs. Zero dependencies; `node --test tools/pr-rules` runs every test file.",
+  "type": "module",
+  "main": "test/all.mjs"
+}

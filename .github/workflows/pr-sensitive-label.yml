@@ -1,0 +1,36 @@
+name: PR sensitive label
+
+# CICD-01 FR 4 (ADR-0008): a PR that changes auth, permissions, encryption, money, the database schema, the
+# pipeline or infrastructure (paths in tools/pr-rules/lib/paths.mjs) gets the label `sensitive` and
+# `sensitive:<category>`. It then needs a security review in another agent session with
+# «Security verdict: Ready» before it is merged; the agent merging the PR applies that rule and the daily
+# check (daily-main-check.yml) verifies it from the changed files, with or without the label.
+#
+# `pull_request`, not `pull_request_target`: the job runs the PR's own code, so it must never get more than
+# the PR author already has. For a PR from a fork GitHub gives a read-only token; the job then only reports.
+# Informational: not one of the required CI jobs.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions: {}
+
+jobs:
+  sensitive-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write # add labels to this PR (and create them the first time)
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Label the PR by its changed paths
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/pr-rules/index.mjs label
