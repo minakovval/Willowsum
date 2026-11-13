@@ -43,6 +43,7 @@ import {
 } from "@willowsum/ui";
 import { offeredLanguages } from "../i18n/languages.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
+import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -372,6 +373,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-skeleton" title={t("gallery.skeleton.title")}>
         <SkeletonDemo />
+      </Section>
+
+      <Section id="g-progress" title={t("gallery.progress.title")}>
+        <ProgressDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>

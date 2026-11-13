@@ -597,3 +597,117 @@
   inset-inline-start: 0;
   margin: var(--ws-space-1) 0 0;
 }
+
+/*
+ * CMP-74@PoC: Progress — a 6 px pill on a `surface-300` track with no border, the fill in `link` (`gain` when done,
+ * `loss` where an error stopped it), the status text Inter 13/18 (the `tooltip` type size) beside the bar (12 px)
+ * or above it (6 px). No shimmer in any mode; the fill eases its width in the DS-13 interaction time, and not at all
+ * with reduced motion. The width is the container's; under 320 px the text wraps under the bar.
+ */
+.ws-progress {
+  container-type: inline-size;
+  inline-size: 100%;
+}
+
+.ws-progress-row {
+  display: flex;
+  align-items: center;
+  row-gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+}
+
+.ws-progress-row--inline {
+  column-gap: var(--ws-space-3);
+}
+
+.ws-progress-row--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  row-gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+}
+
+.ws-progress-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.ws-progress-track {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  block-size: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-surface-300);
+  overflow: hidden;
+}
+
+.ws-progress-row--stacked .ws-progress-track {
+  flex: none;
+}
+
+.ws-progress-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-link);
+  transition: inline-size var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-progress[data-state="done"] .ws-progress-fill {
+  background-color: var(--ws-gain);
+}
+
+.ws-progress[data-state="error"] .ws-progress-fill {
+  background-color: var(--ws-loss);
+}
+
+.ws-progress-text {
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-variant-numeric: tabular-nums;
+  color: var(--ws-ink-muted);
+  white-space: nowrap;
+}
+
+.ws-progress-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ws-ink);
+}
+
+/* The symbol and the word of a finished or failed process carry the state colour (colour is not the only sign). */
+.ws-progress-text--done {
+  font-weight: 600;
+  color: var(--ws-gain);
+}
+
+.ws-progress-text--error {
+  font-weight: 600;
+  color: var(--ws-loss);
+}
+
+.ws-progress-action {
+  display: inline-flex;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-progress-fill {
+    transition: none;
+  }
+}
+
+@container (max-width: 319px) {
+  .ws-progress-row--inline {
+    flex-wrap: wrap;
+  }
+
+  .ws-progress-row--inline .ws-progress-track {
+    flex-basis: 100%;
+  }
+
+  .ws-progress-text {
+    white-space: normal;
+  }
+}

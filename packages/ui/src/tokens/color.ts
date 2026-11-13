@@ -393,6 +393,9 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...textOn("ink", ["surface-inset", "tint-info"], "DS-06 surface-inset, tint-info"),
   ...uiOn("brand", ["surface-200"], "DS-07 chart step 1"),
   ...uiOn("ink-muted", ["surface-200"], "DS-07 chart step 3 / series 2"),
+  ...uiOn("link", ["surface-300"], "CMP-74 progress fill on its track"),
+  ...uiOn("gain", ["surface-300"], "CMP-74 finished progress fill on its track"),
+  ...uiOn("loss", ["surface-300"], "CMP-74 failed progress fill on its track"),
 ];
 
 /** Pairs that only hold in one theme and are therefore checked only there. */
