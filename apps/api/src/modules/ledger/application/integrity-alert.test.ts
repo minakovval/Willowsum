@@ -9,7 +9,7 @@ import {
 } from "./index.ts";
 
 /**
- * FIN-04@PoC FR 10, AC7 and the edge cases of the letter (owner decision 2026-11-12: PoC alerts are letters from
+ * FIN-04@PoC FR 10, AC6 and the edge cases of the letter (owner decision 2026-11-12: PoC alerts are letters from
  * the app): one letter to the product owner per discrepancy period, the claim given back when sending fails, no
  * amounts or ids in the letter, a missing recipient only logged. The clock is injected and fixed per test.
  */
@@ -89,7 +89,7 @@ function setup(options: { recipient?: boolean } = {}) {
 }
 
 describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy period", () => {
-  it("FIN-04@PoC AC7: a discrepancy sends one letter with the kinds and counts; the claim holds the clock's time", async () => {
+  it("FIN-04@PoC AC6: a discrepancy sends one letter with the kinds and counts; the claim holds the clock's time", async () => {
     const t = setup();
     await t.run(findings({ "unbalanced-entry": 2 }), 1);
     expect(t.letters).toEqual([{ findings: findings({ "unbalanced-entry": 2 }), failedSpaces: 1 }]);
@@ -97,7 +97,7 @@ describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy peri
     expect(t.store.log).toEqual([{ period: "unbalanced-entry=2;empty-entry=0;reversal-mismatch=0", at: T0 }]);
   });
 
-  it("FIN-04@PoC AC7: the same findings on the next daily runs send no more letters", async () => {
+  it("FIN-04@PoC AC6: the same findings on the next daily runs send no more letters", async () => {
     const t = setup();
     const same = findings({ "empty-entry": 1, "reversal-mismatch": 3 });
     await t.run(same);
@@ -157,7 +157,7 @@ describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy peri
   });
 });
 
-describe("FIN-04@PoC EC4: the letter could not be sent — the claim is released, the next run sends it", () => {
+describe("FIN-04@PoC EC3: the letter could not be sent — the claim is released, the next run sends it", () => {
   it("a failed send reports alert-failed with the error class only, and gives the claim back", async () => {
     const t = setup();
     const broken = findings({ "unbalanced-entry": 1 });
@@ -194,7 +194,7 @@ describe("FIN-04@PoC EC4: the letter could not be sent — the claim is released
   });
 });
 
-describe("FIN-04@PoC EC5: no recipient configured — an error event, no letter, no crash", () => {
+describe("FIN-04@PoC EC4: no recipient configured — an error event, no letter, no crash", () => {
   it("a discrepancy without a recipient reports recipient-missing and claims nothing", async () => {
     const t = setup({ recipient: false });
     await expect(t.run(findings({ "empty-entry": 1 }))).resolves.toBeUndefined();

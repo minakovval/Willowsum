@@ -28,7 +28,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: ACC-08@PoC, FIN-04@PoC, VAL-04@PoC, VAL-05@PoC
 - [лише PoC v2] Розширює: FIN-01@PoC
-- [лише PoC v2] Залежить від: ACC-08@PoC v2, FIN-04@PoC, VAL-04@PoC, VAL-05@PoC v2
+- [лише PoC v2] Залежить від: ACC-08@PoC v2, FIN-04@PoC v2, VAL-04@PoC, VAL-05@PoC v2
 - [лише MVP] Розширює: FIN-01@PoC v2
 - [лише MVP] Залежить від: ACC-08@MVP, AST-11@MVP, FIN-04@MVP, NOT-01@MVP, VAL-04@MVP, VAL-05@MVP, VAL-07@MVP
 - [v1] Розширює: FIN-01@MVP

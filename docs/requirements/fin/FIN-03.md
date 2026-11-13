@@ -30,7 +30,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: DAT-01@PoC, DAT-03@PoC, FIN-01@PoC, FIN-04@PoC
 - [лише PoC v2] Розширює: FIN-03@PoC
-- [лише PoC v2] Залежить від: DAT-01@PoC v2, DAT-03@PoC, FIN-01@PoC v2, FIN-04@PoC
+- [лише PoC v2] Залежить від: DAT-01@PoC v2, DAT-03@PoC, FIN-01@PoC v2, FIN-04@PoC v2
 - [PoC–PoC v2] Дизайн: S-025, S-046, S-047, S-048
 - [лише PoC] Спільні правила: П-5, П-6, П-10, П-12, П-13, П-17, П-18, П-24, П-25, П-26, CMP-02, CMP-03, CMP-14, CMP-21, CMP-26, CMP-28, CMP-32, CMP-60, CMP-73
 - [лише PoC] Сценарії: UC-FIN-24, UC-FIN-33, UC-FIN-34, UC-FIN-35, UC-FIN-36, UC-FIN-37, UC-FIN-38, UC-FIN-39, UC-FIN-41, UC-FIN-42, UC-FIN-44

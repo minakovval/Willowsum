@@ -26,7 +26,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: FIN-03@PoC, FIN-04@PoC, IMP-01@PoC
 - [лише PoC v2] Розширює: IMP-04@PoC
-- [лише PoC v2] Залежить від: FIN-03@PoC v2, FIN-04@PoC, IMP-01@PoC
+- [лише PoC v2] Залежить від: FIN-03@PoC v2, FIN-04@PoC v2, IMP-01@PoC
 - [MVP] Розширює: IMP-04@PoC v2
 - [MVP] Залежить від: FIN-03@MVP, FIN-04@MVP, IMP-01@MVP
 - Дизайн: S-163, S-171

@@ -30,7 +30,7 @@
 - [лише PoC] Дизайн: S-059
 - [лише PoC] Спільні правила: П-10, П-17, П-24, П-25, П-26
 - [лише PoC v2] Розширює: IMP-03@PoC
-- [лише PoC v2] Залежить від: FIN-03@PoC v2, FIN-04@PoC, IMP-01@PoC, IMP-02@PoC v2
+- [лише PoC v2] Залежить від: FIN-03@PoC v2, FIN-04@PoC v2, IMP-01@PoC, IMP-02@PoC v2
 - [MVP] Розширює: IMP-03@PoC v2
 - [MVP] Залежить від: FIN-03@MVP, FIN-04@MVP, FIN-05@MVP, IMP-01@MVP, IMP-02@MVP
 - [PoC v2] Дизайн: S-059, S-286

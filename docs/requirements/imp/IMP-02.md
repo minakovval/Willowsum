@@ -28,7 +28,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: FIN-01@PoC, FIN-04@PoC, VAL-04@PoC
 - [лише PoC v2] Розширює: IMP-02@PoC
-- [лише PoC v2] Залежить від: FIN-01@PoC v2, FIN-04@PoC, VAL-04@PoC
+- [лише PoC v2] Залежить від: FIN-01@PoC v2, FIN-04@PoC v2, VAL-04@PoC
 - [MVP] Розширює: IMP-02@PoC v2
 - [MVP] Залежить від: FIN-01@MVP, FIN-04@MVP, VAL-04@MVP
 - Дизайн: S-054
