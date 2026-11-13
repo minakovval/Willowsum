@@ -43,6 +43,7 @@ import {
 } from "@willowsum/ui";
 import { offeredLanguages } from "../i18n/languages.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
+import { TooltipDemo } from "./TooltipDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -362,6 +363,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-fit" title={t("gallery.fit.title")}>
         <AmountFitDemo />
+      </Section>
+
+      <Section id="g-tooltip" title={t("gallery.tooltip.title")}>
+        <TooltipDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>

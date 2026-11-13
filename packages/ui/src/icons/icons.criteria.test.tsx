@@ -28,7 +28,10 @@ const rule = (selector: string) =>
     new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`),
   )?.[1] ?? "";
 
-const shellCss = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../styles/shell.css"), "utf8");
+const shellCss = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../styles/shell.css"),
+  "utf8",
+);
 
 const svgOf = (el: Element | null) => el!.querySelector("svg")!;
 /** Line weight on screen: the SVG stroke is in 24-unit grid space, scaled to the rendered size. */

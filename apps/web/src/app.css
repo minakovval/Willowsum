@@ -698,3 +698,36 @@ code {
   gap: var(--ws-space-2);
   color: var(--ws-ink-muted);
 }
+
+/* CMP-25@PoC Tooltip gallery: narrow cards so the names are cut off; one case at the right edge. */
+.gallery-tooltip {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-tooltip p {
+  margin: 0;
+}
+
+.gallery-tooltip__grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ws-space-4);
+}
+
+.gallery-tooltip__case {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  inline-size: calc(var(--ws-space-8) * 4);
+}
+
+.gallery-tooltip__card {
+  min-inline-size: 0;
+}
+
+.gallery-tooltip__edge {
+  justify-self: end;
+  inline-size: calc(var(--ws-space-8) * 2);
+}
