@@ -1,10 +1,10 @@
-import { randomBytes } from "node:crypto";
-import { cpSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
 import { createAuditLog } from "../src/modules/audit/index.ts";
 import { createTestDatabase } from "./db.ts";
+import { makeTestTmpDir, removeTestTmpDir } from "./tmp-dir.ts";
 import { apiDir, migrateRealModules, openRealModules } from "./real-modules.ts";
 
 /**
@@ -14,7 +14,6 @@ import { apiDir, migrateRealModules, openRealModules } from "./real-modules.ts";
  * code working; one that renames a column breaks it, and the harness sees that.
  */
 
-const tmpRoot = path.join(apiDir, "test/.tmp");
 const cleanup: (() => Promise<void>)[] = [];
 
 afterEach(async () => {
@@ -28,12 +27,11 @@ const NEXT = `${String(readdirSync(auditMigrations).filter((f) => /^\d{4}_.*\.sq
 
 /** A copy of apps/api with one more audit migration: the «new version». */
 function newerVersion(sql: string): string {
-  const dir = path.join(tmpRoot, `compat-${randomBytes(4).toString("hex")}`);
-  mkdirSync(dir, { recursive: true });
+  const dir = makeTestTmpDir("compat");
   for (const entry of ["package.json", "module-rules.json", "schema-exemptions.json", "scripts", "src"])
     cpSync(path.join(apiDir, entry), path.join(dir, entry), { recursive: true });
   writeFileSync(path.join(dir, "src/modules/audit/adapters/db/migrations", NEXT), sql);
-  cleanup.push(async () => rmSync(dir, { recursive: true, force: true }));
+  cleanup.push(async () => removeTestTmpDir(dir));
   return dir;
 }
 

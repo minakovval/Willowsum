@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/db/migrate.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
-import { apiDir } from "./real-modules.ts";
+import { makeTestTmpDir, removeTestTmpDir } from "./tmp-dir.ts";
 
 /**
  * Review of PR #75, round 3: the owner role of a module owns its tables, and a table owner can always
@@ -32,10 +32,10 @@ const COPY = `INSERT INTO things (household_id, label) SELECT '${householdA}', '
 
 /** A module «guarded» with 0001 (its table) and, after rows of two households exist, 0002 (the probe). */
 async function probe(sql: string): Promise<{ error: string; seenByA: string[]; rows: number }> {
-  const modulesDir = path.join(apiDir, "test/.tmp", `guard-${randomBytes(4).toString("hex")}`);
+  const modulesDir = makeTestTmpDir("guard");
   const migrations = path.join(modulesDir, "guarded/adapters/db/migrations");
   mkdirSync(migrations, { recursive: true });
-  cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+  cleanup.push(async () => removeTestTmpDir(modulesDir));
   writeFileSync(path.join(migrations, "0001_things.sql"), CREATE);
 
   const db = await createTestDatabase();

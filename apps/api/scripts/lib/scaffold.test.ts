@@ -1,17 +1,18 @@
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readCatalogue } from "../../src/platform/modules/catalogue.ts";
 import { readMigrations } from "../../src/platform/db/migrate.ts";
 import { checkModules } from "./check.ts";
 import { scaffoldModule } from "./scaffold.ts";
+import { makeTestTmpDir, removeTestTmpDir } from "../../test/tmp-dir.ts";
 
 const apiDir = fileURLToPath(new URL("../..", import.meta.url));
 const repoRoot = path.resolve(apiDir, "../..");
 const catalogue = readCatalogue(repoRoot);
-// Inside apps/api so that node_modules resolve; ignored by git.
-const work = path.join(apiDir, "test/.tmp");
+// Each test works in a folder of its own: integration tests write into test/.tmp at the same time.
+let work = "";
 
 function copyOfApi(): string {
   const dir = path.join(work, `api-${Math.random().toString(36).slice(2)}`);
@@ -34,7 +35,10 @@ function copyOfApi(): string {
   return dir;
 }
 
-afterEach(() => rmSync(work, { recursive: true, force: true }));
+beforeEach(() => {
+  work = makeTestTmpDir("scaffold");
+});
+afterEach(() => removeTestTmpDir(work));
 
 describe("ARC-01: a new module is created by the scaffold generator with one command", () => {
   it("creates three layers, the card, migrations, a test template and registers the module", async () => {
