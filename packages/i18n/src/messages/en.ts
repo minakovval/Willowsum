@@ -225,6 +225,7 @@ export const en: Messages = {
   "gallery.fit.inline": "After a label in the same line",
   "gallery.fit.own": "Own line",
   "gallery.fit.small": "Ordinary amount in a narrow card",
+  "gallery.fit.tiny": "Smallest amount",
   "gallery.unit.px": "{value} px",
   "gallery.unit.ms": "{value} ms",
   "gallery.range.between": "{from}–{to} px",
@@ -236,4 +237,24 @@ export const en: Messages = {
   "amount.compact.trillion": "tn",
   "amount.compact.quadrillion": "qd",
   "amount.compact.quintillion": "qn",
+
+  "amount.spoken": "{value} {currency}",
+  "amount.spoken.minus": "minus {value} {currency}",
+  "amount.spoken.plus": "plus {value} {currency}",
+  "amount.spoken.currency.EUR": "euros",
+  "amount.spoken.currency.UAH": "hryvnias",
+  "amount.spoken.currency.USD": "US dollars",
+
+  "format.percent": "{value}%",
+  "format.points": "{value} pp",
+
+  "delta.up": "up by {value} {period}",
+  "delta.down": "down by {value} {period}",
+  "delta.none": "no change {period}",
+  "delta.period.year": "y/y",
+  "delta.period.month": "m/m",
+  "delta.period.week": "w/w",
+  "delta.period.year.spoken": "over the year",
+  "delta.period.month.spoken": "over the month",
+  "delta.period.week.spoken": "over the week",
 };

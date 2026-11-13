@@ -61,10 +61,20 @@ type AmountStyle = Extract<TypeStyleName, "amount-xl" | "amount-l" | "amount-m" 
 
 /**
  * The one place where an amount reaches the screen (DS-18 item 3). `value` is already formatted
- * (formatting per DS-04 lives with Money in packages/domain-kernel). While amounts are hidden the
- * real value is not in the DOM (DS-18 item 7); holding 350 ms or Enter / Space shows it for 3 s.
+ * (`formatMoney` of `@willowsum/i18n`, DS-04). `spoken` is its full spoken form for screen readers
+ * (`speakMoney`, DS-04 item 10: «мінус 5,00 євро»): the visible text is then hidden from them. While
+ * amounts are hidden the real value is not in the DOM (DS-18 item 7); holding 350 ms or Enter / Space
+ * shows it for 3 s.
  */
-export function Amount({ value, size = "inherit" }: { value: string; size?: AmountStyle }) {
+export function Amount({
+  value,
+  spoken,
+  size = "inherit",
+}: {
+  value: string;
+  spoken?: string;
+  size?: AmountStyle;
+}) {
   const t = useT();
   const { hidden } = useHideAmounts();
   const [revealed, setRevealed] = useState(false);
@@ -94,7 +104,15 @@ export function Amount({ value, size = "inherit" }: { value: string; size?: Amou
 
   const cls = ["ws-amount", size !== "inherit" && `ws-text-${size}`].filter(Boolean).join(" ");
 
-  if (!hidden) return <span className={cls}>{keepNumbersTogether(value)}</span>;
+  if (!hidden)
+    return spoken ? (
+      <span className={cls}>
+        <span aria-hidden="true">{keepNumbersTogether(value)}</span>
+        <span className="ws-visually-hidden">{spoken}</span>
+      </span>
+    ) : (
+      <span className={cls}>{keepNumbersTogether(value)}</span>
+    );
 
   const startHold = () => {
     clearTimeout(holdTimer.current);

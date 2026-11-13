@@ -226,6 +226,7 @@ export const uk = {
   "gallery.fit.inline": "Після підпису в одному рядку",
   "gallery.fit.own": "Окремий рядок",
   "gallery.fit.small": "Звичайна сума у вузькій картці",
+  "gallery.fit.tiny": "Найменша сума",
   "gallery.unit.px": "{value} px",
   "gallery.unit.ms": "{value} мс",
   "gallery.range.between": "{from}–{to} px",
@@ -237,4 +238,24 @@ export const uk = {
   "amount.compact.trillion": "трлн",
   "amount.compact.quadrillion": "квдрлн",
   "amount.compact.quintillion": "квінтлн",
+
+  "amount.spoken": "{value} {currency}",
+  "amount.spoken.minus": "мінус {value} {currency}",
+  "amount.spoken.plus": "плюс {value} {currency}",
+  "amount.spoken.currency.EUR": "євро",
+  "amount.spoken.currency.UAH": "гривні",
+  "amount.spoken.currency.USD": "долара США",
+
+  "format.percent": "{value} %",
+  "format.points": "{value} п.\u00A0п.",
+
+  "delta.up": "зросло на {value} {period}",
+  "delta.down": "знизилось на {value} {period}",
+  "delta.none": "без змін {period}",
+  "delta.period.year": "р/р",
+  "delta.period.month": "м/м",
+  "delta.period.week": "т/т",
+  "delta.period.year.spoken": "за рік",
+  "delta.period.month.spoken": "за місяць",
+  "delta.period.week.spoken": "за тиждень",
 } as const satisfies Record<string, string>;

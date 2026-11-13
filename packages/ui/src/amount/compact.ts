@@ -65,17 +65,29 @@ export interface CompactInput {
   currency: string;
   /** Interface language; picks the unit names. */
   locale: Locale;
+  /** Axis tick labels only: drop trailing zeros of the fraction (DS-04 item 11). */
+  trimZeros?: boolean;
 }
 
 /** «12,35 трлн €» (uk) or «€12.35tn» (en) style string, or null when the amount is below 1 000 and needs no abbreviation. */
-export function formatCompactAmount({ value, currency, locale }: CompactInput): string | null {
+export function formatCompactAmount({
+  value,
+  currency,
+  locale,
+  trimZeros = false,
+}: CompactInput): string | null {
   const units = unitsOf(locale);
   const top = units[UNIT_COUNT - 1] ?? "";
   const { symbolFirst, decimal } = layoutOf(locale);
-  const show = (sign: string, int: string, frac: string, unit: string) =>
-    symbolFirst
-      ? `${sign}${currency}${/[A-Za-z]$/.test(currency) ? NBSP : ""}${frac ? `${int}${decimal}${frac}` : int}${unit}`
-      : `${sign}${frac ? `${int}${decimal}${frac}` : int}${NBSP}${unit}${NBSP}${currency}`;
+  const show = (sign: string, int: string, rawFrac: string, unit: string) => {
+    // Axis tick labels drop trailing zeros of the fraction («120 тис.», not «120,0 тис.»).
+    const frac = trimZeros ? rawFrac.replace(/0+$/, "") : rawFrac;
+    const number = frac ? `${int}${decimal}${frac}` : int;
+    if (!currency) return symbolFirst ? `${sign}${number}${unit}` : `${sign}${number}${NBSP}${unit}`;
+    return symbolFirst
+      ? `${sign}${currency}${/[A-Za-z]$/.test(currency) ? NBSP : ""}${number}${unit}`
+      : `${sign}${number}${NBSP}${unit}${NBSP}${currency}`;
+  };
   // Only a plain decimal string is accepted; anything else (spaces, grouping, exponents) gives null.
   if (!/^[-+]?\d+(\.\d+)?$/.test(value.trim())) return null;
   const negative = value.trim().startsWith("-");
@@ -105,4 +117,21 @@ export function formatCompactAmount({ value, currency, locale }: CompactInput): 
   }
   if (r.int.length > 3) return show(sign, "999+", "", top);
   return show(sign, r.int, r.frac, units[unit] ?? "");
+}
+
+/**
+ * DS-04 item 11: the abbreviated form of a number without a currency — chart labels and axis ticks:
+ * «128,4 тис.» (uk), «128.4k» (en); `axis: true` drops trailing zeros («120 тис.»). Null below 1 000:
+ * such a number is never abbreviated and is shown in full (`formatNumber` of `@willowsum/i18n`).
+ */
+export function formatCompactNumber({
+  value,
+  locale,
+  axis = false,
+}: {
+  value: string;
+  locale: Locale;
+  axis?: boolean;
+}): string | null {
+  return formatCompactAmount({ value, currency: "", locale, trimZeros: axis });
 }

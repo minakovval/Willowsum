@@ -145,6 +145,12 @@
   white-space: nowrap;
 }
 
+/* DS-04 items 4, 16: a change; its parts are joined by no-break spaces, a line breaks after «·» only. */
+.ws-delta {
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+
 /* CMP-07, DS-08 item 11: one unbreakable run; after a label it moves to a new line as a whole. */
 .ws-amount-fit {
   position: relative;

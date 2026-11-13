@@ -65,6 +65,37 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(fit()).toContain("₴1.23M");
   });
 
+  it("DS-04@PoC AC13, FR 15: «Великі суми і скорочення» shows 0,01 € to 12 345 678 901,00 € in cards of 360, 240, 160 and 110 px, abbreviated with the full value in a tooltip", () => {
+    // jsdom has no layout: every box is 40 px wide and text is 10 px per character, so the large
+    // amounts do not fit and switch to the abbreviated form; 0,01 € is never abbreviated.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(40);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { width: (this.textContent ?? "").length * 10 } as DOMRect;
+    });
+    const { container } = render(<App />);
+    const section = container.querySelector("#g-fit")!;
+    expect(section.textContent).toBe("Великі суми і скорочення");
+    const cases = [...container.querySelectorAll(".gallery-fit__case")];
+    expect(cases.map((c) => (c.querySelector(".gallery-fit__box") as HTMLElement).style.inlineSize)).toEqual([
+      "360px",
+      "240px",
+      "160px",
+      "110px",
+    ]);
+    for (const box of cases) {
+      const text = norm(box.textContent);
+      expect(text).toContain("0,01 €");
+      expect(norm(box.innerHTML)).toContain("12,35 млрд €");
+      // The full value stays in the tooltip and for screen readers.
+      const titles = [...box.querySelectorAll(".ws-amount-fit[title]")].map((el) =>
+        norm(el.getAttribute("title")),
+      );
+      expect(titles).toContain("12 345 678 901,00 €");
+      // Each amount is one unbreakable run.
+      expect(box.querySelectorAll(".ws-amount-fit").length).toBe(5);
+    }
+  });
+
   it("switches language to English", () => {
     render(<App />);
     act(() => screen.getByLabelText("English").click());

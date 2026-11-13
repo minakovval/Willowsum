@@ -29,5 +29,6 @@ export type { MenuItem } from "./shell/MenuButton.tsx";
 export { useMediaQuery } from "./useMediaQuery.ts";
 export { keepNumbersTogether } from "@willowsum/i18n";
 export { FitAmount } from "./amount/FitAmount.tsx";
-export { formatCompactAmount } from "./amount/compact.ts";
+export { Delta } from "./amount/Delta.tsx";
+export { formatCompactAmount, formatCompactNumber } from "./amount/compact.ts";
 export { chooseFit } from "./amount/fit.ts";
