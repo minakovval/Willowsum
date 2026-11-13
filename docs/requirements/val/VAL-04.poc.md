@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-10, П-25, П-26, NFR-01
 - Сценарії: —
 - Модуль: fx-rates
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/fx-rates/domain/val04.test.ts, apps/api/src/modules/fx-rates/val04.it.test.ts, apps/api/test/val04-original-currency.it.test.ts
 
 **Мета.** Як користувач із рахунками в кількох валютах, я хочу коректну конвертацію в EUR за курсом на дату, щоб бачити реальні залишки рахунків і суми транзакцій.
 
