@@ -14,8 +14,9 @@ import path from 'node:path';
 
 /** Prefix of every database this tool creates; `drop` refuses any other name. */
 export const PREFIX = 'ws_t_';
-/** Key of the advisory lock that serializes integration runs on one cluster. */
-export const LOCK_NAME = 'willowsum-integration-tests';
+// The lock itself (name, database, holder variable): tools/test-guards/cluster-lock.mjs, shared with the integration
+// config's globalSetup so that a bare `vitest` or `pnpm test:integration` run queues too.
+export { LOCK_NAME } from '../../test-guards/cluster-lock.mjs';
 const MAX_IDENTIFIER = 63; // PostgreSQL NAMEDATALEN - 1
 
 /** A tag (branch or worktree name) as a short identifier part: lower case, [a-z0-9_], at most 20 characters. */
