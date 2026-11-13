@@ -10,7 +10,7 @@
 - Спільні правила: П-24, ARC-01, CICD-05
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/config/config.test.ts, apps/api/src/platform/process/lifecycle.test.ts, apps/api/test/process.it.test.ts
+- Перевіряється: apps/api/src/platform/config/config.test.ts, apps/api/src/platform/process/lifecycle.test.ts, apps/api/test/process.it.test.ts, apps/api/test/arc02-roles.it.test.ts, apps/api/test/arc04-queue.it.test.ts
 
 1. Один образ контейнера запускається в трьох ролях: API, воркер фонових задач, планувальник задач за розкладом. Роль задає команда запуску.
 2. Процеси не зберігають стану в пам'яті чи на диску між запитами; будь-який екземпляр можна зупинити або додати без втрати даних.
