@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -22,7 +22,11 @@ missing, not to confirm the author's summary.
 Read the requirement **before** the PR body, so the author's framing does not anchor you.
 
 **Re-review** (owner, 2026-11-12): check only the fixes and your own previous findings — the diff since the
-head you last reviewed — not the whole PR again. There are at most two rounds; see «5. Report».
+head you last reviewed — not the whole PR again. There are at most two rounds; see «5. Report» and
+«6. Confirmation rounds».
+
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-review/`), never a generic name like `body.md`. You do not edit the PR body.
 
 ## 2. Check coverage
 
@@ -69,7 +73,14 @@ non-blocking.
   decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …` (owner,
   2026-11-12) — otherwise blocking. Infrastructure code that is only validated (no apply), CI check jobs and
   the local environment need no approval. The decision is also in the decision log (`docs/decisions/`).
-- Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code.
+  Exemption (AGENTS.md step 7, owner, 2026-11-13): a mechanical sync of an AGENTS.md list that a test
+  requires (a CI job name in the job list, a skill's name with its own `description` line in «Skills») needs
+  no owner decision, only a note in the body. Confirm from the diff that a claimed mechanical sync changes
+  only those list names or entries; anything else needs the owner's decision (blocking otherwise).
+- Tests: any skipped, disabled or weakened test; acceptance tests edited to fit the code. «Load», «flake» or
+  «timeout under load» is not an explanation of an intermittent failure (owner, 2026-11-13): a skip,
+  quarantine or raised timeout without a stated root cause (reproduced, compared with `main`) or a separately
+  tracked issue with the evidence is a finding (#146: a shared `test/.tmp` race).
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
   listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. Only
@@ -134,8 +145,28 @@ When something blocks, the verdict line is `Verdict: Changes requested` instead.
 with a test in the review (a patch or exact code) and the verdict `Changes requested`; after the author
 applies it, confirm that specific fix briefly, with a verdict that names the final head SHA.
 
-The authoring agent merges only after «Ready» given on the commit being merged: it compares the SHA your
-review names with the PR head, and any later commit needs a re-review of that commit (owner, 2026-11-12).
-Once the merge conditions in AGENTS.md step 7 hold: do not ask the owner to confirm the merge; merge
-at once and tell the owner it is merged. A PR labelled `sensitive` (CI sets it from file paths) also needs
+The lead merges (AGENTS.md step 7, owner, 2026-11-13) only after «Ready» given on the commit being merged:
+it compares the SHA your review names with the PR head, and any later commit needs a re-review of that
+commit (owner, 2026-11-12). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
+owner to confirm the merge; it merges at once and tells the owner. A PR labelled `sensitive` (CI sets it from file paths) also needs
 a separate security review — say so if it has not had one; other PRs need none (owner, 2026-11-12).
+
+## 6. Confirmation rounds
+
+Owner, 2026-11-13. A short round N covers only the diff since the last head you reviewed (`<old>`), after a
+fix commit, a ready fix you gave, or a `sync-branch` merge (`<new>` = the PR head now).
+
+1. Check `git merge-base --is-ancestor <old> <new>`. Then read `git diff <old> <new>` minus what a merge
+   brought from `main` (step 3): each of your previous blocking findings is fixed and has its test; nothing
+   else changed that you have not reviewed; CI is green on `<new>`.
+2. A fresh agent with a narrow brief does it (`pr-pipeline`, «Token economy»): the PR, `<old>`, `<new>`, the
+   previous findings.
+3. **Merge commit from `sync-branch`**: prove it adds nothing unreviewed by comparing trees. For the merge
+   `M` (`M^1` = `<old>`, the branch; `M^2` = the `main` commit): the first output line of
+   `git merge-tree --write-tree M^1 M^2` is the tree of a clean merge; compare it with
+   `git rev-parse M^{tree}`. Equal → the merge is mechanical: confirm in one line. Different, or a conflict → review only `git diff <that tree> M` (the hand resolution), as in step 1.
+4. The verdict names the exact head: `Reviewed head: <new>` (full SHA) and `Previous reviewed head: <old>` at
+   the top, the verdict line at the end, as in «5. Report». A later commit needs another confirmation.
+5. **Full re-review instead** when: `<old>` is not an ancestor of `<new>` (rebase or force-push); the diff
+   adds behaviour, files or criteria beyond the findings and the merge resolution; the requirement view of
+   the PR's ID changed in `main` since `<old>`; or the round would cover most of the PR anyway.
