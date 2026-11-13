@@ -18,7 +18,9 @@ export interface ExchangeRate {
 /**
  * The record of one conversion (NFR-06 FR 4): the original amount, the result, and the rate, its date
  * and its source. `approximate` is true when the rate is not of the date that was asked for (the nearest
- * earlier rate was used), so the display can mark the rate date.
+ * earlier rate was used), so the display can mark the rate date. This is the plain comparison of dates; a
+ * consumer may refine it: fx-rates does not mark a weekend that takes the previous working day's rate, nor
+ * «today» (`rateCoversDate`). Consumers that show totals must apply the same rule, or two totals will disagree.
  */
 export interface Conversion {
   readonly from: Money;

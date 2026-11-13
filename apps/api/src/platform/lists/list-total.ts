@@ -1,4 +1,4 @@
-import { Money, convert, type ExchangeRate } from "@willowsum/domain-kernel";
+import { Money, convert, rateCoversDate, type ExchangeRate } from "@willowsum/domain-kernel";
 import type { AmountGroup } from "./list-engine.ts";
 
 /**
@@ -105,8 +105,10 @@ export function createListTotals(deps: { rates: DatedRates; now: () => number })
         const conversion = convert(group.sum, rate, date);
         total = total.plus(conversion.to);
         counted += group.count;
-        // Only dated records count as «за найближчим курсом»; today's values use the latest official rate.
-        if (conversion.approximate && group.date !== null) nearestRateCount += group.count;
+        // Only dated records count as «за найближчим курсом»; today's values use the latest official rate, and a
+        // weekend that takes the previous working day's rate is the rate of that date (same rule as fx-rates).
+        if (group.date !== null && !rateCoversDate(conversion.rateDate, group.date))
+          nearestRateCount += group.count;
       }
       return {
         count: groups.reduce((n, g) => n + g.count, 0),

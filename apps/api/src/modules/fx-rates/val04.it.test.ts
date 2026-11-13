@@ -185,6 +185,22 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect([total.restricted, total.total?.toDecimalString()]).toEqual([true, "27"]);
   });
 
+  it("VAL-04@PoC EC2: a restricted reporting currency also carries the warning flag, although the amount's currency is not restricted", async () => {
+    await seed([
+      ["2026-11-12", "BYN", "12.50"],
+      ["2026-11-12", "USD", "40.00"],
+    ]);
+    const total = await reporting().total([{ amount: Money.of("100", "USD"), date: "2026-11-12" }], "BYN");
+    expect([total.restricted, converted(total.items[0]!).restricted]).toEqual([true, true]);
+  });
+
+  it("VAL-04@PoC FR 3: a malformed or impossible date is an input error, never «Курс недоступний»", async () => {
+    for (const date of ["today", "2026-02-30", "2026-13-01", "14.11.2026"])
+      await expect(reporting().total([{ amount: Money.of("100", "UAH"), date }]), date).rejects.toThrow(
+        /YYYY-MM-DD/,
+      );
+  });
+
   it("VAL-04@PoC EC3: no rate of the date but an earlier one → the nearest rate, «приблизно»; refined once the date's rate arrives", async () => {
     await seed([["2026-11-09", "EUR", "40.00"]]);
     const items = [

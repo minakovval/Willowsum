@@ -174,7 +174,7 @@ const onlyTestPathsLine = (patch) =>
   patch
     .split('\n')
     .filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---) /.test(l))
-    .every((l) => /^[+-]- Перевіряється:/.test(l));
+    .every((l) => /^[+-]- (?:\[[^\]]+\] )?Перевіряється:/.test(l));
 
 /**
  * Changed rule or requirement files that need a recorded owner decision. `files`: `{ filename,

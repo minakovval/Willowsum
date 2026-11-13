@@ -170,6 +170,10 @@ test('review #87 item 3: rule and requirement changes need a recorded owner deci
   // Only the «Перевіряється» line (test paths) changed: not a requirement change.
   const testsLine = '@@ -9,7 +9,7 @@\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: a.test.ts\n \n';
   assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', testsLine)]), []);
+  // A release-tagged «Перевіряється» line (#167, #168) is the same: no owner decision.
+  const taggedLine = '@@ -9,7 +9,7 @@\n - Модуль: —\n-- [лише PoC] Перевіряється: —\n+- [лише PoC] Перевіряється: a.test.ts\n \n';
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.md', taggedLine)]), []);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.md', `${taggedLine}+- [лише PoC] Модуль: x\n`)]), ['docs/requirements/arc/ARC-05.md'], 'another tagged line is a change');
   assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', `${testsLine}+3. New criterion\n`)]), ['docs/requirements/arc/ARC-05.poc.md']);
   assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', undefined)]), ['docs/requirements/arc/ARC-05.poc.md'], 'no patch: fails closed');
   assert.deepEqual(ownerDecisionFiles([f('docs/x.md', testsLine, { previous_filename: 'docs/requirements/arc/ARC-05.poc.md' })]), ['docs/requirements/arc/ARC-05.poc.md'], 'moved out');
