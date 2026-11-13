@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type pg from "pg";
@@ -302,17 +302,53 @@ export async function enableModuleLogin(
   await client.query(`ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}`);
 }
 
+/** Iterations of the SCRAM-SHA-256 verifier (PostgreSQL's default `scram_iterations`). */
+const SCRAM_ITERATIONS = 4096;
+
+/**
+ * The SCRAM-SHA-256 verifier PostgreSQL stores for a password (RFC 5802, RFC 7677; the format of `pg_authid`),
+ * computed here so that the password itself never travels in SQL text, where server logs could keep it
+ * (`log_statement`, `log_min_error_statement`). Only node:crypto's PBKDF2, HMAC and SHA-256.
+ */
+export function scramVerifier(password: string, salt: Buffer = randomBytes(16)): string {
+  const salted = pbkdf2Sync(password.normalize("NFKC"), salt, SCRAM_ITERATIONS, 32, "sha256");
+  const clientKey = createHmac("sha256", salted).update("Client Key").digest();
+  const storedKey = createHash("sha256").update(clientKey).digest();
+  const serverKey = createHmac("sha256", salted).update("Server Key").digest();
+  const key = (b: Buffer) => b.toString("base64");
+  return [
+    "SCRAM-SHA-256",
+    "$",
+    String(SCRAM_ITERATIONS),
+    ":",
+    key(salt),
+    "$",
+    key(storedKey),
+    ":",
+    key(serverKey),
+  ].join("");
+}
+
+/** How long a one-time erasure login stays valid even if the run never takes it away (a killed process). */
+export const ERASURE_LOGIN_VALID_MS = 60 * 60 * 1000;
+
 /**
  * Lets a module's erasure role log in with a one-time password for one run of the owner's erasure script
- * (ADR-0013); `disableErasureLogin` takes it away again. The role never keeps a stored password.
+ * (ADR-0013); `disableErasureLogin` takes it away again. The role never keeps a stored password: only its SCRAM
+ * verifier is sent, and the login expires on its own after an hour (`VALID UNTIL`).
  */
 export async function enableErasureLogin(
   client: pg.ClientBase,
   module: string,
   password: string,
+  now: number = Date.now(),
 ): Promise<void> {
   const role = client.escapeIdentifier(erasureRoleName(module));
-  await client.query(`ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}`);
+  const until = new Date(now + ERASURE_LOGIN_VALID_MS).toISOString();
+  const verifier = client.escapeLiteral(scramVerifier(password));
+  await client.query(
+    `ALTER ROLE ${role} LOGIN PASSWORD ${verifier} VALID UNTIL ${client.escapeLiteral(until)}`,
+  );
 }
 
 export async function disableErasureLogin(client: pg.ClientBase, module: string): Promise<void> {

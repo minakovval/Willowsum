@@ -246,6 +246,10 @@ export async function destroySpaceKey(
     // recorded under its own id.
     if (seen.key) await deps.audit.keyDestroyed(seen.key.keyId);
     else if (pending) await deps.audit.keyDestroyed(householdId);
+    // A repeat (or a re-application after a restore) on a space whose key is already destroyed still records the
+    // step that deletes its record.
+    else if (finish && seen.ref?.startsWith(keyRef.destroyedPrefix))
+      await deps.audit.keyDestroyed(seen.ref.slice(keyRef.destroyedPrefix.length));
     const done = await deps.store.inSpace(householdId, async (tx) => {
       await tx.lockSpace(householdId);
       const now = await read(tx);

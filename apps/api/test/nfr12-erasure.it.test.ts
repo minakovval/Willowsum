@@ -172,6 +172,31 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
   });
 });
 
+describe("NFR-12@PoC FR 3: erasing a space whose key is already destroyed (#143 security review)", () => {
+  it("NFR-12@PoC FR 3: the record's deletion is still preceded by a platform entry", async () => {
+    const person = await personWithSpace(db, "destroyed");
+    const { key_id: keyId } = (
+      await db.owner.query(`SELECT key_id FROM household.space_keys WHERE household_id = $1`, [
+        person.householdId,
+      ])
+    ).rows[0] as { key_id: string };
+    await person.keys.destroy(person.householdId);
+    const audit = createAuditLog(db.databases.for("audit"));
+    expect(await audit.platformEntriesFor({ type: "household.space-key", id: keyId })).toHaveLength(1);
+    const { createSpaceErasure } = await import("../src/modules/household/index.ts");
+    expect(
+      await createSpaceErasure(db.databases.for("household"), audit).eraseSpace(person.householdId),
+    ).toEqual({
+      keyDestroyed: false,
+    });
+    expect(await audit.platformEntriesFor({ type: "household.space-key", id: keyId })).toHaveLength(2);
+    const { rows } = await db.owner.query(`SELECT 1 FROM household.households WHERE household_id = $1`, [
+      person.householdId,
+    ]);
+    expect(rows).toEqual([]);
+  });
+});
+
 describe("NFR-12@PoC FR 3: the key is destroyed even when the daily key task runs in between (#141 review)", () => {
   it("NFR-12@PoC FR 3: a `pending:` space provisioned between the read and the lock is still erased without a key", async () => {
     const person = await personWithSpace(db, "race");

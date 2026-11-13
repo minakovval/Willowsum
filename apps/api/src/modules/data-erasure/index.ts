@@ -68,6 +68,14 @@ export function createDataErasure(options: DataErasureOptions): DataErasure {
       requestRecorded: async (requestId, dueAt) => void (await platformEntry(requestId, "dueAt", dueAt)),
       requestCompleted: async (requestId, kind) =>
         void (await platformEntry(requestId, "state", kind === "run" ? "completed" : "reapplied")),
+      spaceStep: async (householdId, step) =>
+        void (await audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: step, id: householdId },
+          action: "delete",
+          changes: [{ field: "reason", before: null, after: "erasure-request", sensitive: false }],
+        })),
     },
     newId: randomUUID,
     now: options.now ?? Date.now,

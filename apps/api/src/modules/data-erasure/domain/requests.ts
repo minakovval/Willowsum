@@ -61,7 +61,13 @@ export function requestStates(records: readonly ErasureRecord[], now: number): R
       });
     } else {
       const known = out.get(record.requestId);
-      if (known) out.set(record.requestId, { ...known, state: "completed", completedAt: record.at });
+      if (known)
+        out.set(record.requestId, {
+          ...known,
+          householdIds: [...new Set([...known.householdIds, ...record.householdIds])],
+          state: "completed",
+          completedAt: record.at,
+        });
     }
   }
   return [...out.values()].map((r) => {

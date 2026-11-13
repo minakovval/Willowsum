@@ -25,6 +25,7 @@ export async function withErasureDatabases<T>(
   work: (databases: ModuleDatabases) => Promise<T>,
 ): Promise<T> {
   const password = randomBytes(24).toString("base64url");
+  let outcome: { readonly ok: true; readonly value: T } | { readonly ok: false; readonly error: unknown };
   try {
     for (const module of ERASABLE_MODULES) await enableErasureLogin(options.admin, module, password);
     const databases = new ModuleDatabases({
@@ -34,11 +35,23 @@ export async function withErasureDatabases<T>(
       poolSize: 1,
     });
     try {
-      return await work(databases);
+      outcome = { ok: true, value: await work(databases) };
     } finally {
       await databases.end();
     }
-  } finally {
-    for (const module of ERASABLE_MODULES) await disableErasureLogin(options.admin, module);
+  } catch (error) {
+    outcome = { ok: false, error };
   }
+  // Each role on its own: one failure must not leave the other able to log in (its login also expires by itself).
+  const failures: unknown[] = [];
+  for (const module of ERASABLE_MODULES) {
+    try {
+      await disableErasureLogin(options.admin, module);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (!outcome.ok) throw outcome.error;
+  if (failures.length > 0) throw failures[0];
+  return outcome.value;
 }

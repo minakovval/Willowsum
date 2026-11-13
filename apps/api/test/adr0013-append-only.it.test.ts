@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createAuditErasure } from "../src/modules/audit/index.ts";
 import { createLedgerErasure } from "../src/modules/ledger/index.ts";
-import { ERASABLE_MODULES } from "../src/platform/db/erasure-db.ts";
-import { assertIsolatedRoles } from "../src/platform/db/migrate.ts";
+import { ERASABLE_MODULES, withErasureDatabases } from "../src/platform/db/erasure-db.ts";
+import { assertIsolatedRoles, ERASURE_LOGIN_VALID_MS, scramVerifier } from "../src/platform/db/migrate.ts";
+import { urlAs } from "./db.ts";
 import { erasureRoleName } from "../src/platform/modules/rules.ts";
 import { personWithSpace, rowCount, spaceRows, withTestErasureDatabases } from "./erasure-helpers.ts";
 import { realModules, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
@@ -149,5 +150,53 @@ describe("NFR-12@PoC FR 3 / ADR-0013: only the erasure role empties a space from
     );
     expect(outcome).toBe("42501");
     void randomUUID;
+  });
+});
+
+describe("NFR-12@PoC FR 3 / ADR-0013: the one-time login (#143 security review)", () => {
+  it("NFR-12@PoC FR 3: the password never travels in SQL text, and the login expires by itself within an hour", async () => {
+    const sent: string[] = [];
+    const admin = {
+      query: (text: string, values?: unknown[]) => {
+        sent.push(text);
+        return db.owner.query(text, values as never);
+      },
+      escapeIdentifier: (s: string) => `"${s.replaceAll('"', '""')}"`,
+      escapeLiteral: (s: string) => `'${s.replaceAll("'", "''")}'`,
+    };
+    let seenPassword = "";
+    const startedAt = Date.now();
+    const validUntil = await withErasureDatabases(
+      {
+        admin: admin as never,
+        connectionAs: (role, password) => {
+          seenPassword = password;
+          return { connectionString: urlAs(db.url, role, password) };
+        },
+        context: db.context,
+      },
+      async (era) => {
+        // The roles really log in with it (the verifier is right).
+        await era.for("audit").transaction((q) => q.query("SELECT 1"));
+        const { rows } = await db.owner.query<{ until: Date }>(
+          `SELECT rolvaliduntil AS until FROM pg_roles WHERE rolname = 'ws_era_audit'`,
+        );
+        return rows[0]!.until.getTime();
+      },
+    );
+    expect(seenPassword.length).toBeGreaterThan(20);
+    for (const text of sent) expect(text).not.toContain(seenPassword);
+    expect(sent.filter((t) => /PASSWORD 'SCRAM-SHA-256\$4096:/.test(t))).toHaveLength(
+      ERASABLE_MODULES.length,
+    );
+    expect(validUntil).toBeGreaterThan(startedAt);
+    expect(validUntil).toBeLessThanOrEqual(Date.now() + ERASURE_LOGIN_VALID_MS);
+  });
+
+  it("NFR-12@PoC FR 3: the SCRAM verifier has PostgreSQL's format and a fresh salt each time", () => {
+    const a = scramVerifier("synthetic-one-time");
+    expect(a).toMatch(/^SCRAM-SHA-256\$4096:[A-Za-z0-9+/=]{24}\$[A-Za-z0-9+/=]{44}:[A-Za-z0-9+/=]{44}$/);
+    expect(scramVerifier("synthetic-one-time")).not.toBe(a);
+    expect(a).not.toContain("synthetic-one-time");
   });
 });

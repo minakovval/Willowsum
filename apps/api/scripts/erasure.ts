@@ -4,9 +4,10 @@
  * The erasure roles of audit and ledger log in for this run only (one-time password set through DATABASE_URL, the
  * migration role) and lose their login when it ends. The erasure log lives outside the main database
  * (WS_ERASURE_LOG_DIR locally; in deployed environments the live log, which is not built yet and fails closed).
- *   node scripts/erasure.ts request --email <address> | --account <uuid> | run <request uuid> | status | reapply
+ *   node scripts/erasure.ts request --email (address on stdin) | --account <uuid> | run <request uuid> | status | reapply
  */
 import { readFileSync } from "node:fs";
+import { text } from "node:stream/consumers";
 import pg from "pg";
 import { createDataErasure } from "../src/modules/data-erasure/index.ts";
 import { erasureLog } from "../src/platform/adapters/erasure-log/index.ts";
@@ -61,6 +62,14 @@ if (!config.deployed && config.providerMode === "test" && !logDir) {
 }
 const log = erasureLog(config.providerMode, { deployed: config.deployed }, () => ({ dir: logDir ?? "" }));
 
+// The address comes on stdin, never in argv (`ps`, shell history); trimmed.
+const fromStdin = command.kind === "request" && "emailFromStdin" in command.subject;
+const email = fromStdin ? (await text(process.stdin)).trim() : "";
+if (fromStdin && !email) {
+  console.error("request --email: give the address on stdin");
+  process.exit(2);
+}
+
 const admin = new pg.Client({ connectionString: adminUrl });
 await admin.connect();
 let exitCode = 0;
@@ -71,7 +80,7 @@ try {
       const erasure = createDataErasure({ databases, erasureDatabases, log });
       switch (command.kind) {
         case "request":
-          return erasure.request(command.subject);
+          return erasure.request("emailFromStdin" in command.subject ? { email } : command.subject);
         case "run":
           return erasure.run(command.requestId);
         case "status":

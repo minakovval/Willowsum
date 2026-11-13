@@ -7,7 +7,8 @@ GRANT SELECT, DELETE ON entries TO ws_era_audit;
 
 CREATE OR REPLACE FUNCTION reject_change() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  IF TG_OP = 'DELETE' AND current_user = 'ws_era_' || TG_TABLE_SCHEMA THEN
+  -- Only the space's own log: the platform log (platform_entries) stays append-only for every role.
+  IF TG_OP = 'DELETE' AND current_user = 'ws_era_' || TG_TABLE_SCHEMA AND TG_TABLE_NAME = 'entries' THEN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'the audit log is append-only: % is not allowed', TG_OP USING ERRCODE = '42501';

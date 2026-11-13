@@ -36,8 +36,8 @@ sensitive }`). Значення полів з `sensitive: true` замінюют
 
 - `createAuditErasure(db)` → `AuditErasure.eraseHousehold(householdId)` → `{ entries }` — видалення всього журналу одного
   простору на запит людини (NFR-12@PoC п. 3; ADR-0013, варіант A). `db` — пул ролі видалення `ws_era_audit`
-  (`withErasureDatabases`), яку тригери журналу єдину пускають до DELETE, і лише простору цілком
-  (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім. Журнал платформи не видаляється. Викликає лише
+  (`withErasureDatabases`), яку тригери журналу єдину пускають до DELETE, лише в `entries` і лише простору цілком
+  (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім. Журнал платформи не видаляється нікому. Викликає лише
   `data-erasure` зі скрипта власника.
 
 ## Залежності

@@ -28,6 +28,8 @@ export interface ErasureDeps {
   readonly platformAudit: {
     requestRecorded(requestId: string, dueAt: string): Promise<void>;
     requestCompleted(requestId: string, kind: "run" | "reapply"): Promise<void>;
+    /** A step that deletes rows of a space, recorded before it runs (ids only). */
+    spaceStep(householdId: string, step: "ledger.journal" | "audit.log"): Promise<void>;
   };
   readonly newId: () => string;
   readonly now: () => number;
@@ -84,10 +86,17 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
   // The account first: its sessions end with it, so the person writes nothing into a space being erased.
   await deps.identity.eraseAccount(request.accountId);
   for (const householdId of request.householdIds) {
+    // Each deletion is recorded in the platform log first: a run that stops part-way still shows what went.
+    await deps.platformAudit.spaceStep(householdId, "ledger.journal");
     await deps.ledger.eraseHousehold(householdId);
+    await deps.platformAudit.spaceStep(householdId, "audit.log");
     await deps.audit.eraseHousehold(householdId);
     // Last: the key, with the space's record, in one locked transaction.
     await deps.spaces.eraseSpace(householdId);
+    // The daily key task may have written into the space's log between the two steps above (a rewrap or a
+    // provisioning records itself there). With the record gone nothing new arrives; sweep what did.
+    await deps.platformAudit.spaceStep(householdId, "audit.log");
+    await deps.audit.eraseHousehold(householdId);
   }
 }
 
@@ -95,12 +104,17 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
 export async function runErasure(deps: ErasureDeps, requestId: string): Promise<RequestState> {
   const request = requestStates(await deps.log.records(), deps.now()).find((r) => r.requestId === requestId);
   if (!request) throw new ErasureError("REQUEST_NOT_FOUND");
-  await eraseTargets(deps, request);
+  // A space the account got after the request (a first sign-in within the 30 days) is erased too, and recorded so
+  // that a re-application after a restore erases it as well.
+  const current = await deps.spaces.spacesOf(request.accountId);
+  if (current.some((s) => s.members > 1)) throw new ErasureError("SPACE_SHARED");
+  const householdIds = [...new Set([...request.householdIds, ...current.map((s) => s.householdId)])];
+  await eraseTargets(deps, { ...request, householdIds });
   const record: ErasureRecord = {
     kind: "completed",
     requestId,
     accountId: request.accountId,
-    householdIds: request.householdIds,
+    householdIds,
     at: new Date(deps.now()).toISOString(),
   };
   await deps.log.append(record);

@@ -47,15 +47,30 @@ function env(): NodeJS.ProcessEnv {
 const script = (...args: string[]) =>
   run(process.execPath, [path.join(apiDir, "scripts/erasure.ts"), ...args], { cwd: apiDir, env: env() });
 
+/** `request --email` with the address on stdin (never in argv). */
+function requestByEmail(email: string): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      process.execPath,
+      [path.join(apiDir, "scripts/erasure.ts"), "request", "--email"],
+      { cwd: apiDir, env: env() },
+      (error, stdout, stderr) => (error ? reject(error) : resolve({ stdout, stderr })),
+    );
+    child.stdin!.end(`${email}\n`);
+  });
+}
+
 describe("NFR-12@PoC FR 3: the owner's erasure script", () => {
   it("NFR-12@PoC FR 3: request, run and status erase the person's account and space; the address is never printed", async () => {
     const person = await personWithSpace(db, "script");
-    const requested = await script("request", "--email", person.email);
+    const requested = await requestByEmail(person.email);
     expect(requested.stdout).not.toContain(person.email);
+    expect(requested.stderr).not.toContain(person.email);
     const { requestId, state, dueAt } = JSON.parse(requested.stdout) as Record<string, string>;
     expect(state).toBe("pending");
     expect(dueAt).toMatch(/^\d{4}-/);
     const done = await script("run", requestId!);
+    expect(done.stderr).not.toContain(person.email);
     expect(JSON.parse(done.stdout)).toMatchObject({ requestId, state: "completed" });
     expect(await rowCount(db, person.householdId)).toBe(0);
     const status = JSON.parse((await script("status")).stdout) as { requestId: string; state: string }[];

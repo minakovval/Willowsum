@@ -32,7 +32,8 @@
 - [MVP] Спільні правила: ARC-06, ARC-08, CICD-12
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/adapters/erasure-log/erasure-log.test.ts, apps/api/test/nfr12-erasure.it.test.ts
+- [лише PoC] Перевіряється: apps/api/src/platform/adapters/erasure-log/erasure-log.test.ts, apps/api/src/platform/adapters/erasure-log/sec143-erasure-log.test.ts, apps/api/test/nfr12-erasure.it.test.ts
+- [MVP] Перевіряється: —
 
 **Мета.** Як власник продукту, я хочу мати відпрацьовану процедуру резервного копіювання і відновлення, щоб після втрати сервера сервіс повернувся з даними не старшими за 15 хв не пізніше ніж за 4 год.
 
