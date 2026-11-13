@@ -25,12 +25,18 @@ whether the security properties the requirement claims really hold. This review 
   changed in sensitive paths (no logic), confirm that with a diff check instead of a full review: for every
   sensitive file, `git diff origin/main...<head> -- <file>` shows only changed test titles (`describe` / `it` /
   `test` strings) or comment lines, and the same file with those lines stripped is unchanged
-  (`git diff -G'.' --word-diff` helps). Then post one short review: «Light confirmation: only test titles /
+  (`git diff -G'.' --word-diff` helps). A title counts only as the literal string argument: no change to the
+  call itself (`.skip`, `.only`, `.todo`, `.fails`, `.each`, `.concurrent`, `.runIf`/`.skipIf`, a new or removed
+  `it`/`describe`) and no `${…}` expression in it. A comment counts only when it is not a directive: any added,
+  removed or changed `eslint-disable`/`eslint-enable`/`eslint `/`global`, `@ts-ignore`/`@ts-expect-error`/
+  `@ts-nocheck`, `@vitest-environment`/`@jest-environment`, `prettier-ignore`, `gitleaks:allow`, `istanbul` or
+  `c8` ignore, `@type`/`@typedef` in a `.js`/`.mjs` file, a shebang, or a `#` line in YAML that is not a comment
+  (inside a block scalar) → full review. Then post one short review: «Light confirmation: only test titles /
   comments in <files>», `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or
   configuration change in a sensitive path → full review.
 - The owner decision and the owner's approval for cloud or production are checked by `review-pr`, not here.
 - **Round 2** checks only the fixes and your own round-1 findings (the diff since the head you last
-  reviewed). At most two rounds (see «5. Rounds»).
+  reviewed). At most two rounds (see «7. Rounds»).
 
 ## 1. Load
 

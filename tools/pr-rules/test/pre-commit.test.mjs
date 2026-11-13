@@ -70,8 +70,17 @@ test('pre-commit: end to end in a git repository — the staged version decides,
 test('pre-commit: the hook is installed by `prepare` through a relative core.hooksPath (works in every worktree)', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   assert.equal(pkg.scripts.prepare, 'git config core.hooksPath .githooks || true');
+  // The hook runs on every commit in every worktree: its body is pinned exactly (security review of #169).
   const hook = fs.readFileSync(path.join(ROOT, '.githooks/pre-commit'), 'utf8');
-  assert.match(hook, /^#!\/bin\/sh\n/);
-  assert.match(hook, /^exec node tools\/pr-rules\/index\.mjs pre-commit$/m);
+  assert.equal(
+    hook,
+    [
+      '#!/bin/sh',
+      '# Prettier and ESLint on the staged files only (tools/pr-rules/lib/pre-commit.mjs). Installed by `pnpm install`',
+      '# (root `prepare`: git config core.hooksPath .githooks). Owner decision 2026-11-13.',
+      'exec node tools/pr-rules/index.mjs pre-commit',
+      '',
+    ].join('\n'),
+  );
   assert.ok(fs.statSync(path.join(ROOT, '.githooks/pre-commit')).mode & 0o111, 'executable');
 });

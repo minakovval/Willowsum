@@ -126,7 +126,8 @@ skill or add one). Token economy: `pr-pipeline`, «Token economy».
   counts or sums.
 - **Audit:** every data change writes an audit entry.
 - **Privacy:** no personal data in logs, analytics or error reports. Agents use only synthetic data and
-  provider sandboxes — never production data, secrets or real credentials.
+  provider sandboxes — never production data, secrets or real credentials. Secrets never go to chat, issues,
+  PRs or the repository.
 - **Production:** agents act in production only through allowlisted actions with owner approval.
 - **Vault:** highly sensitive items are encrypted on the device; the server never receives plaintext.
   Never store card CVV/CVC or PIN in any form.

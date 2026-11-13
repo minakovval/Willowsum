@@ -11,7 +11,7 @@ Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and 
    skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
    log in `docs/decisions/` has it). A purely mechanical sync of a list in AGENTS.md that a test requires needs no
    owner decision: only adding or removing a CI job name in the job list of step 6, or a skill's name with its
-   own `description` line in «Skills» (AGENTS.md and `.claude/references/skills-list.md`); nothing else qualifies. The PR body still notes it under «Owner
+   own `description` line in «Skills»; nothing else qualifies. The PR body still notes it under «Owner
    decision» as a mechanical sync. Any change to a rule needs one (owner, 2026-11-13). For a docs-only PR that moves scope between releases, a security review (when needed) covers only the moved lines that state a protection (owner, 2026-11-12). The owner's approval on the PR is needed only for what acts on the
    cloud or production. It is either a comment from the owner's own GitHub account with a line that is exactly
    «Схвалюю» or «Approved», or the owner's decision from chat recorded in the PR body as a line

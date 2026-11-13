@@ -79,8 +79,13 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
   `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.`
   (examples: `docs/decisions/state-2026-11-05.md`). Change it to an owner line only when the owner answers.
 
-GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
-happens; before re-sending a comment, issue or merge, check it did not land). Brief agents to do the same.
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — a comment, an issue, a merge — check whether the first attempt landed
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`, the open issues, `gh api repos/{owner}/{repo}/pulls/<n> --jq
+.merged`); act again only when it did not. Unsubscribing, labels and PATCHes are idempotent: retry as they are.
+Brief the agents you start to do the same (their skills say so).
+Shared details: [retry rules](../../references/github-errors.md) (read when it happens).
 
 
 ## 3. Parallel branches
