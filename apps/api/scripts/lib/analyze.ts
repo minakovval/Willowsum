@@ -99,3 +99,52 @@ export async function analyzeWorkspaceSdks(
     process.chdir(previous);
   }
 }
+
+/** One import between two modules of `<baseDir>/src/modules`, as resolved by the dependency analyzer. */
+export interface ModuleImport {
+  readonly fromModule: string;
+  readonly toModule: string;
+  readonly from: string;
+  readonly to: string;
+}
+
+/**
+ * Every import from one module into another in `<baseDir>/src/modules`, type-only imports included (ARC-01 FR 6:
+ * what another module would have to change if this one moved to its own service). The registry
+ * `src/modules/index.ts` is not a module.
+ */
+export async function moduleImports(baseDir: string): Promise<ModuleImport[]> {
+  const previous = process.cwd();
+  process.chdir(baseDir);
+  try {
+    const result = await cruise(
+      ["src/modules"],
+      {
+        baseDir,
+        tsPreCompilationDeps: true,
+        doNotFollow: { path: "(^|/)node_modules/" },
+        outputType: "json",
+      },
+      {
+        extensions: [".ts", ".js", ".mjs", ".json"],
+        conditionNames: ["import", "default"],
+        exportsFields: ["exports"],
+      },
+    );
+    const output = typeof result.output === "string" ? JSON.parse(result.output) : result.output;
+    const moduleOf = (file: string): string | undefined => /^src\/modules\/([^/]+)\//.exec(file)?.[1];
+    const imports: ModuleImport[] = [];
+    for (const source of output.modules as { source: string; dependencies: { resolved: string }[] }[]) {
+      const fromModule = moduleOf(source.source);
+      if (!fromModule) continue;
+      for (const dependency of source.dependencies) {
+        const toModule = moduleOf(dependency.resolved);
+        if (toModule && toModule !== fromModule)
+          imports.push({ fromModule, toModule, from: source.source, to: dependency.resolved });
+      }
+    }
+    return imports.sort((a, b) => `${a.from} ${a.to}`.localeCompare(`${b.from} ${b.to}`));
+  } finally {
+    process.chdir(previous);
+  }
+}

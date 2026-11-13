@@ -10,7 +10,7 @@
 - Спільні правила: П-21, П-22, П-24, ARC-05, ARC-11, CICD-02, CICD-06
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts, apps/api/test/api-flags.test.ts
+- Перевіряється: apps/api/scripts/lib/analyze.test.ts, apps/api/scripts/lib/scaffold.test.ts, apps/api/scripts/lib/arc01-poc.test.ts, apps/api/src/platform/modules/rules.test.ts, apps/api/src/platform/events/catalogue.test.ts, apps/api/src/platform/db/module-db.it.test.ts, packages/domain-kernel/src/money.test.ts, apps/api/test/api-flags.test.ts
 
 Бекенд — один застосунок на TypeScript, розділений на незалежні модулі. Зміна всередині одного модуля не змінює поведінки інших, якщо не змінено його публічний інтерфейс.
 
