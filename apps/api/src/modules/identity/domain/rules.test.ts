@@ -15,8 +15,12 @@ import {
   PASSWORD_RESET_TTL_MS,
   passwordSchema,
   resetLinkUsable,
+  ROTATION_GRACE_MS,
   sessionAlive,
   SESSION_IDLE_MS,
+  sessionLapse,
+  shownEndReason,
+  tokenStanding,
   signInGate,
   signUpAttemptLetter,
 } from "./index.ts";
@@ -81,6 +85,36 @@ describe("NFR-01 FR 10: a session ends after 15 min idle or 12 h in all", () => 
     expect(sessionAlive(s, T + SESSION_IDLE_MS)).toBe(false);
     expect(sessionAlive({ ...s, lastSeenAt: T + 12 * 60 * MIN - MIN }, T + 12 * 60 * MIN)).toBe(false);
     expect(sessionAlive({ ...s, endedAt: T }, T + MIN)).toBe(false);
+  });
+});
+
+describe("ACC-04@PoC FR 1: fixed 15 min idle timeout and 12 h absolute end, the reason told to the browser", () => {
+  it("lapse: none within both bounds; idle at exactly 15 min; expired at 12 h (it wins over idle)", () => {
+    const s = { expiresAt: T + 12 * 60 * MIN, lastSeenAt: T };
+    expect(sessionLapse(s, T + SESSION_IDLE_MS - 1)).toBeNull();
+    expect(sessionLapse(s, T + SESSION_IDLE_MS)).toBe("idle");
+    expect(sessionLapse({ ...s, lastSeenAt: T + 12 * 60 * MIN - 20 * MIN }, T + 12 * 60 * MIN)).toBe(
+      "expired",
+    );
+    expect(sessionLapse({ ...s, lastSeenAt: T + 12 * 60 * MIN - MIN }, T + 12 * 60 * MIN - 1)).toBeNull();
+  });
+
+  it("idle → «через бездіяльність»; a reset or a reused token → «з іншого пристрою»; the rest → plain sign-in", () => {
+    expect(shownEndReason("idle")).toBe("idle");
+    expect(shownEndReason("expired")).toBe("expired");
+    expect(shownEndReason("password-reset")).toBe("ended-elsewhere");
+    expect(shownEndReason("token-reuse")).toBe("ended-elsewhere");
+    expect(shownEndReason("signed-out")).toBe("signed-out");
+    expect(shownEndReason(null)).toBe("signed-out");
+  });
+});
+
+describe("NFR-01@PoC FR 12: a replaced refresh token works for 30 s, then its return is a reuse", () => {
+  it("current, grace below 30 s, reuse from 30 s", () => {
+    expect(ROTATION_GRACE_MS).toBe(30_000);
+    expect(tokenStanding(null, T)).toBe("current");
+    expect(tokenStanding(T, T + ROTATION_GRACE_MS - 1)).toBe("grace");
+    expect(tokenStanding(T, T + ROTATION_GRACE_MS)).toBe("reuse");
   });
 });
 

@@ -5,8 +5,10 @@ export {
   confirmEmail,
   RESEND_AFTER_S,
   resendForLink,
+  refreshSession,
   resendForRegistration,
   sessionAccount,
+  sessionStatus,
   signIn,
   signOut,
   signUp,
@@ -15,5 +17,13 @@ export { dailyCleanup, DEADLOCK_RETRIES, DELETE_BATCH } from "./maintenance.ts";
 export type { DailyCleanupReport } from "./maintenance.ts";
 export { completePasswordReset, passwordResetState, requestPasswordReset } from "./password-reset.ts";
 export type { CompleteResetResult, ResetLinkState } from "./password-reset.ts";
-export type { ConfirmResult, ResendResult, SessionAccount, SignInResult, SignUpResult } from "./accounts.ts";
+export type {
+  ConfirmResult,
+  RefreshResult,
+  ResendResult,
+  SessionAccount,
+  SessionCheck,
+  SignInResult,
+  SignUpResult,
+} from "./accounts.ts";
 export type * from "./ports.ts";

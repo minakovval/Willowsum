@@ -32,6 +32,7 @@ const PUBLIC_ROUTES = [
   "resendConfirmationEmail",
   "signIn",
   "getSession",
+  "refreshSession",
   "signOut",
   "requestPasswordReset",
   "checkPasswordReset",

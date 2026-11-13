@@ -416,7 +416,8 @@ describe("ACC-01 AC17 / NFR-15 FR 3: a reset changes the password and ends every
     for (const cookie of [phone, laptop]) {
       const me = await request("GET", "/v1/session", { cookie });
       expect(me.statusCode).toBe(401);
-      expect(me.json().code).toBe("UNAUTHENTICATED");
+      // ACC-04@PoC: the browser learns why — «Сесію завершено з іншого пристрою».
+      expect(me.json()).toMatchObject({ code: "SESSION_ENDED", sessionEndReason: "ended-elsewhere" });
     }
     const { rows } = await db.owner.query(
       `SELECT count(*) FILTER (WHERE s.ended_at IS NULL)::int AS open, count(*)::int AS all

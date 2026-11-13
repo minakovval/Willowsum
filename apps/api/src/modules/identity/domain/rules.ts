@@ -90,7 +90,60 @@ export function sessionAlive(
   session: { readonly expiresAt: number; readonly lastSeenAt: number; readonly endedAt: number | null },
   now: number,
 ): boolean {
-  return session.endedAt === null && now < session.expiresAt && now - session.lastSeenAt < SESSION_IDLE_MS;
+  return session.endedAt === null && sessionLapse(session, now) === null;
+}
+
+/**
+ * Why a session ended, as stored (ACC-04@PoC; ADR-0009 part d): `signed-out` (this browser — any tab — signed out),
+ * `idle` (15 min without a user action), `expired` (12 h after sign-in), `password-reset` (a reset ended every
+ * session of the account), `token-reuse` (a token replaced more than the grace period ago came back: it was copied,
+ * so the whole session ends).
+ */
+export type SessionEndReason = "signed-out" | "idle" | "expired" | "password-reset" | "token-reuse";
+
+/**
+ * What the client is told (ACC-04 «Стани інтерфейсу»): `idle` → «Сесію завершено через бездіяльність»;
+ * `ended-elsewhere` → «Сесію завершено з іншого пристрою» (a reset, a reused token); `expired` and `signed-out` →
+ * the sign-in screen.
+ */
+export type SessionEndShown = "idle" | "expired" | "signed-out" | "ended-elsewhere";
+
+export function shownEndReason(reason: SessionEndReason | null): SessionEndShown {
+  switch (reason) {
+    case "idle":
+    case "expired":
+      return reason;
+    case "password-reset":
+    case "token-reuse":
+      return "ended-elsewhere";
+    // A session ended before reasons were stored was ended by sign-out or by the failed first space.
+    case "signed-out":
+    case null:
+      return "signed-out";
+  }
+}
+
+/** Why a session not ended yet must end at `now`, or null while it is alive (absolute end first). */
+export function sessionLapse(
+  session: { readonly expiresAt: number; readonly lastSeenAt: number },
+  now: number,
+): "expired" | "idle" | null {
+  if (now >= session.expiresAt) return "expired";
+  if (now - session.lastSeenAt >= SESSION_IDLE_MS) return "idle";
+  return null;
+}
+
+/**
+ * Refresh token rotation (NFR-01 FR 12): every refresh replaces the session's token. The replaced token still
+ * authenticates for this long, so requests already on their way from other tabs of the same browser (which share
+ * the cookie) do not fail; it never refreshes again. After it, the token's return means it was copied.
+ */
+export const ROTATION_GRACE_MS = 30_000;
+
+/** How a presented token stands: the session's current token, a replaced one within the grace, or a reuse. */
+export function tokenStanding(retiredAt: number | null, now: number): "current" | "grace" | "reuse" {
+  if (retiredAt === null) return "current";
+  return now - retiredAt < ROTATION_GRACE_MS ? "grace" : "reuse";
 }
 
 const DAY = 24 * HOUR;

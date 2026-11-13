@@ -99,7 +99,9 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
 
 /**
  * The account of a session token for the protected routes of every module (src/api.ts builds the caller from it
- * and the account's space): a live session of a confirmed account, or null. Its use moves its idle deadline.
+ * and the account's space): a live session of a confirmed account, or null. A request never moves the idle
+ * deadline (only `POST /v1/session/refresh`, sent for user actions, does; ACC-04 business rules); a lapsed session is
+ * ended here with its reason.
  */
 export function authenticateSession(
   services: IdentityServices,
