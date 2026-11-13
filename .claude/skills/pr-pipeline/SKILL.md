@@ -19,7 +19,7 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 1. Pick the next part from the wave plan and `docs/traceability/release-poc.md` (generated, not committed:
    `node tools/req-check/index.mjs --quiet --traceability`, or the `traceability` artifact of the latest
    «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
-   and UI).
+   and UI). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
 2. **Implementer**: a new agent with the `implement-requirement` skill, in its own git worktree on its own
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its slot
@@ -41,6 +41,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
    into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
    reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
+   Resume the implementing agent at most 2 times (owner, 2026-11-13, #178); a third fix round goes to a fresh
+   agent with a short brief: the diff, the findings, the patch ([token economy](references/token-economy.md)).
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
 6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for

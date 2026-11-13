@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting added (owner, 2026-11-13, #180). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
@@ -25,7 +25,12 @@ Owner request 2026-11-12; rules decided by the lead.
    plus integration tests for database changes; no repeated full-suite runs.
 4. Briefs point agents at exact files and sections instead of «read everything».
 5. Agents return short final reports (verdict, blocking with file:line, follow-ups, checks), not narratives.
-6. Keep PRs small (AGENTS.md step 5, owner rule 7) so diffs, and therefore reviews, stay small.
+6. Keep PRs small (AGENTS.md step 5, owner rule 7) so diffs, and therefore reviews, stay small. Split large
+   scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
+7. Resume an implementing agent at most 2 times (owner, 2026-11-13, #178). A third round of fixes goes to a
+   fresh agent with a short brief: the diff, the findings, the patch. Every resume re-reads the agent's whole
+   context: in lead session 1 the most expensive tasks were authors resumed many times (110, 70, 68 and 61
+   million input tokens; #180, retrospective).
 
 ## Token accounting
 
@@ -35,9 +40,9 @@ repos/{owner}/{repo}/issues/180 -f body=@<file>`; a PATCH is idempotent). Keep a
 scratchpad (`tokens.tsv`: PR, role, `subagent_tokens`) so a compaction does not lose it.
 
 1. **Session.** At start and before finishing, call `get_session` (no `session_id`) and read `usage`:
-   `cache_read_tokens`, `output_tokens`, `cost_usd`. At start, add the session's row to the table «Сесії» with
-   the start snapshot in «Примітка»; before finishing, fill in the difference (end minus start) and the period.
-   The difference covers the lead and all its agents.
+   `cache_read_tokens`, `output_tokens`, `cost_usd`. At start, post the snapshot as a comment on #180 (session
+   name, time, the values); before finishing, add the session's row to the table «Сесії»: period and the
+   difference (end minus start). The difference covers the lead and all its agents.
 2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), add a row to the table «PR»: PR, type (код / UI / вимоги /
    процес / виправлення), review rounds, agents' tokens = the sum of `subagent_tokens` from the completion
    notices of the author, every reviewer and every confirmation agent of that PR (follow-up and fix agents of
