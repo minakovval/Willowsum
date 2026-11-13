@@ -25,8 +25,7 @@ const EVERYTHING = /^(\.github\/|tools\/pr-rules\/|package\.json$|pnpm-lock\.yam
 
 /**
  * Path prefixes of the narrow jobs; `web` and `api` check the whole workspace and run on any non-docs change. `e2e`
- * (NFR-07@PoC) drives the built web app against the real API and database: it runs when the code of an app or a
- * package changes (and on the pipeline, toolchain and manifest changes above), not for tools or infrastructure alone.
+ * (NFR-07@PoC) is filtered by the deny-list `E2E_NOT_READ` below instead.
  */
 const NARROW = {
   'local-env': /^(infra\/local\/|tools\/local-env\/)/,

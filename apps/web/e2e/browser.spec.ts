@@ -1,4 +1,6 @@
+import { devices } from "@playwright/test";
 import { expect, h1, signIn, signUp, test } from "./fixtures.ts";
+import { SUPPORTED_BROWSERS } from "../src/browser/support.ts";
 import { findContrastProblems } from "./contrast.ts";
 
 /**
@@ -10,6 +12,16 @@ const FIREFOX = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100
 const notice = "Цей браузер не підтримується.";
 
 test.describe("NFR-07@PoC EC1: supported browser", () => {
+  // The bundled Chromium can be older than the last two Chrome releases: the Chromium project presents itself as the
+  // oldest supported Chrome; WebKit keeps its own Safari user agent.
+  test.use({
+    userAgent: async ({ browserName }, provide) =>
+      provide(
+        browserName === "chromium"
+          ? `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SUPPORTED_BROWSERS.chromium}.0.0.0 Safari/537.36`
+          : devices["Desktop Safari"].userAgent,
+      ),
+  });
   test("NFR-07@PoC EC1: no notice in a supported browser", async ({ page }) => {
     await page.goto("/#/login");
     await expect(h1(page)).toHaveText("Вхід");

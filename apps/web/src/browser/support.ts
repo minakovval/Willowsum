@@ -4,10 +4,10 @@
  * by its `Version/`. Firefox is supported from PoC v2 (owner decision 2026-11-12). Anything else, or a user agent we
  * cannot read, is unsupported: the app then shows a notice and keeps working (sign-in is never blocked).
  *
- * The oldest supported versions (lead decision 2026-11-13, «last two» on that date): Chromium 151 (stable 152) and
+ * The oldest supported versions (lead decision 2026-11-13, «last two» on that date): Chromium 156 (stable 157, 158 rolling out) and
  * Safari 26 (26.x and 27.x). Raise them with the browsers' releases; an older browser just sees the notice.
  */
-export const SUPPORTED_BROWSERS = Object.freeze({ chromium: 151, safari: 26 });
+export const SUPPORTED_BROWSERS = Object.freeze({ chromium: 156, safari: 26 });
 
 export type BrowserSupport = "supported" | "unsupported";
 
