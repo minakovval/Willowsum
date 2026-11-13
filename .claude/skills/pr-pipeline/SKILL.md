@@ -40,11 +40,16 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    - the owner has not commented «stop» or asked a question on the PR.
    For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
    Do not ask the owner to confirm the merge.
+   **Merge on Ready, follow up separately** (owner, 2026-11-13): both verdicts Ready and only non-blocking
+   findings left → merge; do not send the non-blocking items back to the implementer for the same PR, since
+   that starts another review round. Exception: an item the reviewer marks as cheap and safe to fold in may
+   still be added before merge, at your choice; that commit then needs a re-review like any other.
    Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
    round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head).
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
-   drop its test databases.
+   drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
+   PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR.
 8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions.
 
 **Stacked PRs** (owner, 2026-11-13): a PR that needs another open PR still targets `main`. Branch it from the
@@ -65,7 +70,8 @@ merge only after CI runs green on the exact head (`investigate-ci-failure`).
   PR body and the decision log, and tell the owner afterwards.
 - Anything the owner must do in a web console → a browser task (`browser-task` skill), never a request for
   keys in chat.
-- Record every owner decision the same day in `docs/decisions/` and, for PRs that implement it, as the
+- Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a
+  numeric suffix if the name is taken; owner, 2026-11-13; `state-2026-11-05.md` is the archive) and, for PRs that implement it, as the
   `Рішення власника (YYYY-MM-DD): схвалено …` line. Never write «Схвалюю» or «Approved».
 - A small detail you decide (AGENTS.md «Ambiguity») goes into the decision log, and into the PR body and the
   skill or document it shapes, as one entry of this form (owner, 2026-11-13):

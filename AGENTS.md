@@ -28,7 +28,7 @@ release until the owner has approved its design and started its development.
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |
 | Architecture decisions (written while building) | `docs/adr/` — do not contradict an accepted ADR; propose a new one |
-| Project state and owner decision log | `docs/decisions/` (`state-2026-11-05.md`) |
+| Project state and owner decision log | `docs/decisions/`: one new file per decision in `log/` (`YYYY-MM-DD-<short-slug>.md`, a numeric suffix if the name is taken; owner, 2026-11-13); `state-2026-11-05.md` is the archive of everything before, never appended to |
 | Screen map (screens S-NNN, entry points), use cases, user journeys | `docs/ux/` |
 | Design artifacts (canvas, design system, Claude Doc, release sheet), snapshots, recovery | `docs/design/ARTIFACTS.md`; snapshots in `design/` |
 | Coverage tables of design decisions, req-check report | `docs/validation/` |
@@ -200,7 +200,11 @@ errors) lives only in `packages/domain-kernel`.
    owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
    is the protection.
    Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the
-   owner it is merged.
+   owner it is merged. **Merge on Ready, follow up separately** (owner, 2026-11-13): when both verdicts are Ready
+   and only non-blocking findings remain, the lead merges; those items go to a follow-up PR or issue, not into
+   the same PR, so they do not start another review round. Exception: a non-blocking item the reviewer marks as
+   cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
+   that commit, as above).
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on
 its own, and list in the PR body which criteria are left.

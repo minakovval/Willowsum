@@ -72,7 +72,9 @@ non-blocking.
   from the owner's own GitHub account with a line that is exactly «Схвалюю» or «Approved», or the owner's
   decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …` (owner,
   2026-11-12) — otherwise blocking. Infrastructure code that is only validated (no apply), CI check jobs and
-  the local environment need no approval. The decision is also in the decision log (`docs/decisions/`).
+  the local environment need no approval. The decision is also in the decision log: a new file in
+  `docs/decisions/log/` (`YYYY-MM-DD-<short-slug>.md`, owner, 2026-11-13); a new entry appended to the archive
+  `docs/decisions/state-2026-11-05.md` instead is a finding.
   Exemption (AGENTS.md step 7, owner, 2026-11-13): a mechanical sync of an AGENTS.md list that a test
   requires (a CI job name in the job list, a skill's name with its own `description` line in «Skills») needs
   no owner decision, only a note in the body. Confirm from the diff that a claimed mechanical sync changes
@@ -112,7 +114,8 @@ locally if needed. Drop findings you cannot support. Integration tests: Cloud se
 Post one PR review:
 - **Blocking** — only as defined in «3. Check the hard rules»; each with file:line and the failing path.
 - **Non-blocking** — everything else. The author lists them under «Follow-ups» in the PR body or opens an
-  issue; they never start a new round by themselves.
+  issue; they never start a new round by themselves. You may mark an item «cheap and safe to fold in»; the
+  lead decides whether it goes in before merge (AGENTS.md step 7, owner, 2026-11-13).
 - A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
