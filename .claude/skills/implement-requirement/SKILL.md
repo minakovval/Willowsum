@@ -42,8 +42,9 @@ Write a short plan in the session (not a file):
 - feature key and plan limits, roles and scope behaviour, audit entries.
 
 Unclear criteria: follow AGENTS.md «Ambiguity» (real product question → stop and ask the owner; small
-detail → decide and record it in the PR body and `docs/decisions/`). If the work will not fit one session or
-one review round, split it by criteria (e.g. backend and UI) into several PRs now.
+detail → decide and record it in the PR body and in a new file in `docs/decisions/log/`, see «7. PR»). If the
+work will not fit one session or one review round, split it by criteria (e.g. backend and UI) into several PRs
+now.
 
 ## 3. Branch
 
@@ -116,6 +117,16 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 - tick the sensitive-areas box if auth, permissions, encryption, money, schema, pipeline or infrastructure changed;
 - a «Follow-ups» list for non-blocking review findings (or issue links);
 - a row in `docs/ops/integrations.md` updated if the PR adds or changes an external service.
+
+Decisions (owner, 2026-11-13): each one goes into a **new file** `docs/decisions/log/YYYY-MM-DD-<short-slug>.md`
+(a numeric suffix if the name is taken), never appended to `docs/decisions/state-2026-11-05.md` (the archive).
+Word entries as before: an owner decision as the lead's report, a small detail as «Рішення ведучого (дата;
+власник не схвалював)».
+
+**Self-check before review** (owner, 2026-11-13): before you report the PR as ready for review, run the
+`review-pr` checklist («2. Check coverage», «3. Check the hard rules») on your own diff
+(`git diff origin/main...HEAD`), fix what it finds, and list in the PR body what you checked and the result
+(a short «Self-check» list). It adds to the reviewer's work; it does not replace it.
 
 Then ask for review by a different agent session with the `review-pr` skill; a PR labelled `sensitive` (CI
 sets it from file paths) also needs a `security-review` session. Review rounds, merge conditions and approvals

@@ -37,6 +37,10 @@ merge commit pushed, the reviewers' confirmation requested on the new head.
 4. Release views (`<ID>.<release key>.md`, line 2 «Згенеровано з …») are generated: **never hand-merge a
    view**. Take either side to clear the conflict, then regenerate them from the merged sources (section 3).
 5. Tests are the spec: never weaken or delete a test to make the merge pass.
+6. Decision log (owner, 2026-11-13): each decision is its own new file in `docs/decisions/log/`, so decision-log
+   conflicts should no longer happen. Two branches that picked the same file name: rename yours with a numeric
+   suffix (`-2`). A conflict in the archive `docs/decisions/state-2026-11-05.md` (an old branch appended to it):
+   keep both sides' entries. A decision you record while syncing goes into a new file in `log/`.
 
 ## 3. Generated files
 

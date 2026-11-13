@@ -44,6 +44,10 @@ fixes every blocking item, CI green, the new head SHA.
 Do not fix non-blocking items in this commit unless they are one-line and safe. List each under «Follow-ups»
 in the PR body (or open an issue and link it).
 
+A decision this round records (the lead's choice between patches, a small detail) goes into a **new file**
+`docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken; owner, 2026-11-13),
+worded as before; never append to the archive `docs/decisions/state-2026-11-05.md`.
+
 ## 4. Check
 
 Run what the changed code needs: `pnpm typecheck`, `pnpm lint`, `pnpm test`; integration tests as

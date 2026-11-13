@@ -350,8 +350,9 @@ function renderMove(opts, res, corpus) {
 
 /**
  * Mentions of the moved requirement's items by number («BUD-12 FR 9», «BUD-12@PoC AC3») in test files and in
- * docs outside generated files and the decision log, whose number changed in that view. A plain ID is read
- * as --coverage reads it: the release named for it elsewhere in the file, else its first view.
+ * docs outside generated files and the decision log (all of `docs/decisions/`: the archive `state-*.md` and the
+ * per-decision files in `log/`; a decision quotes numbers as they were), whose number changed in that view.
+ * A plain ID is read as --coverage reads it: the release named for it elsewhere in the file, else its first view.
  */
 function staleRefs(root, id, res) {
   if (!res.shifts.length) return [];

@@ -14,7 +14,8 @@ written). The PoC shell code already in `main` (PRs #46, #47, #52, #54, #55) is 
 - Requirements: [docs/requirements/](docs/requirements/README.md) — 435 requirements; 431 are a card plus
   release slices (PoC → PoC v2 → MVP → v1-mobile → v1 → v2). PoC scope: `00-general.md`, section 0.2.
 - Rules for agents and contributors: [AGENTS.md](AGENTS.md).
-- Project state and owner decisions: [docs/decisions/](docs/decisions/state-2026-11-05.md).
+- Project state and owner decisions: [docs/decisions/](docs/decisions/) — one file per decision in
+  [log/](docs/decisions/log/); [state-2026-11-05.md](docs/decisions/state-2026-11-05.md) is the archive.
 - Design artifacts (canvas, design system, Claude Doc, release sheet) and their repo snapshots:
   [docs/design/ARTIFACTS.md](docs/design/ARTIFACTS.md); snapshots in `design/`.
 - UX: [docs/ux/](docs/ux/README.md) — screen map, use cases, journeys.
