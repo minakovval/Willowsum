@@ -44,6 +44,8 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
   закінчується перевіркою без порушень, де перевірено всі простори, або зміною знахідок); лише види перевірок і
   кількості, без сум, ідентифікаторів і адреси. Події: `ledger.integrity_alert_sent` («інфо»),
   `ledger.integrity_alert_failed` («помилка», лише клас помилки; заявку повернуто, наступний прогін надішле знову),
+  `ledger.integrity_alert_release_failed` («помилка», лише клас помилки; заявку не вдалося повернути, тож до зміни
+  знахідок або перевірки без порушень листа не буде),
   `alerts.recipient_missing` («помилка», без адреси листа немає). Збій листа ніколи не зриває перевірку.
 - `LedgerError` (коди: `UNKNOWN_EVENT_TYPE`, `EMPTY_POSTING_SET`, `INVALID_POSTING`, `INVALID_EVENT`, `UNBALANCED`,
   `UNKNOWN_ACCOUNT`, `ENTRY_NOT_FOUND`, `ALREADY_REVERSED`, `REVERSAL_OF_REVERSAL`, `IDEMPOTENCY_KEY_REUSED`,

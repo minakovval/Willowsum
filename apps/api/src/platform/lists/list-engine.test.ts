@@ -33,16 +33,24 @@ const spec: ListSpec = {
   amounts: { amountColumn: "amount", currencyColumn: "currency", rateDate: { column: "booked_on" } },
 };
 
-function recorder(rows: { groups?: unknown[]; items?: unknown[] } = {}) {
+const SCHEMA_OK = { found: true, unique_tie: true, date_type: "date not null" };
+
+/** Records the list's queries; the one-time schema check is answered with `schema` and kept apart in `checks`. */
+function recorder(rows: { groups?: unknown[]; items?: unknown[]; schema?: object } = {}) {
   const sent: { text: string; values: readonly unknown[] }[] = [];
+  const checks: { text: string; values: readonly unknown[] }[] = [];
   const q: HouseholdQueryRunner = {
     householdId: HOUSEHOLD,
     query: (async (text: string, values: readonly unknown[] = []) => {
+      if (text.includes("pg_catalog.pg_index")) {
+        checks.push({ text, values });
+        return { rows: [rows.schema ?? SCHEMA_OK] };
+      }
       sent.push({ text: text.replace(/\s+/g, " ").trim(), values });
       return { rows: text.includes("GROUP BY") ? (rows.groups ?? []) : (rows.items ?? []) };
     }) as HouseholdQueryRunner["query"],
   };
-  return { q, sent };
+  return { q, sent, checks };
 }
 
 function problemOf(promise: Promise<unknown>): Promise<ApiProblem> {
@@ -180,5 +188,39 @@ describe("DAT-01@PoC FR 4, FR 9: whitelisted conditions, the same for the page, 
     const { q, sent } = recorder({ items: [{ count: 7 }] });
     await defineList(plain).run(q, {});
     expect(sent[0]!.text).toMatch(/^SELECT count\(\*\)::int AS count FROM "entries" WHERE/);
+  });
+});
+
+describe("DAT-01@PoC FR 6, FR 12: the declaration is checked against the table (security review of #129)", () => {
+  it("DAT-01@PoC FR 6: checks the table once, with the tie-breaker and the rate-date column as parameters", async () => {
+    const { q, checks } = recorder();
+    const list = defineList(spec);
+    await list.run(q, {});
+    await list.run(q, { page: 2 });
+    expect(checks).toHaveLength(1);
+    expect(checks[0]!.values).toEqual(["entries", "entry_id", "booked_on"]);
+  });
+
+  it.each([
+    ["a tie-breaker without a unique key", { unique_tie: false }, /tie-breaker entry_id/],
+    ["a timestamptz rate-date column", { date_type: "timestamp with time zone not null" }, /rate-date/],
+    ["a nullable rate-date column", { date_type: "date" }, /rate-date/],
+    ["a missing rate-date column", { date_type: null }, /rate-date/],
+    ["a missing table", { found: false }, /not found/],
+  ])("DAT-01@PoC FR 6, FR 12: %s is refused before any list query", async (_what, schema, message) => {
+    const { q, sent } = recorder({ schema: { ...SCHEMA_OK, ...schema } });
+    await expect(defineList(spec).run(q, {})).rejects.toThrow(message);
+    expect(sent).toEqual([]);
+  });
+
+  it("DAT-01@PoC FR 12: balances at today's rate need no rate-date column", async () => {
+    const { q, checks } = recorder({ schema: { ...SCHEMA_OK, date_type: null } });
+    await defineList({ ...spec, amounts: { ...spec.amounts!, rateDate: "today" } }).run(q, {});
+    expect(checks[0]!.values).toEqual(["entries", "entry_id", ""]);
+  });
+
+  it("DAT-01@PoC FR 12: a group without a rate date is refused, never converted at today's rate", async () => {
+    const { q } = recorder({ groups: [{ currency: "UAH", date: null, sum: "-1.00", count: 1 }] });
+    await expect(defineList(spec).run(q, {})).rejects.toThrow("no rate date");
   });
 });

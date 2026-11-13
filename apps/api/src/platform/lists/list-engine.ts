@@ -19,6 +19,12 @@ import { ApiProblem } from "../http/problem.ts";
  * Pagination (FR 6; owner decision 2026-11-12): pages of 25, 50 or 100 records, addressed by number, because the
  * list shows «1–N з M» and returning to the list restores the page (AC1). Order is stable: the whitelisted sort,
  * then the list's unique tie-breaker column.
+ *
+ * Declaration checked against the table (security review of #129): before its first query a list checks, once, that
+ * the tie-breaker is a NOT NULL column with a unique key (alone or with `household_id`, which the list filters on;
+ * else paging could skip or repeat records),
+ * and that a rate-date column is a NOT NULL `date` (a `timestamptz` would take the session time zone, not the Kyiv
+ * day of the NBU rate, and an empty date would be converted at today's rate). A declaration that fails is refused.
  */
 
 /** Page sizes the list offers (FR 6, owner decision 2026-11-12); the first is the default. */
@@ -52,8 +58,8 @@ export interface ListAmounts {
   readonly amountColumn: string;
   readonly currencyColumn: string;
   /**
-   * The date whose rate converts each amount: a date column of the record (transactions: the date of each
-   * transaction) or `today` (values of assets and liabilities, account balances: the day of display).
+   * The date whose rate converts each amount: a NOT NULL `date` column of the record (transactions: the date of
+   * each transaction) or `today` (values of assets and liabilities, account balances: the day of display).
    */
   readonly rateDate: { readonly column: string } | "today";
 }
@@ -63,7 +69,10 @@ export interface ListSpec extends ListQuerySpec {
   readonly table: string;
   /** Returned field → column. */
   readonly select: Readonly<Record<string, string>>;
-  /** A unique column that makes the order stable between pages. */
+  /**
+   * A NOT NULL column with a unique key, alone or with `household_id` (the primary key): it makes the order stable
+   * between pages.
+   */
   readonly tieBreaker: string;
   readonly amounts?: ListAmounts;
 }
@@ -111,6 +120,36 @@ function pageSizeOf(value: number | undefined): ListPageSize {
   return value as ListPageSize;
 }
 
+/** Why the table does not fit the declaration, or null; one catalog read (see the module comment). */
+async function schemaProblem(q: HouseholdQueryRunner, spec: ListSpec): Promise<string | null> {
+  const dateColumn =
+    spec.amounts === undefined || spec.amounts.rateDate === "today" ? null : spec.amounts.rateDate.column;
+  const { rows } = await q.query<{ found: boolean; unique_tie: boolean; date_type: string | null }>(
+    `SELECT to_regclass($1) IS NOT NULL AS found,
+            EXISTS (SELECT 1 FROM pg_catalog.pg_index i
+                      CROSS JOIN LATERAL (SELECT array_agg(a.attname::text) AS keys
+                                            FROM pg_catalog.pg_attribute a
+                                           WHERE a.attrelid = i.indrelid
+                                             AND a.attnum = ANY ((i.indkey::int2[])[0:i.indnkeyatts - 1])) k
+                     WHERE i.indrelid = to_regclass($1) AND i.indisunique AND i.indpred IS NULL
+                       AND i.indexprs IS NULL AND $2::text = ANY (k.keys)
+                       AND k.keys <@ ARRAY[$2::text, '${HOUSEHOLD_COLUMN}']
+                       AND EXISTS (SELECT 1 FROM pg_catalog.pg_attribute a
+                                    WHERE a.attrelid = i.indrelid AND a.attname = $2 AND a.attnotnull))
+              AS unique_tie,
+            (SELECT pg_catalog.format_type(a.atttypid, NULL) || CASE WHEN a.attnotnull THEN ' not null' ELSE '' END
+               FROM pg_catalog.pg_attribute a
+              WHERE a.attrelid = to_regclass($1) AND a.attname = $3 AND NOT a.attisdropped) AS date_type`,
+    [spec.table, spec.tieBreaker, dateColumn ?? ""],
+  );
+  const row = rows[0];
+  if (!row?.found) return `table ${spec.table} not found`;
+  if (!row.unique_tie) return `tie-breaker ${spec.tieBreaker} is not a NOT NULL column with a unique key`;
+  if (dateColumn !== null && row.date_type !== "date not null")
+    return `rate-date column ${dateColumn} is ${row.date_type ?? "missing"}, not a NOT NULL date`;
+  return null;
+}
+
 function pageOf(value: number | undefined): number {
   if (value === undefined) return 1;
   if (!Number.isSafeInteger(value) || value < 1 || value > LIST_MAX_PAGE) invalid("page");
@@ -145,6 +184,8 @@ export function defineList(spec: ListSpec): List {
       ? "NULL::text"
       : `to_char(${quote(amounts.rateDate.column)}, 'YYYY-MM-DD')`;
 
+  let checked = false;
+
   return {
     query: { ...listQuery.query, ...LIST_PAGE_QUERY },
     async run(q, request) {
@@ -152,6 +193,11 @@ export function defineList(spec: ListSpec): List {
       const page = pageOf(request.page);
       // $1 is the household: the code-side filter next to the database policy.
       const compiled = listQuery.compile({ filter: request.filter, sort: request.sort }, 2);
+      if (!checked) {
+        const problem = await schemaProblem(q, spec);
+        if (problem !== null) throw new Error(`list: ${problem}`);
+        checked = true;
+      }
       const where = `${quote(HOUSEHOLD_COLUMN)} = $1::uuid AND (${compiled.where})`;
       const params = [q.householdId, ...compiled.params];
 
@@ -164,12 +210,12 @@ export function defineList(spec: ListSpec): List {
              FROM ${table} WHERE ${where} GROUP BY 1, 2 ORDER BY 1, 2`,
           params,
         );
-        groups = rows.map((r) => ({
-          currency: r.currency,
-          date: r.date,
-          sum: Money.of(r.sum, r.currency),
-          count: r.count,
-        }));
+        groups = rows.map((r) => {
+          // The column is NOT NULL (checked above); an empty date is never converted at today's rate.
+          if (r.date === null && amounts.rateDate !== "today")
+            throw new Error("list: a record has no rate date");
+          return { currency: r.currency, date: r.date, sum: Money.of(r.sum, r.currency), count: r.count };
+        });
         count = groups.reduce((n, g) => n + g.count, 0);
       } else {
         const { rows } = await q.query<{ count: number }>(

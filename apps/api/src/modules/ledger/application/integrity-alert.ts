@@ -33,6 +33,11 @@ export type IntegrityAlertEvent =
   | { readonly kind: "alert-sent" }
   /** The letter, its claim or the end of a period failed; the next daily run tries again. */
   | { readonly kind: "alert-failed"; readonly errorClass: string }
+  /**
+   * The claim of a letter that was not sent could not be given back: no letter for this period until the findings
+   * change or a clean run ends it. Reported so the owner sees why no retry came.
+   */
+  | { readonly kind: "release-failed"; readonly errorClass: string }
   /** A discrepancy, but no recipient configured (`WS_ALERT_EMAIL`): an «error» event instead of the letter. */
   | { readonly kind: "recipient-missing" };
 
@@ -112,6 +117,10 @@ export async function alertIntegrityFindings(
     deps.report({ kind: "alert-sent" });
   } catch (error) {
     deps.report({ kind: "alert-failed", errorClass: classOf(error) });
-    await deps.store.release(period, deps.clock.now()).catch(() => undefined);
+    try {
+      await deps.store.release(period, deps.clock.now());
+    } catch (releaseError) {
+      deps.report({ kind: "release-failed", errorClass: classOf(releaseError) });
+    }
   }
 }
