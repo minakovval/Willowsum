@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { test as base, expect, type Page } from "@playwright/test";
-import { clearSignUpLimits, confirmationLinkFor } from "../../api/test/e2e-support.ts";
+import { clearSignUpLimits, confirmationLinkFor, spacesOf } from "../../api/test/e2e-support.ts";
 
 /** Shared steps of the end-to-end tests (NFR-07@PoC). Synthetic people and addresses only (`example.test`). */
 function env(name: string): string {
@@ -21,6 +21,10 @@ export interface Stack {
   person(): Person;
   /** The confirmation letter's link for the address (see confirmationLinkFor). */
   confirmationLink(email: string): Promise<string>;
+  /** Clears the sign-up and letter limits (ACC-01 FR 15), so the next request is not held by an earlier test step. */
+  clearLimits(): Promise<void>;
+  /** The account's spaces and its role in each. */
+  spaces(email: string): Promise<{ readonly name: string; readonly role: string }[]>;
 }
 
 export const test = base.extend<{ stack: Stack }>({
@@ -38,6 +42,8 @@ export const test = base.extend<{ stack: Stack }>({
         password: ["synthetic", "end", "to", "end", randomBytes(4).toString("hex")].join(" "),
       }),
       confirmationLink: (email) => confirmationLinkFor(databaseUrl, email, baseURL!),
+      spaces: (email) => spacesOf(databaseUrl, email),
+      clearLimits: () => clearSignUpLimits(databaseUrl),
     });
   },
 });

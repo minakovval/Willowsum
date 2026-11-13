@@ -36,7 +36,7 @@
 - [v1-mobile] Спільні правила: П-16, NFR-13
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: apps/web/e2e/layout.spec.ts, apps/web/e2e/auth.spec.ts, apps/web/e2e/contrast.spec.ts
+- [лише PoC] Перевіряється: apps/web/e2e/layout.spec.ts, apps/web/e2e/auth.spec.ts, apps/web/e2e/contrast.spec.ts, apps/web/e2e/browser.spec.ts, apps/web/src/browser/support.test.ts, apps/web/src/browser/notice.test.tsx
 - [PoC v2] Перевіряється: —
 
 **Мета.** Як користувач, я хочу користуватися Willowsum з будь-якого сучасного браузера на комп'ютері й телефоні, а пізніше — у мобільному застосунку, щоб мати доступ до своїх даних будь-де.

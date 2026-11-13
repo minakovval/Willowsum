@@ -31,8 +31,15 @@ const EVERYTHING = /^(\.github\/|tools\/pr-rules\/|package\.json$|pnpm-lock\.yam
 const NARROW = {
   'local-env': /^(infra\/local\/|tools\/local-env\/)/,
   infra: /^(infra\/|tools\/infra-check\/|tools\/observability\/)/,
-  e2e: /^(apps\/|packages\/)/,
 };
+
+/**
+ * `e2e` (NFR-07@PoC) fails closed: it runs on every code path except the ones it provably does not read —
+ * infrastructure, the repository tools (tools/pr-rules is in EVERYTHING above), the module catalogue and the root
+ * lint, format, ignore and image files. Any other path, such as tsconfig.base.json or a new root file, runs it.
+ */
+const E2E_NOT_READ =
+  /^(infra\/|tools\/|docs\/|eslint\.config\.js$|\.prettierrc\.json$|\.prettierignore$|\.gitleaksignore$|\.gitignore$|\.dockerignore$)/;
 
 /**
  * @param {{ filename: string, previous_filename?: string }[]} files the PR's changed files (GitHub files API)
@@ -50,7 +57,7 @@ export function jobsToRun(files, { truncated = false } = {}) {
     api: code.length > 0,
     'local-env': code.some((n) => NARROW['local-env'].test(n)),
     infra: code.some((n) => NARROW.infra.test(n)),
-    e2e: code.some((n) => NARROW.e2e.test(n)),
+    e2e: code.some((n) => !E2E_NOT_READ.test(n)),
   };
 }
 
