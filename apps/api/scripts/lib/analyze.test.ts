@@ -1,6 +1,10 @@
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { analyzeImports } from "./analyze.ts";
+import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../../tools/test-guards/budgets.mjs";
+
+// Static analysis of real source trees: budget and its basis in tools/test-guards/budgets.mjs.
+vi.setConfig({ testTimeout: STATIC_ANALYSIS_TIMEOUT_MS });
 
 const fixture = fileURLToPath(new URL("../../test/fixtures/dep-rules", import.meta.url));
 

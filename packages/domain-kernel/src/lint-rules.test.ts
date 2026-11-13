@@ -1,6 +1,10 @@
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../tools/test-guards/budgets.mjs";
+
+// Static analysis of real source trees: budget and its basis in tools/test-guards/budgets.mjs.
+vi.setConfig({ testTimeout: STATIC_ANALYSIS_TIMEOUT_MS });
 
 const root = fileURLToPath(new URL("../../..", import.meta.url));
 const eslint = new ESLint({ cwd: root });
