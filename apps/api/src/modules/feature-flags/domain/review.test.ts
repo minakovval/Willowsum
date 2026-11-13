@@ -3,7 +3,7 @@ import { FLAGS, flagReviewProblems, overdueFullRollouts } from "./index.ts";
 
 const base = { owner: "product-owner", description: "A function" };
 
-describe("CICD-06 AC2: every flag has an owner and a review date; CI fails for stale flags", () => {
+describe("CICD-06 FR 2: every flag has an owner and a review date; CI fails for stale flags", () => {
   it("the flags of the code are valid today (the same check as pnpm check:flags)", () => {
     expect(flagReviewProblems(FLAGS, new Date().toISOString().slice(0, 10), Object.keys(FLAGS))).toEqual([]);
   });

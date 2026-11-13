@@ -4,6 +4,10 @@
 //   description  — PR job: title starts with an existing requirement ID; the description follows the template.
 //   changes      — PR job: which path-filtered CI jobs (web, api, local-env, infra) this PR needs; writes
 //                  `<job>=true|false` to $GITHUB_OUTPUT (lib/ci-paths.mjs). Any error runs every job.
+//   local        — run by an agent before pushing or PATCHing a PR body (no network, no token): the
+//                  `description` check and the `label` decision on the branch's diff against the base.
+//                  Flags: --title <PR title> (or --title-file <file>), --body-file <file> (the body to send),
+//                  --base <ref> (default origin/main), --root <dir> (default this repository). Exit 1 when the description would fail CI.
 //   alerted      — scheduled job, after `daily --outputs` found something: fail the run.
 //   daily        — scheduled job: check main and the PRs merged into it; open or update the alert issue.
 //                  Flags: --since <ISO> --until <ISO> (default: from the last successful scheduled run, at most
@@ -18,6 +22,7 @@ import { checkDescription, requirementIds } from './lib/description.mjs';
 import { evaluate, needsAlert, render } from './lib/daily.mjs';
 import { baseMapFor, errorClass, fetchDailyInput, upsertAlertIssue, windowStart } from './lib/fetch.mjs';
 import { client, ensureLabel } from './lib/github.mjs';
+import { changedFilesLocal, localClassification } from './lib/local.mjs';
 import {
   OWNER_DECISION_LABEL,
   classifyFiles,
@@ -168,15 +173,49 @@ async function daily() {
   }
 }
 
+/** Local: the description check and the label decision before a push or a body PATCH (no network). */
+async function local() {
+  const titleFile = flag('--title-file');
+  const title = typeof titleFile === 'string' ? fs.readFileSync(titleFile, 'utf8').trim() : flag('--title');
+  const bodyFile = flag('--body-file');
+  if (typeof title !== 'string' || typeof bodyFile !== 'string') {
+    console.error('Usage: node tools/pr-rules/index.mjs local --title "<ID>: <what>" --body-file <file> [--base origin/main]');
+    process.exitCode = 2;
+    return;
+  }
+  const base = typeof flag('--base') === 'string' ? flag('--base') : 'origin/main';
+  const root = typeof flag('--root') === 'string' ? path.resolve(flag('--root')) : ROOT;
+  const body = fs.readFileSync(bodyFile, 'utf8');
+  const files = changedFilesLocal(root, base);
+  const { sensitive, ownerDecision, approval } = await localClassification(root, base, files);
+  console.log(`${files.length} files changed against ${safeName(base)}.`);
+  const labels = [...labelsFor(sensitive), ...(ownerDecision.length ? [OWNER_DECISION_LABEL] : [])];
+  console.log(`Labels CI will set: ${labels.length ? labels.join(', ') : 'none'}.`);
+  for (const c of sensitive.categories) console.log(`  ${c}: ${safeName(sensitive.files[c].slice(0, 10).join(', '))}`);
+  if (ownerDecision.length) {
+    console.log(`Owner decision needed (rules or requirements): ${safeName(ownerDecision.slice(0, 10).join(', '))} — the body must record it.`);
+  }
+  if (approval.required) {
+    console.log(`Acts on the cloud or production — the owner's approval is needed on the PR: ${safeName(approval.reasons.slice(0, 5).join('; '))}`);
+  }
+  const problems = checkDescription({ title, body, ids: requirementIds(path.join(root, 'docs/requirements')), sensitive });
+  if (!problems.length) {
+    console.log('PR title and description follow CICD-01 FR 2 (the CI job `traceability` will pass on them).');
+    return;
+  }
+  for (const p of problems) console.log(`ERROR ${safeName(p)}`);
+  process.exitCode = 1;
+}
+
 /** The step after `daily --outputs`: fail the run when the owner must look (the second notification). */
 function alerted() {
   console.log('::error::The daily check found violations or items to check: see the alert issue labelled main-check.');
   process.exitCode = 1;
 }
 
-const commands = { label, description, changes, daily, alerted };
+const commands = { label, description, changes, daily, alerted, local };
 if (!commands[command]) {
-  console.error('Usage: node tools/pr-rules/index.mjs label|description|changes|daily|alerted [flags]');
+  console.error('Usage: node tools/pr-rules/index.mjs label|description|changes|daily|alerted|local [flags]');
   process.exit(2);
 }
 await commands[command]();

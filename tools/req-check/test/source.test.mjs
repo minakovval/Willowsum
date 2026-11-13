@@ -6,7 +6,7 @@ import path from 'node:path';
 import { parseTag, formatTag, splitTag, joinTag, numberLines, parseSource, renderViews, viewReleases, convertToSource, convertRequirement, viewHeader, SOURCE_MARKER } from '../lib/source.mjs';
 import { moveItems } from '../lib/move.mjs';
 import { itemsOf } from '../lib/items.mjs';
-import { findMentions, computeCoverage, renderCoverage } from '../lib/coverage.mjs';
+import { findMentions, computeCoverage, renderCoverage, danglingMentions, IGNORE_MENTION } from '../lib/coverage.mjs';
 import { runChecks } from '../lib/run.mjs';
 import { makeRegistries } from '../lib/registries.mjs';
 import { main } from '../index.mjs';
@@ -274,7 +274,7 @@ test('--move changes the tags of an item block and regenerates only the affected
   const dup = moveItems(SOURCE.replace('Перша вимога, змінена в MVP.', 'Перша вимога. Змінена в MVP.'), 'BUD-16', { items: ['FR1'], to: 'MVP' });
   assert.deepEqual(dup.variants.map((v) => v.release), ['MVP']);
   assert.throws(() => moveItems(SOURCE, 'BUD-16', { items: ['FR2'], to: 'v1' }), /has no v1 view/);
-  assert.throws(() => moveItems(SOURCE, 'BUD-16', { items: ['FR9'], to: 'MVP' }), /has no FR9/);
+  assert.throws(() => moveItems(SOURCE, 'BUD-16', { items: ['FR9'], to: 'MVP' }), /has no FR9/); // req-check-ignore-mention
 });
 
 test('--move warns about cited numbers that changed and about mentions of the moved items in the same source', () => {
@@ -308,12 +308,12 @@ test('--move warns about cited numbers that changed and about mentions of the mo
 
 test('coverage: tests named by item map to source items, across renumbering, and count per release', () => {
   const mentions = findMentions([
-    { rel: 'apps/a.test.ts', text: 'describe("BUD-16@PoC budget", () => {\n  it("BUD-16 FR 3, AC1: x", () => {});\n  it("BUD-16 EC1 / FR 9", () => {});\n});' },
+    { rel: 'apps/a.test.ts', text: 'describe("BUD-16@PoC budget", () => {\n  it("BUD-16 FR 3, AC1: x", () => {});\n  it("BUD-16 EC1 / FR 9", () => {});\n});' }, // req-check-ignore-mention
     { rel: 'apps/b.test.ts', text: 'it("BUD-16@MVP FR1–FR2", () => {});' },
   ]);
   assert.deepEqual(
     mentions.map((m) => `${m.id}@${m.release} ${m.kind}${m.n}`),
-    ['BUD-16@PoC FR3', 'BUD-16@PoC AC1', 'BUD-16@PoC EC1', 'BUD-16@PoC FR9', 'BUD-16@MVP FR1', 'BUD-16@MVP FR2'],
+    ['BUD-16@PoC FR3', 'BUD-16@PoC AC1', 'BUD-16@PoC EC1', 'BUD-16@PoC FR9', 'BUD-16@MVP FR1', 'BUD-16@MVP FR2'], // req-check-ignore-mention
   );
   const cov = computeCoverage(check(sourced()).model, mentions);
   const row = (sid) => cov.rows.find((r) => r.sid === sid);
@@ -322,7 +322,7 @@ test('coverage: tests named by item map to source items, across renumbering, and
   assert.deepEqual(row('BUD-16@PoC v2').FR, { total: 3, covered: 1, missing: ['FR1', 'FR3'] });
   assert.deepEqual(row('BUD-16@MVP').FR, { total: 3, covered: 2, missing: ['FR3'] });
   assert.deepEqual(row('BUD-16@MVP').AC, { total: 2, covered: 1, missing: ['AC2'] });
-  assert.deepEqual(cov.unresolved.map((m) => `${m.sid} ${m.kind}${m.n}`), ['BUD-16@PoC FR9']);
+  assert.deepEqual(cov.unresolved.map((m) => `${m.sid} ${m.kind}${m.n}`), ['BUD-16@PoC FR9']); // req-check-ignore-mention
   assert.match(renderCoverage(cov), /\| PoC \| 1 \| 1 \/ 3 \(33 %\) \| 1 \/ 1 \(100 %\)/);
 });
 
@@ -380,6 +380,50 @@ test('CLI: --convert writes the source and the views; --views regenerates; --mov
   assert.ok(!fs.readFileSync(req('bud/BUD-16.poc.md'), 'utf8').includes('Третя вимога'));
   assert.equal(main(base, () => {}), 0);
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('--check-mentions fails on a test that names an item its view does not have, with file:line', () => {
+  const root = fixture(sourced());
+  const write = (rel, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  };
+  const base = ['--root', root, '--no-baseline', '--quiet'];
+  // Only existing items, a table criterion named by its words and a marked fixture line: passes.
+  write('apps/web/ok.test.ts', ['it("BUD-16@PoC FR 3: третя", () => {});', 'it("BUD-16 criterion «Поріг»", () => {});', `const fixture = "BUD-16 FR 9"; // ${IGNORE_MENTION}`, ''].join('\n')); // req-check-ignore-mention
+  let logs = [];
+  assert.equal(main([...base, '--check-mentions'], (l) => logs.push(l)), 0);
+  assert.match(logs.join('\n'), /0 test mentions name no item/);
+  // FR 9 and AC 7 do not exist in BUD-16@PoC: exit 1, each reported once with its file and line.
+  write('packages/ui/bad.test.ts', ['// header', 'it("BUD-16@PoC FR 9, FR 9: x", () => {});', 'it("BUD-16 AC7", () => {});', ''].join('\n')); // req-check-ignore-mention
+  logs = [];
+  assert.equal(main([...base, '--check-mentions'], (l) => logs.push(l)), 1);
+  const errors = logs.filter((l) => l.startsWith('ERROR '));
+  assert.deepEqual(errors.map((l) => l.split(' [')[0]), ['ERROR packages/ui/bad.test.ts:2', 'ERROR packages/ui/bad.test.ts:3']);
+  assert.match(errors[0], /\[mention-no-item\] BUD-16@PoC has no FR9/); // req-check-ignore-mention
+  assert.match(errors[1], /BUD-16@PoC has no AC7/); // req-check-ignore-mention
+  assert.match(logs.at(-1), /2 test mentions name no item/);
+  // In GitHub Actions each one is also an error annotation on that line.
+  const prev = process.env.GITHUB_ACTIONS;
+  process.env.GITHUB_ACTIONS = 'true';
+  try {
+    logs = [];
+    main([...base, '--check-mentions'], (l) => logs.push(l));
+    assert.ok(logs.some((l) => l.startsWith('::error file=packages/ui/bad.test.ts,line=2,title=req-check mention-no-item::BUD-16@PoC has no FR9'))); // req-check-ignore-mention
+  } finally {
+    if (prev === undefined) delete process.env.GITHUB_ACTIONS;
+    else process.env.GITHUB_ACTIONS = prev;
+  }
+  // --coverage alone still only lists them and exits 0.
+  assert.equal(main([...base, '--coverage'], () => {}), 0);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('danglingMentions: one finding per file, line and item; a marked line is not read at all', () => {
+  const mentions = findMentions([{ rel: 'a.test.ts', text: `it("BUD-16@PoC FR 9 FR 9 AC1")\nit("BUD-16@PoC FR 9") // ${IGNORE_MENTION}` }]); // req-check-ignore-mention
+  assert.deepEqual(mentions.map((m) => `${m.line} ${m.kind}${m.n}`), ['1 FR9', '1 FR9', '1 AC1']);
+  const d = danglingMentions(computeCoverage(check(sourced()).model, mentions));
+  assert.deepEqual(d.map((f) => `${f.file}:${f.line} ${f.rule}`), ['a.test.ts:1 mention-no-item']);
 });
 
 test('items: FR n of a text without a «Функціональні вимоги» label is item n of its first numbered list', () => {

@@ -17,7 +17,9 @@ code. Plans are the lead's working notes: `docs/plans/**` needs no owner decisio
 
 1. `node tools/req-check/index.mjs --coverage` → «Slices with tests» lists each slice with its uncovered
    items. A PoC slice is uncovered when it is missing from that table or has items in «Not covered».
-2. `docs/traceability/release-poc.md` → «Migrated slices» (all PoC slices, module, «Depends on», «Design») and
+2. `docs/traceability/release-poc.md` (generated, not committed: run
+   `node tools/req-check/index.mjs --quiet --traceability` first, or take it from the `traceability` artifact of
+   the latest «Requirements traceability» run on `main`) → «Migrated slices» (all PoC slices, module, «Depends on», «Design») and
    «Build sequence» (topological waves). Take every PoC slice from it that step 1 does not show as covered.
 3. Drop slices already in an open PR or in the previous plan's rows still in progress; say which in the
    plan. Open PRs through REST (GraphQL, so `gh pr list`, is blocked in cloud sessions):
@@ -52,7 +54,15 @@ code. Plans are the lead's working notes: `docs/plans/**` needs no owner decisio
 - Parts that do not depend on each other go into separate sections (A, B, C …) that can run as parallel
   branches (at most 3, AGENTS.md «Parallel branches»); two PRs that change the same files go one after the
   other.
-- **Estimate**: the PR count per section and in total, and the number of Ч PRs.
+- **Requirements sweep before each section** (owner, 2026-11-13): a section that builds a product area (money,
+  import, planning, screens) starts with a row `<X>0` — one `change-requirement` PR that removes the
+  contradictions between that area's PoC slices, their cards and the canvas boards (or turns them into owner
+  questions) before the first code row of the section. Server and screen sections of one area share the sweep
+  of the first of them unless the screens add boards of their own.
+- **Follow-up sweep** (owner, 2026-11-13): a recurring row `R` — after every 8–10 merged PRs, one PR that closes
+  the small open follow-ups (`pr-pipeline` «1. Per requirement part»); count it as ≈ (plan rows / 9) PRs.
+- **Estimate**: the PR count per section and in total (with the sweeps and the follow-up PRs), and the number of
+  Ч PRs.
 
 ## 4. Owner questions
 
@@ -78,6 +88,15 @@ Follow `poc-wave-1.md`:
 Then: prettier is not run on `docs/` (`.prettierignore`); `node --test tools/req-check` must stay green.
 Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
 (`pr153-plan/`), never a generic name like `body.md`.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
 
 ## 6. PR
 

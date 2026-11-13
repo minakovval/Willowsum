@@ -44,13 +44,16 @@ merge commit pushed, the reviewers' confirmation requested on the new head.
 
 ## 3. Generated files
 
-The release views, `docs/traceability/` and `docs/validation/req-check-report.md` are generated. Never
-hand-merge them: take any side to clear the conflict, then regenerate, in this order:
+The release views are generated and committed. Never hand-merge them: take any side to clear the conflict,
+then regenerate:
 
-1. `node tools/req-check/index.mjs --views` (writes every view from its source);
-2. `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
+1. `node tools/req-check/index.mjs --views` (writes every view from its source; 0 errors);
+2. `node tools/req-check/index.mjs --check-mentions` (no test names an item that no longer exists).
 
-Do this after the sources (and their «Перевіряється» lines) are merged, and `git add` the regenerated files.
+Do this after the sources (and their «Перевіряється» lines) are merged, and `git add` the regenerated views.
+`docs/traceability/` and `docs/validation/req-check-report.md` are not committed (owner, 2026-11-13): an old
+branch that still tracks them gets them removed in the merge (`git rm -r --cached docs/traceability
+docs/validation/req-check-report.md`); CI generates them.
 Also regenerate when git merged without a conflict but either side changed a source: a view merged by git
 from two sides can differ from what the merged source generates (`view-stale`).
 
@@ -81,6 +84,15 @@ Exact usage: `infra/local/README.md`, «Test database per agent». Runs on one c
 
 Run the local secret-shaped literal check before pushing (what the CI job `secrets` checks).
 
+**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
+a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
+`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
+`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
+`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
+detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
+your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
+name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
+
 ## 6. Commit and push
 
 1. Conclude the merge with `git commit` (not `--no-edit` when the branch's own code changed).
@@ -89,6 +101,31 @@ Run the local secret-shaped literal check before pushing (what the CI job `secre
    «reset link now /#/password/reset?token=…; req-check report regenerated». A merge that touched nothing of
    the branch's own code says so in one line.
 3. End with the attribution lines the session gives; then a normal `git push` (never `--force`).
+
+**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
+PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
+
+```
+git fetch origin main
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-sync/body.md
+```
+
+It runs, offline, what the CI job `traceability` (description) and the label job check, on
+`git diff origin/main...HEAD`: the title's requirement ID, the template sections, and the labels CI will set.
+Fix every `ERROR` line first (exit code 0 is required). When it lists `sensitive` labels, tick «Sensitive areas
+touched»; when it lists `owner-decision`, the body must record the owner decision the PR implements.
+The body to check is the PR's current one (`gh api repos/{owner}/{repo}/pulls/<n> --jq .title,.body`):
+the merge can change the files and so the labels and the «Sensitive areas touched» box it needs.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
+
 
 ## 7. Reviewer confirmation
 
@@ -106,4 +143,6 @@ verdict needs a confirmation on the new head SHA:
   (the first output line of `git merge-tree --write-tree HEAD^1 HEAD^2` = `git rev-parse HEAD^{tree}`;
   `review-pr` «6. Confirmation rounds»). Give the reviewers both SHAs.
 
-Report to the lead: the new head SHA (full), what the merge changed in the branch's code, checks run.
+Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
+the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit
+message or the PR body.

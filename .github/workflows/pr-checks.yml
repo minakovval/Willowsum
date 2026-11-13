@@ -64,18 +64,28 @@ jobs:
       # (tools/req-check/facts.json) and release slices with their link headers. Known findings are in tools/req-check/baseline.json; new ones fail.
       - name: Check docs/requirements
         run: node tools/req-check/index.mjs --report "$RUNNER_TEMP/req-check-report.md"
-      # Release slices and link headers (check 6) feed docs/traceability/ (PRC-01). Regenerate the release views
-      # of the requirement sources (check 7: <ID>.<release>.md is generated from <ID>.md), the traceability files
-      # and the committed report (all deterministic) and fail when the committed files differ (PRC-02).
-      - name: Release views, traceability files and report are up to date
+      # Release views (check 7: <ID>.<release>.md is generated from <ID>.md) are committed: regenerate them and fail
+      # when the committed files differ (PRC-02). The traceability files (docs/traceability/) and the report are NOT
+      # committed (owner, 2026-11-13; .gitignore): this step only checks that they generate with 0 errors. Main
+      # publishes them as the artifact `traceability` (requirements-traceability.yml).
+      - name: Release views are up to date; traceability files and report generate with 0 errors
         run: |
-          node tools/req-check/index.mjs --quiet --views --traceability --report docs/validation/req-check-report.md
-          if [ -n "$(git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json)" ]; then
-            git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json
-            git --no-pager diff --stat -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json
-            echo "::error::Release views, docs/traceability, docs/validation/req-check-report.md or tools/req-check/migrated.json are out of date. Edit the source <ID>.md, not a view; run: node tools/req-check/index.mjs --views --traceability --report docs/validation/req-check-report.md and commit the result."
+          node tools/req-check/index.mjs --quiet --views --traceability --report "$RUNNER_TEMP/req-check-report.md"
+          if [ -n "$(git status --porcelain -- docs/requirements tools/req-check/migrated.json)" ]; then
+            git status --porcelain -- docs/requirements tools/req-check/migrated.json
+            git --no-pager diff --stat -- docs/requirements tools/req-check/migrated.json
+            echo "::error::Release views or tools/req-check/migrated.json are out of date. Edit the source <ID>.md, not a view; run: node tools/req-check/index.mjs --views and commit the result."
             exit 1
           fi
+          if [ -n "$(git ls-files -- docs/traceability docs/validation/req-check-report.md)" ]; then
+            git ls-files -- docs/traceability docs/validation/req-check-report.md
+            echo "::error::docs/traceability/ and docs/validation/req-check-report.md are generated and not committed (PRC-02): git rm --cached them."
+            exit 1
+          fi
+      # A test named by an item its requirement view does not have (e.g. «CICD-06@PoC AC3» when the view has only
+      # FR 1–3) makes coverage silently wrong: fail, with an annotation on the file and line of each.
+      - name: Tests name only items that exist
+        run: node tools/req-check/index.mjs --quiet --check-mentions
       # The migrated list (tools/req-check/migrated.json) only grows: an ID removed from it in the same PR as its
       # source section would hide that deletion from source-missing. Compare with the list on the base branch.
       - name: Base version of the migrated list

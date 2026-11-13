@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * DS-06 acceptance 3 and DS-09 acceptance 7 for stylesheets: no hex / rgb colours and no z-index
+ * DS-06 acceptance 3 and DS-09@PoC acceptance 5 for stylesheets: no hex / rgb colours and no z-index
  * numbers outside the generated tokens.css. (TypeScript sources are covered by ESLint.)
  */
 const srcRoot = fileURLToPath(new URL("../", import.meta.url));

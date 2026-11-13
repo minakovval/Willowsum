@@ -6,7 +6,7 @@ import viteConfig, { securityHeaders } from "../vite.config.ts";
  * NFR-14 FR 2–4 and criterion «CSP без небезпечних джерел» (the automatic check of the policy in CI: the
  * `web` job runs these tests). What staging serves is checked there (CICD-07).
  */
-describe("NFR-14 criterion 4: the web CSP has no unsafe sources", () => {
+describe("NFR-14 criterion «CSP без небезпечних джерел»: the web CSP has no unsafe sources", () => {
   it("0 http: sources, no 'unsafe-eval', no wildcard — over HTTPS and in the local preview", () => {
     expect(cspProblems(webCsp({ https: true }))).toEqual([]);
     expect(cspProblems(webCsp({ https: false }))).toEqual([]);

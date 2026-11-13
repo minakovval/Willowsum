@@ -31,7 +31,7 @@ const fails = (pr, re) => {
   assert.ok(problems.some((p) => re.test(p)), `expected ${re}, got ${JSON.stringify(problems)}`);
 };
 
-test('CICD-01 criterion 4: a PR without a requirement ID in the title is blocked', () => {
+test('CICD-01 criterion «PR без ID вимоги в назві»: a PR without a requirement ID in the title is blocked', () => {
   fails({ title: 'Fix the build', body: body() }, /must start with a requirement ID/);
   fails({ title: 'cicd-01: lower case', body: body() }, /must start with a requirement ID/);
   fails({ title: 'CICD-01x', body: body() }, /must start with a requirement ID/);

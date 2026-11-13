@@ -153,8 +153,7 @@ export function renderImpact(impact) {
   sec('Code modules', impact.modules.map((m) => `${m} — apps/api/src/modules/${m}`));
   sec('Generated and external artifacts', [
     'Release views of the changed sources (<ID>.<release>.md) — regenerate: node tools/req-check/index.mjs --views',
-    'docs/traceability/ — regenerate: node tools/req-check/index.mjs --traceability',
-    'docs/validation/req-check-report.md — regenerate: node tools/req-check/index.mjs --report docs/validation/req-check-report.md',
+    'docs/traceability/ and the req-check report — not committed; to look at them, generate on demand: node tools/req-check/index.mjs --traceability --report docs/validation/req-check-report.md (both git-ignored), or download the `traceability` artifact of the latest «Requirements traceability» run on main',
     'Release-features Google Sheet (outside the repository) — update the rows of the affected requirements by hand',
   ]);
   return L.join('\n');

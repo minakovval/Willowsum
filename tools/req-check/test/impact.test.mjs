@@ -64,7 +64,7 @@ test('a requirement: all its slices; not-migrated dependents are listed; mention
   assert.match(md, /^# Impact of BUD-16 \(requirement\)/);
   assert.match(md, /docs\/ux\/screen-map\.md:1 — BUD-16/);
   assert.match(md, /Release-features Google Sheet/);
-  assert.match(md, /node tools\/req-check\/index\.mjs --traceability/);
+  assert.match(md, /not committed; to look at them, generate on demand: node tools\/req-check\/index\.mjs --traceability/);
 });
 
 test('a use case and a module; unknown targets return null', () => {
