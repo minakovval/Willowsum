@@ -18,5 +18,8 @@ Moved out of `pr-pipeline` SKILL.md without change (owner, 2026-11-13). Read whe
    findings left → merge; do not send the non-blocking items back to the implementer for the same PR, since
    that starts another review round. Exception: an item the reviewer marks as cheap and safe to fold in may
    still be added before merge, at your choice; that commit then needs a re-review like any other.
-   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
+   Before every merge, check that the branch is not behind `main`:
+   `gh api repos/{owner}/{repo}/compare/main...<head-sha> --jq .behind_by` must print `0`; a «clean» mergeable
+   state does not mean the branch is up to date.
+   Branch behind (`behind_by` > 0) or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
    round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head).

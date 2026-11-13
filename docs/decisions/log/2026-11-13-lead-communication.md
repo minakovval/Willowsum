@@ -17,6 +17,9 @@
 - 2026-11-13, власник (чат ведучому, за повідомленням ведучого): `references/token-economy.md` вирівняно із
   чинним правилом `pr-pipeline`: кожна рецензія, перша чи повторна, йде свіжому агентові з вузьким завданням;
   рецензента з довгим контекстом не відновлюють.
+- Рішення ведучого (2026-11-13; власник не схвалював; PR #176): перед кожним злиттям явно перевіряти, що гілка не
+  відстає від `main` (`gh api repos/{owner}/{repo}/compare/main...<head-sha> --jq .behind_by` має дати `0`, інакше
+  `sync-branch`); причина: після злиття #168 і #170 `main` став червоним, а стан «clean» не означає актуальної гілки.
 
 Змінені файли: `.claude/skills/pr-pipeline/SKILL.md`, `.claude/skills/pr-pipeline/references/lead-communication.md`
-(новий), `.claude/skills/pr-pipeline/references/token-economy.md`.
+(новий), `.claude/skills/pr-pipeline/references/token-economy.md`, `.claude/skills/pr-pipeline/references/merge-checklist.md`.
