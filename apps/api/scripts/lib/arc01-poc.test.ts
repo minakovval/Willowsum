@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { modules as registry } from "../../src/modules/index.ts";
-import { parseCatalogue, readCatalogue } from "../../src/platform/modules/catalogue.ts";
+import { readCatalogue, readReleaseCatalogue } from "../../src/platform/modules/catalogue.ts";
 import type { ModuleRules } from "../../src/platform/modules/rules.ts";
 import { makeTestTmpDir, removeTestTmpDir } from "../../test/tmp-dir.ts";
 import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../../tools/test-guards/budgets.mjs";
@@ -21,9 +21,7 @@ const folders = readdirSync(modulesDir, { withFileTypes: true })
   .filter((d) => d.isDirectory())
   .map((d) => d.name)
   .sort();
-const pocCatalogue = parseCatalogue([
-  readFileSync(path.join(repoRoot, "docs/requirements/arc/ARC-01.poc.md"), "utf8"),
-]);
+const pocCatalogue = readReleaseCatalogue(repoRoot, "poc");
 const fullCatalogue = readCatalogue(repoRoot);
 
 /**
