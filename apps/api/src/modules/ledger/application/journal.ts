@@ -2,6 +2,7 @@ import { currencyCode, isId, Money } from "@willowsum/domain-kernel";
 import {
   ACCOUNT_TYPES,
   assertBalanced,
+  balanceMovements,
   LedgerError,
   naturalBalance,
   postingsFor,
@@ -60,9 +61,14 @@ export interface NewEntry {
 }
 
 /** The checks of the daily integrity check (FIN-04 FR 9, AC7; ARC-11 «Перевірки цілісності»). */
-export const INTEGRITY_CHECKS = ["unbalanced-entry", "empty-entry", "reversal-mismatch"] as const;
+export const INTEGRITY_CHECKS = [
+  "unbalanced-entry",
+  "empty-entry",
+  "reversal-mismatch",
+  "balance-cache",
+] as const;
 export type IntegrityCheck = (typeof INTEGRITY_CHECKS)[number];
-/** How many entries fail each check. */
+/** How many entries fail each check; for `balance-cache`, how many accounts' cached balances differ from postings. */
 export type IntegrityFindings = Record<IntegrityCheck, number>;
 
 /** One transaction of the ledger schema, bound to one space. */
@@ -93,6 +99,34 @@ export interface LedgerTx {
     date: string,
     asKnownAt: string | null,
   ): Promise<{ debits: string; credits: string }>;
+  /**
+   * The daily balance cache (ARC-11 «Баланси і продуктивність»): debit and credit totals of an account from its cached
+   * row of the latest day up to `date`, or null when the cache cannot serve them — the account has no cache yet, or
+   * `asKnownAt` is earlier than an entry the cache holds (then only the postings tell what was known).
+   */
+  cachedTotals(
+    accountId: string,
+    date: string,
+    asKnownAt: string | null,
+  ): Promise<{ debits: string; credits: string } | null>;
+  /** The version of an account's balance cache, or null when the account has no cache yet. */
+  balanceVersion(accountId: string): Promise<number | null>;
+  /**
+   * Adds an entry's movement on `day` to the account's cache, if its version is still `expected` (version check):
+   * false when another transaction changed it first (a conflict; nothing is written). With `expected` null the
+   * account has no cache yet: it is made from the account's postings, this transaction's included.
+   */
+  moveBalance(
+    accountId: string,
+    expected: number | null,
+    day: string,
+    debits: Money,
+    credits: Money,
+  ): Promise<boolean>;
+  /** The space's accounts, all of them (`accountId` null) or the one given; ids in ascending order. */
+  accountIds(accountId: string | null): Promise<string[]>;
+  /** Rebuilds an account's cache from its postings under a new version; the number of days it holds. */
+  rebuildBalance(accountId: string): Promise<number>;
   integrity(): Promise<IntegrityFindings>;
 }
 
@@ -213,17 +247,40 @@ async function write(
   const id = deps.newId();
   if (!(await tx.insertEntry({ ...header, id, rulesVersion: RULES_VERSION })))
     return (await tx.entryByKey(header.idempotencyKey))!;
-  await tx.insertPostings(
-    id,
-    postings.map((p) => ({
-      debitAccountId: account(p.debit).id,
-      creditAccountId: account(p.credit).id,
-      amount: p.amount,
-    })),
-  );
+  const stored = postings.map((p) => ({
+    debitAccountId: account(p.debit).id,
+    creditAccountId: account(p.credit).id,
+    amount: p.amount,
+  }));
+  await tx.insertPostings(id, stored);
+  await moveBalances(tx, header.operationDate, stored);
   const entry = (await tx.entry(id))!;
   await tx.recorded(entry);
   return entry;
+}
+
+/** At most this many tries of one account's cache update before the entry is refused (and rolled back). */
+export const BALANCE_ATTEMPTS = 5;
+
+/**
+ * Adds an entry's postings to the daily balance cache in the entry's transaction (ARC-11 «Баланси і продуктивність»):
+ * per account, in the order of the ids, with a version check; a conflict — another entry on the same account changed
+ * the cache first — is retried on the fresh version, so concurrent entries never lose each other's amounts.
+ */
+async function moveBalances(tx: LedgerTx, day: string, postings: readonly StoredPosting[]): Promise<void> {
+  for (const m of balanceMovements(postings)) {
+    let moved = false;
+    for (let attempt = 0; attempt < BALANCE_ATTEMPTS && !moved; attempt++)
+      moved = await tx.moveBalance(
+        m.accountId,
+        await tx.balanceVersion(m.accountId),
+        day,
+        m.debits,
+        m.credits,
+      );
+    if (!moved)
+      throw new LedgerError("BALANCE_CONFLICT", "The balance of an account kept changing; try again");
+  }
 }
 
 async function postIn(tx: LedgerTx, deps: JournalDeps, input: PostInput): Promise<Entry> {
@@ -368,7 +425,10 @@ export async function balanceAt(
   return deps.store.inHousehold(householdId, async (tx) => {
     const [account] = await tx.accounts([accountId]);
     if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
-    const totals = await tx.totals(account.id, date, options.asKnownAt ?? null);
+    const asKnownAt = options.asKnownAt ?? null;
+    // The cache when it can serve the question, else the postings themselves: both give the same numbers.
+    const totals =
+      (await tx.cachedTotals(account.id, date, asKnownAt)) ?? (await tx.totals(account.id, date, asKnownAt));
     return naturalBalance(
       account.type,
       Money.of(totals.debits, account.currency),
@@ -378,8 +438,29 @@ export async function balanceAt(
 }
 
 /**
- * The daily integrity check (FIN-04 FR 9, FR 10, AC7; ARC-11): every space's entries are balanced, not empty, and
- * every reversal exactly offsets its entry. Each failing check is reported once with the number of entries only —
+ * The rebuild command of the daily balance cache (ARC-11 «Баланси і продуктивність»): every account of the space, or
+ * one, rebuilt from its postings in one transaction, each under a new version (so an update that read the old
+ * version retries on the rebuilt cache). A rebuild gives the same numbers as the cache it replaces.
+ */
+export async function rebuildBalances(
+  deps: JournalDeps,
+  householdId: string,
+  accountId?: string,
+): Promise<{ readonly accounts: number; readonly days: number }> {
+  if (accountId !== undefined) assertId(accountId, "UNKNOWN_ACCOUNT");
+  return deps.store.inHousehold(householdId, async (tx) => {
+    const ids = await tx.accountIds(accountId ?? null);
+    if (accountId !== undefined && ids.length === 0)
+      throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
+    let days = 0;
+    for (const id of ids) days += await tx.rebuildBalance(id);
+    return { accounts: ids.length, days };
+  });
+}
+
+/**
+ * The daily integrity check (FIN-04 FR 9, FR 10, AC7; ARC-11): every space's entries are balanced, not empty,
+ * every reversal exactly offsets its entry, and every account's cached daily balances equal the sum of its postings. Each failing check is reported once with the number of entries only —
  * no amounts, accounts or spaces; the user is shown nothing.
  */
 export async function dailyIntegrityCheck(deps: {

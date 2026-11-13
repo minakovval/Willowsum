@@ -3,12 +3,14 @@
 export {
   assertDate,
   assertMoment,
+  BALANCE_ATTEMPTS,
   balanceAt,
   correct,
   dailyIntegrityCheck,
   INTEGRITY_CHECKS,
   openAccount,
   post,
+  rebuildBalances,
   reverse,
 } from "./journal.ts";
 export { alertIntegrityFindings, integrityAlertMessage, integrityPeriodKey } from "./integrity-alert.ts";

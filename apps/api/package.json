@@ -18,6 +18,7 @@
     "events:snapshot": "node scripts/events-snapshot.ts",
     "migrate": "node scripts/migrate.ts",
     "db:bootstrap": "node scripts/db-bootstrap.ts",
+    "ledger:rebuild-balances": "node scripts/ledger-balances.ts rebuild",
     "start": "node src/main.ts"
   },
   "dependencies": {

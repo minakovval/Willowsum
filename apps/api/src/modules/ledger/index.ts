@@ -21,6 +21,7 @@ import {
   dailyIntegrityCheck,
   openAccount,
   post,
+  rebuildBalances,
   reverse,
   type Entry,
   type EntrySource,
@@ -72,13 +73,24 @@ export interface Ledger {
     entryId: string,
     replacement: PostInput,
   ): Promise<{ readonly reversal: Entry; readonly entry: Entry }>;
-  /** The balance of an account on a date (inclusive); `asKnownAt` limits it to entries recorded by then. */
+  /**
+   * The balance of an account on a date (inclusive); `asKnownAt` limits it to entries recorded by then. Served from
+   * the daily balance cache when it can answer, else from the postings: the same numbers either way.
+   */
   balanceAt(
     householdId: string,
     accountId: string,
     date: string,
     options?: { readonly asKnownAt?: string },
   ): Promise<Money>;
+  /**
+   * The rebuild command of the daily balance cache (ARC-11): every account of the space, or the one given, rebuilt
+   * from its postings in one transaction; the numbers of accounts and of cached days.
+   */
+  rebuildBalances(
+    householdId: string,
+    accountId?: string,
+  ): Promise<{ readonly accounts: number; readonly days: number }>;
 }
 
 /** `db` is the ledger module's own database (`ModuleDatabases.for("ledger")`). */
@@ -91,6 +103,7 @@ export function createLedger(db: ModuleDatabase): Ledger {
     correct: (householdId, entryId, replacement) => correct(deps, householdId, entryId, replacement),
     balanceAt: (householdId, accountId, date, options) =>
       balanceAt(deps, householdId, accountId, date, options),
+    rebuildBalances: (householdId, accountId) => rebuildBalances(deps, householdId, accountId),
   };
 }
 
@@ -146,7 +159,7 @@ export function createLedgerIntegrityCheck(
 /** Erasure of a space's journal (NFR-12@PoC FR 3, ARC-11 «Видалення даних»; ADR-0013): the owner's erasure script only. */
 export interface LedgerErasure {
   /**
-   * Deletes the space's postings, entries, accounts and queue rows (events, jobs) in one transaction. Repeating it
+   * Deletes the space's postings, entries, accounts, queue rows (events, jobs) and balance cache in one transaction. Repeating it
    * deletes nothing.
    */
   eraseHousehold(householdId: string): Promise<{
@@ -155,6 +168,8 @@ export interface LedgerErasure {
     readonly accounts: number;
     readonly events: number;
     readonly jobs: number;
+    readonly balanceDays: number;
+    readonly balanceAccounts: number;
   }>;
 }
 

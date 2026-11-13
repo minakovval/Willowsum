@@ -69,6 +69,15 @@ async function stored(entryId: string) {
   return { entry: entry.rows, postings: postings.rows };
 }
 
+/**
+ * Raw journal rows written here skip the daily balance cache (ARC-11), which the database refuses on a cached account;
+ * the space's cache is dropped first (the module role may: it is derived), so its accounts are answered from postings.
+ */
+async function dropBalanceCache(q: { query(sql: string): Promise<unknown> }): Promise<void> {
+  await q.query(`DELETE FROM daily_balances`);
+  await q.query(`DELETE FROM balance_versions`);
+}
+
 /** SQL as the ledger module's role, bound to a space; resolves to the SQLSTATE or "ok". */
 const asModule = (householdId: string, sql: string, values: unknown[] = []) =>
   code(db.databases.for("ledger").inHousehold(householdId, (q) => q.query(sql, values)));
@@ -443,6 +452,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
     code(
       db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
         const id = randomUUID();
+        await dropBalanceCache(q);
         await q.query(
           `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
            VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
@@ -505,6 +515,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
     const insertReversal = (id: string, of: string) =>
       code(
         db.databases.for("ledger").inHousehold(s.householdId, async (q) => {
+          await dropBalanceCache(q);
           await q.query(
             `INSERT INTO entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key, reverses_entry_id)
              VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'reversal', '2026-06-01', 1, $2::uuid::text, $3)`,
@@ -538,7 +549,12 @@ describe("FIN-04 AC6 (core): the daily integrity check finds broken entries and 
       input({ type: "transfer", from: s.cash.id, to: s.savings.id, amount: eur("3150") }),
     );
     const check = createLedgerIntegrityCheck(db.databases.for("ledger"), async () => [s.householdId]);
-    expect(await check.run()).toEqual({ "unbalanced-entry": 0, "empty-entry": 0, "reversal-mismatch": 0 });
+    expect(await check.run()).toEqual({
+      "unbalanced-entry": 0,
+      "empty-entry": 0,
+      "reversal-mismatch": 0,
+      "balance-cache": 0,
+    });
     expect(await exportedText(telemetry)).not.toContain("ledger.integrity_violation");
 
     // Damage as only a restore or a dropped constraint could: the superuser skips the keys and triggers.
@@ -566,7 +582,13 @@ describe("FIN-04 AC6 (core): the daily integrity check finds broken entries and 
     await postingRow(broken.reversal, s.cash.id, s.savings.id, "3100");
     await db.owner.query("COMMIT");
 
-    expect(await check.run()).toEqual({ "unbalanced-entry": 1, "empty-entry": 1, "reversal-mismatch": 1 });
+    // The broken postings also skipped the balance cache of the two cached accounts they touch (ARC-11).
+    expect(await check.run()).toEqual({
+      "unbalanced-entry": 1,
+      "empty-entry": 1,
+      "reversal-mismatch": 1,
+      "balance-cache": 2,
+    });
     const logged = await exportedText(telemetry);
     expect(logged).toContain("ledger.integrity_violation");
     expect(logged).toContain('"severity":"ERROR"');
@@ -645,7 +667,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     await checkWith([s.householdId], outbox).run();
     expect(outbox.sent).toHaveLength(1);
     expect(await state()).toEqual({
-      period: "unbalanced-entry=0;empty-entry=1;reversal-mismatch=0",
+      period: "unbalanced-entry=0;empty-entry=1;reversal-mismatch=0;balance-cache=0",
       at: new Date(NOW),
     });
     const letter = outbox.sent[0]!;

@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import pg from "pg";
@@ -51,8 +51,11 @@ describe("ARC-11@PoC criterion «Тексти, описи або назви ме
     const client = new pg.Client({ connectionString: scratch.url });
     try {
       cpSync(path.join(realModulesDir, "ledger"), path.join(dir, "ledger"), { recursive: true });
+      // The next migration number after the module's own (numbers run without gaps).
+      const migrations = path.join(dir, "ledger/adapters/db/migrations");
+      const next = readdirSync(migrations).filter((f) => /^\d{4}_.*\.sql$/.test(f)).length + 1;
       writeFileSync(
-        path.join(dir, "ledger/adapters/db/migrations/0006_description.sql"),
+        path.join(migrations, `${String(next).padStart(4, "0")}_description.sql`),
         "ALTER TABLE entries ADD COLUMN description text;\n",
       );
       await client.connect();

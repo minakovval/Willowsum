@@ -41,7 +41,24 @@ const INTEGRITY = `
     SELECT entry_id, debit_account_id AS account_id, amount AS signed FROM postings WHERE household_id = $1
     UNION ALL
     SELECT entry_id, credit_account_id, -amount FROM postings WHERE household_id = $1),
-  per_account AS (SELECT entry_id, account_id, sum(signed) AS net FROM legs GROUP BY 1, 2)
+  per_account AS (SELECT entry_id, account_id, sum(signed) AS net FROM legs GROUP BY 1, 2),
+  -- The balance cache (migrations/0006_balance_cache.sql) of every cached account against its postings: a row for
+  -- each day with postings, each row the totals up to its day, and the latest time of recording of its entries.
+  moves AS (
+    SELECT side.account_id, e.operation_date AS day, sum(side.debit) AS debits, sum(side.credit) AS credits,
+           max(e.recorded_at) AS recorded
+      FROM postings p JOIN entries e ON e.household_id = p.household_id AND e.id = p.entry_id
+      CROSS JOIN LATERAL (VALUES (p.debit_account_id, p.amount, 0::numeric), (p.credit_account_id, 0::numeric, p.amount))
+        AS side(account_id, debit, credit)
+     WHERE p.household_id = $1
+     GROUP BY 1, 2),
+  cached AS (SELECT account_id, day, debits, credits FROM daily_balances WHERE household_id = $1),
+  days AS (SELECT account_id, day FROM moves UNION SELECT account_id, day FROM cached),
+  expected AS (
+    SELECT d.account_id, d.day,
+           sum(coalesce(m.debits, 0)) OVER w AS debits, sum(coalesce(m.credits, 0)) OVER w AS credits
+      FROM days d LEFT JOIN moves m USING (account_id, day)
+    WINDOW w AS (PARTITION BY d.account_id ORDER BY d.day))
   SELECT
     (SELECT count(DISTINCT p.entry_id) FROM postings p WHERE p.household_id = $1 AND EXISTS (
         SELECT 1 FROM (VALUES (p.debit_account_id), (p.credit_account_id)) AS side(account_id)
@@ -56,7 +73,46 @@ const INTEGRITY = `
                       AND o.reverses_entry_id IS NULL AND o.operation_date = r.operation_date)
         OR EXISTS (SELECT 1 FROM per_account n WHERE n.entry_id IN (r.id, r.reverses_entry_id)
                     GROUP BY n.account_id HAVING sum(n.net) <> 0)))::int
-      AS reversal_mismatch`;
+      AS reversal_mismatch,
+    (SELECT count(*) FROM balance_versions v WHERE v.household_id = $1 AND (
+        v.last_recorded_at IS DISTINCT FROM (SELECT max(m.recorded) FROM moves m WHERE m.account_id = v.account_id)
+        OR EXISTS (SELECT 1 FROM expected x LEFT JOIN cached c USING (account_id, day)
+                    WHERE x.account_id = v.account_id
+                      AND (c.day IS NULL OR c.debits <> x.debits OR c.credits <> x.credits))))::int
+      AS balance_cache`;
+
+/**
+ * Writes an account's cache from its postings (the version row is already locked by this transaction): every day with
+ * postings gets the totals up to it, and the version row the latest time of recording. The number of days written.
+ */
+async function rebuildDays(q: HouseholdQueryRunner, accountId: string): Promise<number> {
+  await q.query(`DELETE FROM daily_balances WHERE household_id = $1 AND account_id = $2`, [
+    q.householdId,
+    accountId,
+  ]);
+  const { rowCount } = await q.query(
+    `INSERT INTO daily_balances (household_id, account_id, day, currency, debits, credits)
+     SELECT a.household_id, a.id, m.day, a.currency,
+            sum(m.debits) OVER (ORDER BY m.day), sum(m.credits) OVER (ORDER BY m.day)
+       FROM accounts a
+       JOIN (SELECT e.operation_date AS day,
+                    coalesce(sum(p.amount) FILTER (WHERE p.debit_account_id = $2), 0) AS debits,
+                    coalesce(sum(p.amount) FILTER (WHERE p.credit_account_id = $2), 0) AS credits
+               FROM postings p JOIN entries e ON e.household_id = p.household_id AND e.id = p.entry_id
+              WHERE p.household_id = $1 AND (p.debit_account_id = $2 OR p.credit_account_id = $2)
+              GROUP BY e.operation_date) m ON true
+      WHERE a.household_id = $1 AND a.id = $2`,
+    [q.householdId, accountId],
+  );
+  await q.query(
+    `UPDATE balance_versions SET changed_at = now(), last_recorded_at = (
+       SELECT max(e.recorded_at) FROM postings p JOIN entries e ON e.household_id = p.household_id AND e.id = p.entry_id
+        WHERE p.household_id = $1 AND (p.debit_account_id = $2 OR p.credit_account_id = $2))
+      WHERE household_id = $1 AND account_id = $2`,
+    [q.householdId, accountId],
+  );
+  return rowCount ?? 0;
+}
 
 function tx(q: HouseholdQueryRunner): LedgerTx {
   const entries = async (where: string, value: string): Promise<Entry | null> => {
@@ -202,17 +258,103 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
       );
       return rows[0]!;
     },
+    async cachedTotals(accountId, date, asKnownAt) {
+      // One statement, so the version row and the day row are read from one snapshot.
+      const { rows } = await q.query<{ servable: boolean; debits: string; credits: string }>(
+        `SELECT ($4::timestamptz IS NULL OR v.last_recorded_at IS NULL OR v.last_recorded_at <= $4::timestamptz)
+                  AS servable,
+                coalesce(d.debits, 0)::text AS debits, coalesce(d.credits, 0)::text AS credits
+           FROM balance_versions v
+           LEFT JOIN LATERAL (
+             SELECT debits, credits FROM daily_balances b
+              WHERE b.household_id = v.household_id AND b.account_id = v.account_id AND b.day <= $3::date
+              ORDER BY b.day DESC LIMIT 1) d ON true
+          WHERE v.household_id = $1 AND v.account_id = $2`,
+        [q.householdId, accountId, date, asKnownAt],
+      );
+      const row = rows[0];
+      return row?.servable ? { debits: row.debits, credits: row.credits } : null;
+    },
+    async balanceVersion(accountId) {
+      const { rows } = await q.query<{ version: string }>(
+        `SELECT version::text AS version FROM balance_versions WHERE household_id = $1 AND account_id = $2`,
+        [q.householdId, accountId],
+      );
+      return rows[0] ? Number(rows[0].version) : null;
+    },
+    async moveBalance(accountId, expected, day, debits, credits) {
+      if (expected === null) {
+        // The first cache of the account: whoever inserts the version row builds it from the postings; another
+        // transaction's insert of the same row waits for this one and then sees a conflict.
+        const made = await q.query(
+          `INSERT INTO balance_versions (household_id, account_id, version) VALUES ($1, $2, 1)
+           ON CONFLICT (household_id, account_id) DO NOTHING`,
+          [q.householdId, accountId],
+        );
+        if (made.rowCount !== 1) return false;
+        await rebuildDays(q, accountId);
+        return true;
+      }
+      // The version check: the row lock makes concurrent updates of the account wait; once the first commits, the
+      // others find a new version and retry on the fresh cache.
+      const bumped = await q.query(
+        `UPDATE balance_versions
+            SET version = version + 1, changed_at = now(),
+                last_recorded_at = greatest(last_recorded_at, now())
+          WHERE household_id = $1 AND account_id = $2 AND version = $3`,
+        [q.householdId, accountId, String(expected)],
+      );
+      if (bumped.rowCount !== 1) return false;
+      // The day's row starts from the latest earlier day; then the day and every later day get the movement.
+      await q.query(
+        `INSERT INTO daily_balances (household_id, account_id, day, currency, debits, credits)
+         SELECT a.household_id, a.id, $3::date, a.currency, coalesce(prev.debits, 0), coalesce(prev.credits, 0)
+           FROM accounts a
+           LEFT JOIN LATERAL (
+             SELECT debits, credits FROM daily_balances b
+              WHERE b.household_id = a.household_id AND b.account_id = a.id AND b.day < $3::date
+              ORDER BY b.day DESC LIMIT 1) prev ON true
+          WHERE a.household_id = $1 AND a.id = $2
+         ON CONFLICT (household_id, account_id, day) DO NOTHING`,
+        [q.householdId, accountId, day],
+      );
+      await q.query(
+        `UPDATE daily_balances SET debits = debits + $4::numeric, credits = credits + $5::numeric
+          WHERE household_id = $1 AND account_id = $2 AND day >= $3::date`,
+        [q.householdId, accountId, day, debits.toDecimalString(), credits.toDecimalString()],
+      );
+      return true;
+    },
+    async accountIds(accountId) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT id FROM accounts WHERE household_id = $1 AND ($2::uuid IS NULL OR id = $2::uuid) ORDER BY id`,
+        [q.householdId, accountId],
+      );
+      return rows.map((r) => r.id);
+    },
+    async rebuildBalance(accountId) {
+      // A new version first: it waits for an update in progress, and an update that read the old version retries.
+      await q.query(
+        `INSERT INTO balance_versions (household_id, account_id, version) VALUES ($1, $2, 1)
+         ON CONFLICT (household_id, account_id)
+         DO UPDATE SET version = balance_versions.version + 1, changed_at = now()`,
+        [q.householdId, accountId],
+      );
+      return rebuildDays(q, accountId);
+    },
     async integrity(): Promise<IntegrityFindings> {
       const { rows } = await q.query<{
         unbalanced_entry: number;
         empty_entry: number;
         reversal_mismatch: number;
+        balance_cache: number;
       }>(INTEGRITY, [q.householdId]);
       const r = rows[0]!;
       return {
         "unbalanced-entry": r.unbalanced_entry,
         "empty-entry": r.empty_entry,
         "reversal-mismatch": r.reversal_mismatch,
+        "balance-cache": r.balance_cache,
       };
     },
   };

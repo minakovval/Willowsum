@@ -4,6 +4,7 @@ import type { LedgerEvent } from "../domain/index.ts";
 import {
   assertDate,
   assertMoment,
+  BALANCE_ATTEMPTS,
   balanceAt,
   dailyIntegrityCheck,
   post,
@@ -13,6 +14,7 @@ import {
   type IntegrityCheck,
   type IntegrityFindings,
   type LedgerStore,
+  type LedgerTx,
 } from "./index.ts";
 
 /** FIN-04@PoC on the use cases with stub stores: guards before the database, the daily check's report. */
@@ -193,6 +195,7 @@ describe("FIN-04 AC6 (core): the daily integrity check", () => {
           "unbalanced-entry": 0,
           "empty-entry": 0,
           "reversal-mismatch": 0,
+          "balance-cache": 0,
           ...byHousehold[householdId],
         }),
       } as never),
@@ -212,7 +215,12 @@ describe("FIN-04 AC6 (core): the daily integrity check", () => {
       ["unbalanced-entry", 3],
       ["reversal-mismatch", 1],
     ]);
-    expect(total).toEqual({ "unbalanced-entry": 3, "empty-entry": 0, "reversal-mismatch": 1 });
+    expect(total).toEqual({
+      "unbalanced-entry": 3,
+      "empty-entry": 0,
+      "reversal-mismatch": 1,
+      "balance-cache": 0,
+    });
   });
 
   it("FIN-04 FR 9: one space whose check fails is counted and the other spaces are still checked and reported", async () => {
@@ -234,7 +242,12 @@ describe("FIN-04 AC6 (core): the daily integrity check", () => {
       ["reversal-mismatch", 2],
     ]);
     expect(failures).toEqual([1]);
-    expect(total).toEqual({ "unbalanced-entry": 0, "empty-entry": 1, "reversal-mismatch": 2 });
+    expect(total).toEqual({
+      "unbalanced-entry": 0,
+      "empty-entry": 1,
+      "reversal-mismatch": 2,
+      "balance-cache": 0,
+    });
   });
 
   it("a clean journal reports nothing", async () => {
@@ -256,5 +269,96 @@ describe("FIN-04 AC6 (core): the daily integrity check", () => {
       failed: (spaces) => failures.push(spaces),
     });
     expect(failures).toEqual([]);
+  });
+});
+
+describe("ARC-11 «Баланси і продуктивність»: the balance cache's version check and the cache read", () => {
+  const B = "00000000-0000-4000-8000-00000000000b";
+  /** A space with two EUR asset accounts; the cache answers per `versions` and records every update try. */
+  function cacheStore(conflicts: number, cached: { debits: string; credits: string } | null = null) {
+    const tries: {
+      account: string;
+      expected: number | null;
+      day: string;
+      debits: string;
+      credits: string;
+    }[] = [];
+    let version: Record<string, number> = { [A]: 3, [B]: 7 };
+    let left = conflicts;
+    const tx: Partial<LedgerTx> = {
+      entryByKey: async () => null,
+      accounts: async (ids) => ids.map((id) => ({ id, type: "asset", currency: "EUR" })),
+      insertEntry: async () => true,
+      insertPostings: async () => undefined,
+      entry: async (id) => ({ id }) as Entry,
+      recorded: async () => undefined,
+      balanceVersion: async (account) => version[account] ?? null,
+      moveBalance: async (account, expected, day, debits, credits) => {
+        tries.push({
+          account,
+          expected,
+          day,
+          debits: debits.toDecimalString(),
+          credits: credits.toDecimalString(),
+        });
+        if (left > 0) {
+          // Another entry changed the account first: a new version, nothing written here.
+          left--;
+          version = { ...version, [account]: version[account]! + 1 };
+          return false;
+        }
+        version = { ...version, [account]: version[account]! + 1 };
+        return true;
+      },
+      cachedTotals: async () => cached,
+      totals: async () => ({ debits: "40", credits: "15" }),
+    };
+    const store: LedgerStore = { inHousehold: (_h, work) => work(tx as LedgerTx) };
+    return { store, tries };
+  }
+  const transfer = (amount: string) => ({
+    source: SOURCE,
+    idempotencyKey: "k-1",
+    operationDate: "2026-06-03",
+    event: { type: "transfer", from: B, to: A, amount: Money.of(amount, "EUR") } as LedgerEvent,
+  });
+
+  it("ARC-11: each account's cache gets the entry's movement on its date, with the version it read, in the order of the ids", async () => {
+    const { store, tries } = cacheStore(0);
+    await post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("0.3"));
+    expect(tries).toEqual([
+      { account: A, expected: 3, day: "2026-06-03", debits: "0.3", credits: "0" },
+      { account: B, expected: 7, day: "2026-06-03", debits: "0", credits: "0.3" },
+    ]);
+  });
+
+  it("ARC-11: a conflict is retried on the fresh version, so the concurrent entry's amount is not lost", async () => {
+    const { store, tries } = cacheStore(2);
+    await post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("5"));
+    expect(tries.map((t) => [t.account, t.expected])).toEqual([
+      [A, 3],
+      [A, 4],
+      [A, 5],
+      [B, 7],
+    ]);
+  });
+
+  it("ARC-11: an account that keeps conflicting refuses the entry (rolled back), never writes a stale cache", async () => {
+    const { store, tries } = cacheStore(BALANCE_ATTEMPTS);
+    expect(
+      await code(post({ store, newId: () => "00000000-0000-4000-8000-0000000000e1" }, H1, transfer("5"))),
+    ).toBe("BALANCE_CONFLICT");
+    expect(tries).toHaveLength(BALANCE_ATTEMPTS);
+  });
+
+  it("ARC-11: balanceAt takes the cache when it answers and the postings when it does not — the same sign rules", async () => {
+    const served = cacheStore(0, { debits: "100", credits: "0.5" });
+    expect(
+      (await balanceAt({ store: served.store, newId: () => A }, H1, A, "2026-06-30")).toDecimalString(),
+    ).toBe("99.5");
+    const raw = cacheStore(0, null);
+    expect(
+      (await balanceAt({ store: raw.store, newId: () => A }, H1, A, "2026-06-30")).toDecimalString(),
+    ).toBe("25");
   });
 });

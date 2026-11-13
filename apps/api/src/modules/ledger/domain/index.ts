@@ -15,3 +15,4 @@ export {
   type ServiceAccount,
 } from "./postings.ts";
 export { EVENT_TYPES, postingsFor, RULES_VERSION, type LedgerEvent, type LedgerEventType } from "./rules.ts";
+export { balanceMovements, type BalanceMovement, type PostingSides } from "./balances.ts";
