@@ -114,7 +114,8 @@ locally if needed. Drop findings you cannot support. Integration tests: Cloud se
 Post one PR review:
 - **Blocking** — only as defined in «3. Check the hard rules»; each with file:line and the failing path.
 - **Non-blocking** — everything else. The author lists them under «Follow-ups» in the PR body or opens an
-  issue; they never start a new round by themselves.
+  issue; they never start a new round by themselves. You may mark an item «cheap and safe to fold in»; the
+  lead decides whether it goes in before merge (AGENTS.md step 7, owner, 2026-11-13).
 - A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
