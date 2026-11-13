@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createAuditLog } from "../src/modules/audit/index.ts";
 import { databaseLedgerStore } from "../src/modules/ledger/adapters/index.ts";
 import { post as postWith, type LedgerStore } from "../src/modules/ledger/application/index.ts";
 import {
@@ -236,7 +237,7 @@ describe("ARC-11@PoC through main.ts's wiring: the worker dispatches the ledger'
     await ledger.post(s.householdId, spend(s.cash));
     const tasks = schedulerDailyTasks({
       databases: db.databases,
-      audit: { recordPlatform: async () => undefined },
+      audit: createAuditLog(db.databases.for("audit")),
       spaces: { spaceIds: async () => [s.householdId] },
       now: () => Date.now(),
     });

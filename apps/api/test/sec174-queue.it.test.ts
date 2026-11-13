@@ -193,11 +193,11 @@ describe("ARC-04 queue security (review of #174): one space never reaches anothe
     };
     const store = postgresJobStore(databases.for(CONSUMER));
     await expect(
-      store.complete(forged, lease, (q) =>
-        q.query("INSERT INTO effects (household_id, job_key, note) VALUES ($1, 'forged', 'x')", [
+      store.complete(forged, lease, async (q) => {
+        await q.query("INSERT INTO effects (household_id, job_key, note) VALUES ($1, 'forged', 'x')", [
           q.householdId,
-        ]),
-      ),
+        ]);
+      }),
     ).rejects.toBeInstanceOf(LeaseLostError);
     expect(await store.fail(forged, lease, "Error", 0, MAX_ATTEMPTS)).toBe("lost");
     await store.release(forged, lease);
