@@ -101,6 +101,12 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect(item.value.toDecimalString()).toBe("9");
   });
 
+  it("VAL-04@PoC FR 3: «today» with a latest rate of a week ago is still not «приблизно» (open owner question)", async () => {
+    await seed([["2026-11-09", "EUR", "50.00"]]);
+    const item = converted(await reporting().toReporting({ amount: Money.of("450", "UAH"), date: null }));
+    expect([item.conversion.rateDate, item.conversion.approximate]).toEqual(["2026-11-09", false]);
+  });
+
   it("VAL-04@PoC AC3: PLN/CHF has no direct NBU rate → cross rate through the hryvnia from the NBU rates of the same date", async () => {
     await seed([
       ["2026-11-11", "CHF", "60.00"],
@@ -183,6 +189,22 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     ]);
     expect(uah!.restricted).toBe(false);
     expect([total.restricted, total.total?.toDecimalString()]).toEqual([true, "27"]);
+  });
+
+  it("VAL-04@PoC EC2: a restricted reporting currency also carries the warning flag, although the amount's currency is not restricted", async () => {
+    await seed([
+      ["2026-11-12", "BYN", "12.50"],
+      ["2026-11-12", "USD", "40.00"],
+    ]);
+    const total = await reporting().total([{ amount: Money.of("100", "USD"), date: "2026-11-12" }], "BYN");
+    expect([total.restricted, converted(total.items[0]!).restricted]).toEqual([true, true]);
+  });
+
+  it("VAL-04@PoC FR 3: a malformed or impossible date is an input error, never «Курс недоступний»", async () => {
+    for (const date of ["today", "2026-02-30", "2026-13-01", "14.11.2026"])
+      await expect(reporting().total([{ amount: Money.of("100", "UAH"), date }]), date).rejects.toThrow(
+        /YYYY-MM-DD/,
+      );
   });
 
   it("VAL-04@PoC EC3: no rate of the date but an earlier one → the nearest rate, «приблизно»; refined once the date's rate arrives", async () => {

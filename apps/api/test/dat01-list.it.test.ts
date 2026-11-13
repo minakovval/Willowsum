@@ -150,7 +150,7 @@ describe("DAT-01@PoC: totals at the official rate of each transaction's date (Po
   });
 
   it("DAT-01@PoC AC3: no rate on the UAH transaction's date → nearest 40: −165,00 € «приблизно», 1 транзакція", async () => {
-    await eurRate("2026-10-30", "40");
+    await eurRate("2026-10-29", "40");
     await seed(spaceA, [
       { on: "2026-11-03", amount: "-100.00", currency: "EUR" },
       { on: "2026-11-03", amount: "-40.00", currency: "EUR" },
@@ -161,8 +161,19 @@ describe("DAT-01@PoC: totals at the official rate of each transaction's date (Po
     expect(total).toMatchObject({ count: 3, approximate: true, nearestRateCount: 1 });
   });
 
-  it("DAT-01@PoC AC4: the rate of that date (50) appears → −160,00 € without «приблизно» or the nearest-rate hint", async () => {
+  it("DAT-01@PoC AC4: a Saturday or Sunday at Friday's rate (the real fx-rates rule) is not «приблизно»; a Monday at Friday's rate is", async () => {
     await eurRate("2026-10-30", "40");
+    await seed(spaceA, [
+      { on: "2026-10-31", amount: "-400.00", currency: "UAH" },
+      { on: "2026-11-01", amount: "-400.00", currency: "UAH" },
+    ]);
+    expect((await listOf(spaceA)).total).toMatchObject({ approximate: false, nearestRateCount: 0 });
+    await seed(spaceA, [{ on: "2026-11-02", amount: "-400.00", currency: "UAH" }]);
+    expect((await listOf(spaceA)).total).toMatchObject({ approximate: true, nearestRateCount: 1 });
+  });
+
+  it("DAT-01@PoC AC4: the rate of that date (50) appears → −160,00 € without «приблизно» or the nearest-rate hint", async () => {
+    await eurRate("2026-10-29", "40");
     await seed(spaceA, [
       { on: "2026-11-03", amount: "-100.00", currency: "EUR" },
       { on: "2026-11-03", amount: "-40.00", currency: "EUR" },

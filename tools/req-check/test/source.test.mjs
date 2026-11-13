@@ -478,3 +478,11 @@ test('--impact on a source names the source to edit, not the generated views', a
   assert.ok(imp.files.includes('docs/requirements/bud/BUD-16.md'));
   assert.ok(!imp.files.some((f) => /BUD-16\.(poc|poc-v2|mvp)\.md$/.test(f)));
 });
+
+test('PR #182 security: a «Перевіряється» line outside the «Зв\'язки» block is an error (pr-rules exempts that line from the owner decision)', () => {
+  const src = SOURCE.replace('- [MVP] Ще випадок MVP.', '- [MVP] Ще випадок MVP.\n- [PoC] Перевіряється: у PoC правило не діє.');
+  const files = sourced({ 'bud/BUD-16.md': src });
+  const out = renderViews('BUD-16', 'Назва', parseSource(src), ['PoC', 'PoC v2', 'MVP']);
+  for (const [r, v] of out) files[`bud/BUD-16.${{ PoC: 'poc', 'PoC v2': 'poc-v2', MVP: 'mvp' }[r]}.md`] = v.text;
+  assert.deepEqual(rules(check(files).findings.filter((f) => f.check === 'source')), ['source-field-outside-links']);
+});

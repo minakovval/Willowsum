@@ -48,6 +48,14 @@ function officialRates(
       fake.calls += 1;
       return requests.map((r) => one(r.from, r.to, r.date));
     },
+    // fx-rates' rule (VAL-04 AC4, EC1); dat01-list.it.test.ts checks the real one.
+    covers(rateDate: string, date: string) {
+      for (let d = new Date(`${rateDate}T00:00:00Z`); d.toISOString().slice(0, 10) < date;) {
+        d = new Date(d.getTime() + 86_400_000);
+        if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) return false;
+      }
+      return rateDate <= date;
+    },
   };
   return fake;
 }
@@ -68,7 +76,7 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
   });
 
   it("DAT-01@PoC AC3: no rate on the hryvnia transaction's date → nearest rate 40, −165,00 € «приблизно», «1 транзакція за найближчим курсом»", async () => {
-    const rates = officialRates({ EUR: { "2026-10-30": "40" } });
+    const rates = officialRates({ EUR: { "2026-10-29": "40" } });
     const result = await totals(rates).total(
       [group("EUR", "2026-11-03", "-140", 2), group("UAH", "2026-11-01", "-1000")],
       "EUR",
@@ -78,7 +86,7 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
   });
 
   it("DAT-01@PoC AC4: once the rate of that date (50) appears, the total is −160,00 € without «приблизно»", async () => {
-    const pivot: Record<string, Record<string, string>> = { EUR: { "2026-10-30": "40" } };
+    const pivot: Record<string, Record<string, string>> = { EUR: { "2026-10-29": "40" } };
     const rates = officialRates(pivot);
     const groups = [group("EUR", "2026-11-03", "-140", 2), group("UAH", "2026-11-01", "-1000")];
     expect((await totals(rates).total(groups, "EUR")).approximate).toBe(true);
@@ -108,9 +116,34 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(result).toMatchObject({ converted: true, approximate: false });
   });
 
+  it("DAT-01@PoC AC4: a Saturday or Sunday amount at Friday's rate is the rate of that date, as in fx-rates (not «приблизно»); a Monday at Friday's rate is", async () => {
+    const rates = officialRates({ EUR: { "2026-11-13": "40" } });
+    const weekend = await totals(rates).total(
+      [group("UAH", "2026-11-14", "400"), group("UAH", "2026-11-15", "400")],
+      "EUR",
+    );
+    expect(weekend).toMatchObject({ approximate: false, nearestRateCount: 0 });
+    const monday = await totals(rates).total([group("UAH", "2026-11-16", "400")], "EUR");
+    expect(monday).toMatchObject({ approximate: true, nearestRateCount: 1 });
+  });
+
+  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно» (PR #182 security)", async () => {
+    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
+    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
+    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
+    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
+  });
+
+  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно»", async () => {
+    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
+    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
+    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
+    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
+  });
+
   it("DAT-01@PoC EC3: several transactions on a date without a rate are all counted at the nearest rate", async () => {
-    const result = await totals(officialRates({ EUR: { "2026-10-30": "40" } })).total(
-      [group("UAH", "2026-11-01", "-2000", 4), group("UAH", "2026-10-30", "400")],
+    const result = await totals(officialRates({ EUR: { "2026-10-29": "40" } })).total(
+      [group("UAH", "2026-11-01", "-2000", 4), group("UAH", "2026-10-29", "400")],
       "EUR",
     );
     expect(result.total?.equals(money("-40", "EUR"))).toBe(true);
@@ -140,11 +173,11 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
   });
 
   it("DAT-01@PoC EC5: records without any rate are left out; the rest keep «приблизно» and its count", async () => {
-    const rates = officialRates({ EUR: { "2026-10-30": "40" } });
+    const rates = officialRates({ EUR: { "2026-10-29": "40" } });
     const result = await totals(rates).total(
       [
         group("EUR", "2026-11-03", "-10"),
-        group("UAH", "2026-11-01", "-400", 3), // nearest earlier rate (30.10)
+        group("UAH", "2026-11-01", "-400", 3), // nearest earlier rate (29.10, a Thursday: the weekend rule needs Friday)
         group("UAH", "2026-10-01", "-4000", 2), // before every rate: left out
         group("GBP", "2026-11-01", "-1"), // never quoted: left out
       ],
@@ -179,7 +212,10 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
   });
 
   it("DAT-01@PoC FR 12: a failed rate read fails the total, it is never shown as «немає курсу»", async () => {
-    const broken: DatedRates = { rates: () => Promise.reject(new Error("connection terminated")) };
+    const broken: DatedRates = {
+      rates: () => Promise.reject(new Error("connection terminated")),
+      covers: () => true,
+    };
     await expect(totals(broken).total([group("UAH", "2026-10-01", "-1")], "EUR")).rejects.toThrow(
       "connection terminated",
     );

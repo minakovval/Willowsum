@@ -31,8 +31,8 @@ VAL-05@PoC (п. 1–5, AC1–AC5; стан інтерфейсу «оновлен
   - `freshness()` → `{ updatedAt, stale }` — час останнього успішного оновлення (ISO, UTC) і чи минуло 24 год.
 - `rates([{ from, to, date }, …])` → `(ExchangeRate | null)[]` — багато курсів одним запитом до історії: для кожного
   курс дати або найближчий попередній (ніколи не пізнішої дати); немає курсу — `null`; помилка бази відхиляє весь виклик.
-- `officialDatedRates(fxRates)` → `{ rates(requests) }` — курси для підсумків списку (DAT-01@PoC FR 12,
-  `platform/lists/list-total.ts`): усі курси одного підсумку одним запитом; немає курсу — `null` (ніколи не 0).
+- `officialDatedRates(fxRates)` → `{ rates(requests), covers(rateDate, date) }` — курси для підсумків списку (DAT-01@PoC FR 12,
+  `platform/lists/list-total.ts`): усі курси одного підсумку одним запитом; немає курсу — `null` (ніколи не 0); `covers` — `rateCoversDate`: підсумок позначає «за найближчим курсом» лише записи з датою, яких курс не покриває (вихідний за курсом п'ятниці — не «приблизно»; «сьогодні» — ніколи).
 - `createFxReporting({ db, now? })` → `FxReporting` — суми у валюті звітності простору (VAL-04@PoC), лише читання історії:
   - `toReporting({ amount, date }, currency = REPORTING_CURRENCY)` → `ReportedAmount`: `reporting-currency` (уже у валюті
     звітності), `converted` (`value` без округлення, `conversion` — курс, дата курсу, джерело, запитана дата, `approximate`;
