@@ -40,6 +40,11 @@ export const PERMISSIONS = {
   "billing.manage": OWNER,
   /** Передача власності, видалення простору. */
   "household.transfer": OWNER,
+  /**
+   * Перейменування простору: ACC-08@PoC FR 5 — Owner (у PoC в просторі лише він). ACC-08@MVP додає Admin
+   * («Owner і Admin можуть перейменувати простір») — тоді рядок стане OWNER_ADMIN.
+   */
+  "household.rename": OWNER,
   /** Повний експорт простору. */
   "export.full": OWNER_ADMIN,
   /** Експорт звітів. */

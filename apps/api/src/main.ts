@@ -10,7 +10,11 @@ import { mountApi } from "./api.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
-import { createHouseholdSpaces, createSpaceKeys } from "./modules/household/index.ts";
+import {
+  createHouseholdServices,
+  createHouseholdSpaces,
+  createSpaceKeys,
+} from "./modules/household/index.ts";
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
@@ -166,6 +170,8 @@ const server = buildServer({
             rateLimits: config.http.rateLimits === "on" ? createApiRateLimits() : "off",
             allowedOrigins: config.http.allowedOrigins,
             ...(identity ? { identity, spaces } : {}),
+            // ACC-08: the space's settings write the rename into the space's own log.
+            household: createHouseholdServices({ audit }),
             deployed: config.deployed,
           }),
       }

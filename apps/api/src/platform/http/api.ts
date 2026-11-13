@@ -81,7 +81,7 @@ export interface ApiOptions {
    * evaluate a share or a test space for. Omitted: off, so such routes answer 404.
    */
   readonly checkFlagForAll?: (flag: string) => Promise<boolean>;
-  /** What a module's public routes get as `ctx.services` (its ports and settings, src/api.ts). */
+  /** What a module's routes get as `ctx.services` (its ports and settings, src/api.ts). */
   readonly services?: (module: string) => unknown;
   /** The app is served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly secureCookies?: boolean;
@@ -572,6 +572,7 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
           db: householdFree,
           inHousehold: <T>(work: (q: HouseholdQueryRunner) => Promise<T>) =>
             db.inHousehold(principal.householdId, work),
+          services: options.services?.(module),
         });
         const key = route.create ? idempotencyKey(request) : undefined;
         if (key === undefined) {

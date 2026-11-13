@@ -5,7 +5,7 @@ import { DATA_REGIONS } from "../../platform/db/isolation.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import { unavailableKeyManagement, type KeyManagement } from "../../platform/adapters/kms/index.ts";
 import type { AuditLog } from "../audit/index.ts";
-import { databaseSpacesStore, spacesOfAccount } from "./adapters/index.ts";
+import { databaseSpacesStore, householdRoutes, spacesOfAccount } from "./adapters/index.ts";
 import {
   destroySpaceKey,
   ensureFirstSpace,
@@ -22,14 +22,17 @@ export const householdModule = defineModule({
   name: "household",
   publishes: [],
   consumes: [],
+  routes: householdRoutes,
 });
 
+export { createHouseholdServices, type HouseholdServices } from "./adapters/index.ts";
 export {
   firstSpaceName,
   SPACE_KEY_ERROR_CODES,
   SPACE_NAME_MAX,
   SPACE_ROLES,
   SpaceKeyError,
+  spaceName,
 } from "./domain/index.ts";
 export type { SpaceKeyErrorCode, SpaceRole } from "./domain/index.ts";
 export { SEAL_MAX_LENGTH } from "./application/index.ts";

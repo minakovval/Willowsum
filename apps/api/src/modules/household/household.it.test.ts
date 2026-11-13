@@ -92,7 +92,7 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
     });
   });
 
-  it("ACC-08 edge case: a one-word name gives «Родина <Ім'я>»", async () => {
+  it("ACC-08@PoC EC1: a one-word name gives «Родина <Ім'я>»", async () => {
     const result = await spaces.ensureFirstSpace({ accountId: randomUUID(), displayName: "Тарас" });
     const { rows } = await db.owner.query(`SELECT name FROM household.households WHERE household_id = $1`, [
       result.householdId,

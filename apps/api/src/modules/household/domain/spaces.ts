@@ -21,3 +21,15 @@ export function firstSpaceName(displayName: string): string {
   const name = `${SPACE_NAME_PREFIX}${surname}`.trim();
   return [...name].slice(0, SPACE_NAME_MAX).join("");
 }
+
+/**
+ * A new name of a space (ACC-08@PoC FR 5, AC5): NFC, without leading or trailing whitespace, 1–60 characters
+ * counted as code points, one line (no control characters); uniqueness is not required. Null — not saved.
+ */
+export function spaceName(input: string): string | null {
+  const name = input.normalize("NFC").trim();
+  const chars = [...name];
+  if (chars.length < 1 || chars.length > SPACE_NAME_MAX) return null;
+  if (chars.some((c) => /\p{Cc}/u.test(c))) return null;
+  return name;
+}
