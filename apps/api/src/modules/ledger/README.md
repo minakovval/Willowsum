@@ -1,6 +1,6 @@
 # Модуль ledger
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -52,6 +52,12 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
   `INVALID_DATE`, …),
   `ACCOUNT_TYPES`, `SERVICE_ACCOUNTS`, `EVENT_TYPES`, `RULES_VERSION`, `INTEGRITY_CHECKS`, типи `Entry`, `PostInput`,
   `LedgerEvent`, `LedgerAccount`.
+
+- `createLedgerErasure(db)` → `LedgerErasure.eraseHousehold(householdId)` → `{ postings, entries, accounts }` — видалення
+  журналу одного простору цілком в одній транзакції (NFR-12@PoC п. 3, ARC-11 «Видалення даних»; ADR-0013, варіант A).
+  `db` — пул ролі видалення `ws_era_ledger`, єдиної, яку тригери пускають до DELETE, і лише простору цілком
+  (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім; `integrity_alerts` не видаляються. Викликає лише
+  `data-erasure` зі скрипта власника.
 
 ## Залежності
 

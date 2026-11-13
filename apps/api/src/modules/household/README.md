@@ -41,6 +41,11 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
     (`masterKeyVersion`) у журналі простору;
   - `destroy(householdId)` → `{ destroyed }` — спершу запис `household.space-key`/`delete` у журналі платформи, потім
     знищення ключа; простір `pending:` позначається `destroyed:<id простору>` і ключа вже не отримає.
+- `createSpaceErasure(db, audit)` → `SpaceErasure` (NFR-12@PoC п. 3; ADR-0013): `spacesOf(accountId)` — простори акаунта й
+  кількість учасників; `eraseSpace(householdId)` — останній крок видалення простору: знищення ключа (запис у журналі
+  платформи першим) і в тій самій транзакції під замком запису простору — видалення запису й рядків «логін → простір».
+  Ключ, виданий щоденною задачею між читанням і замком, теж знищується (повторна перевірка під замком). Викликає лише
+  `data-erasure`.
 - `firstSpaceName`, `SPACE_NAME_MAX`, `SPACE_ROLES`, `SPACE_KEY_ERROR_CODES`, `SEAL_MAX_LENGTH`, `SpaceKeyError`, типи
   `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`.
 

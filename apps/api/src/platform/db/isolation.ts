@@ -1,5 +1,5 @@
 import type pg from "pg";
-import { moduleRoleName, ownerRoleName } from "../modules/rules.ts";
+import { moduleRoles } from "../modules/rules.ts";
 
 /**
  * Household isolation in the database (ARC-03 FR 2): every customer-data table has `household_id uuid NOT
@@ -39,7 +39,7 @@ const BIND_BODY = `
       BEGIN
         SELECT usename INTO bound_role FROM pg_catalog.pg_stat_activity
          WHERE pid = p_pid AND datname = pg_catalog.current_database();
-        IF bound_role IS NULL OR pg_catalog.left(bound_role, 7) <> 'ws_mod_' THEN
+        IF bound_role IS NULL OR pg_catalog.left(bound_role, 7) NOT IN ('ws_mod_', 'ws_era_') THEN
           RAISE EXCEPTION 'only module connections are bound to a household' USING ERRCODE = '42501';
         END IF;
         INSERT INTO ${CONTEXT_SCHEMA}.bindings (pid, role, household_id) VALUES (p_pid, bound_role, p_household)
@@ -471,8 +471,9 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
   const { rows } = await client.query<{ problem: string }>(
     `WITH roles AS (
             SELECT oid, rolname,
-                   CASE left(rolname, 7) WHEN 'ws_mod_' THEN 'module' WHEN 'ws_own_' THEN 'owner' ELSE 'platform' END AS kind,
-                   CASE WHEN left(rolname, 7) IN ('ws_mod_', 'ws_own_') THEN substr(rolname, 8) END AS own
+                   CASE left(rolname, 7) WHEN 'ws_mod_' THEN 'module' WHEN 'ws_own_' THEN 'owner'
+                                         WHEN 'ws_era_' THEN 'erasure' ELSE 'platform' END AS kind,
+                   CASE WHEN left(rolname, 7) IN ('ws_mod_', 'ws_own_', 'ws_era_') THEN substr(rolname, 8) END AS own
               FROM pg_roles WHERE rolname = ANY($1)),
           db AS (SELECT oid FROM pg_database WHERE datname = current_database()),
           modules AS (SELECT n.oid, n.nspname FROM pg_namespace n
@@ -567,7 +568,7 @@ export async function boundaryProblems(client: pg.ClientBase, modules: readonly 
         AND n.nspname <> '${CONTEXT_SCHEMA}'
       ORDER BY 1`,
     [
-      [...modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m)]), PROBE_ROLE, CONTEXT_ROLE],
+      [...moduleRoles(modules), PROBE_ROLE, CONTEXT_ROLE],
       PLATFORM_FUNCTION_CONFIG,
       CURRENT_HOUSEHOLD_BODY,
       BIND_BODY,

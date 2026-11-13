@@ -8,6 +8,7 @@ import { defineModule } from "../../platform/modules/define.ts";
 import {
   databaseIntegrityAlertStore,
   databaseLedgerStore,
+  eraseHouseholdJournal,
   integrityAlertMail,
   logIntegrityAlertEvent,
   logIntegrityCheckFailed,
@@ -138,4 +139,17 @@ export function createLedgerIntegrityCheck(
       return findings;
     },
   };
+}
+
+/** Erasure of a space's journal (NFR-12@PoC FR 3, ARC-11 «Видалення даних»; ADR-0013): the owner's erasure script only. */
+export interface LedgerErasure {
+  /** Deletes the space's postings, entries and accounts in one transaction. Repeating it deletes nothing. */
+  eraseHousehold(
+    householdId: string,
+  ): Promise<{ readonly postings: number; readonly entries: number; readonly accounts: number }>;
+}
+
+/** `db` is ledger's erasure database (`withErasureDatabases(…).for("ledger")`, role `ws_era_ledger`). */
+export function createLedgerErasure(db: ModuleDatabase): LedgerErasure {
+  return { eraseHousehold: (householdId) => eraseHouseholdJournal(db, householdId) };
 }

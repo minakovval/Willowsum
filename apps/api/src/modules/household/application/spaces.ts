@@ -34,6 +34,10 @@ export interface SpacesTx {
     to: Pick<StoredSpaceKey, "masterKeyVersion" | "wrappedKey">,
   ): Promise<boolean>;
   deleteSpaceKey(householdId: string, keyId: string): Promise<void>;
+  /** Locks the space's record until the transaction ends (a destroy against a provisioning, ADR-0012). */
+  lockSpace(householdId: string): Promise<void>;
+  /** Deletes the space's record and its login → space rows (the erasure, ADR-0013); returns the member accounts. */
+  deleteSpace(householdId: string): Promise<string[]>;
 }
 
 export interface SpacesStore {

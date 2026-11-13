@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type pg from "pg";
-import { moduleRoleName, ownerRoleName, schemaName } from "../modules/rules.ts";
+import {
+  ERASABLE_MODULES,
+  erasureRoleName,
+  moduleRoleName,
+  moduleRoles,
+  ownerRoleName,
+  schemaName,
+} from "../modules/rules.ts";
 import { schemaProblems, type SchemaExemptions } from "./schema-rules.ts";
 import {
   CONTEXT_ROLE,
@@ -136,12 +143,18 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       const owner = ownerRoleName(module);
       await ensureRole(client, role, "NOLOGIN NOINHERIT");
       await ensureRole(client, owner, "NOLOGIN NOINHERIT");
+      // ADR-0013: logs in only while the owner's erasure script runs (enableErasureLogin); privileges only from the
+      // module's own migrations. Only the modules with append-only tables have one.
+      const erasable = ERASABLE_MODULES.includes(module);
+      if (erasable) await ensureRole(client, erasureRoleName(module), "NOLOGIN NOINHERIT");
       // The migration role may become the owner role (SET), never use its rights implicitly (INHERIT).
       if (!superuser) await client.query(`GRANT ${id(owner)} TO CURRENT_USER WITH INHERIT FALSE, SET TRUE`);
       await client.query(`CREATE SCHEMA IF NOT EXISTS ${id(schema)}`);
       await client.query(`REVOKE ALL ON SCHEMA ${id(schema)} FROM PUBLIC`);
       await client.query(`GRANT USAGE, CREATE ON SCHEMA ${id(schema)} TO ${id(owner)}`);
       await client.query(`GRANT USAGE ON SCHEMA ${id(schema)} TO ${id(role)}`);
+      if (erasable)
+        await client.query(`GRANT USAGE ON SCHEMA ${id(schema)} TO ${id(erasureRoleName(module))}`);
       // Default privileges of the owner role, set as that role (PostgreSQL 16+ allows it only so without INHERIT).
       await client.query("BEGIN");
       try {
@@ -160,6 +173,10 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(role)}`);
       await grantPlatformContext(client, role);
       await grantPlatformContext(client, owner);
+      if (erasable) {
+        await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(erasureRoleName(module))}`);
+        await grantPlatformContext(client, erasureRoleName(module));
+      }
     }
 
     const done = await client.query<{ module: string; name: string; checksum: string }>(
@@ -221,7 +238,7 @@ export async function assertIsolatedRoles(
   modules: readonly string[],
   exemptions?: SchemaExemptions,
 ): Promise<void> {
-  const roles = [...modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m)]), PROBE_ROLE, CONTEXT_ROLE];
+  const roles = [...moduleRoles(modules), PROBE_ROLE, CONTEXT_ROLE];
   const result = await client.query<{ rolname: string; problem: string }>(
     `SELECT r.rolname, 'has a privileged attribute' AS problem
        FROM pg_roles r
@@ -283,6 +300,23 @@ export async function enableModuleLogin(
 ): Promise<void> {
   const role = client.escapeIdentifier(moduleRoleName(module));
   await client.query(`ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}`);
+}
+
+/**
+ * Lets a module's erasure role log in with a one-time password for one run of the owner's erasure script
+ * (ADR-0013); `disableErasureLogin` takes it away again. The role never keeps a stored password.
+ */
+export async function enableErasureLogin(
+  client: pg.ClientBase,
+  module: string,
+  password: string,
+): Promise<void> {
+  const role = client.escapeIdentifier(erasureRoleName(module));
+  await client.query(`ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}`);
+}
+
+export async function disableErasureLogin(client: pg.ClientBase, module: string): Promise<void> {
+  await client.query(`ALTER ROLE ${client.escapeIdentifier(erasureRoleName(module))} NOLOGIN PASSWORD NULL`);
 }
 
 async function ensureRole(client: pg.ClientBase, role: string, options: string): Promise<void> {

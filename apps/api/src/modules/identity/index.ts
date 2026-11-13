@@ -18,7 +18,8 @@ export {
   SESSION_COOKIE,
 } from "./adapters/index.ts";
 export type { DailyCleanupReport, FirstSpace, SessionAccount } from "./application/index.ts";
-export type { IdentityServices, IdentityServicesOptions } from "./adapters/index.ts";
+export type { IdentityErasure, IdentityServices, IdentityServicesOptions } from "./adapters/index.ts";
+export { createIdentityErasure } from "./adapters/index.ts";
 export {
   CONFIRMATION_TTL_MS,
   MAIL_COOLDOWN_MS,

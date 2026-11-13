@@ -3,9 +3,9 @@ import { randomUUID } from "node:crypto";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { DATA_REGIONS } from "../../platform/db/isolation.ts";
 import { defineModule } from "../../platform/modules/define.ts";
-import type { KeyManagement } from "../../platform/adapters/kms/index.ts";
+import { unavailableKeyManagement, type KeyManagement } from "../../platform/adapters/kms/index.ts";
 import type { AuditLog } from "../audit/index.ts";
-import { databaseSpacesStore } from "./adapters/index.ts";
+import { databaseSpacesStore, spacesOfAccount } from "./adapters/index.ts";
 import {
   destroySpaceKey,
   ensureFirstSpace,
@@ -114,14 +114,13 @@ export function createHouseholdSpaces(
   };
 }
 
-/** Keys of spaces over the household module's own database and the KMS port (ARC-06@PoC; ADR-0012). */
-export function createSpaceKeys(
+function spaceKeyDeps(
   db: ModuleDatabase,
   audit: Pick<AuditLog, "record" | "recordPlatform">,
   kms: KeyManagement,
-): SpaceKeys {
+): SpaceKeysDeps {
   const store = databaseSpacesStore(db);
-  const keyDeps: SpaceKeysDeps = {
+  return {
     store,
     kms,
     audit: {
@@ -154,10 +153,49 @@ export function createSpaceKeys(
       },
     },
   };
+}
+
+/** Keys of spaces over the household module's own database and the KMS port (ARC-06@PoC; ADR-0012). */
+export function createSpaceKeys(
+  db: ModuleDatabase,
+  audit: Pick<AuditLog, "record" | "recordPlatform">,
+  kms: KeyManagement,
+): SpaceKeys {
+  const keyDeps = spaceKeyDeps(db, audit, kms);
   return {
     seal: (householdId, field, plaintext) => sealField(keyDeps, householdId, field, plaintext),
     open: (householdId, field, sealed) => openField(keyDeps, householdId, field, sealed),
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
+  };
+}
+
+/** Erasure of spaces on a person's request (NFR-12@PoC FR 3; ADR-0013): the owner's erasure script only. */
+export interface SpaceErasure {
+  /** The spaces of an account and how many members each has. */
+  spacesOf(accountId: string): Promise<{ readonly householdId: string; readonly members: number }[]>;
+  /**
+   * The last step of erasing a space: its key is destroyed (platform log first) and, in the same transaction under the
+   * lock of the space's record, the record and its login → space rows are deleted. A provisioning or rewrap in between
+   * is caught and the step starts again. Repeating it does nothing.
+   */
+  eraseSpace(householdId: string): Promise<{ readonly keyDestroyed: boolean }>;
+}
+
+/** `db` is the household module's own database; `audit` writes the platform entries of the key. */
+export function createSpaceErasure(
+  db: ModuleDatabase,
+  audit: Pick<AuditLog, "record" | "recordPlatform">,
+): SpaceErasure {
+  // Destroying a key needs no KMS: the erasure never wraps or unwraps.
+  const keys = spaceKeyDeps(db, audit, unavailableKeyManagement({}));
+  return {
+    spacesOf: (accountId) => spacesOfAccount(db, accountId),
+    async eraseSpace(householdId) {
+      const { destroyed } = await destroySpaceKey(keys, householdId, async (tx) => {
+        await tx.deleteSpace(householdId);
+      });
+      return { keyDestroyed: destroyed };
+    },
   };
 }

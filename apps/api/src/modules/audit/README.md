@@ -1,6 +1,6 @@
 # Модуль audit
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-13
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -33,6 +33,12 @@ sensitive }`). Значення полів з `sensitive: true` замінюют
 - Типи `AuditEntry`, `PlatformAuditEntry`, `AuditEntryInput`, `PlatformEntryInput`, `AuditChange`; константа `AUDIT_MASK`.
 
 Запис іде окремою транзакцією модуля `audit`; атомарність зі зміною даних прийде з подіями (ARC-04).
+
+- `createAuditErasure(db)` → `AuditErasure.eraseHousehold(householdId)` → `{ entries }` — видалення всього журналу одного
+  простору на запит людини (NFR-12@PoC п. 3; ADR-0013, варіант A). `db` — пул ролі видалення `ws_era_audit`
+  (`withErasureDatabases`), яку тригери журналу єдину пускають до DELETE, і лише простору цілком
+  (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім. Журнал платформи не видаляється. Викликає лише
+  `data-erasure` зі скрипта власника.
 
 ## Залежності
 

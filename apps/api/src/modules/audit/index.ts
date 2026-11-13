@@ -1,7 +1,7 @@
 // Public interface of the audit module (ARC-01 FR 2). Other modules import only this file.
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
-import { databaseAuditStore } from "./adapters/index.ts";
+import { databaseAuditStore, eraseHouseholdLog } from "./adapters/index.ts";
 import {
   recordEntry,
   recordPlatformEntry,
@@ -41,4 +41,15 @@ export function createAuditLog(db: ModuleDatabase): AuditLog {
     recordPlatform: (entry) => recordPlatformEntry(store, entry),
     platformEntriesFor: (entity) => store.platformForEntity(entity.type, entity.id),
   };
+}
+
+/** Erasure of a space's log (NFR-12@PoC FR 3; ADR-0013): the owner's erasure script only. */
+export interface AuditErasure {
+  /** Deletes every entry of the space's own log (the platform log stays). Repeating it deletes nothing. */
+  eraseHousehold(householdId: string): Promise<{ readonly entries: number }>;
+}
+
+/** `db` is audit's erasure database (`withErasureDatabases(…).for("audit")`, role `ws_era_audit`). */
+export function createAuditErasure(db: ModuleDatabase): AuditErasure {
+  return { eraseHousehold: (householdId) => eraseHouseholdLog(db, householdId) };
 }
