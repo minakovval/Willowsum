@@ -20,7 +20,7 @@ source and regenerates the views.
 
 Before changing a requirement, a screen or a shared rule, run
 `node tools/req-check/index.mjs --impact <ID|slice|S-id|board|П-n|UC-id|module>` and update every
-dependent slice in the same PR or list it as follow-up with an issue in the PR body (PRC-02). Edit only
+dependent slice in the same PR or list it as follow-up in the PR body; the lead opens the issue (PRC-02). Edit only
 sources: `--move` moves items between releases (and warns about cited item numbers that shift and about
 the moved items still mentioned elsewhere); rewording is a plain edit of the source. Then regenerate, in the
 same PR and in this order:

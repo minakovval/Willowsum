@@ -805,3 +805,61 @@ code {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* CMP-74@PoC gallery: Progress in every state. */
+.gallery-progress {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-progress p {
+  margin: 0;
+}
+
+.gallery-progress__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-progress__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.gallery-progress__rows {
+  margin: 0;
+  list-style: none;
+}
+
+/* One row per parallel process, each with its own bar (CMP-74 «Будова»). */
+.gallery-progress__rows > li {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-4);
+  min-block-size: var(--ws-space-8);
+}
+
+.gallery-progress__rows > li + li {
+  border-block-start: 1px solid var(--ws-surface-300);
+}
+
+.gallery-progress__name {
+  flex: none;
+  inline-size: calc(var(--ws-space-8) * 2 + var(--ws-space-5));
+  font-weight: 600;
+}
+
+.gallery-progress__live {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-progress__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}

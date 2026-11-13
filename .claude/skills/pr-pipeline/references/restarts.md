@@ -10,3 +10,7 @@ The container can restart and agents' context is lost. Recover state from durabl
 - CI status of each head; finished agents' output files in the session scratchpad;
 - worktrees (`git worktree list`) and test databases (`pnpm db:test list`).
 Then continue from the first step that is not done; re-subscribe to open PRs.
+
+**New lead session** (owner, 2026-11-13): after a compaction or 8–10 merged PRs the lead writes its state to the
+GitHub issue «Lead state» (open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan
+rows) and tells the owner to start a new session. The new lead reads that issue first, then the sources above.
