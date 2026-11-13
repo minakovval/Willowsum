@@ -1,4 +1,11 @@
-import { Money, convert, currencyInfo, type Conversion } from "@willowsum/domain-kernel";
+import {
+  InvalidRateError,
+  Money,
+  convert,
+  currencyInfo,
+  isCalendarDate,
+  type Conversion,
+} from "@willowsum/domain-kernel";
 import { REPORTING_CURRENCY, isRestrictedConvertibility, kyivDate, rateCoversDate } from "../domain/index.ts";
 import type { FxRates } from "./rates.ts";
 
@@ -73,6 +80,9 @@ export function createFxReportingReader(deps: {
     reportingCurrency: string = REPORTING_CURRENCY,
   ): Promise<ReportedTotal> => {
     currencyInfo(reportingCurrency); // an unknown unit is refused (FR 5)
+    for (const a of amounts)
+      if (a.date !== null && !isCalendarDate(a.date))
+        throw new InvalidRateError("The date of an amount is YYYY-MM-DD");
     const today = kyivDate(deps.now());
     const dateOf = (a: DatedAmount) => a.date ?? today;
     const requests: { from: string; to: string; date: string }[] = [];

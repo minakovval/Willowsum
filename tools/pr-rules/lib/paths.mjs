@@ -168,13 +168,21 @@ export function categoriesOf(path) {
   return COMPILED.filter(([, matches]) => matches(path)).map(([category]) => category);
 }
 
+/** One release term of a tag: `PoC`, `лише MVP`, `PoC–PoC v2` (tools/req-check/lib/source.mjs `parseTag`). */
+const RELEASE = '(?:PoC v2|PoC|MVP|v1|v2)';
+/**
+ * The «Перевіряється» field line, untagged or with a release tag only. Free text in the brackets would be
+ * requirement prose added without the owner decision, so anything else in them is a requirement change.
+ */
+const TESTS_LINE_RE = new RegExp(`^[+-]- (?:\\[(?:лише )?${RELEASE}(?:–${RELEASE})?\\] )?Перевіряється:`, 'u');
+
 /** A requirement-file diff that only rewrites the «Перевіряється» line (test paths) is no requirement change. */
 const onlyTestPathsLine = (patch) =>
   Boolean(patch) &&
   patch
     .split('\n')
     .filter((l) => /^[+-]/.test(l) && !/^(?:\+\+\+|---) /.test(l))
-    .every((l) => /^[+-]- Перевіряється:/.test(l));
+    .every((l) => TESTS_LINE_RE.test(l));
 
 /**
  * Changed rule or requirement files that need a recorded owner decision. `files`: `{ filename,

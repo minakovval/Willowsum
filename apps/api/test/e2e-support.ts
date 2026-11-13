@@ -21,6 +21,8 @@ import {
   enableModuleLogin,
   enableProbeLogin,
 } from "../src/platform/db/migrate.ts";
+import { HOLDER_PID_ENV } from "../../../tools/test-guards/cluster-lock.mjs";
+import { acquireClusterLock } from "./cluster-lock.ts";
 import { createTestDatabase } from "./db.ts";
 import { apiDir, migrateRealModules, realModules } from "./real-modules.ts";
 
@@ -60,8 +62,29 @@ export interface E2eApi {
 /**
  * A fresh database (on the server of `DATABASE_URL`, a superuser URL) and the API process on a free port, ready.
  * `webOrigin` is the web app's origin: the only one allowed to write (NFR-15 FR 5) and the base of letter links.
+ * The module roles belong to the whole cluster and this run sets their passwords, so it holds the cluster lock
+ * (one run per cluster, like the integration tests) until `stop()`; under `pnpm db:test run` the lock is already held.
  */
 export async function startE2eApi(webOrigin: string): Promise<E2eApi> {
+  const release = await acquireClusterLock({
+    databaseUrl: process.env["DATABASE_URL"],
+    holderPid: process.env[HOLDER_PID_ENV],
+  });
+  let released = false;
+  const releaseLock = async () => {
+    if (released) return;
+    released = true;
+    await release();
+  };
+  try {
+    return await startLocked(webOrigin, releaseLock);
+  } catch (error) {
+    await releaseLock();
+    throw error;
+  }
+}
+
+async function startLocked(webOrigin: string, releaseLock: () => Promise<void>): Promise<E2eApi> {
   const db = await createTestDatabase();
   const password = randomBytes(24).toString("hex");
   const owner = new pg.Client({ connectionString: db.url });
@@ -124,6 +147,7 @@ export async function startE2eApi(webOrigin: string): Promise<E2eApi> {
       await exited;
     }
     await db.drop();
+    await releaseLock();
   };
   try {
     await waitFor(`${origin}/health/ready`, 30_000, () => (exit === undefined ? null : output));
