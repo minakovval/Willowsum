@@ -139,6 +139,28 @@
   background: var(--ws-brand-pressed);
 }
 
+/*
+ * DS-06 AC7, CMP-01 «Вимкнено»: disabled-bg fill, disabled-ink text, transparent border, «not allowed»
+ * cursor. The button keeps its place in the focus order (aria-disabled) and has its reason beside it.
+ */
+.ws-button:disabled,
+.ws-button[aria-disabled="true"],
+.ws-button[aria-disabled="true"]:hover,
+.ws-button[aria-disabled="true"]:active {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  text-decoration: none;
+  cursor: not-allowed;
+}
+
+/* The reason a control is disabled, beside it (DS-06 AC7): ordinary readable text. */
+.ws-disabled-reason {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
 /* DS-18: amounts and their hidden form. */
 .ws-amount {
   font-variant-numeric: tabular-nums;
@@ -293,6 +315,13 @@
 .ws-switch input:checked + .ws-switch-track::after {
   background: var(--ws-on-brand);
   transform: translateX(var(--ws-space-5));
+}
+
+@media (forced-colors: active) {
+  .ws-switch-track::after,
+  .ws-switch input:checked + .ws-switch-track::after {
+    background: ButtonText;
+  }
 }
 
 [dir="rtl"] .ws-switch input:checked + .ws-switch-track::after {

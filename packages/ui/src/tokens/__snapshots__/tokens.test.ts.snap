@@ -194,6 +194,8 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-focus: #1D4E89;
   --ws-gain: #27704C;
   --ws-loss: #B23A3A;
+  --ws-gain-soft: #387F5A;
+  --ws-loss-soft: #C34A48;
   --ws-disabled-bg: #E7E1D3;
   --ws-disabled-ink: #8A8F99;
   --ws-overlay: rgba(11, 37, 69, 0.45);
@@ -201,6 +203,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-tint-info: #EEF2F7;
   --ws-tint-warning: #FBF3E8;
   --ws-on-warning: #7A4505;
+  --ws-warning-line: #A15C07;
   --ws-tint-positive: #E9F3EE;
   --ws-tint-negative: #F8ECEC;
   --ws-skeleton: #ECEEF1;
@@ -246,6 +249,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-chart-4: var(--ws-border-control);
   --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
   --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
+  --ws-skeleton-shine: color-mix(in srgb, var(--ws-skeleton) 40%, var(--ws-surface-200));
   --ws-heat-0: var(--ws-surface-300);
   --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
   --ws-heat-2: color-mix(in srgb, var(--ws-brand) 50%, var(--ws-surface-200));
@@ -278,6 +282,8 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-focus: #E3A33B;
   --ws-gain: #58C38F;
   --ws-loss: #F09090;
+  --ws-gain-soft: #3EAC79;
+  --ws-loss-soft: #DD7F7F;
   --ws-disabled-bg: #1B3F6E;
   --ws-disabled-ink: #6F86A6;
   --ws-overlay: rgba(0, 0, 0, 0.6);
@@ -285,6 +291,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-tint-info: #1B3F6E;
   --ws-tint-warning: #3A3122;
   --ws-on-warning: #F2C27A;
+  --ws-warning-line: #E0A04A;
   --ws-tint-positive: #173F36;
   --ws-tint-negative: #4A2532;
   --ws-skeleton: #1B3F6E;
@@ -330,6 +337,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-chart-4: var(--ws-border-control);
   --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
   --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
+  --ws-skeleton-shine: color-mix(in srgb, var(--ws-skeleton) 40%, var(--ws-surface-200));
   --ws-heat-0: var(--ws-surface-300);
   --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
   --ws-heat-2: color-mix(in srgb, var(--ws-brand) 50%, var(--ws-surface-200));
@@ -363,6 +371,8 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-focus: #E3A33B;
     --ws-gain: #58C38F;
     --ws-loss: #F09090;
+    --ws-gain-soft: #3EAC79;
+    --ws-loss-soft: #DD7F7F;
     --ws-disabled-bg: #1B3F6E;
     --ws-disabled-ink: #6F86A6;
     --ws-overlay: rgba(0, 0, 0, 0.6);
@@ -370,6 +380,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-tint-info: #1B3F6E;
     --ws-tint-warning: #3A3122;
     --ws-on-warning: #F2C27A;
+    --ws-warning-line: #E0A04A;
     --ws-tint-positive: #173F36;
     --ws-tint-negative: #4A2532;
     --ws-skeleton: #1B3F6E;
@@ -415,6 +426,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-chart-4: var(--ws-border-control);
     --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
     --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
+    --ws-skeleton-shine: color-mix(in srgb, var(--ws-skeleton) 40%, var(--ws-surface-200));
     --ws-heat-0: var(--ws-surface-300);
     --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
     --ws-heat-2: color-mix(in srgb, var(--ws-brand) 50%, var(--ws-surface-200));
@@ -479,6 +491,8 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-focus: #1D4E89;
     --ws-gain: #27704C;
     --ws-loss: #B23A3A;
+    --ws-gain-soft: #387F5A;
+    --ws-loss-soft: #C34A48;
     --ws-disabled-bg: #E7E1D3;
     --ws-disabled-ink: #8A8F99;
     --ws-overlay: rgba(11, 37, 69, 0.45);
@@ -486,6 +500,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-tint-info: #EEF2F7;
     --ws-tint-warning: #FBF3E8;
     --ws-on-warning: #7A4505;
+    --ws-warning-line: #A15C07;
     --ws-tint-positive: #E9F3EE;
     --ws-tint-negative: #F8ECEC;
     --ws-skeleton: #ECEEF1;
@@ -531,6 +546,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
     --ws-chart-4: var(--ws-border-control);
     --ws-chart-other-hatch: repeating-linear-gradient(45deg, var(--ws-ink-muted) 0 3px, var(--ws-surface-200) 3px 6px);
     --ws-chart-area-5: color-mix(in srgb, var(--ws-ink-muted) 45%, var(--ws-surface-200));
+    --ws-skeleton-shine: color-mix(in srgb, var(--ws-skeleton) 40%, var(--ws-surface-200));
     --ws-heat-0: var(--ws-surface-300);
     --ws-heat-1: color-mix(in srgb, var(--ws-brand) 25%, var(--ws-surface-200));
     --ws-heat-2: color-mix(in srgb, var(--ws-brand) 50%, var(--ws-surface-200));
@@ -835,6 +851,11 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "light": "#27704C",
       "usage": "Positive change, text on surface-100 and surface-200; always with sign and arrow.",
     },
+    "gain-soft": {
+      "dark": "#3EAC79",
+      "light": "#387F5A",
+      "usage": "Light step of gain («трохи краще»): change or deviation up to 10 % inclusive; always with an arrow.",
+    },
     "goal-0": {
       "dark": "#FFD000",
       "light": "#FFD000",
@@ -889,6 +910,11 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "dark": "#F09090",
       "light": "#B23A3A",
       "usage": "Negative change and error text on surface-100 and surface-200.",
+    },
+    "loss-soft": {
+      "dark": "#DD7F7F",
+      "light": "#C34A48",
+      "usage": "Light step of loss («трохи гірше»): change or deviation up to 10 % inclusive; always with an arrow.",
     },
     "on-accent": {
       "dark": "#0B2545",
@@ -1024,6 +1050,11 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "dark": "#FBBC05",
       "light": "#FBBC05",
       "usage": "Limit usage gradient stop 95–100 %; not the accent amber.",
+    },
+    "warning-line": {
+      "dark": "#E0A04A",
+      "light": "#A15C07",
+      "usage": "Warning marker on a chart; at least 3:1 on tint-warning and surface-200. Always with «!» and a word.",
     },
   },
   "componentTypeScale": {
