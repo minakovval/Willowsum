@@ -292,6 +292,38 @@
   align-items: flex-start;
 }
 
+.gallery-icon-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ws-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-icon-sizes li {
+  display: grid;
+  justify-items: center;
+  gap: var(--ws-space-1);
+}
+
+/* DS-12@PoC AC5: narrow cells, so a long label wraps under its icon. */
+.gallery-icon-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--ws-space-8));
+  gap: var(--ws-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery-icon-tiles li {
+  display: flex;
+  justify-content: center;
+  min-inline-size: 0;
+}
+
 .gallery-marks {
   display: flex;
   flex-wrap: wrap;

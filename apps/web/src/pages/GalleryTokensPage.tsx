@@ -15,13 +15,15 @@ import {
   formatRatio,
   HideAmountsSwitch,
   Icon,
-  ICON_GROUPS,
   ICON_PARENT_CHILD,
+  IconTile,
   layers,
   MAIN_ID,
   mediaQueries,
   motion,
   Percent,
+  POC_ICON_GROUPS,
+  PRODUCT_ICONS,
   radii,
   space,
   THEME_ONLY_PAIRS,
@@ -32,7 +34,8 @@ import {
   widthClasses,
   WillowsumMark,
   type ContrastPair,
-  type IconGroup,
+  type PocIconGroup,
+  type ProductKind,
   type ThemeName,
   type TypeStyle,
   type WidthClass,
@@ -54,14 +57,25 @@ const WIDTH_NAV: Record<WidthClass, MessageKey> = {
   wide: "gallery.nav.railOrSidebar",
   large: "gallery.nav.sidebar",
 };
-const ICON_GROUP_LABEL: Record<IconGroup, MessageKey> = {
+const ICON_GROUP_LABEL: Record<PocIconGroup, MessageKey> = {
   sections: "gallery.icons.group.sections",
-  assetTypes: "gallery.icons.group.assetTypes",
-  moneyAndCover: "gallery.icons.group.moneyAndCover",
+  money: "gallery.icons.group.money",
   actions: "gallery.icons.group.actions",
   navigation: "gallery.icons.group.navigation",
   status: "gallery.icons.group.status",
 };
+const PRODUCT_LABEL: Record<ProductKind, MessageKey> = {
+  account: "gallery.icons.product.account",
+  card: "gallery.icons.product.card",
+  loan: "gallery.icons.product.loan",
+  mortgage: "gallery.icons.product.mortgage",
+  goal: "gallery.icons.product.goal",
+  other: "gallery.icons.product.other",
+};
+/** DS-12@PoC item 9: the PoC parent → child pairs (the mortgage); insurance and investment kinds are PoC v2. */
+const POC_PAIRS = ICON_PARENT_CHILD.filter(([, child]) =>
+  (POC_ICON_GROUPS.money as readonly string[]).includes(child),
+);
 
 /** Synthetic sample data only (DS-22 item 6). */
 const SAMPLE = {
@@ -486,11 +500,11 @@ export function GalleryTokensPage() {
       </Section>
 
       <Section id="g-icons" title={t("gallery.section.icons")}>
-        {(Object.keys(ICON_GROUPS) as IconGroup[]).map((group) => (
+        {(Object.keys(POC_ICON_GROUPS) as PocIconGroup[]).map((group) => (
           <div key={group} className="gallery-icon-group">
             <h3>{t(ICON_GROUP_LABEL[group])}</h3>
             <ul className="gallery-icons">
-              {ICON_GROUPS[group].map((name) => (
+              {POC_ICON_GROUPS[group].map((name) => (
                 <li key={name}>
                   <Icon name={name} size={24} />
                   <code>{name}</code>
@@ -499,9 +513,18 @@ export function GalleryTokensPage() {
             </ul>
           </div>
         ))}
+        <h3>{t("gallery.icons.products")}</h3>
+        <ul className="gallery-icons">
+          {(Object.keys(PRODUCT_ICONS) as ProductKind[]).map((kind) => (
+            <li key={kind}>
+              <Icon name={PRODUCT_ICONS[kind]} size={24} />
+              <span>{t(PRODUCT_LABEL[kind])}</span>
+            </li>
+          ))}
+        </ul>
         <h3>{t("gallery.icons.parentChild")}</h3>
         <ul className="gallery-icons gallery-icons--pairs">
-          {ICON_PARENT_CHILD.map(([parent, child]) => (
+          {POC_PAIRS.map(([parent, child]) => (
             <li key={child}>
               <span className="gallery-icon-pair">
                 <Icon name={parent} size={32} />
@@ -512,6 +535,24 @@ export function GalleryTokensPage() {
               </code>
             </li>
           ))}
+        </ul>
+        <h3>{t("gallery.icons.sizes")}</h3>
+        <ul className="gallery-icon-sizes">
+          {([16, 20, 24, 32, 40] as const).map((size) => (
+            <li key={size}>
+              <Icon name="budget" size={size} />
+              <span className="ws-tabular ws-muted">{t("gallery.unit.px", { value: size })}</span>
+            </li>
+          ))}
+        </ul>
+        <h3>{t("gallery.icons.tiles")}</h3>
+        <ul className="gallery-icon-tiles">
+          <li>
+            <IconTile icon="budget" label={t("shell.nav.budget")} />
+          </li>
+          <li>
+            <IconTile icon="recurring" label={t("gallery.icons.tileLong")} />
+          </li>
         </ul>
       </Section>
 

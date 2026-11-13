@@ -57,6 +57,29 @@
   letter-spacing: -0.02em;
 }
 
+/* DS-12@PoC item 13: a tile — the icon keeps its size, the label stands under it and wraps, never over it. */
+.ws-icon-tile {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  text-align: center;
+}
+
+.ws-icon-tile > .ws-icon {
+  flex: none;
+}
+
+.ws-icon-tile-label {
+  display: block;
+  max-inline-size: 100%;
+  overflow-wrap: anywhere;
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
 /* Icon-only button: 44 × 44 touch target (DS-14 item 7), quiet hover (DS-14 item 2). */
 .ws-icon-button {
   display: inline-flex;

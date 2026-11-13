@@ -56,6 +56,9 @@ import {
   Sailboat,
   Scale,
   Search,
+  Shapes,
+  SlidersHorizontal,
+  Columns3,
   Settings,
   Share,
   ShieldCheck,
@@ -78,7 +81,7 @@ import {
   X,
   type IconNode,
 } from "lucide";
-import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
+import { ICON_DOT, ICON_STROKE, ICON_STROKE_BUTTON, type IconSize } from "../tokens/layout.ts";
 
 /**
  * The Willowsum icon set — DS-12. Based on the open-source Lucide set (lucide.dev, ISC licence,
@@ -98,8 +101,7 @@ import { ICON_STROKE, type IconSize } from "../tokens/layout.ts";
  * Custom drawing follows Lucide's rules: 24 px grid, 1 px padding, round joins, whole or half
  * pixel coordinates, no detail closer than 2 px to another.
  *
- * Lucide draws a few dots as tiny filled circles; the fill is dropped (outline only) — with a
- * 1.8 px stroke a 0.5-radius circle still reads as a solid dot.
+ * Lucide draws a few dots as tiny circles or zero-length segments; each becomes a solid 2.5 px dot (`draw`).
  */
 
 export type IconName =
@@ -184,7 +186,10 @@ export type IconName =
   | "list"
   | "star"
   | "minus"
-  | "target";
+  | "target"
+  | "options"
+  | "columns"
+  | "other";
 
 /** What a glyph gets to draw with: a unique id for masks and the SVG stroke width in grid units. */
 type GlyphContext = { id: string; sw: number };
@@ -192,26 +197,26 @@ type Glyph = (ctx: GlyphContext) => ReactNode;
 
 const camel = (attr: string) => attr.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
 
-/**
- * Lucide node → React elements. `fill` is dropped so the set stays outline only. A dot (circle of
- * radius ≤ 1) is redrawn as a circle whose own stroke covers its centre: Lucide sizes dots for a
- * 2 px stroke, and at 1.8 px they would otherwise show a pinhole. The dot keeps its outer size.
- * Zero-length dot segments get the same 2.5 px weight, so every dot in the set reads alike.
- */
-/** Lucide's other dot form: zero-length segments ("M3 5h.01"), widened to the same 2.5 px dot. */
+/** Lucide's other dot form: zero-length segments ("M3 5h.01"). */
 const DOT_PATH = /^(M[\d.]+[ ,][\d.]+h\.01)+$/;
 
+/**
+ * Lucide node → React elements. `fill` is dropped so the set stays outline only. Every dot — a circle of
+ * radius ≤ 1, or a zero-length segment — becomes a solid dot `ICON_DOT` (2.5 px) across on screen, not a ring
+ * (DS-12@PoC item 2): a circle whose own stroke covers its centre, or a round cap as wide as the dot. `sw` is the
+ * 1.8 px line in grid units, so the dot scales with it.
+ */
 function draw(node: IconNode, sw: number): ReactNode[] {
+  const dot = (ICON_DOT * sw) / ICON_STROKE;
   return node.map(([tag, attrs], i) => {
     const props: Record<string, unknown> = { key: i };
     for (const [k, v] of Object.entries(attrs)) if (k !== "fill") props[camel(k)] = v;
     const r = tag === "circle" ? Number(attrs.r) : NaN;
     if (r <= 1) {
-      const d = 2 * r + sw;
-      props.r = d / 4;
-      props.strokeWidth = d / 2;
+      props.r = dot / 4;
+      props.strokeWidth = dot / 2;
     }
-    if (tag === "path" && DOT_PATH.test(String(attrs.d))) props.strokeWidth = sw + 1;
+    if (tag === "path" && DOT_PATH.test(String(attrs.d))) props.strokeWidth = dot;
     return createElement(tag, props);
   });
 }
@@ -369,6 +374,11 @@ const GLYPHS: Record<IconName, Glyph> = {
   recurring: lucide(Repeat),
   afford: lucide(Scale),
   collapse: lucide(PanelLeftClose),
+  // CMP-33@PoC «Дії»: list parameters are sliders, never «…» (CMP-59 «Призначення»).
+  options: lucide(SlidersHorizontal),
+  columns: lucide(Columns3),
+  // DS-12@PoC business rule: the generic «інше» for a product without an icon of its own.
+  other: lucide(Shapes),
 };
 
 /** Every icon name, in the design board's order. */
@@ -459,6 +469,8 @@ export const ICON_GROUPS = {
     "star",
     "target",
     "collapse",
+    "options",
+    "columns",
   ],
   /** UX-09@PoC / DS-12 item 4: PoC L1 sections and L2 pages without an icon in the sections group. */
   navigation: ["money", "planning", "recurring", "afford"],
@@ -466,6 +478,37 @@ export const ICON_GROUPS = {
 } as const satisfies Record<string, readonly IconName[]>;
 
 export type IconGroup = keyof typeof ICON_GROUPS;
+
+/**
+ * DS-12@PoC item 4, item 9: the PoC set. No asset-type, insurance or investment icons in this release (they stay in
+ * `ICON_GROUPS` for PoC v2); money is the card and the mortgage, the other products reuse section glyphs
+ * (`PRODUCT_ICONS`).
+ */
+export const POC_ICON_GROUPS = {
+  sections: ICON_GROUPS.sections,
+  money: ["card", "mortgage"],
+  actions: ICON_GROUPS.actions,
+  navigation: ICON_GROUPS.navigation,
+  status: ICON_GROUPS.status,
+} as const satisfies Record<string, readonly IconName[]>;
+
+export type PocIconGroup = keyof typeof POC_ICON_GROUPS;
+
+/** CMP-33@PoC «Гроші й кредит (продукти)»: account, card (unlike the loan), loan, mortgage; goal, other. */
+export type ProductKind = "account" | "card" | "loan" | "mortgage" | "goal" | "other";
+
+export const PRODUCT_ICONS: Readonly<Record<ProductKind, IconName>> = {
+  account: "accounts",
+  card: "card",
+  loan: "debts",
+  mortgage: "mortgage",
+  goal: "goals",
+  other: "other",
+};
+
+/** DS-12@PoC business rule and EC1: a product without an icon of its own shows the generic «інше». */
+export const productIcon = (kind: string): IconName =>
+  Object.prototype.hasOwnProperty.call(PRODUCT_ICONS, kind) ? PRODUCT_ICONS[kind as ProductKind] : "other";
 
 /** DS-12 item 5: parent → child pairs. */
 export const ICON_PARENT_CHILD: readonly (readonly [IconName, IconName])[] = [
@@ -481,6 +524,9 @@ export const isIconName = (v: unknown): v is IconName =>
 
 /** DS-12 item 3: tones. */
 export type IconTone = "default" | "muted" | "brand" | "on-brand";
+
+/** DS-12@PoC item 2: «+» and «✓» inside buttons draw a 2 px line. */
+const BUTTON_STROKE: ReadonlySet<IconName> = new Set<IconName>(["plus", "check"]);
 
 /** DS-12 item 9: only pointing icons mirror in right-to-left languages. */
 const DIRECTIONAL: ReadonlySet<IconName> = new Set<IconName>(["chevron-left", "chevron-right"]);
@@ -522,20 +568,23 @@ export function IconSvg({
 }
 
 /**
- * `<Icon name size tone label>`. Sizes 16 (text, chips), 20 (buttons), 24 (navigation, rows —
+ * `<Icon name size tone label inButton>`. Sizes 16 (text, chips), 20 (buttons), 24 (navigation, rows —
  * default), 32 and 40 (empty states). Decorative (hidden from screen readers) unless `label` is
- * given — then it is one image with that name (DS-12 item 6).
+ * given — then it is one image with that name (DS-12 item 6). `inButton`: the icon sits inside a button, so
+ * «+» and «✓» draw 2 px (DS-12@PoC item 2).
  */
 export function Icon({
   name,
   size = 24,
   tone = "default",
   label,
+  inButton = false,
 }: {
   name: IconName;
   size?: IconSize;
   tone?: IconTone;
-  label?: string;
+  label?: string | undefined;
+  inButton?: boolean;
 }) {
   const cls = ["ws-icon", tone !== "default" && `ws-icon-${tone}`, DIRECTIONAL.has(name) && "ws-dir-flip"]
     .filter(Boolean)
@@ -546,7 +595,7 @@ export function Icon({
       data-size={size}
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
     >
-      <IconSvg name={name} px={size} />
+      <IconSvg name={name} px={size} stroke={inButton && BUTTON_STROKE.has(name) ? ICON_STROKE_BUTTON : ICON_STROKE} />
     </span>
   );
 }

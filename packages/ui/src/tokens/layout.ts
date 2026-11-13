@@ -71,6 +71,8 @@ export type IconSize = (typeof iconSizes)[number];
 /** DS-12 item 2: 1.8 px stroke (canvas P0); «+» and «✓» inside buttons use 2 px. */
 export const ICON_STROKE = 1.8;
 export const ICON_STROKE_BUTTON = 2;
+/** DS-12@PoC item 2: dots («ще», «список», «інфо») are solid dots 2.5 px across on screen. */
+export const ICON_DOT = 2.5;
 
 /** Media query strings for matchMedia; CSS cannot read custom properties inside @media. */
 export const mediaQueries = {
