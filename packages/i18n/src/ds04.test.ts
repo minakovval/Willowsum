@@ -1,4 +1,5 @@
 import {
+  currencySymbolOf,
   formatDate,
   formatDateTime,
   formatDelta,
@@ -100,6 +101,8 @@ describe("DS-04@PoC: dates and time", () => {
   });
 
   it("DS-04@PoC AC6: the audit entry 2026-10-26T12:05:00Z in Europe/Kyiv shows «26 жовт. 2026 р., 14:05»", () => {
+    // The machine is pinned to UTC, so the result proves the conversion into the user's zone.
+    process.env.TZ = "UTC";
     expect(plain(formatDateTime("uk", "2026-10-26T12:05:00Z", "Europe/Kyiv"))).toBe(
       "26 жовт. 2026 р., 14:05",
     );
@@ -196,10 +199,10 @@ describe("DS-04@PoC: percentages and changes", () => {
     }
   });
 
-  it("DS-04@PoC FR 4: one change moves one way; parts that disagree are refused", () => {
-    expect(() => formatDelta("uk", { amount: { value: "100", currency: "EUR" }, percent: "-1" })).toThrow(
-      RangeError,
-    );
+  it("DS-04@PoC FR 4: a change needs at least one part; parts that disagree do not throw (see round 1)", () => {
+    expect(() =>
+      formatDelta("uk", { amount: { value: "100", currency: "EUR" }, percent: "-1" }),
+    ).not.toThrow();
     expect(() => formatDelta("uk", {})).toThrow(RangeError);
   });
 
@@ -248,5 +251,87 @@ describe("DS-04@PoC FR 1: only Intl formatting by the user's regional format", (
   it("DS-04@PoC FR 1: the same value follows the regional format of each language", () => {
     expect(plain(formatNumber("uk", "1234.5"))).toBe("1 234,5");
     expect(formatNumber("en", "1234.5")).toBe("1,234.5");
+  });
+});
+
+describe("DS-04@PoC: review round 1", () => {
+  it("DS-04@PoC FR 16: English percentage points join the number and «pp» with a no-break space", () => {
+    expect(formatPoints("en", "2")).toBe("2\u00A0pp");
+  });
+
+  it("DS-04@PoC AC15: in English «▼ 2 pp» stays together; only «m/m» may move to a new line", () => {
+    expect(formatDelta("en", { points: "-2", period: "month" }).text.split(" ")).toEqual([
+      "\u25BC\u00A02\u00A0pp",
+      "m/m",
+    ]);
+  });
+
+  it("DS-04@PoC FR 10: the currency name agrees with the number: «1 гривня», «3 876 гривень», «2,50 гривні»", () => {
+    expect(plain(speakMoney("uk", "1", "UAH", { digits: 0 }))).toBe("1 гривня");
+    expect(plain(speakMoney("uk", "3", "UAH", { digits: 0 }))).toBe("3 гривні");
+    expect(plain(speakMoney("uk", "3876", "UAH", { digits: 0 }))).toBe("3 876 гривень");
+    expect(plain(speakMoney("uk", "2.5", "UAH"))).toBe("2,50 гривні");
+    expect(plain(speakMoney("uk", "1", "USD", { digits: 0 }))).toBe("1 долар США");
+    expect(plain(speakMoney("uk", "1001", "USD", { digits: 0 }))).toBe("1 001 долар США");
+    expect(plain(speakMoney("uk", "11", "USD", { digits: 0 }))).toBe("11 доларів США");
+    expect(plain(speakMoney("en", "1", "EUR", { digits: 0 }))).toBe("1 euro");
+    expect(plain(speakMoney("en", "2", "EUR", { digits: 0 }))).toBe("2 euros");
+    expect(plain(speakMoney("en", "1001", "EUR", { digits: 0 }))).toBe("1,001 euros");
+  });
+
+  it("DS-04@PoC FR 10: a currency without catalogue names takes the Intl name in the right form for the value", () => {
+    expect(plain(speakMoney("uk", "1500", "JPY"))).toBe("1 500 японських єн");
+    expect(plain(speakMoney("uk", "1", "JPY"))).toBe("1 японська єна");
+  });
+
+  it("DS-04@PoC FR 4: the spoken name of a change in whole units agrees with the number", () => {
+    const delta = formatDelta("uk", { amount: { value: "3876", currency: "UAH" }, period: "week" });
+    expect(plain(delta.label)).toBe("зросло на 3 876 гривень за тиждень");
+    expect(plain(formatDelta("uk", { amount: { value: "-1", currency: "USD" } }).label)).toBe(
+      "знизилось на 1 долар США",
+    );
+  });
+
+  it("DS-04@PoC FR 4: parts moving opposite ways (a negative base) follow the amount's arrow and keep their own sign", () => {
+    // Net worth from −10 000 € to −5 000 €: +5 000 €, but −50 % of the base.
+    const delta = formatDelta("uk", {
+      amount: { value: "5000", currency: "EUR" },
+      percent: "-50",
+      period: "year",
+    });
+    expect(delta.direction).toBe("up");
+    expect(plain(delta.text)).toBe(`▲ 5 000 € · ${MINUS}50,0 % р/р`);
+    expect(plain(delta.label)).toBe(`зросло на 5 000 євро, ${MINUS}50,0 % за рік`);
+    // Without an amount the first part decides; the other keeps its «+».
+    const points = formatDelta("uk", { percent: "-1", points: "2" });
+    expect(points.direction).toBe("down");
+    expect(plain(points.text)).toBe("▼ 1,0 % · +2 п. п.");
+  });
+
+  it("DS-04@PoC FR 2: a change below one whole unit shows the currency's digits, not «0 €»", () => {
+    const delta = formatDelta("uk", { amount: { value: "0.4", currency: "EUR" }, percent: "0.1" });
+    expect(plain(delta.text)).toBe("▲ 0,40 € · 0,1 %");
+    expect(plain(delta.label)).toBe("зросло на 0,40 євро, 0,1 %");
+    expect(plain(formatDelta("uk", { amount: { value: "-0.004", currency: "EUR" } }).text)).toBe("– 0 €");
+  });
+
+  it("DS-04@PoC FR 4: period labels for every chart step: «д/д», «т/т», «м/м», «к/к», «р/р»", () => {
+    const label = (period: "day" | "week" | "month" | "quarter" | "year", locale: "uk" | "en" = "uk") =>
+      formatDelta(locale, { percent: "1", period }).text.split(" ").at(-1);
+    expect(["day", "week", "month", "quarter", "year"].map((p) => label(p as "day"))).toEqual([
+      "д/д",
+      "т/т",
+      "м/м",
+      "к/к",
+      "р/р",
+    ]);
+    expect(label("quarter", "en")).toBe("q/q");
+    expect(label("day", "en")).toBe("d/d");
+  });
+
+  it("DS-04@PoC FR 2: the currency symbol of the short form comes from the same regional format", () => {
+    expect(currencySymbolOf("uk", "EUR")).toBe("€");
+    expect(currencySymbolOf("uk", "UAH")).toBe("₴");
+    expect(currencySymbolOf("en", "CHF")).toBe("CHF");
   });
 });

@@ -94,23 +94,26 @@ export function speakMoney(
 ): string {
   const format = moneyFormat(locale, currency, options);
   const parts = format.formatToParts(decimal(value));
-  const number = parts
-    .filter((p) => ["integer", "group", "decimal", "fraction"].includes(p.type))
-    .map((p) => p.value)
-    .join("");
+  const pick = (...types: string[]) =>
+    parts
+      .filter((p) => types.includes(p.type))
+      .map((p) => p.value)
+      .join("");
+  const number = pick("integer", "group", "decimal", "fraction");
   const sign = parts.find((p) => p.type === "minusSign" || p.type === "plusSign")?.type;
-  const nameKey = `amount.spoken.currency.${currency}` as MessageKey;
-  const named = translate(locale, nameKey);
+  const category = pluralOf(locale, pick("integer"), pick("fraction"));
   const name =
-    named === nameKey
-      ? (new Intl.NumberFormat(formatLocaleOf(locale), {
-          style: "currency",
-          currency,
-          currencyDisplay: "name",
-        })
-          .formatToParts(1)
-          .find((p) => p.type === "currency")?.value ?? currency)
-      : named;
+    catalogueName(locale, `amount.spoken.currency.${currency}.${category}`) ??
+    catalogueName(locale, `amount.spoken.currency.${currency}.other`) ??
+    // No catalogue names: the `Intl` name of the same displayed value, which agrees with it.
+    new Intl.NumberFormat(formatLocaleOf(locale), {
+      ...format.resolvedOptions(),
+      currencyDisplay: "name",
+      signDisplay: "never",
+    })
+      .formatToParts(decimal(value))
+      .find((p) => p.type === "currency")?.value ??
+    currency;
   const key: MessageKey =
     sign === "minusSign"
       ? "amount.spoken.minus"
@@ -118,6 +121,36 @@ export function speakMoney(
         ? "amount.spoken.plus"
         : "amount.spoken";
   return translate(locale, key, { value: number, currency: name });
+}
+
+/** A catalogue message, or undefined when the key is in no catalogue. */
+function catalogueName(locale: Locale, key: string): string | undefined {
+  const text = translate(locale, key as MessageKey);
+  return text === key ? undefined : text;
+}
+
+/**
+ * The plural category of a displayed number (`Intl.PluralRules` of the regional format). Only the plural
+ * operands matter — the last three integer digits, whether there are more, and the shown fraction — so
+ * the rules get a small stand-in number, never the amount itself.
+ */
+function pluralOf(locale: Locale, integer: string, fraction: string): Intl.LDMLPluralRule {
+  const tail = integer.length > 3 ? `1${integer.slice(-3)}` : integer || "0";
+  return new Intl.PluralRules(formatLocaleOf(locale), { minimumFractionDigits: fraction.length }).select(
+    Number(fraction ? `${tail}.${fraction}` : tail),
+  );
+}
+
+/**
+ * The currency symbol of the regional format («€», «₴»; a currency without a symbol gives its code), for
+ * the abbreviated form of an amount (`formatCompactAmount` of `@willowsum/ui`).
+ */
+export function currencySymbolOf(locale: Locale, currency: string): string {
+  return (
+    moneyFormat(locale, currency)
+      .formatToParts(decimal("1"))
+      .find((p) => p.type === "currency")?.value ?? currency
+  );
 }
 
 /** Display options of a percentage (DS-04 FR 5). */
@@ -166,13 +199,16 @@ export function formatPoints(locale: Locale, value: string, options: PercentForm
 }
 
 /** The comparison period after a change: year to year, month to month, week to week. */
-export type DeltaPeriod = "year" | "month" | "week";
+export type DeltaPeriod = "day" | "week" | "month" | "quarter" | "year";
 
 /** The amount of a change: a decimal string with its sign and an ISO 4217 code. */
 export interface DeltaMoney {
   value: string;
   currency: string;
-  /** Digits after the separator; default 0 — whole units («▲ 9 900 €»). */
+  /**
+   * Digits after the separator. Default: whole units («▲ 9 900 €»); a change that is zero in whole units
+   * but not at the currency's digits shows those digits («▲ 0,40 €»).
+   */
   digits?: number;
 }
 
@@ -184,7 +220,7 @@ export interface DeltaInput {
   percent?: string;
   /** The change of a percentage in percentage points («2 п. п.»). */
   points?: string;
-  /** The comparison period, written after the values («р/р», «м/м», «т/т»). */
+  /** The comparison period, written after the values («д/д», «т/т», «м/м», «к/к», «р/р»). */
   period?: DeltaPeriod;
 }
 
@@ -201,9 +237,11 @@ export interface FormattedDelta {
 
 const ARROW: Record<DeltaDirection, string> = { up: "\u25B2", down: "\u25BC", none: "\u2013" };
 const PERIOD_KEYS: Record<DeltaPeriod, { short: MessageKey; spoken: MessageKey }> = {
-  year: { short: "delta.period.year", spoken: "delta.period.year.spoken" },
-  month: { short: "delta.period.month", spoken: "delta.period.month.spoken" },
+  day: { short: "delta.period.day", spoken: "delta.period.day.spoken" },
   week: { short: "delta.period.week", spoken: "delta.period.week.spoken" },
+  month: { short: "delta.period.month", spoken: "delta.period.month.spoken" },
+  quarter: { short: "delta.period.quarter", spoken: "delta.period.quarter.spoken" },
+  year: { short: "delta.period.year", spoken: "delta.period.year.spoken" },
 };
 const DIRECTION_KEYS: Record<DeltaDirection, MessageKey> = {
   up: "delta.up",
@@ -212,45 +250,60 @@ const DIRECTION_KEYS: Record<DeltaDirection, MessageKey> = {
 };
 
 /**
- * DS-04 FR 4, FR 14, FR 16: a change with an arrow. The arrow shows the direction, so no part has a «+»
- * or «−»: «▲ 9 900 € · 15,0 % р/р», «▼ 200 € · 7,7 % м/м», «▼ 2 п. п. м/м»; a change that is zero after
- * rounding is «– 0,0 %». Each part (arrow with the first value, then each value with its unit) is one
- * unbreakable fragment joined by no-break spaces; a line may break only after «·» and before the period.
- * All parts must move the same way.
+ * DS-04 FR 4, FR 14, FR 16: a change with an arrow. The arrow shows the direction, so a part that moves
+ * that way has no «+» or «−»: «▲ 9 900 € · 15,0 % р/р», «▼ 200 € · 7,7 % м/м», «▼ 2 п. п. м/м»; a change
+ * that is zero after rounding is «– 0,0 %». Each part (arrow with the first value, then each value with
+ * its unit) is one unbreakable fragment joined by no-break spaces; a line may break only after «·» and
+ * before the period. Parts that move opposite ways (a change from a negative base: +5 000 €, −50 %)
+ * never fail: the amount decides the arrow (else the first part that moved), and a part moving the other
+ * way keeps its own sign: «▲ 5 000 € · −50,0 % р/р».
  */
 export function formatDelta(locale: Locale, input: DeltaInput): FormattedDelta {
-  const shown: { text: string; spoken: string; sign: number }[] = [];
-  // The sign after rounding decides the arrow; the parts are then shown without it.
+  type Part = { sign: number; plain: [string, string]; signed: [string, string] };
+  const parts: Part[] = [];
   const signOf = (text: string) => (text.startsWith(MINUS) ? -1 : /[1-9]/.test(text) ? 1 : 0);
   const absolute = (value: string) => decimal(value).replace(/^[-+]/, "");
   if (input.amount) {
-    const { value, currency, digits = 0 } = input.amount;
-    const text = formatMoney(locale, absolute(value), currency, { digits });
-    shown.push({
-      text,
-      spoken: speakMoney(locale, absolute(value), currency, { digits }),
-      sign: signOf(formatMoney(locale, value, currency, { digits })),
+    const { value, currency } = input.amount;
+    let { digits } = input.amount;
+    if (digits === undefined) {
+      // Whole units, unless that hides a change the currency's digits still show («0,40 €», not «0 €»).
+      const whole = formatMoney(locale, value, currency, { digits: 0 });
+      digits = signOf(whole) === 0 && signOf(formatMoney(locale, value, currency)) !== 0 ? undefined : 0;
+    }
+    const options = digits === undefined ? {} : { digits };
+    parts.push({
+      sign: signOf(formatMoney(locale, value, currency, options)),
+      plain: [
+        formatMoney(locale, absolute(value), currency, options),
+        speakMoney(locale, absolute(value), currency, options),
+      ],
+      signed: [
+        formatMoney(locale, value, currency, { ...options, signed: true }),
+        speakMoney(locale, value, currency, { ...options, signed: true }),
+      ],
     });
   }
   if (input.percent !== undefined) {
     const text = formatPercent(locale, absolute(input.percent), { digits: 1 });
-    shown.push({ text, spoken: text, sign: signOf(formatPercent(locale, input.percent, { digits: 1 })) });
+    const signed = formatPercent(locale, input.percent, { digits: 1, signed: true });
+    parts.push({ sign: signOf(signed), plain: [text, text], signed: [signed, signed] });
   }
   if (input.points !== undefined) {
     const text = formatPoints(locale, absolute(input.points));
-    shown.push({ text, spoken: text, sign: signOf(formatPoints(locale, input.points)) });
+    const signed = formatPoints(locale, input.points, { signed: true });
+    parts.push({ sign: signOf(signed), plain: [text, text], signed: [signed, signed] });
   }
-  if (shown.length === 0) throw new RangeError("A change needs an amount, a percentage or points");
-  const signs = new Set(shown.map((p) => p.sign).filter((s) => s !== 0));
-  if (signs.size > 1) throw new RangeError("All parts of a change must move the same way");
-  const [sign = 0] = [...signs];
+  if (parts.length === 0) throw new RangeError("A change needs an amount, a percentage or points");
+  const sign = parts.find((p) => p.sign !== 0)?.sign ?? 0;
   const direction: DeltaDirection = sign > 0 ? "up" : sign < 0 ? "down" : "none";
+  // A part keeps its sign only when it moves against the arrow.
+  const shown = parts.map((p) => (p.sign !== 0 && p.sign !== sign ? p.signed : p.plain));
   const period = input.period ? PERIOD_KEYS[input.period] : undefined;
-  const values = shown.map((p) => p.text).join(`${NBSP}\u00B7 `);
+  const values = shown.map(([text]) => text).join(`${NBSP}\u00B7 `);
   const text = `${ARROW[direction]}${NBSP}${values}${period ? ` ${translate(locale, period.short)}` : ""}`;
-  const spokenValues = shown.map((p) => p.spoken).join(", ");
   const label = translate(locale, DIRECTION_KEYS[direction], {
-    value: spokenValues,
+    value: shown.map(([, spoken]) => spoken).join(", "),
     period: period ? translate(locale, period.spoken) : "",
   }).trim();
   return { text, direction, label };

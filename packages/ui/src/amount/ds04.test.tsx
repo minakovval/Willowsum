@@ -147,4 +147,17 @@ describe("DS-04@PoC: the change with an arrow", () => {
     expect(plain(shown)).not.toContain("9 900");
     expect(plain(shown)).toContain("15,0 %");
   });
+
+  it("DS-04@PoC FR 4: a change from a negative base renders with the amount's arrow instead of failing", () => {
+    // Net worth from −10 000 € to −5 000 €: +5 000 € but −50 % of the base.
+    const { container } = ui(
+      <Delta amount={{ value: "5000", currency: "EUR" }} percent="-50" period="year" />,
+    );
+    const delta = container.querySelector(".ws-delta")!;
+    expect(delta.classList.contains("ws-gain")).toBe(true);
+    expect(plain(delta.querySelector("[aria-hidden='true']")!.textContent)).toBe(
+      "▲ 5 000 € · \u221250,0 % р/р",
+    );
+    expect(delta.querySelector(".ws-visually-hidden")!.textContent).toContain("зросло");
+  });
 });

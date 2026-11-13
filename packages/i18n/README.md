@@ -12,7 +12,7 @@ the user's time zone); the left-to-right pseudo-locale `en-XA` (FR 2: one regist
 generated from English by `pseudoLocalize`; status `pseudo`, offered by the web app outside production only).
 DS-04@PoC: `formatMoney` options (`signed` for «+3 400,00 €», `digits` for whole-unit changes and
 cryptocurrency precision), `speakMoney` (the spoken form «мінус 5,00 євро»; currency names
-`amount.spoken.currency.<CODE>` in the catalogue, else `Intl`), `formatPercent` («2,4 %», layout from
+`amount.spoken.currency.<CODE>.<plural category>` chosen with `Intl.PluralRules`, else the `Intl` name of the same value), `currencySymbolOf`, `formatPercent` («2,4 %», layout from
 `format.percent`), `formatPoints` («2 п. п.»), `formatDelta` (a change with an arrow, no sign:
 «▲ 9 900 € · 15,0 % р/р», its direction and accessible name) and `maskNumber` («··4417»).
 The RTL pseudo-locale is PoC v2. Plural rules and machine-translated languages are still to do.
@@ -24,7 +24,7 @@ The RTL pseudo-locale is PoC v2. Plural rules and machine-translated languages a
 **Public exports:** `I18nProvider`, `useI18n`, `useT`, `translate`, `CATALOGUES`, `LANGUAGES`,
 `DEFAULT_LOCALE`, `FALLBACK_LOCALE`, `PSEUDO_LOCALE`, `isLocale`, `languageOf`, `placeholdersOf`,
 `formatLocaleOf`, `formatNumber`, `formatMoney`, `formatDate`, `formatDateTime`, `speakMoney`,
-`formatPercent`, `formatPoints`, `formatDelta`, `maskNumber`, `pseudoLocalize`,
+`formatPercent`, `formatPoints`, `formatDelta`, `maskNumber`, `currencySymbolOf`, `pseudoLocalize`,
 `pseudoCatalogue`, `keepNumbersTogether`, types `Language`, `Locale`, `MessageKey`, `Messages`, `MoneyFormatOptions`,
 `PercentFormatOptions`, `DeltaInput`, `DeltaPeriod`, `DeltaDirection`, `FormattedDelta`,
 `MessageParams`, `Translate`.

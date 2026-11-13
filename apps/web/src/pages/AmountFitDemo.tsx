@@ -1,23 +1,24 @@
-import { formatMoney, useI18n } from "@willowsum/i18n";
+import { currencySymbolOf, formatMoney, useI18n } from "@willowsum/i18n";
 import { FitAmount, formatCompactAmount } from "@willowsum/ui";
 
 /**
  * DS-04 item 15, AC13 «Великі суми і скорочення»: CMP-07 «Великі значення» at widths 360, 240, 160 and
  * 110 px on synthetic values from 0,01 € to 12 345 678 901,00 € (and one larger). The full values come
- * from `formatMoney`, the abbreviations from `formatCompactAmount`; both follow the interface language
+ * from `formatMoney`, the abbreviations from `formatCompactAmount` with the symbol of `currencySymbolOf`; both follow the interface language
  * (DS-04 item 11): «12,35 трлн €» in Ukrainian, «€12.35tn» in English.
  */
-const HUGE = { value: "12345678901234.00", currency: "EUR", symbol: "€" };
-const BILLIONS = { value: "12345678901.00", currency: "EUR", symbol: "€" };
-const BIG = { value: "1234567.89", currency: "UAH", symbol: "₴" };
-const ORDINARY = { value: "48250.40", currency: "EUR", symbol: "€" };
-const TINY = { value: "0.01", currency: "EUR", symbol: "€" };
+const HUGE = { value: "12345678901234.00", currency: "EUR" };
+const BILLIONS = { value: "12345678901.00", currency: "EUR" };
+const BIG = { value: "1234567.89", currency: "UAH" };
+const ORDINARY = { value: "48250.40", currency: "EUR" };
+const TINY = { value: "0.01", currency: "EUR" };
 const WIDTHS = [360, 240, 160, 110] as const;
 
 export function AmountFitDemo() {
   const { t, locale } = useI18n();
   const full = (a: typeof HUGE) => formatMoney(locale, a.value, a.currency);
-  const short = (a: typeof HUGE) => formatCompactAmount({ value: a.value, currency: a.symbol, locale });
+  const short = (a: typeof HUGE) =>
+    formatCompactAmount({ value: a.value, currency: currencySymbolOf(locale, a.currency), locale });
   return (
     <div className="gallery-fit">
       <p className="ws-muted">{t("gallery.fit.intro")}</p>
