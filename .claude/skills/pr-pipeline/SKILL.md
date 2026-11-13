@@ -85,6 +85,10 @@ and the name for the next session. Record the session's token usage in #180, app
 session title, and tell the owner to start a new session. A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, then reads «Lead state»
 ([restarts](references/restarts.md), [token economy](references/token-economy.md)).
+Every handover is confirmed to the owner in chat in full, item by item: what was done with each item and where
+it is recorded (file, PR or issue, with a link); an item not acted on is marked not done, with the reason. A
+shortened summary does not count. Every owner decision lives in a document (decision log, skill, AGENTS.md,
+requirement) and in the rules it changes, never only in session memory (owner, 2026-11-13).
 
 ## 2. Owner
 
