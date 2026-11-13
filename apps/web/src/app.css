@@ -731,3 +731,77 @@ code {
   justify-self: end;
   inline-size: calc(var(--ws-space-8) * 2);
 }
+
+/* CMP-22@PoC: the Skeleton section of the gallery. */
+.gallery-skeleton {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-skeleton p {
+  margin: 0;
+}
+
+.gallery-skeleton__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-skeleton__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.gallery-skeleton__swap {
+  max-inline-size: calc(var(--ws-space-8) * 8);
+}
+
+.gallery-skeleton__list {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.gallery-skeleton__list h3 {
+  margin: 0;
+}
+
+.gallery-skeleton__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The same 52 px as a skeleton row, so the swap does not move anything. */
+.gallery-skeleton__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  block-size: calc(var(--ws-space-7) + var(--ws-space-1));
+}
+
+.gallery-skeleton__logo {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+}
+
+.gallery-skeleton__text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.gallery-skeleton__text > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

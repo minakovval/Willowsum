@@ -143,6 +143,7 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-duration-spinner: 800ms;
   --ws-duration-spinner-reduced: 2400ms;
   --ws-duration-skeleton: 1600ms;
+  --ws-duration-skeleton-slow: 3000ms;
   --ws-duration-toast: 8000ms;
   --ws-duration-toast-undo: 10000ms;
   --ws-duration-reveal-hold: 350ms;
@@ -1167,6 +1168,7 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
     "duration-reveal-hold": 350,
     "duration-reveal-visible": 3000,
     "duration-skeleton": 1600,
+    "duration-skeleton-slow": 3000,
     "duration-spinner": 800,
     "duration-spinner-reduced": 2400,
     "duration-toast": 8000,

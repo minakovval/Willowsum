@@ -29,7 +29,8 @@
 - [MVP] Спільні правила: П-13, П-16, DS-06, DS-10, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- [лише PoC] Перевіряється: packages/ui/src/skeleton/Skeleton.test.tsx, packages/ui/src/skeleton/Skeleton.css.test.ts, apps/web/src/gallery.test.tsx, apps/web/e2e/skeleton.spec.ts
+- [MVP] Перевіряється: —
 
 **Мета.** Як користувач, я хочу бачити форму майбутнього вмісту, поки він завантажується, щоб сторінка не стрибала і я розумів, що дані йдуть.
 
