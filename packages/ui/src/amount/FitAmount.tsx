@@ -1,6 +1,7 @@
 import { keepNumbersTogether } from "@willowsum/i18n";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Amount, useHideAmounts } from "../privacy/HideAmounts.tsx";
+import { useTooltip } from "../tooltip/Tooltip.tsx";
 import { chooseFit, type FitChoice } from "./fit.ts";
 
 type FitSize = "amount-xl" | "amount-l" | "amount-m" | "amount-s";
@@ -9,7 +10,8 @@ type FitSize = "amount-xl" | "amount-l" | "amount-m" | "amount-s";
  * CMP-07 «Великі значення», DS-08 item 11. An amount that never breaks across lines. After a label in
  * the same line it moves to a new line as a whole (it is one inline-block); when it does not fit even
  * its own line, it shrinks to 80 %, then switches to the abbreviated form, then shrinks down to 55 %.
- * The full value is always in the accessible name and the tooltip.
+ * The full value is always in the accessible name and, once abbreviated, in the tooltip (CMP-25@PoC): the
+ * abbreviated amount then takes the focus so the keyboard reaches the tooltip too.
  */
 export function FitAmount({
   value,
@@ -60,22 +62,32 @@ export function FitAmount({
     return () => ro.disconnect();
   }, [full, short, key, hidden]);
 
+  const { triggerProps, tooltip } = useTooltip(full, choice.abbreviated && !hidden);
+  const setOuter = (el: HTMLSpanElement | null) => {
+    outer.current = el;
+    triggerProps?.ref(el);
+  };
+
   if (hidden) return <Amount value={value} size={size} />;
   return (
-    <span
-      ref={outer}
-      className={`ws-amount-fit ws-text-${size}`}
-      title={choice.abbreviated ? full : undefined}
-    >
+    <>
       <span
-        className="ws-amount ws-tabular"
-        style={{ fontSize: `${choice.scale}em` }}
-        aria-hidden={choice.abbreviated ? true : undefined}
+        {...triggerProps}
+        ref={setOuter}
+        className={`ws-amount-fit ws-text-${size}`}
+        tabIndex={choice.abbreviated ? 0 : undefined}
       >
-        {choice.text}
+        <span
+          className="ws-amount ws-tabular"
+          style={{ fontSize: `${choice.scale}em` }}
+          aria-hidden={choice.abbreviated ? true : undefined}
+        >
+          {choice.text}
+        </span>
+        {choice.abbreviated ? <span className="ws-visually-hidden">{full}</span> : null}
+        <span ref={probe} className="ws-amount-fit__probe ws-amount ws-tabular" aria-hidden="true" />
       </span>
-      {choice.abbreviated ? <span className="ws-visually-hidden">{full}</span> : null}
-      <span ref={probe} className="ws-amount-fit__probe ws-amount ws-tabular" aria-hidden="true" />
-    </span>
+      {tooltip}
+    </>
   );
 }

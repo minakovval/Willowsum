@@ -416,3 +416,67 @@
     color: var(--ws-ink-muted);
   }
 }
+
+/*
+ * CMP-25@PoC Tooltip: the full text of what is cut off, abbreviated or shown as an icon. A white surface-200 panel
+ * with a 1 px line border, radius 8, shadow-popover; 6 px top and bottom, 10 px at the sides; ink 13/18 px; at
+ * most 320 px wide (64 × 5), then the text wraps. Placed by script (fixed, above the element or below it, inside
+ * the window) on the tooltip layer. It appears and goes at once: no transition.
+ */
+.ws-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--ws-layer-tooltip);
+  box-sizing: border-box;
+  inline-size: max-content;
+  max-inline-size: min(calc(var(--ws-space-8) * 5), calc(100vw - 2 * var(--ws-space-2)));
+  padding: calc(var(--ws-space-1) * 1.5) calc(var(--ws-space-1) * 2.5);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  color: var(--ws-ink);
+  font-family: var(--ws-text-tooltip-family);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: var(--ws-text-tooltip-weight);
+  letter-spacing: var(--ws-text-tooltip-tracking);
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ws-tooltip[hidden] {
+  display: none;
+}
+
+/* Measured but not placed yet (the first layout pass): not painted where it would jump from. */
+.ws-tooltip:not([data-positioned]) {
+  visibility: hidden;
+}
+
+/* WCAG 2.2 1.4.13 (hoverable): a bridge over the 4 px gap, so the pointer reaches the tooltip without leaving it. */
+.ws-tooltip::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  block-size: var(--ws-space-1);
+}
+
+.ws-tooltip[data-placement="top"]::before {
+  inset-block-start: 100%;
+}
+
+.ws-tooltip[data-placement="bottom"]::before {
+  inset-block-end: 100%;
+}
+
+/* CMP-25@PoC: one line cut off with an ellipsis; focusable (with the DS-14 ring) only while cut off. */
+.ws-truncate {
+  display: block;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

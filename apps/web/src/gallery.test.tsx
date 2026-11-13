@@ -86,14 +86,41 @@ describe("/gallery/tokens (DS-22)", () => {
       const text = norm(box.textContent);
       expect(text).toContain("0,01 €");
       expect(norm(box.innerHTML)).toContain("12,35 млрд €");
-      // The full value stays in the tooltip and for screen readers.
-      const titles = [...box.querySelectorAll(".ws-amount-fit[title]")].map((el) =>
-        norm(el.getAttribute("title")),
+      // The full value stays in the tooltip (CMP-25@PoC) and for screen readers.
+      const tips = [...box.querySelectorAll(".ws-amount-fit[aria-describedby]")].map((el) =>
+        norm(document.getElementById(el.getAttribute("aria-describedby")!)!.textContent),
       );
-      expect(titles).toContain("12 345 678 901,00 €");
+      expect(tips).toContain("12 345 678 901,00 €");
       // Each amount is one unbreakable run.
       expect(box.querySelectorAll(".ws-amount-fit").length).toBe(5);
     }
+  });
+
+  it("CMP-25@PoC gallery: the Tooltip section shows a cut-off name, a name that fits, an abbreviated amount and an icon-only button", () => {
+    // jsdom has no layout: every box is 40 px wide, the names are 400 px of text, the amounts 10 px per character.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(40);
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.textContent === "Подушка безпеки" ? 40 : 400;
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { width: (this.textContent ?? "").length * 10 } as DOMRect;
+    });
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-tooltip")!.textContent).toBe("Підказка");
+    const at = (c: string) => container.querySelector(`[data-case="${c}"]`)!;
+    const cut = at("cut").querySelector<HTMLElement>(".ws-truncate")!;
+    const fits = at("fits").querySelector<HTMLElement>(".ws-truncate")!;
+    expect(cut.tabIndex).toBe(0);
+    expect(norm(document.getElementById(cut.getAttribute("aria-describedby")!)!.textContent)).toBe(
+      "Відпустка в Карпатах з дітьми влітку 2027 року",
+    );
+    expect(fits.hasAttribute("tabindex")).toBe(false);
+    expect(fits.hasAttribute("aria-describedby")).toBe(false);
+    expect(at("amount").querySelector(".ws-amount-fit[aria-describedby]")).not.toBeNull();
+    const button = within(at("icon") as HTMLElement).getByRole("button", { name: "Додати транзакцію" });
+    expect(document.getElementById(button.getAttribute("aria-describedby")!)!.getAttribute("role")).toBe(
+      "tooltip",
+    );
   });
 
   it("switches language to English", () => {
