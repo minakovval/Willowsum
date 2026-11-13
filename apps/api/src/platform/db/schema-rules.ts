@@ -61,34 +61,74 @@ export const LEDGER_CODE_COLUMNS: Readonly<Record<string, string>> = {
 };
 
 const LEDGER_SCHEMA = "ledger";
-const TEXT_LIKE_RE =
-  /^(?:[a-z_][a-z0-9_]*\.)?(text|character varying|character|"char"|name|citext|json|jsonb|xml|bytea|tsvector)(\(\d+\))?$|\[\]$/;
-/** A CHECK that limits a column to a code: a regular expression (not its negation), a list, or a jsonpath regex. */
-const CODE_CHECK_RE = /(?<![!])~(?!\*)|= ANY \(|like_regex/;
+/**
+ * Deny by default (security review of #184): a ledger column is free of text only if its type, with every domain
+ * resolved down to its base, is one of these or an enum. Anything else (text, bpchar, json, jsonpath, tsquery, an
+ * array, a composite or range type, a domain over a domain…) must be a listed code column with its CHECK.
+ */
+const NON_TEXT_TYPES = new Set([
+  "uuid",
+  "boolean",
+  "smallint",
+  "integer",
+  "bigint",
+  "numeric",
+  "date",
+  "timestamp with time zone",
+  "timestamp without time zone",
+]);
+/**
+ * A CHECK that limits a column to a code: a list of values, or anchored regular expressions (`~ '^…$'`, or a jsonpath
+ * `like_regex "^…$"`) without a wildcard that lets text through (`.*`, `.+`, `.{n,m}`, `[^…]`); never a LIKE (`~~`),
+ * a negation (`!~`) or a condition widened by an OR (security review of #184).
+ */
+function isCodeCheck(def: string): boolean {
+  if (/\bOR\b/.test(def) || /~~/.test(def)) return false;
+  const patterns = [
+    ...[...def.matchAll(/(?<![!~])~ '((?:[^']|'')*)'/g)].map((m) => m[1]!),
+    ...[...def.matchAll(/like_regex "((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]!),
+  ];
+  const list = /= ANY \(/.test(def);
+  if (patterns.length === 0) return list;
+  return patterns.every(
+    (p) =>
+      p.startsWith("^") &&
+      p.endsWith("$") &&
+      !/(?<!\\)\.(?:[*+{]|$)|\[\^/.test(p.replace(/\[[^\]]*\]/g, (c) => (c.startsWith("[^") ? c : "[]"))),
+  );
+}
 
 /** ARC-11 (issue #128): text-like columns of the ledger schema not in LEDGER_CODE_COLUMNS, or without their CHECK. */
 export async function ledgerFreeTextProblems(client: pg.ClientBase): Promise<string[]> {
-  const { rows } = await client.query<{ column: string; base: string; checks: string[] }>(
-    `SELECT n.nspname || '.' || c.relname || '.' || a.attname AS column,
-            format_type(COALESCE(NULLIF(t.typbasetype, 0), a.atttypid),
-                        CASE WHEN t.typbasetype <> 0 THEN t.typtypmod ELSE a.atttypmod END) AS base,
+  const { rows } = await client.query<{ column: string; base: string; enum: boolean; checks: string[] }>(
+    `WITH RECURSIVE base(oid, start, typmod) AS (
+         SELECT t.oid, t.oid, -1 FROM pg_type t
+       UNION ALL
+         SELECT t.typbasetype, b.start, t.typtypmod FROM base b JOIN pg_type t ON t.oid = b.oid WHERE t.typtype = 'd'
+     ), resolved AS (
+       SELECT b.start, b.oid, b.typmod FROM base b JOIN pg_type t ON t.oid = b.oid WHERE t.typtype <> 'd'
+     )
+     SELECT n.nspname || '.' || c.relname || '.' || a.attname AS column,
+            format_type(r.oid, CASE WHEN r.oid = a.atttypid THEN a.atttypmod ELSE r.typmod END) AS base,
+            bt.typtype = 'e' AS enum,
             coalesce(array_agg(pg_get_constraintdef(k.oid)) FILTER (WHERE k.oid IS NOT NULL), '{}') AS checks
        FROM pg_attribute a
        JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
-       JOIN pg_type t ON t.oid = a.atttypid
+       JOIN resolved r ON r.start = a.atttypid
+       JOIN pg_type bt ON bt.oid = r.oid
        LEFT JOIN pg_constraint k ON k.conrelid = c.oid AND k.contype = 'c' AND k.conkey = ARRAY[a.attnum]
       WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'f') AND a.attnum > 0 AND NOT a.attisdropped
-      GROUP BY 1, 2 ORDER BY 1`,
+      GROUP BY 1, 2, 3 ORDER BY 1`,
     [LEDGER_SCHEMA],
   );
   const problems: string[] = [];
   for (const r of rows) {
-    if (!TEXT_LIKE_RE.test(r.base)) continue;
+    if (r.enum || NON_TEXT_TYPES.has(r.base.replace(/\(\d+(,\d+)?\)$/, ""))) continue;
     if (!(r.column in LEDGER_CODE_COLUMNS))
       problems.push(
         `${r.column}: ${r.base} — no free text in the ledger (ARC-11: no descriptions, names or notes; texts live in the source module). A code column goes to LEDGER_CODE_COLUMNS in schema-rules.ts with a CHECK that limits it to a code`,
       );
-    else if (!r.checks.some((def) => CODE_CHECK_RE.test(def)))
+    else if (!r.checks.some(isCodeCheck))
       problems.push(
         `${r.column}: a ledger code column needs a CHECK of its own that limits it to a code (a pattern, a list of values or a jsonpath like_regex) (ARC-11)`,
       );
