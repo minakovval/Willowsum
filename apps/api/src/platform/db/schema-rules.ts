@@ -34,10 +34,12 @@ import {
 
 /**
  * ARC-11: the ledger holds no descriptions, merchant names, notes or other text — an entry points to its source
- * (module and id), and texts live there. In the `ledger` schema a text-like column (text, varchar, char, citext,
- * name, json, jsonb, xml, bytea, tsvector, or an array) is allowed only if it is listed here, with what it holds, and
- * carries a CHECK of its own that limits it to a code (a pattern `~`, a list of values, or a jsonpath `like_regex`
- * for JSON). A new text column needs a change here, which the security review sees.
+ * (module and id), and texts live there. Deny by default: in the `ledger` schema a column is allowed only if its type,
+ * with every domain resolved to its base, is a known non-text type (uuid, numbers, dates, interval, boolean) or an
+ * enum; any other column (text, varchar, char, citext, name, json, jsonb, xml, bytea, tsvector, arrays, composite or
+ * range types…) must be listed here, with what it holds, and carry a CHECK of its own that limits it to a code (a
+ * pattern `~`, a list of values, or a jsonpath `like_regex` for JSON) which PostgreSQL itself refuses free-text
+ * probes with. A new text column needs a change here, which the security review sees.
  */
 export const LEDGER_CODE_COLUMNS: Readonly<Record<string, string>> = {
   "ledger.accounts.type": "account type, one of five codes",
@@ -76,7 +78,15 @@ const NON_TEXT_TYPES = new Set([
   "date",
   "timestamp with time zone",
   "timestamp without time zone",
+  "interval",
 ]);
+/** A type name without its modifiers anywhere: `timestamp(3) with time zone` → `timestamp with time zone`. */
+const stripTypmod = (base: string): string => base.replace(/\(\d+(,\d+)?\)/g, "");
+/** Non-text type, with a length, precision or scale (`numeric(38,18)`, `timestamp(3) with time zone`, `interval day to second(3)`). */
+const isNonTextType = (base: string): boolean => {
+  const b = stripTypmod(base);
+  return NON_TEXT_TYPES.has(b) || /^interval /.test(b);
+};
 /**
  * A CHECK that limits a column to a code: a list of values, or anchored regular expressions (`~ '^…$'`, or a jsonpath
  * `like_regex "^…$"`) without a wildcard that lets text through (`.*`, `.+`, `.{n,m}`, `[^…]`); never a LIKE (`~~`),
@@ -98,9 +108,83 @@ function isCodeCheck(def: string): boolean {
   );
 }
 
+/**
+ * Free text a code CHECK must refuse (security review of #184, round 2): a pattern check alone cannot tell `^[a-z]+$`
+ * from `^\D*$`, `^(.)*$` or `^a|b$`, so every CHECK of a code column is also evaluated by PostgreSQL on these values
+ * and must be false for each of them (a CHECK passes on true and on null). Codes never hold spaces or letters outside
+ * ASCII.
+ */
+const FREE_TEXT_PROBES = [
+  "a b",
+  "кава",
+  "Кава",
+  "a\nb",
+  "a\u00a0b",
+  " ",
+  "Кава в аеропорту Бориспіль, рейс до Варшави",
+  "word ".repeat(39) + "end",
+];
+const FREE_TEXT_JSON_PROBES = FREE_TEXT_PROBES.flatMap((t) => [
+  JSON.stringify({ note: t }),
+  JSON.stringify({ id: "a1", note: t }), // a code beside the text: an «exists a code» CHECK lets it through
+  JSON.stringify(["a1", t]),
+  JSON.stringify({ a: { b: [t] } }),
+  JSON.stringify([t]),
+  JSON.stringify(t),
+]);
+
+/** True when PostgreSQL's own evaluation of the CHECK `expr` on `column` (of type `base`) lets any probe through. */
+async function checkAcceptsFreeText(
+  client: pg.ClientBase,
+  attname: string,
+  base: string,
+  expr: string,
+): Promise<boolean> {
+  const probes = /^jsonb?$/.test(base)
+    ? FREE_TEXT_JSON_PROBES
+    : /^(text|character varying|citext)(\(\d+\))?$/.test(base)
+      ? FREE_TEXT_PROBES
+      : null;
+  if (!probes) return true; // a type the probes cannot fill: not a code check
+  const ident = `"${attname.replace(/"/g, '""')}"`;
+  // The caller may be inside a transaction (tests, migrations): an error there must not abort it.
+  let inTransaction = true;
+  try {
+    await client.query("SAVEPOINT ledger_free_text_probe");
+  } catch {
+    inTransaction = false;
+  }
+  try {
+    for (const probe of probes) {
+      try {
+        const { rows } = await client.query<{ ok: boolean | null }>(
+          `SELECT (${expr}) AS ok FROM (SELECT $1::${base} AS ${ident}) v`,
+          [probe],
+        );
+        if (rows[0]?.ok !== false) return true;
+      } catch {
+        // The expression raises on this value, so an insert of it fails too: refused.
+        if (inTransaction) {
+          await client.query("ROLLBACK TO SAVEPOINT ledger_free_text_probe");
+        }
+      }
+    }
+    return false;
+  } finally {
+    if (inTransaction) await client.query("RELEASE SAVEPOINT ledger_free_text_probe");
+  }
+}
+
 /** ARC-11 (issue #128): text-like columns of the ledger schema not in LEDGER_CODE_COLUMNS, or without their CHECK. */
 export async function ledgerFreeTextProblems(client: pg.ClientBase): Promise<string[]> {
-  const { rows } = await client.query<{ column: string; base: string; enum: boolean; checks: string[] }>(
+  const { rows } = await client.query<{
+    column: string;
+    attname: string;
+    base: string;
+    enum: boolean;
+    checks: string[];
+    exprs: string[];
+  }>(
     `WITH RECURSIVE base(oid, start, typmod) AS (
          SELECT t.oid, t.oid, -1 FROM pg_type t
        UNION ALL
@@ -108,32 +192,46 @@ export async function ledgerFreeTextProblems(client: pg.ClientBase): Promise<str
      ), resolved AS (
        SELECT b.start, b.oid, b.typmod FROM base b JOIN pg_type t ON t.oid = b.oid WHERE t.typtype <> 'd'
      )
-     SELECT n.nspname || '.' || c.relname || '.' || a.attname AS column,
+     SELECT n.nspname || '.' || c.relname || '.' || a.attname AS column, a.attname,
             format_type(r.oid, CASE WHEN r.oid = a.atttypid THEN a.atttypmod ELSE r.typmod END) AS base,
             bt.typtype = 'e' AS enum,
-            coalesce(array_agg(pg_get_constraintdef(k.oid)) FILTER (WHERE k.oid IS NOT NULL), '{}') AS checks
+            coalesce(array_agg(pg_get_constraintdef(k.oid) ORDER BY k.oid) FILTER (WHERE k.oid IS NOT NULL), '{}') AS checks,
+            coalesce(array_agg(pg_get_expr(k.conbin, k.conrelid) ORDER BY k.oid) FILTER (WHERE k.oid IS NOT NULL), '{}')
+              AS exprs
        FROM pg_attribute a
        JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
        JOIN resolved r ON r.start = a.atttypid
        JOIN pg_type bt ON bt.oid = r.oid
        LEFT JOIN pg_constraint k ON k.conrelid = c.oid AND k.contype = 'c' AND k.conkey = ARRAY[a.attnum]
       WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'f') AND a.attnum > 0 AND NOT a.attisdropped
-      GROUP BY 1, 2, 3 ORDER BY 1`,
+      GROUP BY 1, 2, 3, 4 ORDER BY 1`,
     [LEDGER_SCHEMA],
   );
   const problems: string[] = [];
   for (const r of rows) {
-    if (r.enum || NON_TEXT_TYPES.has(r.base.replace(/\(\d+(,\d+)?\)$/, ""))) continue;
+    if (r.enum || isNonTextType(r.base)) continue;
     if (!(r.column in LEDGER_CODE_COLUMNS))
       problems.push(
         `${r.column}: ${r.base} — no free text in the ledger (ARC-11: no descriptions, names or notes; texts live in the source module). A code column goes to LEDGER_CODE_COLUMNS in schema-rules.ts with a CHECK that limits it to a code`,
       );
-    else if (!r.checks.some(isCodeCheck))
+    else if (!(await someCodeCheck(client, r)))
       problems.push(
         `${r.column}: a ledger code column needs a CHECK of its own that limits it to a code (a pattern, a list of values or a jsonpath like_regex) (ARC-11)`,
       );
   }
   return problems;
+}
+
+/** A CHECK of the column that is a code pattern and that PostgreSQL itself refuses every free-text probe with. */
+async function someCodeCheck(
+  client: pg.ClientBase,
+  r: { attname: string; base: string; checks: string[]; exprs: string[] },
+): Promise<boolean> {
+  for (const [i, def] of r.checks.entries()) {
+    if (isCodeCheck(def) && !(await checkAcceptsFreeText(client, r.attname, r.base, r.exprs[i]!)))
+      return true;
+  }
+  return false;
 }
 
 /** apps/api/schema-exemptions.json: tables in module schemas that hold no customer data, with the reason. */
