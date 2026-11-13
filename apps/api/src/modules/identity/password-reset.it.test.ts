@@ -249,7 +249,7 @@ describe("ACC-01 AC16, FR 10: a reset request mails a single-use link valid 60 m
     expect((await completeReset(second)).json()).toEqual({ status: "password-changed" });
   });
 
-  it("the link expires at 60 min: valid at 59:59.999, refused at exactly 60:00 (check and complete)", async () => {
+  it("NFR-12@PoC FR 4 (reset link, 60 min): valid at 59:59.999, refused at exactly 60:00 (check and complete)", async () => {
     const email = await confirmed("ac16-expiry");
     const token = await resetLink(email);
     t += HOUR - 1;
@@ -263,7 +263,7 @@ describe("ACC-01 AC16, FR 10: a reset request mails a single-use link valid 60 m
     expect((await signIn({ email, password: PASSWORD })).statusCode).toBe(200);
   });
 
-  it("a link works once: a second use is refused and changes nothing", async () => {
+  it("NFR-12@PoC FR 4 (reset link, single use): a second use is refused and changes nothing", async () => {
     const email = await confirmed("ac16-once");
     const token = await resetLink(email);
     expect((await completeReset(token)).statusCode).toBe(200);
