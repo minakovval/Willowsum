@@ -1,5 +1,5 @@
 import { useEffect, type CSSProperties, type ReactNode } from "react";
-import { LANGUAGES, useI18n, type MessageKey } from "@willowsum/i18n";
+import { useI18n, type MessageKey } from "@willowsum/i18n";
 import {
   Amount,
   breakpoints,
@@ -37,6 +37,7 @@ import {
   type TypeStyle,
   type WidthClass,
 } from "@willowsum/ui";
+import { offeredLanguages } from "../i18n/languages.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
@@ -239,7 +240,7 @@ export function GalleryTokensPage() {
         <fieldset className="ws-segmented">
           <legend className="ws-segmented-legend">{t("language.label")}</legend>
           <div className="ws-segmented-options">
-            {LANGUAGES.map((l) => (
+            {offeredLanguages(import.meta.env.MODE).map((l) => (
               <label key={l.code} className="ws-segmented-option" lang={l.code}>
                 <input
                   type="radio"
@@ -339,7 +340,7 @@ export function GalleryTokensPage() {
           {Object.entries(space).map(([name, px]) => (
             <li key={name}>
               <code>{name}</code>
-              <span className="ws-tabular ws-muted">{px} px</span>
+              <span className="ws-tabular ws-muted">{t("gallery.unit.px", { value: px })}</span>
               <span className="gallery-space-bar" style={{ inlineSize: cssVar(name) }} aria-hidden="true" />
             </li>
           ))}
@@ -356,7 +357,7 @@ export function GalleryTokensPage() {
                 aria-hidden="true"
               />
               <code>{name}</code>
-              <span className="ws-tabular ws-muted">{px} px</span>
+              <span className="ws-tabular ws-muted">{t("gallery.unit.px", { value: px })}</span>
             </li>
           ))}
         </ul>
@@ -428,7 +429,7 @@ export function GalleryTokensPage() {
                     <code>{name}</code>
                   </td>
                   <td data-label={t("gallery.col.duration")} className="ws-tabular">
-                    {ms} ms
+                    {t("gallery.unit.ms", { value: ms })}
                   </td>
                 </tr>
               ))}
@@ -459,16 +460,18 @@ export function GalleryTokensPage() {
                   <tr key={cls}>
                     <td data-label={t("gallery.col.class")}>{t(WIDTH_LABEL[cls])}</td>
                     <td data-label={t("gallery.col.range")} className="ws-tabular">
-                      {w.to === null ? `≥ ${from} px` : `${from}–${w.to} px`}
+                      {w.to === null
+                        ? t("gallery.range.from", { from })
+                        : t("gallery.range.between", { from, to: w.to })}
                     </td>
                     <td data-label={t("gallery.col.columns")} className="ws-tabular">
                       {w.columns}
                     </td>
                     <td data-label={t("gallery.col.margin")} className="ws-tabular">
-                      {w.margin} px
+                      {t("gallery.unit.px", { value: w.margin })}
                     </td>
                     <td data-label={t("gallery.col.gutter")} className="ws-tabular">
-                      {w.gutter} px
+                      {t("gallery.unit.px", { value: w.gutter })}
                     </td>
                     <td data-label={t("gallery.col.navigation")}>{t(WIDTH_NAV[cls])}</td>
                   </tr>

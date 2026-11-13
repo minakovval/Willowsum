@@ -91,11 +91,90 @@ const PROVIDER_SDK_RES = PROVIDER_SDK_PATTERNS.map((p) => new RegExp(p.regex));
 const PROVIDER_SDK_MESSAGE =
   PROVIDER_SDK_PATTERNS[0]?.message ?? "A provider SDK is used only inside an adapter.";
 /**
+ * NFR-09@PoC FR 1 (criterion «i18n»), П-15: no hard-coded strings in the interface. Text the user reads or
+ * hears comes from the translation catalogue (`@willowsum/i18n`). Reported: JSX text with a letter; a string
+ * literal or template with a letter shown as a JSX child (also behind `?:`, `&&`, `||`, `??`) or given to an
+ * attribute the user reads or hears; a literal message of alert, confirm or prompt. Digits, symbols and
+ * punctuation are allowed. apps/web/src/i18n/noHardcodedStrings.test.ts checks this rule and that it applies
+ * to every interface file (fails closed).
+ */
+const LETTER = /\p{L}/u;
+const UI_TEXT_ATTRIBUTES = new Set([
+  "aria-label",
+  "aria-description",
+  "aria-placeholder",
+  "aria-roledescription",
+  "aria-valuetext",
+  "title",
+  "placeholder",
+  "alt",
+  "label",
+]);
+const UI_DIALOGS = new Set(["alert", "confirm", "prompt"]);
+const HARDCODED_MESSAGE =
+  "Hard-coded interface text: put it in the translation catalogue (packages/i18n) and use t() (NFR-09 FR 1, П-15).";
+const literalText = (node) =>
+  node.type === "Literal" && typeof node.value === "string"
+    ? node.value
+    : node.type === "TemplateLiteral"
+      ? node.quasis.map((q) => q.value.cooked ?? "").join("")
+      : null;
+/** Skips the conditional and logical expressions a literal can sit in. */
+const valueParent = (node) => {
+  let p = node.parent;
+  while (p && (p.type === "ConditionalExpression" || p.type === "LogicalExpression")) {
+    if (p.type === "ConditionalExpression" && p.test === node) return null;
+    node = p;
+    p = p.parent;
+  }
+  return p;
+};
+const noHardcodedUiStrings = {
+  meta: { type: "problem", schema: [] },
+  create(context) {
+    const check = (node) => {
+      const text = literalText(node);
+      if (text === null || !LETTER.test(text)) return;
+      let p = valueParent(node);
+      if (p?.type === "JSXExpressionContainer") {
+        if (p.parent.type === "JSXElement" || p.parent.type === "JSXFragment")
+          return context.report({ node, message: HARDCODED_MESSAGE });
+        p = p.parent;
+      }
+      if (p?.type === "JSXAttribute" && UI_TEXT_ATTRIBUTES.has(p.name.name))
+        return context.report({ node, message: HARDCODED_MESSAGE });
+      if (p?.type === "CallExpression" && p.arguments[0] === node) {
+        const callee = p.callee;
+        const name =
+          callee.type === "Identifier"
+            ? callee.name
+            : callee.type === "MemberExpression" && callee.property.type === "Identifier"
+              ? callee.property.name
+              : null;
+        const onWindow =
+          callee.type === "Identifier" ||
+          (callee.type === "MemberExpression" &&
+            callee.object.type === "Identifier" &&
+            callee.object.name === "window");
+        if (name && onWindow && UI_DIALOGS.has(name)) context.report({ node, message: HARDCODED_MESSAGE });
+      }
+    };
+    return {
+      JSXText(node) {
+        if (LETTER.test(node.value)) context.report({ node, message: HARDCODED_MESSAGE });
+      },
+      Literal: check,
+      TemplateLiteral: check,
+    };
+  },
+};
+/**
  * The loading forms `no-restricted-imports` does not see: `import()`, `import("x").T`, `require()` and
  * `createRequire(…)()` (ARC-05 FR 1). The dependency analyzer (`pnpm check:modules`) checks the same in CI.
  */
 const willowsumPlugin = {
   rules: {
+    "no-hardcoded-ui-strings": noHardcodedUiStrings,
     "no-provider-sdk-load": {
       meta: { type: "problem", schema: [] },
       create(context) {
@@ -221,6 +300,13 @@ export default tseslint.config(
     // Analyzer fixtures import provider SDKs on purpose (apps/api/scripts/lib/provider-sdks.test.ts).
     files: ["apps/api/test/fixtures/provider-sdks/**"],
     rules: { "no-restricted-imports": "off", "willowsum/no-provider-sdk-load": "off" },
+  },
+  {
+    // NFR-09@PoC FR 1: interface text only from the translation catalogue (tests and test helpers excepted).
+    files: ["apps/web/src/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.{ts,tsx}", "**/testing.tsx", "**/test-utils/**"],
+    plugins: { willowsum: willowsumPlugin },
+    rules: { "willowsum/no-hardcoded-ui-strings": "error" },
   },
   {
     // Tests may use literals freely (they assert the rules above), and translation catalogues hold words.

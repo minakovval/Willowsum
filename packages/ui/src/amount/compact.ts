@@ -1,4 +1,4 @@
-import type { Locale } from "@willowsum/i18n";
+import { formatLocaleOf, translate, type Locale, type MessageKey } from "@willowsum/i18n";
 
 /**
  * CMP-07 «Великі значення», DS-04 item 11: the abbreviated form of an amount. Pure string arithmetic
@@ -9,12 +9,34 @@ import type { Locale } from "@willowsum/i18n";
  * uk — decimal comma, the minus in front, the currency symbol after the unit, no-break spaces between
  * the parts: «128,4 тис. €», «−1,24 млн ₴»; en — the currency symbol first, decimal point, no spaces:
  * «€128.4k», «−€1.24M» (a letter code keeps a no-break space: «CHF 128.4k»). The minus is always
- * U+2212.
+ * U+2212. Units and layout come from the language registry and catalogue (NFR-09 FR 2).
  */
-const COMPACT_UNITS: Record<Locale, readonly string[]> = {
-  uk: ["", "тис.", "млн", "млрд", "трлн", "квдрлн", "квінтлн"],
-  en: ["", "k", "M", "bn", "tn", "qd", "qn"],
-};
+
+/** Unit words from the language's catalogue (NFR-09 FR 2: a new language needs no code here). */
+const UNIT_KEYS: readonly MessageKey[] = [
+  "amount.compact.thousand",
+  "amount.compact.million",
+  "amount.compact.billion",
+  "amount.compact.trillion",
+  "amount.compact.quadrillion",
+  "amount.compact.quintillion",
+];
+const unitsOf = (locale: Locale): readonly string[] => ["", ...UNIT_KEYS.map((k) => translate(locale, k))];
+
+/**
+ * The layout of the language's regional format: the currency symbol first («€128.4k», en-GB) or last
+ * («128,4 тис. €», uk-UA), and the decimal separator — read from `Intl`, so a new language needs no code.
+ */
+function layoutOf(locale: Locale): { symbolFirst: boolean; decimal: string } {
+  const parts = new Intl.NumberFormat(formatLocaleOf(locale), {
+    style: "currency",
+    currency: "EUR",
+    currencyDisplay: "narrowSymbol",
+  }).formatToParts(1.5);
+  const at = (type: string) => parts.findIndex((p) => p.type === type);
+  return { symbolFirst: at("currency") < at("integer"), decimal: parts[at("decimal")]?.value ?? "." };
+}
+
 /** Units per language: none, thousand, million, billion, trillion, quadrillion, quintillion. */
 const UNIT_COUNT = 7;
 const MINUS = "−";
@@ -47,12 +69,13 @@ export interface CompactInput {
 
 /** «12,35 трлн €» (uk) or «€12.35tn» (en) style string, or null when the amount is below 1 000 and needs no abbreviation. */
 export function formatCompactAmount({ value, currency, locale }: CompactInput): string | null {
-  const units = COMPACT_UNITS[locale];
+  const units = unitsOf(locale);
   const top = units[UNIT_COUNT - 1] ?? "";
+  const { symbolFirst, decimal } = layoutOf(locale);
   const show = (sign: string, int: string, frac: string, unit: string) =>
-    locale === "en"
-      ? `${sign}${currency}${/[A-Za-z]$/.test(currency) ? NBSP : ""}${frac ? `${int}.${frac}` : int}${unit}`
-      : `${sign}${frac ? `${int},${frac}` : int}${NBSP}${unit}${NBSP}${currency}`;
+    symbolFirst
+      ? `${sign}${currency}${/[A-Za-z]$/.test(currency) ? NBSP : ""}${frac ? `${int}${decimal}${frac}` : int}${unit}`
+      : `${sign}${frac ? `${int}${decimal}${frac}` : int}${NBSP}${unit}${NBSP}${currency}`;
   // Only a plain decimal string is accepted; anything else (spaces, grouping, exponents) gives null.
   if (!/^[-+]?\d+(\.\d+)?$/.test(value.trim())) return null;
   const negative = value.trim().startsWith("-");

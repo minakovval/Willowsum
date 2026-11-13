@@ -32,7 +32,8 @@
 - [MVP] Спільні правила: П-15, L10N-01, L10N-02
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- [лише PoC] Перевіряється: packages/i18n/src/format.test.ts, packages/i18n/src/pseudo.test.tsx, packages/ui/src/amount/amount.test.ts, apps/web/src/i18n/pseudoLocale.test.tsx, apps/web/src/i18n/noHardcodedStrings.test.ts
+- [PoC v2] Перевіряється: —
 
 **Мета.** Як користувач з ЄС чи України, я хочу користуватися Willowsum своєю мовою, з датами, числами і валютами у звичному форматі, щоб інтерфейс був зрозумілим.
 
