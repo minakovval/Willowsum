@@ -31,16 +31,18 @@ import {
   type PostInput,
 } from "./application/index.ts";
 import type { AccountType } from "./domain/index.ts";
+import { entryRecorded } from "./events.ts";
 
 export const ledgerModule = defineModule({
   name: "ledger",
-  publishes: [],
+  publishes: [entryRecorded],
   consumes: [],
 });
 
 export { ACCOUNT_TYPES, EVENT_TYPES, LedgerError, RULES_VERSION, SERVICE_ACCOUNTS } from "./domain/index.ts";
 export type { AccountType, LedgerEvent, LedgerEventType, ServiceAccount } from "./domain/index.ts";
 export { INTEGRITY_CHECKS } from "./application/index.ts";
+export { entryRecorded, type EntryRecorded } from "./events.ts";
 export type {
   Entry,
   EntrySource,
@@ -143,10 +145,17 @@ export function createLedgerIntegrityCheck(
 
 /** Erasure of a space's journal (NFR-12@PoC FR 3, ARC-11 «Видалення даних»; ADR-0013): the owner's erasure script only. */
 export interface LedgerErasure {
-  /** Deletes the space's postings, entries and accounts in one transaction. Repeating it deletes nothing. */
-  eraseHousehold(
-    householdId: string,
-  ): Promise<{ readonly postings: number; readonly entries: number; readonly accounts: number }>;
+  /**
+   * Deletes the space's postings, entries, accounts and queue rows (events, jobs) in one transaction. Repeating it
+   * deletes nothing.
+   */
+  eraseHousehold(householdId: string): Promise<{
+    readonly postings: number;
+    readonly entries: number;
+    readonly accounts: number;
+    readonly events: number;
+    readonly jobs: number;
+  }>;
 }
 
 /** `db` is ledger's erasure database (`withErasureDatabases(…).for("ledger")`, role `ws_era_ledger`). */

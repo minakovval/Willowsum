@@ -8,7 +8,9 @@ import type {
   LedgerStore,
   LedgerTx,
 } from "../../application/index.ts";
+import { publishEvent } from "../../../../platform/queue/index.ts";
 import { LedgerError, SERVICE_ACCOUNTS } from "../../domain/index.ts";
+import { entryRecorded } from "../../events.ts";
 
 /** The ledger schema through the module's own role (FIN-04, ARC-11; tables in migrations/0001_journal.sql). */
 
@@ -176,6 +178,18 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
           postings.map((p) => p.amount.currency),
         ],
       );
+    },
+    async recorded(entry) {
+      // The outbox row commits or rolls back with the entry (ARC-04 FR 2; migrations/0004_outbox.sql).
+      await publishEvent(q, entryRecorded, {
+        entryId: entry.id,
+        sourceModule: entry.source.module,
+        sourceId: entry.source.id,
+        eventType: entry.eventType,
+        operationDate: entry.operationDate,
+        recordedAt: entry.recordedAt,
+        reversesEntryId: entry.reversesEntryId,
+      });
     },
     async totals(accountId, date, asKnownAt) {
       const { rows } = await q.query<{ debits: string; credits: string }>(

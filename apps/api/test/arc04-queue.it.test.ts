@@ -9,14 +9,19 @@ import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import {
+  DEFAULT_CONCURRENCY,
   MAX_ATTEMPTS,
+  QUEUE_RETENTION_DAYS,
   QUEUE_TABLES_SQL,
   createWorker,
   enqueueJob,
+  postgresJobStore,
   publishEvent,
+  purgeQueues,
   type Worker,
   type WorkerOptions,
 } from "../src/platform/queue/index.ts";
+import { modulePoolSize } from "../src/wiring.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
 import {
@@ -131,13 +136,19 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       const sql = readFileSync(`${fixtures}/${module}/adapters/db/migrations/0001_queue.sql`, "utf8");
       expect(sql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     }
+    // The first real module with the queue (ARC-11): the platform's migration verbatim, then its own additions.
+    const ledgerSql = readFileSync(
+      `${apiDir}/src/modules/ledger/adapters/db/migrations/0004_outbox.sql`,
+      "utf8",
+    );
+    expect(ledgerSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     const tables = await rows<{ schema: string; table: string; rls: boolean; forced: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE c.relname IN ('jobs', 'outbox_events') AND c.relkind = 'r' ORDER BY 1, 2`,
     );
     expect(tables).toEqual(
-      ["queue_consumer", "queue_producer"].flatMap((schema) =>
+      ["ledger", "queue_consumer", "queue_producer"].flatMap((schema) =>
         ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),
       ),
     );
@@ -312,5 +323,112 @@ describe("ARC-02@PoC FR 2 and the forced stop: workers keep no state", () => {
     expect(await rows("SELECT count(*)::int AS n FROM queue_consumer.jobs WHERE attempts = 2")).not.toEqual([
       { n: 0 },
     ]);
+  });
+});
+
+describe("ARC-04 follow-ups of #174 with the first real user of the queue (ARC-11)", () => {
+  it("the worker's pool size of main.ts: with DEFAULT_CONCURRENCY jobs of one module running, the next pass still dispatches and claims", async () => {
+    const pooled = new ModuleDatabases({
+      connectionFor: (module) => ({ connectionString: urlAs(db.url, moduleRoleName(module), password) }),
+      context: { connectionString: urlAs(db.url, CONTEXT_ROLE, password) },
+      poolSize: modulePoolSize("worker")!,
+    });
+    let open!: () => void;
+    b.hold = new Promise<void>((resolve) => (open = resolve));
+    const w = worker(
+      { concurrency: DEFAULT_CONCURRENCY, households: async () => [spaceA] },
+      queueSetup(pooled, b),
+    );
+    try {
+      await pooled.for(CONSUMER).inHousehold(spaceA, async (q) => {
+        for (let n = 0; n < DEFAULT_CONCURRENCY; n++) await enqueueJob(q, light, `light-${n}`, { note: "l" });
+      });
+      await w.tick();
+      // Every job is inside its handler, each on its own connection of the consumer's pool.
+      for (const t = Date.now(); b.running.all < DEFAULT_CONCURRENCY && Date.now() - t < 3_000;)
+        await new Promise((r) => setTimeout(r, 20));
+      expect(b.running.all).toBe(DEFAULT_CONCURRENCY);
+      // The next pass reads the consumer's outbox and hands a new event to its queue: it needs one more connection.
+      await createThing(spaceA);
+      const outcome = await Promise.race([
+        w.tick().then(() => "passed"),
+        new Promise((r) => setTimeout(() => r("stalled"), 3_000)),
+      ]);
+      expect(outcome).toBe("passed");
+      open();
+      await drain(w);
+      expect(await rows("SELECT count(*)::int AS n FROM queue_consumer.effects")).toEqual([
+        { n: DEFAULT_CONCURRENCY + 1 },
+      ]);
+    } finally {
+      open();
+      await w.stop();
+      await pooled.end();
+    }
+  });
+
+  it("retention: dispatched events and finished jobs older than their period are deleted; nothing still to do, nothing younger, no other space", async () => {
+    const event = (space: string, dispatchedDaysAgo: number | null) =>
+      owner.query(
+        `INSERT INTO queue_producer.outbox_events (household_id, event_name, event_version, payload, created_at, dispatched_at)
+         VALUES ($1, $2, 1, '{}', now() - interval '100 days', now() - make_interval(days => $3))`,
+        [space, thingCreated.name, dispatchedDaysAgo],
+      );
+    const job = (space: string, key: string, state: string, finishedDaysAgo: number | null) =>
+      owner.query(
+        `INSERT INTO queue_consumer.jobs (household_id, name, dedupe_key, payload, state, created_at, finished_at)
+         VALUES ($1, $2, $3, '{}', $4, now() - interval '100 days', now() - make_interval(days => $5))`,
+        [space, light.name, key, state, finishedDaysAgo],
+      );
+    const { dispatchedEvents, doneJobs, deadJobs } = QUEUE_RETENTION_DAYS;
+    for (const space of [spaceA, spaceB]) {
+      await event(space, dispatchedEvents + 1);
+      await event(space, dispatchedEvents - 1);
+      await event(space, null);
+      await job(space, "done-old", "done", doneJobs + 1);
+      await job(space, "done-young", "done", doneJobs - 1);
+      await job(space, "dead-old", "dead", deadJobs + 1);
+      await job(space, "dead-young", "dead", deadJobs - 1);
+      await job(space, "queued", "queued", null);
+      await job(space, "running", "running", null);
+    }
+    const deleted = await purgeQueues({
+      stores: [postgresJobStore(databases.for(PRODUCER)), postgresJobStore(databases.for(CONSUMER))],
+      households: async () => [spaceA],
+      now: () => Date.now(),
+    });
+    expect(deleted).toEqual({ events: 1, jobs: 2 });
+    expect(
+      await rows(
+        `SELECT household_id = $1 AS a, dispatched_at IS NULL AS pending FROM queue_producer.outbox_events
+          ORDER BY 1, 2`,
+        [spaceA],
+      ),
+    ).toEqual([
+      { a: false, pending: false },
+      { a: false, pending: false },
+      { a: false, pending: true },
+      { a: true, pending: false },
+      { a: true, pending: true },
+    ]);
+    expect(
+      (
+        await rows<{ dedupe_key: string }>(
+          "SELECT dedupe_key FROM queue_consumer.jobs WHERE household_id = $1 ORDER BY 1",
+          [spaceA],
+        )
+      ).map((r) => r.dedupe_key),
+    ).toEqual(["dead-young", "done-young", "queued", "running"]);
+    expect(
+      await rows("SELECT count(*)::int AS n FROM queue_consumer.jobs WHERE household_id = $1", [spaceB]),
+    ).toEqual([{ n: 6 }]);
+    // A second run deletes nothing more.
+    expect(
+      await purgeQueues({
+        stores: [postgresJobStore(databases.for(PRODUCER)), postgresJobStore(databases.for(CONSUMER))],
+        households: async () => [spaceA],
+        now: () => Date.now(),
+      }),
+    ).toEqual({ events: 0, jobs: 0 });
   });
 });

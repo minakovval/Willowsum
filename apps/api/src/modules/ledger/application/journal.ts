@@ -82,6 +82,11 @@ export interface LedgerTx {
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
+  /**
+   * The event «проводку записано» of a new entry, in this transaction (ARC-11, ARC-04 FR 2): it is published only if
+   * the entry commits. Never called for an idempotent repeat, which writes nothing.
+   */
+  recorded(entry: Entry): Promise<void>;
   /** Debit and credit totals of an account over entries dated up to `date`, recorded up to `asKnownAt`. */
   totals(
     accountId: string,
@@ -152,9 +157,15 @@ function assertSource(source: EntrySource): void {
   assertId(source.id, "INVALID_SOURCE");
 }
 
+/** A code, not text (ARC-11: no free text in the journal): the source's event id, 1–200 characters. */
+const KEY_RE = /^[A-Za-z0-9:._-]{1,200}$/;
+
 function assertKey(key: string): void {
-  if (key.length < 1 || key.length > 200)
-    throw new LedgerError("INVALID_IDEMPOTENCY_KEY", "An idempotency key has 1–200 characters");
+  if (!KEY_RE.test(key))
+    throw new LedgerError(
+      "INVALID_IDEMPOTENCY_KEY",
+      "An idempotency key has 1–200 characters: letters, digits and : . _ -",
+    );
 }
 
 /** Resolves every side of the postings to an account of the space; service accounts are made on first use. */
@@ -210,7 +221,9 @@ async function write(
       amount: p.amount,
     })),
   );
-  return (await tx.entry(id))!;
+  const entry = (await tx.entry(id))!;
+  await tx.recorded(entry);
+  return entry;
 }
 
 async function postIn(tx: LedgerTx, deps: JournalDeps, input: PostInput): Promise<Entry> {
