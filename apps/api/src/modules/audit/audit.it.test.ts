@@ -72,9 +72,12 @@ describe("ARC-03 FR 5 / П-10: the audit log", () => {
     ["UPDATE", "UPDATE entries SET action = 'delete'"],
     ["DELETE", "DELETE FROM entries"],
     ["TRUNCATE", "TRUNCATE entries"],
-  ])("criterion: the application role has no %s on the audit table (append-only)", async (_, sql) => {
-    expect(await code(databases.for("audit").inHousehold(householdA, (q) => q.query(sql)))).toBe("42501");
-  });
+  ])(
+    "NFR-12@PoC FR 4 (space audit log, only appended): the application role has no %s on the audit table",
+    async (_, sql) => {
+      expect(await code(databases.for("audit").inHousehold(householdA, (q) => q.query(sql)))).toBe("42501");
+    },
+  );
 
   it.each([
     ["occurred_at", "occurred_at", "'2020-01-01T00:00:00Z'"],

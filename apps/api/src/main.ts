@@ -11,8 +11,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
 import { createHouseholdSpaces } from "./modules/household/index.ts";
-import { createIdentityMaintenance, createIdentityServices } from "./modules/identity/index.ts";
-import { createLedgerIntegrityCheck } from "./modules/ledger/index.ts";
+import { createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
@@ -26,7 +25,13 @@ import { createApiRateLimits } from "./platform/http/rate-limit.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 import { startTelemetry } from "./platform/telemetry/telemetry.ts";
-import { contextPoolOptions, flagReloadHealthLog, modulePoolOptions, readinessCheck } from "./wiring.ts";
+import {
+  contextPoolOptions,
+  flagReloadHealthLog,
+  modulePoolOptions,
+  readinessCheck,
+  schedulerDailyTasks,
+} from "./wiring.ts";
 
 const rules = JSON.parse(
   readFileSync(new URL("../module-rules.json", import.meta.url), "utf8"),
@@ -178,7 +183,6 @@ lifecycle.onStop(() => databases.end());
 lifecycle.onStop(() => server.close());
 // The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
 if (config.role === "scheduler") {
-  const maintenance = createIdentityMaintenance({ db: databases.for("identity"), audit });
   // The owner's alert letters (VAL-05 FR 4, FIN-04 FR 10; owner decision 2026-11-12: PoC alerts are app emails).
   const alertMail = config.alerts.email
     ? {
@@ -189,19 +193,11 @@ if (config.role === "scheduler") {
         })),
       }
     : undefined;
-  // FIN-04 FR 9, FR 10: the ledger's daily integrity check over every space (a failure is an «error» log event) and
-  // one letter to the product owner per discrepancy period; without a recipient, an «error» event instead.
-  const ledgerCheck = createLedgerIntegrityCheck(
-    databases.for("ledger"),
-    () => spaces.spaceIds(),
-    undefined,
-    undefined,
-    alertMail ? { alertMail } : {},
+  // Identity's cleanup (NFR-12@PoC: unconfirmed accounts after 30 days) and the ledger's integrity check with the
+  // owner's letter (FIN-04 FR 9, FR 10; without a recipient, an «error» event instead).
+  const daily = scheduleDaily(
+    schedulerDailyTasks({ databases, audit, spaces, ...(alertMail ? { alertMail } : {}) }),
   );
-  const daily = scheduleDaily([
-    { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
-    { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
-  ]);
   lifecycle.onStop(() => daily.stop());
   // VAL-05 FR 4: without the owner's address no alert letter can go out; say so loudly (the address is never logged).
   if (config.deployed && !config.alerts.email)
