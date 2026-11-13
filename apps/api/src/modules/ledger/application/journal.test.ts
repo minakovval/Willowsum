@@ -138,7 +138,7 @@ describe("FIN-04 FR 5, ARC-11: repeats and reversals are decided before anything
   });
 });
 
-describe("FIN-04 AC7 (core): the daily integrity check", () => {
+describe("FIN-04 AC6 (core): the daily integrity check", () => {
   const findings = (byHousehold: Record<string, Partial<IntegrityFindings>>): LedgerStore => ({
     inHousehold: (householdId, work) =>
       work({

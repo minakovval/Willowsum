@@ -12,7 +12,7 @@ import { setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Security review of PR #123 (FIN-04@PoC part 2): reversal and correction (AC3) and the daily integrity check
- * (core of AC7), on a real PostgreSQL through the ledger module's own role. Spaces, ids and amounts are synthetic.
+ * (core of AC6), on a real PostgreSQL through the ledger module's own role. Spaces, ids and amounts are synthetic.
  */
 
 let db: RealModulesDatabase;
@@ -151,7 +151,7 @@ describe("sec123 — correction (FIN-04 FR 5, AC3): atomic, never in place, the 
   });
 });
 
-describe("sec123 — the daily integrity check (FIN-04 FR 9, AC7): no false positives, no false negatives", () => {
+describe("sec123 — the daily integrity check (FIN-04 FR 9, AC6): no false positives, no false negatives", () => {
   /** Writes rows past every key and trigger, as only a restore or a dropped constraint could. */
   async function damage(rows: (q: (sql: string, values: unknown[]) => Promise<unknown>) => Promise<void>) {
     await db.owner.query("BEGIN");

@@ -15,7 +15,7 @@ import {
 } from "./index.ts";
 
 /**
- * FIN-04@PoC (wave 1: AC1–AC4, core of AC7) and ARC-11 on a real PostgreSQL, through the ledger module's own role:
+ * FIN-04@PoC (wave 1: AC1–AC4, core of AC6) and ARC-11 on a real PostgreSQL, through the ledger module's own role:
  * balanced atomic posting sets, rollback, reversal instead of change, balance on a date, the database constraints
  * and the daily integrity check. Spaces and ids are random; amounts are synthetic.
  */
@@ -525,7 +525,7 @@ describe("FIN-04 FR 2, FR 5 / ARC-11: the database refuses unbalanced, changed o
   });
 });
 
-describe("FIN-04 AC7 (core): the daily integrity check finds broken entries and logs an «error» without amounts", () => {
+describe("FIN-04 AC6 (core): the daily integrity check finds broken entries and logs an «error» without amounts", () => {
   it("a clean journal: nothing reported; broken rows (written past the constraints): each check counted", async () => {
     const s = await space();
     const usd = await ledger.openAccount(
@@ -628,7 +628,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
   const cleanRun = async (mail: MailSender | undefined = syntheticMailSender()) =>
     checkWith([randomUUID()], mail).run();
 
-  it("FIN-04@PoC AC7: one letter per period across check instances; a clean run ends the period", async () => {
+  it("FIN-04@PoC AC6: one letter per period across check instances; a clean run ends the period", async () => {
     const outbox = syntheticMailSender();
     await cleanRun(outbox);
     expect(outbox.sent).toEqual([]);
@@ -661,7 +661,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     expect(outbox.sent).toHaveLength(2);
   });
 
-  it("FIN-04@PoC EC4: a letter that could not be sent releases its claim; the next run sends it", async () => {
+  it("FIN-04@PoC EC3: a letter that could not be sent releases its claim; the next run sends it", async () => {
     await cleanRun();
     const s = await space();
     await breakSpace(s.householdId);
@@ -677,7 +677,7 @@ describe("FIN-04@PoC FR 10: the owner's letter about a discrepancy, one per peri
     expect(await exportedText(telemetry)).toContain("ledger.integrity_alert_sent");
   });
 
-  it("FIN-04@PoC EC5: no recipient — an «error» event, no claim, the check still returns its findings", async () => {
+  it("FIN-04@PoC EC4: no recipient — an «error» event, no claim, the check still returns its findings", async () => {
     await cleanRun();
     const before = await state();
     const s = await space();
