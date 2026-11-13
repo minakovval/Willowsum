@@ -43,7 +43,8 @@ Moved out of `review-pr` SKILL.md without change (owner, 2026-11-13). Read when 
   tracked issue with the evidence is a finding (#146: a shared `test/.tmp` race).
 - Requirement changes (PRC-01, PRC-02): run `node tools/req-check/index.mjs --impact <changed ID>` for
   each changed requirement, slice, screen or shared rule; every affected slice is updated in this PR or
-  listed in the PR body as follow-up with an issue link (PRC-02 criterion 7) — otherwise blocking. Only
+  listed in the PR body as follow-up with an issue link (PRC-02 criterion 7; the lead opens the issue and
+  adds the link, owner 2026-11-13) — otherwise blocking. Only
   sources were edited: a view changed without its source, or not equal to what the source generates, is
   blocking (CI's `view-stale`). For a changed card part, its «Реліз» line matches its row in the module
   README, the views are complete for their release, scope removed from PoC moved to PoC v2, and the views

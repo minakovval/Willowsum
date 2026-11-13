@@ -93,4 +93,4 @@ for a decision the owner gave (AGENTS.md steps 5 and 7). Review rounds (what blo
 reviewer's ready fix): AGENTS.md step 5.
 
 **Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI,
-criteria covered or left), blockers, owner questions. Details go in the PR body or an issue.
+criteria covered or left), blockers, owner questions. Details go in the PR body. Follow-ups: list them under Follow-ups in the PR body / report; the lead opens the issue.

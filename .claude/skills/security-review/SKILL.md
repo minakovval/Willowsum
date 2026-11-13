@@ -88,7 +88,7 @@ Post **one** review with event `COMMENT` (not «approve» or «request changes»
 - the table property → test → mutant (killed / survivor → new test);
 - **Blocking** — only a security bypass, data loss or leak, or a violation of a security property the PR's
   requirement claims; each with file:line, the failing path, the `it.fails` test and the patch file;
-- **Non-blocking** — everything else (the author lists it under «Follow-ups»);
+- **Non-blocking** — everything else (the author lists it under «Follow-ups» in the PR body / report; the lead opens the issue);
 - where the output files are (scratchpad path) and how to apply them.
 
 Post the review as one comment of this shape (a combined short re-review confirmation with the `review-pr`

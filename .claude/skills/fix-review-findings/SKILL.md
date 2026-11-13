@@ -31,7 +31,7 @@ fixes every blocking item, CI green, the new head SHA.
 5. Never weaken, skip or delete a test to get green (AGENTS.md step 6); never edit an acceptance test unless
    the requirement changed. A test that fails only sometimes needs a root cause, never «load», «flake» or
    «timeout under load» (owner, 2026-11-13): reproduce it, compare with `main`, find the cause (#146: a shared
-   `test/.tmp` race), or file a separately tracked issue with the evidence. Never skip, quarantine or raise a
+   `test/.tmp` race), or list it under Follow-ups in the PR body / report with the evidence; the lead opens the issue. Never skip, quarantine or raise a
    timeout without a stated basis.
 6. Requirement text: a finding or patch against a release view (`<ID>.<release key>.md`, line 2 «Згенеровано
    з …») is applied to the source `<ID>.md` instead — the same line, with the release tag that limits it to the
@@ -42,7 +42,7 @@ fixes every blocking item, CI green, the new head SHA.
 ## 3. Non-blocking
 
 Do not fix non-blocking items in this commit unless they are one-line and safe. List each under «Follow-ups»
-in the PR body (or open an issue and link it).
+in the PR body / report; the lead opens the issue.
 
 A decision this round records (the lead's choice between patches, a small detail) goes into a **new file**
 `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken; owner, 2026-11-13),

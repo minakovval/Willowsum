@@ -37,8 +37,7 @@ fails CI (`view-stale`).
    sources to edit, screens, use cases, docs/ux mentions, tests and modules. To read one slice with its
    dependencies, the decisions that cite it and its coverage, use `node tools/req-check/index.mjs --show <ID@release>`
    instead of opening whole folders.
-2. Update each dependent slice in the same PR (in its source), or list it in the PR body as a follow-up with an
-   issue (AGENTS.md, PRC-02). Do not leave a dependent slice silently unchecked.
+2. Update each dependent slice in the same PR (in its source), or list it under Follow-ups in the PR body / report; the lead opens the issue (AGENTS.md, PRC-02). Do not leave a dependent slice silently unchecked.
 3. State in the PR which releases the change touched and which it deliberately left unchanged, and why.
    Example (PR #94): the squatting rule was changed in PoC and PoC v2 and left in MVP, because the owner
    decides the MVP rule later.
@@ -96,7 +95,7 @@ the one you wrote (it names this PR).
 2. «Owner decision»: the decisions this PR implements, with the quote and source, as in step 5.
 3. «Impact»: the `--impact` summary, a table «що змінено → у якому зрізі» (source line → views), the releases
    changed and the releases left unchanged with the reason, the `--move` warnings and what was done with each,
-   follow-ups with issue links, and the check results of step 6.
+   follow-ups (the lead opens the issues), and the check results of step 6.
 4. «Sensitive areas touched»: tick it only if the change touches the requirements of a sensitive area (auth,
    permissions, isolation, encryption, money, retention); the path map is in `tools/pr-rules`
    (`lib/paths.mjs`). The label `owner-decision` is set by CI.
@@ -115,7 +114,7 @@ GitHub 502 / 503 / «token store unavailable» → [retry rules](../../reference
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 **Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI, the batch's changes in one line each), blockers, owner questions. Details go in the PR body
-(or an issue), not in the report.
+(Follow-ups: the lead opens the issue), not in the report.
 
 ## 8. Review (lighter rule, owner, 2026-11-12)
 
