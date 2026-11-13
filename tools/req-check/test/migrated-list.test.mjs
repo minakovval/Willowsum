@@ -91,3 +91,48 @@ test('the CLI fails on the attack', () => {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('a source missing from the list is an error (migrated-missing); without a list file there is no such check', () => {
+  const listed = readMigrated(ROOT);
+  const rules = errorRules(buildCorpus(files((_, t) => t), 'docs/requirements', { migrated: listed.filter((id) => id !== ID) }));
+  assert.ok(rules.includes('migrated-missing'), `got ${JSON.stringify([...new Set(rules)])}`);
+  assert.equal(errorRules(buildCorpus(files((_, t) => t), 'docs/requirements', { migrated: listed })).includes('migrated-missing'), false);
+  assert.equal(errorRules(buildCorpus(files((_, t) => t))).includes('migrated-missing'), false);
+});
+
+test('an ID of the base list removed from the list is an error (migrated-removed), also with its source section gone', () => {
+  const base = readMigrated(ROOT);
+  const shrunk = base.filter((id) => id !== ID);
+  // The attack plus the ID taken off the list in the same change: source-missing no longer sees it.
+  const rules = errorRules(buildCorpus(files(attack), 'docs/requirements', { migrated: shrunk, migratedBase: base }));
+  assert.ok(rules.includes('migrated-removed'), `got ${JSON.stringify([...new Set(rules)])}`);
+  assert.equal(errorRules(buildCorpus(files(attack), 'docs/requirements', { migrated: shrunk })).includes('migrated-removed'), false);
+  assert.equal(
+    errorRules(buildCorpus(files((_, t) => t), 'docs/requirements', { migrated: base, migratedBase: base })).includes('migrated-removed'),
+    false,
+  );
+});
+
+test('the CLI fails with --migrated-base when the list lost an ID of the base list', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'migrated-base-'));
+  try {
+    for (const f of files(attack)) {
+      const p = path.join(tmp, 'docs/requirements', f.rel);
+      fs.mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, f.text);
+    }
+    fs.cpSync(`${ROOT}docs/ux`, path.join(tmp, 'docs/ux'), { recursive: true });
+    fs.mkdirSync(path.join(tmp, 'tools/req-check'), { recursive: true });
+    const base = JSON.parse(fs.readFileSync(`${ROOT}${MIGRATED_FILE}`, 'utf8'));
+    fs.writeFileSync(path.join(tmp, MIGRATED_FILE), JSON.stringify({ ...base, ids: base.ids.filter((id) => id !== ID) }));
+    const basePath = path.join(tmp, 'base-migrated.json');
+    fs.copyFileSync(`${ROOT}${MIGRATED_FILE}`, basePath);
+    const args = ['--root', tmp, '--no-baseline', '--quiet', '--facts', `${ROOT}tools/req-check/facts.json`];
+    const out = [];
+    assert.equal(main([...args, '--migrated-base', basePath], (l) => out.push(l)), 1);
+    assert.ok(out.some((l) => l.includes('[migrated-removed]')), out.slice(0, 5).join('\n'));
+    assert.throws(() => main([...args, '--migrated-base', path.join(tmp, 'none.json')], () => {}), /file not found/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

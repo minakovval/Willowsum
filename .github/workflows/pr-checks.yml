@@ -69,12 +69,29 @@ jobs:
       - name: Release views, traceability files and report are up to date
         run: |
           node tools/req-check/index.mjs --quiet --views --traceability --report docs/validation/req-check-report.md
-          if [ -n "$(git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md)" ]; then
-            git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md
-            git --no-pager diff --stat -- docs/requirements docs/traceability docs/validation/req-check-report.md
-            echo "::error::Release views, docs/traceability or docs/validation/req-check-report.md are out of date. Edit the source <ID>.md, not a view; run: node tools/req-check/index.mjs --views --traceability --report docs/validation/req-check-report.md and commit the result."
+          if [ -n "$(git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json)" ]; then
+            git status --porcelain -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json
+            git --no-pager diff --stat -- docs/requirements docs/traceability docs/validation/req-check-report.md tools/req-check/migrated.json
+            echo "::error::Release views, docs/traceability, docs/validation/req-check-report.md or tools/req-check/migrated.json are out of date. Edit the source <ID>.md, not a view; run: node tools/req-check/index.mjs --views --traceability --report docs/validation/req-check-report.md and commit the result."
             exit 1
           fi
+      # The migrated list (tools/req-check/migrated.json) only grows: an ID removed from it in the same PR as its
+      # source section would hide that deletion from source-missing. Compare with the list on the base branch.
+      - name: Base version of the migrated list
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+          persist-credentials: false
+          sparse-checkout: tools/req-check/migrated.json
+          sparse-checkout-cone-mode: false
+      - name: The migrated list keeps every ID of the base branch
+        run: |
+          if [ ! -f .base/tools/req-check/migrated.json ]; then
+            echo "The base branch has no migrated list yet; nothing to compare."
+            exit 0
+          fi
+          node tools/req-check/index.mjs --quiet --migrated-base .base/tools/req-check/migrated.json
       - name: Publish the report to the job summary
         if: always()
         run: |

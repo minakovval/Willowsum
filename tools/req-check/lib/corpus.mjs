@@ -25,8 +25,9 @@ const RELEASE_OF_KEY = Object.fromEntries(Object.entries(RELEASE_KEY).map(([r, k
  * requirements directory (e.g. 'bud/BUD-01.md'). Used by the CLI and by the unit tests.
  * @param {{rel: string, text: string}[]} files
  * @param {string} [prefix] prefix that turns `rel` into a repository-relative path
- * @param {{migrated?: Iterable<string>}} [opts]  `migrated`: the IDs of the migrated list
- *   (tools/req-check/migrated.json); each must have a requirement file with a source section
+ * @param {{migrated?: Iterable<string>, migratedBase?: Iterable<string>}} [opts]  `migrated`: the IDs of the
+ *   migrated list (tools/req-check/migrated.json); each must have a requirement file with a source section, and
+ *   each source must be on it. `migratedBase`: the list on the base branch; each of its IDs must stay on `migrated`
  */
 export function buildCorpus(files, prefix = 'docs/requirements', opts = {}) {
   /** @type {Doc[]} */
@@ -63,7 +64,10 @@ export function buildCorpus(files, prefix = 'docs/requirements', opts = {}) {
       lines: text.replace(/\r\n?/g, '\n').split('\n'),
     });
   }
-  const { sources, viewProblems } = attachSources(docs, raw, opts.migrated ?? []);
+  const { sources, viewProblems } = attachSources(docs, raw, opts.migrated ?? [], {
+    listed: opts.migrated !== undefined,
+    base: opts.migratedBase ?? [],
+  });
   docs.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
   const folders = [...new Set(docs.filter((d) => d.folder).map((d) => d.folder))].sort();
   return { docs, folders, prefix, sources, viewProblems };
@@ -77,8 +81,10 @@ export function buildCorpus(files, prefix = 'docs/requirements', opts = {}) {
  * @param {Doc[]} docs  mutated: view docs replaced or added
  * @param {Map<string, string>} raw  repository-relative path → file text as read
  * @param {Iterable<string>} [migrated]  IDs that must be sources (see MIGRATED_FILE)
+ * @param {{listed?: boolean, base?: Iterable<string>}} [list]  `listed`: a migrated list exists, so every source
+ *   must be on it; `base`: the list on the base branch, whose every ID must stay on `migrated`
  */
-export function attachSources(docs, raw, migrated = []) {
+export function attachSources(docs, raw, migrated = [], list = {}) {
   const sources = [];
   const viewProblems = [];
   for (const d of [...docs]) {
@@ -137,6 +143,29 @@ export function attachSources(docs, raw, migrated = []) {
       message: `${id} is on the migrated list (${MIGRATED_FILE}) but ${card ? `${card.name} has no «${SOURCE_MARKER}» section` : `there is no requirement file ${id}.md`}; restore the source section (git history) or, if the requirement is retired on purpose, remove it from the list in a reviewed change`,
     });
   }
+  // The list itself can drift: a source missing from it is not protected, and an ID removed from it in the same
+  // change as its source section hides the attack above. Both are errors (the base list comes from CI).
+  const listedIds = new Set(migrated);
+  if (list.listed) {
+    for (const x of sources) {
+      if (listedIds.has(x.id)) continue;
+      viewProblems.push({
+        rule: 'migrated-missing',
+        file: x.rel,
+        line: 0,
+        message: `${x.id} is a source but is not on the migrated list (${MIGRATED_FILE}); run node tools/req-check/index.mjs --views, which adds it, and commit the list`,
+      });
+    }
+  }
+  for (const id of new Set(list.base ?? [])) {
+    if (listedIds.has(id)) continue;
+    viewProblems.push({
+      rule: 'migrated-removed',
+      file: MIGRATED_FILE,
+      line: 0,
+      message: `${id} is on the migrated list of the base branch but was removed from ${MIGRATED_FILE}; put it back (the list only grows; retiring a requirement needs the owner's decision and a change to this check)`,
+    });
+  }
   return { sources, viewProblems };
 }
 
@@ -145,10 +174,14 @@ export const MIGRATED_FILE = 'tools/req-check/migrated.json';
 
 /** Read the migrated list of a repository root ([] when there is none). */
 export function readMigrated(root) {
-  const p = path.resolve(root, MIGRATED_FILE);
-  if (!fs.existsSync(p)) return [];
+  return readMigratedFile(path.resolve(root, MIGRATED_FILE)) ?? [];
+}
+
+/** Read a migrated list file (undefined when it does not exist). */
+export function readMigratedFile(p) {
+  if (!fs.existsSync(p)) return undefined;
   const ids = JSON.parse(fs.readFileSync(p, 'utf8')).ids;
-  if (!Array.isArray(ids)) throw new Error(`${MIGRATED_FILE}: "ids" must be an array`);
+  if (!Array.isArray(ids) || ids.some((id) => typeof id !== 'string')) throw new Error(`${p}: "ids" must be an array of strings`);
   return ids;
 }
 
@@ -173,8 +206,9 @@ export function addMigrated(root, sourceIds) {
  * Read every Markdown file under `reqDir`.
  * @param {string} root     repository root
  * @param {string} reqDir   requirements directory relative to root
+ * @param {{migratedBase?: Iterable<string>}} [opts]  the base branch's migrated list (CI: --migrated-base)
  */
-export function loadCorpus(root, reqDir = 'docs/requirements') {
+export function loadCorpus(root, reqDir = 'docs/requirements', opts = {}) {
   const abs = path.resolve(root, reqDir);
   if (!fs.existsSync(abs)) throw new Error(`requirements directory not found: ${abs}`);
   const files = [];
@@ -188,5 +222,9 @@ export function loadCorpus(root, reqDir = 'docs/requirements') {
     }
   };
   walk(abs);
-  return buildCorpus(files, reqDir.split(path.sep).join('/'), { migrated: readMigrated(root) });
+  const migrated = readMigratedFile(path.resolve(root, MIGRATED_FILE));
+  return buildCorpus(files, reqDir.split(path.sep).join('/'), {
+    ...(migrated ? { migrated } : {}),
+    ...(opts.migratedBase ? { migratedBase: opts.migratedBase } : {}),
+  });
 }
