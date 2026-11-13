@@ -3,7 +3,7 @@ import { DATA_REGIONS } from "../../../../platform/db/isolation.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
 import { renameSpace } from "../../application/index.ts";
-import { SPACE_NAME_MAX, spaceName } from "../../domain/index.ts";
+import { SPACE_NAME_MAX, SPACE_REPORTING_CURRENCY, spaceName } from "../../domain/index.ts";
 import { spaceSettingsTx } from "../db/store.ts";
 import { householdServices, renameAudit } from "./services.ts";
 
@@ -21,6 +21,11 @@ const settingsSchema = z.object({
   name: z.string().min(1),
   /** The data region, fixed when the space was created (ARC-03 FR 3). */
   dataRegion: z.enum(DATA_REGIONS).meta({ "x-extensible-enum": true }),
+  /**
+   * The space's reporting currency, ISO 4217 (ACC-06@PoC FR 1, FR 2): EUR for every space in this release, with no
+   * choice — no route changes it. Later releases may add currencies.
+   */
+  reportingCurrency: z.enum([SPACE_REPORTING_CURRENCY]).meta({ "x-extensible-enum": true }),
 });
 
 export const getSpaceRoute = defineRoute({
@@ -28,7 +33,7 @@ export const getSpaceRoute = defineRoute({
   method: "GET",
   path: "/v1/space",
   operationId: "getSpace",
-  summary: "The current space: its name (shown in the profile) and data region",
+  summary: "The current space: its name (shown in the profile), data region and reporting currency",
   access: { permission: "household.data.read", feature: FEATURE, flag: FLAG },
   response: { status: 200, description: "The caller's space", schema: settingsSchema },
   handler: async (_input, ctx) => {

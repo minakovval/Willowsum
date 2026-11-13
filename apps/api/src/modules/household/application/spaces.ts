@@ -1,4 +1,10 @@
-import { firstSpaceName, keyRef, type SpaceRole, type StoredSpaceKey } from "../domain/index.ts";
+import {
+  SPACE_REPORTING_CURRENCY,
+  firstSpaceName,
+  keyRef,
+  type SpaceRole,
+  type StoredSpaceKey,
+} from "../domain/index.ts";
 
 /** Ports and use cases of spaces (ACC-01@PoC part c; ADR-0010). Adapters are wired in ../index.ts. */
 
@@ -16,6 +22,7 @@ export interface SpacesTx {
     householdId: string;
     name: string;
     dataRegion: string;
+    reportingCurrency: string;
     encryptionKeyRef: string;
   }): Promise<void>;
   addMember(accountId: string, householdId: string, role: SpaceRole): Promise<void>;
@@ -54,7 +61,7 @@ export interface SpaceAudit {
   spaceCreated(
     householdId: string,
     ownerAccountId: string,
-    space: { name: string; dataRegion: string },
+    space: { name: string; dataRegion: string; reportingCurrency: string },
   ): Promise<void>;
 }
 
@@ -81,7 +88,12 @@ export async function ensureFirstSpace(
   const existing = await deps.store.membershipOf(owner.accountId);
   if (existing) return { ...existing, created: false };
   const householdId = deps.newId();
-  const space = { name: firstSpaceName(owner.displayName), dataRegion: deps.dataRegion };
+  // ACC-06@PoC FR 2, AC1: EUR for any locale; the first sign-in has no step to choose it.
+  const space = {
+    name: firstSpaceName(owner.displayName),
+    dataRegion: deps.dataRegion,
+    reportingCurrency: SPACE_REPORTING_CURRENCY,
+  };
   const key = await deps.newKey(householdId);
   const result = await deps.store.inSpace(householdId, async (tx) => {
     await tx.lockAccount(owner.accountId);
