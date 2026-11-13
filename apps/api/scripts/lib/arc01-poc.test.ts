@@ -24,14 +24,6 @@ const folders = readdirSync(modulesDir, { withFileTypes: true })
 const pocCatalogue = readReleaseCatalogue(repoRoot, "poc");
 const fullCatalogue = readCatalogue(repoRoot);
 
-/**
- * Modules in code that the PoC catalogue does not list yet, though PoC slices need them: `data-erasure`
- * (NFR-12@PoC п. 3, ADR-0013; its catalogue row is tagged MVP) and `reports` (FLW-38@PoC names it; tagged MVP).
- * Moving the two catalogue rows to PoC is a requirement change for the owner (docs/decisions/log/
- * 2026-11-13-poc-module-skeletons.md); until then the list is pinned here, so any other difference fails.
- */
-const PENDING_CATALOGUE_ROWS = ["data-erasure", "reports"];
-
 describe("ARC-01@PoC FR 1: the modules of the PoC catalogue are the modules in code", () => {
   it("ARC-01@PoC FR 1: folders, module-rules.json and the registry name the same modules", () => {
     expect(Object.keys(rules.modules).sort()).toEqual(folders);
@@ -39,7 +31,7 @@ describe("ARC-01@PoC FR 1: the modules of the PoC catalogue are the modules in c
   });
 
   it("ARC-01@PoC FR 1: every module of the PoC catalogue exists in code with its card and three layers", () => {
-    expect(pocCatalogue.size).toBe(28);
+    expect(pocCatalogue.size).toBe(folders.length);
     for (const name of pocCatalogue.keys()) {
       expect(folders, name).toContain(name);
       for (const file of ["index.ts", "README.md", "domain", "application", "adapters"])
@@ -47,10 +39,9 @@ describe("ARC-01@PoC FR 1: the modules of the PoC catalogue are the modules in c
     }
   });
 
-  it("ARC-01@PoC FR 1: code has no module outside the PoC catalogue except the pinned catalogue rows", () => {
-    const extra = folders.filter((name) => !pocCatalogue.has(name));
-    expect(extra).toEqual(PENDING_CATALOGUE_ROWS);
-    for (const name of extra) expect(fullCatalogue.has(name), name).toBe(true);
+  it("ARC-01@PoC FR 1: code has no module outside the PoC catalogue", () => {
+    expect(folders.filter((name) => !pocCatalogue.has(name))).toEqual([]);
+    expect([...pocCatalogue.keys()].sort()).toEqual(folders);
   });
 
   it("ARC-01@PoC FR 1: each module card states what the catalogue says the module owns", () => {
