@@ -19,7 +19,7 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 1. Pick the next part from the wave plan and `docs/traceability/release-poc.md` (generated, not committed:
    `node tools/req-check/index.mjs --quiet --traceability`, or the `traceability` artifact of the latest
    «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
-   and UI).
+   and UI). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
 2. **Implementer**: a new agent with the `implement-requirement` skill, in its own git worktree on its own
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its slot
@@ -41,20 +41,27 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
    into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
    reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
+   Resume the implementing agent at most 2 times (owner, 2026-11-13, #178); a third fix round goes to a fresh
+   agent with a short brief: the diff, the findings, the patch ([token economy](references/token-economy.md)).
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
 6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for
    `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
    `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question.
    Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
-   Behind `main` → `sync-branch`, then a confirmation round. Full list:
-   [merge checklist](references/merge-checklist.md) (read before every merge).
+   Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR not labelled `sensitive`
+   that does not overlap `main`'s changes: one command and the lead's review instead). Wait for CI of several PRs with one command. Full list and both
+   commands: [merge checklist](references/merge-checklist.md) (read before every merge).
 
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
    opens the issues; agents never do (owner, 2026-11-13).
+   **Token accounting** (owner, 2026-11-13, mandatory): in the same turn as the merge, add the PR's row to the
+   issue «Облік токенів» (#180) —
+   PR, type, rounds, the sum of `subagent_tokens` of its author, reviewers and confirmations
+   ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
    Write only when something is merged (PR link, one line, and what is next), an owner decision is needed, or
    there is a problem (a blocker, red CI that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
@@ -73,8 +80,15 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
 
 **New lead session** (owner, 2026-11-13): when your context has already been compacted, or after 8–10 merged
 PRs, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
-state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows. Tell the
-owner to start a new session, which reads that issue first ([restarts](references/restarts.md)).
+state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows,
+and the name for the next session. Record the session's token usage in #180, append «(завершено)» to your
+session title, and tell the owner to start a new session. A new session first renames itself
+`Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, then reads «Lead state»
+([restarts](references/restarts.md), [token economy](references/token-economy.md)).
+Every handover is confirmed to the owner in chat in full, item by item: what was done with each item and where
+it is recorded (file, PR or issue, with a link); an item not acted on is marked not done, with the reason. A
+shortened summary does not count. Every owner decision lives in a document (decision log, skill, AGENTS.md,
+requirement) and in the rules it changes, never only in session memory (owner, 2026-11-13).
 
 ## 2. Owner
 

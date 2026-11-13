@@ -44,6 +44,8 @@ fails CI (`view-stale`).
 
 ## 3. Moving scope between releases: `--move`
 
+Split a large scope move or migration into parts: one agent, one part (owner, 2026-11-13, #178).
+
 Move items only with `node tools/req-check/index.mjs --move <ID> --items FR4,AC5,EC2 --to "PoC v2" [--from PoC]`,
 act on every part of its report (changed numbers and their citations, tests that cite them, mentions of the
 moved items, variants, dependents), update the card part and module README row by hand, and reword in the
