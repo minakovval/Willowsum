@@ -34,7 +34,7 @@
 - [MVP] Спільні правила: П-8, П-10, П-24, ARC-11, NFR-06
 - [MVP] Сценарії: UC-FIN-45, UC-FIN-46, UC-FIN-47, UC-FIN-48
 - [MVP] Модуль: ledger, accounts, asset-registry
-- Перевіряється: apps/api/src/modules/ledger/domain/postings.test.ts, apps/api/src/modules/ledger/application/journal.test.ts, apps/api/src/modules/ledger/application/sec122-journal.test.ts, apps/api/src/modules/ledger/application/integrity-alert.test.ts, apps/api/src/modules/ledger/ledger.it.test.ts, apps/api/test/sec122-ledger.it.test.ts, apps/api/test/sec123-ledger.it.test.ts
+- Перевіряється: apps/api/src/modules/ledger/domain/postings.test.ts, apps/api/src/modules/ledger/application/journal.test.ts, apps/api/src/modules/ledger/application/sec122-journal.test.ts, apps/api/src/modules/ledger/application/integrity-alert.test.ts, apps/api/src/modules/ledger/ledger.it.test.ts, apps/api/test/sec122-ledger.it.test.ts, apps/api/test/sec123-ledger.it.test.ts, apps/api/test/sec131-ledger-alert.it.test.ts
 
 **Мета.** Як продукт, ми хочемо, щоб кожна зміна вартості та грошей фіксувалася збалансованими проводками, щоб net worth на будь-яку дату був точним і відтворюваним.
 

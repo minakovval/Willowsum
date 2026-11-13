@@ -385,3 +385,27 @@ describe("DAT-01@PoC: pages, sorting and list filters on PostgreSQL", () => {
     expect((await listOf(spaceA, { filter: "description.has:_" })).count).toBe(0);
   });
 });
+describe("rr129: each request keeps its own date in the batched read (kills: dates misaligned with currencies)", () => {
+  it("DAT-01@PoC FR 12: two currencies on different dates, in either order, get the rate of their own date", async () => {
+    await owner.query(
+      `INSERT INTO fx_rates.rates (rate_date, currency, rate, source, fetched_at) VALUES
+         ('2026-10-01', 'EUR', 40, 'NBU', now()), ('2026-10-01', 'USD', 36, 'NBU', now()),
+         ('2026-10-05', 'EUR', 50, 'NBU', now()), ('2026-10-05', 'USD', 25, 'NBU', now())`,
+    );
+    const fx = createFxRates({ db: databases.for("fx-rates"), now: () => NOW });
+    const requests = [
+      { from: "UAH", to: "EUR", date: "2026-10-01" },
+      { from: "USD", to: "EUR", date: "2026-10-05" },
+    ];
+    for (const order of [requests, [...requests].reverse()]) {
+      const got = await fx.rates(order);
+      const single = await Promise.all(order.map((r) => fx.rate(r.from, r.to, r.date).then((q) => q.rate)));
+      expect(got.map((r) => r && `${r.rate.toFixed()}@${r.date}`)).toEqual(
+        single.map((r) => `${r.rate.toFixed()}@${r.date}`),
+      );
+    }
+    const [uah1, usd5] = await fx.rates(requests);
+    expect(uah1 && `${uah1.rate.toFixed()}@${uah1.date}`).toBe("0.025@2026-10-01");
+    expect(usd5 && `${usd5.rate.toFixed()}@${usd5.date}`).toBe("0.5@2026-10-05");
+  });
+});

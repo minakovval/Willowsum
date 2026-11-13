@@ -29,6 +29,7 @@ function memoryStore(): IntegrityAlertStore & {
   log: { period: string | null; at: number }[];
   latest(): string | null;
   failClaim: boolean;
+  failRelease: boolean;
 } {
   const log: { period: string | null; at: number }[] = [];
   const latest = () => log.at(-1)?.period ?? null;
@@ -36,6 +37,7 @@ function memoryStore(): IntegrityAlertStore & {
     log,
     latest,
     failClaim: false,
+    failRelease: false,
     async claim(period: string, at: number) {
       if (store.failClaim) throw new Error("db down");
       if (latest() === period) return false;
@@ -43,6 +45,7 @@ function memoryStore(): IntegrityAlertStore & {
       return true;
     },
     async release(period: string, at: number) {
+      if (store.failRelease) throw new RangeError("db down");
       if (latest() === period) log.push({ period: null, at });
     },
     async endPeriod(at: number) {
@@ -167,6 +170,19 @@ describe("FIN-04@PoC EC4: the letter could not be sent — the claim is released
     await t.run(broken);
     expect(t.letters).toHaveLength(1);
     expect(t.events.at(-1)).toEqual({ kind: "alert-sent" });
+  });
+
+  it("a release that fails after a failed send is reported as release-failed with its error class, never swallowed", async () => {
+    const t = setup();
+    const broken = findings({ "unbalanced-entry": 1 });
+    t.setMailDown(true);
+    t.store.failRelease = true;
+    await expect(t.run(broken)).resolves.toBeUndefined();
+    expect(t.events).toEqual([
+      { kind: "alert-failed", errorClass: "TypeError" },
+      { kind: "release-failed", errorClass: "RangeError" },
+    ]);
+    expect(t.store.latest()).toBe(integrityPeriodKey(broken));
   });
 
   it("a failed claim (the database) reports alert-failed and sends nothing; the check does not throw", async () => {
