@@ -30,7 +30,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: FIN-01@PoC, FIN-04@PoC
 - [лише PoC v2] Розширює: FIN-12@PoC
-- [лише PoC v2] Залежить від: FIN-01@PoC v2, FIN-02@PoC v2, FIN-04@PoC
+- [лише PoC v2] Залежить від: FIN-01@PoC v2, FIN-02@PoC v2, FIN-04@PoC v2
 - [лише MVP] Розширює: FIN-12@PoC v2
 - [лише MVP] Залежить від: AST-11@MVP, FIN-01@MVP, FIN-02@MVP, FIN-04@MVP
 - [v1] Розширює: FIN-12@MVP
