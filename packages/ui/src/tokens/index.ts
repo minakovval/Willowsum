@@ -4,5 +4,6 @@ export * from "./css.ts";
 export * from "./elevation.ts";
 export * from "./layout.ts";
 export * from "./motion.ts";
+export * from "./roles.ts";
 export * from "./spacing.ts";
 export * from "./typography.ts";

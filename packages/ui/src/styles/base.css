@@ -67,12 +67,61 @@ textarea {
   color: inherit;
 }
 
-/* DS-08 item 9, DS-14 item 10: links in running text are underlined. */
+/*
+ * DS-08 item 9, NFR-08 item 4: links in running text are underlined, so colour is not the only cue.
+ * DS-13 item 1: the link colour changes in 150 ms.
+ */
 a {
   color: var(--ws-link);
   text-decoration: underline;
+  text-decoration-thickness: 1px;
   text-underline-offset: 0.15em;
   transition: color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+a:hover {
+  color: var(--ws-brand);
+  text-decoration-thickness: 2px;
+}
+
+/*
+ * A standalone link outside running text (a line of its own, a table cell, a card footer; canvas P0):
+ * link colour, 500, no underline until hover or focus. Inside a paragraph keep the plain `a`.
+ */
+.ws-link {
+  color: var(--ws-link);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.ws-link:hover,
+.ws-link:focus-visible {
+  text-decoration: underline;
+}
+
+p .ws-link,
+li .ws-link {
+  text-decoration: underline;
+}
+
+/* DS-08 item 3, «label»: 13/16 px, 500, capitals only, +8 % tracking — above amounts and groups. */
+.ws-label {
+  display: block;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-transform: uppercase;
+}
+
+/* DS-08 item 8: running text keeps 45–75 characters per line. */
+.ws-prose {
+  max-width: 70ch;
+  font-family: var(--ws-text-body-family);
+  font-size: var(--ws-text-body-size);
+  line-height: var(--ws-text-body-line);
 }
 
 /* DS-14 item 3: a 3 px focus ring with a 2 px offset; never removed. */
@@ -123,6 +172,13 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
+/* DS-08 item 5, AC2: an amount column — tabular figures, aligned to the end, so commas line up. */
+.ws-num {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
+}
+
 .ws-muted {
   color: var(--ws-ink-muted);
 }
@@ -146,12 +202,32 @@ a {
   animation: ws-spin var(--ws-duration-spinner) var(--ws-easing-linear) infinite;
 }
 
+/* DS-13 item 3: a lighter band passes the shape left to right, one pass in 1.6 s, ease-in-out. */
 .ws-skeleton {
   display: block;
   height: var(--ws-space-3);
   border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);
-  background: var(--ws-skeleton);
-  animation: ws-pulse var(--ws-duration-skeleton) var(--ws-easing-in-out) infinite;
+  background-color: var(--ws-skeleton);
+  background-image: linear-gradient(
+    90deg,
+    var(--ws-skeleton) 0%,
+    var(--ws-skeleton-shine) 50%,
+    var(--ws-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: ws-shimmer var(--ws-duration-skeleton) var(--ws-easing-in-out) infinite;
+}
+
+[dir="rtl"] .ws-skeleton {
+  animation-direction: reverse;
+}
+
+/* DS-13 item 4, AC1, AC4: charts draw without an appearance animation; a data change is instant. */
+.ws-chart,
+.ws-chart * {
+  animation: none;
+  transition: none;
 }
 
 @keyframes ws-spin {
@@ -160,13 +236,17 @@ a {
   }
 }
 
-@keyframes ws-pulse {
-  50% {
-    opacity: 0.5;
+@keyframes ws-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
   }
 }
 
-/* DS-13 item 8: with reduced motion everything is instant, the skeleton stops, the spinner slows. */
+/* DS-13 items 7 and 9: with reduced motion everything is instant, the skeleton stops, the spinner slows. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -179,10 +259,21 @@ a {
 
   .ws-skeleton {
     animation: none !important;
+    background-image: none;
   }
 
   .ws-spinner {
     animation-duration: var(--ws-duration-spinner-reduced) !important;
     animation-iteration-count: infinite !important;
+  }
+}
+
+/*
+ * DS-06 edge case: forced colours. The focus ring is an outline and controls keep their borders, so
+ * they stay visible; the switch thumb and the skeleton take system colours.
+ */
+@media (forced-colors: active) {
+  .ws-skeleton {
+    border: 1px solid CanvasText;
   }
 }

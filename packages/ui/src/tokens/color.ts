@@ -26,6 +26,8 @@ export type ColorTokenName =
   | "focus"
   | "gain"
   | "loss"
+  | "gain-soft"
+  | "loss-soft"
   | "disabled-bg"
   | "disabled-ink"
   | "overlay"
@@ -33,6 +35,7 @@ export type ColorTokenName =
   | "tint-info"
   | "tint-warning"
   | "on-warning"
+  | "warning-line"
   | "tint-positive"
   | "tint-negative"
   | "skeleton"
@@ -157,6 +160,20 @@ export const colors: Readonly<Record<ColorTokenName, ColorToken>> = {
     dark: "#F09090",
     usage: "Negative change and error text on surface-100 and surface-200.",
   },
+  // Issue #51: the light steps of gain and loss and the chart warning marker. Light values are the
+  // DS-06@PoC table; dark values are the DS-06@MVP table and the design-system snapshot (PoC is light only).
+  "gain-soft": {
+    light: "#387F5A",
+    dark: "#3EAC79",
+    usage:
+      "Light step of gain («трохи краще»): change or deviation up to 10 % inclusive; always with an arrow.",
+  },
+  "loss-soft": {
+    light: "#C34A48",
+    dark: "#DD7F7F",
+    usage:
+      "Light step of loss («трохи гірше»): change or deviation up to 10 % inclusive; always with an arrow.",
+  },
   "disabled-bg": {
     light: "#E7E1D3",
     dark: "#1B3F6E",
@@ -188,6 +205,12 @@ export const colors: Readonly<Record<ColorTokenName, ColorToken>> = {
     light: "#7A4505",
     dark: "#F2C27A",
     usage: "Text and «!» marker on tint-warning; also «! Відстає» on goals.",
+  },
+  "warning-line": {
+    light: "#A15C07",
+    dark: "#E0A04A",
+    usage:
+      "Warning marker on a chart; at least 3:1 on tint-warning and surface-200. Always with «!» and a word.",
   },
   "tint-positive": { light: "#E9F3EE", dark: "#173F36", usage: "Positive badge ground. Text: gain." },
   "tint-negative": {
@@ -348,6 +371,8 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...textOn("link", ["surface-100", "surface-200"], "DS-06 link"),
   ...textOn("gain", ["surface-100", "surface-200"], "DS-06 gain"),
   ...textOn("loss", ["surface-100", "surface-200"], "DS-06 loss"),
+  ...textOn("gain-soft", ["surface-100", "surface-200"], "DS-06 gain-soft (#51)"),
+  ...textOn("loss-soft", ["surface-100", "surface-200"], "DS-06 loss-soft (#51)"),
   ...textOn("brand", ["surface-100", "surface-200"], "DS-06 brand (strong text accents)"),
   ...textOn("on-brand", ["brand", "brand-hover", "brand-pressed"], "DS-06 on-brand"),
   ...textOn("on-accent", ["accent"], "DS-06 on-accent"),
@@ -359,6 +384,7 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...uiOn("surface-100", ["ink", "link"], "DS-07 status marker symbol"),
   ...textOn("gain", ["tint-positive"], "DS-07 positive badge"),
   ...textOn("on-warning", ["tint-warning"], "DS-07 attention badge"),
+  ...uiOn("warning-line", ["tint-warning", "surface-200"], "DS-06 warning-line (#51)"),
   ...textOn("loss", ["tint-negative"], "DS-07 negative badge"),
   ...textOn("link", ["tint-info"], "DS-07 info badge"),
   ...textOn("brand", ["tint-info"], "CMP-09 main goal tag"),

@@ -31,4 +31,10 @@ describe("keepNumbersTogether (DS-08 item 11)", () => {
     expect(out.replaceAll(NB, " ")).toBe(input);
     expect(out).toBe(`Windows 10${NB}Pro, PIN${NB}1234, Крок 1${NB}з 3`);
   });
+  it("DS-08@PoC AC7: «30 днів» and «3 дні» never break between the number and the word", () => {
+    const out = keepNumbersTogether("Строк дії спливає через 30 днів, нагадування за 3 дні");
+    expect(out).toBe(`Строк дії спливає через 30${NB}днів, нагадування за 3${NB}дні`);
+    // The other spaces still allow the line to wrap.
+    expect(out).toContain("спливає через");
+  });
 });

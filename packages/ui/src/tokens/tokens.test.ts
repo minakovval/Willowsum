@@ -159,7 +159,7 @@ describe("exact DS values", () => {
     const rule = /\.ws-skeleton \{([^}]*)\}/.exec(base)?.[1] ?? "";
     expect(rule).toContain("height: var(--ws-space-3);");
     expect(rule).toContain("border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);");
-    expect(rule).toContain("background: var(--ws-skeleton);");
+    expect(rule).toContain("background-color: var(--ws-skeleton);");
     expect(space["space-3"]).toBe(12);
     expect(motion["duration-skeleton"]).toBe(1600);
   });
