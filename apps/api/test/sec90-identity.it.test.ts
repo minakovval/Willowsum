@@ -347,12 +347,16 @@ describe("sec90 sessions (NFR-15 FR 5, NFR-01 FR 10)", () => {
     expect((await request("GET", "/v1/session", { cookie: `session=${planted}` })).statusCode).toBe(401);
   });
 
-  it("a session ends at 12 h even when used every 14 min (absolute end is server-side)", async () => {
+  it("a session ends at 12 h even when the user acts every 14 min (absolute end is server-side)", async () => {
     const email = await confirmed("absolute");
-    const value = setCookies(await signIn({ email, password: PASSWORD }))[0]!.split(";")[0]!;
+    // User actions refresh the session (ACC-04@PoC): each one hands out the next token, as the browser keeps it.
+    let value = setCookies(await signIn({ email, password: PASSWORD }))[0]!.split(";")[0]!;
     const start = t;
     while (t + 14 * MINUTE < start + 12 * HOUR) {
       t += 14 * MINUTE;
+      const res = await request("POST", "/v1/session/refresh", { cookie: value });
+      expect(res.statusCode).toBe(200);
+      value = setCookies(res)[0]!.split(";")[0]!;
       expect((await request("GET", "/v1/session", { cookie: value })).statusCode).toBe(200);
     }
     t = start + 12 * HOUR;
@@ -404,6 +408,7 @@ describe("sec90 DB isolation (ARC-03, ADR-0009)", () => {
       "email_confirmations",
       "password_resets",
       "registrations",
+      "retired_session_tokens",
       "sessions",
       "sign_in_guards",
       "throttle_events",

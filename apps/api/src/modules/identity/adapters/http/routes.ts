@@ -1,22 +1,29 @@
 import { z } from "zod";
 import { clearedSessionCookie, sessionCookie } from "../../../../platform/http/cookies.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import { defineRoute } from "../../../../platform/http/route.ts";
+import { defineRoute, type PublicContext } from "../../../../platform/http/route.ts";
 import {
   changeEmail,
   completePasswordReset,
   confirmEmail,
   passwordResetState,
+  refreshSession,
   requestPasswordReset,
   resendForLink,
   resendForRegistration,
-  sessionAccount,
+  sessionStatus,
   signIn,
   signOut,
   signUp,
   type ResendResult,
 } from "../../application/index.ts";
-import { emailSchema, nameSchema, passwordSchema } from "../../domain/index.ts";
+import {
+  emailSchema,
+  nameSchema,
+  passwordSchema,
+  SESSION_IDLE_MS,
+  type SessionEndShown,
+} from "../../domain/index.ts";
 import { identityDeps } from "./services.ts";
 
 /**
@@ -234,6 +241,16 @@ export const signInRoute = defineRoute({
   },
 });
 
+/** 401 for a cookie whose session has ended: SESSION_ENDED with the reason; the cookie is removed (ACC-04@PoC). */
+function sessionGone(
+  ctx: PublicContext,
+  check: { kind: "ended"; reason: SessionEndShown } | { kind: "none" },
+): never {
+  if (check.kind === "none") throw new ApiProblem("UNAUTHENTICATED");
+  ctx.http.setCookie(clearedSessionCookie(SESSION_COOKIE, { https: ctx.http.https }));
+  throw new ApiProblem("SESSION_ENDED", { extensions: { sessionEndReason: check.reason } });
+}
+
 export const currentSessionRoute = defineRoute({
   module: MODULE,
   method: "GET",
@@ -241,17 +258,62 @@ export const currentSessionRoute = defineRoute({
   operationId: "getSession",
   summary: "The signed-in account of this browser",
   access: { public: PUBLIC, flag: FLAG },
-  problems: ["UNAUTHENTICATED"],
+  problems: ["UNAUTHENTICATED", "SESSION_ENDED"],
   response: {
     status: 200,
-    description: "The account of the session; 401 UNAUTHENTICATED without a live session",
+    description:
+      "The account of the session. Reading does not extend the session (only POST /v1/session/refresh does). 401 SESSION_ENDED with sessionEndReason when this browser's session has ended (its cookie is removed); 401 UNAUTHENTICATED without a session",
     schema: z.object({ name: z.string(), email: z.string() }),
   },
   handler: async (_input, ctx) => {
     const value = ctx.http.sessionCookie(SESSION_COOKIE);
-    const account = value === undefined ? null : await sessionAccount(identityDeps(ctx), value);
-    if (!account) throw new ApiProblem("UNAUTHENTICATED");
-    return { name: account.name, email: account.email };
+    if (value === undefined) throw new ApiProblem("UNAUTHENTICATED");
+    const check = await sessionStatus(identityDeps(ctx), value);
+    if (check.kind !== "alive") sessionGone(ctx, check);
+    return { name: check.account.name, email: check.account.email };
+  },
+});
+
+export const refreshSessionRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/session/refresh",
+  operationId: "refreshSession",
+  summary: "A user action in this browser: extend the session and rotate its token",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["UNAUTHENTICATED", "SESSION_ENDED"],
+  response: {
+    status: 200,
+    description:
+      "The client sends it for user actions only (click, input, navigation; ACC-04 business rules), never for background requests. The 15 min idle deadline moves for every tab of the browser and the session cookie gets a new token (NFR-01 FR 12); the 12 h end never moves. A token replaced less than 30 s ago (another tab's request on its way) extends the session without a new token; one replaced earlier ends the session (401 SESSION_ENDED, ended-elsewhere)",
+    schema: z.object({
+      status: z.literal("active"),
+      /** Seconds without a user action after which the session ends (15 min, fixed). */
+      idleTimeoutS: z.number().int().min(1),
+      /** Seconds until the absolute end of the session (12 h after sign-in). */
+      expiresInS: z.number().int().min(1),
+    }),
+  },
+  handler: async (_input, ctx) => {
+    const value = ctx.http.sessionCookie(SESSION_COOKIE);
+    if (value === undefined) throw new ApiProblem("UNAUTHENTICATED");
+    const result = await refreshSession(identityDeps(ctx), value);
+    if (result.kind !== "refreshed") sessionGone(ctx, result);
+    if (result.sessionToken !== null)
+      ctx.http.setCookie(
+        sessionCookie(
+          SESSION_COOKIE,
+          result.sessionToken,
+          { https: ctx.http.https },
+          { maxAgeS: result.maxAgeS },
+        ),
+      );
+    return {
+      status: "active" as const,
+      idleTimeoutS: SESSION_IDLE_MS / 1000,
+      expiresInS: result.maxAgeS,
+    };
   },
 });
 
@@ -360,6 +422,7 @@ export const identityRoutes = [
   resendConfirmationRoute,
   signInRoute,
   currentSessionRoute,
+  refreshSessionRoute,
   signOutRoute,
   requestPasswordResetRoute,
   checkPasswordResetRoute,

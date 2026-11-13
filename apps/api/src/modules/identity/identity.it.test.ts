@@ -691,7 +691,7 @@ describe("ACC-01 AC23, FR 13: «Надіслати ще раз» and «Змін�
     expect(lettersTo(email)).toHaveLength(1);
   });
 
-  it("edge case: after «Змінити email» the earlier link of that sign-up no longer works; a new sign-up mails the new address", async () => {
+  it("ACC-01@PoC EC2: after «Змінити email» the earlier link of that sign-up no longer works; a new sign-up mails the new address", async () => {
     const { email, token } = await registered("edge-change");
     const link = linkToken(lettersTo(email)[0]!);
     await request("POST", "/v1/registrations/change-email", { body: { registrationToken: token } });
@@ -705,16 +705,65 @@ describe("ACC-01 AC23, FR 13: «Надіслати ще раз» and «Змін�
   });
 });
 
-describe("Edge case: a link opened on another device confirms the address and creates no session", () => {
-  it("no cookie from the link; sign-in works from any device with email and password", async () => {
-    const { email } = await registered("edge-device");
-    const res = await request("POST", "/v1/email-confirmations", {
-      body: { token: linkToken(lettersTo(email)[0]!) },
-      ip: nextIp(),
+describe("ACC-01@PoC EC2: «Змінити email» never changes an existing confirmed account", () => {
+  it("a sign-up with a taken address, then «Змінити email»: the account keeps its name, password and sessions; the new address gets the letter", async () => {
+    const taken = await confirmed("ec2-taken");
+    const session = sessionCookieOf(await signIn({ email: taken, password: PASSWORD }))!.split(";")[0]!;
+    const before = (
+      await db.owner.query(
+        `SELECT display_name, password_hash, email, email_confirmed_at FROM identity.accounts WHERE email_normalized = $1`,
+        [taken],
+      )
+    ).rows[0];
+    const attempt = await signUp({ name: "Інша Людина", email: taken, password: "another synthetic phrase" });
+    const token = attempt.json().registrationToken as string;
+    const back = await request("POST", "/v1/registrations/change-email", {
+      body: { registrationToken: token },
     });
+    expect(back.json()).toEqual({ status: "closed" });
+    // The token is closed: the screen's buttons no longer act on it.
+    expect(
+      (await request("POST", "/v1/registrations/resend", { body: { registrationToken: token } })).statusCode,
+    ).toBe(404);
+    const after = (
+      await db.owner.query(
+        `SELECT display_name, password_hash, email, email_confirmed_at FROM identity.accounts WHERE email_normalized = $1`,
+        [taken],
+      )
+    ).rows[0];
+    expect(after).toEqual(before);
+    expect((await request("GET", "/v1/session", { cookie: session })).statusCode).toBe(200);
+    expect((await signIn({ email: taken, password: PASSWORD })).json()).toEqual({ status: "signed-in" });
+    // The corrected address: a new sign-up, a letter to the new address.
+    const corrected = nextEmail("ec2-corrected");
+    await signUp({ name: "Інша Людина", email: corrected, password: "another synthetic phrase" });
+    await flush();
+    expect(lettersTo(corrected)).toHaveLength(1);
+  });
+});
+
+describe("ACC-01@PoC EC1: a link opened on another device confirms the address and creates no session", () => {
+  it("no cookie from the link; sign-in works from any device with email and password; the link works once", async () => {
+    const { email } = await registered("edge-device");
+    const link = linkToken(lettersTo(email)[0]!);
+    // The phone opens the letter; the sign-up was made on the laptop.
+    const res = await request("POST", "/v1/email-confirmations", { body: { token: link }, ip: nextIp() });
     expect(res.json()).toEqual({ result: "confirmed" });
     expect(sessionCookieOf(res)).toBeUndefined();
-    expect((await signIn({ email, password: PASSWORD }, nextIp())).json()).toEqual({ status: "signed-in" });
+    expect(res.headers["set-cookie"]).toBeUndefined();
+    const { rows } = await db.owner.query(
+      `SELECT count(*)::int AS n FROM identity.sessions s JOIN identity.accounts a ON a.id = s.account_id
+        WHERE a.email_normalized = $1`,
+      [email],
+    );
+    expect(rows[0].n).toBe(0);
+    // Any device signs in with email and password: the laptop and the phone alike.
+    for (const ip of [nextIp(), nextIp()])
+      expect((await signIn({ email, password: PASSWORD }, ip)).json()).toEqual({ status: "signed-in" });
+    // Single use: opened again (on the laptop) it confirms nothing and creates no session.
+    const again = await request("POST", "/v1/email-confirmations", { body: { token: link }, ip: nextIp() });
+    expect(again.json()).toEqual({ result: "already-used" });
+    expect(again.headers["set-cookie"]).toBeUndefined();
   });
 });
 
@@ -738,19 +787,23 @@ describe("NFR-15 FR 5 / NFR-01 FR 10: the session cookie and its lifetime", () =
     const me = await request("GET", "/v1/session", { cookie: value });
     expect(me.statusCode).toBe(200);
     expect(me.json()).toEqual({ name: "Олена Синтетична", email });
-    // Use keeps it alive up to the absolute end.
+    // User actions (refresh, ACC-04@PoC) keep it alive up to the absolute end; each hands out the next token.
+    let current = value;
     for (let used = 0; used < SESSION_ABSOLUTE_MS - SESSION_IDLE_MS; used += 10 * MINUTE) {
       t += 10 * MINUTE;
-      expect((await request("GET", "/v1/session", { cookie: value })).statusCode).toBe(200);
+      const refreshed = await request("POST", "/v1/session/refresh", { cookie: current });
+      expect(refreshed.statusCode).toBe(200);
+      current = sessionCookieOf(refreshed)!.split(";")[0]!;
+      expect((await request("GET", "/v1/session", { cookie: current })).statusCode).toBe(200);
     }
     t += 10 * MINUTE;
-    expect((await request("GET", "/v1/session", { cookie: value })).statusCode).toBe(401);
+    expect((await request("GET", "/v1/session", { cookie: current })).statusCode).toBe(401);
 
     const second = sessionCookieOf(await signIn({ email, password: PASSWORD }))!.split(";")[0]!;
     t += SESSION_IDLE_MS;
     const idle = await request("GET", "/v1/session", { cookie: second });
     expect(idle.statusCode).toBe(401);
-    expect(idle.json().code).toBe("UNAUTHENTICATED");
+    expect(idle.json()).toMatchObject({ code: "SESSION_ENDED", sessionEndReason: "idle" });
 
     const third = sessionCookieOf(await signIn({ email, password: PASSWORD }))!.split(";")[0]!;
     const out = await request("DELETE", "/v1/session", { cookie: third });

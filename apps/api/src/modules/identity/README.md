@@ -1,6 +1,6 @@
 # Модуль identity
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13 (ACC-04 a1)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -15,8 +15,11 @@
 ## Вимоги
 
 ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10 і AC25; частина c: п. 6, 7, AC5, AC8, AC9 — серверна
-частина; п. 16, AC26, AC27 — перелік адрес родини, #107); NFR-01@PoC (п. 7, 9, 10), NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5), NFR-12@PoC (непідтверджений акаунт).
-Далі: ACC-04 — тайм-аут сесії і лист про новий пристрій.
+частина; п. 16, AC26, AC27 — перелік адрес родини, #107); NFR-01@PoC (п. 7, 9, 10–12), NFR-14@PoC (п. 7), NFR-15@PoC (п. 1, 2, 3, 5), NFR-12@PoC (непідтверджений акаунт).
+ACC-04@PoC, частина a1 (сервер): п. 1, 3, AC1, AC3, AC5, EC2 — тайм-аут бездіяльності 15 хв і абсолютний строк 12 год
+на сервері, активність лише через `POST /v1/session/refresh`, ротація токена сесії, причина завершення сесії
+([рішення](../../../../../docs/decisions/log/2026-11-13-acc04-session-refresh.md)). Далі (частина a2): лист про вхід з
+нового пристрою, «Це був не я», записи входів і завершень сесій у журнал аудиту з IP-адресою і пристроєм.
 
 ## Публічний інтерфейс
 
@@ -34,7 +37,15 @@ ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10
     `POST /v1/email-confirmations/resend` (`resendConfirmationEmail`) — нове посилання замість простроченого.
   - `POST /v1/sessions` (`signIn`) → `signed-in` (cookie `__Secure-session`) або `email-not-confirmed` з
     `registrationToken`; 401 `INVALID_CREDENTIALS`, 429 `SIGN_IN_LOCKED`, 400 `CAPTCHA_REQUIRED`.
-  - `GET /v1/session` (`getSession`) → `{ name, email }` або 401; `DELETE /v1/session` (`signOut`).
+  - `GET /v1/session` (`getSession`) → `{ name, email }`; 401 `SESSION_ENDED` з `sessionEndReason` (`idle`,
+    `expired`, `signed-out`, `ended-elsewhere`) і видаленим cookie, коли сесію цього браузера завершено; 401
+    `UNAUTHENTICATED` без сесії. Читання не продовжує сесію.
+  - `POST /v1/session/refresh` (`refreshSession`) — дія користувача (клік, введення, навігація; ACC-04): строк
+    бездіяльності сесії (спільної для всіх вкладок браузера) зсувається, токен у cookie ротується (NFR-01 п. 12);
+    абсолютний строк не зсувається. Токен, замінений менше ніж 30 с тому (запит іншої вкладки в дорозі), продовжує
+    сесію без нового токена; повернення старішого завершує сесію (`token-reuse` → `ended-elsewhere`). Фонові запити
+    сесію не продовжують.
+  - `DELETE /v1/session` (`signOut`) — вихід браузера (усіх його вкладок).
   - `POST /v1/password-resets` (`requestPasswordReset`) — email → завжди `{ status: "requested" }`; пошук акаунта,
     посилання (60 хв, одноразове, новіше скасовує попередні; лист не частіше раз на 60 с і 5 на годину) і лист — після
     відповіді.
@@ -56,13 +67,14 @@ ACC-01@PoC (частина a: п. 1–5, 8, 9, 11–15; частина b: п. 10
   підтвердженого акаунта створює перший простір «Родина <Прізвище>», якщо простору ще немає; якщо простір не вдалося
   створити, нова сесія завершується, а вхід відповідає 500.
 - `authenticateSession(services, db, token)` → `{ accountId, name, email }` або null — жива сесія підтвердженого акаунта
-  (рухає строк бездіяльності); `src/api.ts` будує з неї і простору акаунта того, хто викликає захищені маршрути.
+  (строк бездіяльності не рухає; сесію, що минула, завершує з причиною); `src/api.ts` будує з неї і простору акаунта
+  того, хто викликає захищені маршрути.
 - `createIdentityMaintenance({ db, audit, now? })` → `{ dailyCleanup() }` — щоденна задача ролі `scheduler`: видаляє
   непідтверджені акаунти через 30 днів після останньої реєстрації (`UNCONFIRMED_ACCOUNT_TTL_MS`; запис у журнал
   платформи без адреси) і прибирає рядки, що вже не змінюють жодної відповіді чи ліміту (ADR-0010).
 - `argon2Hasher(parameters?)`, `ARGON2_PARAMETERS`, `SESSION_COOKIE` і числа правил (`CONFIRMATION_TTL_MS`,
   `PASSWORD_RESET_TTL_MS`,
-  `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
+  `MAIL_COOLDOWN_MS`, `MAIL_PER_HOUR`, `PASSWORD_MIN_LENGTH`, `ROTATION_GRACE_MS`, `SESSION_ABSOLUTE_MS`, `SESSION_IDLE_MS`,
   `SIGN_IN_FAILURE_WINDOW_MS`, `SIGN_IN_FAILURES_LIMIT`, `SIGN_IN_LOCK_MS`, `SIGN_UPS_PER_ADDRESS_PER_HOUR`).
 
 Листи (українською, англійська повна): підтвердження з посиланням `<WS_WEB_ORIGIN>/#/verify?token=…` (24 год) і лист про
@@ -105,7 +117,8 @@ SHA-256.
 | `email_confirmations` | Посилання підтвердження: SHA-256 токена, строк (24 год), `used_at`, `revoked_at` |
 | `registrations` | Токен екрана «Перевірте пошту»: акаунт (немає для `outside`), `kind` (`new` / `existing` / `outside` — адреса поза переліком родини), строк, `closed_at`, `superseded_at` (пізніша реєстрація замінила пароль непідтвердженого акаунта) |
 | `password_resets` | Посилання скидання пароля: SHA-256 токена, строк (60 хв), `used_at`, `revoked_at` |
-| `sessions` | SHA-256 токена сесії, `last_seen_at`, `expires_at` (12 год), `ended_at` |
+| `sessions` | SHA-256 поточного токена сесії, `last_seen_at` (остання дія користувача), `expires_at` (12 год), `ended_at`, `end_reason` (`signed-out`, `idle`, `expired`, `password-reset`, `token-reuse`) |
+| `retired_session_tokens` | SHA-256 токенів, замінених ротацією, їхня сесія і час заміни (NFR-01 п. 12); ідуть разом із сесією |
 | `sign_in_guards` | Блокування входу на email (SHA-256 адреси): `locked_until`, `captcha_required` |
 | `throttle_events` | Події ковзних лімітів: невдалі входи, листи підтвердження і про спробу реєстрації (на адресу), «Надіслати ще раз» (на токен реєстрації), реєстрації (на адресу клієнта, будь-яка година) |
 

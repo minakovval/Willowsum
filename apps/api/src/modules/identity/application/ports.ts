@@ -1,7 +1,7 @@
 import type { CaptchaVerifier } from "../../../platform/adapters/captcha/index.ts";
 import type { MailMessage } from "../../../platform/adapters/mail/index.ts";
 import type { FixedWindowLimiter } from "../../../platform/http/rate-limit.ts";
-import type { SignInGuard } from "../domain/index.ts";
+import type { SessionEndReason, SignInGuard } from "../domain/index.ts";
 
 /** Ports of the identity use cases (ARC-01 FR 5); adapters are wired in ../index.ts. Times are epoch ms. */
 
@@ -59,9 +59,14 @@ export interface SessionRow {
   readonly id: string;
   readonly accountId: string;
   readonly createdAt: number;
+  /** The last refresh (a user action, ACC-04 business rules), or the sign-in. */
   readonly lastSeenAt: number;
   readonly expiresAt: number;
   readonly endedAt: number | null;
+  /** Null while open, and on sessions ended before reasons were stored. */
+  readonly endReason: SessionEndReason | null;
+  /** When a refresh replaced the token that found this row; null for the session's current token. */
+  readonly retiredAt: number | null;
 }
 
 /**
@@ -135,11 +140,18 @@ export interface IdentityTx {
   setGuard(key: Buffer, guard: SignInGuard, now: number): Promise<void>;
 
   insertSession(accountId: string, digest: Buffer, now: number, expiresAt: number): Promise<void>;
-  findSession(digest: Buffer): Promise<SessionRow | null>;
+  /**
+   * The session of a token: its current one or one a refresh replaced (`retiredAt`). `lock` holds the session row
+   * until the transaction ends, so two refreshes of one session run one after another.
+   */
+  findSession(digest: Buffer, lock?: boolean): Promise<SessionRow | null>;
+  /** A user action: the idle deadline moves (ACC-04 FR 1, business rules). */
   touchSession(id: string, now: number): Promise<void>;
-  endSession(id: string, now: number): Promise<void>;
+  /** Refresh token rotation (NFR-01 FR 12): `next` becomes the session's token, its current one is retired. */
+  rotateSession(id: string, next: Buffer, now: number): Promise<void>;
+  endSession(id: string, now: number, reason: SessionEndReason): Promise<void>;
   /** Ends every session of the account; returns how many were still open. */
-  endSessions(accountId: string, now: number): Promise<number>;
+  endSessions(accountId: string, now: number, reason: SessionEndReason): Promise<number>;
 
   /**
    * Deletes up to `limit` unconfirmed accounts whose latest sign-up is at or before `signedUpBy`, with all their

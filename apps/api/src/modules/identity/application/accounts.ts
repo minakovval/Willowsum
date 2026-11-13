@@ -11,13 +11,16 @@ import {
   passwordResetLink,
   REGISTRATION_TTL_MS,
   secondsUntil,
-  sessionAlive,
   SESSION_ABSOLUTE_MS,
+  sessionLapse,
+  shownEndReason,
   SIGN_IN_FAILURE_WINDOW_MS,
   signInGate,
   signUpAttemptLetter,
+  tokenStanding,
+  type SessionEndShown,
 } from "../domain/index.ts";
-import type { AccountRow, IdentityDeps, IdentityTx, ThrottleScope } from "./ports.ts";
+import type { AccountRow, IdentityDeps, IdentityTx, SessionRow, ThrottleScope } from "./ports.ts";
 
 /**
  * The use cases of ACC-01@PoC part a (ADR-0009): sign-up, the «Перевірте пошту» screen's actions, email
@@ -391,24 +394,99 @@ export async function signIn(
   return { kind: "signed-in", sessionToken: result.sessionToken, maxAgeS: result.maxAgeS };
 }
 
-/** The account of a session token, if the session is alive; its use moves its idle deadline. */
-export async function sessionAccount(deps: IdentityDeps, token: string): Promise<SessionAccount | null> {
+/**
+ * What a session token stands for at `now` (ACC-04@PoC FR 1, 3; NFR-01 FR 10–12). A session that has lapsed (12 h
+ * since sign-in, or 15 min since the last user action) is ended here by the server, with its reason; so is one whose
+ * replaced token comes back after the grace period (it was copied). Reading never moves the idle deadline: only a
+ * refresh, which the client sends for user actions, does.
+ */
+export type SessionCheck =
+  | { readonly kind: "alive"; readonly session: SessionRow; readonly account: SessionAccount }
+  | { readonly kind: "ended"; readonly reason: SessionEndShown }
+  | { readonly kind: "none" };
+
+async function checkSession(
+  deps: IdentityDeps,
+  tx: IdentityTx,
+  token: string,
+  now: number,
+  lock = false,
+): Promise<SessionCheck> {
+  const session = await tx.findSession(deps.secrets.digest(token), lock);
+  if (!session) return { kind: "none" };
+  if (session.endedAt !== null) return { kind: "ended", reason: shownEndReason(session.endReason) };
+  const lapse = sessionLapse(session, now);
+  if (lapse !== null) {
+    await tx.endSession(session.id, now, lapse);
+    return { kind: "ended", reason: shownEndReason(lapse) };
+  }
+  if (tokenStanding(session.retiredAt, now) === "reuse") {
+    await tx.endSession(session.id, now, "token-reuse");
+    return { kind: "ended", reason: shownEndReason("token-reuse") };
+  }
+  const account = await tx.findAccount(session.accountId);
+  if (!account || account.emailConfirmedAt === null) return { kind: "none" };
+  return {
+    kind: "alive",
+    session,
+    account: { accountId: account.id, name: account.displayName, email: account.email },
+  };
+}
+
+/** The state of a session token for `GET /v1/session`: alive, ended with its reason, or unknown. */
+export function sessionStatus(deps: IdentityDeps, token: string): Promise<SessionCheck> {
   const now = deps.now();
-  return deps.store.transaction(async (tx) => {
-    const session = await tx.findSession(deps.secrets.digest(token));
-    if (!session || !sessionAlive(session, now)) return null;
-    const account = await tx.findAccount(session.accountId);
-    if (!account || account.emailConfirmedAt === null) return null;
+  return deps.store.transaction((tx) => checkSession(deps, tx, token, now));
+}
+
+/**
+ * The account of a session token, if the session is alive (every protected route). A request does not move the
+ * idle deadline: background requests never extend a session (ACC-04 business rules, NFR-01 FR 11).
+ */
+export async function sessionAccount(deps: IdentityDeps, token: string): Promise<SessionAccount | null> {
+  const result = await sessionStatus(deps, token);
+  return result.kind === "alive" ? result.account : null;
+}
+
+export type RefreshResult =
+  | {
+      readonly kind: "refreshed";
+      /** The rotated token, or null when the request carried a token replaced within the grace period. */
+      readonly sessionToken: string | null;
+      readonly maxAgeS: number;
+    }
+  | { readonly kind: "ended"; readonly reason: SessionEndShown }
+  | { readonly kind: "none" };
+
+/**
+ * A user action (click, input, navigation) in any tab of the browser (ACC-04 FR 1, 3; NFR-01 FR 10–12): the idle
+ * deadline moves for the session, which every tab shares through its cookie, and the token rotates. A token a
+ * refresh replaced less than 30 s ago (another tab's request on its way) moves the deadline but rotates nothing.
+ * The absolute end (12 h after sign-in) never moves.
+ */
+export async function refreshSession(deps: IdentityDeps, token: string): Promise<RefreshResult> {
+  const now = deps.now();
+  return deps.store.transaction(async (tx): Promise<RefreshResult> => {
+    const check = await checkSession(deps, tx, token, now, true);
+    if (check.kind !== "alive") return check;
+    const { session } = check;
     await tx.touchSession(session.id, now);
-    return { accountId: account.id, name: account.displayName, email: account.email };
+    const maxAgeS = Math.max(1, Math.floor((session.expiresAt - now) / 1000));
+    if (session.retiredAt !== null) return { kind: "refreshed", sessionToken: null, maxAgeS };
+    const sessionToken = deps.secrets.token();
+    await tx.rotateSession(session.id, deps.secrets.digest(sessionToken), now);
+    return { kind: "refreshed", sessionToken, maxAgeS };
   });
 }
 
-/** Sign-out: ends the session of the token (nothing when there is none). */
+/**
+ * Sign-out: ends the session of the token (nothing when there is none). Every tab of the browser shares the
+ * session, so every tab is signed out (ACC-04 FR 3).
+ */
 export async function signOut(deps: IdentityDeps, token: string): Promise<void> {
   const now = deps.now();
   await deps.store.transaction(async (tx) => {
-    const session = await tx.findSession(deps.secrets.digest(token));
-    if (session && session.endedAt === null) await tx.endSession(session.id, now);
+    const session = await tx.findSession(deps.secrets.digest(token), true);
+    if (session && session.endedAt === null) await tx.endSession(session.id, now, "signed-out");
   });
 }

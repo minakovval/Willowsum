@@ -1565,7 +1565,7 @@
         },
         "responses": {
           "200": {
-            "description": "The account of the session; 401 UNAUTHENTICATED without a live session",
+            "description": "The account of the session. Reading does not extend the session (only POST /v1/session/refresh does). 401 SESSION_ENDED with sessionEndReason when this browser's session has ended (its cookie is removed); 401 UNAUTHENTICATED without a session",
             "content": {
               "application/json": {
                 "schema": {
@@ -1598,7 +1598,135 @@
             }
           },
           "401": {
-            "description": "Sign-in is required (UNAUTHENTICATED)",
+            "description": "Sign-in is required (UNAUTHENTICATED); The session has ended; sign in again (SESSION_ENDED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the function is off",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session/refresh": {
+      "post": {
+        "operationId": "refreshSession",
+        "summary": "A user action in this browser: extend the session and rotate its token",
+        "tags": [
+          "identity"
+        ],
+        "x-willowsum-access": {
+          "public": "Sign-up, email confirmation, sign-in and password reset work before a session or a space exists (ACC-01)",
+          "flags": [
+            "identity.sign-in"
+          ]
+        },
+        "responses": {
+          "200": {
+            "description": "The client sends it for user actions only (click, input, navigation; ACC-04 business rules), never for background requests. The 15 min idle deadline moves for every tab of the browser and the session cookie gets a new token (NFR-01 FR 12); the 12 h end never moves. A token replaced less than 30 s ago (another tab's request on its way) extends the session without a new token; one replaced earlier ends the session (401 SESSION_ENDED, ended-elsewhere)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "active"
+                    },
+                    "idleTimeoutS": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "expiresInS": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "idleTimeoutS",
+                    "expiresInS"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Sign-in is required (UNAUTHENTICATED); The session has ended; sign in again (SESSION_ENDED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2147,6 +2275,7 @@
               "MALFORMED_REQUEST",
               "INVALID_CURSOR",
               "UNAUTHENTICATED",
+              "SESSION_ENDED",
               "INVALID_CREDENTIALS",
               "CAPTCHA_REQUIRED",
               "PLAN_LIMIT_REACHED",
@@ -2188,6 +2317,16 @@
             "items": {
               "type": "string"
             }
+          },
+          "sessionEndReason": {
+            "description": "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset or a reused token ended it)",
+            "type": "string",
+            "enum": [
+              "idle",
+              "expired",
+              "signed-out",
+              "ended-elsewhere"
+            ]
           },
           "limit": {
             "description": "LIMIT_REACHED: the limit that was reached",
