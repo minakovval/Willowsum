@@ -16,7 +16,16 @@ export const KMS_IMPLEMENTATIONS: ProviderImplementations<KeyManagement, LiveKms
   live: unavailableKeyManagement,
 });
 
-/** The implementation the configuration selects (`WS_PROVIDER_MODE`; `test` unless set to `live`). */
-export function keyManagement(mode: ProviderMode, liveOptions: () => LiveKmsOptions): KeyManagement {
+/**
+ * The implementation the configuration selects (`WS_PROVIDER_MODE`; `test` unless set to `live`). The local
+ * implementation's master key comes from a public label, so a deployed process (staging, production) never gets it,
+ * whatever its role or mode: it gets the fail-closed implementation instead (ARC-06 FR 1; security review of #141).
+ */
+export function keyManagement(
+  mode: ProviderMode,
+  liveOptions: () => LiveKmsOptions,
+  where: { readonly deployed: boolean },
+): KeyManagement {
+  if (where.deployed && mode !== "live") return unavailableKeyManagement({});
   return selectImplementation(mode, KMS_IMPLEMENTATIONS, liveOptions);
 }

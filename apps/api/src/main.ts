@@ -109,7 +109,7 @@ const audit = createAuditLog(databases.for("audit"));
 // Spaces (ACC-01 part c): the first space on the first sign-in, and the space of a session.
 // Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE. The live
 // adapter (OCI Vault) is not built yet and fails closed: a deployed process makes no space without a key.
-const kms = keyManagement(config.providerMode, () => ({}));
+const kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed });
 const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 
 // Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production

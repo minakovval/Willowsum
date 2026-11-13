@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { KeyManagement } from "../../../platform/adapters/kms/index.ts";
 import { keyRef, SpaceKeyError, type StoredSpaceKey } from "../domain/index.ts";
 import type { SpacesStore } from "./spaces.ts";
@@ -13,8 +13,13 @@ import type { SpacesStore } from "./spaces.ts";
 export interface SpaceKeyAudit {
   /** A space made before keys existed got its key (the space's own log). */
   keyProvisioned(householdId: string, keyId: string, before: string, after: string): Promise<void>;
-  /** A space's key was destroyed (the platform log: the space's own log goes with the space). */
-  keyDestroyed(keyId: string): Promise<void>;
+  /** A space's key was rewrapped by a newer master key version (the space's own log; the data key is unchanged). */
+  keyRewrapped(householdId: string, keyId: string, before: string, after: string): Promise<void>;
+  /**
+   * A space's key was destroyed (the platform log: the space's own log goes with the space). `id` is the key's id,
+   * or the space's id for a space destroyed before it ever had a key.
+   */
+  keyDestroyed(id: string): Promise<void>;
 }
 
 export interface SpaceKeysDeps {
@@ -55,6 +60,18 @@ export async function newSpaceKey(kms: KeyManagement, householdId: string): Prom
   }
 }
 
+/**
+ * The data key of a stored wrap, as a Buffer over the very bytes the KMS returned (no copy), so the caller's
+ * `fill(0)` wipes them.
+ */
+async function unwrapStored(kms: KeyManagement, householdId: string, key: StoredSpaceKey): Promise<Buffer> {
+  const bytes = await kms.unwrap(
+    { masterKeyVersion: key.masterKeyVersion, ciphertext: Buffer.from(key.wrappedKey, "base64url") },
+    { space: householdId },
+  );
+  return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.length);
+}
+
 function aad(householdId: string, field: string): Buffer {
   return Buffer.from(`household:${householdId}|field:${field}`, "utf8");
 }
@@ -76,12 +93,7 @@ async function withDataKey<T>(
     throw new SpaceKeyError(
       ref?.startsWith(keyRef.destroyedPrefix) ? "SPACE_KEY_DESTROYED" : "SPACE_KEY_MISSING",
     );
-  const dataKey = Buffer.from(
-    await deps.kms.unwrap(
-      { masterKeyVersion: key.masterKeyVersion, ciphertext: Buffer.from(key.wrappedKey, "base64url") },
-      { space: householdId },
-    ),
-  );
+  const dataKey = await unwrapStored(deps.kms, householdId, key);
   try {
     return work(dataKey);
   } finally {
@@ -137,7 +149,8 @@ export async function openField(
 /**
  * ARC-06 FR 3: the daily task. Every space's key wrapped by an older master key version is unwrapped and wrapped
  * again with the current one; the data key stays the same, so sealed values open before, during and after (no
- * downtime). The row changes only if no one rewrapped it meanwhile. A space still `pending:` gets its key; a
+ * downtime). The new wrap is unwrapped and compared before it is stored, the row changes only if no one rewrapped
+ * it meanwhile, and each rewrap is recorded in the space's log. A space still `pending:` gets its key; a
  * destroyed key is never replaced. One space's failure does not stop the others.
  */
 export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult> {
@@ -153,25 +166,34 @@ export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult
       }));
       if (key) {
         if (key.masterKeyVersion === current) continue;
-        const dataKey = Buffer.from(
-          await deps.kms.unwrap(
-            { masterKeyVersion: key.masterKeyVersion, ciphertext: Buffer.from(key.wrappedKey, "base64url") },
-            { space: householdId },
-          ),
-        );
-        let wrapped;
+        const dataKey = await unwrapStored(deps.kms, householdId, key);
+        let next: StoredSpaceKey;
         try {
-          wrapped = await deps.kms.wrap(dataKey, { space: householdId });
+          const wrapped = await deps.kms.wrap(dataKey, { space: householdId });
+          next = {
+            keyId: key.keyId,
+            masterKeyVersion: wrapped.masterKeyVersion,
+            wrappedKey: Buffer.from(wrapped.ciphertext).toString("base64url"),
+          };
+          // The new wrap is checked before it replaces the old one: a faulty KMS answer must not lose the key once
+          // the old master key version is retired.
+          const check = await unwrapStored(deps.kms, householdId, next);
+          try {
+            if (check.length !== dataKey.length || !timingSafeEqual(check, dataKey))
+              throw new Error("The new wrap does not unwrap to the same data key");
+          } finally {
+            check.fill(0);
+          }
         } finally {
           dataKey.fill(0);
         }
         const changed = await deps.store.inSpace(householdId, (tx) =>
-          tx.rewrapSpaceKey(householdId, key.keyId, key.masterKeyVersion, {
-            masterKeyVersion: wrapped.masterKeyVersion,
-            wrappedKey: Buffer.from(wrapped.ciphertext).toString("base64url"),
-          }),
+          tx.rewrapSpaceKey(householdId, key.keyId, key.masterKeyVersion, next),
         );
-        if (changed) rewrapped += 1;
+        if (changed) {
+          rewrapped += 1;
+          await deps.audit.keyRewrapped(householdId, key.keyId, key.masterKeyVersion, next.masterKeyVersion);
+        }
       } else if (ref?.startsWith(keyRef.pendingPrefix)) {
         const fresh = await newSpaceKey(deps.kms, householdId);
         const after = keyRef.live(fresh.keyId);
@@ -195,20 +217,34 @@ export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult
 /**
  * ARC-06 FR 5, NFR-12 FR 3: destroys a space's key. The wrap is deleted and the reference becomes `destroyed:<id>`;
  * the space's sealed values can no longer be opened. Copies keep the wrap until they rotate out (≤ 35 days).
- * Recorded in the platform log. Repeating it does nothing.
+ * Recorded in the platform log before anything changes. A space still `pending:` is marked `destroyed:<its id>`, so
+ * it never gets a key. Repeating it does nothing.
  */
 export async function destroySpaceKey(
   deps: SpaceKeysDeps,
   householdId: string,
 ): Promise<{ readonly destroyed: boolean }> {
-  const keyId = await deps.store.inSpace(householdId, async (tx) => {
-    const key = await tx.spaceKey(householdId);
-    if (!key) return null;
+  const { ref, key } = await deps.store.inSpace(householdId, async (tx) => ({
+    ref: await tx.encryptionKeyRef(householdId),
+    key: await tx.spaceKey(householdId),
+  }));
+  if (!key) {
+    // A space that never got its key: mark it destroyed so the daily task never gives it one. Recorded first, as
+    // below; the space's id stands for the key that never existed.
+    if (ref?.startsWith(keyRef.pendingPrefix)) {
+      await deps.audit.keyDestroyed(householdId);
+      await deps.store.inSpace(householdId, (tx) =>
+        tx.replaceKeyRef(householdId, ref, keyRef.destroyed(householdId)),
+      );
+    }
+    return { destroyed: false };
+  }
+  // The entry is written first: if it fails, the key is still there and a repeat tries again. A failure after it
+  // leaves at most a second entry on the repeat — never a destroyed key without one.
+  await deps.audit.keyDestroyed(key.keyId);
+  await deps.store.inSpace(householdId, async (tx) => {
     await tx.deleteSpaceKey(householdId, key.keyId);
     await tx.replaceKeyRef(householdId, keyRef.live(key.keyId), keyRef.destroyed(key.keyId));
-    return key.keyId;
   });
-  if (keyId === null) return { destroyed: false };
-  await deps.audit.keyDestroyed(keyId);
   return { destroyed: true };
 }

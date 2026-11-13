@@ -36,8 +36,11 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
   - `seal(householdId, field, text)` → `ws1.…` — AES-256-GCM ключем простору, прив'язано до простору й поля (до 4096 символів);
   - `open(householdId, field, sealed)` → текст; інакше `SpaceKeyError` (`SEALED_VALUE_INVALID`, `SPACE_KEY_MISSING`,
     `SPACE_KEY_DESTROYED`);
-  - `rewrapAll()` → `{ rewrapped, provisioned, failed }` — щоденна задача `household.space-keys` (`src/wiring.ts`);
-  - `destroy(householdId)` → `{ destroyed }` — знищує ключ; запис `household.space-key`/`delete` у журналі платформи.
+  - `rewrapAll()` → `{ rewrapped, provisioned, failed }` — щоденна задача `household.space-keys` (`src/wiring.ts`); нова
+    обгортка перевіряється розгортанням до збереження; кожне переобгортання — запис `household.space-key`/`update`
+    (`masterKeyVersion`) у журналі простору;
+  - `destroy(householdId)` → `{ destroyed }` — спершу запис `household.space-key`/`delete` у журналі платформи, потім
+    знищення ключа; простір `pending:` позначається `destroyed:<id простору>` і ключа вже не отримає.
 - `firstSpaceName`, `SPACE_NAME_MAX`, `SPACE_ROLES`, `SPACE_KEY_ERROR_CODES`, `SEAL_MAX_LENGTH`, `SpaceKeyError`, типи
   `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`.
 

@@ -134,11 +134,20 @@ export function createSpaceKeys(
           changes: [{ field: "encryptionKeyRef", before, after, sensitive: false }],
         });
       },
-      keyDestroyed: async (keyId) => {
-        await audit.recordPlatform({
+      keyRewrapped: async (householdId, keyId, before, after) => {
+        await audit.record(householdId, {
           actor: { kind: "system" },
           channel: "system",
           entity: { type: "household.space-key", id: keyId },
+          action: "update",
+          changes: [{ field: "masterKeyVersion", before, after, sensitive: false }],
+        });
+      },
+      keyDestroyed: async (id) => {
+        await audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "system",
+          entity: { type: "household.space-key", id },
           action: "delete",
           changes: [],
         });

@@ -6,6 +6,12 @@ function digest(householdId: string, what: string): Buffer {
   return createHash("sha256").update(`${householdId}/${what}`).digest();
 }
 
+/** The synthetic key id of a space: the same in its record's reference and in its key row. */
+function keyIdOf(householdId: string): string {
+  const h = digest(householdId, "space-key").toString("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 export const synthetic = [
   defineSyntheticTable({
     table: "household.households",
@@ -18,7 +24,8 @@ export const synthetic = [
           household_id: household.id,
           name: household.name,
           data_region: household.dataRegion,
-          encryption_key_ref: household.encryptionKeyRef,
+          // ARC-06 FR 1: the reference names the space's (synthetic) key row below.
+          encryption_key_ref: `dek:${keyIdOf(household.id)}`,
         };
     },
   }),
@@ -29,10 +36,9 @@ export const synthetic = [
     maxPerHousehold: 1,
     *rows({ household, count }) {
       for (let i = 0; i < count; i++) {
-        const h = digest(household.id, "space-key").toString("hex");
         yield {
           household_id: household.id,
-          key_id: `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`,
+          key_id: keyIdOf(household.id),
           master_key_version: "synthetic-1",
           wrapped_key: digest(household.id, "wrapped").toString("base64url"),
         };

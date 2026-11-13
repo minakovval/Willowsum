@@ -10,7 +10,7 @@
 - Спільні правила: П-24, NFR-01
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/adapters/kms/kms.test.ts, apps/api/src/modules/household/space-keys.it.test.ts, tools/infra-check/test/start.test.mjs
+- Перевіряється: apps/api/src/platform/adapters/kms/kms.test.ts, apps/api/src/platform/adapters/kms/sec141-deployed.test.ts, apps/api/src/modules/household/space-keys.it.test.ts, apps/api/src/modules/household/sec141-space-keys.it.test.ts, tools/infra-check/test/start.test.mjs
 
 1. Конвертне шифрування: кожен простір має власний ключ даних (AES-256-GCM), обгорнутий головним ключем. Доступ до головного ключа — лише через адаптер KMS, що викликає керований KMS. У PoC хостинг і резервні копії працюють за профілем «Старт», а головний ключ живе в керованому KMS хмари хостингу (OCI Vault в Oracle Cloud Infrastructure): значення ключа не залишає KMS, копій поза KMS немає.
 2. Поля з особливо чутливими даними (IBAN, номери полісів) шифруються окремо ключем простору. Токен провайдера зберігається в БД, зашифрований окремим ключем підключення (AES-256-GCM), обгорнутим ключем простору; головний ключ — у KMS з PoC, бо PoC обробляє реальні банківські дані. Токен лише записується: API його не повертає, у формі видно тільки останні 4 символи. Заміна токена і відключення одразу знищують ключ підключення (крипто-видалення, включно з копіями). Для monobank діалог відключення пояснює, як відкликати токен у кабінеті monobank.

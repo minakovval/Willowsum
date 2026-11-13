@@ -67,10 +67,10 @@ describe("ARC-06@PoC FR 1: the KMS port", () => {
   });
 
   it("ARC-06@PoC FR 1: the live implementation is not built yet and fails closed on every call", async () => {
-    const kms = keyManagement("live", () => ({}));
+    const kms = keyManagement("live", () => ({}), { deployed: false });
     await expect(kms.currentVersion()).rejects.toMatchObject({ kind: "unavailable" });
     await expect(kms.wrap(randomBytes(32), { space: SPACE })).rejects.toMatchObject({ kind: "unavailable" });
-    const local = keyManagement("test", () => ({}));
+    const local = keyManagement("test", () => ({}), { deployed: false });
     expect(await local.currentVersion()).toMatch(/^local-\d+$/);
   });
 });

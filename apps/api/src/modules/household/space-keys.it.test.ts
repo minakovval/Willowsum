@@ -180,6 +180,43 @@ describe("ARC-06@PoC FR 3: a master key rotation rewraps the keys of spaces in t
     expect(await keys.open(b, "iban", sealedDuring)).toBe(IBAN);
     // A second run has nothing left to do.
     expect((await keys.rewrapAll()).rewrapped).toBe(0);
+    // Each rewrap is in the space's own log, with the master key versions before and after (no key material).
+    const entries = await createAuditLog(db.databases.for("audit")).entriesFor(a, {
+      type: "household.space-key",
+      id: before.key_id!,
+    });
+    expect(entries).toMatchObject([
+      {
+        actorKind: "system",
+        action: "update",
+        changes: [
+          { field: "masterKeyVersion", before: before.master_key_version, after: next, masked: false },
+        ],
+      },
+    ]);
+  });
+
+  it("ARC-06@PoC FR 3: a new wrap that does not unwrap to the same key is never stored", async () => {
+    const id = await newSpace("Перевірка Обгортки");
+    const sealed = await keys.seal(id, "iban", IBAN);
+    const before = (await keyRow(id))!;
+    kms.rotate();
+    // A faulty KMS: it answers the wrap with the wrap of another key.
+    const faulty = {
+      currentVersion: () => kms.currentVersion(),
+      unwrap: kms.unwrap,
+      wrap: (_key: Uint8Array, context: { space: string }) => kms.wrap(Buffer.alloc(32, 5), context),
+    };
+    const result = await createSpaceKeys(
+      db.databases.for("household"),
+      createAuditLog(db.databases.for("audit")),
+      faulty,
+    ).rewrapAll();
+    expect(result.failed).toBeGreaterThanOrEqual(1);
+    expect(await keyRow(id)).toEqual(before);
+    expect(await keys.open(id, "iban", sealed)).toBe(IBAN);
+    // The real KMS finishes the job for this run's other spaces too.
+    expect((await keys.rewrapAll()).failed).toBe(0);
   });
 
   it("ARC-06@PoC FR 3: one space whose key cannot be unwrapped does not stop the others", async () => {
