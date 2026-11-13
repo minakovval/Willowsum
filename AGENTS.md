@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 This is the single rule set for every agent (and human) changing this repository. It is short on purpose:
 read it fully, then load only the files your task needs. If a task conflicts with this file, stop and ask

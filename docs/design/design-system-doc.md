@@ -789,5 +789,5 @@
 - Вимоги: `docs/requirements/ds`, `cmp`, `cht`, `grid` у репозиторії minakovval/Willowsum; процес — `docs/requirements/prc/PRC-01`, `PRC-02`.
 - Код: `packages/ui/src/styles/tokens.css` і компоненти `packages/ui/src`.
 - Канва: [Willowsum · P0 оболонка і системні екрани](https://claude.ai/artifact/EFfhV3a6L8TZCGtM1whfnR).
-- Жива дизайн-система з прев’ю компонентів: [Willowsum (Design System)](https://claude.ai/artifact/Tk2bdNDkoLHUYnnbRTTfBw).
+- Жива дизайн-система з прев’ю компонентів: [Willowsum (Design System)](https://claude.ai/artifact/5vhCpxVe6hNG4Et65HEK8X).
 - Релізи функцій: [Willowsum · релізи функцій](https://docs.google.com/spreadsheets/d/1pH1VBozmZ4ORKSnyv1MqARa1H5sm7rZwVN-McDoSlEs).
