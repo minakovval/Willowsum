@@ -62,7 +62,8 @@ versions inside the app until the design-system components exist in `packages/ui
 `e2e/` — Playwright in Chromium and WebKit at 1280 × 800, light theme (Firefox from PoC v2). `global-setup.ts` starts
 the stack once: a fresh database on the server of `DATABASE_URL` (a PostgreSQL superuser URL) with `db:bootstrap`, every
 migration and the module logins, the real API process (`apps/api/test/e2e-support.ts`, synthetic providers), and the
-`vite build --mode ci` output behind `vite preview` (production headers and CSP; `/v1` passed to the API). The synthetic
+`vite build --mode ci` output behind `vite preview` over HTTPS with a certificate made for the run (production headers
+and CSP; `/v1` passed to the API; over plain http WebKit on Linux drops the `Secure` session cookie). The synthetic
 mail stays in the API process, so a test gets the confirmation letter's link by putting a token of its own in place of
 the live link's digest.
 

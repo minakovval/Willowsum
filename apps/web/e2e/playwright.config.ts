@@ -28,6 +28,8 @@ export default defineConfig({
     timezoneId: "Europe/Kyiv",
     viewport,
     trace: "retain-on-failure",
+    // The stack serves HTTPS with a certificate made for this run (global-setup.ts).
+    ignoreHTTPSErrors: true,
   },
   projects: [
     {
