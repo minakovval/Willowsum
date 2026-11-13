@@ -19,7 +19,7 @@ function clock(start = 1_000_000) {
   return { now: () => t, advance: (ms: number) => (t += ms) };
 }
 
-describe("CICD-06 AC3: a kill switch takes effect in ≤ 1 minute without a release", () => {
+describe("CICD-06 FR 3: a kill switch takes effect in ≤ 1 minute without a release", () => {
   it("the refresh period is within the bound, and a longer one is refused", () => {
     expect(REFRESH_MS).toBeLessThanOrEqual(KILL_SWITCH_MAX_DELAY_MS);
     expect(KILL_SWITCH_MAX_DELAY_MS).toBe(60_000);
@@ -73,7 +73,7 @@ describe("CICD-06 AC3: a kill switch takes effect in ≤ 1 minute without a rele
   });
 });
 
-describe("CICD-06 AC1: the runtime follows the staged rollout", () => {
+describe("CICD-06 FR 1: the runtime follows the staged rollout", () => {
   it("a flag without stored state is off; test spaces are asked only when the stage needs it, and cached until the next refresh", async () => {
     const store = memoryFlagStore();
     const c = clock();
@@ -98,7 +98,7 @@ describe("CICD-06 AC1: the runtime follows the staged rollout", () => {
   });
 });
 
-describe("CICD-06 AC3: the ≤ 1 minute bound holds when reloads fail, hang or are slow (fake timers)", () => {
+describe("CICD-06 FR 3: the ≤ 1 minute bound holds when reloads fail, hang or are slow (fake timers)", () => {
   afterEach(() => {
     vi.useRealTimers();
   });

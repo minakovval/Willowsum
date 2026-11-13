@@ -12,12 +12,21 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 
 ## 1. Per requirement part
 
-1. Pick the next part from `docs/traceability/release-poc.md` and the wave plan; keep each PR small enough
-   for one review round (split backend and UI).
+0. **Requirements sweep before a section** (owner, 2026-11-13): before the first PR of a plan section (money,
+   import, planning, screens), open one `change-requirement` PR that removes the contradictions between the
+   section's requirement slices, their cards and the canvas boards (or lists them as owner questions); its row is
+   `<X>0` in the wave plan. The section's code PRs start after it is merged.
+1. Pick the next part from the wave plan and `docs/traceability/release-poc.md` (generated, not committed:
+   `node tools/req-check/index.mjs --quiet --traceability`, or the `traceability` artifact of the latest
+   «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
+   and UI).
 2. **Implementer**: a new agent with the `implement-requirement` skill, in its own git worktree on its own
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
-   Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its own
-   database (`pnpm db:test`), what to report (PR URL, head SHA, checks).
+   Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its slot
+   `k` (1–4: dev-server port 517k, API port 808k, its own `pnpm db:test` databases, its own PIDs — «3. Parallel
+   branches»), and the report it returns: 10–15 lines, no narrative (owner, 2026-11-13) — PR, head SHA (full),
+   result, blockers, owner questions; details go in the PR body or the review. Reviewer briefs ask for the same
+   short report.
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
@@ -50,7 +59,11 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR.
-8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions.
+8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions
+   (batched, «2. Owner»).
+9. **Follow-up sweep** (owner, 2026-11-13): after every 8–10 merged PRs, one PR (row `R` of the wave plan, an
+   implementer on a lighter model) closes the small open follow-ups: issues labelled or listed as follow-ups and
+   the «Follow-ups» lists of the merged PRs. Larger items get a plan row of their own instead.
 
 **Stacked PRs** (owner, 2026-11-13): a PR that needs another open PR still targets `main`. Branch it from the
 parent's branch and say in its body which PR it waits for; it is merged only after the parent. After the
@@ -66,7 +79,12 @@ merge only after CI runs green on the exact head (`investigate-ci-failure`).
 ## 2. Owner
 
 - Questions to the owner are explicit and separate: one numbered list, each with options and your
-  recommendation; only real product questions (AGENTS.md «Ambiguity»). Small details you decide, record in the
+  recommendation; only real product questions (AGENTS.md «Ambiguity»).
+- **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
+  on small details) and send them together about every 2–3 hours, in one message. Urgent ones go at once,
+  alone: a blocker that stops all parallel work, billing or CI that cannot run, and anything about security (a
+  leaked secret, a security finding in `main`, a production risk). While a question waits, keep the other
+  branches moving. Small details you decide, record in the
   PR body and the decision log, and tell the owner afterwards.
 - Anything the owner must do in a web console → a browser task (`browser-task` skill), never a request for
   keys in chat.
@@ -78,9 +96,21 @@ merge only after CI runs green on the exact head (`investigate-ci-failure`).
   `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.`
   (examples: `docs/decisions/state-2026-11-05.md`). Change it to an owner line only when the owner answers.
 
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — a comment, an issue, a merge — check whether the first attempt landed
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`, the open issues, `gh api repos/{owner}/{repo}/pulls/<n> --jq
+.merged`); act again only when it did not. Unsubscribing, labels and PATCHes are idempotent: retry as they are.
+Brief the agents you start to do the same (their skills say so).
+
 ## 3. Parallel branches
 
-Up to 3 branches at a time, each with its own worktree, PR and test database. Choose parts that touch
+Up to 3 branches at a time, each with its own worktree, PR and test database. **At most 3–4 agents at once**
+(owner, 2026-11-13), implementers and reviewers together; more wait in a queue. Give each agent a slot `k`
+(1–4) in its brief and keep a table slot → agent → branch → worktree: its web dev server on port 517k
+(`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`, its own `pnpm db:test` databases
+(named after its branch) and its own worktree; it stops only the processes it started, by PID (the skills that
+start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide).
 
@@ -100,9 +130,14 @@ Owner request 2026-11-12; rules decided by the lead.
 1. Pick the agent's model by risk:
    - the strongest model for implementing sensitive features and for security reviews of critical modules
      (isolation, money, auth, encryption);
-   - a lighter, cheaper model (the Agent tool's model option) for `review-pr` on non-sensitive PRs, PRs that change
-     only docs or requirements, applying ready reviewer patches (`fix-review-findings`), follow-up PRs and
-     status checks.
+   - reviews (owner, 2026-11-13): a `review-pr` of a PR that changes **only docs and requirement text** may use
+     a lighter, cheaper model (the Agent tool's model option). Docs-only means every changed file is one that
+     `isDocsOnly` in `tools/pr-rules/lib/ci-paths.mjs` accepts (the job `changes` skips all heavy jobs: `docs/`,
+     `design/`, `.claude/`, root `*.md`, the PR template) and none is a test or code. Every review of a PR
+     that changes code, tools or workflows, and every confirmation round of such a PR (round 2, merge-only
+     confirmations), stays on the main model;
+   - a lighter model for applying ready reviewer patches (`fix-review-findings`), follow-up PRs and status
+     checks.
 2. Round-2 re-reviews go to a fresh agent with a narrow brief (the diff since the last head plus the previous
    findings), not to a resumed long-context agent.
 3. Reviewers rely on green CI for the full suites. Locally they run only the tests touching the changed code,

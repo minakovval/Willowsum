@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -73,7 +73,7 @@ slice stays self-contained: no other requirement IDs (the checker enforces it).
 
 Owner decision of 2026-11-12 (PRC-01). A migrated requirement has **one source file**, `bud/BUD-16.md`. Its
 release views `bud/BUD-16.poc.md`, `BUD-16.poc-v2.md`, … are generated from it by
-`node tools/req-check/index.mjs --views`, the way `docs/traceability/` is. To implement a release, read only
+`node tools/req-check/index.mjs --views` and committed. To implement a release, read only
 that release's view (as before); to change a requirement, edit only the source and regenerate.
 
 **Shape of the source.** The card part, unchanged (heading, «Реліз» line, «Зв'язки» with «Зрізи» and
@@ -166,13 +166,22 @@ segment counts when it starts with a release (`MVP (…)`) or ends with one (`р
 named only inside parentheses (`PoC (…; push — v1-mobile)`) and «основа в архітектурі й моделі даних — PoC»
 create no slice. Other slices may depend on these implicit slices.
 
-**Traceability.** `node tools/req-check/index.mjs --traceability` writes
-[docs/traceability/](../traceability/README.md): `matrix.md` (one row per slice), `release-<key>.md` per
-release (slices, Mermaid dependency graph, build sequence in waves) and `coverage.md` (screens without a
-slice, slices without design, slices without criteria). The files are committed; CI regenerates them and
-fails on any difference; the same CI step also regenerates `docs/validation/req-check-report.md`.
-Run locally before pushing: `node --test tools/req-check` and
-`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` (0 errors).
+**Traceability.** `node tools/req-check/index.mjs --traceability` writes `docs/traceability/`: `README.md`,
+`matrix.md` (one row per slice), `release-<key>.md` per release (slices, Mermaid dependency graph, build
+sequence in waves) and `coverage.md` (screens without a slice, slices without design, slices without
+criteria). **Not committed** (owner, 2026-11-13): `docs/traceability/` and `docs/validation/req-check-report.md`
+are git-ignored. CI (job `requirements`) generates both on every PR and fails when generation fails or finds
+errors; the views stay committed and CI fails when they differ from their sources. To read the matrix or the
+report without a checkout, open the latest run of the workflow «Requirements traceability» on `main`
+(`.github/workflows/requirements-traceability.yml`, after every merge): its summary shows the report and the
+PoC build sequence, and its artifact `traceability` holds every file. In a checkout, generate them on demand:
+`node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md`.
+`--impact` does not need them: it computes dependents from the sources each time.
+Run locally before pushing: `node --test tools/req-check`, `node tools/req-check/index.mjs --views` (0 errors)
+and `node tools/req-check/index.mjs --check-mentions` (a test named by an item its view does not have, e.g.
+`CICD-06@PoC AC3` where the view has only FR 1–3, fails CI with its file and line; name a table criterion by its
+words, «criterion «CSP без небезпечних джерел»»; a fixture line in the checker's own tests carries the marker
+`req-check-ignore-mention`).
 CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`, `secrets`,
 `local-env`, `api`, `infra`.
 

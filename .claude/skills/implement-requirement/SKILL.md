@@ -90,8 +90,11 @@ keeping the other releases' lines. Then run
 
 Run the repo's checks (typecheck, lint, unit, integration; e2e for UI — see the root `package.json`),
 plus `node --test tools/req-check`, `node tools/req-check/index.mjs --views` and
-`node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`
-(0 errors; the source, the regenerated views and the generated files committed). All green before pushing (CI jobs: AGENTS.md step 6).
+`node tools/req-check/index.mjs --check-mentions` (0 errors; the source and the regenerated views committed;
+a test named by an item its view does not have fails CI with its file and line). The traceability files and the
+req-check report are not committed (owner, 2026-11-13): CI generates them; to read them, generate them on demand
+with `node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md`
+(git-ignored). All green before pushing (CI jobs: AGENTS.md step 6).
 Cloud sessions have no Docker, so `pnpm db:test` fails there unless the admin URL is given:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
 (`infra/local/README.md`).
@@ -104,11 +107,42 @@ Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missin
 through scope, floats, hard-coded limits, personal data in logs.
 Before pushing, run a local check for secret-shaped literals (what the CI job `secrets` checks).
 
+**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
+a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
+`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
+`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
+`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
+detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
+your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
+name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
+
 ## 7. PR
 
 Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
 (`pr153-impl/`), never a generic name like `body.md`, which another agent can overwrite. Before setting
 or PATCHing a PR body from a file, check that the file is the one you wrote (it names this PR's ID).
+
+**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
+PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
+
+```
+git fetch origin main
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-impl/body.md
+```
+
+It runs, offline, what the CI job `traceability` (description) and the label job check, on
+`git diff origin/main...HEAD`: the title's requirement ID, the template sections, and the labels CI will set.
+Fix every `ERROR` line first (exit code 0 is required). When it lists `sensitive` labels, tick «Sensitive areas
+touched»; when it lists `owner-decision`, the body must record the owner decision the PR implements.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
 
 Push the branch and open a PR (draft until CI is green) using `.github/pull_request_template.md`:
 - title `<ID>: <what>`;
@@ -135,6 +169,10 @@ are in AGENTS.md «Process», steps 5 and 7. What must not go wrong:
   latest commit and `Verdict: Ready` (for `sensitive` also `Security verdict: Ready`) names the exact head
   SHA, and never while the owner's «stop» or question on the PR is unanswered; any later commit needs a
   re-review. Report the PR URL and head SHA to the lead.
+
+**Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI state, criteria covered or left), blockers, owner questions. Details go in the PR body
+(or an issue), not in the report.
+
 - A PR that changes requirements, AGENTS.md or skills states in its body the owner decision it implements.
   A PR that acts on the cloud or production needs the owner's approval on that PR: a comment from the owner's
   own account with a line that is exactly «Схвалюю» or «Approved», or the owner's chat decision in the PR body

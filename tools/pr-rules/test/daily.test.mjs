@@ -58,7 +58,7 @@ test('a day that follows every rule has no findings and raises no alert', () => 
   assert.match(render(result), /Порушень не знайдено/);
 });
 
-test('CICD-01 criterion 1: a commit on main without a merged PR is found', () => {
+test('CICD-01 criterion «Коміти в main без злитого PR»: a commit on main without a merged PR is found', () => {
   const f = only(input({ commits: [{ sha: 'd'.repeat(40), date: '2026-11-12T08:00:00Z', title: 'hotfix', pulls: [] }] , pulls: [] }));
   assert.equal(f.severity, 'violation');
   assert.match(f.subject, /коміт ddddddd/);
@@ -78,7 +78,7 @@ test('CICD-01 FR 3: an unreadable activity log is itself an alert (the check fai
   assert.match(only(input({ activityError: 'HTTP 403' })).message, /не вдалося прочитати журнал/);
 });
 
-test('CICD-01 criterion 2: a PR merged without green CI on its last commit is found', () => {
+test('CICD-01 criterion «PR, злитий без зеленого CI»: a PR merged without green CI on its last commit is found', () => {
   const failed = green().map((r) => (r.name === 'api' ? { ...r, conclusion: 'failure' } : r));
   assert.match(only(input({ pulls: [pr({ checkRuns: failed })] })).message, /api: failure/);
   const missing = green().filter((r) => r.name !== 'secrets');
@@ -93,7 +93,7 @@ test('CICD-01 FR 3: a re-run counts — the latest check run of a job decides', 
   assert.deepEqual(findings(input({ pulls: [pr({ checkRuns: rerun })] })), []);
 });
 
-test('CICD-01 criterion 2 / FR 5: a PR merged without «Verdict: Ready» is found', () => {
+test('CICD-01 criterion «PR, злитий без вердикту Ready» / FR 5: a PR merged without «Verdict: Ready» is found', () => {
   assert.match(only(input({ pulls: [pr({ reviews: [] })] })).message, /без рецензії з «Verdict: Ready»/);
   const notReady = [review(1, 'Verdict: Ready', HEAD, '2026-11-12T09:00:00Z'), review(2, '## Verdict: Not ready')];
   assert.match(only(input({ pulls: [pr({ reviews: notReady })] })).message, /останній вердикт був «Not ready»/);
@@ -226,7 +226,7 @@ test('verdict lines: the forms reviews in this repository use', () => {
   assert.equal(verdictOf('Verdict: Changes requested\n…\nVerdict: Ready', 'review'), 'Ready', 'the last line wins');
 });
 
-test('CICD-01 criterion 3: a cloud/production PR needs the owner approval comment', () => {
+test('CICD-01 criterion «PR, що діє на хмару чи production, без схвалення власника»: a cloud/production PR needs the owner approval comment', () => {
   const files = [{ filename: '.github/workflows/deploy.yml', status: 'added', content: 'permissions:\n  id-token: write\n' }];
   const reviews = [review(1, 'Verdict: Ready'), review(2, 'Security verdict: Ready')];
   const f = only(input({ pulls: [pr({ files, reviews })] }));
