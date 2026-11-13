@@ -316,3 +316,33 @@ describe("NFR-12@PoC FR 1, FR 2: the data of a confirmed account and its space s
     expect(await spaceRows(owner.householdId)).toEqual(before);
   });
 });
+
+describe("FIN-04@PoC FR 10 through the scheduler's task list: main.ts's alert mail reaches the integrity check", () => {
+  it("schedulerDailyTasks({ alertMail }) sends the owner's letter about a discrepancy through the given mail adapter", async () => {
+    // A space of its own with an entry without postings, written past the triggers as only a restore could.
+    const householdId = randomUUID();
+    const entryId = randomUUID();
+    await db.owner.query("BEGIN");
+    await db.owner.query("SET LOCAL session_replication_role = replica");
+    await db.owner.query(
+      `INSERT INTO ledger.entries (household_id, id, source_module, source_id, event_type, operation_date, rules_version, idempotency_key)
+       VALUES ($1, $2::uuid, 'transactions', $2::uuid, 'transfer', '2026-06-01', 1, $2::uuid::text)`,
+      [householdId, entryId],
+    );
+    await db.owner.query("COMMIT");
+    const outbox = syntheticMailSender();
+    const tasks = schedulerDailyTasks({
+      databases: db.databases,
+      audit: createAuditLog(db.databases.for("audit")),
+      spaces: { spaceIds: async () => [householdId] },
+      now: () => t,
+      alertMail: { mail: outbox, to: "owner@example.test" },
+    });
+    const check = tasks.find((task) => task.name === "ledger.integrity-check")!;
+    await check.run();
+    expect(outbox.sent).toHaveLength(1);
+    expect(outbox.sent[0]!.to).toBe("owner@example.test");
+    expect(outbox.sent[0]!.text).toContain("Запис без проводок: 1.");
+    for (const secret of [householdId, entryId]) expect(outbox.sent[0]!.text).not.toContain(secret);
+  });
+});

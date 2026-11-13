@@ -75,6 +75,8 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
         navigate(START_PATH);
         return;
       }
+      // An unconfirmed account: the password is not kept, as on every other path that does not sign in.
+      setPassword("");
       if (result.data.registrationToken) {
         setUnconfirmed({ email: email.trim(), token: result.data.registrationToken });
         setResendAt(deadlineIn(result.data.resendAfterS));

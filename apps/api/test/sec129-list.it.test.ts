@@ -164,8 +164,9 @@ describe("sec129: the rate is never one from after the transaction's date", () =
     expect(total).toMatchObject({ noRateCount: 1, approximate: false });
   });
 
-  it("sec129: a database error while reading rates fails the list, it is never shown as «немає курсу»", async () => {
-    // Round 1 fix: the totals read all their rates in one call (`rates`), so the probe goes through it.
+  it("sec129: officialDatedRates passes a store rejection through; it never turns it into «немає курсу»", async () => {
+    // Proves the adapter only. That the list total then fails is proven end to end in dat01-list.it.test.ts
+    // («a database error while reading the rates fails the total»).
     const broken = officialDatedRates({
       rates: () => Promise.reject(new Error("connection terminated")),
     });
@@ -237,5 +238,40 @@ describe("sec129: stable, complete order across pages on PostgreSQL", () => {
       expect(ids).toHaveLength(130);
       expect(new Set(ids).size).toBe(130);
     }
+  });
+});
+
+describe("sec129: a list declaration the table cannot keep is refused (review of #129, non-blocking 2–4)", () => {
+  const loose = (tieBreaker: string, column: string) =>
+    defineList({
+      table: "loose_entries",
+      select: { id: "row_id", amount: "amount" },
+      tieBreaker,
+      filters: {},
+      sorts: { amount: "amount" },
+      defaultSort: { field: "amount", direction: "desc" },
+      amounts: { amountColumn: "amount", currencyColumn: "currency", rateDate: { column } },
+    });
+  const run = (list: ReturnType<typeof loose>) =>
+    databases.for("listings").inHousehold(spaceA, (q) => list.run(q, {}));
+
+  it("sec129: a tie-breaker without a unique key is refused (paging could skip or repeat records)", async () => {
+    await expect(run(loose("entry_id", "posted_on"))).rejects.toThrow(/tie-breaker entry_id/);
+  });
+
+  it("sec129: a nullable rate-date column is refused (an empty date is never converted at today's rate)", async () => {
+    await expect(run(loose("row_id", "booked_on"))).rejects.toThrow(/rate-date column booked_on is date,/);
+  });
+
+  it("sec129: a timestamptz rate-date column is refused (the rate day is the Kyiv date, not the session's)", async () => {
+    await expect(run(loose("row_id", "booked_at"))).rejects.toThrow(
+      /rate-date column booked_at is timestamp with time zone not null/,
+    );
+  });
+
+  it("sec129: a primary key, or a key unique within the household, with a NOT NULL date column is accepted", async () => {
+    await expect(run(loose("row_id", "posted_on"))).resolves.toMatchObject({ count: 0 });
+    await expect(run(loose("entry_ref", "posted_on"))).resolves.toMatchObject({ count: 0 });
+    await expect(run(transactions)).resolves.toMatchObject({ count: 0 });
   });
 });

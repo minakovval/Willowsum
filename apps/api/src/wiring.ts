@@ -8,7 +8,7 @@ import type { AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
-import { createLedgerIntegrityCheck } from "./modules/ledger/index.ts";
+import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./modules/ledger/index.ts";
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
@@ -61,21 +61,30 @@ export function readinessCheck(deps: {
  * The scheduler role's daily tasks (ADR-0010), in the order they run. NFR-12@PoC: the only automatic deletion of
  * a person's data is identity's removal of unconfirmed accounts 30 days after their latest sign-up; no other task
  * here deletes the data of an account or a space. `now` is the clock of the tasks that judge rows by age (tests
- * pass their own; main.ts the wall clock).
+ * pass their own; main.ts the wall clock). `alertMail` is the mail adapter and the product owner's address for the
+ * integrity letter (FIN-04 FR 10); without it a discrepancy is an «error» event that no letter could go out.
  */
 export function schedulerDailyTasks(deps: {
   readonly databases: Pick<ModuleDatabases, "for">;
   readonly audit: Pick<AuditLog, "recordPlatform">;
   readonly spaces: Pick<HouseholdSpaces, "spaceIds">;
   readonly now?: () => number;
+  readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
 }): DailyTask[] {
   const maintenance = createIdentityMaintenance({
     db: deps.databases.for("identity"),
     audit: deps.audit,
     ...(deps.now ? { now: deps.now } : {}),
   });
-  // FIN-04 FR 9: the ledger's daily integrity check over every space (a failure is an «error» log event).
-  const ledgerCheck = createLedgerIntegrityCheck(deps.databases.for("ledger"), () => deps.spaces.spaceIds());
+  // FIN-04 FR 9, FR 10: the ledger's daily integrity check over every space (a failure is an «error» log event) and
+  // one letter to the product owner per discrepancy period; without a recipient, an «error» event instead.
+  const ledgerCheck = createLedgerIntegrityCheck(
+    deps.databases.for("ledger"),
+    () => deps.spaces.spaceIds(),
+    undefined,
+    undefined,
+    deps.alertMail ? { alertMail: deps.alertMail } : {},
+  );
   return [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },

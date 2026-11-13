@@ -183,8 +183,21 @@ lifecycle.onStop(() => databases.end());
 lifecycle.onStop(() => server.close());
 // The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
 if (config.role === "scheduler") {
-  // Identity's cleanup (NFR-12@PoC: unconfirmed accounts after 30 days) and the ledger's integrity check (FIN-04 FR 9).
-  const daily = scheduleDaily(schedulerDailyTasks({ databases, audit, spaces }));
+  // The owner's alert letters (VAL-05 FR 4, FIN-04 FR 10; owner decision 2026-11-12: PoC alerts are app emails).
+  const alertMail = config.alerts.email
+    ? {
+        to: config.alerts.email,
+        mail: mailSender(config.providerMode, () => ({
+          apiKey: config.identity.mail!.apiKey,
+          from: config.identity.mail!.from,
+        })),
+      }
+    : undefined;
+  // Identity's cleanup (NFR-12@PoC: unconfirmed accounts after 30 days) and the ledger's integrity check with the
+  // owner's letter (FIN-04 FR 9, FR 10; without a recipient, an «error» event instead).
+  const daily = scheduleDaily(
+    schedulerDailyTasks({ databases, audit, spaces, ...(alertMail ? { alertMail } : {}) }),
+  );
   lifecycle.onStop(() => daily.stop());
   // VAL-05 FR 4: without the owner's address no alert letter can go out; say so loudly (the address is never logged).
   if (config.deployed && !config.alerts.email)
@@ -196,17 +209,7 @@ if (config.role === "scheduler") {
     db: databases.for("fx-rates"),
     mode: config.providerMode,
     // VAL-05 FR 4 (owner decision 2026-11-12): one letter to the product owner per stale period, via the mail adapter.
-    ...(config.alerts.email
-      ? {
-          alertMail: {
-            to: config.alerts.email,
-            mail: mailSender(config.providerMode, () => ({
-              apiKey: config.identity.mail!.apiKey,
-              from: config.identity.mail!.from,
-            })),
-          },
-        }
-      : {}),
+    ...(alertMail ? { alertMail } : {}),
     report: (event) => {
       const attributes = { "ws.module": "fx-rates", "ws.job.name": "fx-rates.refresh" };
       // FR 4, AC2: 24 h without a successful update is an error-level event in the server log.
