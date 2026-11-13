@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of `sync-branch` SKILL.md without change (owner, 2026-11-13). Read when you request the reviewers' confirmation after a merge.
+Moved out of `sync-branch` SKILL.md (owner, 2026-11-13); docs-only exception added (owner, 2026-11-13, #178). Read when you request the reviewers' confirmation after a merge.
 
 ## 7. Reviewer confirmation
 
@@ -19,6 +19,10 @@ verdict needs a confirmation on the new head SHA:
   before and after), and that the merge's tree equals a clean merge
   (the first output line of `git merge-tree --write-tree HEAD^1 HEAD^2` = `git rev-parse HEAD^{tree}`;
   `review-pr` «6. Confirmation rounds»). Give the reviewers both SHAs.
+- exception (owner, 2026-11-13, #178): a docs-only PR not labelled `sensitive` whose files `main`'s changes do
+  not touch needs no confirmation agent; the lead checks it with one command and posts the result as a review
+  ending in `Verdict: Ready` on the new head ([merge checklist](../../pr-pipeline/references/merge-checklist.md)).
+  Report both SHAs to the lead.
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit
