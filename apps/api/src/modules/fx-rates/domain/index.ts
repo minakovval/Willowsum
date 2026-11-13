@@ -15,3 +15,9 @@ export {
   stalePeriodKey,
 } from "./rates.ts";
 export type { PivotRate } from "./rates.ts";
+export {
+  REPORTING_CURRENCY,
+  RESTRICTED_CONVERTIBILITY,
+  isRestrictedConvertibility,
+  rateCoversDate,
+} from "./currencies.ts";

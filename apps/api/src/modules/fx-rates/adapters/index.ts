@@ -5,10 +5,12 @@ import type { ModuleDatabase } from "../../../platform/db/module-db.ts";
 import { staleAlertMessage } from "../domain/index.ts";
 import {
   createFxRateReader,
+  createFxReportingReader,
   startFxRefresh,
   type FxClock,
   type FxRateFeed,
   type FxRates,
+  type FxReporting,
   type FxRefreshDeps,
   type FxRefreshLoop,
 } from "../application/index.ts";
@@ -31,6 +33,15 @@ export type { NbuFeedOptions } from "./feeds/index.ts";
 /** Reading rates for display, from the module's history (other modules: net worth, accounts). */
 export function createFxRates(options: { db: ModuleDatabase; now?: () => number }): FxRates {
   return createFxRateReader({ store: databaseFxRateStore(options.db), now: options.now ?? Date.now });
+}
+
+/**
+ * Amounts in the space's reporting currency (VAL-04@PoC): conversion at the official rate of each amount's date,
+ * «приблизно» with the nearest earlier rate, «Курс недоступний» without any rate. Reads the module's history only.
+ */
+export function createFxReporting(options: { db: ModuleDatabase; now?: () => number }): FxReporting {
+  const now = options.now ?? Date.now;
+  return createFxReportingReader({ fx: createFxRates({ db: options.db, now }), now });
 }
 
 /**

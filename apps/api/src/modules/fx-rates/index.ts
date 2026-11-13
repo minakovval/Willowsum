@@ -7,9 +7,10 @@ export const fxRatesModule = defineModule({
   consumes: [],
 });
 
-export { createFxRates, startFxRatesRefresh } from "./adapters/index.ts";
+export { createFxRates, createFxReporting, startFxRatesRefresh } from "./adapters/index.ts";
 export { officialDatedRates } from "./application/index.ts";
 export type {
+  DatedAmount,
   FxAttemptOutcome,
   FxClock,
   FxConversion,
@@ -18,15 +19,22 @@ export type {
   FxRates,
   FxRefreshEvent,
   FxRefreshLoop,
+  FxReporting,
   QuotedRate,
   RateRequest,
+  ReportedAmount,
+  ReportedTotal,
 } from "./application/index.ts";
 export {
   NBU_SOURCE,
   PIVOT_CURRENCY,
   REFRESH_INTERVAL_MS,
+  REPORTING_CURRENCY,
+  RESTRICTED_CONVERTIBILITY,
   RateUnavailableError,
   STALE_AFTER_MS,
+  isRestrictedConvertibility,
+  rateCoversDate,
   retryDelayMs,
 } from "./domain/index.ts";
 export type { PivotRate } from "./domain/index.ts";
