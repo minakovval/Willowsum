@@ -364,10 +364,18 @@ test('CLI: --convert writes the source and the views; --views regenerates; --mov
   logs.length = 0;
   fs.mkdirSync(path.join(root, 'apps/web'), { recursive: true });
   fs.writeFileSync(path.join(root, 'apps/web/budget.test.ts'), 'it("BUD-16@PoC FR 3: третя", () => {});\nit("BUD-16 FR 1", () => {});\n');
+  // The decision log, both the archive and the per-decision files in log/, quotes numbers as they were: not reported.
+  const docFiles = { 'docs/plans/wave.md': 'План: BUD-16@PoC FR 3.\n', 'docs/decisions/state-2026-11-05.md': 'Архів: BUD-16@PoC FR 3.\n', 'docs/decisions/log/2026-11-13-move.md': 'Рішення: BUD-16@PoC FR 3.\n' };
+  for (const [rel, text] of Object.entries(docFiles)) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  }
   assert.equal(main([...base, '--move', 'BUD-16', '--items', 'FR3', '--to', 'PoC v2'], log), 0);
   assert.match(logs.join('\n'), /# Move BUD-16: FR3 → PoC v2/);
   assert.match(logs.join('\n'), /apps\/web\/budget\.test\.ts:1 — BUD-16@PoC FR3 is no longer in that view/);
   assert.doesNotMatch(logs.join('\n'), /budget\.test\.ts:2/);
+  assert.match(logs.join('\n'), /docs\/plans\/wave\.md:1 — BUD-16@PoC FR3 is no longer in that view/);
+  assert.doesNotMatch(logs.join('\n'), /docs\/decisions\//);
   assert.match(logs.join('\n'), /Views changed: BUD-16@PoC \(regenerated\)/);
   assert.ok(!fs.readFileSync(req('bud/BUD-16.poc.md'), 'utf8').includes('Третя вимога'));
   assert.equal(main(base, () => {}), 0);

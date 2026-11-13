@@ -75,7 +75,9 @@ fails CI (`view-stale`).
 ## 4. Housekeeping
 
 1. Update the «Оновлено» line of every changed document that has one; keep «Створено».
-2. Add a decision-log entry in `docs/decisions/` (`state-2026-11-05.md`), and say what kind of decision it is:
+2. Add the decision-log entries in a **new file** `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric
+   suffix if the name is taken; one file may hold the batch's entries; owner, 2026-11-13), never in the archive
+   `docs/decisions/state-2026-11-05.md`, and say what kind of decision each is:
    - owner decision: «власник (YYYY-MM-DD, чат або PR; схвалено): …» with the source quoted;
    - lead decision: «рішення ведучого (YYYY-MM-DD): …» for small details the lead decides (AGENTS.md
      «Ambiguity»); it says that the owner has not approved it.
@@ -129,7 +131,7 @@ lighter model (`pr-pipeline`, «Token economy»), with this fixed checklist (the
 4. Every `--move` warning (changed numbers and their citations, mentions in the same requirement, variants)
    is fixed or listed with a reason.
 5. Every dependent slice from `--impact` is updated or listed as a follow-up with an issue.
-6. The decision-log entry exists and says whose decision it is.
+6. The decision-log entry exists in a new file in `docs/decisions/log/` and says whose decision it is.
 
 A `security-review` is needed only when a moved or reworded line states a protection (authentication,
 permissions, data isolation, encryption, money, retention or deletion). It then reviews **only those lines**:

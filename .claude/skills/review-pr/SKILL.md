@@ -72,7 +72,9 @@ non-blocking.
   from the owner's own GitHub account with a line that is exactly «Схвалюю» or «Approved», or the owner's
   decision from chat recorded in the PR body as a line `Рішення власника (YYYY-MM-DD): схвалено …` (owner,
   2026-11-12) — otherwise blocking. Infrastructure code that is only validated (no apply), CI check jobs and
-  the local environment need no approval. The decision is also in the decision log (`docs/decisions/`).
+  the local environment need no approval. The decision is also in the decision log: a new file in
+  `docs/decisions/log/` (`YYYY-MM-DD-<short-slug>.md`, owner, 2026-11-13); a new entry appended to the archive
+  `docs/decisions/state-2026-11-05.md` instead is a finding.
   Exemption (AGENTS.md step 7, owner, 2026-11-13): a mechanical sync of an AGENTS.md list that a test
   requires (a CI job name in the job list, a skill's name with its own `description` line in «Skills») needs
   no owner decision, only a note in the body. Confirm from the diff that a claimed mechanical sync changes
