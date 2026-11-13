@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of `pr-pipeline` SKILL.md without change (owner, 2026-11-13). Read when you choose a model for an agent or write a brief.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting added (owner, 2026-11-13, #180). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
@@ -26,3 +26,22 @@ Owner request 2026-11-12; rules decided by the lead.
 4. Briefs point agents at exact files and sections instead of «read everything».
 5. Agents return short final reports (verdict, blocking with file:line, follow-ups, checks), not narratives.
 6. Keep PRs small (AGENTS.md step 5, owner rule 7) so diffs, and therefore reviews, stay small.
+
+## Token accounting
+
+Mandatory (owner, 2026-11-13; issue «Облік токенів», #180). The lead keeps the tables in the body of #180: read
+the current body right before each edit and change only the table it adds a row to (`gh api -X PATCH
+repos/{owner}/{repo}/issues/180 -f body=@<file>`; a PATCH is idempotent). Keep a running tally in the session
+scratchpad (`tokens.tsv`: PR, role, `subagent_tokens`) so a compaction does not lose it.
+
+1. **Session.** At start and before finishing, call `get_session` (no `session_id`) and read `usage`:
+   `cache_read_tokens`, `output_tokens`, `cost_usd`. At start, add the session's row to the table «Сесії» with
+   the start snapshot in «Примітка»; before finishing, fill in the difference (end minus start) and the period.
+   The difference covers the lead and all its agents.
+2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), add a row to the table «PR»: PR, type (код / UI / вимоги /
+   процес / виправлення), review rounds, agents' tokens = the sum of `subagent_tokens` from the completion
+   notices of the author, every reviewer and every confirmation agent of that PR (follow-up and fix agents of
+   the same PR included).
+3. **Weekly.** Once a week (the first session after 7 days since the last analysis) add a short «Аналіз» note
+   to #180: which PR types cost most (sum and per PR), and the lead's own share (the session differences minus
+   the sum of agents' tokens). A change of process it suggests goes to the queue «Черга змін процесу» (#178).

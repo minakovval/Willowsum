@@ -29,4 +29,7 @@ Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and 
    and only non-blocking findings remain, the lead merges; those items go to a follow-up PR or issue, not into
    the same PR, so they do not start another review round. Exception: a non-blocking item the reviewer marks as
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
-   that commit, as above).
+   that commit, as above). Exception for a merge from `main` (owner, 2026-11-13, #178): a docs-only PR not
+   labelled `sensitive` whose files `main`'s changes do not touch needs no confirmation agent; the lead's
+   one-command check that the PR's own diff is unchanged stands in for it
+   ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md)). Any other later commit still needs a re-review.

@@ -2,11 +2,26 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of `pr-pipeline` SKILL.md without change (owner, 2026-11-13). Read when you are about to merge.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only sync check added (owner, 2026-11-13, #178). Read when you are about to merge.
 
 6. **Merge** (squash): the lead merges only when all hold on the **current head SHA** — both verdicts Ready
    on that exact head (`review-pr`, and `security-review` for `sensitive`) and CI green (owner, 2026-11-13):
-   - CI green (a path-skipped job counts as passed, `.claude/references/ci-minutes.md`);
+   - CI green (a path-skipped job counts as passed, `.claude/references/ci-minutes.md`). Wait for the CI of
+     several PRs with one command, not a turn per PR (owner, 2026-11-13); run it in the background and read
+     its output when it exits:
+     ```bash
+     shas="<head-sha-1> <head-sha-2> <head-sha-3>"
+     while :; do left=0
+       for s in $shas; do
+         n=$(gh api "repos/{owner}/{repo}/commits/$s/check-runs?per_page=100" \
+               --jq 'if (.check_runs | length) == 0 then 1
+                     else [.check_runs[] | select(.status != "completed")] | length end') || n=1
+         left=$((left + ${n:-1})); done
+       [ "$left" -eq 0 ] && break; sleep 60; done
+     for s in $shas; do gh api "repos/{owner}/{repo}/commits/$s/check-runs?per_page=100" \
+       --jq '.check_runs[] | [.head_sha[0:7], .name, .conclusion] | @tsv'; done
+     ```
+     Every line must read `success` or `skipped` (a head with no check runs yet counts as not finished);
    - the latest `Verdict: Ready` names that exact SHA; for `sensitive`, the latest `Security verdict: Ready`
      names it too; any later commit needs a re-review of that commit;
    - for `owner-decision` PRs: the body records the owner's decision (and the decision log has it); cloud or
@@ -23,3 +38,20 @@ Moved out of `pr-pipeline` SKILL.md without change (owner, 2026-11-13). Read whe
    state does not mean the branch is up to date.
    Branch behind (`behind_by` > 0) or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
    round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head).
+   **Docs-only PR after a sync** (owner, 2026-11-13, #178): a PR whose every file is docs-only (`isDocsOnly`,
+   [token economy](token-economy.md) item 1: `docs/`, `design/`, `.claude/`, root `*.md`) and not labelled
+   `sensitive` needs no confirmation agent when `main`'s changes do not touch its files. The lead checks it
+   with one command (`old` = the reviewed head, `new` = the head after the sync, both fetched) and, when it
+   prints `unchanged`, records the output and both SHAs in a PR comment; the Ready verdicts on `old` then
+   stand for `new`. Any other output → the usual confirmation round.
+   ```bash
+   old=<reviewed-head>; new=<synced-head>; git fetch -q origin main
+   ob=$(git merge-base origin/main "$old"); nb=$(git merge-base origin/main "$new")
+   files=$(git diff --name-only "$ob" "$old")
+   [ -n "$files" ] && [ "$files" = "$(git diff --name-only "$nb" "$new")" ] \
+     && [ -z "$(git diff --name-only "$ob" "$nb" -- $files)" ] \
+     && diff <(git diff "$ob" "$old" -- $files) <(git diff "$nb" "$new" -- $files) >/dev/null \
+     && echo unchanged || echo changed
+   ```
+   It checks that the PR changes the same files, that `main` did not touch them, and that the PR's own diff is
+   byte-for-byte the same. CI must still be green on `new` and `behind_by` must be `0`.

@@ -108,7 +108,8 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 ## 7. Reviewer confirmation
 
 Every merge into a PR with a verdict needs a confirmation on the new head SHA (a tree comparison when the merge
-only brought in files outside the PR) — [what to ask for](references/confirmation.md) (read after every merge).
+only brought in files outside the PR; none for a docs-only PR that does not overlap `main`, owner 2026-11-13) —
+[what to ask for](references/confirmation.md) (read after every merge).
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit

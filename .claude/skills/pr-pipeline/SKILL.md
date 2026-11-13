@@ -47,14 +47,19 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
    `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question.
    Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
-   Behind `main` → `sync-branch`, then a confirmation round. Full list:
-   [merge checklist](references/merge-checklist.md) (read before every merge).
+   Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR that does not overlap
+   `main`'s changes: one command instead). Wait for CI of several PRs with one command. Full list and both
+   commands: [merge checklist](references/merge-checklist.md) (read before every merge).
 
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
    opens the issues; agents never do (owner, 2026-11-13).
+   **Token accounting** (owner, 2026-11-13, mandatory): in the same turn as the merge, add the PR's row to the
+   issue «Облік токенів» (#180) —
+   PR, type, rounds, the sum of `subagent_tokens` of its author, reviewers and confirmations
+   ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
    Write only when something is merged (PR link, one line, and what is next), an owner decision is needed, or
    there is a problem (a blocker, red CI that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
@@ -73,8 +78,11 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
 
 **New lead session** (owner, 2026-11-13): when your context has already been compacted, or after 8–10 merged
 PRs, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
-state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows. Tell the
-owner to start a new session, which reads that issue first ([restarts](references/restarts.md)).
+state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows,
+and the name for the next session. Record the session's token usage in #180, append «(завершено)» to your
+session title, and tell the owner to start a new session. A new session first renames itself
+`Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, then reads «Lead state»
+([restarts](references/restarts.md), [token economy](references/token-economy.md)).
 
 ## 2. Owner
 
