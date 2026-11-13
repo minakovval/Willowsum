@@ -202,3 +202,48 @@ describe("ACC-01@PoC S-004 sign-in", () => {
     }
   });
 });
+
+describe("ACC-01@PoC S-004 sign-in: review of #95 (security follow-ups 1 and 2)", () => {
+  it("AC14: a CAPTCHA token is sent once — after each attempt the next one waits for a new check", async () => {
+    const replies = [
+      problem(400, "CAPTCHA_REQUIRED"),
+      problem(401, "INVALID_CREDENTIALS"),
+      problem(401, "INVALID_CREDENTIALS"),
+    ];
+    const { client, calls } = fakeApi({ "POST /v1/sessions": () => replies.shift()! });
+    renderAt("#/login", client);
+    fill();
+    fireEvent.click(signInButton());
+    await waitFor(() => expect(captchaBox()).toBeTruthy());
+    fireEvent.click(captchaBox()!);
+    fireEvent.click(signInButton());
+    await screen.findByRole("alert");
+    expect(calls).toHaveLength(2);
+    expect(calls[1]!.body).toMatchObject({ captchaToken: SYNTHETIC_CAPTCHA_TOKEN });
+    // The used token is gone: with the password typed again, «Увійти» still waits for the check.
+    fireEvent.change(password(), { target: { value: "correct horse battery" } });
+    expect(signInButton().getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(signInButton());
+    await act(async () => undefined);
+    expect(calls).toHaveLength(2);
+    fireEvent.click(captchaBox()!);
+    fireEvent.click(signInButton());
+    await waitFor(() => expect(calls).toHaveLength(3));
+    expect(calls[2]!.body).toMatchObject({ captchaToken: SYNTHETIC_CAPTCHA_TOKEN });
+  });
+
+  it("AC7, FR 5: on «Спершу підтвердіть email» the typed password is cleared; the email stays", async () => {
+    const { client } = fakeApi({
+      "POST /v1/sessions": {
+        status: 200,
+        body: { status: "email-not-confirmed", registrationToken: TOKEN, resendAfterS: 0 },
+      },
+    });
+    renderAt("#/login", client);
+    fill();
+    fireEvent.click(signInButton());
+    await screen.findByText("Спершу підтвердіть email.");
+    expect(password().value).toBe("");
+    expect(email().value).toBe("olena@example.com");
+  });
+});

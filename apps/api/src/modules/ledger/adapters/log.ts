@@ -28,12 +28,19 @@ export function logIntegrityCheckFailed(spaces: number): void {
 
 /**
  * The alert letter of a discrepancy period (owner decision 2026-11-12): sent («info»), not sent («error», the error
- * class only; the next daily run tries again) or not possible without a recipient («error»). Never the address.
+ * class only; the next daily run tries again), its claim not given back after a failed send («error», the error
+ * class only; no retry until the findings change or a clean run) or not possible without a recipient («error»).
+ * Never the address.
  */
 export function logIntegrityAlertEvent(event: IntegrityAlertEvent): void {
   const attributes = { "ws.module": "ledger", "ws.job.name": "ledger.integrity-check" };
   if (event.kind === "alert-sent") logEvent("ledger.integrity_alert_sent", "info", attributes);
   else if (event.kind === "alert-failed")
     logEvent("ledger.integrity_alert_failed", "error", { ...attributes, "error.type": event.errorClass });
+  else if (event.kind === "release-failed")
+    logEvent("ledger.integrity_alert_release_failed", "error", {
+      ...attributes,
+      "error.type": event.errorClass,
+    });
   else logEvent("alerts.recipient_missing", "error", attributes);
 }
