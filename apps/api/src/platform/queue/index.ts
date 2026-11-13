@@ -13,7 +13,15 @@ export {
   type JobHandler,
 } from "./define.ts";
 export { QUEUE_TABLES_SQL, enqueueJob, publishEvent } from "./outbox.ts";
-export { LEASE_EXPIRED, LeaseLostError, postgresJobStore, type ClaimedJob, type JobStore } from "./store.ts";
+export {
+  LEASE_EXPIRED,
+  LeaseLostError,
+  postgresJobStore,
+  type ClaimedJob,
+  type JobStore,
+  type PurgeCutoffs,
+} from "./store.ts";
+export { QUEUE_RETENTION_DAYS, purgeQueues, type QueueRetentionDeps } from "./retention.ts";
 export {
   DEFAULT_CONCURRENCY,
   DEFAULT_HEAVY_LIMIT,

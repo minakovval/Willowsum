@@ -10,7 +10,7 @@
 - Спільні правила: П-24, ARC-01
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/queue/queue.test.ts, apps/api/test/arc04-queue.it.test.ts, apps/api/test/arc02-roles.it.test.ts
+- Перевіряється: apps/api/src/platform/queue/queue.test.ts, apps/api/test/arc04-queue.it.test.ts, apps/api/test/arc02-roles.it.test.ts, apps/api/test/sec174-queue.it.test.ts
 
 1. Черга задач зберігається в PostgreSQL; окремий брокер повідомлень не використовується. Інтерфейс черги дозволяє замінити її на керовану чергу без змін у модулях.
 2. Події між модулями публікуються в тій самій транзакції БД, що й зміна даних (таблиця вихідних подій). Подія не втрачається і не публікується для відкоченої зміни.

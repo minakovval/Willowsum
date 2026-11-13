@@ -7,6 +7,7 @@ import {
   balanceAt,
   dailyIntegrityCheck,
   post,
+  correct,
   reverse,
   type Entry,
   type IntegrityCheck,
@@ -135,6 +136,52 @@ describe("FIN-04 FR 5, ARC-11: repeats and reversals are decided before anything
   it("FIN-04 FR 5: an entry already reversed is not reversed again", async () => {
     const store = stub({ entry: ENTRY, reversalOf: "00000000-0000-4000-8000-0000000000e9" });
     expect(await code(reverse({ store, newId: () => A }, H1, ENTRY.id, "k2"))).toBe("ALREADY_REVERSED");
+  });
+});
+
+describe("ARC-11: an idempotency key is a code, refused before the database", () => {
+  const event = { type: "transaction" as const, account: A, amount: Money.of("-5", "EUR") };
+  const input = (idempotencyKey: string) => ({
+    source: SOURCE,
+    idempotencyKey,
+    operationDate: "2026-06-30",
+    event,
+  });
+  /** Counts every read or write of the transaction; none is allowed for a refused key. */
+  const counted = () => {
+    const calls = { n: 0 };
+    const store: LedgerStore = {
+      inHousehold: (_h, work) =>
+        work(
+          new Proxy({} as never, {
+            get: () => () => {
+              calls.n++;
+              return Promise.resolve(null);
+            },
+          }),
+        ),
+    };
+    return { store, calls };
+  };
+
+  it.each(["Кава в аеропорту", "a b", "", "x".repeat(201), "key\n"])(
+    "post, reverse and correct refuse %j with INVALID_IDEMPOTENCY_KEY",
+    async (bad) => {
+      const { store, calls } = counted();
+      const d = { store, newId: () => A };
+      expect(await code(post(d, H1, input(bad)))).toBe("INVALID_IDEMPOTENCY_KEY");
+      expect(await code(reverse(d, H1, A, bad))).toBe("INVALID_IDEMPOTENCY_KEY");
+      expect(await code(correct(d, H1, A, input(bad)))).toBe("INVALID_IDEMPOTENCY_KEY");
+      expect(calls.n).toBe(0);
+    },
+  );
+
+  it("a code of 200 allowed characters is accepted by the guard", async () => {
+    const { store } = counted();
+    // It passes the key guard and fails later on the missing entry, never as INVALID_IDEMPOTENCY_KEY.
+    expect(await code(reverse({ store, newId: () => A }, H1, A, "A0:._-".repeat(33) + "ab"))).toBe(
+      "ENTRY_NOT_FOUND",
+    );
   });
 });
 

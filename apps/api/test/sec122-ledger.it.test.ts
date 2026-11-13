@@ -158,7 +158,8 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
         WHERE table_schema = 'ledger' AND grantee NOT IN ('ws_own_ledger') ORDER BY 1, 2, 3`,
     );
     // ADR-0013 option A (the owner's decision of 2026-11-13): besides the module role, only the erasure role, with
-    // SELECT and DELETE on the three journal tables (its triggers let it delete a whole space only) — nothing else.
+    // SELECT and DELETE on the three journal tables (its triggers let it delete a whole space only) and on the queue
+    // tables (ARC-11: the space's events and jobs go with its journal) — nothing else.
     expect(
       rows
         .filter((r) => r.grantee !== "ws_mod_ledger")
@@ -168,6 +169,10 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       "ws_era_ledger:accounts:SELECT",
       "ws_era_ledger:entries:DELETE",
       "ws_era_ledger:entries:SELECT",
+      "ws_era_ledger:jobs:DELETE",
+      "ws_era_ledger:jobs:SELECT",
+      "ws_era_ledger:outbox_events:DELETE",
+      "ws_era_ledger:outbox_events:SELECT",
       "ws_era_ledger:postings:DELETE",
       "ws_era_ledger:postings:SELECT",
     ]);
@@ -183,13 +188,25 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       // FIN-04 FR 10: the claim log of the integrity letter, append-only like the journal.
       "integrity_alerts:INSERT",
       "integrity_alerts:SELECT",
+      // ARC-04 / ARC-11: the queue tables are not the journal: the worker marks events dispatched and jobs done,
+      // and the retention cleanup deletes old ones (platform/queue). The row policy keeps them in one space.
+      "jobs:DELETE",
+      "jobs:INSERT",
+      "jobs:SELECT",
+      "jobs:UPDATE",
+      "outbox_events:DELETE",
+      "outbox_events:INSERT",
+      "outbox_events:SELECT",
+      "outbox_events:UPDATE",
       "postings:INSERT",
       "postings:SELECT",
     ]);
-    // The column grants on accounts and entries exclude the times the database sets.
+    // The column grants on accounts and entries exclude the times the database sets (the queue tables, listed above,
+    // are not the journal).
     const cols = await db.owner.query<{ table_name: string; column_name: string }>(
       `SELECT table_name, column_name FROM information_schema.column_privileges
-        WHERE table_schema = 'ledger' AND grantee = 'ws_mod_ledger' AND privilege_type IN ('UPDATE', 'REFERENCES')`,
+        WHERE table_schema = 'ledger' AND grantee = 'ws_mod_ledger' AND privilege_type IN ('UPDATE', 'REFERENCES')
+          AND table_name NOT IN ('jobs', 'outbox_events')`,
     );
     expect(cols.rows).toEqual([]);
   });

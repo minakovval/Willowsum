@@ -39,11 +39,19 @@ describe("NFR-12@PoC FR 3 / ADR-0013: only the erasure role empties a space from
       ledger: await createLedgerErasure(era.for("ledger")).eraseHousehold(mine.householdId),
       audit: await createAuditErasure(era.for("audit")).eraseHousehold(mine.householdId),
     }));
-    expect(result.ledger).toMatchObject({ postings: expect.any(Number), entries: 2 });
+    // Each entry wrote its «проводку записано» event (ARC-11); the space's queue rows go with its journal.
+    expect(result.ledger).toMatchObject({ postings: expect.any(Number), entries: 2, events: 2, jobs: 0 });
     expect(result.ledger.postings).toBeGreaterThanOrEqual(2);
     expect(result.audit.entries).toBeGreaterThanOrEqual(2);
     const left = await spaceRows(db, mine.householdId);
-    for (const table of ["audit.entries", "ledger.accounts", "ledger.entries", "ledger.postings"])
+    for (const table of [
+      "audit.entries",
+      "ledger.accounts",
+      "ledger.entries",
+      "ledger.jobs",
+      "ledger.outbox_events",
+      "ledger.postings",
+    ])
       expect(left[table]).toBe("0:");
     expect(await spaceRows(db, other.householdId)).toEqual(otherBefore);
   });
