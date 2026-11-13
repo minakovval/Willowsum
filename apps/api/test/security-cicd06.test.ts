@@ -5,7 +5,7 @@ import { bucketOf } from "../src/modules/feature-flags/index.ts";
 import { createFlagAdmin, createFlagRuntime } from "../src/modules/feature-flags/application/index.ts";
 import { memoryFlagStore } from "../src/modules/feature-flags/application/memory-store.test-helper.ts";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
-import { fastifyPath, isPublic, routeFlag, type ApiRoute } from "../src/platform/http/route.ts";
+import { fastifyPath, isPublic, routeFlag, routeFlags, type ApiRoute } from "../src/platform/http/route.ts";
 import { fakeFlags, householdA, householdB, principalHeader, testAuthenticate, testWiring } from "./http.ts";
 
 /**
@@ -126,7 +126,10 @@ describe("CICD-06 FR 1: the flag decision depends on the session's own space onl
       });
     }
     const asked = flags.asked.filter((a) => a.startsWith("flag:"));
-    expect(asked.length).toBe(protectedRoutes.length);
+    // One check per flag a route is behind: its feature's flag, and a sub-function's own flag (routeFlags).
+    expect(asked.length).toBe(
+      protectedRoutes.reduce((n, r) => n + ("feature" in r.access ? routeFlags(r.access).length : 0), 0),
+    );
     expect(asked.every((a) => a.endsWith(`@${householdA}`))).toBe(true);
   });
 });

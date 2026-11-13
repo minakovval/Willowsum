@@ -95,6 +95,11 @@ export interface ProtectedContext {
   inHousehold<T>(work: (db: HouseholdQueryRunner) => Promise<T>): Promise<T>;
   /** The route's own module database, for work outside a household (customer tables show no rows there). */
   readonly db: HouseholdFreeDatabase;
+  /**
+   * What src/api.ts wired for the route's module (its ports, e.g. the audit log of a change — П-10), or undefined.
+   * Never a way to another household: the ports take the caller's household from `principal`.
+   */
+  readonly services: unknown;
 }
 
 export type RouteContext<A extends RouteAccess> = A extends { readonly public: string }

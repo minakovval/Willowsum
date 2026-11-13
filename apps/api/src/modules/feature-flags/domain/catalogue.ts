@@ -50,6 +50,14 @@ export const FLAGS = {
     description:
       "Робота з власним простором через API; вимикає всі маршрути простору з ключем household.core",
   },
+  "household.space-settings": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-13",
+    requires: "household.core",
+    description:
+      "Налаштування простору (ACC-08@PoC): назва простору для профілю і перейменування Owner; маршрути /v1/space",
+  },
   "identity.sign-in": {
     kind: "release",
     owner: "product-owner",
