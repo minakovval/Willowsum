@@ -97,8 +97,12 @@ describe("ARC-01@PoC FR 6: a module can move to its own service without changes 
     const needed = new Set(Object.values(rules.modules).flatMap((r) => r.dependsOn));
     const removed = folders.filter((name) => !needed.has(name));
     const kept = folders.filter((name) => needed.has(name));
-    // Every module this PR adds is such a module: nothing depends on it yet.
-    expect(removed).toEqual(expect.arrayContaining(["accounts", "transactions", "budget", "file-storage"]));
+    // Derived, not listed: every module of the PoC catalogue that no module declares in module-rules.json is
+    // removed here, and the modules that others depend on stay.
+    const pocLeaves = [...pocCatalogue.keys()].filter((name) => !needed.has(name)).sort();
+    expect(pocLeaves.length).toBeGreaterThan(0);
+    expect(removed).toEqual(expect.arrayContaining(pocLeaves));
+    expect(kept).toEqual([...needed].filter((name) => folders.includes(name)).sort());
     expect(kept.length).toBeGreaterThan(0);
 
     const snapshotOf = (dir: string): Record<string, string> =>

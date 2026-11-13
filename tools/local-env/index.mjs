@@ -18,6 +18,7 @@ import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable } from './l
 import { ensureBucket, ensureWritable } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
+import { HOLDER_PID_ENV, LOCK_DATABASE } from '../test-guards/cluster-lock.mjs';
 import {
   LOCK_NAME,
   PREFIX,
@@ -90,15 +91,22 @@ async function adminConnection() {
   if (server.kind === 'url') {
     if (!hasPsql()) fail('psql is required with WS_TEST_PG_ADMIN_URL.');
     const c = psqlConnection(server.url);
-    return { url: server.url, argv: ['psql', c.args], env: c.env };
+    const l = psqlConnection(databaseUrl(server.url, LOCK_DATABASE));
+    return { url: server.url, argv: ['psql', c.args], env: c.env, lockArgv: ['psql', l.args], lockEnv: l.env };
   }
   // The local:up stack: start (or create) it, then run psql inside the container (no local psql needed).
   const { values, envPath } = ensureState(STATE_DIR);
   const res = compose(envPath, ['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);
   if (res.status !== 0) fail('PostgreSQL did not become healthy; see `pnpm local:status`.');
   const url = adminUrlFromState(values);
-  const inside = ['exec', '-T', 'postgres', 'psql', '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-U', values.WS_LOCAL_PG_USER, '-d', values.WS_LOCAL_PG_DB];
-  return { url, argv: ['docker', composeArgs(envPath, inside)], env: {} };
+  const psqlIn = (db) => ['exec', '-T', 'postgres', 'psql', '-X', '-q', '-At', '-v', 'ON_ERROR_STOP=1', '-U', values.WS_LOCAL_PG_USER, '-d', db];
+  return {
+    url,
+    argv: ['docker', composeArgs(envPath, psqlIn(values.WS_LOCAL_PG_DB))],
+    env: {},
+    lockArgv: ['docker', composeArgs(envPath, psqlIn(LOCK_DATABASE))],
+    lockEnv: {},
+  };
 }
 
 function sql(admin, text) {
@@ -124,24 +132,26 @@ function dropDb(admin, name) {
   sql(admin, `DROP DATABASE IF EXISTS ${name} WITH (FORCE);\n`);
 }
 
-/** Holds the cluster-wide advisory lock in a psql session until `release()` is called. */
+/**
+ * Holds the cluster-wide advisory lock (tools/test-guards/cluster-lock.mjs) in a psql session on the `postgres`
+ * database until `release()` is called; resolves to `{ release, pid }`, pid of the session that holds it.
+ */
 function lockCluster(admin) {
-  const [cmd, args] = admin.argv;
-  const child = spawn(cmd, args, { env: { ...process.env, ...admin.env }, stdio: ['pipe', 'pipe', 'inherit'] });
+  const [cmd, args] = admin.lockArgv;
+  const child = spawn(cmd, args, { env: { ...process.env, ...admin.lockEnv }, stdio: ['pipe', 'pipe', 'inherit'] });
   return new Promise((resolve, reject) => {
     let out = '';
     child.on('error', reject);
     child.on('exit', (code) => reject(new Error(`lock session ended (${code})`)));
     child.stdout.on('data', (d) => {
       out += d;
-      if (out.includes('LOCKED')) {
+      const locked = /PID\s+(\d+)\s+LOCKED/.exec(out);
+      if (locked) {
         child.removeAllListeners('exit');
-        resolve(() => {
-          child.stdin.end();
-        });
+        resolve({ pid: locked[1], release: () => child.stdin.end() });
       }
     });
-    child.stdin.write(`SELECT pg_advisory_lock(hashtext('${LOCK_NAME}'));\n\\echo LOCKED\n`);
+    child.stdin.write(`\\echo PID\nSELECT pg_backend_pid();\nSELECT pg_advisory_lock(hashtext('${LOCK_NAME}'));\n\\echo LOCKED\n`);
   });
 }
 
@@ -166,11 +176,11 @@ async function dbTest() {
     const cmd = rest[0] === '--' ? rest.slice(1) : rest;
     if (!cmd.length) fail('usage: pnpm db:test run -- <command…>');
     console.log('Waiting for the cluster lock (one integration run per PostgreSQL cluster)…');
-    const release = await lockCluster(admin);
+    const { release, pid } = await lockCluster(admin);
     const name = createDb(admin);
     let status = 1;
     try {
-      const res = spawnSync(cmd[0], cmd.slice(1), { stdio: 'inherit', env: { ...process.env, DATABASE_URL: databaseUrl(admin.url, name) } });
+      const res = spawnSync(cmd[0], cmd.slice(1), { stdio: 'inherit', env: { ...process.env, DATABASE_URL: databaseUrl(admin.url, name), [HOLDER_PID_ENV]: pid } });
       status = res.status ?? 1;
     } finally {
       dropDb(admin, name);

@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-13
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -39,7 +39,10 @@ without Docker) wins; otherwise the `pnpm local:up` PostgreSQL, started if neede
 **Limitation.** PostgreSQL roles belong to the whole cluster, not to a database. The integration tests set the
 passwords of the module login roles (`ws_mod_<schema>`, `ws_context`, `ws_probe`) and some drop and recreate
 roles, so two integration runs on one cluster break each other even in separate databases. Run them only as
-`pnpm db:test run -- pnpm test:integration`: the lock makes runs on one cluster wait for each other. Separate
+`pnpm db:test run -- pnpm test:integration`: the lock makes runs on one cluster wait for each other. The
+integration config's globalSetup (`apps/api/test/cluster-lock.ts`) takes the same lock, so a bare `vitest` or
+`pnpm test:integration` run queues too; the lock lives in the `postgres` database of the cluster
+(`tools/test-guards/cluster-lock.mjs`), and a run started by `pnpm db:test run` does not take it twice. Separate
 databases are enough for everything else (migrations, `check:schema`, running the API). Run-scoped role names
 would remove the wait but change the isolation guard (ADR-0002); that is a follow-up.
 
