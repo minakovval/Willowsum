@@ -1,5 +1,11 @@
 import { convert, type Conversion, type ExchangeRate, type Money } from "@willowsum/domain-kernel";
-import { PIVOT_CURRENCY, RateUnavailableError, crossRate, STALE_AFTER_MS } from "../domain/index.ts";
+import {
+  PIVOT_CURRENCY,
+  RateUnavailableError,
+  crossRate,
+  rateCoversDate,
+  STALE_AFTER_MS,
+} from "../domain/index.ts";
 import type { FxRateStore } from "./ports.ts";
 
 /** Freshness of the rates: when the last successful update finished (users see «оновлено <дата і час>»). */
@@ -32,7 +38,11 @@ export interface FxRates {
    * `from` and `to` differ. A database error rejects the whole call; it is never turned into null.
    */
   rates(requests: readonly RateRequest[]): Promise<(ExchangeRate | null)[]>;
-  /** Converts for display; the result keeps the rate, its date and its source (amounts stay in their currency). */
+  /**
+   * Converts for display; the result keeps the rate, its date and its source (amounts stay in their currency).
+   * `approximate` — the nearest earlier rate was used; a weekend's rate of the previous working day is not
+   * approximate (VAL-04@PoC AC4).
+   */
   convert(amount: Money, to: string, date: string): Promise<FxConversion>;
   freshness(): Promise<FxFreshness>;
 }
@@ -81,7 +91,9 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
     },
     async convert(amount, to, date) {
       const { rate: r, ...fresh } = await rate(amount.currency, to, date);
-      return { conversion: convert(amount, r, date), ...fresh };
+      const conversion = convert(amount, r, date);
+      // A weekend takes the previous working day's rate: that is the rate of the date (VAL-04@PoC AC4).
+      return { conversion: { ...conversion, approximate: !rateCoversDate(r.date, date) }, ...fresh };
     },
     freshness,
   };
