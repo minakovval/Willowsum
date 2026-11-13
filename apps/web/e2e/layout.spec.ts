@@ -36,6 +36,16 @@ test.describe("NFR-07@PoC: desktop layout at 1280 px", () => {
       };
     });
     expect(layout.gutter).toBe("24px");
+    // The gutter as rendered: the gap between two cards side by side in a grid of the app (the design-system
+    // gallery is the only screen with such a grid while the PoC pages are placeholders).
+    await page.goto("/#/gallery/tokens");
+    const gap = await page.evaluate(() => {
+      const [a, b] = [...document.querySelectorAll(".gallery-themes > *")].map((e) =>
+        e.getBoundingClientRect(),
+      );
+      return a && b && Math.round(a.top) === Math.round(b.top) ? b.left - a.right : null;
+    });
+    expect(gap).toBe(24);
     expect(layout.maxWidth).toBe("1200px");
     expect(layout.width).toBeLessThanOrEqual(1200);
     expect(layout.overflow).toBe(0);

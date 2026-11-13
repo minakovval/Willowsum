@@ -71,7 +71,11 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   const tls = localCertificate();
   const webPort = await freePort();
   const baseUrl = `https://localhost:${webPort}`;
-  const api = await startE2eApi(baseUrl);
+  // The throw-away key is removed even when the API never starts (teardown below does not exist yet).
+  const api = await startE2eApi(baseUrl).catch((error: unknown) => {
+    tls.remove();
+    throw error;
+  });
   // vite.config.ts reads the API's address for its `/v1` proxy when it loads.
   process.env["WS_API_ORIGIN"] = api.origin;
   let server: Awaited<ReturnType<typeof preview>> | undefined;

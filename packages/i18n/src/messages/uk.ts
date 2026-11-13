@@ -60,6 +60,10 @@ export const uk = {
   "notFound.body": "Можливо, адресу введено з помилкою.",
   "notFound.home": "На Бюджет",
 
+  "browser.unsupported.title": "Цей браузер не підтримується.",
+  "browser.unsupported.body":
+    "Willowsum працює в останніх двох версіях Chrome, Edge і Safari на комп’ютері. Тут щось може відображатися або працювати неправильно, але увійти можна.",
+
   "auth.page.signUp": "Реєстрація",
   "auth.page.checkEmail": "Перевірте пошту",
   "auth.page.verify": "Підтвердження email",

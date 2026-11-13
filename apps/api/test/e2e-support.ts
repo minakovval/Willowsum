@@ -170,8 +170,28 @@ export async function confirmationLinkFor(
 
 /**
  * Every test signs up from the same client address (the web server's proxy): the sign-up limit of 5 per hour and
- * address (ACC-01) would stop the run, not the behaviour under test. Clears the counters of this test database.
+ * address and the letter limit (one per 60 s, ACC-01 FR 15) would stop the run, not the behaviour under test. Clears
+ * every counter of this test database.
  */
 export async function clearSignUpLimits(databaseUrl: string): Promise<void> {
   await withOwner(databaseUrl, (owner) => owner.query(`DELETE FROM identity.throttle_events`));
+}
+
+/** The spaces the account belongs to, with its role there (ACC-01 FR 7: the first sign-in creates «Родина <Прізвище>»). */
+export async function spacesOf(
+  databaseUrl: string,
+  email: string,
+): Promise<{ readonly name: string; readonly role: string }[]> {
+  const { rows } = await withOwner(databaseUrl, (owner) =>
+    owner.query<{ name: string; role: string }>(
+      `SELECT h.name, s.role
+         FROM household.account_spaces s
+         JOIN household.households h ON h.household_id = s.space_id
+         JOIN identity.accounts a ON a.id = s.account_id
+        WHERE a.email_normalized = lower($1)
+        ORDER BY h.name`,
+      [email],
+    ),
+  );
+  return rows;
 }
