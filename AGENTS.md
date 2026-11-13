@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 This is the single rule set for every agent (and human) changing this repository. It is short on purpose:
 read it fully, then load only the files your task needs. If a task conflicts with this file, stop and ask
@@ -213,7 +213,7 @@ agent uses its own test database (`pnpm db:test`); integration tests run as
 `security-review` (security reviewer of `sensitive` PRs), `fix-review-findings` (author, after reviews),
 `pr-pipeline` (the lead's loop over these), `browser-task` (instructions for the owner's local Claude session
 with a browser), `sync-branch` (merge `origin/main` into a working branch: merge only, checks, confirmation on the new
-head), `change-requirement` (changing requirements, screens or П-rules without code: decisions collected first, impact, `--move` in the source, views regenerated, one batch PR, lighter review), `deploy` (deploying to Oracle Cloud; the server does not exist yet, so unverified steps are marked). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
+head), `change-requirement` (changing requirements, screens or П-rules without code: decisions collected first, impact, `--move` in the source, views regenerated, one batch PR, lighter review), `deploy` (deploying to Oracle Cloud; the server does not exist yet, so unverified steps are marked), `screen-from-canvas` (author of a design-system component or screen: requirement view, card, board and tokens; tests by criteria, states, gallery entry, uk and en strings, accessibility, a 1280 px screenshot check). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
 a fresh agent with a narrow brief, let reviewers rely on CI — rules in `pr-pipeline`, «Token economy».
 
 **CI minutes** (lead, 2026-11-12; private repository, 2,000 free minutes a month): a new push cancels the
