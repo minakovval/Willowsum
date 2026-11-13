@@ -31,10 +31,13 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
-3. **PR opened** → subscribe to its activity; then in parallel:
+3. **PR opened** → subscribe to its activity; then in parallel (every review, first or repeat, goes to a fresh
+   agent with a narrow brief, never a resumed long-context reviewer — owner, 2026-11-13,
+   [token economy](references/token-economy.md)):
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.
-   Each in a different session from the author, with the PR number and head SHA.
+   Each in a different session from the author, with the PR number and head SHA. Before that, open the
+   issues for any dependent slice the implementer listed and link them in the PR body (PRC-02).
 4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
    into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
    reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
@@ -60,6 +63,11 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
+
+**New lead session** (owner, 2026-11-13): when your context has already been compacted, or after 8–10 merged
+PRs, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
+state»: open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows. Tell the
+owner to start a new session, which reads that issue first ([restarts](references/restarts.md)).
 
 ## 2. Owner
 
@@ -88,11 +96,6 @@ retrying a call that is not idempotent — a comment, an issue, a merge — chec
 .merged`); act again only when it did not. Unsubscribing, labels and PATCHes are idempotent: retry as they are.
 Brief the agents you start to do the same (their skills say so).
 Shared details: [retry rules](../../references/github-errors.md) (read when it happens).
-
-
-**Permission denials** (lead, 2026-11-13): if an agent reports that the permission classifier denied an action,
-the lead does not repeat it on the agent's behalf when the action itself is sensitive; it tells the owner
-instead. Routine lead actions (opening a follow-up issue, merging per the checklist) stay with the lead.
 
 ## 3. Parallel branches
 

@@ -7,8 +7,8 @@ description: Investigate a red or blocked Willowsum CI run on a PR — reproduce
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Input: a PR and its failing (or never started) run. Output: the root cause, a fix (or a separately tracked
-issue with the evidence) and the same check green on the new head, or a report to the lead that CI cannot run.
+Input: a PR and its failing (or never started) run. Output: the root cause, a fix (or a follow-up with the
+evidence for the lead, who opens the issue) and the same check green on the new head, or a report to the lead that CI cannot run.
 «Load», «flake» or «timeout under load» is never a cause (owner, 2026-11-13). Never skip, quarantine or raise a
 timeout without a stated basis, and never weaken a test to get green (AGENTS.md step 6).
 
@@ -35,7 +35,7 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
    Own slot, ports, database and PIDs: see «Own ports» below; stop only processes you started.
 2. **Is `main` red too?** Run the same command on `origin/main` and look at the latest runs on `main`
    (`gh run list --branch main --limit 5`, and the daily check). Red on the base → not this PR's failure: say
-   so, link the run on `main`, file or find the issue, and tell the lead; do not fix it inside an unrelated PR
+   so, link the run on `main`, find the issue or list it for the lead, who opens it; do not fix it inside an unrelated PR
    unless the lead asks.
 3. Not reproduced locally: compare the CI environment (Node, pnpm, Postgres versions, env variables, which
    tests run together and in what order, the timeout the step gives). Run the suite the way CI runs it,
@@ -82,5 +82,5 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 ## 5. Report
 
 To the lead, in a few lines: the failing run (link, job, error line); cause; base red or not; the fix commit
-and new head SHA, and the check green on it (run link); or the issue opened; or «CI cannot run» with the
+and new head SHA, and the check green on it (run link); or the follow-up listed for the lead; or «CI cannot run» with the
 annotation.
