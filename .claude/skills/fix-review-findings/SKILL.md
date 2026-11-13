@@ -5,7 +5,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 
 # Fix review findings
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
 latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed commit that
@@ -29,7 +29,10 @@ fixes every blocking item, CI green, the new head SHA.
 4. Two reviewers' patches conflict → apply the lead's decision from the request; no decision → ask the lead,
    do not pick one yourself.
 5. Never weaken, skip or delete a test to get green (AGENTS.md step 6); never edit an acceptance test unless
-   the requirement changed.
+   the requirement changed. A test that fails only sometimes needs a root cause, never «load», «flake» or
+   «timeout under load» (owner, 2026-11-13): reproduce it, compare with `main`, find the cause (#146: a shared
+   `test/.tmp` race), or file a separately tracked issue with the evidence. Never skip, quarantine or raise a
+   timeout without a stated basis.
 6. Requirement text: a finding or patch against a release view (`<ID>.<release key>.md`, line 2 «Згенеровано
    з …») is applied to the source `<ID>.md` instead — the same line, with the release tag that limits it to the
    releases the finding names — and then `node tools/req-check/index.mjs --views` regenerates the views. Never
@@ -54,7 +57,11 @@ regenerated files committed); the local secret-shaped literal check.
 
 ## 5. Push and report
 
-1. Update the PR body: the criteria → tests table if tests were added, «Follow-ups».
+Scratchpad files only under a prefix or subfolder unique to the PR and role (`pr153-fix/`), never a generic
+name like `body.md` (owner, 2026-11-13: two PR bodies were overwritten with another agent's text).
+
+1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
+   tests table if tests were added, «Follow-ups».
 2. One commit for the round (`<ID>: address review round <n>`), with the attribution lines the session gives;
    push.
 3. Report to the lead in a few lines: new head SHA (full), each blocking item → fixed by (file / test),

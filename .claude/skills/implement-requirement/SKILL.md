@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 Input: a requirement ID (or a small group from the same module). Output: one PR whose title starts with
 the ID, CI green, every acceptance criterion covered by a test.
@@ -94,11 +94,20 @@ plus `node --test tools/req-check`, `node tools/req-check/index.mjs --views` and
 Cloud sessions have no Docker, so `pnpm db:test` fails there unless the admin URL is given:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
 (`infra/local/README.md`).
+A test that fails only sometimes needs a root cause, never «load», «flake» or «timeout under load» as the
+explanation (owner, 2026-11-13): reproduce it, compare with `main`, find the cause (#146: tests sharing
+`apps/api/test/.tmp` deleted each other's folders; whole-tree analysis tests ran without a timeout of their
+own). If you cannot find it in this PR, file a separately tracked issue with the evidence (run link, log lines,
+how to reproduce). Never skip, quarantine or raise a timeout without a stated basis.
 Re-read your own diff as a hostile reviewer: hard rules from `AGENTS.md`, missing criteria, leaks
 through scope, floats, hard-coded limits, personal data in logs.
 Before pushing, run a local check for secret-shaped literals (what the CI job `secrets` checks).
 
 ## 7. PR
+
+**Scratchpad files** (owner, 2026-11-13): write them only under a prefix or subfolder unique to your PR and
+role (`pr153-impl/`), never a generic name like `body.md` that another agent can overwrite. Before setting
+or PATCHing a PR body from a file, check that the file is the one you wrote (it names this PR's ID).
 
 Push the branch and open a PR (draft until CI is green) using `.github/pull_request_template.md`:
 - title `<ID>: <what>`;
