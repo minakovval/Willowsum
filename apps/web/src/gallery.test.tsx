@@ -169,6 +169,27 @@ describe("/gallery/tokens (DS-22)", () => {
     );
   });
 
+  it("CMP-22@PoC gallery: the Skeleton section shows every variant, the slow line, and swaps the skeleton for its content", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-skeleton")!.textContent).toBe("Скелетон");
+    const at = (c: string) => container.querySelector(`[data-case="${c}"]`)!;
+    expect(at("tile").querySelectorAll(".ws-skeleton-row > .ws-skeleton--tile")).toHaveLength(4);
+    expect(at("circle").querySelectorAll(".ws-skeleton-row > .ws-skeleton--circle")).toHaveLength(4);
+    expect(at("text").textContent).toContain("Ще завантажується…");
+    expect(at("block").querySelector<HTMLElement>(".ws-skeleton--block")!.style.blockSize).toBe("128px");
+    expect(at("field").querySelector(".ws-skeleton--field")).not.toBeNull();
+
+    const swap = at("swap") as HTMLElement;
+    expect(swap.querySelector("[aria-busy='true']")).not.toBeNull();
+    expect(swap.querySelectorAll(".ws-skeleton-row")).toHaveLength(3);
+    act(() => within(swap).getByRole("button", { name: "Показати вміст" }).click());
+    expect(swap.querySelector("[aria-busy]")).toBeNull();
+    expect(swap.querySelectorAll("li")).toHaveLength(3);
+    expect(within(swap).getByRole("heading", { name: "Транзакції" })).toBeTruthy();
+    act(() => within(swap).getByRole("button", { name: "Показати скелетон" }).click());
+    expect(swap.querySelectorAll(".ws-skeleton-row")).toHaveLength(3);
+  });
+
   it("switches language to English", () => {
     render(<App />);
     act(() => screen.getByLabelText("English").click());

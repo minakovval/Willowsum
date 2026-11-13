@@ -12,6 +12,9 @@ export interface CatalogueEntry {
 
 export type ModuleLayer = "platform" | "subject" | "process";
 
+/** Folder of the ARC-01 card and its release views (the only docs/ path code reads; ci-paths guard). */
+const ARC_DIR = "docs/requirements/arc";
+
 const ROW_RE = /^\| ([^|]+?) \| ([a-z][a-z0-9-]*) \| ([^|]+?) \|\s*$/;
 
 /** Parses the catalogue tables of the ARC-01 slices. The first slice that names a module wins. */
@@ -30,11 +33,21 @@ export function parseCatalogue(markdownFiles: readonly string[]): Map<string, Ca
 
 /** Reads the catalogue from the repository (the requirement is the single source of truth). */
 export function readCatalogue(repoRoot: string): Map<string, CatalogueEntry> {
-  const dir = path.join(repoRoot, "docs/requirements/arc");
+  const dir = path.join(repoRoot, ARC_DIR);
   const files = readdirSync(dir)
     .filter((f) => /^ARC-01(\.[a-z0-9-]+)?\.md$/.test(f))
     .sort((a, b) => sliceOrder(a) - sliceOrder(b));
   return parseCatalogue(files.map((f) => readFileSync(path.join(dir, f), "utf8")));
+}
+
+/**
+ * The catalogue of one release view only (`ARC-01.<key>.md`, e.g. «poc»): the modules of that release
+ * (ARC-01@PoC FR 1).
+ */
+export function readReleaseCatalogue(repoRoot: string, releaseKey: string): Map<string, CatalogueEntry> {
+  if (!SLICE_ORDER.includes(releaseKey)) throw new Error(`Unknown release key «${releaseKey}»`);
+  const file = path.join(repoRoot, ARC_DIR, `ARC-01.${releaseKey}.md`);
+  return parseCatalogue([readFileSync(file, "utf8")]);
 }
 
 const SLICE_ORDER = ["poc", "poc-v2", "mvp", "v1-mobile", "v1", "v2"];

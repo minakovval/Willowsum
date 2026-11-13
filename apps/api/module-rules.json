@@ -5,20 +5,64 @@
       "layer": "platform",
       "dependsOn": []
     },
+    "accounts": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "audit": {
       "layer": "platform",
+      "dependsOn": []
+    },
+    "budget": {
+      "layer": "process",
+      "dependsOn": []
+    },
+    "bulk-actions": {
+      "layer": "platform",
+      "dependsOn": []
+    },
+    "cashflow": {
+      "layer": "process",
+      "dependsOn": []
+    },
+    "categories": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "categorization": {
+      "layer": "subject",
       "dependsOn": []
     },
     "data-erasure": {
       "layer": "process",
       "dependsOn": ["audit", "household", "identity", "ledger"]
     },
+    "debt-payoff": {
+      "layer": "process",
+      "dependsOn": []
+    },
+    "duplicate-matching": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "feature-flags": {
       "layer": "platform",
       "dependsOn": ["audit", "plan-catalog"]
     },
+    "file-parsers": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "file-storage": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "fx-rates": {
       "layer": "subject",
+      "dependsOn": []
+    },
+    "goals": {
+      "layer": "process",
       "dependsOn": []
     },
     "household": {
@@ -29,12 +73,52 @@
       "layer": "platform",
       "dependsOn": ["audit"]
     },
+    "import-recipes": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "import-sessions": {
+      "layer": "subject",
+      "dependsOn": []
+    },
     "ledger": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "liabilities": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "merchants": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "notification-delivery": {
       "layer": "subject",
       "dependsOn": []
     },
     "plan-catalog": {
       "layer": "platform",
+      "dependsOn": []
+    },
+    "recurring": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "reports": {
+      "layer": "process",
+      "dependsOn": []
+    },
+    "staff-admin": {
+      "layer": "platform",
+      "dependsOn": []
+    },
+    "transactions": {
+      "layer": "subject",
+      "dependsOn": []
+    },
+    "transfer-matching": {
+      "layer": "subject",
       "dependsOn": []
     }
   }

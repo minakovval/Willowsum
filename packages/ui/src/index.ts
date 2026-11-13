@@ -46,3 +46,5 @@ export { formatCompactAmount, formatCompactNumber } from "./amount/compact.ts";
 export { chooseFit } from "./amount/fit.ts";
 export { placeTooltip, Tooltip, TruncatedText, useTooltip } from "./tooltip/Tooltip.tsx";
 export type { TooltipTriggerProps } from "./tooltip/Tooltip.tsx";
+export { Skeleton } from "./skeleton/Skeleton.tsx";
+export type { SkeletonProps, SkeletonVariant } from "./skeleton/Skeleton.tsx";
