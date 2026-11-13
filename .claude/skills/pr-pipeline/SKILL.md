@@ -36,6 +36,7 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    - for `owner-decision` PRs: the body records the owner's decision (and the decision log has it); cloud or
      production actions: the owner's approval (AGENTS.md step 7);
    - the owner has not commented «stop» or asked a question on the PR.
+   For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
    Do not ask the owner to confirm the merge.
    Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then re-review the merge.
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new

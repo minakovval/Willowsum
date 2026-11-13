@@ -25,8 +25,10 @@ const RELEASE_OF_KEY = Object.fromEntries(Object.entries(RELEASE_KEY).map(([r, k
  * requirements directory (e.g. 'bud/BUD-01.md'). Used by the CLI and by the unit tests.
  * @param {{rel: string, text: string}[]} files
  * @param {string} [prefix] prefix that turns `rel` into a repository-relative path
+ * @param {{migrated?: Iterable<string>}} [opts]  `migrated`: the IDs of the migrated list
+ *   (tools/req-check/migrated.json); each must have a requirement file with a source section
  */
-export function buildCorpus(files, prefix = 'docs/requirements') {
+export function buildCorpus(files, prefix = 'docs/requirements', opts = {}) {
   /** @type {Doc[]} */
   const docs = [];
   const raw = new Map();
@@ -61,7 +63,7 @@ export function buildCorpus(files, prefix = 'docs/requirements') {
       lines: text.replace(/\r\n?/g, '\n').split('\n'),
     });
   }
-  const { sources, viewProblems } = attachSources(docs, raw);
+  const { sources, viewProblems } = attachSources(docs, raw, opts.migrated ?? []);
   docs.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
   const folders = [...new Set(docs.filter((d) => d.folder).map((d) => d.folder))].sort();
   return { docs, folders, prefix, sources, viewProblems };
@@ -74,8 +76,9 @@ export function buildCorpus(files, prefix = 'docs/requirements') {
  * is missing, or is not one of the source's views is a problem; the CLI reports it and `--views` fixes it.
  * @param {Doc[]} docs  mutated: view docs replaced or added
  * @param {Map<string, string>} raw  repository-relative path → file text as read
+ * @param {Iterable<string>} [migrated]  IDs that must be sources (see MIGRATED_FILE)
  */
-export function attachSources(docs, raw) {
+export function attachSources(docs, raw, migrated = []) {
   const sources = [];
   const viewProblems = [];
   for (const d of [...docs]) {
@@ -120,7 +123,50 @@ export function attachSources(docs, raw) {
       viewProblems.push({ rule: 'view-orphan', file: x.rel, line: 2, message: `${x.name} says it is generated, but ${x.id}.md has no «${SOURCE_MARKER}» section; restore the source or remove the header` });
     }
   }
+  // The «Джерело зрізів» section is what makes a requirement a source. Deleting it and the «Згенеровано»
+  // headers of its views would turn it into a card with hand-written slices that nothing compares to a
+  // source, so an ID on the migrated list must keep its source section.
+  const sourceIds = new Set(sources.map((x) => x.id));
+  for (const id of migrated) {
+    if (sourceIds.has(id)) continue;
+    const card = docs.find((x) => x.kind === 'requirement' && x.id === id);
+    viewProblems.push({
+      rule: 'source-missing',
+      file: card?.rel ?? `${id}.md`,
+      line: 0,
+      message: `${id} is on the migrated list (${MIGRATED_FILE}) but ${card ? `${card.name} has no «${SOURCE_MARKER}» section` : `there is no requirement file ${id}.md`}; restore the source section (git history) or, if the requirement is retired on purpose, remove it from the list in a reviewed change`,
+    });
+  }
   return { sources, viewProblems };
+}
+
+/** The migrated list: IDs of requirements that are sources; `--views` and `--convert` only add to it. */
+export const MIGRATED_FILE = 'tools/req-check/migrated.json';
+
+/** Read the migrated list of a repository root ([] when there is none). */
+export function readMigrated(root) {
+  const p = path.resolve(root, MIGRATED_FILE);
+  if (!fs.existsSync(p)) return [];
+  const ids = JSON.parse(fs.readFileSync(p, 'utf8')).ids;
+  if (!Array.isArray(ids)) throw new Error(`${MIGRATED_FILE}: "ids" must be an array`);
+  return ids;
+}
+
+/** Add the IDs of `sourceIds` to the migrated list file; returns how many were new. */
+export function addMigrated(root, sourceIds) {
+  const have = new Set(readMigrated(root));
+  const fresh = [...sourceIds].filter((id) => !have.has(id));
+  if (!fresh.length && fs.existsSync(path.resolve(root, MIGRATED_FILE))) return 0;
+  const doc = {
+    $comment: [
+      'IDs of the requirements that are sources (card plus «Джерело зрізів»). req-check fails (source-missing) for an ID here whose file has lost its source section.',
+      'node tools/req-check/index.mjs --views and --convert add IDs; remove one only in a reviewed change that retires the requirement.',
+    ],
+    ids: [...new Set([...have, ...fresh])].sort(),
+  };
+  fs.mkdirSync(path.dirname(path.resolve(root, MIGRATED_FILE)), { recursive: true });
+  fs.writeFileSync(path.resolve(root, MIGRATED_FILE), `${JSON.stringify(doc, null, 2)}\n`);
+  return fresh.length;
 }
 
 /**
@@ -142,5 +188,5 @@ export function loadCorpus(root, reqDir = 'docs/requirements') {
     }
   };
   walk(abs);
-  return buildCorpus(files, reqDir.split(path.sep).join('/'));
+  return buildCorpus(files, reqDir.split(path.sep).join('/'), { migrated: readMigrated(root) });
 }

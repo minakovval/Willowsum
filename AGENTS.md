@@ -184,7 +184,7 @@ errors) lives only in `packages/domain-kernel`.
    commit being merged**: before merging, compare the SHA each review names with the PR head; any later
    commit, even a small fix, needs a re-review of that fix (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
    skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
-   log in `docs/decisions/` has it). The owner's approval on the PR is needed only for what acts on the
+   log in `docs/decisions/` has it). For a docs-only PR that moves scope between releases, a security review (when needed) covers only the moved lines that state a protection (owner, 2026-11-12). The owner's approval on the PR is needed only for what acts on the
    cloud or production. It is either a comment from the owner's own GitHub account with a line that is exactly
    «Схвалюю» or «Approved», or the owner's decision from chat recorded in the PR body as a line
    `Рішення власника (YYYY-MM-DD): схвалено …` (owner, 2026-11-12). Agents never write a «Схвалюю» or

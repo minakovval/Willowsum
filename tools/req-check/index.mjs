@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCorpus } from './lib/corpus.mjs';
+import { loadCorpus, addMigrated } from './lib/corpus.mjs';
 import { runChecks } from './lib/run.mjs';
 import { readBaseline, applyBaseline, makeBaseline } from './lib/baseline.mjs';
 import { renderReport } from './lib/report.mjs';
@@ -194,6 +194,7 @@ export function main(argv = process.argv.slice(2), log = console.log) {
   }
   if (opts.convert) {
     const { done, exceptions } = convertAll(opts.root, opts.requirements, opts.convert);
+    if (done.length) addMigrated(opts.root, done);
     log(`req-check: converted ${done.length} requirements to sources; round trip byte-identical for every view (apart from the view header).`);
     if (exceptions.length) log(`req-check: not converted (kept as card + slice files): ${exceptions.map((e) => `${e.id} (${e.reason})`).join('; ')}`);
     return 0;
@@ -228,6 +229,7 @@ export function main(argv = process.argv.slice(2), log = console.log) {
 
   if (opts.views) {
     const { written, removed } = writeViews(opts.root, corpus);
+    addMigrated(opts.root, corpus.sources.map((x) => x.id));
     log(`req-check: views written from ${corpus.sources.length} sources (${written} files changed, ${removed} removed)`);
     // Check what is on disk now.
     return main(argv.filter((a) => a !== '--views'), log);
