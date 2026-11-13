@@ -66,14 +66,16 @@ describe("NFR-15 FR 13: optimistic concurrency on PostgreSQL", () => {
     await clients[1]!.query("BEGIN");
     // A changes the name; B, still on version 1, sends only the value.
     const first = updateVersioned(a, assets, ID, 1, { name: "Painting (restored)" }, base);
-    const second = updateVersioned(b, assets, ID, 1, { value: "250" }, base);
+    // The outcome handler is attached at once: B's conflict can arrive while A's COMMIT is still awaited, and a
+    // rejection without a handler by then is an unhandled error of the run (CI, PR #141).
+    const second = updateVersioned(b, assets, ID, 1, { value: "250" }, base).then(
+      () => "applied" as const,
+      (error: unknown) => error,
+    );
     const firstResult = await first;
     // The second waits for the first's row lock; it sees the new version once the first commits.
     await clients[0]!.query("COMMIT");
-    const outcome = await second.then(
-      () => "applied",
-      (error: unknown) => error,
-    );
+    const outcome = await second;
     await clients[1]!.query("ROLLBACK");
     expect(firstResult).toEqual({ version: 2 });
     expect(outcome).toBeInstanceOf(ApiProblem);
