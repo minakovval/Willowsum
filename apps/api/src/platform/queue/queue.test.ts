@@ -76,6 +76,7 @@ function memoryStore(
     },
     pendingEvents: async () => [],
     markDispatched: async () => undefined,
+    purge: async () => ({ events: 0, jobs: 0 }),
   };
 }
 
