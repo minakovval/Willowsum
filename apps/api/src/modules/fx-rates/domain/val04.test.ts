@@ -1,4 +1,4 @@
-import { Money, currencyInfo } from "@willowsum/domain-kernel";
+import { Money, currencyInfo, isCalendarDate } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
 import {
   REPORTING_CURRENCY,
@@ -28,6 +28,13 @@ describe("VAL-04@PoC domain: currencies of the space and the rate of a date", ()
     // 2026-11-14 is a Saturday, 2026-11-13 the Friday before it.
     expect(rateCoversDate("2026-11-13", "2026-11-14")).toBe(true);
     expect(rateCoversDate("2026-11-14", "2026-11-14")).toBe(true);
+  });
+
+  it("VAL-04@PoC FR 3: only a real calendar date written YYYY-MM-DD is a date", () => {
+    expect(isCalendarDate("2026-11-14")).toBe(true);
+    expect(isCalendarDate("2028-02-29")).toBe(true);
+    for (const bad of ["today", "2026-02-30", "2027-02-29", "2026-13-01", "2026-1-1", "14.11.2026", ""])
+      expect(isCalendarDate(bad), bad).toBe(false);
   });
 
   it("VAL-04@PoC EC1: weekends take the previous working day's rate (Sunday → Friday); a working day between is not covered", () => {

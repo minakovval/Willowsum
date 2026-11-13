@@ -27,6 +27,8 @@ export interface DatedRateRequest {
  */
 export interface DatedRates {
   rates(requests: readonly DatedRateRequest[]): Promise<readonly (ExchangeRate | null)[]>;
+  /** Whether a rate of `rateDate` is the rate of `date` (fx-rates' rule: a weekend takes the previous working day's rate). */
+  covers(rateDate: string, date: string): boolean;
 }
 
 export interface ListTotal {
@@ -105,8 +107,10 @@ export function createListTotals(deps: { rates: DatedRates; now: () => number })
         const conversion = convert(group.sum, rate, date);
         total = total.plus(conversion.to);
         counted += group.count;
-        // Only dated records count as «за найближчим курсом»; today's values use the latest official rate.
-        if (conversion.approximate && group.date !== null) nearestRateCount += group.count;
+        // Only dated records count as «за найближчим курсом»; today's values use the latest official rate, and a
+        // weekend that takes the previous working day's rate is the rate of that date (same rule as fx-rates).
+        if (group.date !== null && !deps.rates.covers(conversion.rateDate, group.date))
+          nearestRateCount += group.count;
       }
       return {
         count: groups.reduce((n, g) => n + g.count, 0),
