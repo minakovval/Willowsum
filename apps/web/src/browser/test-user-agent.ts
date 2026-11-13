@@ -7,6 +7,6 @@
 import { SUPPORTED_BROWSERS } from "./support.ts";
 
 Object.defineProperty(navigator, "userAgent", {
-  value: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SUPPORTED_BROWSERS.chromium}.0.0.0 Safari/537.36`,
+  value: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SUPPORTED_BROWSERS.chromium.version}.0.0.0 Safari/537.36`,
   configurable: true,
 });
