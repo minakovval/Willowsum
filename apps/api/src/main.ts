@@ -22,6 +22,7 @@ import { PROBE_ROLE, pendingMigrations, readMigrations } from "./platform/db/mig
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "./platform/modules/rules.ts";
 import { scheduleDaily } from "./platform/process/daily.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
+import { createWorker } from "./platform/queue/index.ts";
 import { createApiRateLimits } from "./platform/http/rate-limit.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
@@ -32,6 +33,7 @@ import {
   modulePoolOptions,
   readinessCheck,
   schedulerDailyTasks,
+  workerQueues,
 } from "./wiring.ts";
 
 const rules = JSON.parse(
@@ -185,7 +187,19 @@ const server = buildServer({
 lifecycle.onStop(() => probe.end());
 lifecycle.onStop(() => databases.end());
 lifecycle.onStop(() => server.close());
-// The scheduler's daily tasks (ADR-0010); the worker registers its job loops here once the queue exists (ARC-04).
+// The worker role (ARC-04, ARC-02 FR 1–2): the job queue and outbox of every module that has them, over every space.
+// It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
+if (config.role === "worker") {
+  const worker = createWorker({
+    ...workerQueues(),
+    households: () => spaces.spaceIds(),
+    moduleAvailable: (module) => flags.isModuleAvailable(module),
+  });
+  worker.start();
+  lifecycle.onStop(() => worker.stop());
+  logEvent("worker.started", "info", { "ws.role": config.role });
+}
+// The scheduler's daily tasks (ADR-0010).
 if (config.role === "scheduler") {
   // The owner's alert letters (VAL-05 FR 4, FIN-04 FR 10; owner decision 2026-11-12: PoC alerts are app emails).
   const alertMail = config.alerts.email

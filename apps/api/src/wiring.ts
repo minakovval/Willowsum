@@ -12,6 +12,7 @@ import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./module
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
+import type { EventSubscription, WorkerQueue } from "./platform/queue/index.ts";
 import type { ReadinessCheck } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 
@@ -107,4 +108,16 @@ export function schedulerDailyTasks(deps: {
       },
     });
   return tasks;
+}
+
+/**
+ * The worker role's queues (ARC-04): each module that publishes events or runs jobs adds its store
+ * (`postgresJobStore(databases.for(<module>))`) and handlers here, and each consumer of an event its subscription.
+ * No module uses the queue yet (the ledger's «проводку записано» comes next, ARC-11); the worker then idles.
+ */
+export function workerQueues(): {
+  readonly queues: readonly WorkerQueue[];
+  readonly subscriptions: readonly EventSubscription[];
+} {
+  return { queues: [], subscriptions: [] };
 }
