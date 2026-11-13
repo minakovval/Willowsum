@@ -15,7 +15,7 @@ lighter model (`pr-pipeline`, «Token economy»), with this fixed checklist (the
    part («Реліз», table of slices) and the module README row match.
 4. Every `--move` warning (changed numbers and their citations, mentions in the same requirement, variants)
    is fixed or listed with a reason.
-5. Every dependent slice from `--impact` is updated or listed as a follow-up with an issue.
+5. Every dependent slice from `--impact` is updated or listed as a follow-up with an issue the lead opened.
 6. The decision-log entry exists in a new file in `docs/decisions/log/` and says whose decision it is.
 
 A `security-review` is needed only when a moved or reworded line states a protection (authentication,
