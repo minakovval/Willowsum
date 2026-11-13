@@ -96,6 +96,52 @@ describe("/gallery/tokens (DS-22)", () => {
     }
   });
 
+  it("CMP-33@PoC, DS-12@PoC FR 9: «Іконки» shows the PoC set — no asset-type, insurance or investment icons; products end with «Інше»", () => {
+    const { container } = render(<App />);
+    const icons = container.querySelector("#g-icons")!.parentElement!;
+    const codes = [...icons.querySelectorAll("code")].map((c) => c.textContent);
+    expect(codes).toContain("mortgage");
+    expect(codes).toContain("options");
+    for (const name of ["property", "wine", "insurance-health", "investment-public"]) {
+      expect(
+        codes.some((c) => c?.includes(name)),
+        name,
+      ).toBe(false);
+    }
+    expect(within(icons as HTMLElement).getByText("Інше")).toBeTruthy();
+    // Every icon on the page is decorative next to its caption.
+    for (const icon of icons.querySelectorAll(".ws-icon"))
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("CMP-33@PoC AC3, DS-12@PoC AC2: «Кнопки лише з іконкою» — every icon-only button has a name and the same tooltip", () => {
+    const { container } = render(<App />);
+    const section = container.querySelector("#g-icon-buttons")!.parentElement as HTMLElement;
+    const buttons = within(section).getAllByRole("button");
+    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Параметри",
+      "Колонки",
+      "Сортувати",
+      "Фільтр",
+      "Редагувати",
+      "Налаштування рахунку",
+      "Закрити",
+    ]);
+    for (const button of buttons) {
+      expect(button.textContent).toBe("");
+      act(() => button.focus());
+      const tip = document.getElementById(button.getAttribute("aria-describedby")!)!;
+      expect(tip.hidden).toBe(false);
+      expect(tip.textContent).toBe(button.getAttribute("aria-label"));
+    }
+    const filter = within(section).getByRole("button", { name: "Фільтр" });
+    expect(filter.getAttribute("aria-pressed")).toBe("false");
+    act(() => filter.click());
+    expect(filter.getAttribute("aria-pressed")).toBe("true");
+    act(() => screen.getByLabelText("English").click());
+    expect(within(section).getByRole("button", { name: "Options" })).toBeTruthy();
+  });
+
   it("CMP-25@PoC gallery: the Tooltip section shows a cut-off name, a name that fits, an abbreviated amount and an icon-only button", () => {
     // jsdom has no layout: every box is 40 px wide, the names are 400 px of text, the amounts 10 px per character.
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(40);

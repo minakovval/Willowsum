@@ -1,6 +1,18 @@
 export * from "./tokens/index.ts";
-export { Icon, IconSvg, ICON_GROUPS, ICON_NAMES, ICON_PARENT_CHILD, isIconName } from "./icons/Icon.tsx";
-export type { IconGroup, IconName, IconTone } from "./icons/Icon.tsx";
+export {
+  Icon,
+  IconSvg,
+  ICON_GROUPS,
+  ICON_NAMES,
+  ICON_PARENT_CHILD,
+  isIconName,
+  POC_ICON_GROUPS,
+  PRODUCT_ICONS,
+  productIcon,
+} from "./icons/Icon.tsx";
+export type { IconGroup, IconName, IconTone, PocIconGroup, ProductKind } from "./icons/Icon.tsx";
+export { IconButton } from "./icons/IconButton.tsx";
+export { IconTile } from "./icons/IconTile.tsx";
 export { WillowsumMark, Wordmark } from "./brand/Mark.tsx";
 export {
   ThemeProvider,

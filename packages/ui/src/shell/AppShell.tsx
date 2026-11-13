@@ -2,6 +2,7 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
 import { WillowsumMark } from "../brand/Mark.tsx";
 import { Icon, type IconName } from "../icons/Icon.tsx";
+import { IconButton } from "../icons/IconButton.tsx";
 import { readStorage, writeStorage } from "../storage.ts";
 import { MenuButton, type MenuItem } from "./MenuButton.tsx";
 
@@ -102,15 +103,11 @@ export function AppShell({
               )}
             </a>
             {collapsed ? null : (
-              <button
-                type="button"
-                className="ws-icon-button"
-                aria-label={t("shell.nav.collapse")}
-                title={t("shell.nav.collapse")}
+              <IconButton
+                icon="collapse"
+                label={t("shell.nav.collapse")}
                 onClick={() => setCollapsed(true)}
-              >
-                <Icon name="collapse" size={20} />
-              </button>
+              />
             )}
           </div>
           <MenuButton
@@ -125,7 +122,7 @@ export function AppShell({
             ariaLabel={collapsed ? add.label : undefined}
             title={tip(add.label)}
           >
-            <Icon name="plus" size={20} />
+            <Icon name="plus" size={20} inButton />
             {collapsed ? null : <span>{add.label}</span>}
           </MenuButton>
         </div>
@@ -245,15 +242,7 @@ export function FocusShell({
         <div className="ws-focus-inner">
           <div className="ws-focus-head">
             <h1>{title}</h1>
-            <button
-              type="button"
-              className="ws-icon-button"
-              aria-label={closeLabel}
-              title={closeLabel}
-              onClick={onClose}
-            >
-              <Icon name="close" size={20} />
-            </button>
+            <IconButton icon="close" label={closeLabel} onClick={onClose} />
           </div>
           {children}
         </div>
