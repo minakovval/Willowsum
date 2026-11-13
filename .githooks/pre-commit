@@ -1,0 +1,4 @@
+#!/bin/sh
+# Prettier and ESLint on the staged files only (tools/pr-rules/lib/pre-commit.mjs). Installed by `pnpm install`
+# (root `prepare`: git config core.hooksPath .githooks). Owner decision 2026-11-13.
+exec node tools/pr-rules/index.mjs pre-commit

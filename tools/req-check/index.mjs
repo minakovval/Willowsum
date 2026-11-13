@@ -14,6 +14,8 @@
 //                                                        move items to another release (changes their tags), write the
 //                                                        views, report dependents
 //   node tools/req-check/index.mjs --coverage            per-item and per-release coverage by tests named by item
+//   node tools/req-check/index.mjs --show <ID@release>   one slice: its view, dependencies, the decisions that cite
+//                                                        it and its coverage line (instead of reading whole folders)
 //   node tools/req-check/index.mjs --check-mentions      fail (exit 1) on a test that names an item its requirement
 //                                                        does not have; prints file:line for each (CI, PRC-02)
 //
@@ -35,6 +37,7 @@ import { convertRequirement, viewFileName } from './lib/source.mjs';
 import { moveItems } from './lib/move.mjs';
 import { findMentions, computeCoverage, renderCoverage, danglingMentions } from './lib/coverage.mjs';
 import { SLICE_FILE_RE } from './lib/config.mjs';
+import { resolveSlice, decisionMentions, renderShow } from './lib/show.mjs';
 import { buildModel } from './lib/model.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -81,7 +84,7 @@ function isLink(p) {
 }
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, checkMentions: false, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, checkMentions: false, show: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -104,6 +107,7 @@ export function parseArgs(argv) {
     else if (a === '--from') opts.from = next();
     else if (a === '--coverage') opts.coverage = true;
     else if (a === '--check-mentions') opts.checkMentions = true;
+    else if (a === '--show') opts.show = next();
     else if (a === '--update-baseline') opts.updateBaseline = true;
     else if (a === '--no-baseline') opts.useBaseline = false;
     else if (a === '--quiet') opts.quiet = true;
@@ -201,10 +205,26 @@ function printFinding(log, f, level) {
   if (process.env.GITHUB_ACTIONS === 'true') log(`::${level} file=${escProp(f.file)},line=${Math.max(1, f.line)},title=${escProp(`req-check ${f.rule}`)}::${escData(f.message)}`);
 }
 
+/** Markdown files of the decision log (`docs/decisions/`, the archive and `log/`), as {rel, text}, newest last. */
+export function loadDecisionFiles(root) {
+  const out = [];
+  const walk = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.isSymbolicLink() || e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.md')) out.push({ rel: path.relative(root, p).split(path.sep).join('/'), text: fs.readFileSync(p, 'utf8') });
+    }
+  };
+  walk(path.resolve(root, 'docs/decisions'));
+  return out;
+}
+
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
-    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--coverage] [--check-mentions] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
+    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--show ID@release] [--coverage] [--check-mentions] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
     return 0;
   }
   if (opts.convert) {
@@ -239,6 +259,21 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     const impact = computeImpact(result.model, registries, opts.impact);
     if (!impact) throw new Error(`--impact: "${opts.impact}" is not a known requirement, slice, screen, board name, П-rule, use case or module`);
     log(renderImpact(impact));
+    return 0;
+  }
+
+  if (opts.show) {
+    const r = resolveSlice(result.model, opts.show);
+    if (!r) throw new Error(`--show: "${opts.show}" is not a known requirement or slice (write it as BUD-16@PoC)`);
+    const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
+    log(
+      renderShow(result.model, r.slice, {
+        note: r.note,
+        viewText: fs.readFileSync(reqPath(opts.root, r.slice.doc.rel), 'utf8'),
+        decisions: decisionMentions(loadDecisionFiles(opts.root), r.slice.id),
+        coverageRow: cov.rows.find((x) => x.sid === r.slice.sid),
+      }),
+    );
     return 0;
   }
 

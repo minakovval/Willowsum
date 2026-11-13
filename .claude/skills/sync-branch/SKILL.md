@@ -59,16 +59,9 @@ from two sides can differ from what the merged source generates (`view-stale`).
 
 ## 4. Look at the auto-merged hunks
 
-Git merging without a conflict does not mean the result is right. Before committing:
-
-1. List the files both sides changed: `git diff --name-only HEAD...origin/main` against your branch's own
-   changed files (`git diff --name-only origin/main...HEAD`, taken before the merge); read every hunk of each
-   file in both, and then the merged result (`git diff HEAD` on the staged merge).
-2. Grep for the **old forms** of anything main renamed, moved or removed (routes, env variables, function and
-   file names, config keys, copy) and for the new forms your branch must now use.
-3. Real example: main moved the web to hash routes (`/#/…`) while the branch built a fragment link for the
-   password reset; git merged both without a conflict and the link became `/#/password/reset#token=` with two
-   `#`. Only reading the merged hunk (and grepping for `#/` next to `#token`) finds this.
+A merge without conflicts can still be wrong: read every hunk of the files both sides changed and grep for the
+old forms of anything `main` renamed or removed — [how, with a real example](references/auto-merged-hunks.md)
+(read whenever both sides changed a file).
 
 ## 5. Check
 
@@ -84,14 +77,8 @@ Exact usage: `infra/local/README.md`, «Test database per agent». Runs on one c
 
 Run the local secret-shaped literal check before pushing (what the CI job `secrets` checks).
 
-**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
-a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
-`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
-`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
-`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
-detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
-your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
-name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
+Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
+your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
 
 ## 6. Commit and push
 
@@ -102,46 +89,26 @@ name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` pi
    the branch's own code says so in one line.
 3. End with the attribution lines the session gives; then a normal `git push` (never `--force`).
 
-**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
-PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
+**Local PR checks before every push and body change** (owner, 2026-11-13):
 
 ```
 git fetch origin main
-node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-sync/body.md
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-<role>/body.md
 ```
 
-It runs, offline, what the CI job `traceability` (description) and the label job check, on
-`git diff origin/main...HEAD`: the title's requirement ID, the template sections, and the labels CI will set.
-Fix every `ERROR` line first (exit code 0 is required). When it lists `sensitive` labels, tick «Sensitive areas
-touched»; when it lists `owner-decision`, the body must record the owner decision the PR implements.
+Exit 0 required; tick «Sensitive areas touched» if it lists `sensitive`; record the owner decision if it lists
+`owner-decision` — [details](../../references/local-pr-checks.md) (read when the output is unclear).
 The body to check is the PR's current one (`gh api repos/{owner}/{repo}/pulls/<n> --jq .title,.body`):
 the merge can change the files and so the labels and the «Sensitive areas touched» box it needs.
 
-**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
-(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
-retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
-the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
-(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
-or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
-or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
-`--force`) are idempotent: retry them as they are.
+GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
+happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 
 ## 7. Reviewer confirmation
 
-AGENTS.md step 7: «any later commit, even a small fix, needs a re-review of that fix»; the verdict must
-name the PR head. It makes no exception for merge commits, so **every** merge into a PR that has a reviewer
-verdict needs a confirmation on the new head SHA:
-
-- the merge changed reviewed code of the PR (conflicts, adaptations, auto-merged files both sides touched) →
-  ask the reviewers (a fresh agent, narrow brief: the merge commit's diff against the previous head restricted
-  to the branch's own files, plus their previous findings) for a short confirmation with a verdict line that
-  names the new head; a `sensitive` PR also needs the security reviewer's;
-- the merge only brought in files outside the PR → the confirmation is still required, but it is a
-  one-line check that the PR's own diff against `main` is unchanged (`git diff origin/main...HEAD --stat`
-  before and after), and that the merge's tree equals a clean merge
-  (the first output line of `git merge-tree --write-tree HEAD^1 HEAD^2` = `git rev-parse HEAD^{tree}`;
-  `review-pr` «6. Confirmation rounds»). Give the reviewers both SHAs.
+Every merge into a PR with a verdict needs a confirmation on the new head SHA (a tree comparison when the merge
+only brought in files outside the PR) — [what to ask for](references/confirmation.md) (read after every merge).
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit

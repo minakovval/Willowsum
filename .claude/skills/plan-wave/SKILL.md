@@ -24,7 +24,8 @@ code. Plans are the lead's working notes: `docs/plans/**` needs no owner decisio
 3. Drop slices already in an open PR or in the previous plan's rows still in progress; say which in the
    plan. Open PRs through REST (GraphQL, so `gh pr list`, is blocked in cloud sessions):
    `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .title, .head.ref] | @tsv'`.
-4. For each remaining slice read only its view `docs/requirements/<module>/<ID>.poc.md`: the «Зв'язки»
+4. For each remaining slice read only its view, best with `node tools/req-check/index.mjs --show <ID>@PoC`
+   (view, dependencies, citing decisions and coverage line in one output): the «Зв'язки»
    header (Залежить від, Дизайн, Спільні правила, Модуль) and the size of FR / AC / EC. Do not read sources or
    other releases. For a wide pass use a read-only subagent and keep only its table.
 
@@ -89,19 +90,22 @@ Then: prettier is not run on `docs/` (`.prettierignore`); `node --test tools/req
 Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
 (`pr153-plan/`), never a generic name like `body.md`.
 
-**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
-(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
-retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
-the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
-(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
-or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
-or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
-`--force`) are idempotent: retry them as they are.
+GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
+happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 ## 6. PR
 
 Title `PRC-02: PoC wave N plan`; body from the template («Requirement»: the plan file and
-`release-poc.md`; «Acceptance criteria covered»: none, a plan; «How it was tested»: the commands run). One
+`release-poc.md`; «Acceptance criteria covered»: none, a plan; «How it was tested»: the commands run).
+Before every push and every body change:
+
+```
+git fetch origin main
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/plan-wave-N/body.md
+```
+
+Exit 0 required — [details](../../references/local-pr-checks.md) (read when the output is unclear).
+ One
 `review-pr` pass on a lighter model: every uncovered PoC slice is in a row or listed as left out with a
 reason, no row comes before what it depends on, Ч marks match the paths, owner questions are marked. Then
 report to the owner in Ukrainian: the estimate, the first PRs, the questions.

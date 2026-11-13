@@ -34,7 +34,9 @@ fails CI (`view-stale`).
 
 1. Run `node tools/req-check/index.mjs --impact <ID | slice | S-id | board | П-n | UC-id | module>` for every
    target you will change (a slice is written `BUD-16@PoC`). It lists dependent slices transitively, with the
-   sources to edit, screens, use cases, docs/ux mentions, tests and modules.
+   sources to edit, screens, use cases, docs/ux mentions, tests and modules. To read one slice with its
+   dependencies, the decisions that cite it and its coverage, use `node tools/req-check/index.mjs --show <ID@release>`
+   instead of opening whole folders.
 2. Update each dependent slice in the same PR (in its source), or list it in the PR body as a follow-up with an
    issue (AGENTS.md, PRC-02). Do not leave a dependent slice silently unchecked.
 3. State in the PR which releases the change touched and which it deliberately left unchanged, and why.
@@ -43,34 +45,11 @@ fails CI (`view-stale`).
 
 ## 3. Moving scope between releases: `--move`
 
-1. Move items with the tool, not by hand:
-   `node tools/req-check/index.mjs --move <ID> --items FR4,AC5,EC2 --to "PoC v2" [--from PoC]`.
-   Items are numbered as in the `--from` view (default: the first view). The tool changes the tags of the item
-   and its continuation lines in the source and regenerates that requirement's views.
-2. The target view must exist. For a new release of the requirement, first add it by hand in the source:
-   «Зрізи», the card's «Реліз» line and table of slices, the `[лише <release>] **Реліз:** …` line and the
-   «Розширює» lines of the slice text; run `--views`; then move.
-3. Read the whole `--move` report and act on every part of it:
-   - **Item numbers that changed** and **citations of changed numbers in the source**: a line such as «прогрес
-     за FR 15» now points at another item. Reword it to name the item by its phrase («пункт «Прогрес черги
-     рахує транзакції»») or fix the number;
-   - **tests and docs that cite changed numbers** (`BUD-12@PoC FR 15` in a test name): `--coverage` maps tests
-     by number, so rename the test or list it as a follow-up for its author;
-   - **the moved items are still mentioned in the same requirement**: business rules, criteria or edge cases
-     that still describe the moved behaviour in the old release. Move them too (`--items`), reword them, or
-     record why they stay;
-   - **an item beside a variant of itself**: two wordings of one item in one view; keep one;
-   - **dependents** and **key phrases elsewhere**: as in step 2.
-4. Moving a `[лише PoC]` item to PoC v2 makes it `[лише PoC v2]`; check that it does not contradict a PoC v2
-   item next to it (the variant check only catches lines that start alike).
-5. Rewording is a plain edit of the source: a line that changes from release R on becomes two lines with
-   adjacent ranges, old then new (`[PoC–PoC v2] old`, `[MVP] new`); a line of one release only is edited in
-   place.
-6. Keep each view complete for its release; IDs only in «Зв'язки» (tag the field lines that differ between
-   releases).
-7. The card part is not changed by `--move`: update the «Реліз» line, the table of slices and the module
-   README row by hand when the set of releases changes. A changed card's «Реліз» line must match its module README row (PRC-01 FR 3): edit both in the same PR. Plans that list the item (`docs/plans/`) are updated
-   in the same PR; grep them for the ID.
+Move items only with `node tools/req-check/index.mjs --move <ID> --items FR4,AC5,EC2 --to "PoC v2" [--from PoC]`,
+act on every part of its report (changed numbers and their citations, tests that cite them, mentions of the
+moved items, variants, dependents), update the card part and module README row by hand, and reword in the
+source otherwise — [full procedure](references/move.md) (read when you move items or add a release to a
+requirement).
 
 ## 4. Housekeeping
 
@@ -122,46 +101,24 @@ the one you wrote (it names this PR).
    permissions, isolation, encryption, money, retention); the path map is in `tools/pr-rules`
    (`lib/paths.mjs`). The label `owner-decision` is set by CI.
 
-**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
-PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
+**Local PR checks before every push and body change** (owner, 2026-11-13):
 
 ```
 git fetch origin main
-node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-req/body.md
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-<role>/body.md
 ```
 
-It runs, offline, what the CI job `traceability` (description) and the label job check, on
-`git diff origin/main...HEAD`: the title's requirement ID, the template sections, and the labels CI will set.
-Fix every `ERROR` line first (exit code 0 is required). When it lists `sensitive` labels, tick «Sensitive areas
-touched»; when it lists `owner-decision`, the body must record the owner decision the PR implements.
+Exit 0 required; tick «Sensitive areas touched» if it lists `sensitive`; record the owner decision if it lists
+`owner-decision` — [details](../../references/local-pr-checks.md) (read when the output is unclear).
 
-**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
-(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
-retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
-the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
-(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
-or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
-or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
-`--force`) are idempotent: retry them as they are.
+GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
+happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 **Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI, the batch's changes in one line each), blockers, owner questions. Details go in the PR body
 (or an issue), not in the report.
 
 ## 8. Review (lighter rule, owner, 2026-11-12)
 
-A requirement-change PR built this way gets **one** `review-pr` pass in a different session, by an agent on a
-lighter model (`pr-pipeline`, «Token economy»), with this fixed checklist (the reviewer reports each row):
-
-1. The PR body records the decision of every change, and each change matches its decision.
-2. Only sources were edited; `--views` regenerates with no diff; `--check-mentions` passes; 0 errors.
-3. Each moved item is absent from the old release's view and present from the target release on; the card
-   part («Реліз», table of slices) and the module README row match.
-4. Every `--move` warning (changed numbers and their citations, mentions in the same requirement, variants)
-   is fixed or listed with a reason.
-5. Every dependent slice from `--impact` is updated or listed as a follow-up with an issue.
-6. The decision-log entry exists in a new file in `docs/decisions/log/` and says whose decision it is.
-
-A `security-review` is needed only when a moved or reworded line states a protection (authentication,
-permissions, data isolation, encryption, money, retention or deletion). It then reviews **only those lines**:
-that the protection still holds in every release that needs it and did not silently leave a release. Merge
-conditions: AGENTS.md step 7; the PR body records the owner's decision.
+One `review-pr` pass in a different session on a lighter model (unless a changed line touches a security rule),
+with the fixed six-row checklist; a `security-review` only for moved or reworded lines that state a protection —
+[checklist](references/review-checklist.md) (read when you review or brief that review).

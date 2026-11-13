@@ -11,13 +11,13 @@ Input: one requirement ID (or a small group, e.g. `CMP-33 / DS-12`) and the targ
 Output: one PR whose title starts with the ID, CI green, every criterion of the view covered by a test, the
 component in its gallery entry, a screenshot check against the board. This skill is the UI-specific part of
 `implement-requirement`: follow that skill for everything not said here (branch, «Перевіряється», checks,
-merge). AGENTS.md «Process: design before code» still gates the work: PoC design was approved on 2026-11-06.
+merge). `.claude/references/design-before-code.md` (AGENTS.md links it) still gates the work: PoC design was approved on 2026-11-06.
 
 ## 1. Inputs, in order of authority
 
 | # | Input | Where | How to find it |
 | --- | --- | --- | --- |
-| 1 | Requirement view | `docs/requirements/<ds\|cmp\|cht\|grid\|ux>/<ID>.poc.md` (generated; never edit) | `ls docs/requirements/*/<ID>*.md`; its «Зв'язки» gives «Дизайн» (S-ids), П-rules and DS rules |
+| 1 | Requirement view | `docs/requirements/<ds\|cmp\|cht\|grid\|ux>/<ID>.poc.md` (generated; never edit) | `node tools/req-check/index.mjs --show <ID>@PoC` (the view, its dependencies, decisions and coverage); its «Зв'язки» gives «Дизайн» (S-ids), П-rules and DS rules |
 | 2 | Component card | Snapshot `design/design-system/components/<Name>/README.md` and `preview.html`; live: the Design System artifact in `docs/design/ARTIFACTS.md` | The card's last line names its requirement: `grep -lE '\*\*Вимог(а\|и):\*\*.*CMP-05([^0-9]\|$)' design/design-system/components/*/README.md` (a card may list several IDs) |
 | 3 | Canvas boards | Snapshot `design/canvas/Poc*.dc.html` (titles and S-ids in `design/canvas/canvas.json`, page `poc`); live: the canvas artifact in `docs/design/ARTIFACTS.md` | By S-id from «Дизайн»; component views often say «Дизайн: —», so grep the `Poc*` boards for the ARIA role or the Ukrainian label (`grep -l 'role="switch"' design/canvas/Poc*.dc.html`); the views stay unchanged (lead, 2026-11-13). `PocStates` holds the shared empty, loading and error states. `node tools/req-check/index.mjs --impact <Board>` lists the slices that cite a board |
 | 4 | Tokens | Code: `packages/ui/src/tokens/*.ts` → generated `packages/ui/src/styles/tokens.css` (`--ws-*`). Design: `design/design-system/tokens.json` | Boards write raw hex and px: map each value to its token name (`colors`, `space`, `radii`, `typeScale`, `motion` from `@willowsum/ui/tokens`) |
@@ -97,14 +97,8 @@ spacing, type, colour roles and every state. Fix differences that the view or th
 rest in the PR body. Screenshots stay in the scratchpad: committed e2e and contrast checks on routes belong
 to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
 
-**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
-a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
-`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
-`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
-`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
-detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
-your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
-name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
+Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
+your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
 
 ## 7. Rules
 
@@ -128,8 +122,18 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
 (`pr153-ui/`), never a generic name like `body.md` (screenshots, scripts, PR body); before PATCHing a PR body from a
 file, check that it is the one you wrote.
 
-Verify as `implement-requirement` step 6 (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `--coverage`, views
-and report regenerated after adding «Перевіряється» to the source, secret-shaped literal check). Open a draft
+Verify as `implement-requirement` «4. Implement and verify» (`pnpm typecheck`, `pnpm lint`, `pnpm test`,
+`--coverage`, `--check-mentions`, views regenerated after adding «Перевіряється» to the source, secret-shaped
+literal check). Before every push and every body change:
+
+```
+git fetch origin main
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-ui/body.md
+```
+
+Exit 0 required — [details](../../references/local-pr-checks.md) (read when the output is unclear).
+
+Open a draft
 PR with the template, title `<ID>: <component>`, and add to the body:
 
 - [ ] Sources: the view path, the card (snapshot or live version), each board read (snapshot or live version)
@@ -146,14 +150,8 @@ Then the lead (`pr-pipeline`) starts a `review-pr` session in a **different** se
 the view path, the board names and the card name, so the reviewer can repeat the screenshot check. Fixes go
 through `fix-review-findings`; merge rules are AGENTS.md steps 5 and 7.
 
-**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
-(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
-retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
-the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
-(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
-or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
-or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
-`--force`) are idempotent: retry them as they are.
+GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
+happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 ## Open questions
 

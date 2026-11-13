@@ -21,6 +21,14 @@ whether the security properties the requirement claims really hold. This review 
 - **Security properties only** (owner, 2026-11-13): requirement coverage, logic, test naming and style are
   `review-pr`'s; generic checks are CI's. Do not re-run req-check, `--views`, `--coverage`, typecheck, lint,
   formatting or other generic checks, and do not report on them.
+- **Light confirmation** (owner, 2026-11-13): when the PR is `sensitive` only because test titles or comments
+  changed in sensitive paths (no logic), confirm that with a diff check instead of a full review: for every
+  sensitive file, `git diff origin/main...<head> -- <file>` shows only changed test titles (`describe` / `it` /
+  `test` strings) or comment lines, and the same file with those lines stripped is unchanged
+  (`git diff -G'.' --word-diff` helps). Then post one short review: «Light confirmation: only test titles /
+  comments in <files>», `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or
+  configuration change in a sensitive path → full review.
+- The owner decision and the owner's approval for cloud or production are checked by `review-pr`, not here.
 - **Round 2** checks only the fixes and your own round-1 findings (the diff since the head you last
   reviewed). At most two rounds (see «5. Rounds»).
 
@@ -45,14 +53,8 @@ whether the security properties the requirement claims really hold. This review 
   files the PR touches, plus mutation testing (critical modules), browser checks and targeted checks of a path you
   suspect. The review states in one line what it relied on CI for: the jobs and their result on the reviewed head
   («CI relied on: requirements, web, api, e2e — green on <SHA>»; a job not finished or red is named as such).
-- **Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
-  a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
-  `pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
-  `WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
-  `pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
-  detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
-  your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
-  name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
+- Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
+your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
 - Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
   (`pr153-sec/`: worktree, tests, patches, review text), never a generic name like `body.md`.
 
@@ -65,34 +67,12 @@ never passes through a JS `number`; a secret never reaches a log line.
 
 A property without a test that fails when the guard is removed is a gap. Write the missing test.
 
-## 4. Mutation testing (critical modules only)
+## 4. Mutation testing and output files
 
-Only for data isolation, money, authentication and encryption (owner, 2026-11-12); elsewhere skip it.
-
-1. Weaken one guard at a time (drop a `WHERE household_id`, return early from a permission check, compare
-   with `==` instead of a constant-time check, round an amount through `number`).
-2. Run only the relevant suite. A mutant that no test kills is a **survivor**.
-3. Restore the code (`git checkout -- <file>`) before the next mutant; never leave a mutant in place.
-4. For each survivor write a test that kills it.
-
-Defects found: write the test as `it.fails('…', …)` (it documents the defect and passes while the defect
-exists) plus a fix patch you verified: with the patch applied the test passes as a plain `it`.
-
-## 5. Output files
-
-Put every test and patch in the session scratchpad (not in the PR branch), in one file per round with a
-header per repository file:
-
-```
-// ===== FILE: apps/api/test/sec<PR>-<topic>.it.test.ts =====
-…
-// ===== FILE: apps/api/src/modules/identity/application/sign-in.ts (patch) =====
-…
-```
-
-No secret-shaped literals (API keys, tokens, private keys, passwords that look real): build test values at
-runtime (`randomBytes`, `['not','a','real','value'].join('-')`), so the CI job `secrets` (gitleaks) stays green.
-The author applies them with the `fix-review-findings` skill.
+Critical modules only (data isolation, money, authentication, encryption): weaken one guard at a time, run
+the relevant suite, restore, and write a test for every survivor; defects as `it.fails` plus a verified patch,
+all in scratchpad files with `// ===== FILE: <path> =====` headers and no secret-shaped literals —
+[procedure](references/mutation-and-output.md) (read when you mutate or hand over tests and patches).
 
 ## 6. Report
 
@@ -133,14 +113,8 @@ _Generated by [Claude Code](https://claude.ai/code)_
 line, outside quotes and code. Never write «Схвалюю» or «Approved». The daily check (ADR-0008) reads this line
 and compares the SHA with the merged head.
 
-**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
-(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
-retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
-the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
-(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
-or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
-or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
-`--force`) are idempotent: retry them as they are.
+GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
+happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
 ## 7. Rounds
 

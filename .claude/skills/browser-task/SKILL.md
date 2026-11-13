@@ -7,7 +7,7 @@ description: Write an instruction for the Willowsum owner's local Claude session
 
 **Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
 
-Agents never hold the owner's accounts or keys (AGENTS.md, «External services and owner actions»). When the
+Agents never hold the owner's accounts or keys (`.claude/references/external-services.md` (AGENTS.md links it)). When the
 owner must act in a browser, the lead writes a ready instruction that the owner hands to their local Claude
 session with a browser. That session does the work itself and stops only where the instruction says
 «ЗУПИНКА». Example: `docs/ops/browser-tasks/01-mail-captcha.md`.

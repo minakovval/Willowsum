@@ -22,6 +22,8 @@ written). The PoC shell code already in `main` (PRs #46, #47, #52, #54, #55) is 
 - Traceability and build sequence per release (generated, not committed): run
   `node tools/req-check/index.mjs --quiet --traceability` (writes the git-ignored `docs/traceability/`), or open the
   latest run of the workflow «Requirements traceability» on `main` (artifact `traceability`).
+- Pre-commit hook: `pnpm install` sets `core.hooksPath` to `.githooks`; on `git commit` it runs Prettier and ESLint on
+  the staged files only (`tools/pr-rules/lib/pre-commit.mjs`).
 - Agent skills: `.claude/skills/implement-requirement`, `.claude/skills/review-pr`.
 
 ## Suggested order of work
