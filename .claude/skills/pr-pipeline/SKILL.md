@@ -56,23 +56,24 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
    opens the issues; agents never do (owner, 2026-11-13).
 8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
-   Write only when something is merged, an owner decision is needed, or there is a problem (a blocker, red CI
-   that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
+   Write only when something is merged (PR link, one line, and what is next), an owner decision is needed, or
+   there is a problem (a blocker, red CI that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
    technical questions (permission-classifier denials, implementation choices, worker counts, test layout) are
    not asked: you decide and log them (AGENTS.md «Ambiguity»). Details:
    [lead communication](references/lead-communication.md).
 9. **Follow-up sweep** (owner, 2026-11-13): after every 8–10 merged PRs, one PR (row `R` of the wave plan, an
    implementer on a lighter model) closes the small open follow-ups: issues labelled or listed as follow-ups and
    the «Follow-ups» lists of the merged PRs. Larger items get a plan row of their own instead.
-   Small process or rule changes that do not block work wait in a queue and ship with the next process PR or
-   this sweep, not as a PR each (owner, 2026-11-13; [lead communication](references/lead-communication.md)).
+   Small process or rule changes that do not block work wait in the issue «Черга змін процесу» and ship with the
+   next process PR or this sweep, not as a PR each (owner, 2026-11-13;
+   [lead communication](references/lead-communication.md)).
 
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
 **New lead session** (owner, 2026-11-13): when your context has already been compacted, or after 8–10 merged
 PRs, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
-state»: open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows. Tell the
+state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows. Tell the
 owner to start a new session, which reads that issue first ([restarts](references/restarts.md)).
 
 ## 2. Owner
@@ -80,7 +81,7 @@ owner to start a new session, which reads that issue first ([restarts](reference
 - Questions to the owner are explicit and separate: one numbered list, each with options and your
   recommendation; only real product questions (AGENTS.md «Ambiguity»).
 - **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
-  on small details) and send them together about every 2–3 hours, in one message. Urgent ones go at once,
+  on small details) and send them together in one message, with the next merge report or decision request. Urgent ones go at once,
   alone: a blocker that stops all parallel work, billing or CI that cannot run, and anything about security (a
   leaked secret, a security finding in `main`, a production risk). While a question waits, keep the other
   branches moving. Small details you decide, record in the
