@@ -41,6 +41,13 @@ CREATE FUNCTION posting_moves_cached_balance() RETURNS trigger LANGUAGE plpgsql 
 DECLARE
   stale boolean;
 BEGIN
+  -- The first cache of an account (store.ts lockBalanceCreation) holds this lock exclusively from before it reads the
+  -- postings until its commit: a posting that commits meanwhile is either read by it or sees its cache here and is
+  -- refused. Shared, in the order of the ids (the order the cache takes them in), so postings never wait on each other.
+  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtext(NEW.household_id::text),
+    pg_catalog.hashtext(LEAST(NEW.debit_account_id, NEW.credit_account_id)::text));
+  PERFORM pg_catalog.pg_advisory_xact_lock_shared(pg_catalog.hashtext(NEW.household_id::text),
+    pg_catalog.hashtext(GREATEST(NEW.debit_account_id, NEW.credit_account_id)::text));
   EXECUTE pg_catalog.format(
     'SELECT EXISTS (SELECT 1 FROM %I.balance_versions WHERE household_id = $1 AND account_id IN ($2, $3)
                        AND changed_at <> pg_catalog.now())',

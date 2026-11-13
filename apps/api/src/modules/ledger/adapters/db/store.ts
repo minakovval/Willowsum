@@ -82,6 +82,19 @@ const INTEGRITY = `
       AS balance_cache`;
 
 /**
+ * Taken after an account's first cache (its version row) is made or its cache rebuilt, before the postings are read,
+ * and held to commit: a posting that skips the cache (an older code version, a direct INSERT) and commits meanwhile
+ * waits in the commit-time trigger (migrations/0006_balance_cache.sql), so it is either read from the postings here
+ * or refused there.
+ */
+async function lockBalanceCreation(q: HouseholdQueryRunner, accountId: string): Promise<void> {
+  await q.query(
+    `SELECT pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext($1::uuid::text), pg_catalog.hashtext($2::uuid::text))`,
+    [q.householdId, accountId],
+  );
+}
+
+/**
  * Writes an account's cache from its postings (the version row is already locked by this transaction): every day with
  * postings gets the totals up to it, and the version row the latest time of recording. The number of days written.
  */
@@ -292,6 +305,9 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
           [q.householdId, accountId],
         );
         if (made.rowCount !== 1) return false;
+        // Only the winner takes the lock, after the version row: a loser holding it to commit while it waits for the
+        // winner's row would deadlock with a posting that waits for the lock in the trigger.
+        await lockBalanceCreation(q, accountId);
         await rebuildDays(q, accountId);
         return true;
       }
@@ -340,6 +356,8 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
          DO UPDATE SET version = balance_versions.version + 1, changed_at = now()`,
         [q.householdId, accountId],
       );
+      // After the version row (its lock is taken first, as by an update), so the two never wait on each other.
+      await lockBalanceCreation(q, accountId);
       return rebuildDays(q, accountId);
     },
     async integrity(): Promise<IntegrityFindings> {
