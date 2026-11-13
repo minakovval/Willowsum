@@ -31,7 +31,8 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
     обгортається через KMS до транзакції і зберігається разом із простором (`encryption_key_ref` = `dek:<key_id>`); без KMS
     простір не створюється.
   - `membershipOf(accountId)` → `{ householdId, role }` або null — простір і роль акаунта (у PoC — його один простір).
-  - `spaceIds()` → ідентифікатори всіх просторів з учасником — для щоденних перевірок планувальника (FIN-04 п. 9).
+  - `spaceIds()` → ідентифікатори всіх просторів з учасником — для щоденних задач планувальника (FIN-04 п. 9, прибирання
+    черги за строком) і проходів воркера (ARC-04).
 - `createSpaceKeys(db, audit, kms)` → `SpaceKeys` (ARC-06@PoC):
   - `seal(householdId, field, text)` → `ws1.…` — AES-256-GCM ключем простору, прив'язано до простору й поля (до 4096 символів);
   - `open(householdId, field, sealed)` → текст; інакше `SpaceKeyError` (`SEALED_VALUE_INVALID`, `SPACE_KEY_MISSING`,
@@ -50,7 +51,7 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
   `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`.
 
 Хто викликає: `main.ts` передає `ensureFirstSpace` модулю identity (порт `FirstSpace`), `membershipOf` — у `src/api.ts`,
-який будує того, хто викликає захищені маршрути, а `spaceIds` — щоденній перевірці журналу (ledger); `createSpaceKeys` — щоденній задачі ключів (`schedulerDailyTasks`).
+який будує того, хто викликає захищені маршрути, а `spaceIds` — щоденній перевірці журналу (ledger), прибиранню черги за строком і воркеру (ARC-04, `main.ts`); `createSpaceKeys` — щоденній задачі ключів (`schedulerDailyTasks`).
 
 ## Залежності
 
