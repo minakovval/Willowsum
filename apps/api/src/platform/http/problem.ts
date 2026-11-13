@@ -12,6 +12,13 @@ export const PROBLEMS = {
   INVALID_CURSOR: { status: 400, title: "The page cursor is not valid" },
   UNAUTHENTICATED: { status: 401, title: "Sign-in is required" },
   /**
+   * The session of this browser has ended (ACC-04@PoC): `sessionEndReason` says why, for the sign-in screen's
+   * message — `idle` «Сесію завершено через бездіяльність», `ended-elsewhere` «Сесію завершено з іншого пристрою»,
+   * `expired` (12 h) and `signed-out` (another tab signed out) without one. Only identity's session routes answer it,
+   * to the holder of the session's own cookie; every other route answers UNAUTHENTICATED.
+   */
+  SESSION_ENDED: { status: 401, title: "The session has ended; sign in again" },
+  /**
    * Sign-in failed (ACC-01 FR 9, NFR-15 FR 2): one answer for an unknown email and a wrong password, byte for
    * byte, so it never tells which one was wrong or that an account exists.
    */
@@ -104,6 +111,11 @@ export const ProblemSchema = z
       description:
         "VERSION_CONFLICT: the fields changed since the client's version — the readable fields of the base values it sent whose stored value now differs (field names only; fields left out of the base are not reported)",
     }),
+    /** For SESSION_ENDED: why the session ended (ACC-04@PoC «Стани інтерфейсу»). */
+    sessionEndReason: z.enum(["idle", "expired", "signed-out", "ended-elsewhere"]).optional().meta({
+      description:
+        "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset or a reused token ended it)",
+    }),
     /** For LIMIT_REACHED: the limit that was reached (a number of the service, never of the plan). */
     limit: z
       .number()
@@ -158,7 +170,9 @@ export class ApiProblem extends Error {
 }
 
 /** The extension members a problem may carry (declared in ProblemSchema). */
-export type ProblemExtensions = Partial<Pick<Problem, "currentVersion" | "changedFields" | "limit">>;
+export type ProblemExtensions = Partial<
+  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason">
+>;
 
 export function problemBody(
   code: ProblemCode,
@@ -185,6 +199,9 @@ export function problemBody(
       ? { changedFields: [...options.extensions.changedFields] }
       : {}),
     ...(options.extensions?.limit !== undefined ? { limit: options.extensions.limit } : {}),
+    ...(options.extensions?.sessionEndReason !== undefined
+      ? { sessionEndReason: options.extensions.sessionEndReason }
+      : {}),
   };
 }
 

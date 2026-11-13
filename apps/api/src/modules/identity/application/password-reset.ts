@@ -92,7 +92,7 @@ export async function completePasswordReset(
     await tx.revokePasswordResets(account.id, now);
     await tx.setPassword(account.id, passwordHash, now);
     // NFR-15 FR 3, AC17: every session of the account ends, whichever device or browser holds it.
-    await tx.endSessions(account.id, now);
+    await tx.endSessions(account.id, now, "password-reset");
     // FR 10: the link proved control of the address. Its pending confirmation links have nothing left to do.
     const confirmed = await tx.confirmAccount(account.id, now);
     if (confirmed) await tx.revokeConfirmations(account.id, now);

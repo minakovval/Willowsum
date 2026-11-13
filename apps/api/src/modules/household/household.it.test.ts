@@ -83,6 +83,7 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
       changes: [
         { field: "name", before: null, after: "Родина Синтетична", masked: false },
         { field: "dataRegion", before: null, after: "eu", masked: false },
+        { field: "reportingCurrency", before: null, after: "EUR", masked: false },
       ],
     });
     const member = await audit.entriesFor(result.householdId, { type: "household.member", id: accountId });

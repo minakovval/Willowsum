@@ -14,8 +14,8 @@ import type {
 } from "../../application/index.ts";
 import {
   PASSWORD_RESET_RETENTION_MS,
-  SESSION_IDLE_MS,
   THROTTLE_RETENTION_MS,
+  type SessionEndReason,
   type SignInGuard,
 } from "../../domain/index.ts";
 
@@ -291,18 +291,29 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         [accountId, digest, at(now), at(expiresAt)],
       );
     },
-    async findSession(digest) {
-      const { rows } = await q.query<{
+    async findSession(digest, lock) {
+      const columns = `s.id, s.account_id, s.created_at, s.last_seen_at, s.expires_at, s.ended_at, s.end_reason`;
+      const suffix = lock ? " FOR UPDATE OF s" : "";
+      type Row = {
         id: string;
         account_id: string;
         created_at: Date;
         last_seen_at: Date;
         expires_at: Date;
         ended_at: Date | null;
-      }>(
-        `SELECT id, account_id, created_at, last_seen_at, expires_at, ended_at FROM sessions WHERE token_digest = $1`,
+        end_reason: SessionEndReason | null;
+        retired_at: Date | null;
+      };
+      let { rows } = await q.query<Row>(
+        `SELECT ${columns}, NULL::timestamptz AS retired_at FROM sessions s WHERE s.token_digest = $1${suffix}`,
         [digest],
       );
+      if (rows.length === 0)
+        ({ rows } = await q.query<Row>(
+          `SELECT ${columns}, r.retired_at FROM retired_session_tokens r JOIN sessions s ON s.id = r.session_id
+            WHERE r.token_digest = $1${suffix}`,
+          [digest],
+        ));
       const r = rows[0];
       return r
         ? ({
@@ -312,6 +323,8 @@ function tx(q: ModuleQueryRunner): IdentityTx {
             lastSeenAt: r.last_seen_at.getTime(),
             expiresAt: r.expires_at.getTime(),
             endedAt: ms(r.ended_at),
+            endReason: r.end_reason,
+            retiredAt: ms(r.retired_at),
           } satisfies SessionRow)
         : null;
     },
@@ -321,13 +334,25 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         at(now),
       ]);
     },
-    async endSession(id, now) {
-      await q.query(`UPDATE sessions SET ended_at = $2 WHERE id = $1 AND ended_at IS NULL`, [id, at(now)]);
+    async rotateSession(id, next, now) {
+      await q.query(
+        `INSERT INTO retired_session_tokens (token_digest, session_id, retired_at)
+         SELECT token_digest, id, $2 FROM sessions WHERE id = $1`,
+        [id, at(now)],
+      );
+      await q.query(`UPDATE sessions SET token_digest = $2 WHERE id = $1`, [id, next]);
     },
-    async endSessions(accountId, now) {
+    async endSession(id, now, reason) {
+      await q.query(`UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE id = $1 AND ended_at IS NULL`, [
+        id,
+        at(now),
+        reason,
+      ]);
+    },
+    async endSessions(accountId, now, reason) {
       const result = await q.query(
-        `UPDATE sessions SET ended_at = $2 WHERE account_id = $1 AND ended_at IS NULL`,
-        [accountId, at(now)],
+        `UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE account_id = $1 AND ended_at IS NULL`,
+        [accountId, at(now), reason],
       );
       return result.rowCount ?? 0;
     },
@@ -368,10 +393,10 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         passwordResets: await count(`DELETE FROM password_resets WHERE created_at <= $1`, [
           at(now - PASSWORD_RESET_RETENTION_MS),
         ]),
-        sessions: await count(
-          `DELETE FROM sessions WHERE ended_at IS NOT NULL OR expires_at <= $1 OR last_seen_at <= $2`,
-          [at(now), at(now - SESSION_IDLE_MS)],
-        ),
+        // An ended or lapsed session still answers SESSION_ENDED with its reason (ACC-04@PoC AC1: «через
+        // бездіяльність», «з іншого пристрою») while its browser may hold the cookie: up to the absolute end, when the
+        // cookie's Max-Age runs out. Its replaced tokens go with it (cascade).
+        sessions: await count(`DELETE FROM sessions WHERE expires_at <= $1`, [at(now)]),
       };
     },
   };

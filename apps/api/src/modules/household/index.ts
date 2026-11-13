@@ -30,6 +30,7 @@ export {
   firstSpaceName,
   SPACE_KEY_ERROR_CODES,
   SPACE_NAME_MAX,
+  SPACE_REPORTING_CURRENCY,
   SPACE_ROLES,
   SpaceKeyError,
   spaceName,
@@ -88,7 +89,7 @@ export function createHouseholdSpaces(
       spaceCreated: async (
         householdId: string,
         ownerAccountId: string,
-        space: { name: string; dataRegion: string },
+        space: { name: string; dataRegion: string; reportingCurrency: string },
       ) => {
         await audit.record(householdId, {
           actor: { kind: "user", id: ownerAccountId },
@@ -98,6 +99,7 @@ export function createHouseholdSpaces(
           changes: [
             { field: "name", before: null, after: space.name, sensitive: false },
             { field: "dataRegion", before: null, after: space.dataRegion, sensitive: false },
+            { field: "reportingCurrency", before: null, after: space.reportingCurrency, sensitive: false },
           ],
         });
         await audit.record(householdId, {

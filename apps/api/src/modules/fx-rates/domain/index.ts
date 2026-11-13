@@ -21,3 +21,5 @@ export {
   isRestrictedConvertibility,
   rateCoversDate,
 } from "./currencies.ts";
+export { FIXED_CONVERSIONS, FIXED_CONVERSION_SOURCE, fixedConversionRate } from "./fixed-conversions.ts";
+export type { FixedConversion } from "./fixed-conversions.ts";
