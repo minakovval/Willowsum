@@ -4,9 +4,9 @@
  * Set on `navigator`, not through jsdom's options: a custom jsdom user agent turns on its resource loader, which then
  * tries to fetch scripts.
  */
-import { SUPPORTED_BROWSERS } from "./support.ts";
+import { supportedMinimums } from "./support.ts";
 
 Object.defineProperty(navigator, "userAgent", {
-  value: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SUPPORTED_BROWSERS.chromium}.0.0.0 Safari/537.36`,
+  value: `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${supportedMinimums(new Date()).chromium}.0.0.0 Safari/537.36`,
   configurable: true,
 });

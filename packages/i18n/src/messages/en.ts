@@ -61,7 +61,7 @@ export const en: Messages = {
 
   "browser.unsupported.title": "This browser is not supported.",
   "browser.unsupported.body":
-    "Willowsum works in the latest two versions of Chrome, Edge and Safari on a computer. Some things may look or work wrong here, but you can still sign in.",
+    "Willowsum works in Chrome, Edge and Safari on a computer, in versions released in the last 3 months. Some things may look or work wrong here, but you can still sign in.",
 
   "auth.page.signUp": "Sign up",
   "auth.page.checkEmail": "Check your email",
