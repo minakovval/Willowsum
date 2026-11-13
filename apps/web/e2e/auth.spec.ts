@@ -30,13 +30,15 @@ test.describe("NFR-07@PoC: sign-up and sign-in end to end", () => {
     const session = await page.request.get("/v1/session");
     expect(session.status()).toBe(200);
     expect(await session.json()).toMatchObject({ email: who.email, name: who.name });
+    // AC5: the first sign-in created the space «Родина <Прізвище>» with this account as its Owner.
+    expect(await stack.spaces(who.email)).toEqual([{ name: "Родина Синтетична", role: "owner" }]);
 
     // AC24: the used link again — nothing confirmed twice; with the session it opens «Бюджет».
     await page.goto(link);
     await expect(page).toHaveURL(/#\/planning\/budget$/);
   });
 
-  test("ACC-01@PoC AC7: an unconfirmed account — «Спершу підтвердіть email», no session", async ({
+  test("ACC-01@PoC AC7: an unconfirmed account — «Спершу підтвердіть email», no session; «Надіслати лист ще раз» sends a new link and the earlier one stops working", async ({
     page,
     stack,
   }) => {
@@ -44,9 +46,19 @@ test.describe("NFR-07@PoC: sign-up and sign-in end to end", () => {
     await signUp(page, who);
     await signIn(page, who.email, who.password);
     await expect(page.getByText("Спершу підтвердіть email.")).toBeVisible();
-    await expect(page.getByRole("button", { name: /^Надіслати лист ще раз/ })).toBeVisible();
     await expect(page).toHaveURL(/#\/login$/);
     expect((await page.request.get("/v1/session")).status()).toBe(401);
+    // The link of the first letter, then «Надіслати лист ще раз»: a new letter, and the earlier link no longer works.
+    const earlier = await stack.confirmationLink(who.email);
+    // One letter per 60 s (ACC-01 FR 15): the sign-up's letter went out seconds ago; the limit is not under test here.
+    await stack.clearLimits();
+    await page.getByRole("button", { name: /^Надіслати лист ще раз/ }).click();
+    await expect(page.getByText("Лист надіслано. Попередні посилання більше не діють.")).toBeVisible();
+    await page.goto(earlier);
+    await expect(h1(page)).toHaveText("Посилання недійсне");
+    // The new letter's link confirms the email.
+    await page.goto(await stack.confirmationLink(who.email));
+    await expect(h1(page)).toHaveText("Email підтверджено");
   });
 
   test("ACC-01@PoC AC13: a wrong password — the one message «Невірний email або пароль»", async ({

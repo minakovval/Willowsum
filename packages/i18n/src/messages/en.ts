@@ -59,6 +59,10 @@ export const en: Messages = {
   "notFound.body": "The address may have a typo.",
   "notFound.home": "Go to Budget",
 
+  "browser.unsupported.title": "This browser is not supported.",
+  "browser.unsupported.body":
+    "Willowsum works in the latest two versions of Chrome, Edge and Safari on a computer. Some things may look or work wrong here, but you can still sign in.",
+
   "auth.page.signUp": "Sign up",
   "auth.page.checkEmail": "Check your email",
   "auth.page.verify": "Email confirmation",

@@ -19,9 +19,11 @@ test('sec92: a docs/design/.claude directory nested in code, or a different case
 });
 
 test('sec92: root configs outside the listed globs still run web and api; .github anything runs all', () => {
-  for (const f of ['tsconfig.base.json', 'eslint.config.js', '.prettierrc.json', '.prettierignore', '.dockerignore', '.gitleaksignore', '.gitignore']) {
+  for (const f of ['eslint.config.js', '.prettierrc.json', '.prettierignore', '.dockerignore', '.gitleaksignore', '.gitignore']) {
     assert.deepEqual(jobsToRun(files(f)), webApi, f);
   }
+  // sec150: e2e fails closed — the shared tsconfig (read by the web build) and an unknown root file run it.
+  for (const f of ['tsconfig.base.json', 'vite.workspace.ts', '.node-version']) assert.deepEqual(jobsToRun(files(f)), appCode, f);
   for (const f of ['apps/api/vitest.integration.config.ts', 'apps/api/Dockerfile']) assert.deepEqual(jobsToRun(files(f)), appCode, f);
   for (const f of ['.github/workflows/notes.md', '.github/CODEOWNERS', '.npmrc', 'pnpm-workspace.yaml']) assert.deepEqual(jobsToRun(files(f)), all, f);
   // A rename out of code into docs, a deletion of code, and a docs file next to a code file.

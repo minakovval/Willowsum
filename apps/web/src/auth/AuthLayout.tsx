@@ -1,11 +1,13 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
 import { Icon, MAIN_ID, Wordmark } from "@willowsum/ui";
+import { UnsupportedBrowserNotice } from "../browser/UnsupportedBrowserNotice.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 /**
  * The narrow card of the sign-up and sign-in screens (canvas PocSignUp, PocSignIn…; GRID-06@PoC FR 1, 5): focus
- * mode — the mark above one card, no navigation. The page heading is the card's title.
+ * mode — the mark above one card, no navigation. The page heading is the card's title. In an unsupported browser the
+ * card starts with the notice of NFR-07@PoC EC1 (sign-in still works).
  */
 export function AuthLayout({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   useDocumentTitle(title);
@@ -15,6 +17,7 @@ export function AuthLayout({ title, children }: { readonly title: string; readon
         <Wordmark />
       </div>
       <main id={MAIN_ID} className="auth-card" tabIndex={-1}>
+        <UnsupportedBrowserNotice />
         {children}
       </main>
     </div>

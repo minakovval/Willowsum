@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
   AUTH_PATHS,
+  canonicalPath,
   CHILDREN,
   GALLERY_TOKENS_PATH,
   IMPORT_WIZARD_PATH,
@@ -16,6 +17,7 @@ import { expect, h1, signIn, signUp, test } from "./fixtures.ts";
  * Auth screens are also checked in the states a person reaches only through the API (errors, the notice of an
  * unconfirmed account, «Перевірте пошту» of a real sign-up).
  */
+const NOT_FOUND = "/no-such-page";
 const routes: readonly string[] = [
   "/",
   ...SECTIONS.flatMap((s) => s.pages.map((p) => p.path)),
@@ -25,7 +27,7 @@ const routes: readonly string[] = [
   GALLERY_TOKENS_PATH,
   // «/signup/check-email» needs a sign-up in progress: checked below after a real one.
   ...Object.keys(AUTH_PATHS).filter((p) => p !== "/signup/check-email"),
-  "/no-such-page",
+  NOT_FOUND,
 ];
 
 async function expectNoContrastProblems(page: Page): Promise<void> {
@@ -40,6 +42,11 @@ test.describe("DS-06@PoC AC2: contrast of every route, light theme, 1280 px", ()
     test(`DS-06@PoC AC2: ${path}`, async ({ page }) => {
       await page.goto(`/#${path}`);
       await expect(h1(page).first()).toBeVisible();
+      // The route itself rendered: the address is its own (or its canonical one) and not «Сторінку не знайдено».
+      const shown = canonicalPath(path);
+      await expect(page).toHaveURL((url) => url.hash === `#${shown}`);
+      if (path === NOT_FOUND) await expect(h1(page)).toHaveText("Сторінку не знайдено");
+      else await expect(h1(page).first()).not.toHaveText("Сторінку не знайдено");
       await expectNoContrastProblems(page);
     });
   }

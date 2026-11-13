@@ -9,14 +9,17 @@
  *   (DS-06 AC2 names one threshold). Inactive controls (`disabled`, `aria-disabled="true"`) are exempt, as in WCAG;
  *   a swatch of a non-text colour pair drawn with letters (`data-contrast-kind="ui"`, the gallery's contrast
  *   table) is held to 3 : 1;
+ * - text inside fields: the value of a text field, text area or list box, and the placeholder of an empty field
+ *   (`::placeholder`), over the field's own background, at 4.5 : 1;
  * - interface elements: fields, buttons, links styled as buttons, checkboxes, switches, radios and tabs. An element
  *   drawn by a border or a fill must have one of them at 3 : 1 against the background next to it (its parent's). An
  *   element with neither is identified by its text, checked above. Natively drawn checkboxes and radios are the
  *   browser's own.
  * - anything it cannot measure (a background image or gradient behind text, a colour format it cannot read) is
  *   reported as a problem: the check fails closed instead of passing what it did not see.
- * Not covered here: focus rings (they appear on focus) and states on hover; the token pairs themselves are checked by
- * the design-system tests.
+ * Not covered here: focus rings (they appear on focus) and states on hover; `::before` / `::after` content and SVG
+ * text (no PoC route has them yet; follow-up); what is painted under an element out of DOM order (overlays). The
+ * token pairs themselves are checked by the design-system tests.
  */
 export interface ContrastProblem {
   readonly kind: "text" | "ui" | "unmeasurable";
@@ -150,6 +153,48 @@ export function findContrastProblems(): ContrastProblem[] {
         text: snippet(el),
         ratio: Math.round(r * 100) / 100,
         required,
+        foreground: show(fg),
+        background: show(bg),
+      });
+  }
+
+  // Text inside fields: their value, or the placeholder of an empty one (the browser draws both, not a text node).
+  const NO_TEXT_INPUTS = ["checkbox", "radio", "range", "color", "file", "hidden", "image"];
+  const fields = document.body.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+    "input, textarea, select",
+  );
+  for (const el of fields) {
+    if (el instanceof HTMLInputElement && NO_TEXT_INPUTS.includes(el.type)) continue;
+    if (!visible(el) || inactive(el)) continue;
+    const placeholder = "placeholder" in el ? el.placeholder : "";
+    const shown = el instanceof HTMLSelectElement ? (el.selectedOptions[0]?.text ?? "") : el.value;
+    const source = shown.trim() ? "value" : placeholder.trim() ? "placeholder" : null;
+    if (!source) continue;
+    const colour = getComputedStyle(el, source === "placeholder" ? "::placeholder" : null).color;
+    const bg = backgroundOf(el);
+    const fgRaw = parse(colour);
+    const text = `${source}: ${(source === "value" ? shown : placeholder).slice(0, 50)}`;
+    if (!bg || !fgRaw) {
+      problems.push({
+        kind: "unmeasurable",
+        element: describe(el),
+        text,
+        ratio: 0,
+        required: 4.5,
+        foreground: colour,
+        background: bg ? show(bg) : "background image or unreadable colour",
+      });
+      continue;
+    }
+    const fg = over([fgRaw[0], fgRaw[1], fgRaw[2], fgRaw[3] * opacityOf(el)], bg);
+    const r = ratio(fg, bg);
+    if (r < 4.5)
+      problems.push({
+        kind: "text",
+        element: describe(el),
+        text,
+        ratio: Math.round(r * 100) / 100,
+        required: 4.5,
         foreground: show(fg),
         background: show(bg),
       });
