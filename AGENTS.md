@@ -179,9 +179,9 @@ errors) lives only in `packages/domain-kernel`.
 6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`, `e2e`;
    a job its path filter skips counts as passed, see «CI minutes» below). Never skip, disable or weaken a
    test to get green.
-7. The authoring agent merges the PR (squash) only when CI is green on the latest
-   commit and the review session gave «Ready» (plus the security review for sensitive areas) **on the
-   commit being merged**: before merging, compare the SHA each review names with the PR head; any later
+7. The lead merges the PR (squash) only when CI is green on the latest commit and both verdicts are Ready
+   on the exact head: the review session gave «Ready» (plus the security review for sensitive areas) **on the
+   commit being merged** (owner, 2026-11-13): before merging, compare the SHA each review names with the PR head; any later
    commit, even a small fix, needs a re-review of that fix (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
    skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
    log in `docs/decisions/` has it). A purely mechanical sync of a list in AGENTS.md that a test requires (a CI
