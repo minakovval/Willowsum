@@ -1,16 +1,17 @@
+import { browserSupport, supportedMinimums } from "../src/browser/support.ts";
 import { expect, h1, signIn, signUp, test } from "./fixtures.ts";
-import { SUPPORTED_BROWSERS } from "../src/browser/support.ts";
 import { findContrastProblems } from "./contrast.ts";
 
 /**
  * NFR-07@PoC EC1: an unsupported browser sees a notice that lists the supported browsers, and signing in is not
- * blocked. The unsupported one is a faked user agent (Firefox, which joins in PoC v2). «Supported» means released in
- * the last 3 months (FR 1): each project also presents itself as the oldest supported version of its browser.
+ * blocked. «Supported» means released in the last 3 months (FR 1), so the minimum moves with the date: the tests read
+ * it from `supportedMinimums` for today. The unsupported browser is a faked Firefox (it joins in PoC v2).
  */
 const FIREFOX = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:155.0) Gecko/20100101 Firefox/155.0";
 const notice = "Цей браузер не підтримується.";
-const CHROME_AT_MINIMUM = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${SUPPORTED_BROWSERS.chromium.version}.0.0.0 Safari/537.36`;
-const SAFARI_AT_MINIMUM = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${SUPPORTED_BROWSERS.safari.version}.0 Safari/605.1.15`;
+const minimum = supportedMinimums(new Date());
+const CHROME_AT_MINIMUM = `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${minimum.chromium}.0.0.0 Safari/537.36`;
+const SAFARI_AT_MINIMUM = `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/${minimum.safari} Safari/605.1.15`;
 
 test.describe("NFR-07@PoC EC1: supported browser at the minimum", () => {
   test.use({
@@ -25,16 +26,19 @@ test.describe("NFR-07@PoC EC1: supported browser at the minimum", () => {
 });
 
 test.describe("NFR-07@PoC EC1: the engine's own user agent", () => {
-  test("NFR-07@PoC EC1: the bundled Chromium is a supported Chrome (no override needed)", async ({
+  test("NFR-07@PoC EC1: the notice follows the engine's own version; WebKit's Safari 26.6 is outside the window", async ({
     page,
     browserName,
   }) => {
-    // Playwright's WebKit reports Safari 26.6 (released 2026-07-27, outside the window), so it shows the notice; the
-    // other WebKit tests still pass with it. Only the Chromium engine is checked here.
-    test.skip(browserName !== "chromium", "WebKit's bundled Safari version is older than the window");
     await page.goto("/#/login");
     await expect(h1(page)).toHaveText("Вхід");
-    await expect(page.getByText(notice)).toHaveCount(0);
+    const userAgent = await page.evaluate(() => navigator.userAgent);
+    const expected = browserSupport(userAgent);
+    // Playwright's WebKit reports Safari 26.6 (released 2026-07-27): it is out of the window for good.
+    if (browserName === "webkit") expect(expected).toBe("unsupported");
+    await expect(page.getByRole("status").filter({ hasText: notice })).toHaveCount(
+      expected === "unsupported" ? 1 : 0,
+    );
   });
 });
 
