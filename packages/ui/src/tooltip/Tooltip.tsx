@@ -20,6 +20,9 @@ const GAP = space["space-1"];
 /** The tooltip never comes closer than this to the window edges. */
 const EDGE = space["space-2"];
 
+/** One tooltip at a time: opening one closes the one that is open (e.g. hover on one element, Tab to another). */
+let closeCurrent: (() => void) | null = null;
+
 type Placement = "top" | "bottom";
 interface Position {
   top: number;
@@ -78,7 +81,22 @@ export function useTooltip(
   const [pos, setPos] = useState<Position | null>(null);
   // Focus that follows a click is not keyboard focus: the pointer alone decides then.
   const pressed = useRef(false);
+  // Focus by Tab scrolls the element into view; that scroll event arrives in the next frame and is not the
+  // user scrolling the page, so it must not close the tooltip the focus has just opened.
+  const revealing = useRef(false);
   const open = enabled && (hover || focus) && !dismissed;
+
+  // When the element stops needing a tooltip (e.g. its text now fits), forget the hover and focus it had, so
+  // the tooltip does not open by itself if it is needed again later (state adjusted during render).
+  const [wasEnabled, setWasEnabled] = useState(enabled);
+  if (wasEnabled !== enabled) {
+    setWasEnabled(enabled);
+    if (!enabled) {
+      setHover(false);
+      setFocus(false);
+      setDismissed(false);
+    }
+  }
 
   const leave = useCallback(() => {
     setHover(false);
@@ -91,15 +109,21 @@ export function useTooltip(
 
   useEffect(() => {
     if (!open) return;
+    const close = () => setDismissed(true);
+    if (closeCurrent !== close) closeCurrent?.();
+    closeCurrent = close;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setDismissed(true);
     };
-    const onScroll = () => setDismissed(true);
+    const onScroll = () => {
+      if (!revealing.current) setDismissed(true);
+    };
     document.addEventListener("keydown", onKey, true);
     window.addEventListener("scroll", onScroll, { capture: true, passive: true });
     return () => {
       document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("scroll", onScroll, { capture: true });
+      if (closeCurrent === close) closeCurrent = null;
     };
   }, [open]);
 
@@ -138,10 +162,21 @@ export function useTooltip(
       leave();
     },
     onMouseDown: () => {
+      // Cleared on the release of the button, so a press that did not move the focus cannot leave it set.
       pressed.current = true;
+      window.addEventListener(
+        "mouseup",
+        () => {
+          pressed.current = false;
+        },
+        { once: true, capture: true },
+      );
     },
     onFocus: () => {
-      if (!pressed.current) start(setFocus);
+      if (pressed.current) return;
+      revealing.current = true;
+      requestAnimationFrame(() => requestAnimationFrame(() => (revealing.current = false)));
+      start(setFocus);
     },
     onBlur: () => {
       pressed.current = false;

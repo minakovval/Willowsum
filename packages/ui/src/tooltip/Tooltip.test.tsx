@@ -153,6 +153,92 @@ describe("CMP-25@PoC Tooltip", () => {
       expect(isShown()).toBe(false);
     });
 
+    it("keyboard focus that scrolls the element into view does not close it; a later scroll does", () => {
+      vi.useFakeTimers();
+      render(<TruncatedText text={FULL_NAME} />);
+      const name = nameEl();
+      act(() => name.focus());
+      // The browser scrolls the focused element into view: that scroll event comes in the next frame.
+      fireEvent.scroll(window);
+      expect(isShown()).toBe(true);
+      act(() => vi.advanceTimersToNextFrame());
+      act(() => vi.advanceTimersToNextFrame());
+      fireEvent.scroll(window);
+      expect(isShown()).toBe(false);
+    });
+
+    it("focus that follows a click does not open it: moving the pointer away closes it while the focus stays", () => {
+      render(<TruncatedText text={FULL_NAME} />);
+      const name = nameEl();
+      fireEvent.mouseEnter(name);
+      fireEvent.mouseDown(name);
+      act(() => name.focus());
+      fireEvent.mouseUp(name);
+      expect(isShown()).toBe(true);
+      fireEvent.mouseLeave(name, { relatedTarget: document.body });
+      expect(isShown()).toBe(false);
+      expect(document.activeElement).toBe(name);
+    });
+
+    it("a press that does not move the focus is forgotten on release: the next keyboard focus opens it", () => {
+      render(
+        <>
+          <button type="button">До</button>
+          <TruncatedText text={FULL_NAME} />
+        </>,
+      );
+      const name = nameEl();
+      // e.g. a consumer's onMouseDown prevents the default, so the press gives no focus.
+      fireEvent.mouseDown(name);
+      fireEvent.mouseUp(name);
+      act(() => screen.getByRole("button", { name: "До" }).focus());
+      act(() => name.focus());
+      expect(isShown()).toBe(true);
+    });
+
+    it("only one tooltip is open at a time", () => {
+      render(
+        <>
+          <TruncatedText text={FULL_NAME} />
+          <Tooltip text="Додати транзакцію">
+            <button type="button" aria-label="Додати транзакцію">
+              +
+            </button>
+          </Tooltip>
+        </>,
+      );
+      fireEvent.mouseEnter(nameEl());
+      act(() => screen.getByRole("button", { name: "Додати транзакцію" }).focus());
+      const shown = screen.getAllByRole("tooltip", { hidden: true }).filter((t) => !t.hidden);
+      expect(shown.map((t) => t.textContent)).toEqual(["Додати транзакцію"]);
+    });
+
+    it("forgets the hover when the text stops being cut off, and does not open by itself later", () => {
+      let observed: ResizeObserverCallback | null = null;
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(cb: ResizeObserverCallback) {
+            observed = cb;
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      render(<TruncatedText text={FULL_NAME} />);
+      const name = nameEl();
+      fireEvent.mouseEnter(name);
+      expect(isShown()).toBe(true);
+      vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(120);
+      act(() => observed!([], {} as ResizeObserver));
+      expect(tooltip()).toBeNull();
+      // The pointer left while there was no tooltip (no handler to see it); the text is cut off again.
+      vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(360);
+      act(() => observed!([], {} as ResizeObserver));
+      expect(isShown()).toBe(false);
+      vi.unstubAllGlobals();
+    });
+
     it("closes when the pointer leaves", () => {
       render(<TruncatedText text={FULL_NAME} />);
       const name = nameEl();
