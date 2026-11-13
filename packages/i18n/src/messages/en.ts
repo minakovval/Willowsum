@@ -225,4 +225,15 @@ export const en: Messages = {
   "gallery.fit.inline": "After a label in the same line",
   "gallery.fit.own": "Own line",
   "gallery.fit.small": "Ordinary amount in a narrow card",
+  "gallery.unit.px": "{value} px",
+  "gallery.unit.ms": "{value} ms",
+  "gallery.range.between": "{from}–{to} px",
+  "gallery.range.from": "≥ {from} px",
+
+  "amount.compact.thousand": "k",
+  "amount.compact.million": "M",
+  "amount.compact.billion": "bn",
+  "amount.compact.trillion": "tn",
+  "amount.compact.quadrillion": "qd",
+  "amount.compact.quintillion": "qn",
 };

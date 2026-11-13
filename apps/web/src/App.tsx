@@ -11,6 +11,7 @@ import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { canonicalPath, resolveRoute, type AuthScreen, type Route } from "./routing/routes.ts";
+import { initialLocale } from "./i18n/languages.ts";
 import { recordVisit, rememberPage } from "./routing/session.ts";
 import { hrefFor, useHashPath } from "./routing/useHashPath.ts";
 
@@ -82,7 +83,7 @@ function authPage(screen: AuthScreen) {
 
 export function App() {
   return (
-    <I18nProvider>
+    <I18nProvider initialLocale={initialLocale(window.location.search, import.meta.env.MODE)}>
       <ThemeProvider>
         <Router />
       </ThemeProvider>

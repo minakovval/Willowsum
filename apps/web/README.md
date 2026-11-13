@@ -1,6 +1,6 @@
 # @willowsum/web — web application
 
-**Створено:** 2026-11-02 · **Оновлено:** 2026-11-12 (ACC-01@PoC: реєстрація, підтвердження email, вхід)
+**Створено:** 2026-11-02 · **Оновлено:** 2026-11-13 (NFR-09@PoC: псевдолокаль, перевірка жорстко зашитих рядків)
 
 **Purpose.** The user web app (Vite + React 19). For now it holds the PoC app shell (UX-09@PoC,
 CMP-69@PoC) with placeholder pages and the design-system sample page.
@@ -35,6 +35,7 @@ rewrites.
 | DS-11 | Item 7 | `index.html` applies the stored theme before the first paint (`public/theme-init.js`, a blocking script in `<head>`; not inline, so the CSP allows scripts from `'self'` only) |
 | NFR-14@PoC | FR 2–4, criterion 4 | `security-headers.ts`: the headers and CSP of every static path (HSTS, nosniff, Referrer-Policy, closed Permissions-Policy, COOP, `X-Frame-Options: DENY`, CSP of the table; HTML shell `no-cache`, hashed `assets/` immutable). `vite preview` sends them; the CSP check runs in CI (`src/security-headers.test.ts`). The staging server or CDN must send exactly `webHeaders(path)` — checked on staging by CICD-07 (ADR-0007) |
 | ACC-01@PoC | Part a2 | Client side of AC2, AC4–AC7, AC10, AC12–AC15, AC18–AC24, FR 3, FR 11, FR 12 and the UI states of S-001…S-004 (`src/auth/*.test.tsx`); server side in `apps/api` (part a1). «Забули пароль?» comes with part b |
+| NFR-09@PoC | FR 1–3 | The pseudo-locale `en-XA` is offered in development, test and CI builds (`src/i18n/languages.ts`): `?lang=en-XA#/planning/budget` opens the app in it, and the gallery language switch lists it; the production build never offers it and ignores `?lang=`. `src/i18n/pseudoLocale.test.tsx` opens every app screen in it and fails on any text that is not pseudo-localised. ESLint rule `willowsum/no-hardcoded-ui-strings` (root config) forbids hard-coded interface text in `apps/web/src` and `packages/ui/src`; `src/i18n/noHardcodedStrings.test.ts` checks the rule and that it applies to every interface file |
 | DS-02 | Item 12 | Tab title «Willowsum · <page>», the mark as favicon |
 | DS-14 | Item 8 | Focus moves to `main` after navigation |
 | UX-09@PoC / CMP-69@PoC / CMP-71@PoC / GRID-00@PoC | Partly | L1 «Гроші» and «Планування» with their L2 pages, start page and brand link to «Бюджет», last L2 page per section in the session, active section → root and scroll up, «+ Додати» (Транзакція with «T», Рахунок, Ціль), profile menu → «Налаштування», G→T/B/G/A, collapsible sidebar, focus-mode wizard, «На Бюджет» on not found. Still to do with their screens: page tabs (item 3), breadcrumbs on L3 records, list state on «Назад» (item 9), unsaved-changes dialog in the wizard (AC6), the «До розбору» count source, profile name and space from `identity`. No «Приховати суми» action: the mode is not in PoC (owner decision 2026-11-05); the app pages always show amounts, only the gallery demonstrates the mode |

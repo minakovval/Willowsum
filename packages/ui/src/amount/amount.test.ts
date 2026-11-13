@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LANGUAGES, PSEUDO_LOCALE, translate } from "@willowsum/i18n";
 import { formatCompactAmount } from "./compact.ts";
 import { chooseFit } from "./fit.ts";
 
@@ -85,5 +86,21 @@ describe("chooseFit (CMP-07 order)", () => {
     expect(chooseFit(full, compact, fitsIn(8))).toEqual({ text: compact, scale: 0.8, abbreviated: true });
     expect(chooseFit(full, compact, fitsIn(6))).toEqual({ text: compact, scale: 0.6, abbreviated: true });
     expect(chooseFit(full, compact, fitsIn(2))).toEqual({ text: compact, scale: 0.55, abbreviated: true });
+  });
+});
+
+describe("NFR-09@PoC FR 2: compact amounts for a newly registered language", () => {
+  it("NFR-09@PoC FR 2: every registered language abbreviates with the unit words of its own catalogue", () => {
+    for (const { code } of LANGUAGES) {
+      const out = formatCompactAmount({ value: "128400", currency: "€", locale: code });
+      expect(out, code).toContain(translate(code, "amount.compact.thousand"));
+      expect(out, code).toContain("128");
+      expect(out, code).toContain("€");
+    }
+  });
+
+  it("NFR-09@PoC FR 2: the pseudo-locale follows the layout of its regional format (en-GB: symbol first)", () => {
+    const out = formatCompactAmount({ value: "128400", currency: "€", locale: PSEUDO_LOCALE });
+    expect(out).toBe(`€128.4${translate(PSEUDO_LOCALE, "amount.compact.thousand")}`);
   });
 });

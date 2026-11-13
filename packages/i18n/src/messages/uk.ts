@@ -226,4 +226,15 @@ export const uk = {
   "gallery.fit.inline": "Після підпису в одному рядку",
   "gallery.fit.own": "Окремий рядок",
   "gallery.fit.small": "Звичайна сума у вузькій картці",
+  "gallery.unit.px": "{value} px",
+  "gallery.unit.ms": "{value} мс",
+  "gallery.range.between": "{from}–{to} px",
+  "gallery.range.from": "≥ {from} px",
+
+  "amount.compact.thousand": "тис.",
+  "amount.compact.million": "млн",
+  "amount.compact.billion": "млрд",
+  "amount.compact.trillion": "трлн",
+  "amount.compact.quadrillion": "квдрлн",
+  "amount.compact.quintillion": "квінтлн",
 } as const satisfies Record<string, string>;

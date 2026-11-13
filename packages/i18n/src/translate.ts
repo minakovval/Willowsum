@@ -3,8 +3,13 @@ import { uk } from "./messages/uk.ts";
 import { FALLBACK_LOCALE, type Locale } from "./languages.ts";
 import type { MessageKey, MessageParams, Messages } from "./types.ts";
 import { keepNumbersTogether } from "./keepNumbersTogether.ts";
+import { pseudoCatalogue } from "./pseudo.ts";
 
-export const CATALOGUES: Readonly<Record<Locale, Messages>> = { uk, en };
+/**
+ * One catalogue per registered language (`languages.ts`). The pseudo-locale is generated from English
+ * (NFR-09@PoC FR 2).
+ */
+export const CATALOGUES: Readonly<Record<Locale, Messages>> = { uk, en, "en-XA": pseudoCatalogue(en) };
 
 const PLACEHOLDER = /\{(\w+)\}/g;
 
