@@ -19,8 +19,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its own
    database (`pnpm db:test`), what to report (PR URL, head SHA, checks).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
-   may rewrite the footer, which is fine. Give every agent a unique scratchpad prefix or subfolder
-   (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
+   may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
+   to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
 3. **PR opened** → subscribe to its activity; then in parallel:
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.

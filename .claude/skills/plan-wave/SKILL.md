@@ -19,8 +19,9 @@ code. Plans are the lead's working notes: `docs/plans/**` needs no owner decisio
    items. A PoC slice is uncovered when it is missing from that table or has items in «Not covered».
 2. `docs/traceability/release-poc.md` → «Migrated slices» (all PoC slices, module, «Depends on», «Design») and
    «Build sequence» (topological waves). Take every PoC slice from it that step 1 does not show as covered.
-3. Drop slices already in an open PR (`gh pr list --state open --json number,title,headRefName`) or in the
-   previous plan's rows still in progress; say which in the plan.
+3. Drop slices already in an open PR or in the previous plan's rows still in progress; say which in the
+   plan. Open PRs through REST (GraphQL, so `gh pr list`, is blocked in cloud sessions):
+   `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .title, .head.ref] | @tsv'`.
 4. For each remaining slice read only its view `docs/requirements/<module>/<ID>.poc.md`: the «Зв'язки»
    header (Залежить від, Дизайн, Спільні правила, Модуль) and the size of FR / AC / EC. Do not read sources or
    other releases. For a wide pass use a read-only subagent and keep only its table.
@@ -75,7 +76,8 @@ Follow `poc-wave-1.md`:
 5. `## Що потрібно від власника` — the numbered questions of step 4.
 
 Then: prettier is not run on `docs/` (`.prettierignore`); `node --test tools/req-check` must stay green.
-Scratchpad files only under a subfolder unique to this PR and role (`pr153-plan/`), never `body.md`.
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-plan/`), never a generic name like `body.md`.
 
 ## 6. PR
 

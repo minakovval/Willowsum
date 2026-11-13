@@ -14,8 +14,8 @@ merge commit pushed, the reviewers' confirmation requested on the new head.
 ## 1. Merge
 
 1. Work only in the branch's own worktree. Commit or stash your changes first. Scratchpad files (owner,
-   2026-11-13) only under a subfolder named after the PR and role (`pr153-sync/`), never a generic name like
-   `body.md`.
+   2026-11-13): only under a prefix or subfolder unique to the PR and role (`pr153-sync/`), never a generic
+   name like `body.md`.
 2. `git fetch origin main`, then `git merge origin/main`.
 3. **Never rebase, never force-push.** Rebasing rewrites the commits the reviews name by SHA and forces a
    full re-review; a force-push does the same to published history (AGENTS.md step 7 ties every verdict to the exact head SHA).
@@ -99,7 +99,7 @@ verdict needs a confirmation on the new head SHA:
 - the merge only brought in files outside the PR → the confirmation is still required, but it is a
   one-line check that the PR's own diff against `main` is unchanged (`git diff origin/main...HEAD --stat`
   before and after), and that the merge's tree equals a clean merge
-  (`git merge-tree --write-tree <previous head> <main parent>` = `git rev-parse HEAD^{tree}`; `review-pr`
-  «6. Confirmation rounds»). Give the reviewers both SHAs.
+  (the first output line of `git merge-tree --write-tree HEAD^1 HEAD^2` = `git rev-parse HEAD^{tree}`;
+  `review-pr` «6. Confirmation rounds»). Give the reviewers both SHAs.
 
 Report to the lead: the new head SHA (full), what the merge changed in the branch's code, checks run.

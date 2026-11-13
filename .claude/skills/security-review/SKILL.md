@@ -38,7 +38,7 @@ whether the security properties the requirement claims really hold. This review 
 - No Docker (cloud sessions): `pnpm db:test` fails unless the admin URL is given:
   `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`.
 - Rely on green CI for the full suites; run locally only the tests touching the changed code.
-- Scratchpad files (owner, 2026-11-13) only under a subfolder named after the PR and your role
+- Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
   (`pr153-sec/`: worktree, tests, patches, review text), never a generic name like `body.md`.
 
 ## 3. Properties → tests
@@ -126,9 +126,9 @@ and compares the SHA with the merged head.
   that names the final head SHA.
 - **Confirmation round** (owner, 2026-11-13; after a fix commit, your ready fix or a `sync-branch` merge):
   follow `review-pr` «6. Confirmation rounds» — the diff since your last reviewed head only; a merge commit
-  proven mechanical by the tree comparison (`git merge-tree --write-tree <old> <main parent>` equals the
-  merge's tree) is confirmed in one line, otherwise review only the hand resolution; `Reviewed head: <new>`
-  and `Previous reviewed head: <old>` at the top. Re-run the mutants only for guards the diff touches.
+  proven mechanical by the tree comparison (the first output line of `git merge-tree --write-tree M^1 M^2`
+  equals `git rev-parse M^{tree}`) is confirmed in one line, otherwise review only the hand resolution;
+  `Reviewed head: <new>` and `Previous reviewed head: <old>` at the top. Re-run the mutants only for guards the diff touches.
 - A full security review instead when the history was rewritten, the diff adds a guard, endpoint, query or
   sensitive path beyond the findings, or the PR gained a `sensitive:<category>` since your last review.
 

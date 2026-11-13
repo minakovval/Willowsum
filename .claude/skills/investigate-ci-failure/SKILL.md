@@ -12,12 +12,14 @@ issue with the evidence) and the same check green on the new head, or a report t
 «Load», «flake» or «timeout under load» is never a cause (owner, 2026-11-13). Never skip, quarantine or raise a
 timeout without a stated basis, and never weaken a test to get green (AGENTS.md step 6).
 
-Scratchpad files only under a subfolder named after the PR and your role (`pr153-ci/`), never a generic name
-like `body.md`.
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-ci/`), never a generic name like `body.md`.
 
 ## 1. Read the run
 
-1. Head SHA and runs: `gh pr view <n> --json headRefOid,statusCheckRollup`; the run:
+1. Head SHA and runs (GraphQL, so `gh pr view`, is blocked in cloud sessions; use REST):
+   `gh api repos/{owner}/{repo}/pulls/<n> --jq .head.sha`, then
+   `gh api repos/{owner}/{repo}/commits/<sha>/check-runs`; the run:
    `gh run view <run id> --json jobs,conclusion,headSha`; failing logs: `gh run view <run id> --log-failed`.
    Confirm the run is for the current head; a run on an older head is history, not the state.
 2. Annotations first: `gh api repos/{owner}/{repo}/check-runs/<job id>/annotations`. They name the special
@@ -63,8 +65,8 @@ like `body.md`.
 - **Description check failed after a lost PR body.** The job `traceability` (PR description) fails with «The
   description has no «## Requirement» section» or similar while the PR had a full body: another agent may have
   PATCHed the body with its own text (it happened twice on 2026-11-13). Compare the current body
-  (`gh pr view <n> --json body`) with the intended one; restore it from the file you wrote for this PR (check
-  it names this PR) or from the PR history. Editing the body starts a new run by itself (`pr-description.yml`
+  (`gh api repos/{owner}/{repo}/pulls/<n> --jq .body`) with the intended one; restore it from the file you
+  wrote for this PR (check it names this PR) or from the PR history. Editing the body starts a new run by itself (`pr-description.yml`
   runs on `edited`); a re-run of the old run reads the old body from its event and fails again. Record what
   happened in the report.
 - **Path-skipped jobs.** A job that concludes `skipped` passes only when `tools/pr-rules/lib/ci-paths.mjs`

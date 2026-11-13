@@ -114,8 +114,8 @@ to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
 
 ## 8. PR and hand-off
 
-Scratchpad files (screenshots, scripts, PR body) only under a subfolder named after the PR and role
-(`pr153-ui/`), never a generic name like `body.md` (owner, 2026-11-13); before PATCHing a PR body from a
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-ui/`), never a generic name like `body.md` (screenshots, scripts, PR body); before PATCHing a PR body from a
 file, check that it is the one you wrote.
 
 Verify as `implement-requirement` step 6 (`pnpm typecheck`, `pnpm lint`, `pnpm test`, `--coverage`, views

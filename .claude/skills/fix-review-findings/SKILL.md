@@ -57,8 +57,9 @@ regenerated files committed); the local secret-shaped literal check.
 
 ## 5. Push and report
 
-Scratchpad files only under a prefix or subfolder unique to the PR and role (`pr153-fix/`), never a generic
-name like `body.md` (owner, 2026-11-13: two PR bodies were overwritten with another agent's text).
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-fix/`), never a generic name like `body.md` (two PR bodies were overwritten with
+another agent's text).
 
 1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
    tests table if tests were added, «Follow-ups».

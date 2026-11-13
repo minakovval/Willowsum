@@ -103,7 +103,7 @@ There must be 0 errors. Commit the sources, the regenerated views, `docs/traceab
 
 ## 7. PR
 
-Scratchpad files (owner, 2026-11-13) only under a prefix or subfolder unique to the PR and role
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
 (`pr153-req/`), never a generic name like `body.md`; before PATCHing a PR body from a file, check that it is
 the one you wrote (it names this PR).
 

@@ -184,10 +184,10 @@ errors) lives only in `packages/domain-kernel`.
    commit being merged** (owner, 2026-11-13): before merging, compare the SHA each review names with the PR head; any later
    commit, even a small fix, needs a re-review of that fix (owner, 2026-11-12). PRs that change requirements, AGENTS.md or
    skills (label `owner-decision`) are merged only when the PR body records the owner's decision they implement (and the decision
-   log in `docs/decisions/` has it). A purely mechanical sync of a list in AGENTS.md that a test requires (a CI
-   job name added to the job list in step 6, a skill added to «Skills») needs no owner decision; the PR body
-   still notes it under «Owner decision» as a mechanical sync. Any change to a rule needs one (owner,
-   2026-11-13). For a docs-only PR that moves scope between releases, a security review (when needed) covers only the moved lines that state a protection (owner, 2026-11-12). The owner's approval on the PR is needed only for what acts on the
+   log in `docs/decisions/` has it). A purely mechanical sync of a list in AGENTS.md that a test requires needs no
+   owner decision: only adding or removing a CI job name in the job list of step 6, or a skill's name with its
+   own `description` line in «Skills»; nothing else qualifies. The PR body still notes it under «Owner
+   decision» as a mechanical sync. Any change to a rule needs one (owner, 2026-11-13). For a docs-only PR that moves scope between releases, a security review (when needed) covers only the moved lines that state a protection (owner, 2026-11-12). The owner's approval on the PR is needed only for what acts on the
    cloud or production. It is either a comment from the owner's own GitHub account with a line that is exactly
    «Схвалюю» or «Approved», or the owner's decision from chat recorded in the PR body as a line
    `Рішення власника (YYYY-MM-DD): схвалено …` (owner, 2026-11-12). Agents never write a «Схвалюю» or
@@ -219,8 +219,8 @@ with a browser), `sync-branch` (merge `origin/main` into a working branch: merge
 head), `change-requirement` (changing requirements, screens or П-rules without code: decisions collected first, impact, `--move` in the source, views regenerated, one batch PR, lighter review), `deploy` (deploying to Oracle Cloud; the server does not exist yet, so unverified steps are marked), `screen-from-canvas` (author of a design-system component or screen: requirement view, card, board and tokens; tests by criteria, states, gallery entry, uk and en strings, accessibility, a 1280 px screenshot check), `plan-wave` (the lead's plan of the next delivery wave: uncovered PoC slices ordered by dependency, grouped into reviewable PRs, owner questions marked, `docs/plans/poc-wave-N.md`), `investigate-ci-failure` (a red or blocked CI run: reproduce locally, compare with `main`, at most one re-run, root cause, the failing run and the same check green after the fix). Token economy (owner request, 2026-11-12): pick each agent's model by risk, give re-reviews to
 a fresh agent with a narrow brief, let reviewers rely on CI — rules in `pr-pipeline`, «Token economy».
 
-**CI minutes** (lead, 2026-11-12; updated 2026-11-13: the repository is public since 2026-11-13, so GitHub
-Actions minutes are free, but jobs stay lean and path-filtered): a new push cancels the PR's run in progress;
+**CI minutes** (lead, 2026-11-12; updated by the owner's decision of 2026-11-13, item 5: the repository is
+public since 2026-11-13, so GitHub Actions minutes are free, but jobs stay lean and path-filtered): a new push cancels the PR's run in progress;
 the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env`, `infra` and `e2e`
 when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07@PoC, runs on changes to `apps/`,
 `packages/` and the pipeline, with only Chromium and WebKit installed and cached; a skipped job concludes `skipped` and

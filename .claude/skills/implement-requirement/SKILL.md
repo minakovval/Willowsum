@@ -105,8 +105,8 @@ Before pushing, run a local check for secret-shaped literals (what the CI job `s
 
 ## 7. PR
 
-**Scratchpad files** (owner, 2026-11-13): write them only under a prefix or subfolder unique to your PR and
-role (`pr153-impl/`), never a generic name like `body.md` that another agent can overwrite. Before setting
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-impl/`), never a generic name like `body.md`, which another agent can overwrite. Before setting
 or PATCHing a PR body from a file, check that the file is the one you wrote (it names this PR's ID).
 
 Push the branch and open a PR (draft until CI is green) using `.github/pull_request_template.md`:
@@ -120,10 +120,10 @@ Push the branch and open a PR (draft until CI is green) using `.github/pull_requ
 Then ask for review by a different agent session with the `review-pr` skill; a PR labelled `sensitive` (CI
 sets it from file paths) also needs a `security-review` session. Review rounds, merge conditions and approvals
 are in AGENTS.md «Process», steps 5 and 7. What must not go wrong:
-- Merge (squash) yourself only when CI is green on the latest commit and `Verdict: Ready` (for `sensitive`
-  also `Security verdict: Ready`) names the exact head SHA; any later commit needs a re-review. Never merge
-  without that independent review, or while the owner's «stop» or question on the PR is unanswered. Once the
-  conditions hold, do not ask the owner to confirm: merge and tell them.
+- The lead merges (squash; AGENTS.md step 7, owner, 2026-11-13), not you: only when CI is green on the
+  latest commit and `Verdict: Ready` (for `sensitive` also `Security verdict: Ready`) names the exact head
+  SHA, and never while the owner's «stop» or question on the PR is unanswered; any later commit needs a
+  re-review. Report the PR URL and head SHA to the lead.
 - A PR that changes requirements, AGENTS.md or skills states in its body the owner decision it implements.
   A PR that acts on the cloud or production needs the owner's approval on that PR: a comment from the owner's
   own account with a line that is exactly «Схвалюю» or «Approved», or the owner's chat decision in the PR body
