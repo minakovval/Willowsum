@@ -504,3 +504,91 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/*
+ * CMP-22@PoC: Skeleton, on the DS-13 `.ws-skeleton` bar (12 px, 6 px radius, `skeleton` colour, shimmer that stops
+ * with reduced motion). The variants only change size and shape; they add no motion of their own.
+ */
+.ws-skeleton-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  inline-size: 100%;
+}
+
+.ws-skeleton-shapes {
+  display: flex;
+  flex-direction: column;
+}
+
+.ws-skeleton-shapes--text {
+  gap: var(--ws-space-3);
+}
+
+.ws-skeleton-shapes--block {
+  gap: var(--ws-space-3);
+}
+
+.ws-skeleton[data-width="100"] {
+  inline-size: 100%;
+}
+
+.ws-skeleton[data-width="80"] {
+  inline-size: 80%;
+}
+
+.ws-skeleton[data-width="60"] {
+  inline-size: 60%;
+}
+
+.ws-skeleton[data-width="40"] {
+  inline-size: 40%;
+}
+
+.ws-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: calc(var(--ws-space-7) + var(--ws-space-1));
+}
+
+.ws-skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  min-inline-size: 0;
+}
+
+.ws-skeleton--circle {
+  flex: none;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border-radius: var(--ws-radius-pill);
+}
+
+.ws-skeleton--tile {
+  flex: none;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border-radius: var(--ws-radius-md);
+}
+
+.ws-skeleton--amount {
+  flex: none;
+  inline-size: var(--ws-space-8);
+}
+
+.ws-skeleton--block {
+  inline-size: 100%;
+  block-size: var(--ws-space-8);
+}
+
+.ws-skeleton--field {
+  block-size: calc(var(--ws-space-6) + var(--ws-space-2));
+  border-radius: var(--ws-radius-md);
+}
+
+.ws-skeleton-slow {
+  margin: 0;
+}

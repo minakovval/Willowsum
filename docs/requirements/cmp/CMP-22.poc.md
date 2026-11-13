@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: packages/ui/src/skeleton/Skeleton.test.tsx, packages/ui/src/skeleton/Skeleton.css.test.ts, apps/web/src/gallery.test.tsx, apps/web/e2e/skeleton.spec.ts
 
 **Мета.** Як користувач, я хочу бачити форму майбутнього вмісту, поки він завантажується, щоб сторінка не стрибала і я розумів, що дані йдуть.
 
