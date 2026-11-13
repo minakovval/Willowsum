@@ -75,6 +75,13 @@ describe("CMP-22@PoC Skeleton styles", () => {
       expect(rule(components, sel)).not.toMatch(/animation|transition|background/);
   });
 
+  it("CMP-22@PoC AC5: «Ще завантажується…» is out of flow under the skeleton, so it moves no block when it appears or goes", () => {
+    expect(rule(components, ".ws-skeleton-region")).toContain("position: relative;");
+    const slow = rule(components, ".ws-skeleton-slow");
+    expect(slow).toContain("position: absolute;");
+    expect(slow).toContain("inset-block-start: 100%;");
+  });
+
   it("CMP-22@PoC AC5: the skeleton takes the container's width and a list row keeps the 52 px row height", () => {
     expect(rule(components, ".ws-skeleton-region")).toContain("inline-size: 100%;");
     expect(rule(components, ".ws-skeleton-row")).toContain(

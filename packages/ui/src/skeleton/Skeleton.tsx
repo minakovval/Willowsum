@@ -29,7 +29,9 @@ const TEXT_WIDTHS = ["100", "80", "60"] as const;
 /**
  * CMP-22@PoC: the loading state of every list, widget and page. Built on the DS-13 `.ws-skeleton` style
  * (shimmer, one pass in 1.6 s; static with reduced motion). The container is `aria-busy` and announces
- * «Завантаження» once; the shapes are hidden from screen readers and never take focus.
+ * «Завантаження» once; the shapes are hidden from screen readers and never take focus. «Ще завантажується…» lies
+ * out of flow just under the skeleton (AC5): leave about 24 px below it (a card's bottom padding does) so the line
+ * does not cover the next block.
  */
 export function Skeleton({
   variant,
@@ -42,47 +44,57 @@ export function Skeleton({
 }: SkeletonProps) {
   const t = useT();
   const late = useLate(motion["duration-skeleton-slow"]);
+  // A live region is announced when its text changes, not when it is inserted with its text: render it empty
+  // first, fill it in the next frame, and keep it outside the aria-busy container, which lets a reader hold changes.
+  const [announce, setAnnounce] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setAnnounce(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const count = Math.max(1, Math.floor(lines));
   const keys = Array.from({ length: count }, (_, i) => i);
 
   return (
-    <div
-      className={["ws-skeleton-region", className].filter(Boolean).join(" ")}
-      aria-busy="true"
-      data-variant={variant}
-    >
-      {/* One polite status with fixed text: announced once; the slow line below is not live. */}
+    <>
+      {/* One polite status, filled once after mount: announced once; the slow line below is not live. */}
       <span role="status" className="ws-visually-hidden">
-        {t("skeleton.loading")}
+        {announce ? t("skeleton.loading") : ""}
       </span>
-      <div className={`ws-skeleton-shapes ws-skeleton-shapes--${variant}`} aria-hidden="true">
-        {variant === "text" &&
-          keys.map((i) => <span key={i} className="ws-skeleton" data-width={TEXT_WIDTHS[i % 3]} />)}
-        {variant === "row" &&
-          keys.map((i) => (
-            <span key={i} className="ws-skeleton-row">
-              <span className={`ws-skeleton ws-skeleton--${leading}`} />
-              <span className="ws-skeleton-lines">
-                <span className="ws-skeleton" data-width="60" />
-                <span className="ws-skeleton" data-width="40" />
+      <div
+        className={["ws-skeleton-region", className].filter(Boolean).join(" ")}
+        aria-busy="true"
+        data-variant={variant}
+      >
+        <div className={`ws-skeleton-shapes ws-skeleton-shapes--${variant}`} aria-hidden="true">
+          {variant === "text" &&
+            keys.map((i) => <span key={i} className="ws-skeleton" data-width={TEXT_WIDTHS[i % 3]} />)}
+          {variant === "row" &&
+            keys.map((i) => (
+              <span key={i} className="ws-skeleton-row">
+                <span className={`ws-skeleton ws-skeleton--${leading}`} />
+                <span className="ws-skeleton-lines">
+                  <span className="ws-skeleton" data-width="60" />
+                  <span className="ws-skeleton" data-width="40" />
+                </span>
+                <span className="ws-skeleton ws-skeleton--amount" />
               </span>
-              <span className="ws-skeleton ws-skeleton--amount" />
-            </span>
-          ))}
-        {variant === "block" &&
-          keys.map((i) => (
-            <span
-              key={i}
-              className={`ws-skeleton ws-skeleton--block${field ? " ws-skeleton--field" : ""}`}
-              style={
-                height === undefined || field ? undefined : ({ blockSize: `${height}px` } as CSSProperties)
-              }
-            />
-          ))}
+            ))}
+          {variant === "block" &&
+            keys.map((i) => (
+              <span
+                key={i}
+                className={`ws-skeleton ws-skeleton--block${field ? " ws-skeleton--field" : ""}`}
+                style={
+                  height === undefined || field ? undefined : ({ blockSize: `${height}px` } as CSSProperties)
+                }
+              />
+            ))}
+        </div>
+        {/* Out of flow (components.css): showing it, or replacing the skeleton later, moves nothing (AC5). */}
+        {(slow ?? late) && <p className="ws-skeleton-slow ws-text-body-sm ws-muted">{t("skeleton.slow")}</p>}
       </div>
-      {(slow ?? late) && <p className="ws-skeleton-slow ws-text-body-sm ws-muted">{t("skeleton.slow")}</p>}
-    </div>
+    </>
   );
 }
 

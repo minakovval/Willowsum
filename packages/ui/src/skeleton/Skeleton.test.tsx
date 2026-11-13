@@ -1,5 +1,6 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider } from "@willowsum/i18n";
+import { renderToStaticMarkup } from "react-dom/server";
 import { motion, space } from "../tokens/index.ts";
 import { Skeleton } from "./Skeleton.tsx";
 
@@ -71,14 +72,14 @@ describe("CMP-22@PoC Skeleton", () => {
     expect(slow.classList.contains("ws-muted")).toBe(true);
   });
 
-  it("CMP-22@PoC AC2: a consumer that already knows the load is slow passes `slow`; English text from the catalogue", () => {
+  it("CMP-22@PoC AC2: a consumer that already knows the load is slow passes `slow`; English text from the catalogue", async () => {
     render(
       <I18nProvider initialLocale="en">
         <Skeleton variant="text" slow />
       </I18nProvider>,
     );
     expect(screen.getByText("Still loading…")).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toBe("Loading");
+    await waitFor(() => expect(screen.getByRole("status").textContent).toBe("Loading"));
   });
 
   it("CMP-22@PoC AC3: every shape is a `.ws-skeleton`, so the reduced-motion rule stops all of them; there is no spinner", () => {
@@ -106,6 +107,9 @@ describe("CMP-22@PoC Skeleton", () => {
 
     const status = screen.getAllByRole("status");
     expect(status).toHaveLength(1);
+    // Filled in the next frame, as a change of a region that already exists.
+    expect(status[0]!.textContent).toBe("");
+    act(() => vi.advanceTimersToNextFrame());
     expect(status[0]!.textContent).toBe("Завантаження");
     expect(status[0]!.classList.contains("ws-visually-hidden")).toBe(true);
 
@@ -119,6 +123,17 @@ describe("CMP-22@PoC Skeleton", () => {
     expect(
       region.querySelectorAll("a[href], button, input, select, textarea, [tabindex], [contenteditable]"),
     ).toHaveLength(0);
+  });
+
+  it("CMP-22@PoC AC4: the live region exists empty before «Завантаження» is put in it, outside the aria-busy container", async () => {
+    // The first render (before effects) has the region with no text; the text arrives as a change, which is announced.
+    expect(renderToStaticMarkup(<Skeleton variant="row" lines={1} />)).toContain(
+      '<span role="status" class="ws-visually-hidden"></span>',
+    );
+    render(<Skeleton variant="row" lines={1} />);
+    const status = screen.getByRole("status");
+    await waitFor(() => expect(status.textContent).toBe("Завантаження"));
+    expect(status.closest("[aria-busy]")).toBeNull();
   });
 
   it("CMP-22@PoC AC5: the shapes repeat the content they stand for (row count, bar count, chart height)", () => {

@@ -23,3 +23,19 @@ test("CMP-22@PoC AC5: the skeleton is replaced by its content without moving the
   await expect(swap.locator(".ws-skeleton-row")).toHaveCount(3);
   expect({ heading: await top("h3"), next: await top(".gallery-skeleton__neighbour") }).toEqual(before);
 });
+
+test("CMP-22@PoC AC5: «Ще завантажується…» after 3 s moves neither the heading nor the next block", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto("/#/gallery/tokens");
+  const swap = page.locator('[data-case="swap"]');
+  await swap.scrollIntoViewIfNeeded();
+  const top = (selector: string) => swap.locator(selector).evaluate((e) => e.getBoundingClientRect().top);
+  const before = { heading: await top("h3"), next: await top(".gallery-skeleton__neighbour") };
+  await page.clock.runFor(3100);
+  await expect(swap.locator(".ws-skeleton-slow")).toBeVisible();
+  expect({ heading: await top("h3"), next: await top(".gallery-skeleton__neighbour") }).toEqual(before);
+  await swap.getByRole("button", { name: "Показати вміст" }).click();
+  expect({ heading: await top("h3"), next: await top(".gallery-skeleton__neighbour") }).toEqual(before);
+});

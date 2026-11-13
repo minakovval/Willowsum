@@ -79,8 +79,8 @@ export function SkeletonDemo() {
               ))}
             </ul>
           ) : (
-            // The gallery shows the swap only; the 3 s «Ще завантажується…» is the `text` case above.
-            <Skeleton variant="row" lines={TRANSACTIONS.length} slow={false} />
+            // Default timing: after 3 s «Ще завантажується…» appears here too, and the e2e test checks nothing moves.
+            <Skeleton variant="row" lines={TRANSACTIONS.length} />
           )}
         </section>
         <div className="ws-card gallery-skeleton__neighbour">{t("gallery.skeleton.neighbour")}</div>

@@ -510,6 +510,7 @@
  * with reduced motion). The variants only change size and shape; they add no motion of their own.
  */
 .ws-skeleton-region {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--ws-space-3);
@@ -589,6 +590,10 @@
   border-radius: var(--ws-radius-md);
 }
 
+/* CMP-22@PoC AC5: «Ще завантажується…» lies under the skeleton out of flow, so it never moves the blocks below. */
 .ws-skeleton-slow {
-  margin: 0;
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  margin: var(--ws-space-1) 0 0;
 }
