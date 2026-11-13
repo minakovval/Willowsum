@@ -55,11 +55,17 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
    opens the issues; agents never do (owner, 2026-11-13).
-8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions
-   (batched, «2. Owner»).
+8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
+   Write only when something is merged, an owner decision is needed, or there is a problem (a blocker, red CI
+   that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
+   technical questions (permission-classifier denials, implementation choices, worker counts, test layout) are
+   not asked: you decide and log them (AGENTS.md «Ambiguity»). Details:
+   [lead communication](references/lead-communication.md).
 9. **Follow-up sweep** (owner, 2026-11-13): after every 8–10 merged PRs, one PR (row `R` of the wave plan, an
    implementer on a lighter model) closes the small open follow-ups: issues labelled or listed as follow-ups and
    the «Follow-ups» lists of the merged PRs. Larger items get a plan row of their own instead.
+   Small process or rule changes that do not block work wait in a queue and ship with the next process PR or
+   this sweep, not as a PR each (owner, 2026-11-13; [lead communication](references/lead-communication.md)).
 
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
