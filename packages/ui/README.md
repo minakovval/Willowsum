@@ -19,7 +19,7 @@ are written as literals. `src/styles/tokens.css` is generated from them and comm
 | DS-13 | PoC complete for what exists | Motion tokens; every transition is `duration-interaction` (150 ms); skeleton shimmer (one pass in 1.6 s, static with reduced motion); `.ws-chart` draws without animation; reduced motion makes transitions instant, stops the skeleton, slows the spinner to 2.4 s. Tooltip and toast timing come with their components
 | DS-14 | Partly | 3 px focus ring with 2 px offset, skip links, 44 px targets in the shell |
 | DS-18 | Partly | `HideAmountsProvider`, `Amount` (shows «•••», real value not in the DOM, hold 350 ms or Enter / Space shows it for 3 s), `Percent` (always visible), eye toggle with `aria-pressed`. Stored on this device only until the profile API exists (cross-device sync is still to do). Kept for MVP: the PoC app shell does not show the toggle |
-| DS-04 / CMP-07 | Partly | `formatCompactAmount({ value, currency, locale })`: two decimals below 100, one from 100; units and layout by interface language — uk «тис., млн, млрд, трлн, квдрлн, квінтлн», «128,4 тис. €», «−1,24 млн ₴»; en «k, M, bn, tn, qd, qn», symbol first, no space, decimal point, «€128.4k», «−€128.4k»; `FitAmount` fit order. The English units are prepared for MVP: the PoC interface is Ukrainian only |
+| DS-04 / CMP-07 | Partly | `formatCompactAmount({ value, currency, locale })`: two decimals below 100, one from 100; units and layout by interface language — uk «тис., млн, млрд, трлн, квдрлн, квінтлн», «128,4 тис. €», «−1,24 млн ₴»; en «k, M, bn, tn, qd, qn», symbol first, no space, decimal point, «€128.4k», «−€128.4k»; `FitAmount` fit order; `formatCompactNumber({ value, locale, axis })` for chart labels («128,4 тис.»; axis ticks drop trailing zeros, «120 тис.»); `Delta` (DS-04@PoC: a change with an arrow in `gain` / `loss` / `ink-muted`, no sign, the accessible name with «зросло» / «знизилось» / «без змін»; the amount part is left out while amounts are hidden); `Amount` takes `spoken` (the full spoken form for screen readers). The English units are prepared for MVP: the PoC interface is Ukrainian only |
 | DS-02 | Partly | `WillowsumMark` (theme-aware fills), `Wordmark`, brand SVG files in `src/brand/assets` |
 | CMP-69@PoC / UX-09@PoC | Partly | `AppShell`: 212 px sidebar collapsible to a 64 px icon rail (choice stored on this device until the profile API exists; «›» handle on the edge), brand link, «+ Додати» and profile menus (`MenuButton`), L1 sections with the L2 pages of the current one (20 / 16 px icons), count badge in `brand-2`, current item, skip links. `FocusShell` for focus mode. No bottom bar or width-driven rail in PoC |
 
@@ -30,8 +30,8 @@ are written as literals. `src/styles/tokens.css` is generated from them and comm
   `contrastRatio`, `buildTokensCss`, `cssVar`, the colour-role and motion checks `cssDeclarations`, `accentUsageViolations`, `accentTextViolations`, `surface300TextViolations`, `warningMeaningViolations`, `controlBorderViolations`, `transitionDurationViolations`, …), `Icon`, `IconSvg`, `ICON_GROUPS`, `ICON_NAMES`,
   `ICON_PARENT_CHILD`, `WillowsumMark`, `Wordmark`, `ThemeProvider`, `useTheme`, `ThemeSwitch`,
   `THEME_STORAGE_KEY`, `HideAmountsProvider`, `useHideAmounts`, `Amount`, `Percent`,
-  `HideAmountsToggle`, `HideAmountsSwitch`, `HIDDEN_AMOUNT`, `AppShell`, `FocusShell`, `MenuButton`,
-  `NAV_COLLAPSED_STORAGE_KEY`, `MAIN_ID`, `NAV_ID`, `useMediaQuery`, `FitAmount`, `formatCompactAmount`.
+  `HideAmountsToggle`, `HideAmountsSwitch`, `HIDDEN_AMOUNT`, `Delta`, `AppShell`, `FocusShell`, `MenuButton`,
+  `NAV_COLLAPSED_STORAGE_KEY`, `MAIN_ID`, `NAV_ID`, `useMediaQuery`, `FitAmount`, `formatCompactAmount`, `formatCompactNumber`.
 - `./tokens`: tokens only (no React).
 - `./styles.css`: generated tokens + base + component + shell styles.
 - `./fonts.css`: the self-hosted Inter / Inter Tight faces.
