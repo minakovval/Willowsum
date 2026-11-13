@@ -53,7 +53,7 @@ your own PIDs — [own ports](../../references/own-ports.md) (read when you star
    without a timeout of their own).
 2. Fix the cause, with a test that fails before the fix when that is possible. A timeout changes only with a
    stated basis (measured duration, what the test does).
-3. Cause outside this PR or too large for it: open a separately tracked issue with the evidence (run link, log
+3. Cause outside this PR or too large for it: list it for the lead, who opens the issue, with the evidence (run link, log
    lines, how to reproduce, what was ruled out) and tell the lead; the PR waits or the lead decides.
 4. Show both: the failing run (link and the error line) and the same check green after the fix (the new run on
    the new head, or the local command with its output when CI cannot run, marked as local). The fix commit is

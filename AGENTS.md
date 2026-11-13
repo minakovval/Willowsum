@@ -78,7 +78,7 @@ errors) lives only in `packages/domain-kernel`.
    `Verdict: Changes requested`, and `Security verdict: Ready` or `Security verdict: Changes requested` (the
    daily check, ADR-0008, reads exactly these lines; owner, 2026-11-12). Review rounds (owner, 2026-11-12):
    - Only a security bypass, data loss or leak, or a violation of the claimed requirement (FR/AC or shared
-     rule) blocks. Everything else goes to «Follow-ups» or an issue and never starts a round by itself.
+     rule) blocks. Everything else goes to «Follow-ups» (the lead opens the issue) and never starts a round by itself.
    - A re-review checks only the fixes and its own previous findings. At most two rounds; after that the
      reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
    - Mutation testing only for critical modules: data isolation, money, authentication, encryption.
