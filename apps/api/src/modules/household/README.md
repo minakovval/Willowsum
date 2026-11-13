@@ -1,6 +1,6 @@
 # Модуль household
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13 (ACC-08@PoC: налаштування простору)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -14,15 +14,24 @@
 
 ## Вимоги
 
-ACC-01@PoC п. 7 (AC5 — серверна частина); ACC-08@PoC п. 1 (назва, Owner, регіон ЄС; граничний випадок «одне слово»);
-ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (знищення ключа).
-Далі, ACC-08 (хвиля 2): особа-власник, валюта звітності, перейменування, назва в профілі.
+ACC-01@PoC п. 7 (AC5 — серверна частина); ACC-08@PoC п. 1 (назва, Owner, регіон ЄС; граничний випадок «одне слово»),
+п. 2 (назва для профілю — серверна частина), п. 4 (рівно один Owner: унікальний індекс, передачі немає), п. 5 і AC5
+(перейменування Owner з аудитом); ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (знищення ключа).
+Далі: ACC-08@PoC AC1 — особа-власник (Person) і валюта звітності EUR (валюта — ACC-06, рядок 8 хвилі 2); UI «Налаштування →
+Простір» і назва в профілі — рядок 111.
 
 ## Публічний інтерфейс
 
 `index.ts`:
 
-- `householdModule` — опис модуля (маршрутів поки немає).
+- `householdModule` — опис модуля з маршрутами налаштувань простору (ACC-08@PoC п. 2, 5; прапорець
+  `household.space-settings`, ключ функції `household.core`; простір — лише сесії, ідентифікатора простору в запиті немає):
+  - `GET /v1/space` (`getSpace`, дозвіл `household.data.read`) → `{ name, dataRegion }` — назва для профілю;
+  - `PATCH /v1/space` (`renameSpace`, дозвіл `household.rename` — Owner) `{ name }` → `{ name, dataRegion }`: назва
+    1–60 символів (кодові точки, NFC, без пробілів по краях, один рядок), унікальність не потрібна; інакше 400
+    `VALIDATION_FAILED`. Запис `household.space`/`update` (`name`: стара → нова) пишеться в журнал простору всередині
+    транзакції під замком запису: невдалий запис аудиту відкочує перейменування. Та сама назва — без змін і без запису.
+- `createHouseholdServices({ audit })` → `HouseholdServices` — порти маршрутів модуля (`src/api.ts` → `ctx.services`).
 - `createHouseholdSpaces(db, audit, kms)` → `HouseholdSpaces` (`kms` — порт `key-management`, `platform/adapters/kms`):
   - `ensureFirstSpace({ accountId, displayName })` → `{ householdId, role, created }` — простір «Родина <Прізвище>»
     (останнє слово імені; одне слово → «Родина <Ім'я>»; до 60 символів) у регіоні `eu` з акаунтом як Owner, лише якщо в
@@ -46,10 +55,10 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
   платформи першим) і в тій самій транзакції під замком запису простору — видалення запису й рядків «логін → простір».
   Ключ, виданий щоденною задачею між читанням і замком, теж знищується (повторна перевірка під замком). Викликає лише
   `data-erasure`.
-- `firstSpaceName`, `SPACE_NAME_MAX`, `SPACE_ROLES`, `SPACE_KEY_ERROR_CODES`, `SEAL_MAX_LENGTH`, `SpaceKeyError`, типи
+- `firstSpaceName`, `spaceName` (перевірка нової назви), `SPACE_NAME_MAX`, `SPACE_ROLES`, `SPACE_KEY_ERROR_CODES`, `SEAL_MAX_LENGTH`, `SpaceKeyError`, типи
   `SpaceRole`, `SpaceMembership`, `SpaceKeyErrorCode`, `RewrapResult`.
 
-Хто викликає: `main.ts` передає `ensureFirstSpace` модулю identity (порт `FirstSpace`), `membershipOf` — у `src/api.ts`,
+Хто викликає: `main.ts` передає `createHouseholdServices({ audit })` у `mountApi`; `ensureFirstSpace` модулю identity (порт `FirstSpace`), `membershipOf` — у `src/api.ts`,
 який будує того, хто викликає захищені маршрути, а `spaceIds` — щоденній перевірці журналу (ledger); `createSpaceKeys` — щоденній задачі ключів (`schedulerDailyTasks`).
 
 ## Залежності
@@ -75,6 +84,6 @@ ARC-06@PoC п. 1, 2 (механізм), 3 (переобгортання), 5 (з�
 | --- | --- |
 | `households` | Простір: `household_id` (ключ), назва (1–60), `data_region`, `encryption_key_ref` (`dek:<key_id>`; `destroyed:<key_id>` після знищення; `pending:<id>` у просторів, створених до ARC-06, доки задача не дасть ключ). Під політикою простору |
 | `space_keys` | Обгорнутий ключ даних простору: `key_id`, `master_key_version`, `wrapped_key` (base64url), час створення і переобгортання. Відкритого ключа немає. Під політикою простору |
-| `account_spaces` | Довідник «логін → простори»: `account_id`, `space_id`, роль. Без політики простору (його читають до прив'язки простору); лише ідентифікатори й роль; виняток із причиною в `schema-exemptions.json` |
+| `account_spaces` | Довідник «логін → простори»: `account_id`, `space_id`, роль; унікальний індекс `account_spaces_one_owner` — не більше одного Owner на простір (ACC-08 п. 4). Без політики простору (його читають до прив'язки простору); лише ідентифікатори й роль; виняток із причиною в `schema-exemptions.json` |
 
 Синтетичні дані: `synthetic.ts` — один запис простору і один «обгорнутий ключ» (випадкові байти) на синтетичний простір.

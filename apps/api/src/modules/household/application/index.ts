@@ -11,3 +11,5 @@ export {
   SEAL_MAX_LENGTH,
 } from "./space-keys.ts";
 export type { RewrapResult, SpaceKeyAudit, SpaceKeysDeps } from "./space-keys.ts";
+export { renameSpace } from "./settings.ts";
+export type { RenameResult, SpaceRenameAudit, SpaceSettings, SpaceSettingsTx } from "./settings.ts";

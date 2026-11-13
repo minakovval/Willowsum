@@ -1,5 +1,11 @@
 import type { ModuleDatabase, ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
-import type { SpaceMembership, SpacesStore, SpacesTx } from "../../application/index.ts";
+import type {
+  SpaceMembership,
+  SpaceSettings,
+  SpaceSettingsTx,
+  SpacesStore,
+  SpacesTx,
+} from "../../application/index.ts";
 import type { SpaceRole, StoredSpaceKey } from "../../domain/index.ts";
 
 /** The household schema through the module's own role (ARC-01, ARC-03; tables in migrations/0001_spaces.sql). */
@@ -101,5 +107,26 @@ export function databaseSpacesStore(db: ModuleDatabase): SpacesStore {
         );
         return rows.map((r) => r.space_id);
       }),
+  };
+}
+
+/** The space's settings (ACC-08@PoC FR 2, FR 5) in a transaction bound to it; the row policy binds the space too. */
+export function spaceSettingsTx(q: ModuleQueryRunner): SpaceSettingsTx {
+  const read = async (householdId: string, lock: boolean): Promise<SpaceSettings | null> => {
+    const { rows } = await q.query<{ name: string; data_region: string }>(
+      `SELECT name, data_region FROM households WHERE household_id = $1${lock ? " FOR UPDATE" : ""}`,
+      [householdId],
+    );
+    return rows[0] ? { name: rows[0].name, dataRegion: rows[0].data_region } : null;
+  };
+  return {
+    lockSettings: (householdId) => read(householdId, true),
+    settings: (householdId) => read(householdId, false),
+    async setName(householdId, name) {
+      await q.query(`UPDATE households SET name = $2, updated_at = now() WHERE household_id = $1`, [
+        householdId,
+        name,
+      ]);
+    },
   };
 }
