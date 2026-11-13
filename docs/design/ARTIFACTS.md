@@ -85,7 +85,7 @@
 ### Таблиця релізів
 
 Таблицю можна заповнити наново з `docs/requirements/` (картки і зрізи за релізами) та
-`docs/traceability/release-*.md`; колонки перелічено вище і в `docs/decisions/state-2026-11-05.md`.
+`docs/traceability/release-*.md` (генеруються: `node tools/req-check/index.mjs --traceability`, у git не зберігаються; з `main` — артефакт `traceability`); колонки перелічено вище і в `docs/decisions/state-2026-11-05.md`.
 
 ## Як оновити знімок
 

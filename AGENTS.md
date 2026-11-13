@@ -10,8 +10,8 @@ Willowsum is built from scratch. The requirements are complete; the code is writ
 requirement, following the architecture requirements (ARC) and delivery requirements (CICD).
 
 Current phase: PoC development. On 2026-11-06 the owner approved the PoC design («дизайн ок») and started
-development; build the PoC requirement by requirement in the waves of `docs/traceability/release-poc.md`,
-with the canvas (snapshot in `design/canvas/`) as the visual reference. The PoC shell code already in
+development; build the PoC requirement by requirement in the waves of the generated `release-poc.md`
+(«Where things are»: not committed, generate it or read it from main's `traceability` artifact), with the canvas (snapshot in `design/canvas/`) as the visual reference. The PoC shell code already in
 `main` (PRs #46, #47, #52, #54, #55) is the starting point; issues #49 and #51 are now open for work.
 «Process: design before code» still applies to every later release (PoC v2, MVP, …): no code for a
 release until the owner has approved its design and started its development.
@@ -23,7 +23,8 @@ release until the owner has approved its design and started its development.
 | Product requirements (single source of truth) | `docs/requirements/` — one source file per requirement ID (`bud/BUD-16.md`, edited) and its generated release views (`bud/BUD-16.poc.md`, …, read-only); index per module |
 | Product, releases, roles, plan matrix, general rules П-1…П-26, glossary | `docs/requirements/00-general.md` |
 | Requirement process: sources, release views, links, traceability; change process | `docs/requirements/prc/` (PRC-01, PRC-02); format in `docs/requirements/README.md` («Source and generated release views») |
-| Release views, traceability matrix, per-release build sequence, coverage (generated) | views next to their sources — regenerate with `node tools/req-check/index.mjs --views`; `docs/traceability/` — with `--traceability` |
+| Release views (generated, committed) | next to their sources — regenerate with `node tools/req-check/index.mjs --views` |
+| Traceability matrix, per-release build sequence, coverage, req-check report (generated, **not committed**; owner, 2026-11-13) | on demand: `node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md` writes `docs/traceability/` and the report (both git-ignored); without a checkout: the latest run of the workflow «Requirements traceability» on `main` (summary: report and PoC build sequence; artifact `traceability`: every file) |
 | Architecture and delivery requirements | `docs/requirements/arc/`, `docs/requirements/cicd/` |
 | Non-functional requirements | `docs/requirements/nfr/` |
 | Design system, components, flows | `docs/requirements/ds/`, `cmp/`, `flw/`, `jrn/`, `scr/` |
@@ -31,7 +32,7 @@ release until the owner has approved its design and started its development.
 | Project state and owner decision log | `docs/decisions/`: one new file per decision in `log/` (`YYYY-MM-DD-<short-slug>.md`, a numeric suffix if the name is taken; owner, 2026-11-13); `state-2026-11-05.md` is the archive of everything before, never appended to |
 | Screen map (screens S-NNN, entry points), use cases, user journeys | `docs/ux/` |
 | Design artifacts (canvas, design system, Claude Doc, release sheet), snapshots, recovery | `docs/design/ARTIFACTS.md`; snapshots in `design/` |
-| Coverage tables of design decisions, req-check report | `docs/validation/` |
+| Coverage tables of design decisions | `docs/validation/` |
 | External services (integrations list), browser instructions for the owner | `docs/ops/` (`integrations.md`, `browser-tasks/`) |
 
 Requirement views are self-contained: you never need another source to implement one. A requirement
@@ -58,11 +59,11 @@ sources: `--move` moves items between releases (and warns about cited item numbe
 the moved items still mentioned elsewhere); rewording is a plain edit of the source. Then regenerate, in the
 same PR and in this order:
 
-- the views: `node tools/req-check/index.mjs --views`;
-- `docs/traceability/` and `docs/validation/req-check-report.md`:
-  `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`;
-- and run `node --test tools/req-check` (0 errors; commit the regenerated files). The skill
-  `change-requirement` has the full procedure.
+- the views: `node tools/req-check/index.mjs --views` (0 errors; commit the regenerated views);
+- `node tools/req-check/index.mjs --check-mentions` (no test names an item its view does not have) and
+  `node --test tools/req-check`. The traceability files and the req-check report are not committed (owner,
+  2026-11-13): CI generates them on every PR and fails if that fails. The skill `change-requirement` has the
+  full procedure.
 
 ## Planned code layout
 
@@ -132,7 +133,7 @@ transfers), the accounting ledger, bank sync and import are separate modules lin
 | CHT | `packages/ui`, `apps/web` |
 | L10N, PLT, DS, CMP, FLW, JRN, SCR | `apps/web`, `apps/admin`, `packages/ui`, `packages/i18n` |
 | NFR, ARC, CICD | whole repo, `.github/workflows/`, `infra/` |
-| PRC | `docs/requirements/`, `docs/traceability/`, `tools/req-check/`, `.github/workflows/` |
+| PRC | `docs/requirements/`, `tools/req-check/`, `tools/pr-rules/`, `.github/workflows/` |
 
 Transaction flow: source (`bank-sync` + a bank adapter, `import-sessions`, `receipts`, manual entry) →
 `transactions` → `merchants` → `categorization` → `duplicate-matching` → `transfer-matching` → `ledger` →
@@ -174,7 +175,11 @@ errors) lives only in `packages/domain-kernel`.
    - Mutation testing is required only for critical modules: data isolation, money, authentication,
      encryption.
    - A recurring finding moves into automation: a repeated class of finding becomes a CI check or a test;
-     before pushing, agents run a local check for secret-shaped literals (what the CI job `secrets` checks).
+     before pushing, agents run a local check for secret-shaped literals (what the CI job `secrets` checks),
+     and before pushing or setting a PR body, the local PR description and sensitive-label check
+     `node tools/pr-rules/index.mjs local --title "<title>" --body-file <file>` (what the job `traceability`
+     and the label job check; owner, 2026-11-13). A test named by a requirement item that does not exist fails
+     the job `requirements` (`--check-mentions`).
    - Keep PRs small: split a large requirement part (e.g. backend and UI) so each PR fits one review round.
 6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`, `e2e`;
    a job its path filter skips counts as passed, see «CI minutes» below). Never skip, disable or weaken a
@@ -229,7 +234,8 @@ the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env`, `in
 when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07@PoC, runs on every code change
 except `infra/`, `tools/` and the root lint, format and ignore files, with only Chromium and WebKit installed and cached; a skipped job concludes `skipped` and
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
-scheduled or frequent workflows without counting their minutes.
+scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
+`main` (about a minute; owner, 2026-11-13) to publish the generated traceability files.
 
 ## Process: design before code
 

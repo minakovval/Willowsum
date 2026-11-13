@@ -32,6 +32,7 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
    same command as the failing step in `.github/workflows/` (same filter and flags), not a wider suite.
    Integration tests on your own database: `pnpm db:test run -- …` (`infra/local/README.md`; without Docker,
    `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres`).
+   Own slot, ports, database and PIDs: see «Own ports» below; stop only processes you started.
 2. **Is `main` red too?** Run the same command on `origin/main` and look at the latest runs on `main`
    (`gh run list --branch main --limit 5`, and the daily check). Red on the base → not this PR's failure: say
    so, link the run on `main`, file or find the issue, and tell the lead; do not fix it inside an unrelated PR
@@ -41,6 +42,15 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
    repeatedly if the failure is intermittent (a shell loop), until it shows.
 4. **At most one re-run** (`gh run rerun <run id> --failed`), and only to collect evidence, never as the fix.
    Green after a re-run is still a failure without a cause: keep going.
+
+**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
+a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
+`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
+`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
+`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
+detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
+your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
+name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
 
 ## 3. Root cause and fix
 
@@ -71,6 +81,15 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
   happened in the report.
 - **Path-skipped jobs.** A job that concludes `skipped` passes only when `tools/pr-rules/lib/ci-paths.mjs`
   says the PR did not need it (AGENTS.md «CI minutes»); a wrong skip is a `ci-paths` bug, not a pass.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
 
 ## 5. Report
 

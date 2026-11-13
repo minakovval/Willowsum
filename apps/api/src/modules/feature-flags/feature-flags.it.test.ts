@@ -56,7 +56,7 @@ afterAll(async () => {
   await db?.close();
 });
 
-describe("CICD-06 AC1: a new function ships off; the owner enables it for test spaces, then a share, then all", () => {
+describe("CICD-06 FR 1: a new function ships off; the owner enables it for test spaces, then a share, then all", () => {
   it("off by default: the function's routes answer 404 as unknown paths, and /v1/me/features lists nothing for it", async () => {
     const unknown = await get("/v1/no-such-function");
     const res = await get("/v1/me/permissions");
@@ -114,7 +114,7 @@ describe("CICD-06 AC1: a new function ships off; the owner enables it for test s
   });
 });
 
-describe("CICD-06 AC3: a module's kill switch makes it «temporarily unavailable» within ≤ 1 minute; the rest works", () => {
+describe("CICD-06 FR 3: a module's kill switch makes it «temporarily unavailable» within ≤ 1 minute; the rest works", () => {
   it("switching access-scope off: its route answers 503, feature-flags and platform routes still answer", async () => {
     expect((await get("/v1/me/permissions")).statusCode).toBe(200);
     await admin.setKillSwitch(staff, "access-scope", true);

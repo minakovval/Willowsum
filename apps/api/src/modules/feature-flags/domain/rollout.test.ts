@@ -16,17 +16,17 @@ async function share(flag: string, state: Rollout, isTest = no): Promise<string[
 }
 
 describe("CICD-06 FR 1: staged rollout — test spaces → a share of spaces → all", () => {
-  it("CICD-06 AC1: a new function ships off — «off» is off for every space, test spaces included", async () => {
+  it("CICD-06 FR 1: a new function ships off — «off» is off for every space, test spaces included", async () => {
     expect(await share("x.new", { stage: "off" }, yes)).toEqual([]);
   });
 
-  it("CICD-06 AC1: stage «test» turns it on only for test spaces", async () => {
+  it("CICD-06 FR 1: stage «test» turns it on only for test spaces", async () => {
     const [a, b] = households as [string, string];
     expect(await isOnFor("x.new", { stage: "test" }, a, yes)).toBe(true);
     expect(await isOnFor("x.new", { stage: "test" }, b, no)).toBe(false);
   });
 
-  it("CICD-06 AC1: stage «share» turns it on for about that share of spaces, plus every test space", async () => {
+  it("CICD-06 FR 1: stage «share» turns it on for about that share of spaces, plus every test space", async () => {
     const on = await share("x.new", { stage: "share", percent: 30 });
     expect(on.length / households.length).toBeGreaterThan(0.27);
     expect(on.length / households.length).toBeLessThan(0.33);
@@ -34,7 +34,7 @@ describe("CICD-06 FR 1: staged rollout — test spaces → a share of spaces →
     expect(await isOnFor("x.new", { stage: "share", percent: 30 }, off, yes)).toBe(true);
   });
 
-  it("CICD-06 AC1: stage «all» is on for every space without asking about test spaces", async () => {
+  it("CICD-06 FR 1: stage «all» is on for every space without asking about test spaces", async () => {
     expect((await share("x.new", { stage: "all" }, never)).length).toBe(households.length);
   });
 

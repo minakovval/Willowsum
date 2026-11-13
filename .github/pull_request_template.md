@@ -1,4 +1,4 @@
-<!-- Створено: 2026-11-01 · Оновлено: 2026-11-12 -->
+<!-- Створено: 2026-11-01 · Оновлено: 2026-11-13 -->
 
 ## Requirement
 
@@ -21,8 +21,9 @@
 <!-- Output of `node tools/req-check/index.mjs --impact <ID>`: dependent slices updated here, or follow-up
      issues. Scope moved with `--move`: its warnings (changed item numbers and their citations, mentions of the
      moved items) and what was done with each. Ran `node tools/req-check/index.mjs --views`,
-     `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability` and
-     `node --test tools/req-check` (0 errors). -->
+     `node tools/req-check/index.mjs --check-mentions` and `node --test tools/req-check` (0 errors). The
+     traceability files and the req-check report are not committed: CI generates them. Before pushing or setting
+     this body: `node tools/pr-rules/index.mjs local --title "<title>" --body-file <this body>`. -->
 
 ## Acceptance criteria covered
 

@@ -10,6 +10,12 @@ const KIND = { FR: 'FR', AC: 'AC', EC: 'EC', item: 'FR', criterion: 'AC', accept
 const REF_RE = /\b(FR|AC|EC|item|criterion|acceptance)\s?(\d+)(?:\s?[–-]\s?(?:(?:FR|AC|EC)\s?)?(\d+))?/g;
 
 /**
+ * A line with this marker (in a comment) is not read for mentions: the requirements checker's own tests hold
+ * fixture texts that name made-up items of a real ID («BUD-16 FR 9»), which are neither coverage nor errors.
+ */
+export const IGNORE_MENTION = 'req-check-ignore-mention';
+
+/**
  * Mentions of items in the text of test files.
  * @param {{rel: string, text: string}[]} files
  * @returns {{file: string, line: number, id: string, release: string|null, kind: string, n: number}[]}
@@ -19,12 +25,13 @@ export function findMentions(files) {
   for (const { rel, text } of files) {
     // A release named once for a requirement anywhere in the file applies to its plain mentions.
     const fileRelease = new Map();
-    for (const m of text.matchAll(REQ_RE)) {
+    const lines = text.split('\n').map((l) => (l.includes(IGNORE_MENTION) ? '' : l));
+    for (const m of lines.join('\n').matchAll(REQ_RE)) {
       if (!m[2]) continue;
       const prev = fileRelease.get(m[1]);
       fileRelease.set(m[1], prev === undefined || prev === m[2] ? m[2] : null);
     }
-    text.split('\n').forEach((line, i) => {
+    lines.forEach((line, i) => {
       const reqs = [...line.matchAll(REQ_RE)];
       reqs.forEach((m, k) => {
         const end = k + 1 < reqs.length ? reqs[k + 1].index : line.length;
@@ -85,6 +92,25 @@ export function computeCoverage(model, mentions) {
   }
   rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : releaseIndex(a.release) - releaseIndex(b.release)));
   return { rows, unresolved, mentions: mentions.length, items: covered.size };
+}
+
+/**
+ * Mentions in test files that name an item the requirement does not have (`CICD-06@PoC has no AC3`): a wrong
+ * number makes coverage silently wrong, so `--check-mentions` (CI, job `requirements`) fails on any of them.
+ * @param {ReturnType<typeof computeCoverage>} cov
+ * @returns {{file: string, line: number, rule: string, message: string}[]} one per distinct file, line and item
+ */
+export function danglingMentions(cov) {
+  const seen = new Set();
+  const out = [];
+  for (const m of cov.unresolved) {
+    const message = `${m.sid} has no ${m.kind}${m.n}: name an item of that view («${m.id}@<release> FR 3», «AC 2», «EC 1»), or a table criterion by its words («criterion «…»»)`;
+    const key = `${m.file}:${m.line}:${message}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ file: m.file, line: m.line, rule: 'mention-no-item', message });
+  }
+  return out;
 }
 
 /** Markdown report of the coverage. */
