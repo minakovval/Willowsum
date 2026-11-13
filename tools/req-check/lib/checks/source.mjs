@@ -1,10 +1,12 @@
 // Check 7: requirement sources and their generated release views (docs/requirements/README.md,
 // «Source and generated release views»).
-import { LINK_BLOCK_RE } from '../config.mjs';
+import { LINK_BLOCK_RE, SLICE_FIELDS } from '../config.mjs';
 import { SOURCE_MARKER } from '../source.mjs';
 
 const CHECK = 'source';
 const ITEM_RE = /^\s*(?:\d+\.|#\.|[-*+]) /;
+/** A link-field line («- Перевіряється: …»); it belongs only in the «Зв'язки» block. */
+const FIELD_LINE_RE = new RegExp(`^\\s*[-*+] (?:${SLICE_FIELDS.join('|')}):`, 'u');
 
 /**
  * @param {ReturnType<import('../corpus.mjs').buildCorpus>} corpus
@@ -25,6 +27,7 @@ export function checkSources(corpus, out) {
       if (inLinks && !/^- /.test(l.text)) inLinks = false;
       if (l.bad) add('source-tag-invalid', l.index, `tag:${l.index}`, `"[${l.bad}]" is not a release tag; write [PoC], [PoC v2–MVP], [лише PoC] or a comma-separated list of these`);
       if (l.releases && !l.releases.some((r) => s.releases.includes(r))) add('source-tag-no-view', l.index, `noview:${l.index}`, `tag [${l.tag}] selects none of the views (${s.releases.join(', ')}); the line appears nowhere`);
+      if (!inLinks && FIELD_LINE_RE.test(l.text)) add('source-field-outside-links', l.index, `field:${l.index}`, `link field outside the «Зв'язки» block: "${l.text.slice(0, 60)}"`);
       if (!inLinks && !l.releases && !l.bad && ITEM_RE.test(l.text)) add('source-item-untagged', l.index, `item:${l.index}`, `list item without a release tag: "${l.text.slice(0, 60)}"; start it with [<release>], e.g. "#. [${s.releases[0] ?? 'PoC'}] …"`);
     }
   }

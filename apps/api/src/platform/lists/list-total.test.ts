@@ -48,6 +48,14 @@ function officialRates(
       fake.calls += 1;
       return requests.map((r) => one(r.from, r.to, r.date));
     },
+    // fx-rates' rule (VAL-04 AC4, EC1); dat01-list.it.test.ts checks the real one.
+    covers(rateDate: string, date: string) {
+      for (let d = new Date(`${rateDate}T00:00:00Z`); d.toISOString().slice(0, 10) < date;) {
+        d = new Date(d.getTime() + 86_400_000);
+        if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) return false;
+      }
+      return rateDate <= date;
+    },
   };
   return fake;
 }
@@ -117,6 +125,20 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(weekend).toMatchObject({ approximate: false, nearestRateCount: 0 });
     const monday = await totals(rates).total([group("UAH", "2026-11-16", "400")], "EUR");
     expect(monday).toMatchObject({ approximate: true, nearestRateCount: 1 });
+  });
+
+  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно» (PR #182 security)", async () => {
+    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
+    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
+    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
+    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
+  });
+
+  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно»", async () => {
+    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
+    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
+    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
+    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
   });
 
   it("DAT-01@PoC EC3: several transactions on a date without a rate are all counted at the nearest rate", async () => {
@@ -190,7 +212,10 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
   });
 
   it("DAT-01@PoC FR 12: a failed rate read fails the total, it is never shown as «немає курсу»", async () => {
-    const broken: DatedRates = { rates: () => Promise.reject(new Error("connection terminated")) };
+    const broken: DatedRates = {
+      rates: () => Promise.reject(new Error("connection terminated")),
+      covers: () => true,
+    };
     await expect(totals(broken).total([group("UAH", "2026-10-01", "-1")], "EUR")).rejects.toThrow(
       "connection terminated",
     );

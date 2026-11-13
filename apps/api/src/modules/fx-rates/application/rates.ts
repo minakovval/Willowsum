@@ -106,6 +106,7 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
  */
 export function officialDatedRates(fx: Pick<FxRates, "rates">): {
   rates(requests: readonly RateRequest[]): Promise<(ExchangeRate | null)[]>;
+  covers(rateDate: string, date: string): boolean;
 } {
-  return { rates: (requests) => fx.rates(requests) };
+  return { rates: (requests) => fx.rates(requests), covers: rateCoversDate };
 }

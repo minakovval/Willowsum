@@ -207,3 +207,22 @@ test('review #87 item 9: a PR that edits the map is judged by the base and the h
 test('review #87 item 9: file names are sanitized before logging (no newline, no workflow command)', () => {
   assert.equal(safeName('a\n::error::x\r'), 'a?: :error: :x?');
 });
+
+test('PR #182 security: only a release tag and only the «Перевіряється» field line skip the owner decision', () => {
+  const f = (filename, patch) => ({ filename, patch });
+  const req = 'docs/requirements/arc/ARC-05.md';
+  const hunk = (line) => `@@ -9,6 +9,7 @@\n - Модуль: —\n ${'- [лише PoC] Перевіряється: —'}\n${line}\n \n`;
+  for (const tag of ['лише PoC', 'PoC v2', 'MVP', 'PoC–PoC v2', 'лише PoC v2'])
+    assert.deepEqual(ownerDecisionFiles([f(req, hunk(`+- [${tag}] Перевіряється: a.test.ts`))]), [], tag);
+  for (const line of [
+    '+- [Рішення власника: суми в number] Перевіряється: —', // not a release tag: requirement prose
+    '+- [PoC] [нове правило] Перевіряється: —',
+    '+- [Рішення власника для PoC] Перевіряється: —',
+    '+3. Нове правило -- Перевіряється: a.test.ts',
+    '+3. Нове правило, Перевіряється: a.test.ts',
+    '+FR 3 скасовано - Перевіряється: a.test.ts',
+    '+- Перевіряється тепер не потрібне',
+    '+  - Перевіряється: a.test.ts',
+  ])
+    assert.deepEqual(ownerDecisionFiles([f(req, hunk(line))]), [req], line);
+});

@@ -101,6 +101,12 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect(item.value.toDecimalString()).toBe("9");
   });
 
+  it("VAL-04@PoC FR 3: «today» with a latest rate of a week ago is still not «приблизно» (open owner question)", async () => {
+    await seed([["2026-11-09", "EUR", "50.00"]]);
+    const item = converted(await reporting().toReporting({ amount: Money.of("450", "UAH"), date: null }));
+    expect([item.conversion.rateDate, item.conversion.approximate]).toEqual(["2026-11-09", false]);
+  });
+
   it("VAL-04@PoC AC3: PLN/CHF has no direct NBU rate → cross rate through the hryvnia from the NBU rates of the same date", async () => {
     await seed([
       ["2026-11-11", "CHF", "60.00"],
