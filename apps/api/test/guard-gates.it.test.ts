@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
@@ -11,7 +11,7 @@ import {
   migrate,
 } from "../src/platform/db/migrate.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
-import { apiDir } from "./real-modules.ts";
+import { makeTestTmpDir, removeTestTmpDir } from "./tmp-dir.ts";
 
 /**
  * Security review of PR #77 (coverage): each of check_module's three gates has a test that fails when that
@@ -42,13 +42,13 @@ const forged = (also = "") =>
 
 /** Two migrated modules ("guarded", "other") and the superuser connection that ran their migrations. */
 async function setup(): Promise<{ url: string; su: pg.Client }> {
-  const modulesDir = path.join(apiDir, "test/.tmp", `guardgates-${randomBytes(4).toString("hex")}`);
+  const modulesDir = makeTestTmpDir("guardgates");
   for (const m of ["guarded", "other"]) {
     const dir = path.join(modulesDir, m, "adapters/db/migrations");
     mkdirSync(dir, { recursive: true });
     writeFileSync(path.join(dir, "0001_things.sql"), CREATE);
   }
-  cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+  cleanup.push(async () => removeTestTmpDir(modulesDir));
   const db = await createTestDatabase();
   const su = new pg.Client({ connectionString: db.url });
   await su.connect();

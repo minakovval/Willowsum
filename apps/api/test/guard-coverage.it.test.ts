@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import pg from "pg";
 import { afterEach, describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import { CONTEXT_ROLE, guardProblems, installGuard } from "../src/platform/db/is
 import { enableContextLogin, enableModuleLogin, migrate } from "../src/platform/db/migrate.ts";
 import { ModuleDatabases } from "../src/platform/db/module-db.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
-import { apiDir } from "./real-modules.ts";
+import { makeTestTmpDir, removeTestTmpDir } from "./tmp-dir.ts";
 
 /**
  * Coverage review of the isolation guard (ARC-03, PR #75, security review 5801405103; added as the failing
@@ -45,10 +45,10 @@ interface Outcome {
  * the tables of the schema with household_id but without ENABLE + FORCE and the one policy.
  */
 async function probe(sql: string, read: string[]): Promise<Outcome> {
-  const modulesDir = path.join(apiDir, "test/.tmp", `guardcov-${randomBytes(4).toString("hex")}`);
+  const modulesDir = makeTestTmpDir("guardcov");
   const migrations = path.join(modulesDir, "guarded/adapters/db/migrations");
   mkdirSync(migrations, { recursive: true });
-  cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+  cleanup.push(async () => removeTestTmpDir(modulesDir));
   writeFileSync(path.join(migrations, "0001_things.sql"), CREATE);
 
   const db = await createTestDatabase();
@@ -284,13 +284,13 @@ describe("guard coverage: privileges of the guard's functions", () => {
   });
 
   it("a module's runtime role cannot call check_module (neither for its own nor for another schema)", async () => {
-    const modulesDir = path.join(apiDir, "test/.tmp", `guardcov-${randomBytes(4).toString("hex")}`);
+    const modulesDir = makeTestTmpDir("guardcov");
     for (const m of ["guarded", "other"]) {
       const dir = path.join(modulesDir, m, "adapters/db/migrations");
       mkdirSync(dir, { recursive: true });
       writeFileSync(path.join(dir, "0001_things.sql"), CREATE);
     }
-    cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+    cleanup.push(async () => removeTestTmpDir(modulesDir));
     const db = await createTestDatabase();
     const su = new pg.Client({ connectionString: db.url });
     await su.connect();
@@ -389,7 +389,7 @@ describe("guard coverage: privileges of the guard's functions", () => {
       "nest",
     ],
   ])("%s: a module's runtime role that reaches check_module through it gets 42501", async (_, fn, name) => {
-    const modulesDir = path.join(apiDir, "test/.tmp", `guardcov-${randomBytes(4).toString("hex")}`);
+    const modulesDir = makeTestTmpDir("guardcov");
     for (const m of ["guarded", "other"]) {
       const dir = path.join(modulesDir, m, "adapters/db/migrations");
       mkdirSync(dir, { recursive: true });
@@ -400,7 +400,7 @@ describe("guard coverage: privileges of the guard's functions", () => {
       `${fn}
        CREATE TRIGGER call_guard BEFORE INSERT ON things FOR EACH ROW EXECUTE FUNCTION ${name}();`,
     );
-    cleanup.push(async () => rmSync(modulesDir, { recursive: true, force: true }));
+    cleanup.push(async () => removeTestTmpDir(modulesDir));
     const db = await createTestDatabase();
     const su = new pg.Client({ connectionString: db.url });
     await su.connect();
