@@ -22,10 +22,9 @@ import {
  * DS-06@PoC — colour tokens and colour roles, light theme (PoC is light only, П-25). Criteria checked on
  * the token sources and on the stylesheets of this package; `apps/web/src/designSystem.test.tsx` runs
  * the same role checks over the app's stylesheets. AC2 (contrast of every route in a browser) is the
- * Playwright check of NFR-07 (plan row 20).
+ * Playwright check of NFR-07 (`apps/web/e2e/contrast.spec.ts`).
  */
 const here = (rel: string) => fileURLToPath(new URL(rel, import.meta.url));
-const view = readFileSync(here("../../../../docs/requirements/ds/DS-06.poc.md"), "utf8");
 const stylesDir = here("../styles/");
 
 function cssFiles(dir: string): string[] {
@@ -37,12 +36,78 @@ function cssFiles(dir: string): string[] {
 }
 const sheets = cssFiles(here("../")).map((f) => [f.slice(here("../").length), readFileSync(f, "utf8")]);
 
-/** Rows of the DS-06@PoC table «Токен | Світла тема | Призначення». */
-const tableRows = view
-  .split("\n")
-  .filter((l) => /^\| [a-z][a-z0-9-]* \| (#|rgba)/.test(l))
-  .map((l) => l.split("|").map((c) => c.trim()))
-  .map(([, name, light]) => ({ name: name!, light: light! }));
+/**
+ * The DS-06@PoC table «Токен | Світла тема», row for row (item 2). Copied here rather than read from
+ * docs/: the `web` CI job is skipped on docs-only PRs, so a test that reads docs/ could go stale
+ * silently (tools/pr-rules ci-paths rule, review #92). A change of the table changes this list.
+ */
+const TABLE: readonly (readonly [string, string])[] = [
+  ["surface-100", "#FBFBFA"],
+  ["surface-200", "#FFFFFF"],
+  ["surface-300", "#F1F1EF"],
+  ["ink", "#1B2230"],
+  ["ink-muted", "#566174"],
+  ["line", "#E5E5E2"],
+  ["border-control", "#7B8494"],
+  ["brand", "#0B2545"],
+  ["brand-hover", "#173A66"],
+  ["brand-pressed", "#061833"],
+  ["on-brand", "#F6F1E8"],
+  ["brand-2", "#1D4E89"],
+  ["accent", "#E3A33B"],
+  ["on-accent", "#0B2545"],
+  ["link", "#1D4E89"],
+  ["focus", "#1D4E89"],
+  ["gain", "#27704C"],
+  ["loss", "#B23A3A"],
+  ["gain-soft", "#387F5A"],
+  ["loss-soft", "#C34A48"],
+  ["usage-0", "#0E7A3B"],
+  ["usage-30", "#34A853"],
+  ["usage-55", "#7CC242"],
+  ["usage-75", "#C9C21A"],
+  ["usage-95", "#FBBC05"],
+  ["over-1", "#E3A39B"],
+  ["over-2", "#DE7A6F"],
+  ["over-3", "#E5584A"],
+  ["over-4", "#F2281A"],
+  ["over-5", "#D21C10"],
+  ["over-6", "#B5180C"],
+  ["over-7", "#94130A"],
+  ["over-8", "#7A0F08"],
+  ["chart-cat-1", "#5872D2"],
+  ["chart-cat-2", "#0E9161"],
+  ["chart-cat-3", "#9C7305"],
+  ["chart-cat-4", "#097FCD"],
+  ["chart-cat-5", "#C35047"],
+  ["chart-cat-6", "#9B5BB6"],
+  ["chart-cat-7", "#0F899B"],
+  ["chart-cat-8", "#678800"],
+  ["chart-group-income-1", "#BA4E84"],
+  ["chart-group-income-2", "#BE590F"],
+  ["chart-transfer", "#9DB2C8"],
+  ["chart-other", "#9AA3AF"],
+  ["chart-reference", "rgba(27, 34, 48, 0.6)"],
+  ["goal-0", "#FFD000"],
+  ["goal-25", "#E6CF1A"],
+  ["goal-55", "#9ACD32"],
+  ["goal-80", "#4CAF50"],
+  ["goal-100", "#2E7D32"],
+  ["goal-paused", "#C5CAD1"],
+  ["on-warning", "#7A4505"],
+  ["tint-warning", "#FBF3E8"],
+  ["warning-line", "#A15C07"],
+  ["disabled-bg", "#E7E1D3"],
+  ["disabled-ink", "#8A8F99"],
+  ["overlay", "rgba(11, 37, 69, 0.45)"],
+  ["scrim", "rgba(11, 37, 69, 0.36)"],
+  ["surface-inset", "#FAFAF8"],
+  ["tint-info", "#EEF2F7"],
+  ["tint-positive", "#E9F3EE"],
+  ["tint-negative", "#F8ECEC"],
+  ["skeleton", "#ECEEF1"],
+];
+const tableRows = TABLE.map(([name, light]) => ({ name, light }));
 
 /** The light block of the generated CSS: `:root, [data-theme="light"] { … }`. */
 const lightBlock = (() => {
@@ -55,7 +120,7 @@ const ratio = (fg: ColorTokenName, bg: ColorTokenName) => contrastRatio(colors[f
 
 describe("DS-06@PoC colour tokens", () => {
   it("DS-06@PoC AC1: the light value of every token in the table is exactly the token and the CSS on the root", () => {
-    expect(tableRows.length).toBeGreaterThanOrEqual(60);
+    expect(tableRows).toHaveLength(COLOR_TOKEN_NAMES.length);
     for (const { name, light } of tableRows) {
       expect(COLOR_TOKEN_NAMES, name).toContain(name);
       expect(colors[name as ColorTokenName].light, name).toBe(light);

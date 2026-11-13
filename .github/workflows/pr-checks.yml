@@ -7,7 +7,7 @@ name: PR checks
 # - a new push cancels the PR's run still in progress (concurrency, keyed by the PR);
 # - the pnpm store is cached, keyed by the lockfile;
 # - the `changes` job decides from the PR's changed paths (tools/pr-rules/lib/ci-paths.mjs) which heavy jobs
-#   (web, api, local-env, infra) are needed; a job that is not needed is skipped by its `if` and its check
+#   (web, api, local-env, infra, e2e) are needed; a job that is not needed is skipped by its `if` and its check
 #   concludes `skipped`. The daily check of main accepts a skipped job only when the same function says the
 #   merged PR did not need it. `requirements`, `secrets` and `changes` (and `traceability`) always run.
 
@@ -34,6 +34,7 @@ jobs:
       api: ${{ steps.paths.outputs.api }}
       local_env: ${{ steps.paths.outputs.local-env }}
       infra: ${{ steps.paths.outputs.infra }}
+      e2e: ${{ steps.paths.outputs.e2e }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -264,6 +265,76 @@ jobs:
             # Names only: the list grows with every module (WS_DB_PASSWORD_<SCHEMA>), values never appear.
             echo "$out" | grep -Eq '^Configuration error: missing or invalid ([A-Z0-9_]+, )*WS_DB_HOST, ([A-Z0-9_]+, )*WS_DB_NAME(, [A-Z0-9_]+)*$'
           done
+
+  e2e:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.e2e != 'false' }}
+    # NFR-07@PoC: end-to-end tests at 1280 px in Chromium and WebKit (Firefox from PoC v2), and the contrast check of
+    # every route (DS-06@PoC AC2). The static build behind `vite preview`, the real API process and a fresh database
+    # (apps/web/e2e). Only these two browsers are installed, and they are cached by the Playwright version.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        # Same pinned image as the local environment (infra/local/compose.yaml).
+        image: postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      # Throw-away CI database; not a secret.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Enable pnpm (version from package.json via corepack)
+        run: corepack enable
+      - name: pnpm store path
+        id: pnpm-store
+        run: echo "dir=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+      - name: Cache the pnpm store (keyed by the lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ steps.pnpm-store.outputs.dir }}
+          key: pnpm-store-${{ runner.os }}-node22-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: pnpm-store-${{ runner.os }}-node22-
+      - run: pnpm install --frozen-lockfile
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(node -p "require('./apps/web/node_modules/@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache the browsers (keyed by the Playwright version)
+        id: browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+      - name: Install Chromium and WebKit with their system libraries
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm --filter @willowsum/web exec playwright install --with-deps --only-shell chromium webkit
+      - name: System libraries of the cached browsers
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm --filter @willowsum/web exec playwright install-deps chromium webkit
+      - name: End-to-end tests and route contrast (build, then Chromium and WebKit at 1280 px)
+        run: pnpm test:e2e
+      - name: Report and traces on failure
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7
 
   infra:
     needs: changes

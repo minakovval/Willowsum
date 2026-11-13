@@ -36,7 +36,7 @@ async function changes({ status = 200, files, changedFiles }) {
   return { code, out };
 }
 
-const ALL = 'web=true\napi=true\nlocal-env=true\ninfra=true\n';
+const ALL = 'web=true\napi=true\nlocal-env=true\ninfra=true\ne2e=true\n';
 
 test('sec92: the files API failing runs every heavy job', async () => {
   for (const status of [500, 403, 404]) {
@@ -48,5 +48,5 @@ test('sec92: the files API failing runs every heavy job', async () => {
 test('sec92: a list shorter than changed_files (the 3000-file cap) runs every heavy job', async () => {
   const docs = [{ filename: 'docs/x.md', status: 'modified' }];
   assert.equal((await changes({ files: docs, changedFiles: 3001 })).out, ALL);
-  assert.equal((await changes({ files: docs, changedFiles: 1 })).out, 'web=false\napi=false\nlocal-env=false\ninfra=false\n');
+  assert.equal((await changes({ files: docs, changedFiles: 1 })).out, 'web=false\napi=false\nlocal-env=false\ninfra=false\ne2e=false\n');
 });

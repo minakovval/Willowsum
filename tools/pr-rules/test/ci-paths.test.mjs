@@ -9,8 +9,8 @@ import { PATH_FILTERED_JOBS, isDocsOnly, jobsToRun, outputLines } from '../lib/c
 const ROOT = new URL('../../../', import.meta.url).pathname;
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const files = (...names) => names.map((filename) => ({ filename, status: 'modified' }));
-const none = { web: false, api: false, 'local-env': false, infra: false };
-const all = { web: true, api: true, 'local-env': true, infra: true };
+const none = { web: false, api: false, 'local-env': false, infra: false, e2e: false };
+const all = { web: true, api: true, 'local-env': true, infra: true, e2e: true };
 
 test('docs, design, skills and root Markdown need no heavy job', () => {
   for (const f of ['docs/ops/integrations.md', 'design/canvas/x.json', '.claude/skills/pr-pipeline/SKILL.md', 'AGENTS.md', '.github/pull_request_template.md']) {
@@ -23,24 +23,28 @@ test('the module catalogue (ARC-01) and any code are not docs', () => {
   assert.equal(isDocsOnly('docs/requirements/arc/ARC-01.poc.md'), false);
   assert.equal(isDocsOnly('apps/api/src/modules/audit/README.md'), false);
   assert.deepEqual(jobsToRun(files('docs/requirements/arc/ARC-01.md')), { ...none, web: true, api: true });
-  assert.deepEqual(jobsToRun(files('apps/web/src/App.tsx', 'docs/x.md')), { ...none, web: true, api: true });
+  assert.deepEqual(jobsToRun(files('apps/web/src/App.tsx', 'docs/x.md')), { ...none, web: true, api: true, e2e: true });
 });
 
 test('narrow jobs run on their own paths', () => {
-  assert.deepEqual(jobsToRun(files('infra/local/compose.yaml')), all);
-  assert.deepEqual(jobsToRun(files('tools/local-env/index.mjs')), { ...all, infra: false });
-  assert.deepEqual(jobsToRun(files('tools/observability/definitions.mjs')), { ...all, 'local-env': false });
-  assert.deepEqual(jobsToRun(files('infra/start/network.tf')), { ...all, 'local-env': false });
+  assert.deepEqual(jobsToRun(files('infra/local/compose.yaml')), { ...all, e2e: false });
+  assert.deepEqual(jobsToRun(files('tools/local-env/index.mjs')), { ...all, infra: false, e2e: false });
+  assert.deepEqual(jobsToRun(files('tools/observability/definitions.mjs')), { ...all, 'local-env': false, e2e: false });
+  assert.deepEqual(jobsToRun(files('infra/start/network.tf')), { ...all, 'local-env': false, e2e: false });
+  // NFR-07@PoC: the end-to-end job runs on the code of an app or a package, not on tools alone.
+  assert.deepEqual(jobsToRun(files('packages/ui/src/styles/shell.css')), { ...none, web: true, api: true, e2e: true });
+  assert.deepEqual(jobsToRun(files('apps/web/e2e/auth.spec.ts')), { ...none, web: true, api: true, e2e: true });
+  assert.deepEqual(jobsToRun(files('tools/req-check/index.mjs')), { ...none, web: true, api: true });
 });
 
 test('fail closed: pipeline, filter, toolchain, a renamed file, an empty or truncated list run every job', () => {
   for (const f of ['.github/workflows/pr-checks.yml', 'tools/pr-rules/lib/ci-paths.mjs', 'package.json', 'pnpm-lock.yaml', '.nvmrc']) {
     assert.deepEqual(jobsToRun(files(f)), all, f);
   }
-  assert.deepEqual(jobsToRun([{ filename: 'docs/x.md', previous_filename: 'infra/start/x.tf', status: 'renamed' }]), { ...all, 'local-env': false });
+  assert.deepEqual(jobsToRun([{ filename: 'docs/x.md', previous_filename: 'infra/start/x.tf', status: 'renamed' }]), { ...all, 'local-env': false, e2e: false });
   assert.deepEqual(jobsToRun([]), all);
   assert.deepEqual(jobsToRun(files('docs/x.md'), { truncated: true }), all);
-  assert.equal(outputLines(none), 'web=false\napi=false\nlocal-env=false\ninfra=false');
+  assert.equal(outputLines(none), 'web=false\napi=false\nlocal-env=false\ninfra=false\ne2e=false');
 });
 
 /** The text of one job (indented under `jobs:`). */
@@ -57,7 +61,7 @@ test('pr-checks.yml: heavy jobs depend on `changes` and run unless it says false
   }
   for (const job of ['requirements', 'secrets', 'changes']) assert.doesNotMatch(jobBlock(wf, job), /^ {4}(if|needs):/m, job);
   assert.match(jobBlock(wf, 'changes'), /run: node tools\/pr-rules\/index\.mjs changes/);
-  assert.match(jobBlock(wf, 'changes'), /^ {4}outputs:\n {6}web: .*\n {6}api: .*\n {6}local_env: .*\n {6}infra: /m);
+  assert.match(jobBlock(wf, 'changes'), /^ {4}outputs:\n {6}web: .*\n {6}api: .*\n {6}local_env: .*\n {6}infra: .*\n {6}e2e: /m);
 });
 
 test('pnpm store is cached with a pinned action keyed by the lockfile', () => {
