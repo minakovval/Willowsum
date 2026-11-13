@@ -369,6 +369,40 @@ describe("NFR-01@PoC FR 12: refresh tokens rotate at every use; a reused token e
   });
 });
 
+describe("sec190 mutation killers: refresh rotation under real concurrency (NFR-01@PoC FR 12)", () => {
+  it("two refreshes that both wait on the session row: exactly one rotation, the other rides the 30 s grace", async () => {
+    const { browser, email } = await signedIn("rotation-held");
+    const cookie = browser.cookie;
+    t += MINUTE;
+    // Hold the session row so both refreshes are in flight together (inject alone runs them one after another).
+    await db.owner.query("BEGIN");
+    await db.owner.query(
+      `SELECT s.id FROM identity.sessions s JOIN identity.accounts a ON a.id = s.account_id
+        WHERE a.email_normalized = $1 FOR UPDATE OF s`,
+      [email],
+    );
+    const both = Promise.all([
+      request("POST", "/v1/session/refresh", { cookie }),
+      request("POST", "/v1/session/refresh", { cookie }),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    await db.owner.query("COMMIT");
+    const answers = await both;
+    expect(answers.map((r) => r.statusCode)).toEqual([200, 200]);
+    expect(answers.flatMap(setCookies)).toHaveLength(1);
+    const { rows } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM identity.retired_session_tokens r JOIN identity.sessions s ON s.id = r.session_id
+         JOIN identity.accounts a ON a.id = s.account_id WHERE a.email_normalized = $1`,
+      [email],
+    );
+    expect(rows[0]!.n).toBe(1);
+    browser.take(answers.find((r) => setCookies(r).length > 0)!);
+    t += ROTATION_GRACE;
+    expect((await browser.act()).statusCode).toBe(200);
+    expect((await sessionRows(email))[0]!.ended_at).toBeNull();
+  });
+});
+
 describe("NFR-01@PoC AC5: revoked sessions cannot make a request (a password reset; «з іншого пристрою»)", () => {
   it("a reset in another browser ends this one at once; its next request reads «ended elsewhere»", async () => {
     const { browser, email } = await signedIn("reset");
@@ -386,12 +420,13 @@ describe("NFR-01@PoC AC5: revoked sessions cannot make a request (a password res
   });
 });
 
-describe("ADR-0010: the daily task keeps sweeping ended sessions with their replaced tokens", () => {
+describe("ADR-0010: the daily task sweeps sessions past their absolute end with their replaced tokens", () => {
   it("an ended session and its retired tokens are gone after the sweep", async () => {
     const { browser, email } = await signedIn("sweep");
     await browser.act();
     await browser.act();
     await browser.send("DELETE", "/v1/session");
+    t += SESSION_ABSOLUTE_MS;
     await createIdentityMaintenance({
       db: db.databases.for("identity"),
       audit: createAuditLog(db.databases.for("audit")),
@@ -403,5 +438,41 @@ describe("ADR-0010: the daily task keeps sweeping ended sessions with their repl
         LEFT JOIN identity.sessions s ON s.id = r.session_id WHERE s.id IS NULL`,
     );
     expect(rows[0].n).toBe(0);
+  });
+});
+
+describe("ACC-04@PoC AC1, EC2: the reason survives the daily task until the browser drops the cookie (12 h)", () => {
+  const sweep = () =>
+    createIdentityMaintenance({
+      db: db.databases.for("identity"),
+      audit: createAuditLog(db.databases.for("audit")),
+      now: () => t,
+    }).dailyCleanup();
+
+  it("idle overnight with the daily task in between: the next request still reads «ended: idle»", async () => {
+    const { browser } = await signedIn("sweep-idle");
+    t += SESSION_IDLE_MS + HOUR; // the lid is closed; the daily task runs at night
+    await sweep();
+    expectEnded(await browser.session(), "idle");
+  });
+
+  it("a reset elsewhere, then the daily task: the next request still reads «ended elsewhere»", async () => {
+    const { browser, email } = await signedIn("sweep-reset");
+    await request("POST", "/v1/password-resets", { body: { email } });
+    await Promise.all(pending.splice(0));
+    const letter = mail.sent.filter((m) => m.to === email).at(-1)!;
+    const token = /\/password\/reset\?token=([A-Za-z0-9_-]{43})/.exec(letter.text)![1]!;
+    await request("POST", "/v1/password-resets/complete", {
+      body: { token, password: "another synthetic phrase" },
+    });
+    await sweep();
+    expectEnded(await browser.session(), "ended-elsewhere");
+  });
+
+  it("at the absolute end the browser drops the cookie (Max-Age), so the row goes with it", async () => {
+    const { email } = await signedIn("sweep-expired");
+    t += SESSION_ABSOLUTE_MS;
+    await sweep();
+    expect(await sessionRows(email)).toEqual([]);
   });
 });

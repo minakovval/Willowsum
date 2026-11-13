@@ -94,7 +94,7 @@ export function sessionAlive(
 }
 
 /**
- * Why a session ended, as stored (ACC-04@PoC; ADR-0009 part d): `signed-out` (this browser — any tab — signed out),
+ * Why a session ended, as stored (ACC-04@PoC; ADR-0009 «Сесії», decision log 2026-11-13-acc04-session-refresh): `signed-out` (this browser — any tab — signed out),
  * `idle` (15 min without a user action), `expired` (12 h after sign-in), `password-reset` (a reset ended every
  * session of the account), `token-reuse` (a token replaced more than the grace period ago came back: it was copied,
  * so the whole session ends).

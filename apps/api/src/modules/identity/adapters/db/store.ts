@@ -14,7 +14,6 @@ import type {
 } from "../../application/index.ts";
 import {
   PASSWORD_RESET_RETENTION_MS,
-  SESSION_IDLE_MS,
   THROTTLE_RETENTION_MS,
   type SessionEndReason,
   type SignInGuard,
@@ -394,10 +393,10 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         passwordResets: await count(`DELETE FROM password_resets WHERE created_at <= $1`, [
           at(now - PASSWORD_RESET_RETENTION_MS),
         ]),
-        sessions: await count(
-          `DELETE FROM sessions WHERE ended_at IS NOT NULL OR expires_at <= $1 OR last_seen_at <= $2`,
-          [at(now), at(now - SESSION_IDLE_MS)],
-        ),
+        // An ended or lapsed session still answers SESSION_ENDED with its reason (ACC-04@PoC AC1: «через
+        // бездіяльність», «з іншого пристрою») while its browser may hold the cookie: up to the absolute end, when the
+        // cookie's Max-Age runs out. Its replaced tokens go with it (cascade).
+        sessions: await count(`DELETE FROM sessions WHERE expires_at <= $1`, [at(now)]),
       };
     },
   };

@@ -10,6 +10,7 @@ import {
   argon2Hasher,
   createIdentityMaintenance,
   createIdentityServices,
+  SESSION_ABSOLUTE_MS,
   SIGN_IN_LOCK_MS,
   UNCONFIRMED_ACCOUNT_TTL_MS,
 } from "./index.ts";
@@ -292,7 +293,7 @@ describe("ADR-0010: the daily task bounds the growing identity tables without ch
     expect((await rowsOf(id)).registrations).toBe(0);
   });
 
-  it("sessions go once ended or idle; a live one stays", async () => {
+  it("sessions go at their absolute end (12 h): until then an ended or idle one still tells its reason (ACC-04@PoC AC1)", async () => {
     const email = nextEmail("sweep-sessions");
     await signUp(email);
     await request("POST", "/v1/email-confirmations", { body: { token: linkOf(email) } });
@@ -301,10 +302,17 @@ describe("ADR-0010: the daily task bounds the growing identity tables without ch
     const live = await request("POST", "/v1/sessions", { body: { email, password: PASSWORD } });
     const id = (await accountId(email))!;
     await maintenance.dailyCleanup();
-    expect((await rowsOf(id)).sessions).toBe(1);
+    expect((await rowsOf(id)).sessions).toBe(2);
     const cookie = String(live.headers["set-cookie"]).split(";")[0]!;
     expect((await request("GET", "/v1/me/permissions", { cookie })).statusCode).toBe(200);
     t += 15 * MINUTE;
+    await maintenance.dailyCleanup();
+    expect((await rowsOf(id)).sessions).toBe(2);
+    expect((await request("GET", "/v1/session", { cookie })).json()).toMatchObject({
+      code: "SESSION_ENDED",
+      sessionEndReason: "idle",
+    });
+    t += SESSION_ABSOLUTE_MS;
     await maintenance.dailyCleanup();
     expect((await rowsOf(id)).sessions).toBe(0);
   });
