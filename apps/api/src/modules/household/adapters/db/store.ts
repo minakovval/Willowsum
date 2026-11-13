@@ -27,8 +27,9 @@ function tx(q: ModuleQueryRunner): SpacesTx {
     membershipOf: (accountId) => membership(q, accountId),
     async insertSpace(space) {
       await q.query(
-        `INSERT INTO households (household_id, name, data_region, encryption_key_ref) VALUES ($1, $2, $3, $4)`,
-        [space.householdId, space.name, space.dataRegion, space.encryptionKeyRef],
+        `INSERT INTO households (household_id, name, data_region, reporting_currency, encryption_key_ref)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [space.householdId, space.name, space.dataRegion, space.reportingCurrency, space.encryptionKeyRef],
       );
     },
     async addMember(accountId, householdId, role) {
@@ -113,11 +114,14 @@ export function databaseSpacesStore(db: ModuleDatabase): SpacesStore {
 /** The space's settings (ACC-08@PoC FR 2, FR 5) in a transaction bound to it; the row policy binds the space too. */
 export function spaceSettingsTx(q: ModuleQueryRunner): SpaceSettingsTx {
   const read = async (householdId: string, lock: boolean): Promise<SpaceSettings | null> => {
-    const { rows } = await q.query<{ name: string; data_region: string }>(
-      `SELECT name, data_region FROM households WHERE household_id = $1${lock ? " FOR UPDATE" : ""}`,
+    const { rows } = await q.query<{ name: string; data_region: string; reporting_currency: string }>(
+      `SELECT name, data_region, reporting_currency FROM households WHERE household_id = $1${lock ? " FOR UPDATE" : ""}`,
       [householdId],
     );
-    return rows[0] ? { name: rows[0].name, dataRegion: rows[0].data_region } : null;
+    const row = rows[0];
+    return row
+      ? { name: row.name, dataRegion: row.data_region, reportingCurrency: row.reporting_currency }
+      : null;
   };
   return {
     lockSettings: (householdId) => read(householdId, true),

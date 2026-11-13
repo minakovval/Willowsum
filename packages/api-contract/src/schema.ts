@@ -231,7 +231,7 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        /** The current space: its name (shown in the profile) and data region */
+        /** The current space: its name (shown in the profile), data region and reporting currency */
         get: operations["getSpace"];
         put?: never;
         post?: never;
@@ -1509,6 +1509,8 @@ export interface operations {
                         /** @enum {string} */
                         dataRegion: "eu";
                         name: string;
+                        /** @enum {string} */
+                        reportingCurrency: "EUR";
                     };
                 };
             };
@@ -1613,6 +1615,8 @@ export interface operations {
                         /** @enum {string} */
                         dataRegion: "eu";
                         name: string;
+                        /** @enum {string} */
+                        reportingCurrency: "EUR";
                     };
                 };
             };

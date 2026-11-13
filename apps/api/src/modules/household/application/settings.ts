@@ -8,6 +8,8 @@ import { spaceName } from "../domain/index.ts";
 export interface SpaceSettings {
   readonly name: string;
   readonly dataRegion: string;
+  /** ACC-06@PoC FR 1: the space's reporting currency (EUR in this release); renaming never changes it. */
+  readonly reportingCurrency: string;
 }
 
 /** One transaction of the household schema, bound to the caller's space. */

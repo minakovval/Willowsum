@@ -108,7 +108,7 @@ describe("ACC-08@PoC FR 5: the Owner renames the space in «Налаштуван
 
     const res = await call(space, "PATCH", { name: "Коваль і батьки" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ name: "Коваль і батьки", dataRegion: "eu" });
+    expect(res.json()).toEqual({ name: "Коваль і батьки", dataRegion: "eu", reportingCurrency: "EUR" });
     expect(await nameOf(space.householdId)).toBe("Коваль і батьки");
 
     const entries = await renames(space.householdId);
@@ -190,7 +190,7 @@ describe("ACC-08@PoC FR 2: the space's name for the profile, and only the sessio
     const space = await newSpace("Марта Профільна");
     const res = await call(space, "GET");
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ name: "Родина Профільна", dataRegion: "eu" });
+    expect(res.json()).toEqual({ name: "Родина Профільна", dataRegion: "eu", reportingCurrency: "EUR" });
   });
 
   it("renaming space A changes nothing in space B; a space id in the request is ignored (П-5)", async () => {
@@ -211,7 +211,11 @@ describe("ACC-08@PoC FR 2: the space's name for the profile, and only the sessio
     expect(await nameOf(a.householdId)).toBe("Перейменований A");
     expect(await nameOf(b.householdId)).toBe("Родина Другий");
     expect(await renames(b.householdId)).toEqual([]);
-    expect((await call(b, "GET")).json()).toEqual({ name: "Родина Другий", dataRegion: "eu" });
+    expect((await call(b, "GET")).json()).toEqual({
+      name: "Родина Другий",
+      dataRegion: "eu",
+      reportingCurrency: "EUR",
+    });
   });
 });
 

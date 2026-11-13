@@ -33,3 +33,9 @@ export function spaceName(input: string): string | null {
   if (chars.some((c) => /\p{Cc}/u.test(c))) return null;
   return name;
 }
+
+/**
+ * The reporting currency of a space (ACC-06@PoC FR 1, FR 2): an attribute of the space, in this release EUR for every
+ * space and any locale, with no choice. Budgets, limits and goals are kept in it; amounts stay in their own currency.
+ */
+export const SPACE_REPORTING_CURRENCY = "EUR";
