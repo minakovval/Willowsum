@@ -311,7 +311,7 @@
 /* DS-12@PoC AC5: narrow cells, so a long label wraps under its icon. */
 .gallery-icon-tiles {
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--ws-space-8));
+  grid-template-columns: repeat(auto-fill, calc(var(--ws-space-8) + var(--ws-space-5)));
   gap: var(--ws-space-3);
   margin: 0;
   padding: 0;
@@ -322,6 +322,12 @@
   display: flex;
   justify-content: center;
   min-inline-size: 0;
+}
+
+.gallery-icon-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
 }
 
 .gallery-marks {

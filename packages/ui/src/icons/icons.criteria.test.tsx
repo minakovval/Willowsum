@@ -6,18 +6,29 @@ import { CirclePercent, CreditCard, House } from "lucide";
 import { I18nProvider } from "@willowsum/i18n";
 import { AppShell } from "../shell/AppShell.tsx";
 import { iconSizes } from "../tokens/layout.ts";
-import { Icon, ICON_GROUPS, ICON_NAMES, IconSvg, POC_ICON_GROUPS, PRODUCT_ICONS, productIcon } from "./Icon.tsx";
+import {
+  Icon,
+  ICON_GROUPS,
+  ICON_NAMES,
+  IconSvg,
+  POC_ICON_GROUPS,
+  PRODUCT_ICONS,
+  productIcon,
+} from "./Icon.tsx";
 import { IconTile } from "./IconTile.tsx";
 
 /** CMP-33@PoC and DS-12@PoC: the icon set, by acceptance criterion. Icon-only buttons: `IconButton.test.tsx`. */
 
-const css = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../styles/components.css"), "utf8").replace(
-  /\/\*[\s\S]*?\*\//g,
-  "",
-);
+const css = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../styles/components.css"),
+  "utf8",
+).replace(/\/\*[\s\S]*?\*\//g, "");
 const rule = (selector: string) =>
-  css.match(new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`))?.[1] ??
-  "";
+  css.match(
+    new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`),
+  )?.[1] ?? "";
+
+const shellCss = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), "../styles/shell.css"), "utf8");
 
 const svgOf = (el: Element | null) => el!.querySelector("svg")!;
 /** Line weight on screen: the SVG stroke is in 24-unit grid space, scaled to the rendered size. */
@@ -63,9 +74,9 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
     for (const size of iconSizes) {
       const scale = size / 24;
       for (const name of ["more"] as const) {
-        const dots = [...svgOf(render(<Icon name={name} size={size} />).container).querySelectorAll("circle")].filter(
-          (c) => Number(c.getAttribute("r")) < 2,
-        );
+        const dots = [
+          ...svgOf(render(<Icon name={name} size={size} />).container).querySelectorAll("circle"),
+        ].filter((c) => Number(c.getAttribute("r")) < 2);
         expect(dots.length, name).toBeGreaterThan(0);
         for (const dot of dots) {
           const r = Number(dot.getAttribute("r"));
@@ -75,9 +86,9 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
         }
       }
       for (const name of ["list", "info"] as const) {
-        const segments = [...svgOf(render(<Icon name={name} size={size} />).container).querySelectorAll("path")].filter(
-          (p) => /h\.01/.test(p.getAttribute("d")!),
-        );
+        const segments = [
+          ...svgOf(render(<Icon name={name} size={size} />).container).querySelectorAll("path"),
+        ].filter((p) => /h\.01/.test(p.getAttribute("d")!));
         expect(segments.length, name).toBeGreaterThan(0);
         for (const p of segments) expect(Number(p.getAttribute("stroke-width")) * scale).toBeCloseTo(2.5, 2);
       }
@@ -121,6 +132,39 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
     expect(card).not.toBe(loan);
   });
 
+  it("DS-12@PoC FR 3: sizes 16, 20, 24 (default), 32 and 40 px; tones ink, ink-muted, brand and on-brand", () => {
+    expect(svgOf(render(<Icon name="home" />).container).getAttribute("width")).toBe("24");
+    for (const size of [16, 20, 24, 32, 40] as const) {
+      const svg = svgOf(render(<Icon name="home" size={size} />).container);
+      expect([svg.getAttribute("width"), svg.getAttribute("height")]).toEqual([String(size), String(size)]);
+    }
+    expect(render(<Icon name="home" />).container.firstElementChild!.className).toBe("ws-icon");
+    for (const [tone, token] of [
+      ["muted", "ink-muted"],
+      ["brand", "brand"],
+      ["on-brand", "on-brand"],
+    ] as const) {
+      expect(render(<Icon name="home" tone={tone} />).container.firstElementChild!.className).toContain(
+        `ws-icon-${tone}`,
+      );
+      expect(rule(`.ws-icon-${tone}`)).toMatch(new RegExp(`color:\\s*var\\(--ws-${token}\\)`));
+    }
+  });
+
+  it("DS-12@PoC FR 7: the current navigation item keeps its icon; it is marked by a darker colour on a tinted background", () => {
+    const html = (current: boolean) =>
+      render(
+        <a className="ws-nav-item" href="#/b" aria-current={current ? "page" : undefined}>
+          <Icon name="budget" size={20} />
+          <span>Бюджет</span>
+        </a>,
+      ).container.querySelector("svg")!.innerHTML;
+    expect(html(true)).toBe(html(false));
+    const current = shellCss.match(/\.ws-nav-item\[aria-current="page"\]\s*\{([^}]*)\}/)![1]!;
+    expect(current).toMatch(/background:\s*var\(--ws-surface-300\)/);
+    expect(current).toMatch(/color:\s*var\(--ws-brand\)/);
+  });
+
   it("CMP-33@PoC AC5, DS-12@PoC AC3: a decorative icon next to «Бюджет» in the navigation is not read; only «Бюджет» is", () => {
     render(
       <I18nProvider>
@@ -158,7 +202,7 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
     expect(screen.getByRole("img", { name: "Пошук" })).toBeTruthy();
   });
 
-  it("DS-12@PoC AC5: a tile with a 24 px icon and a long label in a narrow cell — the icon stays 24 px, the label wraps under it", () => {
+  it("DS-12@PoC AC5, FR 13: a tile with a 24 px icon and a long label in a narrow cell — the icon stays 24 px, the label wraps under it", () => {
     render(
       <div style={{ inlineSize: "64px" }}>
         <IconTile icon="recurring" label="Регулярні платежі і передплати родини" />
@@ -176,7 +220,7 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
     expect(rule(".ws-icon-tile")).toMatch(/flex-direction:\s*column/);
     expect(rule(".ws-icon-tile > .ws-icon")).toMatch(/flex:\s*none/);
     // The label wraps inside the cell instead of running over the icon.
-    expect(rule(".ws-icon-tile-label")).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(rule(".ws-icon-tile-label")).toMatch(/overflow-wrap:\s*break-word/);
     expect(rule(".ws-icon-tile-label")).toMatch(/max-inline-size:\s*100%/);
     expect(rule(".ws-icon-tile-label")).not.toMatch(/position:\s*absolute|white-space:\s*nowrap/);
   });

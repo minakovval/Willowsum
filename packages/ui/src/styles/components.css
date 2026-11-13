@@ -75,7 +75,8 @@
 .ws-icon-tile-label {
   display: block;
   max-inline-size: 100%;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
   font-size: var(--ws-text-body-sm-size);
   line-height: var(--ws-text-body-sm-line);
 }

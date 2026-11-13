@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: packages/ui/src/icons/icons.criteria.test.tsx, packages/ui/src/icons/IconButton.test.tsx, packages/ui/src/icons/Icon.test.tsx, apps/web/src/gallery.test.tsx
 
 **Мета.** Як користувач, я хочу бачити впізнавані однакові іконки розділів, грошових продуктів і дій поруч зі словами, щоб швидше орієнтуватися, не вгадуючи їхнє значення.
 

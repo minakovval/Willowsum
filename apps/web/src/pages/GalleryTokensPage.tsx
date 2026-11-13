@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useI18n, type MessageKey } from "@willowsum/i18n";
 import {
   Amount,
@@ -16,6 +16,7 @@ import {
   HideAmountsSwitch,
   Icon,
   ICON_PARENT_CHILD,
+  IconButton,
   IconTile,
   layers,
   MAIN_ID,
@@ -219,6 +220,31 @@ function TypeRow({ name, style }: { name: string; style: TypeStyle }) {
         })}
       </span>
     </li>
+  );
+}
+
+/** CMP-33@PoC, DS-12@PoC item 6: icon-only buttons — each with a name, shown as its tooltip (CMP-25@PoC). */
+function IconButtonsDemo() {
+  const { t } = useI18n();
+  const [filtered, setFiltered] = useState(true);
+  return (
+    <>
+      <p className="ws-muted">{t("gallery.iconButtons.intro")}</p>
+      <div className="gallery-icon-buttons">
+        <IconButton icon="options" label={t("gallery.iconButtons.options")} />
+        <IconButton icon="columns" label={t("gallery.iconButtons.columns")} />
+        <IconButton icon="sort" label={t("gallery.iconButtons.sort")} />
+        <IconButton
+          icon="filter"
+          label={t("gallery.iconButtons.filter")}
+          pressed={filtered}
+          onClick={() => setFiltered((v) => !v)}
+        />
+        <IconButton icon="edit" label={t("gallery.iconButtons.edit")} />
+        <IconButton icon="settings" label={t("gallery.iconButtons.settings")} />
+        <IconButton icon="close" label={t("gallery.iconButtons.close")} />
+      </div>
+    </>
   );
 }
 
@@ -554,6 +580,10 @@ export function GalleryTokensPage() {
             <IconTile icon="recurring" label={t("gallery.icons.tileLong")} />
           </li>
         </ul>
+      </Section>
+
+      <Section id="g-icon-buttons" title={t("gallery.section.iconButtons")}>
+        <IconButtonsDemo />
       </Section>
 
       <Section id="g-brand" title={t("gallery.section.brand")}>

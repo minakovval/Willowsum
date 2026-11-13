@@ -11,6 +11,7 @@ export {
   productIcon,
 } from "./icons/Icon.tsx";
 export type { IconGroup, IconName, IconTone, PocIconGroup, ProductKind } from "./icons/Icon.tsx";
+export { IconButton } from "./icons/IconButton.tsx";
 export { IconTile } from "./icons/IconTile.tsx";
 export { WillowsumMark, Wordmark } from "./brand/Mark.tsx";
 export {

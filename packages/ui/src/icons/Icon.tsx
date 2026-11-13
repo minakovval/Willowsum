@@ -595,7 +595,11 @@ export function Icon({
       data-size={size}
       {...(label ? { role: "img", "aria-label": label } : { "aria-hidden": true })}
     >
-      <IconSvg name={name} px={size} stroke={inButton && BUTTON_STROKE.has(name) ? ICON_STROKE_BUTTON : ICON_STROKE} />
+      <IconSvg
+        name={name}
+        px={size}
+        stroke={inButton && BUTTON_STROKE.has(name) ? ICON_STROKE_BUTTON : ICON_STROKE}
+      />
     </span>
   );
 }
