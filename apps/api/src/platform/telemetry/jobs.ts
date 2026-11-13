@@ -50,7 +50,13 @@ function parentOf(carrier: JobTraceCarrier | undefined): Context {
   );
 }
 
-async function inSpan<T>(span: Span, parent: Context, name: string, work: () => Promise<T>): Promise<T> {
+async function inSpan<T>(
+  span: Span,
+  parent: Context,
+  name: string,
+  work: () => Promise<T>,
+  failureSeverity: "error" | "warn" = "error",
+): Promise<T> {
   try {
     const result = await context.with(trace.setSpan(parent, span), work);
     return result;
@@ -60,7 +66,7 @@ async function inSpan<T>(span: Span, parent: Context, name: string, work: () => 
     span.setAttribute("error.type", errorClass);
     logEvent(
       "job.failed",
-      "error",
+      failureSeverity,
       { "ws.job.name": name, "error.type": errorClass },
       trace.setSpan(parent, span),
     );
@@ -70,17 +76,22 @@ async function inSpan<T>(span: Span, parent: Context, name: string, work: () => 
   }
 }
 
-/** Runs a background job (worker role) inside the trace of the request that enqueued it. */
+/**
+ * Runs a background job (worker role) inside the trace of the request that enqueued it. The queue (ARC-04) logs a
+ * failed attempt that will be retried as a warning (`failureSeverity: "warn"`); the error level is kept for the
+ * dead-letter queue.
+ */
 export function runJob<T>(
   name: string,
   carrier: JobTraceCarrier | undefined,
   work: () => Promise<T>,
+  options: { readonly failureSeverity?: "error" | "warn" } = {},
 ): Promise<T> {
   const parent = parentOf(carrier);
   const span = trace
     .getTracer(TELEMETRY_SCOPE)
     .startSpan(`job ${name}`, { kind: SpanKind.CONSUMER, attributes: { "ws.job.name": name } }, parent);
-  return inSpan(span, parent, name, work);
+  return inSpan(span, parent, name, work, options.failureSeverity);
 }
 
 /** Runs a scheduled task (scheduler role) as a trace of its own. */

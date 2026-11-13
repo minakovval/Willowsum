@@ -79,6 +79,8 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   "ws.provider.attempts": int(1, 100),
   // Jobs and scheduled tasks (ARC-09 FR 3), bank synchronisation (NFR-10 FR 6).
   "ws.job.name": str(NAME_RE, 64),
+  // How many times a job ran before it went to the dead-letter queue (ARC-04 FR 4: at most 8).
+  "ws.job.attempts": int(1, 100),
   "ws.outcome": str(/^(success|failure)$/, 16),
   // The ledger's daily integrity check (FIN-04 AC7): which check failed and for how many entries, and how many spaces
   // could not be checked — never amounts, accounts or spaces.
