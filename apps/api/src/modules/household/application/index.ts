@@ -2,3 +2,12 @@
 // Uses ports; adapters are wired in ../index.ts.
 export { ensureFirstSpace } from "./spaces.ts";
 export type { SpaceAudit, SpaceMembership, SpacesDeps, SpacesStore, SpacesTx } from "./spaces.ts";
+export {
+  destroySpaceKey,
+  newSpaceKey,
+  openField,
+  rewrapSpaceKeys,
+  sealField,
+  SEAL_MAX_LENGTH,
+} from "./space-keys.ts";
+export type { RewrapResult, SpaceKeyAudit, SpaceKeysDeps } from "./space-keys.ts";

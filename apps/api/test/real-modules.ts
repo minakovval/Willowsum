@@ -11,6 +11,7 @@ import { CONTEXT_ROLE } from "../src/platform/db/isolation.ts";
 import { moduleRoleName, topologicalOrder, type ModuleRules } from "../src/platform/modules/rules.ts";
 import { createAuditLog } from "../src/modules/audit/index.ts";
 import { createHouseholdSpaces, type HouseholdSpaces } from "../src/modules/household/index.ts";
+import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
 
 export const apiDir = fileURLToPath(new URL("..", import.meta.url));
@@ -87,5 +88,9 @@ export async function setupRealModules(poolSize = 2): Promise<RealModulesDatabas
 
 /** The household module's spaces over a real-modules database (identity's first space on the first sign-in). */
 export function householdSpaces(db: Pick<RealModulesDatabase, "databases">): HouseholdSpaces {
-  return createHouseholdSpaces(db.databases.for("household"), createAuditLog(db.databases.for("audit")));
+  return createHouseholdSpaces(
+    db.databases.for("household"),
+    createAuditLog(db.databases.for("audit")),
+    localKeyManagement(),
+  );
 }

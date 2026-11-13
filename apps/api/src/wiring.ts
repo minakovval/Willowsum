@@ -6,7 +6,7 @@
 import type pg from "pg";
 import type { AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
-import type { HouseholdSpaces } from "./modules/household/index.ts";
+import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
 import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./modules/ledger/index.ts";
 import type { Role } from "./platform/config/config.ts";
@@ -63,6 +63,8 @@ export function readinessCheck(deps: {
  * here deletes the data of an account or a space. `now` is the clock of the tasks that judge rows by age (tests
  * pass their own; main.ts the wall clock). `alertMail` is the mail adapter and the product owner's address for the
  * integrity letter (FIN-04 FR 10); without it a discrepancy is an «error» event that no letter could go out.
+ * `spaceKeys` adds the rewrap of the keys of spaces after a master key rotation (ARC-06 FR 3; ADR-0012); it changes
+ * only the wrap of a key, never the data of a space (main.ts always passes it).
  */
 export function schedulerDailyTasks(deps: {
   readonly databases: Pick<ModuleDatabases, "for">;
@@ -70,6 +72,7 @@ export function schedulerDailyTasks(deps: {
   readonly spaces: Pick<HouseholdSpaces, "spaceIds">;
   readonly now?: () => number;
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
+  readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
 }): DailyTask[] {
   const maintenance = createIdentityMaintenance({
     db: deps.databases.for("identity"),
@@ -85,8 +88,23 @@ export function schedulerDailyTasks(deps: {
     undefined,
     deps.alertMail ? { alertMail: deps.alertMail } : {},
   );
-  return [
+  const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
   ];
+  const spaceKeys = deps.spaceKeys;
+  if (spaceKeys)
+    tasks.push({
+      name: "household.space-keys",
+      run: async () => {
+        const result = await spaceKeys.rewrapAll();
+        // Counts only: never a space's id, a key or its wrap.
+        if (result.failed > 0)
+          logEvent("household.space_keys_failed", "error", {
+            "ws.module": "household",
+            "ws.household.spaces": result.failed,
+          });
+      },
+    });
+  return tasks;
 }

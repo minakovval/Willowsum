@@ -10,9 +10,10 @@ import { mountApi } from "./api.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
-import { createHouseholdSpaces } from "./modules/household/index.ts";
+import { createHouseholdSpaces, createSpaceKeys } from "./modules/household/index.ts";
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
+import { keyManagement } from "./platform/adapters/kms/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
@@ -106,7 +107,10 @@ const flags = createFlagRuntimeFor(databases.for("feature-flags"), {
 
 const audit = createAuditLog(databases.for("audit"));
 // Spaces (ACC-01 part c): the first space on the first sign-in, and the space of a session.
-const spaces = createHouseholdSpaces(databases.for("household"), audit);
+// Keys of spaces (ARC-06 FR 1; ADR-0012): the master key only through the KMS port, chosen by WS_PROVIDER_MODE. The live
+// adapter (OCI Vault) is not built yet and fails closed: a deployed process makes no space without a key.
+const kms = keyManagement(config.providerMode, () => ({}));
+const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 
 // Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production
 // the configuration allows only the live adapters (ACC-01 FR 12: no server without CAPTCHA there).
@@ -196,7 +200,14 @@ if (config.role === "scheduler") {
   // Identity's cleanup (NFR-12@PoC: unconfirmed accounts after 30 days) and the ledger's integrity check with the
   // owner's letter (FIN-04 FR 9, FR 10; without a recipient, an «error» event instead).
   const daily = scheduleDaily(
-    schedulerDailyTasks({ databases, audit, spaces, ...(alertMail ? { alertMail } : {}) }),
+    schedulerDailyTasks({
+      databases,
+      audit,
+      spaces,
+      // ARC-06 FR 3: the keys of spaces follow a master key rotation in the background.
+      spaceKeys: createSpaceKeys(databases.for("household"), audit, kms),
+      ...(alertMail ? { alertMail } : {}),
+    }),
   );
   lifecycle.onStop(() => daily.stop());
   // VAL-05 FR 4: without the owner's address no alert letter can go out; say so loudly (the address is never logged).

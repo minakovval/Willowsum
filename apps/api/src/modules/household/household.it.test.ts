@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
+import { localKeyManagement } from "../../platform/adapters/kms/index.ts";
 import { createAuditLog } from "../audit/index.ts";
 import { databaseSpacesStore } from "./adapters/index.ts";
-import { ensureFirstSpace, type SpacesStore } from "./application/index.ts";
+import { ensureFirstSpace, newSpaceKey, type SpacesStore } from "./application/index.ts";
 import { createHouseholdSpaces, type HouseholdSpaces } from "./index.ts";
 
 /**
@@ -39,7 +40,11 @@ let spaces: HouseholdSpaces;
 
 beforeAll(async () => {
   db = await setupRealModules(8);
-  spaces = createHouseholdSpaces(db.databases.for("household"), createAuditLog(db.databases.for("audit")));
+  spaces = createHouseholdSpaces(
+    db.databases.for("household"),
+    createAuditLog(db.databases.for("audit")),
+    localKeyManagement(),
+  );
 });
 
 afterAll(async () => {
@@ -56,7 +61,12 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
       [result.householdId],
     );
     expect(rows).toEqual([
-      { name: "Родина Синтетична", data_region: "eu", encryption_key_ref: `pending:${result.householdId}` },
+      // ARC-06@PoC FR 1: the reference names the space's own key (ADR-0012).
+      {
+        name: "Родина Синтетична",
+        data_region: "eu",
+        encryption_key_ref: expect.stringMatching(/^dek:[0-9a-f-]{36}$/),
+      },
     ]);
     expect(await spaces.membershipOf(accountId)).toEqual({ householdId: result.householdId, role: "owner" });
 
@@ -145,7 +155,13 @@ describe("ACC-01 FR 7 / ACC-08 FR 1: the first space of an account", () => {
     const results = await Promise.all(
       Array.from({ length: N }, () =>
         ensureFirstSpace(
-          { store: racing, audit, newId: randomUUID, dataRegion: "eu" },
+          {
+            store: racing,
+            audit,
+            newId: randomUUID,
+            newKey: (id) => newSpaceKey(localKeyManagement(), id),
+            dataRegion: "eu",
+          },
           { accountId, displayName: "Рита Гонка" },
         ),
       ),
