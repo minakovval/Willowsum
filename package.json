@@ -21,6 +21,7 @@
     "contract:write": "pnpm --filter @willowsum/api contract:write && pnpm --filter @willowsum/api-contract generate",
     "contract:check": "pnpm --filter @willowsum/api contract:check && pnpm --filter @willowsum/api-contract check",
     "test:integration": "pnpm --filter @willowsum/api test:integration",
+    "test:e2e": "pnpm --filter @willowsum/web e2e",
     "new-module": "pnpm --filter @willowsum/api new-module",
     "local:up": "node tools/local-env/index.mjs up",
     "local:down": "node tools/local-env/index.mjs down",

@@ -136,6 +136,9 @@ function ContrastTable({ theme }: { theme: ThemeName }) {
                 <td data-label={label("gallery.col.sample")}>
                   <span
                     className="gallery-contrast-sample"
+                    // The sample of a non-text pair (3 : 1) is a swatch drawn with letters; the end-to-end contrast
+                    // check (apps/web/e2e/contrast.ts, DS-06 AC2) holds it to that pair's own minimum.
+                    data-contrast-kind={p.kind}
                     style={{ background: cssVar(p.bg), color: cssVar(p.fg) }}
                   >
                     {t("gallery.contrastSample")}

@@ -7,7 +7,7 @@
 // Fail closed: an unknown path, a truncated file list or an empty one runs every job.
 
 /** Jobs that may be skipped by paths. `requirements`, `secrets`, `traceability` and `changes` always run. */
-export const PATH_FILTERED_JOBS = ['web', 'api', 'local-env', 'infra'];
+export const PATH_FILTERED_JOBS = ['web', 'api', 'local-env', 'infra', 'e2e'];
 
 /**
  * Paths that no heavy job reads: documentation, design snapshots, agent rules and skills. Exception: the
@@ -23,10 +23,15 @@ export function isDocsOnly(filename) {
 /** Changes that run every heavy job: the pipeline itself, this filter, the toolchain and the root manifest. */
 const EVERYTHING = /^(\.github\/|tools\/pr-rules\/|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|\.nvmrc$|\.npmrc$)/;
 
-/** Path prefixes of the narrow jobs; `web` and `api` check the whole workspace and run on any non-docs change. */
+/**
+ * Path prefixes of the narrow jobs; `web` and `api` check the whole workspace and run on any non-docs change. `e2e`
+ * (NFR-07@PoC) drives the built web app against the real API and database: it runs when the code of an app or a
+ * package changes (and on the pipeline, toolchain and manifest changes above), not for tools or infrastructure alone.
+ */
 const NARROW = {
   'local-env': /^(infra\/local\/|tools\/local-env\/)/,
   infra: /^(infra\/|tools\/infra-check\/|tools\/observability\/)/,
+  e2e: /^(apps\/|packages\/)/,
 };
 
 /**
@@ -45,6 +50,7 @@ export function jobsToRun(files, { truncated = false } = {}) {
     api: code.length > 0,
     'local-env': code.some((n) => NARROW['local-env'].test(n)),
     infra: code.some((n) => NARROW.infra.test(n)),
+    e2e: code.some((n) => NARROW.e2e.test(n)),
   };
 }
 
