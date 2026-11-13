@@ -19,7 +19,7 @@ const base = {
 
 describe("sec141: the fixed-label local KMS never runs in a deployed process", () => {
   for (const environment of ["staging", "production"]) {
-    // Fails today (the worker gets a working local KMS); passes as a plain `it` with the patch to kms/index.ts.
+    // A deployed process of any role (here the worker, which config.ts lets keep `test`) gets the fail-closed KMS.
     it(`${environment}: a deployed worker's KMS fails closed instead of using the local master key`, async () => {
       const config = loadConfig(
         { ...base, WS_TELEMETRY_ENVIRONMENT: environment, WS_TELEMETRY: "off" },

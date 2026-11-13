@@ -48,8 +48,8 @@ export async function openRealModules(
   owner: pg.ClientBase,
   url: string,
   poolSize = 2,
+  password = randomBytes(12).toString("hex"),
 ): Promise<ModuleDatabases> {
-  const password = randomBytes(12).toString("hex");
   for (const module of realModules) await enableModuleLogin(owner, module, password);
   await enableContextLogin(owner, password);
   return new ModuleDatabases({
@@ -64,6 +64,8 @@ export interface RealModulesDatabase {
   readonly owner: Pick<pg.Client, "query">;
   readonly databases: ModuleDatabases;
   readonly url: string;
+  /** The binding pool's settings (for the erasure pools of ADR-0013, which share the binding role). */
+  readonly context: pg.PoolConfig;
   close(): Promise<void>;
 }
 
@@ -73,11 +75,13 @@ export async function setupRealModules(poolSize = 2): Promise<RealModulesDatabas
   const owner = new pg.Client({ connectionString: db.url });
   await owner.connect();
   await migrateRealModules(owner, db.url);
-  const databases = await openRealModules(owner, db.url, poolSize);
+  const password = randomBytes(12).toString("hex");
+  const databases = await openRealModules(owner, db.url, poolSize, password);
   return {
     owner,
     databases,
     url: db.url,
+    context: { connectionString: urlAs(db.url, CONTEXT_ROLE, password) },
     close: async () => {
       await databases.end();
       await owner.end();

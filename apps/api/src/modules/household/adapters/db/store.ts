@@ -72,6 +72,17 @@ function tx(q: ModuleQueryRunner): SpacesTx {
       );
       return rowCount === 1;
     },
+    async lockSpace(householdId) {
+      await q.query(`SELECT 1 FROM households WHERE household_id = $1 FOR UPDATE`, [householdId]);
+    },
+    async deleteSpace(householdId) {
+      const { rows } = await q.query<{ account_id: string }>(
+        `DELETE FROM account_spaces WHERE space_id = $1 RETURNING account_id`,
+        [householdId],
+      );
+      await q.query(`DELETE FROM households WHERE household_id = $1`, [householdId]);
+      return rows.map((r) => r.account_id);
+    },
     async deleteSpaceKey(householdId, keyId) {
       await q.query(`DELETE FROM space_keys WHERE household_id = $1 AND key_id = $2`, [householdId, keyId]);
     },

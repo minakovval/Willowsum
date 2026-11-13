@@ -55,11 +55,12 @@ export class ModuleDatabase {
   private readonly schema: string;
   private readonly backendPid = new WeakMap<pg.PoolClient, number>();
 
-  constructor(pool: pg.Pool, module: string, binder: HouseholdBinder) {
+  /** `role`: the login role the pool must use — the module's role, or its erasure role (ADR-0013). */
+  constructor(pool: pg.Pool, module: string, binder: HouseholdBinder, role = moduleRoleName(module)) {
     this.pool = pool;
     this.module = module;
     this.binder = binder;
-    this.role = moduleRoleName(module);
+    this.role = role;
     this.schema = schemaName(module);
   }
 
@@ -171,6 +172,8 @@ export interface ModuleDatabasesConfig {
   readonly context: pg.PoolConfig;
   /** Connections per module pool (default 3). */
   readonly poolSize?: number;
+  /** The login role of each pool (default: the module's role; the erasure script passes `erasureRoleName`). */
+  readonly roleFor?: (module: string) => string;
 }
 
 /** One small pool per module, created on first use, plus one binding pool. */
@@ -197,7 +200,10 @@ export class ModuleDatabases {
       });
       // A dropped idle connection (database restart) must not crash the process; the next query reconnects.
       pool.on("error", () => undefined);
-      entry = { pool, db: new ModuleDatabase(pool, module, this.binder) };
+      entry = {
+        pool,
+        db: new ModuleDatabase(pool, module, this.binder, (this.config.roleFor ?? moduleRoleName)(module)),
+      };
       this.pools.set(module, entry);
     }
     return entry.db;

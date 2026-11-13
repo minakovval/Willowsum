@@ -157,8 +157,27 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       `SELECT grantee, table_name, privilege_type FROM information_schema.role_table_grants
         WHERE table_schema = 'ledger' AND grantee NOT IN ('ws_own_ledger') ORDER BY 1, 2, 3`,
     );
-    expect(rows.filter((r) => r.grantee !== "ws_mod_ledger")).toEqual([]);
-    expect([...new Set(rows.map((r) => `${r.table_name}:${r.privilege_type}`))].sort()).toEqual([
+    // ADR-0013 option A (the owner's decision of 2026-11-13): besides the module role, only the erasure role, with
+    // SELECT and DELETE on the three journal tables (its triggers let it delete a whole space only) — nothing else.
+    expect(
+      rows
+        .filter((r) => r.grantee !== "ws_mod_ledger")
+        .map((r) => `${r.grantee}:${r.table_name}:${r.privilege_type}`),
+    ).toEqual([
+      "ws_era_ledger:accounts:DELETE",
+      "ws_era_ledger:accounts:SELECT",
+      "ws_era_ledger:entries:DELETE",
+      "ws_era_ledger:entries:SELECT",
+      "ws_era_ledger:postings:DELETE",
+      "ws_era_ledger:postings:SELECT",
+    ]);
+    expect(
+      [
+        ...new Set(
+          rows.filter((r) => r.grantee === "ws_mod_ledger").map((r) => `${r.table_name}:${r.privilege_type}`),
+        ),
+      ].sort(),
+    ).toEqual([
       "accounts:SELECT",
       "entries:SELECT",
       // FIN-04 FR 10: the claim log of the integrity letter, append-only like the journal.

@@ -2,3 +2,4 @@
 export { databaseIntegrityAlertStore, databaseLedgerStore } from "./db/store.ts";
 export { logIntegrityAlertEvent, logIntegrityCheckFailed, logIntegrityViolation } from "./log.ts";
 export { integrityAlertMail } from "./mail.ts";
+export { eraseHouseholdJournal } from "./db/erasure.ts";

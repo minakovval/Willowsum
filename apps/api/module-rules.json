@@ -9,6 +9,10 @@
       "layer": "platform",
       "dependsOn": []
     },
+    "data-erasure": {
+      "layer": "process",
+      "dependsOn": ["audit", "household", "identity", "ledger"]
+    },
     "feature-flags": {
       "layer": "platform",
       "dependsOn": ["audit", "plan-catalog"]

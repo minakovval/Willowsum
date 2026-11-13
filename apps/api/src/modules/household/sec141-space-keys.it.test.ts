@@ -121,8 +121,8 @@ describe("sec141 ARC-06 FR 5: destroy", () => {
     await db.owner.query(`DELETE FROM household.account_spaces WHERE space_id = $1`, [b]);
   });
 
-  // Non-blocking defect: the platform entry is written after the key is gone. If that write fails, the key is
-  // destroyed for good with no entry, and a repeat answers { destroyed: false } without ever writing one.
+  // The platform entry is written before the key is deleted: if that write fails, the key stays and a repeat
+  // records and destroys it.
   it("a destruction whose audit write failed is still recorded once destroy is repeated", async () => {
     const id = await newSpace();
     const { key_id: keyId } = await keyRow(id);
@@ -138,8 +138,7 @@ describe("sec141 ARC-06 FR 5: destroy", () => {
     expect((await keyRow(id)).key_id).toBeNull();
   });
 
-  // Non-blocking defect: destroying a `pending:` space does nothing, so the daily task later gives the erased space
-  // a fresh key.
+  // A space destroyed before it ever had a key is marked destroyed, so the daily task never gives it one.
   it("a space destroyed while still `pending:` never gets a key afterwards", async () => {
     const householdId = randomUUID();
     await db.owner.query(
@@ -155,5 +154,8 @@ describe("sec141 ARC-06 FR 5: destroy", () => {
     const row = await keyRow(householdId);
     expect(row.key_id).toBeNull();
     expect(row.encryption_key_ref.startsWith("destroyed:")).toBe(true);
+    // Round 2: the destruction of a key-less space is in the platform log too, under the space's id.
+    const entries = await audit.platformEntriesFor({ type: "household.space-key", id: householdId });
+    expect(entries).toMatchObject([{ actorKind: "system", action: "delete" }]);
   });
 });

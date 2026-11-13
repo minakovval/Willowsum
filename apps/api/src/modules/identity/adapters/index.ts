@@ -9,3 +9,5 @@ export {
   identityDeps,
 } from "./http/services.ts";
 export type { IdentityServices, IdentityServicesOptions } from "./http/services.ts";
+export { createIdentityErasure } from "./db/erasure.ts";
+export type { IdentityErasure } from "./db/erasure.ts";

@@ -103,3 +103,24 @@ export function moduleRoleName(module: string): string {
 export function ownerRoleName(module: string): string {
   return `ws_own_${schemaName(module)}`;
 }
+
+/**
+ * The erasure role of a module (NFR-12@PoC FR 3, ADR-0013 option A): NOLOGIN except while the owner's erasure script
+ * runs, USAGE on the module's schema only, and only the privileges the module's own migrations grant it (DELETE on
+ * the append-only tables, whose triggers let only this role delete, and only a whole space). Bound to one space like a
+ * module role, so row policies keep it inside that space.
+ */
+export function erasureRoleName(module: string): string {
+  return `ws_era_${schemaName(module)}`;
+}
+
+/**
+ * Modules whose append-only tables only their erasure role may empty (ADR-0013 option A; their migrations 0003). Only
+ * these get an erasure role: every other module deletes a space's rows with its own role.
+ */
+export const ERASABLE_MODULES: readonly string[] = ["audit", "ledger"];
+
+/** Every database role of the given modules: module, owner and erasure roles. */
+export function moduleRoles(modules: readonly string[]): string[] {
+  return modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m), erasureRoleName(m)]);
+}

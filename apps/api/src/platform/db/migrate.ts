@@ -1,8 +1,15 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import type pg from "pg";
-import { moduleRoleName, ownerRoleName, schemaName } from "../modules/rules.ts";
+import {
+  ERASABLE_MODULES,
+  erasureRoleName,
+  moduleRoleName,
+  moduleRoles,
+  ownerRoleName,
+  schemaName,
+} from "../modules/rules.ts";
 import { schemaProblems, type SchemaExemptions } from "./schema-rules.ts";
 import {
   CONTEXT_ROLE,
@@ -136,12 +143,18 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       const owner = ownerRoleName(module);
       await ensureRole(client, role, "NOLOGIN NOINHERIT");
       await ensureRole(client, owner, "NOLOGIN NOINHERIT");
+      // ADR-0013: logs in only while the owner's erasure script runs (enableErasureLogin); privileges only from the
+      // module's own migrations. Only the modules with append-only tables have one.
+      const erasable = ERASABLE_MODULES.includes(module);
+      if (erasable) await ensureRole(client, erasureRoleName(module), "NOLOGIN NOINHERIT");
       // The migration role may become the owner role (SET), never use its rights implicitly (INHERIT).
       if (!superuser) await client.query(`GRANT ${id(owner)} TO CURRENT_USER WITH INHERIT FALSE, SET TRUE`);
       await client.query(`CREATE SCHEMA IF NOT EXISTS ${id(schema)}`);
       await client.query(`REVOKE ALL ON SCHEMA ${id(schema)} FROM PUBLIC`);
       await client.query(`GRANT USAGE, CREATE ON SCHEMA ${id(schema)} TO ${id(owner)}`);
       await client.query(`GRANT USAGE ON SCHEMA ${id(schema)} TO ${id(role)}`);
+      if (erasable)
+        await client.query(`GRANT USAGE ON SCHEMA ${id(schema)} TO ${id(erasureRoleName(module))}`);
       // Default privileges of the owner role, set as that role (PostgreSQL 16+ allows it only so without INHERIT).
       await client.query("BEGIN");
       try {
@@ -160,6 +173,10 @@ export async function migrate(client: pg.ClientBase, source: MigrationSource): P
       await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(role)}`);
       await grantPlatformContext(client, role);
       await grantPlatformContext(client, owner);
+      if (erasable) {
+        await client.query(`GRANT CONNECT ON DATABASE ${id(database)} TO ${id(erasureRoleName(module))}`);
+        await grantPlatformContext(client, erasureRoleName(module));
+      }
     }
 
     const done = await client.query<{ module: string; name: string; checksum: string }>(
@@ -221,7 +238,7 @@ export async function assertIsolatedRoles(
   modules: readonly string[],
   exemptions?: SchemaExemptions,
 ): Promise<void> {
-  const roles = [...modules.flatMap((m) => [moduleRoleName(m), ownerRoleName(m)]), PROBE_ROLE, CONTEXT_ROLE];
+  const roles = [...moduleRoles(modules), PROBE_ROLE, CONTEXT_ROLE];
   const result = await client.query<{ rolname: string; problem: string }>(
     `SELECT r.rolname, 'has a privileged attribute' AS problem
        FROM pg_roles r
@@ -283,6 +300,67 @@ export async function enableModuleLogin(
 ): Promise<void> {
   const role = client.escapeIdentifier(moduleRoleName(module));
   await client.query(`ALTER ROLE ${role} LOGIN PASSWORD ${client.escapeLiteral(password)}`);
+}
+
+/** Iterations of the SCRAM-SHA-256 verifier (PostgreSQL's default `scram_iterations`). */
+const SCRAM_ITERATIONS = 4096;
+
+/**
+ * The SCRAM-SHA-256 verifier PostgreSQL stores for a password (RFC 5802, RFC 7677; the format of `pg_authid`),
+ * computed here so that the password itself never travels in SQL text, where server logs could keep it
+ * (`log_statement`, `log_min_error_statement`). Only node:crypto's PBKDF2, HMAC and SHA-256.
+ */
+export function scramVerifier(password: string, salt: Buffer = randomBytes(16)): string {
+  // PostgreSQL applies SASLprep (RFC 4013), not only NFKC; for printable ASCII both are the identity. Anything else is
+  // refused rather than given a verifier that PostgreSQL would not match (the script's passwords are base64url).
+  if (!/^[\x21-\x7e]+$/.test(password)) throw new Error("A SCRAM password here is printable ASCII only");
+  const salted = pbkdf2Sync(password.normalize("NFKC"), salt, SCRAM_ITERATIONS, 32, "sha256");
+  const clientKey = createHmac("sha256", salted).update("Client Key").digest();
+  const storedKey = createHash("sha256").update(clientKey).digest();
+  const serverKey = createHmac("sha256", salted).update("Server Key").digest();
+  const key = (b: Buffer) => b.toString("base64");
+  return [
+    "SCRAM-SHA-256",
+    "$",
+    String(SCRAM_ITERATIONS),
+    ":",
+    key(salt),
+    "$",
+    key(storedKey),
+    ":",
+    key(serverKey),
+  ].join("");
+}
+
+/** How long a one-time erasure login stays valid even if the run never takes it away (a killed process). */
+export const ERASURE_LOGIN_VALID_MS = 60 * 60 * 1000;
+
+/**
+ * Lets a module's erasure role log in with a one-time password for one run of the owner's erasure script
+ * (ADR-0013); `disableErasureLogin` takes it away again. The role never keeps a stored password: only its SCRAM
+ * verifier is sent, and the login expires on its own after an hour (`VALID UNTIL`).
+ */
+export async function enableErasureLogin(
+  client: pg.ClientBase,
+  module: string,
+  password: string,
+): Promise<void> {
+  const role = client.escapeIdentifier(erasureRoleName(module));
+  // The end of validity comes from the server's clock, not this machine's (ALTER ROLE takes no expression).
+  const { rows } = await client.query<{ until: string }>(
+    `SELECT (now() + make_interval(secs => $1))::text AS until`,
+    [ERASURE_LOGIN_VALID_MS / 1000],
+  );
+  const verifier = client.escapeLiteral(scramVerifier(password));
+  await client.query(
+    `ALTER ROLE ${role} LOGIN PASSWORD ${verifier} VALID UNTIL ${client.escapeLiteral(rows[0]!.until)}`,
+  );
+}
+
+export async function disableErasureLogin(client: pg.ClientBase, module: string): Promise<void> {
+  await client.query(
+    `ALTER ROLE ${client.escapeIdentifier(erasureRoleName(module))} NOLOGIN PASSWORD NULL VALID UNTIL '-infinity'`,
+  );
 }
 
 async function ensureRole(client: pg.ClientBase, role: string, options: string): Promise<void> {

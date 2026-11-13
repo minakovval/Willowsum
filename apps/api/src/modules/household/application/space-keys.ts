@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { KeyManagement } from "../../../platform/adapters/kms/index.ts";
 import { keyRef, SpaceKeyError, type StoredSpaceKey } from "../domain/index.ts";
-import type { SpacesStore } from "./spaces.ts";
+import type { SpacesStore, SpacesTx } from "./spaces.ts";
 
 /**
  * Keys of spaces (ARC-06@PoC FR 1, FR 2, FR 3, FR 5; ADR-0012): envelope encryption. A space's 256-bit data key is
@@ -149,8 +149,9 @@ export async function openField(
 /**
  * ARC-06 FR 3: the daily task. Every space's key wrapped by an older master key version is unwrapped and wrapped
  * again with the current one; the data key stays the same, so sealed values open before, during and after (no
- * downtime). The new wrap is unwrapped and compared before it is stored, the row changes only if no one rewrapped
- * it meanwhile, and each rewrap is recorded in the space's log. A space still `pending:` gets its key; a
+ * downtime). The new wrap is unwrapped and compared before it is stored, each rewrap is recorded in the space's
+ * log before the row changes, and the row changes only if no one rewrapped it meanwhile. A space still `pending:`
+ * gets its key; a
  * destroyed key is never replaced. One space's failure does not stop the others.
  */
 export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult> {
@@ -187,13 +188,13 @@ export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult
         } finally {
           dataKey.fill(0);
         }
+        // The entry is written first, as for destroy: a failed write leaves the old wrap for the next run, and a
+        // rewrap that loses the race below leaves at most an entry without a change — never a change without one.
+        await deps.audit.keyRewrapped(householdId, key.keyId, key.masterKeyVersion, next.masterKeyVersion);
         const changed = await deps.store.inSpace(householdId, (tx) =>
           tx.rewrapSpaceKey(householdId, key.keyId, key.masterKeyVersion, next),
         );
-        if (changed) {
-          rewrapped += 1;
-          await deps.audit.keyRewrapped(householdId, key.keyId, key.masterKeyVersion, next.masterKeyVersion);
-        }
+        if (changed) rewrapped += 1;
       } else if (ref?.startsWith(keyRef.pendingPrefix)) {
         const fresh = await newSpaceKey(deps.kms, householdId);
         const after = keyRef.live(fresh.keyId);
@@ -214,37 +215,63 @@ export async function rewrapSpaceKeys(deps: SpaceKeysDeps): Promise<RewrapResult
   return { rewrapped, provisioned, failed };
 }
 
+/** Destroy attempts when the key changes under the call (a provisioning or another destroy in between). */
+export const DESTROY_ATTEMPTS = 3;
+
 /**
  * ARC-06 FR 5, NFR-12 FR 3: destroys a space's key. The wrap is deleted and the reference becomes `destroyed:<id>`;
  * the space's sealed values can no longer be opened. Copies keep the wrap until they rotate out (≤ 35 days).
  * Recorded in the platform log before anything changes. A space still `pending:` is marked `destroyed:<its id>`, so
- * it never gets a key. Repeating it does nothing.
+ * it never gets a key. The change runs under the lock of the space's record and re-checks what it read: a key
+ * provisioned or rewrapped in between is caught and the destruction starts again (with its own entry), so a
+ * destroyed space never keeps a key. `finish` runs in the same locked transaction after the key is gone (the
+ * erasure deletes the space's record there, ADR-0013). Repeating it does nothing.
  */
 export async function destroySpaceKey(
   deps: SpaceKeysDeps,
   householdId: string,
+  finish?: (tx: SpacesTx) => Promise<void>,
 ): Promise<{ readonly destroyed: boolean }> {
-  const { ref, key } = await deps.store.inSpace(householdId, async (tx) => ({
-    ref: await tx.encryptionKeyRef(householdId),
-    key: await tx.spaceKey(householdId),
-  }));
-  if (!key) {
-    // A space that never got its key: mark it destroyed so the daily task never gives it one. Recorded first, as
-    // below; the space's id stands for the key that never existed.
-    if (ref?.startsWith(keyRef.pendingPrefix)) {
-      await deps.audit.keyDestroyed(householdId);
-      await deps.store.inSpace(householdId, (tx) =>
-        tx.replaceKeyRef(householdId, ref, keyRef.destroyed(householdId)),
-      );
-    }
-    return { destroyed: false };
+  const read = (tx: SpacesTx) =>
+    Promise.all([tx.encryptionKeyRef(householdId), tx.spaceKey(householdId)]).then(([ref, key]) => ({
+      ref,
+      key,
+    }));
+  for (let attempt = 0; attempt < DESTROY_ATTEMPTS; attempt++) {
+    const seen = await deps.store.inSpace(householdId, read);
+    const pending = !seen.key && seen.ref?.startsWith(keyRef.pendingPrefix) === true;
+    if (!seen.key && !pending && !finish) return { destroyed: false };
+    // The entry is written first: if it fails, nothing changed and a repeat tries again. A failure after it leaves
+    // at most a second entry on the repeat — never a destroyed key without one. A space that never had a key is
+    // recorded under its own id.
+    if (seen.key) await deps.audit.keyDestroyed(seen.key.keyId);
+    else if (pending) await deps.audit.keyDestroyed(householdId);
+    // A repeat (or a re-application after a restore) on a space whose key is already destroyed still records the
+    // step that deletes its record.
+    else if (finish && seen.ref?.startsWith(keyRef.destroyedPrefix))
+      await deps.audit.keyDestroyed(seen.ref.slice(keyRef.destroyedPrefix.length));
+    const done = await deps.store.inSpace(householdId, async (tx) => {
+      await tx.lockSpace(householdId);
+      const now = await read(tx);
+      if (now.ref !== seen.ref || now.key?.keyId !== seen.key?.keyId) return false;
+      if (seen.key) {
+        await tx.deleteSpaceKey(householdId, seen.key.keyId);
+        if (
+          !(await tx.replaceKeyRef(
+            householdId,
+            keyRef.live(seen.key.keyId),
+            keyRef.destroyed(seen.key.keyId),
+          ))
+        )
+          throw new Error("The key reference of the space changed under its lock");
+      } else if (pending && seen.ref) {
+        if (!(await tx.replaceKeyRef(householdId, seen.ref, keyRef.destroyed(householdId))))
+          throw new Error("The key reference of the space changed under its lock");
+      }
+      if (finish) await finish(tx);
+      return true;
+    });
+    if (done) return { destroyed: seen.key !== null };
   }
-  // The entry is written first: if it fails, the key is still there and a repeat tries again. A failure after it
-  // leaves at most a second entry on the repeat — never a destroyed key without one.
-  await deps.audit.keyDestroyed(key.keyId);
-  await deps.store.inSpace(householdId, async (tx) => {
-    await tx.deleteSpaceKey(householdId, key.keyId);
-    await tx.replaceKeyRef(householdId, keyRef.live(key.keyId), keyRef.destroyed(key.keyId));
-  });
-  return { destroyed: true };
+  throw new Error("The space's key kept changing while it was being destroyed");
 }

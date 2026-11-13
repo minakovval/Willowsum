@@ -1,6 +1,7 @@
 // Registry of backend modules (ARC-01). scripts/new-module.ts adds each new module here; the event
 // catalogue and the contract check read this list.
 import type { ModuleDefinition } from "../platform/modules/define.ts";
+import { dataErasureModule } from "./data-erasure/index.ts";
 import { ledgerModule } from "./ledger/index.ts";
 import { fxRatesModule } from "./fx-rates/index.ts";
 import { householdModule } from "./household/index.ts";
@@ -19,5 +20,6 @@ export const modules: readonly ModuleDefinition[] = [
   householdModule,
   fxRatesModule,
   ledgerModule,
+  dataErasureModule,
   // new-module: insert above this line
 ];
