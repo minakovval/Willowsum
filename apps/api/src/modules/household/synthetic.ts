@@ -24,6 +24,8 @@ export const synthetic = [
           household_id: household.id,
           name: household.name,
           data_region: household.dataRegion,
+          // ACC-06@PoC FR 1: every space reports in EUR in this release.
+          reporting_currency: "EUR",
           // ARC-06 FR 1: the reference names the space's (synthetic) key row below.
           encryption_key_ref: `dek:${keyIdOf(household.id)}`,
         };

@@ -4,6 +4,7 @@ export {
   firstSpaceName,
   SPACE_NAME_MAX,
   SPACE_NAME_PREFIX,
+  SPACE_REPORTING_CURRENCY,
   SPACE_ROLES,
   spaceName,
   type SpaceRole,

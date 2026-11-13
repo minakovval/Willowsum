@@ -1821,7 +1821,7 @@
     "/v1/space": {
       "get": {
         "operationId": "getSpace",
-        "summary": "The current space: its name (shown in the profile) and data region",
+        "summary": "The current space: its name (shown in the profile), data region and reporting currency",
         "tags": [
           "household"
         ],
@@ -1851,11 +1851,19 @@
                         "eu"
                       ],
                       "x-extensible-enum": true
+                    },
+                    "reportingCurrency": {
+                      "type": "string",
+                      "enum": [
+                        "EUR"
+                      ],
+                      "x-extensible-enum": true
                     }
                   },
                   "required": [
                     "name",
-                    "dataRegion"
+                    "dataRegion",
+                    "reportingCurrency"
                   ],
                   "additionalProperties": false
                 }
@@ -2004,11 +2012,19 @@
                         "eu"
                       ],
                       "x-extensible-enum": true
+                    },
+                    "reportingCurrency": {
+                      "type": "string",
+                      "enum": [
+                        "EUR"
+                      ],
+                      "x-extensible-enum": true
                     }
                   },
                   "required": [
                     "name",
-                    "dataRegion"
+                    "dataRegion",
+                    "reportingCurrency"
                   ],
                   "additionalProperties": false
                 }

@@ -3,6 +3,7 @@ import {
   PIVOT_CURRENCY,
   RateUnavailableError,
   crossRate,
+  fixedConversionRate,
   rateCoversDate,
   STALE_AFTER_MS,
 } from "../domain/index.ts";
@@ -63,6 +64,9 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
     };
   };
   const rate = async (from: string, to: string, date: string): Promise<QuotedRate> => {
+    // A replaced currency converts to its successor at the fixed rate of the directory (ACC-06@PoC edge case 2).
+    const fixed = fixedConversionRate(from, to, date);
+    if (fixed) return { rate: fixed, ...(await freshness()) };
     const needed = [from, to].filter((c) => c !== PIVOT_CURRENCY);
     const found = await deps.store.ratesOnOrBefore(needed, date);
     if (!found) throw new RateUnavailableError();
@@ -72,13 +76,24 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
     rate,
     async rates(requests) {
       if (requests.some((r) => r.from === r.to)) throw new Error("fx-rates: a rate needs two currencies");
-      const found = await deps.store.ratesOnOrBeforeEach(
-        requests.map((r) => ({
-          currencies: [r.from, r.to].filter((c) => c !== PIVOT_CURRENCY),
-          date: r.date,
-        })),
-      );
+      // Pairs the directory of replacements fixes (ACC-06@PoC edge case 2) never read the history.
+      const fixed = requests.map((r) => fixedConversionRate(r.from, r.to, r.date));
+      const open = requests.filter((_, i) => fixed[i] === null);
+      const read =
+        open.length === 0
+          ? []
+          : await deps.store.ratesOnOrBeforeEach(
+              open.map((r) => ({
+                currencies: [r.from, r.to].filter((c) => c !== PIVOT_CURRENCY),
+                date: r.date,
+              })),
+            );
+      if (read.length !== open.length) throw new Error("fx-rates: one day of rates per request expected");
+      let next = 0;
+      const found = fixed.map((f) => (f === null ? read[next++] : undefined));
       return requests.map((r, i) => {
+        const fixedRate = fixed[i];
+        if (fixedRate) return fixedRate;
         const day = found[i];
         if (!day) return null;
         try {

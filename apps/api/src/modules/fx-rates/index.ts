@@ -26,6 +26,8 @@ export type {
   ReportedTotal,
 } from "./application/index.ts";
 export {
+  FIXED_CONVERSIONS,
+  FIXED_CONVERSION_SOURCE,
   NBU_SOURCE,
   PIVOT_CURRENCY,
   REFRESH_INTERVAL_MS,
@@ -33,8 +35,9 @@ export {
   RESTRICTED_CONVERTIBILITY,
   RateUnavailableError,
   STALE_AFTER_MS,
+  fixedConversionRate,
   isRestrictedConvertibility,
   rateCoversDate,
   retryDelayMs,
 } from "./domain/index.ts";
-export type { PivotRate } from "./domain/index.ts";
+export type { FixedConversion, PivotRate } from "./domain/index.ts";
