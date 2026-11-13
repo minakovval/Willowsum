@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   publish:
+    # A manual run from another branch would publish an artifact named `traceability` that is not main's: main only.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

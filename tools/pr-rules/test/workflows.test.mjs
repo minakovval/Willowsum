@@ -111,14 +111,15 @@ test('PRC-02: main publishes the matrix and the report as the artifact `traceabi
   assert.match(wf, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
   assert.match(wf, /^permissions: \{\}$/m);
   assert.deepEqual(jobPermissions(wf, 'publish'), { contents: 'read' });
+  // A manual run on another branch must not publish a `traceability` artifact that looks like main's.
+  assert.match(wf, /^ {2}publish:\n(?: {4}#.*\n)* {4}if: github\.ref == 'refs\/heads\/main'\n/m);
   assert.match(wf, /--traceability --report docs\/traceability\/req-check-report\.md/);
   assert.match(wf, /uses: actions\/upload-artifact@[0-9a-f]{40} # v[\d.]+\n {8}with:\n {10}name: traceability\n {10}path: docs\/traceability\/\n/);
   assert.doesNotMatch(wf, /secrets\.|id-token|contents: write|pull_request/);
 });
 
 test('PRC-02: no rule or skill says to commit the traceability files or the report', () => {
-  const docs = ['AGENTS.md', 'README.md', '.github/pull_request_template.md', 'docs/requirements/README.md'];
-  for (const name of fs.readdirSync(path.join(ROOT, '.claude/skills'))) docs.push(`.claude/skills/${name}/SKILL.md`);
+  const docs = ['AGENTS.md', 'README.md', '.github/pull_request_template.md', 'docs/requirements/README.md', ...ruleFiles().filter((f) => f !== 'AGENTS.md')];
   for (const rel of docs) {
     const text = read(rel).replace(/\s+/g, ' ');
     for (const sentence of text.split(/(?<=[.;:])\s/)) {
@@ -129,8 +130,45 @@ test('PRC-02: no rule or skill says to commit the traceability files or the repo
 });
 
 test('PRC-02: skills that push or PATCH a PR body run the local description and label check first', () => {
-  for (const skill of ['implement-requirement', 'fix-review-findings', 'change-requirement', 'sync-branch']) {
+  for (const skill of ['implement-requirement', 'fix-review-findings', 'change-requirement', 'sync-branch', 'screen-from-canvas', 'plan-wave']) {
     const text = read(`.claude/skills/${skill}/SKILL.md`);
-    assert.match(text, /node tools\/pr-rules\/index\.mjs local --title /, skill);
+    // Fetch first: the check diffs against origin/main (follow-up of #166).
+    assert.match(text, /git fetch origin main\nnode tools\/pr-rules\/index\.mjs local --title /, skill);
   }
+});
+
+/** AGENTS.md, every SKILL.md and every reference file they link to (`.claude/references/`, `<skill>/references/`). */
+function ruleFiles() {
+  const out = ['AGENTS.md'];
+  for (const name of fs.readdirSync(path.join(ROOT, '.claude/skills'))) {
+    out.push(`.claude/skills/${name}/SKILL.md`);
+    const refs = path.join(ROOT, '.claude/skills', name, 'references');
+    if (fs.existsSync(refs)) for (const r of fs.readdirSync(refs)) out.push(`.claude/skills/${name}/references/${r}`);
+  }
+  for (const r of fs.readdirSync(path.join(ROOT, '.claude/references'))) out.push(`.claude/references/${r}`);
+  return out;
+}
+
+test('owner, 2026-11-13: every moved rule stays reachable — each reference file is linked from AGENTS.md or a skill, every link resolves', () => {
+  const linked = new Set();
+  for (const rel of ruleFiles()) {
+    const text = read(rel).replace(/`[^`\n]*`/g, ''); // links quoted as code are examples
+    for (const m of text.matchAll(/\]\(([^)#\s]+\.md)\)/g)) {
+      if (/^https?:/.test(m[1])) continue;
+      const target = path.posix.normalize(path.posix.join(path.posix.dirname(rel), m[1]));
+      assert.ok(fs.existsSync(path.join(ROOT, target)), `${rel}: broken link ${m[1]}`);
+      if (!rel.includes('/references/')) linked.add(target);
+    }
+  }
+  for (const rel of ruleFiles().filter((f) => f.includes('references/'))) {
+    assert.ok(linked.has(rel), `${rel} is linked from no SKILL.md and not from AGENTS.md`);
+    assert.match(read(rel), /Read when /, `${rel}: says when to read it`);
+  }
+});
+
+test('owner, 2026-11-13: a typical implementer start (AGENTS.md + implement-requirement) stays short', () => {
+  const lines = (rel) => read(rel).split('\n').length;
+  const total = lines('AGENTS.md') + lines('.claude/skills/implement-requirement/SKILL.md');
+  // Before the split: 506 lines (324 + 182). The owner asked for at least 30 % less: at most 354.
+  assert.ok(total <= 354, `AGENTS.md + implement-requirement: ${total} lines`);
 });

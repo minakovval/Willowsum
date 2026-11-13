@@ -9,7 +9,7 @@
      `node tools/req-check/index.mjs --views`.
      One requirement (or one small group) per PR. Until the owner has approved the design of the target
      release and started its development (PoC: 2026-11-06), PRs for that release change only requirements,
-     design and docs — not apps/ or packages/ (AGENTS.md, «Process: design before code»). -->
+     design and docs — not apps/ or packages/ (`.claude/references/design-before-code.md` (AGENTS.md links it)). -->
 
 ## Owner decision
 

@@ -10,6 +10,7 @@ import { findMentions, computeCoverage, renderCoverage, danglingMentions, IGNORE
 import { runChecks } from '../lib/run.mjs';
 import { makeRegistries } from '../lib/registries.mjs';
 import { main } from '../index.mjs';
+import { resolveSlice, decisionMentions } from '../lib/show.mjs';
 import { corpus, card, readme, generalAndArc, rules } from './helpers.mjs';
 
 /** A slice with the given FR, AC and edge-case lines and link fields. */
@@ -424,6 +425,41 @@ test('danglingMentions: one finding per file, line and item; a marked line is no
   assert.deepEqual(mentions.map((m) => `${m.line} ${m.kind}${m.n}`), ['1 FR9', '1 FR9', '1 AC1']);
   const d = danglingMentions(computeCoverage(check(sourced()).model, mentions));
   assert.deepEqual(d.map((f) => `${f.file}:${f.line} ${f.rule}`), ['a.test.ts:1 mention-no-item']);
+});
+
+test('--show: one slice with its view, dependencies, citing decisions and coverage line', () => {
+  const root = fixture(sourced());
+  const write = (rel, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.writeFileSync(path.join(root, rel), text);
+  };
+  write('apps/web/budget.test.ts', 'it("BUD-16@PoC v2 FR 1: x", () => {});\n'); // req-check-ignore-mention
+  write('docs/decisions/log/2026-11-13-budget.md', '# Рішення\n\n- Власник: BUD-16@PoC v2 — так.\n- BUD-16a не про це.\n');
+  const logs = [];
+  assert.equal(main(['--root', root, '--no-baseline', '--quiet', '--show', 'BUD-16@PoC v2'], (l) => logs.push(l)), 0);
+  const out = logs.join('\n');
+  assert.match(out, /^# BUD-16@PoC v2 — docs\/requirements\/bud\/BUD-16\.poc-v2\.md$/m);
+  assert.ok(out.includes(fs.readFileSync(path.join(root, 'docs/requirements/bud/BUD-16.poc-v2.md'), 'utf8').trimEnd()), 'the whole view');
+  assert.match(out, /- extends: BUD-16@PoC — docs\/requirements\/bud\/BUD-16\.poc\.md/);
+  assert.match(out, /- depends on: BUD-01@PoC v2 — docs\/requirements\/bud\/BUD-01\.poc-v2\.md/);
+  assert.match(out, /Depended on by: BUD-16@MVP/);
+  assert.match(out, /- docs\/decisions\/log\/2026-11-13-budget\.md:3 — - Власник: BUD-16@PoC v2 — так\./);
+  assert.doesNotMatch(out, /BUD-16a не про це/);
+  assert.match(out, /\| BUD-16@PoC v2 \| 1\/3 \|/);
+  // An unknown target is an error, not an empty answer.
+  assert.throws(() => main(['--root', root, '--no-baseline', '--quiet', '--show', 'BUD-99@PoC'], () => {}), /not a known requirement or slice/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('--show resolves a release without its own slice to the latest earlier one; a plain ID to the first', () => {
+  const { model } = check(sourced());
+  assert.equal(resolveSlice(model, 'BUD-16@PoC').slice.sid, 'BUD-16@PoC');
+  const v1 = resolveSlice(model, 'BUD-16@v1');
+  assert.equal(v1.slice.sid, 'BUD-16@MVP');
+  assert.match(v1.note, /has no v1 slice: the latest earlier one, BUD-16@MVP, applies/);
+  assert.equal(resolveSlice(model, 'BUD-16').slice.sid, 'BUD-16@PoC');
+  for (const t of ['BUD-99@PoC', 'BUD-01@PoC', 'BUD-16@Nope', 'nonsense']) assert.equal(resolveSlice(model, t), null, t);
+  assert.deepEqual(decisionMentions([{ rel: 'a.md', text: 'x BUD-16\nBUD-160\nBUD-16a\n(BUD-16@MVP)' }], 'BUD-16').map((d) => d.line), [1, 4]);
 });
 
 test('items: FR n of a text without a «Функціональні вимоги» label is item n of its first numbered list', () => {

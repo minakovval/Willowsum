@@ -128,6 +128,8 @@ export const SENSITIVE_PATHS = {
     '**/vitest*.config.*',
     // Claude Code settings: hooks run commands in every agent session.
     '.claude/settings*.json',
+    // Git hooks (core.hooksPath .githooks, set by `prepare`): run commands on every commit in every worktree.
+    '.githooks/**',
   ],
   infrastructure: ['infra/**', 'tools/infra-check/**', 'tools/observability/**'],
 };

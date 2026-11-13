@@ -39,22 +39,13 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
-6. **Merge** (squash): the lead merges only when all hold on the **current head SHA** — both verdicts Ready
-   on that exact head (`review-pr`, and `security-review` for `sensitive`) and CI green (owner, 2026-11-13):
-   - CI green (a path-skipped job counts as passed, AGENTS.md «CI minutes»);
-   - the latest `Verdict: Ready` names that exact SHA; for `sensitive`, the latest `Security verdict: Ready`
-     names it too; any later commit needs a re-review of that commit;
-   - for `owner-decision` PRs: the body records the owner's decision (and the decision log has it); cloud or
-     production actions: the owner's approval (AGENTS.md step 7);
-   - the owner has not commented «stop» or asked a question on the PR.
-   For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
-   Do not ask the owner to confirm the merge.
-   **Merge on Ready, follow up separately** (owner, 2026-11-13): both verdicts Ready and only non-blocking
-   findings left → merge; do not send the non-blocking items back to the implementer for the same PR, since
-   that starts another review round. Exception: an item the reviewer marks as cheap and safe to fold in may
-   still be added before merge, at your choice; that commit then needs a re-review like any other.
-   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
-   round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head).
+6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for
+   `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
+   `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question.
+   Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
+   Behind `main` → `sync-branch`, then a confirmation round. Full list:
+   [merge checklist](references/merge-checklist.md) (read before every merge).
+
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
@@ -65,16 +56,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    implementer on a lighter model) closes the small open follow-ups: issues labelled or listed as follow-ups and
    the «Follow-ups» lists of the merged PRs. Larger items get a plan row of their own instead.
 
-**Stacked PRs** (owner, 2026-11-13): a PR that needs another open PR still targets `main`. Branch it from the
-parent's branch and say in its body which PR it waits for; it is merged only after the parent. After the
-parent squash-merges, bring the child up to date with `sync-branch` (merge `origin/main`, never rebase): its
-diff against `main` becomes its own commits only. Then get a merge-only confirmation from its reviewers on
-the new head (`review-pr` «6. Confirmation rounds») before step 6.
-
-**CI cannot run** (owner, 2026-11-13; e.g. GitHub Actions blocked by billing or an outage, the run's
-annotations say so): stop merging. Local runs never replace CI and never count as green. Report it to the
-owner at once (what is blocked, the run link and annotation, what the owner can do), keep reviews going, and
-merge only after CI runs green on the exact head (`investigate-ci-failure`).
+Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
+another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
 ## 2. Owner
 
@@ -102,6 +85,8 @@ retrying a call that is not idempotent — a comment, an issue, a merge — chec
 (`gh api repos/{owner}/{repo}/issues/<n>/comments`, the open issues, `gh api repos/{owner}/{repo}/pulls/<n> --jq
 .merged`); act again only when it did not. Unsubscribing, labels and PATCHes are idempotent: retry as they are.
 Brief the agents you start to do the same (their skills say so).
+Shared details: [retry rules](../../references/github-errors.md) (read when it happens).
+
 
 ## 3. Parallel branches
 
@@ -114,34 +99,13 @@ start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide).
 
-## 4. Restarts
+## 4. Restarts and token economy
 
-The container can restart and agents' context is lost. Recover state from durable sources, not memory:
-- open PRs and their heads: `gh pr list --state open --json number,headRefName,headRefOid,labels`;
-- the latest reviews per PR (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), their verdicts and SHAs;
-- CI status of each head; finished agents' output files in the session scratchpad;
-- worktrees (`git worktree list`) and test databases (`pnpm db:test list`).
-Then continue from the first step that is not done; re-subscribe to open PRs.
+- After a restart recover state from durable sources — [restarts](references/restarts.md) (read when you
+  resume).
+- Model by risk: the strongest model for sensitive features and security reviews of critical modules; a
+  lighter one only for `review-pr` of docs-and-requirement-text-only PRs (not when they touch a security
+  rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
+  stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
+  a brief).
 
-## 5. Token economy
-
-Owner request 2026-11-12; rules decided by the lead.
-
-1. Pick the agent's model by risk:
-   - the strongest model for implementing sensitive features and for security reviews of critical modules
-     (isolation, money, auth, encryption);
-   - reviews (owner, 2026-11-13): a `review-pr` of a PR that changes **only docs and requirement text** may use
-     a lighter, cheaper model (the Agent tool's model option). Docs-only means every changed file is one that
-     `isDocsOnly` in `tools/pr-rules/lib/ci-paths.mjs` accepts (the job `changes` skips all heavy jobs: `docs/`,
-     `design/`, `.claude/`, root `*.md`, the PR template) and none is a test or code. Every review of a PR
-     that changes code, tools or workflows, and every confirmation round of such a PR (round 2, merge-only
-     confirmations), stays on the main model;
-   - a lighter model for applying ready reviewer patches (`fix-review-findings`), follow-up PRs and status
-     checks.
-2. Round-2 re-reviews go to a fresh agent with a narrow brief (the diff since the last head plus the previous
-   findings), not to a resumed long-context agent.
-3. Reviewers rely on green CI for the full suites. Locally they run only the tests touching the changed code,
-   plus integration tests for database changes; no repeated full-suite runs.
-4. Briefs point agents at exact files and sections instead of «read everything».
-5. Agents return short final reports (verdict, blocking with file:line, follow-ups, checks), not narratives.
-6. Keep PRs small (AGENTS.md step 5, owner rule 7) so diffs, and therefore reviews, stay small.

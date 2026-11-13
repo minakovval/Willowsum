@@ -177,6 +177,8 @@ report without a checkout, open the latest run of the workflow «Requirements tr
 PoC build sequence, and its artifact `traceability` holds every file. In a checkout, generate them on demand:
 `node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md`.
 `--impact` does not need them: it computes dependents from the sources each time.
+One slice at a glance: `node tools/req-check/index.mjs --show BUD-16@PoC` prints its view, its dependencies (direct,
+transitive and dependents), the decisions in `docs/decisions/` that cite it and its coverage line.
 Run locally before pushing: `node --test tools/req-check`, `node tools/req-check/index.mjs --views` (0 errors)
 and `node tools/req-check/index.mjs --check-mentions` (a test named by an item its view does not have, e.g.
 `CICD-06@PoC AC3` where the view has only FR 1–3, fails CI with its file and line; name a table criterion by its

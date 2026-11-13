@@ -28,7 +28,8 @@
     "local:reset": "node tools/local-env/index.mjs reset",
     "local:status": "node tools/local-env/index.mjs status",
     "local:smoke": "node tools/local-env/index.mjs smoke",
-    "db:test": "node tools/local-env/index.mjs db-test"
+    "db:test": "node tools/local-env/index.mjs db-test",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

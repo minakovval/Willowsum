@@ -8,6 +8,7 @@
 //                  `description` check and the `label` decision on the branch's diff against the base.
 //                  Flags: --title <PR title> (or --title-file <file>), --body-file <file> (the body to send),
 //                  --base <ref> (default origin/main), --root <dir> (default this repository). Exit 1 when the description would fail CI.
+//   pre-commit   — the git hook (.githooks/pre-commit): Prettier and ESLint on the staged content of staged files.
 //   alerted      — scheduled job, after `daily --outputs` found something: fail the run.
 //   daily        — scheduled job: check main and the PRs merged into it; open or update the alert issue.
 //                  Flags: --since <ISO> --until <ISO> (default: from the last successful scheduled run, at most
@@ -23,6 +24,7 @@ import { evaluate, needsAlert, render } from './lib/daily.mjs';
 import { baseMapFor, errorClass, fetchDailyInput, upsertAlertIssue, windowStart } from './lib/fetch.mjs';
 import { client, ensureLabel } from './lib/github.mjs';
 import { changedFilesLocal, localClassification } from './lib/local.mjs';
+import { preCommit } from './lib/pre-commit.mjs';
 import {
   OWNER_DECISION_LABEL,
   classifyFiles,
@@ -191,12 +193,12 @@ async function local() {
   console.log(`${files.length} files changed against ${safeName(base)}.`);
   const labels = [...labelsFor(sensitive), ...(ownerDecision.length ? [OWNER_DECISION_LABEL] : [])];
   console.log(`Labels CI will set: ${labels.length ? labels.join(', ') : 'none'}.`);
-  for (const c of sensitive.categories) console.log(`  ${c}: ${safeName(sensitive.files[c].slice(0, 10).join(', '))}`);
+  for (const c of sensitive.categories) console.log(`  ${c}: ${safeName(sensitive.files[c].join(', '))}`);
   if (ownerDecision.length) {
-    console.log(`Owner decision needed (rules or requirements): ${safeName(ownerDecision.slice(0, 10).join(', '))} — the body must record it.`);
+    console.log(`Owner decision needed (rules or requirements): ${safeName(ownerDecision.join(', '))} — the body must record it.`);
   }
   if (approval.required) {
-    console.log(`Acts on the cloud or production — the owner's approval is needed on the PR: ${safeName(approval.reasons.slice(0, 5).join('; '))}`);
+    console.log(`Acts on the cloud or production — the owner's approval is needed on the PR: ${safeName(approval.reasons.join('; '))}`);
   }
   const problems = checkDescription({ title, body, ids: requirementIds(path.join(root, 'docs/requirements')), sensitive });
   if (!problems.length) {
@@ -213,9 +215,14 @@ function alerted() {
   process.exitCode = 1;
 }
 
-const commands = { label, description, changes, daily, alerted, local };
+/** Git pre-commit hook (.githooks/pre-commit): Prettier and ESLint on the staged files. */
+function preCommitHook() {
+  process.exitCode = preCommit(process.cwd());
+}
+
+const commands = { label, description, changes, daily, alerted, local, 'pre-commit': preCommitHook };
 if (!commands[command]) {
-  console.error('Usage: node tools/pr-rules/index.mjs label|description|changes|daily|alerted|local [flags]');
+  console.error('Usage: node tools/pr-rules/index.mjs label|description|changes|daily|alerted|local|pre-commit [flags]');
   process.exit(2);
 }
 await commands[command]();

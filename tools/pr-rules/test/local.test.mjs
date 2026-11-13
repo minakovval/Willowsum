@@ -83,3 +83,17 @@ test('local: a file renamed out of a sensitive path counts by its old name; miss
   assert.equal(run(root, ['--body-file', body]).code, 2);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('local: lists every changed file of a category and every rule file, not only the first ten (follow-up of #166)', () => {
+  const files = {};
+  for (let i = 1; i <= 12; i++) files[`.github/workflows/w${String(i).padStart(2, '0')}.yml`] = 'on: push\n';
+  for (let i = 1; i <= 12; i++) files[`.claude/skills/s${String(i).padStart(2, '0')}/SKILL.md`] = 'x\n';
+  const root = repo(files);
+  const body = path.join(root, 'proc4-body.md');
+  fs.writeFileSync(body, BODY.replace('- [ ] Pipeline', '- [x] Pipeline'));
+  const r = run(root, ['--title', 'PRC-02: x', '--body-file', body]);
+  assert.equal(r.code, 0, r.stdout);
+  assert.match(r.stdout, /\.github\/workflows\/w12\.yml/);
+  assert.match(r.stdout, /\.claude\/skills\/s12\/SKILL\.md/);
+  fs.rmSync(root, { recursive: true, force: true });
+});

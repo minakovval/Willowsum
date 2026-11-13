@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
 
-Рішення власника 2026-11-12 (AGENTS.md, «External services and owner actions»).
+Рішення власника 2026-11-12 (`.claude/references/external-services.md` (AGENTS.md links it)).
 
 | Що | Де |
 | --- | --- |

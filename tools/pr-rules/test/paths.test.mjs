@@ -142,6 +142,7 @@ test('review #87 blocking 2: every gate the required CI jobs run, and the supply
     'pnpm-workspace.yaml',
     '.npmrc',
     '.claude/settings.json',
+    '.githooks/pre-commit',
     'apps/api/package.json',
     'packages/ui/package.json',
     'tsconfig.base.json',
