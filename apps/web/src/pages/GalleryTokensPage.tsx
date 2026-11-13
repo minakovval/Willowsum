@@ -227,7 +227,7 @@ function TypeRow({ name, style }: { name: string; style: TypeStyle }) {
 /** CMP-33@PoC, DS-12@PoC item 6: icon-only buttons — each with a name, shown as its tooltip (CMP-25@PoC). */
 function IconButtonsDemo() {
   const { t } = useI18n();
-  const [filtered, setFiltered] = useState(true);
+  const [filtered, setFiltered] = useState(false);
   return (
     <>
       <p className="ws-muted">{t("gallery.iconButtons.intro")}</p>

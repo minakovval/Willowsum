@@ -135,9 +135,9 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(tip.textContent).toBe(button.getAttribute("aria-label"));
     }
     const filter = within(section).getByRole("button", { name: "Фільтр" });
-    expect(filter.getAttribute("aria-pressed")).toBe("true");
-    act(() => filter.click());
     expect(filter.getAttribute("aria-pressed")).toBe("false");
+    act(() => filter.click());
+    expect(filter.getAttribute("aria-pressed")).toBe("true");
     act(() => screen.getByLabelText("English").click());
     expect(within(section).getByRole("button", { name: "Options" })).toBeTruthy();
   });
