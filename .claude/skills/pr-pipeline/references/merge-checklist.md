@@ -23,7 +23,8 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
      ```
      Every line must read `success` or `skipped` (a head with no check runs yet counts as not finished);
    - the latest `Verdict: Ready` names that exact SHA; for `sensitive`, the latest `Security verdict: Ready`
-     names it too; any later commit needs a re-review of that commit;
+     names it too; any later commit needs a re-review of that commit (a docs-only sync: the lead's check and
+     review below, «Docs-only PR after a sync»);
    - for `owner-decision` PRs: the body records the owner's decision (and the decision log has it); cloud or
      production actions: the owner's approval (AGENTS.md step 7);
    - the owner has not commented «stop» or asked a question on the PR.
@@ -41,17 +42,16 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
    **Docs-only PR after a sync** (owner, 2026-11-13, #178): a PR whose every file is docs-only (`isDocsOnly`,
    [token economy](token-economy.md) item 1: `docs/`, `design/`, `.claude/`, root `*.md`) and not labelled
    `sensitive` needs no confirmation agent when `main`'s changes do not touch its files. The lead checks it
-   with one command (`old` = the reviewed head, `new` = the head after the sync, both fetched) and, when it
-   prints `unchanged`, records the output and both SHAs in a PR comment; the Ready verdicts on `old` then
-   stand for `new`. Any other output → the usual confirmation round.
+   with one command (`old` = the reviewed head, `new` = the head after the sync, both fetched). When it prints
+   `unchanged`, the lead posts a PR **review** (not a comment, so the daily check of `main`, ADR-0008, finds a
+   verdict on the merged head): `Reviewed head: <new>`, both SHAs, the command and its output `unchanged`, and
+   `Verdict: Ready` on its own last line. Any other output → the usual confirmation round.
    ```bash
    old=<reviewed-head>; new=<synced-head>; git fetch -q origin main
    ob=$(git merge-base origin/main "$old"); nb=$(git merge-base origin/main "$new")
-   files=$(git diff --name-only "$ob" "$old")
-   [ -n "$files" ] && [ "$files" = "$(git diff --name-only "$nb" "$new")" ] \
-     && [ -z "$(git diff --name-only "$ob" "$nb" -- $files)" ] \
-     && diff <(git diff "$ob" "$old" -- $files) <(git diff "$nb" "$new" -- $files) >/dev/null \
+   [ -n "$(git diff --name-only "$ob" "$old")" ] \
+     && diff <(git diff --full-index --binary "$ob" "$old") <(git diff --full-index --binary "$nb" "$new") >/dev/null \
      && echo unchanged || echo changed
    ```
-   It checks that the PR changes the same files, that `main` did not touch them, and that the PR's own diff is
-   byte-for-byte the same. CI must still be green on `new` and `behind_by` must be `0`.
+   It compares the PR's full diff, with full blob hashes, before and after the sync: they are byte-for-byte the
+   same only when the file set, the base blobs (so `main` did not touch them) and the result blobs all match. CI must still be green on `new` and `behind_by` must be `0`.

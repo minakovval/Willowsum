@@ -92,7 +92,8 @@ errors) lives only in `packages/domain-kernel`.
    a job its path filter skips counts as passed — [CI minutes](.claude/references/ci-minutes.md), read when you
    change a workflow). Never skip, disable or weaken a test to get green.
 7. The lead merges (squash) only when CI is green on the latest commit and both verdicts are Ready **on that
-   exact head SHA**; any later commit needs a re-review. PRs that change requirements, AGENTS.md or skills
+   exact head SHA**; any later commit needs a re-review (a docs-only sync that leaves the PR's diff unchanged:
+   the lead's check and review, merge rules). PRs that change requirements, AGENTS.md or skills
    (label `owner-decision`) need the owner's decision recorded in the body and the decision log. Only what
    acts on the cloud or production (`tofu apply`, deploy or release, the workflows and trust settings that do
    it, production DNS) needs the owner's approval on the PR. Agents never write «Схвалюю» or «Approved», and

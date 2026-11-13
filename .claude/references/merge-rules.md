@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you merge a PR, write an «Owner decision» section, or a PR acts on the cloud or production.
+Moved out of AGENTS.md (owner, 2026-11-13: shorter AGENTS.md and skills); later changes are marked with their dates. Read when you merge a PR, write an «Owner decision» section, or a PR acts on the cloud or production.
 
 7. The lead merges the PR (squash) only when CI is green on the latest commit and both verdicts are Ready
    on the exact head: the review session gave «Ready» (plus the security review for sensitive areas) **on the
@@ -31,5 +31,6 @@ Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and 
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
    that commit, as above). Exception for a merge from `main` (owner, 2026-11-13, #178): a docs-only PR not
    labelled `sensitive` whose files `main`'s changes do not touch needs no confirmation agent; the lead's
-   one-command check that the PR's own diff is unchanged stands in for it
+   one-command check that the PR's own diff is unchanged stands in for it, posted by the lead as a PR review that
+   names the new head and ends in `Verdict: Ready`
    ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md)). Any other later commit still needs a re-review.

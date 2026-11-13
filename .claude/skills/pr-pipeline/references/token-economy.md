@@ -35,15 +35,17 @@ Owner request 2026-11-12; rules decided by the lead.
 ## Token accounting
 
 Mandatory (owner, 2026-11-13; issue «Облік токенів», #180). The lead keeps the tables in the body of #180: read
-the current body right before each edit and change only the table it adds a row to (`gh api -X PATCH
-repos/{owner}/{repo}/issues/180 -f body=@<file>`; a PATCH is idempotent). Keep a running tally in the session
+the current body right before each edit (`gh api repos/{owner}/{repo}/issues/180 --jq .body > <file>`), append
+the new row to the end of its table in that file, keeping everything else as it is, and write it back with
+`gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@<file>` (`-F`, not `-f`: `-f` sends the literal text
+`@<file>` and erases the tables). Check the result shows both the old rows and the new one. Keep a running tally in the session
 scratchpad (`tokens.tsv`: PR, role, `subagent_tokens`) so a compaction does not lose it.
 
 1. **Session.** At start and before finishing, call `get_session` (no `session_id`) and read `usage`:
    `cache_read_tokens`, `output_tokens`, `cost_usd`. At start, post the snapshot as a comment on #180 (session
    name, time, the values); before finishing, add the session's row to the table «Сесії»: period and the
    difference (end minus start). The difference covers the lead and all its agents.
-2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), add a row to the table «PR»: PR, type (код / UI / вимоги /
+2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), append a row to the table «PR» (the existing rows stay): PR, type (код / UI / вимоги /
    процес / виправлення), review rounds, agents' tokens = the sum of `subagent_tokens` from the completion
    notices of the author, every reviewer and every confirmation agent of that PR (follow-up and fix agents of
    the same PR included).

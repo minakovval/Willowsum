@@ -20,8 +20,9 @@ verdict needs a confirmation on the new head SHA:
   (the first output line of `git merge-tree --write-tree HEAD^1 HEAD^2` = `git rev-parse HEAD^{tree}`;
   `review-pr` «6. Confirmation rounds»). Give the reviewers both SHAs.
 - exception (owner, 2026-11-13, #178): a docs-only PR not labelled `sensitive` whose files `main`'s changes do
-  not touch needs no confirmation agent; the lead checks it with one command
-  ([merge checklist](../../pr-pipeline/references/merge-checklist.md)). Report both SHAs to the lead.
+  not touch needs no confirmation agent; the lead checks it with one command and posts the result as a review
+  ending in `Verdict: Ready` on the new head ([merge checklist](../../pr-pipeline/references/merge-checklist.md)).
+  Report both SHAs to the lead.
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit

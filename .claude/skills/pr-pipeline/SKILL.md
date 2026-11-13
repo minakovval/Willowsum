@@ -49,8 +49,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
    `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question.
    Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
-   Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR that does not overlap
-   `main`'s changes: one command instead). Wait for CI of several PRs with one command. Full list and both
+   Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR not labelled `sensitive`
+   that does not overlap `main`'s changes: one command and the lead's review instead). Wait for CI of several PRs with one command. Full list and both
    commands: [merge checklist](references/merge-checklist.md) (read before every merge).
 
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
