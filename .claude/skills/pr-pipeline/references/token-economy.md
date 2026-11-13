@@ -19,8 +19,8 @@ Owner request 2026-11-12; rules decided by the lead.
      stays on the main model (lead, follow-up of #166);
    - a lighter model for applying ready reviewer patches (`fix-review-findings`), follow-up PRs and status
      checks.
-2. Round-2 re-reviews go to a fresh agent with a narrow brief (the diff since the last head plus the previous
-   findings), not to a resumed long-context agent.
+2. Every review, first or repeat, goes to a fresh agent with a narrow brief (owner, 2026-11-13): for round 2
+   the diff since the last head plus the previous findings. A long-context reviewer is never resumed.
 3. Reviewers rely on green CI for the full suites. Locally they run only the tests touching the changed code,
    plus integration tests for database changes; no repeated full-suite runs.
 4. Briefs point agents at exact files and sections instead of «read everything».
