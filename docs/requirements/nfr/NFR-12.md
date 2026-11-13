@@ -38,7 +38,7 @@
 - [MVP] Спільні правила: П-21, ARC-06, NFR-03, NFR-16, NFR-17
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: apps/api/test/nfr12-retention.it.test.ts, apps/api/src/modules/identity/password-reset.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/nfr12-erasure.it.test.ts, apps/api/test/nfr12-erasure-script.it.test.ts, apps/api/test/adr0013-append-only.it.test.ts, apps/api/src/modules/data-erasure/domain/requests.test.ts, apps/api/src/platform/adapters/erasure-log/erasure-log.test.ts, apps/api/scripts/lib/erasure-cli.test.ts, apps/api/test/nfr12-late-space.it.test.ts, apps/api/test/sec143-erasure.it.test.ts
+- [лише PoC] Перевіряється: apps/api/test/nfr12-retention.it.test.ts, apps/api/src/modules/identity/password-reset.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/nfr12-erasure.it.test.ts, apps/api/test/nfr12-erasure-script.it.test.ts, apps/api/test/adr0013-append-only.it.test.ts, apps/api/src/modules/data-erasure/domain/requests.test.ts, apps/api/src/platform/adapters/erasure-log/erasure-log.test.ts, apps/api/scripts/lib/erasure-cli.test.ts, apps/api/test/nfr12-late-space.it.test.ts, apps/api/test/sec143-erasure.it.test.ts, apps/api/test/sec143-scram.it.test.ts, apps/api/test/sec143-round2.it.test.ts
 - [PoC v2] Перевіряється: —
 
 **Мета.** Як користувач, я хочу знати, скільки зберігаються мої дані і що відбувається з ними після закриття акаунта, щоб довіряти продукту і реалізовувати свої права на видалення.

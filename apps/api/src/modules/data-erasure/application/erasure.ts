@@ -29,7 +29,11 @@ export interface ErasureDeps {
     requestRecorded(requestId: string, dueAt: string): Promise<void>;
     requestCompleted(requestId: string, kind: "run" | "reapply"): Promise<void>;
     /** A step that deletes rows of a space, recorded before it runs (ids only). */
-    spaceStep(householdId: string, step: "ledger.journal" | "audit.log"): Promise<void>;
+    spaceStep(
+      householdId: string,
+      step: "ledger.journal" | "audit.log",
+      reason?: "erasure-request" | "erasure-sweep",
+    ): Promise<void>;
   };
   readonly newId: () => string;
   readonly now: () => number;
@@ -95,7 +99,7 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     await deps.spaces.eraseSpace(householdId);
     // The daily key task may have written into the space's log between the two steps above (a rewrap or a
     // provisioning records itself there). With the record gone nothing new arrives; sweep what did.
-    await deps.platformAudit.spaceStep(householdId, "audit.log");
+    await deps.platformAudit.spaceStep(householdId, "audit.log", "erasure-sweep");
     await deps.audit.eraseHousehold(householdId);
   }
 }

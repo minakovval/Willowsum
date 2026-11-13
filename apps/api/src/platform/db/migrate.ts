@@ -311,6 +311,9 @@ const SCRAM_ITERATIONS = 4096;
  * (`log_statement`, `log_min_error_statement`). Only node:crypto's PBKDF2, HMAC and SHA-256.
  */
 export function scramVerifier(password: string, salt: Buffer = randomBytes(16)): string {
+  // PostgreSQL applies SASLprep (RFC 4013), not only NFKC; for printable ASCII both are the identity. Anything else is
+  // refused rather than given a verifier that PostgreSQL would not match (the script's passwords are base64url).
+  if (!/^[\x21-\x7e]+$/.test(password)) throw new Error("A SCRAM password here is printable ASCII only");
   const salted = pbkdf2Sync(password.normalize("NFKC"), salt, SCRAM_ITERATIONS, 32, "sha256");
   const clientKey = createHmac("sha256", salted).update("Client Key").digest();
   const storedKey = createHash("sha256").update(clientKey).digest();
@@ -341,18 +344,23 @@ export async function enableErasureLogin(
   client: pg.ClientBase,
   module: string,
   password: string,
-  now: number = Date.now(),
 ): Promise<void> {
   const role = client.escapeIdentifier(erasureRoleName(module));
-  const until = new Date(now + ERASURE_LOGIN_VALID_MS).toISOString();
+  // The end of validity comes from the server's clock, not this machine's (ALTER ROLE takes no expression).
+  const { rows } = await client.query<{ until: string }>(
+    `SELECT (now() + make_interval(secs => $1))::text AS until`,
+    [ERASURE_LOGIN_VALID_MS / 1000],
+  );
   const verifier = client.escapeLiteral(scramVerifier(password));
   await client.query(
-    `ALTER ROLE ${role} LOGIN PASSWORD ${verifier} VALID UNTIL ${client.escapeLiteral(until)}`,
+    `ALTER ROLE ${role} LOGIN PASSWORD ${verifier} VALID UNTIL ${client.escapeLiteral(rows[0]!.until)}`,
   );
 }
 
 export async function disableErasureLogin(client: pg.ClientBase, module: string): Promise<void> {
-  await client.query(`ALTER ROLE ${client.escapeIdentifier(erasureRoleName(module))} NOLOGIN PASSWORD NULL`);
+  await client.query(
+    `ALTER ROLE ${client.escapeIdentifier(erasureRoleName(module))} NOLOGIN PASSWORD NULL VALID UNTIL '-infinity'`,
+  );
 }
 
 async function ensureRole(client: pg.ClientBase, role: string, options: string): Promise<void> {

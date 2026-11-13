@@ -96,6 +96,12 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
     expect(await audit.platformEntriesFor({ type: "identity.account", id: person.accountId })).toMatchObject([
       { action: "delete", changes: [{ field: "reason", after: "erasure-request" }] },
     ]);
+    // The space's log is recorded before its step; the final sweep under its own reason.
+    expect(
+      (await audit.platformEntriesFor({ type: "audit.log", id: person.householdId })).map(
+        (e) => e.changes[0]!.after,
+      ),
+    ).toEqual(["erasure-request", "erasure-sweep"]);
     const requestEntries = await audit.platformEntriesFor({
       type: "data-erasure.request",
       id: request.requestId,

@@ -191,6 +191,13 @@ describe("NFR-12@PoC FR 3 / ADR-0013: the one-time login (#143 security review)"
     );
     expect(validUntil).toBeGreaterThan(startedAt);
     expect(validUntil).toBeLessThanOrEqual(Date.now() + ERASURE_LOGIN_VALID_MS);
+    // Afterwards: no login, no password, and a validity that has always ended.
+    const { rows: after } = await db.owner.query<{ login: boolean; until: string; password: string | null }>(
+      `SELECT rolcanlogin AS login, rolvaliduntil::text AS until, rolpassword AS password
+         FROM pg_authid WHERE rolname = ANY($1)`,
+      [ERASABLE_MODULES.map(erasureRoleName)],
+    );
+    expect(after).toEqual(ERASABLE_MODULES.map(() => ({ login: false, until: "-infinity", password: null })));
   });
 
   it("NFR-12@PoC FR 3: the SCRAM verifier has PostgreSQL's format and a fresh salt each time", () => {
