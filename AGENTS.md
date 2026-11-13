@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
 
 This is the single rule set for every agent (and human) changing this repository. It is short on purpose:
 read it fully, then load only the files your task needs. If a task conflicts with this file, stop and ask
@@ -176,7 +176,7 @@ errors) lives only in `packages/domain-kernel`.
    - A recurring finding moves into automation: a repeated class of finding becomes a CI check or a test;
      before pushing, agents run a local check for secret-shaped literals (what the CI job `secrets` checks).
    - Keep PRs small: split a large requirement part (e.g. backend and UI) so each PR fits one review round.
-6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`;
+6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`, `e2e`;
    a job its path filter skips counts as passed, see «CI minutes» below). Never skip, disable or weaken a
    test to get green.
 7. The authoring agent merges the PR (squash) only when CI is green on the latest
@@ -217,8 +217,9 @@ head), `change-requirement` (changing requirements, screens or П-rules without 
 a fresh agent with a narrow brief, let reviewers rely on CI — rules in `pr-pipeline`, «Token economy».
 
 **CI minutes** (lead, 2026-11-12; private repository, 2,000 free minutes a month): a new push cancels the
-PR's run in progress; the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env` and `infra`
-when the PR's paths do not need them (docs-only PRs skip all four; a skipped job concludes `skipped` and
+PR's run in progress; the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env`, `infra` and `e2e`
+when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07@PoC, runs on changes to `apps/`,
+`packages/` and the pipeline, with only Chromium and WebKit installed and cached; a skipped job concludes `skipped` and
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
 scheduled or frequent workflows without counting their minutes.
 

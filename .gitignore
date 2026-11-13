@@ -18,3 +18,7 @@ infra/local/.state/
 *.tfstate.*
 *.tfplan
 infra/start/env/*.s3.tfbackend
+
+# Playwright end-to-end output (apps/web/e2e, NFR-07)
+playwright-report/
+test-results/
