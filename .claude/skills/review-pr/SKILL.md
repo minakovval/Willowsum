@@ -123,7 +123,8 @@ applies it, confirm that specific fix briefly, with a verdict that names the fin
 
 The lead merges (AGENTS.md step 7, owner, 2026-11-13) only after «Ready» given on the commit being merged:
 it compares the SHA your review names with the PR head, and any later commit needs a re-review of that
-commit (owner, 2026-11-12). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
+commit (owner, 2026-11-12), except a docs-only sync that leaves the PR's diff unchanged: the lead's own check
+and review stand in for it (owner, 2026-11-13; [merge rules](../../references/merge-rules.md)). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
 owner to confirm the merge; it merges at once and tells the owner. A PR labelled `sensitive` (CI sets it from file paths) also needs
 a separate security review — say so if it has not had one; other PRs need none (owner, 2026-11-12).
 
