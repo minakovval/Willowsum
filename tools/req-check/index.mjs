@@ -21,7 +21,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadCorpus } from './lib/corpus.mjs';
+import { loadCorpus, addMigrated, readMigratedFile } from './lib/corpus.mjs';
 import { runChecks } from './lib/run.mjs';
 import { readBaseline, applyBaseline, makeBaseline } from './lib/baseline.mjs';
 import { renderReport } from './lib/report.mjs';
@@ -79,7 +79,7 @@ function isLink(p) {
 }
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -104,6 +104,7 @@ export function parseArgs(argv) {
     else if (a === '--update-baseline') opts.updateBaseline = true;
     else if (a === '--no-baseline') opts.useBaseline = false;
     else if (a === '--quiet') opts.quiet = true;
+    else if (a === '--migrated-base') opts.migratedBase = next();
     else if (a === '--help' || a === '-h') opts.help = true;
     else throw new Error(`unknown option ${a}`);
   }
@@ -189,11 +190,12 @@ export function loadTestFiles(root) {
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
-    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--update-baseline] [--no-baseline] [--root dir]');
+    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
     return 0;
   }
   if (opts.convert) {
     const { done, exceptions } = convertAll(opts.root, opts.requirements, opts.convert);
+    if (done.length) addMigrated(opts.root, done);
     log(`req-check: converted ${done.length} requirements to sources; round trip byte-identical for every view (apart from the view header).`);
     if (exceptions.length) log(`req-check: not converted (kept as card + slice files): ${exceptions.map((e) => `${e.id} (${e.reason})`).join('; ')}`);
     return 0;
@@ -209,7 +211,12 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     log(renderMove(opts, res, loadCorpus(opts.root, opts.requirements)));
     return 0;
   }
-  const corpus = loadCorpus(opts.root, opts.requirements);
+  let migratedBase;
+  if (opts.migratedBase) {
+    migratedBase = readMigratedFile(path.resolve(opts.migratedBase));
+    if (!migratedBase) throw new Error(`--migrated-base: file not found: ${opts.migratedBase}`);
+  }
+  const corpus = loadCorpus(opts.root, opts.requirements, migratedBase ? { migratedBase } : {});
   const factsSpec = JSON.parse(fs.readFileSync(opts.facts, 'utf8'));
   const registries = loadRegistries(opts.root);
   const result = runChecks(corpus, factsSpec, registries);
@@ -228,6 +235,7 @@ export function main(argv = process.argv.slice(2), log = console.log) {
 
   if (opts.views) {
     const { written, removed } = writeViews(opts.root, corpus);
+    addMigrated(opts.root, corpus.sources.map((x) => x.id));
     log(`req-check: views written from ${corpus.sources.length} sources (${written} files changed, ${removed} removed)`);
     // Check what is on disk now.
     return main(argv.filter((a) => a !== '--views'), log);

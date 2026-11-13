@@ -69,7 +69,7 @@ fails CI (`view-stale`).
 6. Keep each view complete for its release; IDs only in «Зв'язки» (tag the field lines that differ between
    releases).
 7. The card part is not changed by `--move`: update the «Реліз» line, the table of slices and the module
-   README row by hand when the set of releases changes. Plans that list the item (`docs/plans/`) are updated
+   README row by hand when the set of releases changes. A changed card's «Реліз» line must match its module README row (PRC-01 FR 3): edit both in the same PR. Plans that list the item (`docs/plans/`) are updated
    in the same PR; grep them for the ID.
 
 ## 4. Housekeeping
