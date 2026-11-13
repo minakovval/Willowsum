@@ -5,7 +5,7 @@ description: Change Willowsum requirements, screens or shared П-rules without c
 
 # Change a requirement
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
 
 Input: a requested change to requirements, screens or shared П-rules (PRC-02), usually a batch of them. Output:
 one docs-only PR for the whole batch, in which every dependent artifact is updated or explicitly listed as a
@@ -102,6 +102,10 @@ There must be 0 errors. Commit the sources, the regenerated views, `docs/traceab
 `sync-branch`). Run `prettier --check` on the changed non-requirement files.
 
 ## 7. PR
+
+Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
+(`pr153-req/`), never a generic name like `body.md`; before PATCHing a PR body from a file, check that it is
+the one you wrote (it names this PR).
 
 1. Title `<ID>: <what>` with the requirement ID, or `PRC-02: <what>` for a batch over many requirements. Draft
    until CI is green. Body: `.github/pull_request_template.md`.

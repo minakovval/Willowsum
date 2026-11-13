@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-12
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»).
@@ -19,17 +19,19 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its own
    database (`pnpm db:test`), what to report (PR URL, head SHA, checks).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
-   may rewrite the footer, which is fine.
+   may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
+   to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
 3. **PR opened** → subscribe to its activity; then in parallel:
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.
    Each in a different session from the author, with the PR number and head SHA.
-4. **Batch**: when both reviews are in, collect the blocking items of both into **one** fix request to the
-   implementer (`fix-review-findings`): review IDs, which patch wins where reviewers conflict (your decision),
-   what is non-blocking (→ «Follow-ups»). Never forward items one by one.
+4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
+   into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
+   reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
-6. **Merge** (squash) only when all hold on the **current head SHA**:
+6. **Merge** (squash): the lead merges only when all hold on the **current head SHA** — both verdicts Ready
+   on that exact head (`review-pr`, and `security-review` for `sensitive`) and CI green (owner, 2026-11-13):
    - CI green (a path-skipped job counts as passed, AGENTS.md «CI minutes»);
    - the latest `Verdict: Ready` names that exact SHA; for `sensitive`, the latest `Security verdict: Ready`
      names it too; any later commit needs a re-review of that commit;
@@ -38,11 +40,23 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    - the owner has not commented «stop» or asked a question on the PR.
    For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
    Do not ask the owner to confirm the merge.
-   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then re-review the merge.
+   Branch behind or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
+   round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head).
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases.
 8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions.
+
+**Stacked PRs** (owner, 2026-11-13): a PR that needs another open PR still targets `main`. Branch it from the
+parent's branch and say in its body which PR it waits for; it is merged only after the parent. After the
+parent squash-merges, bring the child up to date with `sync-branch` (merge `origin/main`, never rebase): its
+diff against `main` becomes its own commits only. Then get a merge-only confirmation from its reviewers on
+the new head (`review-pr` «6. Confirmation rounds») before step 6.
+
+**CI cannot run** (owner, 2026-11-13; e.g. GitHub Actions blocked by billing or an outage, the run's
+annotations say so): stop merging. Local runs never replace CI and never count as green. Report it to the
+owner at once (what is blocked, the run link and annotation, what the owner can do), keep reviews going, and
+merge only after CI runs green on the exact head (`investigate-ci-failure`).
 
 ## 2. Owner
 
@@ -53,6 +67,10 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
   keys in chat.
 - Record every owner decision the same day in `docs/decisions/` and, for PRs that implement it, as the
   `Рішення власника (YYYY-MM-DD): схвалено …` line. Never write «Схвалюю» or «Approved».
+- A small detail you decide (AGENTS.md «Ambiguity») goes into the decision log, and into the PR body and the
+  skill or document it shapes, as one entry of this form (owner, 2026-11-13):
+  `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.`
+  (examples: `docs/decisions/state-2026-11-05.md`). Change it to an owner line only when the owner answers.
 
 ## 3. Parallel branches
 
