@@ -12,6 +12,8 @@ export const motion = {
   "duration-skeleton": 1600,
   /** CMP-22@PoC «Повільне завантаження»: after 3 s a «Ще завантажується…» line appears under the skeleton. */
   "duration-skeleton-slow": 3000,
+  /** CMP-74@PoC: a running Progress is announced politely at most once every 5 s (its completion at once). */
+  "duration-progress-announce": 5000,
   /** CMP-20: a success or info toast closes itself after 8 s… */
   "duration-toast": 8000,
   /** …and after 10 s when it has the «Відмінити» (undo) action. */

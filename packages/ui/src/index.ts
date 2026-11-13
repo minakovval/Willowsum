@@ -48,3 +48,5 @@ export { placeTooltip, Tooltip, TruncatedText, useTooltip } from "./tooltip/Tool
 export type { TooltipTriggerProps } from "./tooltip/Tooltip.tsx";
 export { Skeleton } from "./skeleton/Skeleton.tsx";
 export type { SkeletonProps, SkeletonVariant } from "./skeleton/Skeleton.tsx";
+export { Progress } from "./progress/Progress.tsx";
+export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";

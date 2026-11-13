@@ -32,7 +32,10 @@ describe("/gallery/tokens (DS-22)", () => {
     }
     const inkOnPaper = formatRatio(contrastRatio(colors.ink.light, colors["surface-100"].light));
     expect(container.querySelector("#g-contrast")!.parentElement!.textContent).toContain(`${inkOnPaper} : 1`);
-    expect(norm(container.textContent)).not.toContain("✕ Помилка");
+    // No contrast pair fails: both contrast tables (the Progress section shows «✕ Помилка» as a state on purpose).
+    const tables = container.querySelectorAll("#g-contrast ~ .gallery-themes > [data-theme]");
+    expect(tables).toHaveLength(2);
+    for (const table of tables) expect(norm(table.textContent)).not.toContain("✕ Помилка");
   });
 
   it("switches the page theme and hides amounts while keeping percentages", () => {
@@ -188,6 +191,43 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(within(swap).getByRole("heading", { name: "Транзакції" })).toBeTruthy();
     act(() => within(swap).getByRole("button", { name: "Показати скелетон" }).click());
     expect(swap.querySelectorAll(".ws-skeleton-row")).toHaveLength(3);
+  });
+
+  it("CMP-74@PoC gallery: the Progress section shows running, counting, stacked, done and error, and a live case that steps, fails and finishes", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-progress")!.textContent).toBe("Прогрес");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(norm(at("queue").querySelector(".ws-progress-text")!.textContent)).toBe("31 з 103 · лишилось 72");
+    expect(at("counting").textContent).toContain("Рахуємо…");
+    expect(at("stacked").querySelector(".ws-progress-row--stacked")).not.toBeNull();
+    expect(norm(at("stacked").textContent)).toContain("Розпізнаємо сторінку 4 з 12");
+
+    const sync = at("sync");
+    expect(norm(sync.querySelector('[data-row="done"] .ws-progress-text')!.textContent)).toBe(
+      "✓ Готово · 1 214",
+    );
+    expect(norm(sync.querySelector('[data-row="running"] .ws-progress-text')!.textContent)).toBe(
+      "500 з 1 200 · лишилось 700",
+    );
+    const error = sync.querySelector<HTMLElement>('[data-row="error"]')!;
+    expect(norm(error.querySelector(".ws-progress-text")!.textContent)).toBe("✕ Помилка · 4 з 12");
+    expect(within(error).getByRole("button", { name: "Спробувати ще раз" })).toBeTruthy();
+    expect(within(sync).getAllByRole("progressbar")).toHaveLength(3);
+
+    const live = at("live");
+    const liveBar = within(live).getByRole("progressbar", { name: "Завантаження файлів" });
+    expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
+    act(() => within(live).getByRole("button", { name: "Наступний крок" }).click());
+    expect(liveBar.getAttribute("aria-valuenow")).toBe("1");
+    act(() => within(live).getByRole("button", { name: "Зупинити помилкою" }).click());
+    expect(norm(live.querySelector(".ws-progress-text")!.textContent)).toBe("✕ Помилка · 1 з 6");
+    act(() => within(live).getByRole("button", { name: "Спробувати ще раз" }).click());
+    for (let i = 0; i < 5; i++)
+      act(() => within(live).getByRole("button", { name: "Наступний крок" }).click());
+    expect(norm(live.querySelector(".ws-progress-text")!.textContent)).toBe("✓ Готово · 6");
+    expect(norm(within(live).getByRole("status").textContent)).toBe("Готово, 6 файлів");
+    act(() => within(live).getByRole("button", { name: "Почати знову" }).click());
+    expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
   });
 
   it("switches language to English", () => {
