@@ -69,6 +69,18 @@ export interface JobStore {
   enqueue(householdId: string, job: NewJob): Promise<boolean>;
   pendingEvents(householdId: string, limit: number): Promise<PendingEvent[]>;
   markDispatched(householdId: string, ids: readonly string[]): Promise<void>;
+  /**
+   * Retention (retention.ts): deletes the space's events dispatched before `dispatchedBefore`, its jobs done before
+   * `doneBefore` and its dead-lettered jobs ended before `deadBefore`. Queued and running jobs and events not yet
+   * dispatched are never deleted. Returns how many rows went.
+   */
+  purge(householdId: string, cutoffs: PurgeCutoffs): Promise<{ events: number; jobs: number }>;
+}
+
+export interface PurgeCutoffs {
+  readonly dispatchedBefore: Date;
+  readonly doneBefore: Date;
+  readonly deadBefore: Date;
 }
 
 export class LeaseLostError extends Error {
@@ -216,6 +228,20 @@ export function postgresJobStore(db: ModuleDatabase): JobStore {
            WHERE household_id = $1 AND id = ANY($2::uuid[]) AND dispatched_at IS NULL`,
           [q.householdId, ids],
         );
+      }),
+
+    purge: (householdId, cutoffs) =>
+      db.inHousehold(householdId, async (q) => {
+        const events = await q.query(
+          `DELETE FROM outbox_events WHERE household_id = $1 AND dispatched_at IS NOT NULL AND dispatched_at < $2`,
+          [q.householdId, cutoffs.dispatchedBefore],
+        );
+        const jobs = await q.query(
+          `DELETE FROM jobs WHERE household_id = $1 AND finished_at IS NOT NULL
+             AND ((state = 'done' AND finished_at < $2) OR (state = 'dead' AND finished_at < $3))`,
+          [q.householdId, cutoffs.doneBefore, cutoffs.deadBefore],
+        );
+        return { events: events.rowCount ?? 0, jobs: jobs.rowCount ?? 0 };
       }),
   };
 }

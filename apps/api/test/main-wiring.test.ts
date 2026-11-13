@@ -6,7 +6,9 @@ import {
 import { memoryFlagStore } from "../src/modules/feature-flags/application/memory-store.test-helper.ts";
 import { FLAGS_DB_TIMEOUTS } from "../src/modules/feature-flags/index.ts";
 import { realModules } from "./real-modules.ts";
-import { contextPoolOptions, modulePoolOptions, readinessCheck } from "../src/wiring.ts";
+import { readFileSync } from "node:fs";
+import { DEFAULT_CONCURRENCY } from "../src/platform/queue/index.ts";
+import { contextPoolOptions, modulePoolOptions, modulePoolSize, readinessCheck } from "../src/wiring.ts";
 
 /**
  * CICD-06 / ADR-0004: the wiring main.ts uses (src/wiring.ts), checked by its behaviour: the readiness probe
@@ -80,5 +82,18 @@ describe("CICD-06: the flag check never hangs on the database", () => {
   it("other module pools keep their defaults", () => {
     for (const m of realModules.filter((m) => m !== "feature-flags"))
       expect(modulePoolOptions(m), m).toEqual({});
+  });
+});
+
+describe("ARC-04: the worker's module pools hold a connection for every job it runs, and one more (review of #174, N1)", () => {
+  it("the worker role's pools get DEFAULT_CONCURRENCY + 1 connections; the api and the scheduler keep the default", () => {
+    expect(modulePoolSize("worker")).toBe(DEFAULT_CONCURRENCY + 1);
+    expect(modulePoolSize("api")).toBeUndefined();
+    expect(modulePoolSize("scheduler")).toBeUndefined();
+  });
+
+  it("main.ts passes the role's pool size to ModuleDatabases", () => {
+    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    expect(main).toMatch(/poolSize: modulePoolSize\(config\.role\)/);
   });
 });

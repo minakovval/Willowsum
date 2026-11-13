@@ -31,6 +31,7 @@ import {
   contextPoolOptions,
   flagReloadHealthLog,
   modulePoolOptions,
+  modulePoolSize,
   readinessCheck,
   schedulerDailyTasks,
   workerQueues,
@@ -98,6 +99,8 @@ const databases = new ModuleDatabases({
     password: config.database.contextPassword,
     ...contextPoolOptions(),
   },
+  // The worker runs up to DEFAULT_CONCURRENCY jobs of one module at a time, each on its own connection.
+  ...(modulePoolSize(config.role) ? { poolSize: modulePoolSize(config.role)! } : {}),
 });
 
 // Flags and kill switches (CICD-06): read from the database by the readiness probe and by requests, reloaded
@@ -191,7 +194,7 @@ lifecycle.onStop(() => server.close());
 // It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
 if (config.role === "worker") {
   const worker = createWorker({
-    ...workerQueues(),
+    ...workerQueues(databases),
     households: () => spaces.spaceIds(),
     moduleAvailable: (module) => flags.isModuleAvailable(module),
   });

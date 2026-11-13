@@ -14,21 +14,25 @@
 
 FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, обмеження бази; частина 2 — сторно і зміна події
 (п. 5, AC3), щоденна перевірка цілісності (п. 9, 10, ядро AC7); лист власнику продукту про розбіжність (п. 10, AC7,
-граничні випадки 4–5; issue #130). ARC-11@PoC без кешу залишків і вихідної події.
+граничні випадки 4–5; issue #130). ARC-11@PoC: подія «проводку записано» через чергу ARC-04 (#125), правило схеми «у таблицях ledger немає вільного
+тексту» (#128); без кешу залишків.
 Далі: AC5, AC6, AC8–AC11 (рахунки, транзакції, аудит коригувань, імпорт виписок).
 
 ## Публічний інтерфейс
 
 `index.ts`:
 
-- `ledgerModule` — опис модуля (маршрутів немає: журнал не має власних дій користувача, FIN-04 п. 8).
+- `ledgerModule` — опис модуля (маршрутів немає: журнал не має власних дій користувача, FIN-04 п. 8); публікує
+  `entryRecorded`.
+- `entryRecorded` (`events.ts`), тип `EntryRecorded` — подія «проводку записано» (див. «Події»).
 - `createLedger(db)` → `Ledger`, де `db` — `ModuleDatabases.for("ledger")`; кожен виклик прив'язаний до одного простору:
   - `openAccount(householdId, owner: { module, id }, { type, currency })` → `LedgerAccount` — рахунок журналу для
     запису модуля-власника; ідемпотентний; інший тип чи валюта — `ACCOUNT_CONFLICT`.
   - `post(householdId, { source, idempotencyKey, operationDate, event })` → `Entry` — збалансований набір проводок
     події за правилами (`EVENT_TYPES`: `transaction`, `transfer`, `balance-adjustment`, `asset-purchase`,
-    `asset-revaluation`, `asset-sale`, `mortgage-payment`, `rental-income`) в одній транзакції; повтор ключа повертає
-    наявний запис.
+    `asset-revaluation`, `asset-sale`, `mortgage-payment`, `rental-income`) в одній транзакції разом із подією
+    «проводку записано»; повтор ключа повертає наявний запис і події не пише. Ключ ідемпотентності — код: 1–200
+    символів `A–Z a–z 0–9 : . _ -` (ARC-11: без вільного тексту), інакше `INVALID_IDEMPOTENCY_KEY`.
   - `reverse(householdId, entryId, idempotencyKey)` → сторно; повтор ключа повертає лише сторно цього запису, ключ
     іншого запису — `IDEMPOTENCY_KEY_REUSED`. `correct(householdId, entryId, replacement)` → сторно і новий запис в
     одній транзакції; ключ сторно виводиться з ключа заміни фіксованої довжини (`reversal:` і SHA-256, 73 символи),
@@ -53,8 +57,8 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
   `ACCOUNT_TYPES`, `SERVICE_ACCOUNTS`, `EVENT_TYPES`, `RULES_VERSION`, `INTEGRITY_CHECKS`, типи `Entry`, `PostInput`,
   `LedgerEvent`, `LedgerAccount`.
 
-- `createLedgerErasure(db)` → `LedgerErasure.eraseHousehold(householdId)` → `{ postings, entries, accounts }` — видалення
-  журналу одного простору цілком в одній транзакції (NFR-12@PoC п. 3, ARC-11 «Видалення даних»; ADR-0013, варіант A).
+- `createLedgerErasure(db)` → `LedgerErasure.eraseHousehold(householdId)` → `{ postings, entries, accounts, events, jobs }`
+  — видалення журналу одного простору цілком, разом із його рядками черги (`outbox_events`, `jobs`), в одній транзакції (NFR-12@PoC п. 3, ARC-11 «Видалення даних»; ADR-0013, варіант A).
   `db` — пул ролі видалення `ws_era_ledger`, єдиної, яку тригери пускають до DELETE, і лише простору цілком
   (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім; `integrity_alerts` не видаляються. Викликає лише
   `data-erasure` зі скрипта власника.
@@ -68,7 +72,7 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
 
 | Публікує | Версія | Коли |
 | --- | --- | --- |
-| — | | «Проводку записано» — разом із чергою подій (ARC-04) |
+| `ledger.entry-recorded` («проводку записано») | 1 | Новий запис журналу (`post`, `reverse`, `correct`) — у тій самій транзакції, що запис і проводки (ARC-04 п. 2); повтор ключа подію не пише. Дані: `entryId`, `sourceModule`, `sourceId`, `eventType`, `operationDate`, `recordedAt`, `reversesEntryId` — без сум, рахунків і текстів. Споживачів ще немає: воркер позначає подію відправленою (ADR-0014) |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
@@ -77,14 +81,17 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
 ## Власні таблиці
 
 Схема `ledger`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Таблиці журналу — під політикою простору; роль
-`ws_mod_ledger` має на всіх таблицях лише SELECT і INSERT; тригери відхиляють UPDATE, DELETE і TRUNCATE для будь-якої
-ролі.
+`ws_mod_ledger` має на таблицях журналу лише SELECT і INSERT; тригери відхиляють UPDATE, DELETE і TRUNCATE для будь-якої
+ролі. Вільного тексту в схемі немає (ARC-11): кожна текстова чи JSON-колонка — у `LEDGER_CODE_COLUMNS`
+(`platform/db/schema-rules.ts`) з CHECK «лише код»; перевіряє `pnpm check:schema` і запуск міграцій.
 
 | Таблиця | Що |
 | --- | --- |
 | `accounts` | План рахунків: тип, валюта; власник (`owner_module`, `owner_id`) або службовий рахунок (`service_kind`, один на валюту) |
 | `entries` | Записи: джерело, тип події, дата операції, час запису (ставить база), версія правил, ключ ідемпотентності, `reverses_entry_id` |
 | `postings` | Проводки: дебет, кредит, сума NUMERIC(38,18) > 0, валюта — обидва рахунки в ній (складені зовнішні ключі) |
+| `outbox_events`, `jobs` | Черга модуля (ARC-04, `platform/queue/queue-tables.sql` дослівно, `migrations/0004_outbox.sql`) з перевірками «лише коди»; роль модуля має SELECT, INSERT, UPDATE, DELETE (воркер, прибирання за строком), роль видалення — SELECT і DELETE |
 | `integrity_alerts` | Журнал заявок на лист про розбіжність (лише дописування): `seq`, період (види і кількості знахідок) або NULL — періоду немає, час. Без `household_id` (`schema-exemptions.json`): ні просторів, ні сум, ні адреси |
 
-Синтетичні дані: `synthetic.ts` (4 рахунки, 100 записів і 100 проводок на простір).
+Синтетичні дані: `synthetic.ts` (4 рахунки, 100 записів, 100 проводок, 100 відправлених подій і 3 виконані задачі на
+простір).

@@ -1,5 +1,5 @@
 // Synthetic journal (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
-// Tables load in name order (accounts, entries, postings); the keys between them are derived from the space and the
+// Tables load in name order (accounts, entries, jobs, outbox_events, postings); the keys between them are derived from the space and the
 // row number, so posting n belongs to entry n and moves money from account 2 to account 1. A run needs at least two
 // accounts and no more postings than entries (the defaults below).
 import { createHash } from "node:crypto";
@@ -58,6 +58,50 @@ export const synthetic = [
           credit_account_id: key(household.id, "account", 1),
           amount: `${rng.int(1, 5000)}.${String(rng.int(0, 99)).padStart(2, "0")}`,
           currency: "EUR",
+        };
+    },
+  }),
+  // The queue (ARC-04, migrations/0004_outbox.sql): one «проводку записано» event per entry, dispatched; the ledger
+  // runs no jobs yet, so a few finished ones only show that the table is covered. Identifiers and codes only.
+  defineSyntheticTable({
+    table: "ledger.outbox_events",
+    perHousehold: 100,
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "event", i),
+          event_name: "ledger.entry-recorded",
+          event_version: "1",
+          payload: JSON.stringify({
+            entryId: key(household.id, "entry", i),
+            sourceModule: "transactions",
+            sourceId: rng.uuid(),
+            eventType: "transfer",
+            operationDate: "2026-06-30",
+            recordedAt: "2026-06-30T10:00:00.000000Z",
+            reversesEntryId: null,
+          }),
+          traceparent: null,
+          dispatched_at: "2026-06-30T10:00:01Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "ledger.jobs",
+    perHousehold: 3,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "job", i),
+          name: "ledger.synthetic-job",
+          dedupe_key: key(household.id, "event", i),
+          payload: JSON.stringify({ entryId: key(household.id, "entry", i) }),
+          heavy: "false",
+          state: "done",
+          attempts: "1",
+          finished_at: "2026-06-30T10:00:02Z",
         };
     },
   }),

@@ -27,8 +27,74 @@ import {
  * - a unique key or foreign key of a customer table without `household_id`: a duplicate-key or foreign-key
  *   error would reveal that a row exists in another household (and a foreign key could point into it). The
  *   one exception is a unique key on a single uuid column: random identifiers reveal nothing to someone
- *   who does not already hold the id.
+ *   who does not already hold the id;
+ * - free text in the ledger (ARC-11 criterion «Тексти, описи або назви мерчантів у таблицях журналу» = 0): see
+ *   `LEDGER_CODE_COLUMNS`.
  */
+
+/**
+ * ARC-11: the ledger holds no descriptions, merchant names, notes or other text — an entry points to its source
+ * (module and id), and texts live there. In the `ledger` schema a text-like column (text, varchar, char, citext,
+ * name, json, jsonb, xml, bytea, tsvector, or an array) is allowed only if it is listed here, with what it holds, and
+ * carries a CHECK of its own that limits it to a code (a pattern `~`, a list of values, or a jsonpath `like_regex`
+ * for JSON). A new text column needs a change here, which the security review sees.
+ */
+export const LEDGER_CODE_COLUMNS: Readonly<Record<string, string>> = {
+  "ledger.accounts.type": "account type, one of five codes",
+  "ledger.accounts.currency": "currency code",
+  "ledger.accounts.owner_module": "owner module name",
+  "ledger.accounts.service_kind": "service account kind, one of five codes",
+  "ledger.entries.source_module": "source module name",
+  "ledger.entries.event_type": "event type code",
+  "ledger.entries.idempotency_key": "the source's event id (a code without spaces)",
+  "ledger.postings.currency": "currency code (its accounts' currency)",
+  "ledger.integrity_alerts.period": "kinds of failed checks with their counts",
+  "ledger.outbox_events.event_name": "event name <module>.<event>",
+  "ledger.outbox_events.payload": "identifiers, codes and dates of the event (every string a code)",
+  "ledger.outbox_events.traceparent": "W3C trace context",
+  "ledger.jobs.name": "job name <module>.<job>",
+  "ledger.jobs.dedupe_key": "job key (an event id)",
+  "ledger.jobs.payload": "identifiers, codes and dates of the job (every string a code)",
+  "ledger.jobs.state": "job state, one of four codes",
+  "ledger.jobs.last_error": "error class name",
+  "ledger.jobs.traceparent": "W3C trace context",
+};
+
+const LEDGER_SCHEMA = "ledger";
+const TEXT_LIKE_RE =
+  /^(?:[a-z_][a-z0-9_]*\.)?(text|character varying|character|"char"|name|citext|json|jsonb|xml|bytea|tsvector)(\(\d+\))?$|\[\]$/;
+/** A CHECK that limits a column to a code: a regular expression (not its negation), a list, or a jsonpath regex. */
+const CODE_CHECK_RE = /(?<![!])~(?!\*)|= ANY \(|like_regex/;
+
+/** ARC-11 (issue #128): text-like columns of the ledger schema not in LEDGER_CODE_COLUMNS, or without their CHECK. */
+export async function ledgerFreeTextProblems(client: pg.ClientBase): Promise<string[]> {
+  const { rows } = await client.query<{ column: string; base: string; checks: string[] }>(
+    `SELECT n.nspname || '.' || c.relname || '.' || a.attname AS column,
+            format_type(COALESCE(NULLIF(t.typbasetype, 0), a.atttypid),
+                        CASE WHEN t.typbasetype <> 0 THEN t.typtypmod ELSE a.atttypmod END) AS base,
+            coalesce(array_agg(pg_get_constraintdef(k.oid)) FILTER (WHERE k.oid IS NOT NULL), '{}') AS checks
+       FROM pg_attribute a
+       JOIN pg_class c ON c.oid = a.attrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+       JOIN pg_type t ON t.oid = a.atttypid
+       LEFT JOIN pg_constraint k ON k.conrelid = c.oid AND k.contype = 'c' AND k.conkey = ARRAY[a.attnum]
+      WHERE n.nspname = $1 AND c.relkind IN ('r', 'p', 'v', 'm', 'f') AND a.attnum > 0 AND NOT a.attisdropped
+      GROUP BY 1, 2 ORDER BY 1`,
+    [LEDGER_SCHEMA],
+  );
+  const problems: string[] = [];
+  for (const r of rows) {
+    if (!TEXT_LIKE_RE.test(r.base)) continue;
+    if (!(r.column in LEDGER_CODE_COLUMNS))
+      problems.push(
+        `${r.column}: ${r.base} — no free text in the ledger (ARC-11: no descriptions, names or notes; texts live in the source module). A code column goes to LEDGER_CODE_COLUMNS in schema-rules.ts with a CHECK that limits it to a code`,
+      );
+    else if (!r.checks.some((def) => CODE_CHECK_RE.test(def)))
+      problems.push(
+        `${r.column}: a ledger code column needs a CHECK of its own that limits it to a code (a pattern, a list of values or a jsonpath like_regex) (ARC-11)`,
+      );
+  }
+  return problems;
+}
 
 /** apps/api/schema-exemptions.json: tables in module schemas that hold no customer data, with the reason. */
 export interface SchemaExemptions {
@@ -204,6 +270,7 @@ export async function schemaProblems(
     }
   }
   problems.push(...(await boundaryProblems(client, modules)));
+  if (schemas.includes(LEDGER_SCHEMA)) problems.push(...(await ledgerFreeTextProblems(client)));
   return problems;
 }
 

@@ -12,7 +12,13 @@ import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./module
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
-import type { EventSubscription, WorkerQueue } from "./platform/queue/index.ts";
+import {
+  DEFAULT_CONCURRENCY,
+  postgresJobStore,
+  purgeQueues,
+  type EventSubscription,
+  type WorkerQueue,
+} from "./platform/queue/index.ts";
 import type { ReadinessCheck } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 
@@ -31,6 +37,16 @@ export function flagReloadHealthLog(failure: string | undefined): void {
  */
 export function modulePoolOptions(module: string): pg.PoolConfig {
   return module === "feature-flags" ? { ...FLAGS_DB_TIMEOUTS } : {};
+}
+
+/**
+ * Connections per module pool. The worker holds one connection of a module for each job it runs (the handler and the
+ * job's `done` share one transaction) and needs one more for the next pass's dispatch and claim, so its pools get
+ * `DEFAULT_CONCURRENCY + 1`; with fewer, a fourth job of one module waits for a connection and the serial pass behind
+ * it stalls the whole worker (review of #174, N1). The other roles keep the default of `ModuleDatabases` (3).
+ */
+export function modulePoolSize(role: Role): number | undefined {
+  return role === "worker" ? DEFAULT_CONCURRENCY + 1 : undefined;
 }
 
 /** The binding pool (`ws_context`) runs before every module transaction, the flag reloads included: same limits. */
@@ -61,7 +77,8 @@ export function readinessCheck(deps: {
 /**
  * The scheduler role's daily tasks (ADR-0010), in the order they run. NFR-12@PoC: the only automatic deletion of
  * a person's data is identity's removal of unconfirmed accounts 30 days after their latest sign-up; no other task
- * here deletes the data of an account or a space. `now` is the clock of the tasks that judge rows by age (tests
+ * here deletes the data of an account or a space (the queue's retention cleanup deletes only the queue's working
+ * copies — events already handed over and finished jobs — never the records they report). `now` is the clock of the tasks that judge rows by age (tests
  * pass their own; main.ts the wall clock). `alertMail` is the mail adapter and the product owner's address for the
  * integrity letter (FIN-04 FR 10); without it a discrepancy is an «error» event that no letter could go out.
  * `spaceKeys` adds the rewrap of the keys of spaces after a master key rotation (ARC-06 FR 3; ADR-0012); it changes
@@ -75,6 +92,7 @@ export function schedulerDailyTasks(deps: {
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
   readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
 }): DailyTask[] {
+  const now = deps.now ?? Date.now;
   const maintenance = createIdentityMaintenance({
     db: deps.databases.for("identity"),
     audit: deps.audit,
@@ -92,6 +110,17 @@ export function schedulerDailyTasks(deps: {
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
+    // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
+    // queue's working copies go; the changes they report stay in the modules' own tables.
+    {
+      name: "queue.retention-cleanup",
+      run: () =>
+        purgeQueues({
+          stores: workerQueues(deps.databases).queues.map((q) => q.store),
+          households: () => deps.spaces.spaceIds(),
+          now,
+        }),
+    },
   ];
   const spaceKeys = deps.spaceKeys;
   if (spaceKeys)
@@ -113,11 +142,15 @@ export function schedulerDailyTasks(deps: {
 /**
  * The worker role's queues (ARC-04): each module that publishes events or runs jobs adds its store
  * (`postgresJobStore(databases.for(<module>))`) and handlers here, and each consumer of an event its subscription.
- * No module uses the queue yet (the ledger's «проводку записано» comes next, ARC-11); the worker then idles.
+ * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); no
+ * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014).
  */
-export function workerQueues(): {
+export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
 } {
-  return { queues: [], subscriptions: [] };
+  return {
+    queues: [{ store: postgresJobStore(databases.for("ledger")), handlers: [] }],
+    subscriptions: [],
+  };
 }
