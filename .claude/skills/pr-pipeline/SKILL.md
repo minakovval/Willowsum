@@ -26,7 +26,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    `k` (1–4: dev-server port 517k, API port 808k, its own `pnpm db:test` databases, its own PIDs — «3. Parallel
    branches»), and the report it returns: 10–15 lines, no narrative (owner, 2026-11-13) — PR, head SHA (full),
    result, blockers, owner questions; details go in the PR body or the review. Reviewer briefs ask for the same
-   short report.
+   short report. Agents never create GitHub issues (owner, 2026-11-13): they list follow-ups in the PR body or
+   their report, and the lead opens the issues and links them.
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
@@ -49,7 +50,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
-   PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR.
+   PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
+   opens the issues; agents never do (owner, 2026-11-13).
 8. **Report to the owner in Ukrainian**: what was merged (PR link, one line), what is next, questions
    (batched, «2. Owner»).
 9. **Follow-up sweep** (owner, 2026-11-13): after every 8–10 merged PRs, one PR (row `R` of the wave plan, an
@@ -87,6 +89,10 @@ retrying a call that is not idempotent — a comment, an issue, a merge — chec
 Brief the agents you start to do the same (their skills say so).
 Shared details: [retry rules](../../references/github-errors.md) (read when it happens).
 
+
+**Permission denials** (lead, 2026-11-13): if an agent reports that the permission classifier denied an action,
+the lead does not repeat it on the agent's behalf when the action itself is sensitive; it tells the owner
+instead. Routine lead actions (opening a follow-up issue, merging per the checklist) stay with the lead.
 
 ## 3. Parallel branches
 
