@@ -85,6 +85,8 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   "ws.ledger.check": closed(/^(unbalanced-entry|empty-entry|reversal-mismatch)$/, 32),
   "ws.ledger.entries": int(1, 1_000_000_000),
   "ws.ledger.spaces": int(1, 1_000_000_000),
+  // The daily rewrap of the keys of spaces (ARC-06 FR 3): how many spaces' keys failed — never ids or keys.
+  "ws.household.spaces": int(1, 1_000_000_000),
   // Exceptions: the class only (`exception.message` and `exception.stacktrace` are never exported).
   "exception.type": str(CLASS_RE, 64),
   // How many attributes the filter dropped from this item (a signal that code sends something it should not).

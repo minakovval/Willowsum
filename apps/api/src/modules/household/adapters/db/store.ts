@@ -1,6 +1,6 @@
 import type { ModuleDatabase, ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { SpaceMembership, SpacesStore, SpacesTx } from "../../application/index.ts";
-import type { SpaceRole } from "../../domain/index.ts";
+import type { SpaceRole, StoredSpaceKey } from "../../domain/index.ts";
 
 /** The household schema through the module's own role (ARC-01, ARC-03; tables in migrations/0001_spaces.sql). */
 
@@ -31,6 +31,49 @@ function tx(q: ModuleQueryRunner): SpacesTx {
         householdId,
         role,
       ]);
+    },
+    // Keys of spaces (ARC-06; migrations/0002_space_keys.sql). The row policy binds the space; SQL filters it too.
+    async encryptionKeyRef(householdId) {
+      const { rows } = await q.query<{ ref: string }>(
+        `SELECT encryption_key_ref AS ref FROM households WHERE household_id = $1`,
+        [householdId],
+      );
+      return rows[0]?.ref ?? null;
+    },
+    async spaceKey(householdId) {
+      const { rows } = await q.query<{ key_id: string; master_key_version: string; wrapped_key: string }>(
+        `SELECT key_id, master_key_version, wrapped_key FROM space_keys WHERE household_id = $1`,
+        [householdId],
+      );
+      const row = rows[0];
+      return row
+        ? { keyId: row.key_id, masterKeyVersion: row.master_key_version, wrappedKey: row.wrapped_key }
+        : null;
+    },
+    async insertSpaceKey(householdId, key: StoredSpaceKey) {
+      await q.query(
+        `INSERT INTO space_keys (household_id, key_id, master_key_version, wrapped_key) VALUES ($1, $2, $3, $4)`,
+        [householdId, key.keyId, key.masterKeyVersion, key.wrappedKey],
+      );
+    },
+    async replaceKeyRef(householdId, expected, ref) {
+      const { rowCount } = await q.query(
+        `UPDATE households SET encryption_key_ref = $3, updated_at = now()
+          WHERE household_id = $1 AND encryption_key_ref = $2`,
+        [householdId, expected, ref],
+      );
+      return rowCount === 1;
+    },
+    async rewrapSpaceKey(householdId, keyId, fromVersion, to) {
+      const { rowCount } = await q.query(
+        `UPDATE space_keys SET master_key_version = $4, wrapped_key = $5, rewrapped_at = now()
+          WHERE household_id = $1 AND key_id = $2 AND master_key_version = $3`,
+        [householdId, keyId, fromVersion, to.masterKeyVersion, to.wrappedKey],
+      );
+      return rowCount === 1;
+    },
+    async deleteSpaceKey(householdId, keyId) {
+      await q.query(`DELETE FROM space_keys WHERE household_id = $1 AND key_id = $2`, [householdId, keyId]);
     },
   };
 }
