@@ -81,7 +81,7 @@ describe("ARC-01 FR 7 / CICD-06 FR 1: every function has a feature key and a fla
   });
 });
 
-describe("CICD-06 AC1 / DAT-05 AC6: a function whose flag is off is hidden — it answers as if it did not exist", () => {
+describe("CICD-06 FR 1 / DAT-05 AC6: a function whose flag is off is hidden — it answers as if it did not exist", () => {
   it.each(protectedRoutes.map((r) => [`${r.method} ${r.path}`, r] as const))(
     "%s: flag off for the space → 404 with the very body of an unknown path, for every role",
     async (_, route) => {
@@ -138,7 +138,7 @@ describe("CICD-06 AC1 / DAT-05 AC6: a function whose flag is off is hidden — i
   });
 });
 
-describe("CICD-06 AC3: a module's kill switch makes its routes «temporarily unavailable»; the rest works", () => {
+describe("CICD-06 FR 3: a module's kill switch makes its routes «temporarily unavailable»; the rest works", () => {
   it.each(modulesWithRoutes)(
     "kill switch of %s → its routes answer 503 MODULE_UNAVAILABLE; others do not",
     async (module) => {

@@ -87,14 +87,24 @@ keyboard operation, accessible name and role, «колір не єдина оз�
 ## 6. Visual check at 1280 px, light theme
 
 Playwright and Chromium are pre-installed in cloud sessions (`/opt/node-tools/node_modules/playwright`,
-browsers in `/opt/pw-browsers`), not in the repo. Start `pnpm dev` and read the port from the Vite output
-(«Local: http://localhost:<port>/»; Vite moves to the next free port), then from a script in your scratchpad
+browsers in `/opt/pw-browsers`), not in the repo. Start the dev server on your slot's port
+(`pnpm --filter @willowsum/web exec vite --port 517k --strictPort`, in the background, PID recorded; see «Own
+ports» below) and stop only that PID when done, then from a script in your scratchpad
 (CommonJS: `const { chromium } = require('playwright')`, run with `NODE_PATH=/opt/node-tools/node_modules`):
 open `http://localhost:<port>/#/gallery/<page>#<section>` and the board file (`file://…/design/canvas/<Board>.dc.html`)
 at viewport 1280 wide, screenshot both, and look at them side by side (Read the PNGs). Compare layout,
 spacing, type, colour roles and every state. Fix differences that the view or the card supports; list the
 rest in the PR body. Screenshots stay in the scratchpad: committed e2e and contrast checks on routes belong
 to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
+
+**Own ports, databases and processes** (owner, 2026-11-13): up to 3–4 agents run at once, so the lead gives you
+a slot `k` (1–4; none given → ask, or use 4). Use only your slot: the web dev server
+`pnpm --filter @willowsum/web exec vite --port 517k --strictPort` (5171–5174; preview `--port 417k`), the API with
+`WS_PORT=808k`, and `WS_API_ORIGIN=http://localhost:808k` for the web proxy. Test databases only through
+`pnpm db:test` from your own worktree: their names carry your branch (`ws_t_<branch>_<random>`; `HEAD` in a
+detached worktree, shared with other reviewers); record the names it prints and drop only those. Start a server in the background and record its PID (`echo $! >> <scratchpad>/pr<n>-<role>/pids`); stop only
+your own PIDs (`kill $(cat <scratchpad>/pr<n>-<role>/pids)`), never `pkill`, `killall`, a kill by port or process
+name, or `pnpm local:down` (it stops the shared environment). `pnpm test:e2e` picks free ports by itself.
 
 ## 7. Rules
 
@@ -135,6 +145,15 @@ PR with the template, title `<ID>: <component>`, and add to the body:
 Then the lead (`pr-pipeline`) starts a `review-pr` session in a **different** session with: the PR number,
 the view path, the board names and the card name, so the reviewer can repeat the screenshot check. Fixes go
 through `fix-review-findings`; merge rules are AGENTS.md steps 5 and 7.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
 
 ## Open questions
 

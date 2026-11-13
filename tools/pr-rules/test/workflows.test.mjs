@@ -89,3 +89,48 @@ test('review #87 item 7: the window starts at the last run whose check step succ
   assert.match(daily, /daily --issue --outputs /, 'the check step writes `alert` instead of failing');
   assert.match(daily, /if: steps\.check\.outputs\.alert == 'true'\n\s+run: node tools\/pr-rules\/index\.mjs alerted\n/, 'a later step fails the run');
 });
+
+test('PRC-02 (owner, 2026-11-13): the traceability files and the report are generated in CI, never committed', () => {
+  const checks = read('.github/workflows/pr-checks.yml');
+  const job = /^ {2}requirements:\n((?: {4,}.*\n|\s*\n)*)/m.exec(checks)[1];
+  // Generation runs on every PR and must succeed (the step fails on errors), into an untracked place.
+  assert.match(job, /index\.mjs --quiet --views --traceability --report "\$RUNNER_TEMP\/req-check-report\.md"/);
+  // Only the committed views (and the migrated list) are compared with git; the generated files must not be tracked.
+  assert.match(job, /git status --porcelain -- docs\/requirements tools\/req-check\/migrated\.json\)/);
+  assert.doesNotMatch(job, /git status --porcelain -- [^\n]*docs\/traceability/);
+  assert.match(job, /git ls-files -- docs\/traceability docs\/validation\/req-check-report\.md/);
+  // A test naming an item that does not exist fails the job.
+  assert.match(job, /run: node tools\/req-check\/index\.mjs --quiet --check-mentions\n/);
+  const ignore = read('.gitignore');
+  assert.match(ignore, /^\/docs\/traceability\/$/m);
+  assert.match(ignore, /^\/docs\/validation\/req-check-report\.md$/m);
+});
+
+test('PRC-02: main publishes the matrix and the report as the artifact `traceability`, read-only', () => {
+  const wf = read('.github/workflows/requirements-traceability.yml');
+  assert.match(wf, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
+  assert.match(wf, /^permissions: \{\}$/m);
+  assert.deepEqual(jobPermissions(wf, 'publish'), { contents: 'read' });
+  assert.match(wf, /--traceability --report docs\/traceability\/req-check-report\.md/);
+  assert.match(wf, /uses: actions\/upload-artifact@[0-9a-f]{40} # v[\d.]+\n {8}with:\n {10}name: traceability\n {10}path: docs\/traceability\/\n/);
+  assert.doesNotMatch(wf, /secrets\.|id-token|contents: write|pull_request/);
+});
+
+test('PRC-02: no rule or skill says to commit the traceability files or the report', () => {
+  const docs = ['AGENTS.md', 'README.md', '.github/pull_request_template.md', 'docs/requirements/README.md'];
+  for (const name of fs.readdirSync(path.join(ROOT, '.claude/skills'))) docs.push(`.claude/skills/${name}/SKILL.md`);
+  for (const rel of docs) {
+    const text = read(rel).replace(/\s+/g, ' ');
+    for (const sentence of text.split(/(?<=[.;:])\s/)) {
+      if (!/docs\/traceability|req-check-report/.test(sentence) || !/\bcommit/i.test(sentence)) continue;
+      assert.match(sentence, /not committed|never commit|git-ignored|not tracked|Do not commit/i, `${rel}: ${sentence}`);
+    }
+  }
+});
+
+test('PRC-02: skills that push or PATCH a PR body run the local description and label check first', () => {
+  for (const skill of ['implement-requirement', 'fix-review-findings', 'change-requirement', 'sync-branch']) {
+    const text = read(`.claude/skills/${skill}/SKILL.md`);
+    assert.match(text, /node tools\/pr-rules\/index\.mjs local --title /, skill);
+  }
+});

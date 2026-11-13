@@ -96,12 +96,14 @@ fails CI (`view-stale`).
 Run, from the repository root, in this order:
 
 1. `node tools/req-check/index.mjs --views` — writes every view from its source, then checks;
-2. `node tools/req-check/index.mjs --report docs/validation/req-check-report.md --traceability`;
+2. `node tools/req-check/index.mjs --check-mentions` — a renumbered item still named by a test fails CI;
 3. `node --test tools/req-check`.
 
-There must be 0 errors. Commit the sources, the regenerated views, `docs/traceability/` and
-`docs/validation/req-check-report.md`; never hand-edit or hand-merge the generated files (on a conflict see
-`sync-branch`). Run `prettier --check` on the changed non-requirement files.
+There must be 0 errors. Commit the sources and the regenerated views; never hand-edit or hand-merge a view (on
+a conflict see `sync-branch`). The traceability files and the req-check report are not committed (owner,
+2026-11-13): CI generates them; to read one, generate it on demand with
+`node tools/req-check/index.mjs --quiet --traceability --report docs/validation/req-check-report.md`
+(git-ignored), or take the `traceability` artifact of the latest «Requirements traceability» run on `main`. Run `prettier --check` on the changed non-requirement files.
 
 ## 7. PR
 
@@ -110,7 +112,8 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
 the one you wrote (it names this PR).
 
 1. Title `<ID>: <what>` with the requirement ID, or `PRC-02: <what>` for a batch over many requirements. Draft
-   until CI is green. Body: `.github/pull_request_template.md`.
+   until CI is green. Body: `.github/pull_request_template.md`. Before pushing and before every body change, run
+   the local PR checks below.
 2. «Owner decision»: the decisions this PR implements, with the quote and source, as in step 5.
 3. «Impact»: the `--impact` summary, a table «що змінено → у якому зрізі» (source line → views), the releases
    changed and the releases left unchanged with the reason, the `--move` warnings and what was done with each,
@@ -119,13 +122,38 @@ the one you wrote (it names this PR).
    permissions, isolation, encryption, money, retention); the path map is in `tools/pr-rules`
    (`lib/paths.mjs`). The label `owner-decision` is set by CI.
 
+**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
+PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
+
+```
+git fetch origin main
+node tools/pr-rules/index.mjs local --title "<the PR title>" --body-file <scratchpad>/pr<n>-req/body.md
+```
+
+It runs, offline, what the CI job `traceability` (description) and the label job check, on
+`git diff origin/main...HEAD`: the title's requirement ID, the template sections, and the labels CI will set.
+Fix every `ERROR` line first (exit code 0 is required). When it lists `sensitive` labels, tick «Sensitive areas
+touched»; when it lists `owner-decision`, the body must record the owner decision the PR implements.
+
+**GitHub errors** (owner, 2026-11-13): on HTTP 502 or 503, or «token store unavailable», retry with backoff
+(wait about 10 s, 30 s, then 90 s; at most 3 retries), then report the failure instead of looping. Before
+retrying a call that is not idempotent — posting a review, a comment or an issue, opening a PR — check whether
+the first attempt landed: list the PR's reviews (`gh api repos/{owner}/{repo}/pulls/<n>/reviews`), its comments
+(`gh api repos/{owner}/{repo}/issues/<n>/comments`), the issues (`gh api 'repos/{owner}/{repo}/issues?state=open&creator=<you>'`)
+or the open PRs of the branch (`gh api 'repos/{owner}/{repo}/pulls?head=<owner>:<branch>'`) and look for your text
+or head SHA; post again only when it is not there. A PATCH of a PR body, adding labels and `git push` (never
+`--force`) are idempotent: retry them as they are.
+
+**Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI, the batch's changes in one line each), blockers, owner questions. Details go in the PR body
+(or an issue), not in the report.
+
 ## 8. Review (lighter rule, owner, 2026-11-12)
 
 A requirement-change PR built this way gets **one** `review-pr` pass in a different session, by an agent on a
 lighter model (`pr-pipeline`, «Token economy»), with this fixed checklist (the reviewer reports each row):
 
 1. The PR body records the decision of every change, and each change matches its decision.
-2. Only sources were edited; `--views` and `--traceability` regenerate with no diff; 0 errors.
+2. Only sources were edited; `--views` regenerates with no diff; `--check-mentions` passes; 0 errors.
 3. Each moved item is absent from the old release's view and present from the target release on; the card
    part («Реліз», table of slices) and the module README row match.
 4. Every `--move` warning (changed numbers and their citations, mentions in the same requirement, variants)
