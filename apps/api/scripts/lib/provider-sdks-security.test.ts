@@ -3,9 +3,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { analyzeImports } from "./analyze.ts";
 import { readProviderSdks } from "./provider-sdks.ts";
+import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../../tools/test-guards/budgets.mjs";
+
+// Static analysis of real source trees: budget and its basis in tools/test-guards/budgets.mjs.
+vi.setConfig({ testTimeout: STATIC_ANALYSIS_TIMEOUT_MS });
 
 // Security review of ARC-05 (PR #84): the provider SDK guard (dependency analyzer for apps/api, ESLint for
 // every package) against every import form and against look-alike adapter folders.

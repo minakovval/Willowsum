@@ -34,6 +34,10 @@ function themeDeclarations(theme: ThemeName): string[] {
   lines.push(
     decl("chart-area-5", `color-mix(in srgb, ${cssVar("ink-muted")} 45%, ${cssVar("surface-200")})`),
   );
+  // DS-13 item 3: the lighter band that passes over a skeleton (a mix of skeleton and surface-200).
+  lines.push(
+    decl("skeleton-shine", `color-mix(in srgb, ${cssVar("skeleton")} 40%, ${cssVar("surface-200")})`),
+  );
   // DS-07 item 9: heat map levels.
   lines.push(decl("heat-0", cssVar("surface-300")));
   [25, 50, 75].forEach((p, i) =>

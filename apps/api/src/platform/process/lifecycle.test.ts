@@ -34,7 +34,13 @@ describe("ARC-02 FR 4: live and ready probes", () => {
 describe("ARC-02 FR 5: graceful stop — the API finishes requests in flight", () => {
   it("a request in flight completes; new connections are refused after stop", async () => {
     const app = buildServer({ readiness: ready });
+    // The handler says when it has the request. A fixed wait before stop() raced with a busy machine: when the
+    // worker got no CPU for longer than the wait, stop() closed the server before it accepted the connection
+    // and fetch failed with ECONNRESET.
+    let handlerStarted!: () => void;
+    const requestReceived = new Promise<void>((r) => (handlerStarted = r));
     app.get("/slow", async () => {
+      handlerStarted();
       await new Promise((r) => setTimeout(r, 300));
       return { done: true };
     });
@@ -44,7 +50,7 @@ describe("ARC-02 FR 5: graceful stop — the API finishes requests in flight", (
     lifecycle.onStop(() => app.close());
 
     const inFlight = fetch(`http://127.0.0.1:${port}/slow`).then((r) => r.json());
-    await new Promise((r) => setTimeout(r, 50));
+    await requestReceived;
     const outcome = lifecycle.stop();
     expect(await inFlight).toEqual({ done: true });
     expect(await outcome).toBe("clean");

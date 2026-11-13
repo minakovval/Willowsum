@@ -3,6 +3,10 @@ import { readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESLint } from "eslint";
+import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../../tools/test-guards/budgets.mjs";
+
+// Static analysis of real source trees: budget and its basis in tools/test-guards/budgets.mjs.
+vi.setConfig({ testTimeout: STATIC_ANALYSIS_TIMEOUT_MS });
 
 /**
  * NFR-09@PoC FR 1 (criterion «i18n»: 0 hard-coded strings in the interface, lint rule in CI). The rule
@@ -14,6 +18,10 @@ const ROOT = fileURLToPath(new URL("../../../../", import.meta.url));
 const RULE = "willowsum/no-hardcoded-ui-strings";
 const UI_FOLDERS = ["apps/web/src", "packages/ui/src"];
 const eslint = new ESLint({ cwd: ROOT });
+// Linting runs only the rule under test (the checks below read only its messages). The whole config also runs
+// the React Compiler rules of eslint-plugin-react-hooks, which took ~80 % of the time (2.9 s of 3.7 s over the
+// interface sources, `TIMING=8 eslint`) and pushed this test past 5 s; `pnpm lint` still runs them.
+const ruleOnly = new ESLint({ cwd: ROOT, ruleFilter: ({ ruleId }) => ruleId === RULE });
 
 /** Interface sources: every .tsx under the UI folders except tests and test helpers. */
 function interfaceFiles(): string[] {
@@ -31,7 +39,7 @@ function interfaceFiles(): string[] {
 }
 
 async function messages(code: string, file = "apps/web/src/pages/Sample.tsx") {
-  const [result] = await eslint.lintText(code, { filePath: join(ROOT, file) });
+  const [result] = await ruleOnly.lintText(code, { filePath: join(ROOT, file) });
   return (result?.messages ?? []).filter((m) => m.ruleId === RULE);
 }
 
@@ -96,7 +104,7 @@ describe("NFR-09@PoC FR 1: the lint rule against hard-coded interface strings", 
   });
 
   it("NFR-09@PoC FR 1: today's interface sources have no hard-coded strings", async () => {
-    const results = await eslint.lintFiles(interfaceFiles().map((f) => join(ROOT, f)));
+    const results = await ruleOnly.lintFiles(interfaceFiles().map((f) => join(ROOT, f)));
     const found = results.flatMap((r) =>
       r.messages.filter((m) => m.ruleId === RULE).map((m) => `${relative(ROOT, r.filePath)}:${m.line}`),
     );

@@ -1,12 +1,16 @@
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readCatalogue } from "../../src/platform/modules/catalogue.ts";
 import { readMigrations } from "../../src/platform/db/migrate.ts";
 import { checkModules } from "./check.ts";
 import { scaffoldModule } from "./scaffold.ts";
 import { makeTestTmpDir, removeTestTmpDir } from "../../test/tmp-dir.ts";
+import { STATIC_ANALYSIS_TIMEOUT_MS } from "../../../../tools/test-guards/budgets.mjs";
+
+// Static analysis of real source trees: budget and its basis in tools/test-guards/budgets.mjs.
+vi.setConfig({ testTimeout: STATIC_ANALYSIS_TIMEOUT_MS });
 
 const apiDir = fileURLToPath(new URL("../..", import.meta.url));
 const repoRoot = path.resolve(apiDir, "../..");
