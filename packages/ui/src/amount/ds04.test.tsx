@@ -155,9 +155,8 @@ describe("DS-04@PoC: the change with an arrow", () => {
     );
     const delta = container.querySelector(".ws-delta")!;
     expect(delta.classList.contains("ws-gain")).toBe(true);
-    expect(plain(delta.querySelector("[aria-hidden='true']")!.textContent)).toBe(
-      "▲ 5 000 € · \u221250,0 % р/р",
-    );
+    expect(plain(delta.querySelector("[aria-hidden='true']")!.textContent)).toBe("▲ 5 000 € р/р");
+    expect(delta.textContent).not.toMatch(/[\u2212+]/);
     expect(delta.querySelector(".ws-visually-hidden")!.textContent).toContain("зросло");
   });
 });

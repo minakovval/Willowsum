@@ -131,11 +131,14 @@ function catalogueName(locale: Locale, key: string): string | undefined {
 
 /**
  * The plural category of a displayed number (`Intl.PluralRules` of the regional format). Only the plural
- * operands matter — the last three integer digits, whether there are more, and the shown fraction — so
+ * operands matter — the last six integer digits, whether there are more, and the shown fraction — so
  * the rules get a small stand-in number, never the amount itself.
  */
 function pluralOf(locale: Locale, integer: string, fraction: string): Intl.LDMLPluralRule {
-  const tail = integer.length > 3 ? `1${integer.slice(-3)}` : integer || "0";
+  // CLDR plural operands used by uk, en and the EU languages: i % 10, i % 100, i % 1000000 and v (the
+  // count of shown fraction digits). A leading «1» before the last six integer digits keeps all of them
+  // and keeps i ≠ 0 and ≠ 1 for long numbers; `minimumFractionDigits` keeps v.
+  const tail = integer.length > 6 ? `1${integer.slice(-6)}` : integer || "0";
   return new Intl.PluralRules(formatLocaleOf(locale), { minimumFractionDigits: fraction.length }).select(
     Number(fraction ? `${tail}.${fraction}` : tail),
   );
@@ -256,10 +259,10 @@ const DIRECTION_KEYS: Record<DeltaDirection, MessageKey> = {
  * its unit) is one unbreakable fragment joined by no-break spaces; a line may break only after «·» and
  * before the period. Parts that move opposite ways (a change from a negative base: +5 000 €, −50 %)
  * never fail: the amount decides the arrow (else the first part that moved), and a part moving the other
- * way keeps its own sign: «▲ 5 000 € · −50,0 % р/р».
+ * way is left out: «▲ 5 000 € р/р».
  */
 export function formatDelta(locale: Locale, input: DeltaInput): FormattedDelta {
-  type Part = { sign: number; plain: [string, string]; signed: [string, string] };
+  type Part = { sign: number; plain: [string, string] };
   const parts: Part[] = [];
   const signOf = (text: string) => (text.startsWith(MINUS) ? -1 : /[1-9]/.test(text) ? 1 : 0);
   const absolute = (value: string) => decimal(value).replace(/^[-+]/, "");
@@ -278,27 +281,22 @@ export function formatDelta(locale: Locale, input: DeltaInput): FormattedDelta {
         formatMoney(locale, absolute(value), currency, options),
         speakMoney(locale, absolute(value), currency, options),
       ],
-      signed: [
-        formatMoney(locale, value, currency, { ...options, signed: true }),
-        speakMoney(locale, value, currency, { ...options, signed: true }),
-      ],
     });
   }
   if (input.percent !== undefined) {
     const text = formatPercent(locale, absolute(input.percent), { digits: 1 });
-    const signed = formatPercent(locale, input.percent, { digits: 1, signed: true });
-    parts.push({ sign: signOf(signed), plain: [text, text], signed: [signed, signed] });
+    parts.push({ sign: signOf(formatPercent(locale, input.percent, { digits: 1 })), plain: [text, text] });
   }
   if (input.points !== undefined) {
     const text = formatPoints(locale, absolute(input.points));
-    const signed = formatPoints(locale, input.points, { signed: true });
-    parts.push({ sign: signOf(signed), plain: [text, text], signed: [signed, signed] });
+    parts.push({ sign: signOf(formatPoints(locale, input.points)), plain: [text, text] });
   }
   if (parts.length === 0) throw new RangeError("A change needs an amount, a percentage or points");
   const sign = parts.find((p) => p.sign !== 0)?.sign ?? 0;
   const direction: DeltaDirection = sign > 0 ? "up" : sign < 0 ? "down" : "none";
-  // A part keeps its sign only when it moves against the arrow.
-  const shown = parts.map((p) => (p.sign !== 0 && p.sign !== sign ? p.signed : p.plain));
+  // A part that moves against the arrow (a change from a negative base) is left out: a change with an
+  // arrow has no sign (DS-04 business rule 3), so that part cannot be shown truthfully beside it.
+  const shown = parts.filter((p) => p.sign === 0 || p.sign === sign).map((p) => p.plain);
   const period = input.period ? PERIOD_KEYS[input.period] : undefined;
   const values = shown.map(([text]) => text).join(`${NBSP}\u00B7 `);
   const text = `${ARROW[direction]}${NBSP}${values}${period ? ` ${translate(locale, period.short)}` : ""}`;

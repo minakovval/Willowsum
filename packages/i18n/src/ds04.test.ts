@@ -277,6 +277,8 @@ describe("DS-04@PoC: review round 1", () => {
     expect(plain(speakMoney("en", "1", "EUR", { digits: 0 }))).toBe("1 euro");
     expect(plain(speakMoney("en", "2", "EUR", { digits: 0 }))).toBe("2 euros");
     expect(plain(speakMoney("en", "1001", "EUR", { digits: 0 }))).toBe("1,001 euros");
+    expect(plain(speakMoney("uk", "12345678901", "UAH", { digits: 0 }))).toBe("12 345 678 901 гривня");
+    expect(plain(speakMoney("uk", "1000000", "UAH", { digits: 0 }))).toBe("1 000 000 гривень");
   });
 
   it("DS-04@PoC FR 10: a currency without catalogue names takes the Intl name in the right form for the value", () => {
@@ -292,7 +294,7 @@ describe("DS-04@PoC: review round 1", () => {
     );
   });
 
-  it("DS-04@PoC FR 4: parts moving opposite ways (a negative base) follow the amount's arrow and keep their own sign", () => {
+  it("DS-04@PoC FR 4: parts moving opposite ways (a negative base) follow the amount's arrow and leave out the other part", () => {
     // Net worth from −10 000 € to −5 000 €: +5 000 €, but −50 % of the base.
     const delta = formatDelta("uk", {
       amount: { value: "5000", currency: "EUR" },
@@ -300,12 +302,14 @@ describe("DS-04@PoC: review round 1", () => {
       period: "year",
     });
     expect(delta.direction).toBe("up");
-    expect(plain(delta.text)).toBe(`▲ 5 000 € · ${MINUS}50,0 % р/р`);
-    expect(plain(delta.label)).toBe(`зросло на 5 000 євро, ${MINUS}50,0 % за рік`);
-    // Without an amount the first part decides; the other keeps its «+».
+    expect(plain(delta.text)).toBe("▲ 5 000 € р/р");
+    expect(delta.text).not.toMatch(/[\u2212+]/);
+    expect(plain(delta.label)).toBe("зросло на 5 000 євро за рік");
+    // Without an amount the first part decides; the part moving the other way is left out.
     const points = formatDelta("uk", { percent: "-1", points: "2" });
     expect(points.direction).toBe("down");
-    expect(plain(points.text)).toBe("▼ 1,0 % · +2 п. п.");
+    expect(plain(points.text)).toBe("▼ 1,0 %");
+    expect(points.text).not.toMatch(/[\u2212+]/);
   });
 
   it("DS-04@PoC FR 2: a change below one whole unit shows the currency's digits, not «0 €»", () => {
