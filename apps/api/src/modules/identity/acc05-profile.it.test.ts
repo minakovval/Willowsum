@@ -653,3 +653,76 @@ describe("NFR-15@PoC FR 4: step-up is the current password right before the acti
     expect(rows[0]!.expires_at.getTime() - rows[0]!.created_at.getTime()).toBe(5 * MINUTE);
   });
 });
+
+describe("ACC-05@PoC FR 5, NFR-15@PoC AC5: one confirmation changes the password once, even for two requests at once", () => {
+  it("two parallel changes with one confirmation: exactly one 200 and one 403 STEP_UP_REQUIRED; the first password wins", async () => {
+    const { email, browser } = await signedIn("sec204-parallel");
+    const token = await stepUpToken(browser);
+    const results = await Promise.all([
+      browser.changePassword("first parallel synthetic passphrase", token),
+      browser.changePassword("second parallel synthetic passphrase", token),
+    ]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 403]);
+    const refused = results.find((r) => r.statusCode === 403)!;
+    expect(code(refused)).toBe("STEP_UP_REQUIRED");
+    const winner = results.findIndex((r) => r.statusCode === 200) === 0 ? "first" : "second";
+    expect(
+      (await new Browser(FIREFOX_LINUX).signIn(email, `${winner} parallel synthetic passphrase`)).json(),
+    ).toEqual({ status: "signed-in" });
+    const loser = winner === "first" ? "second" : "first";
+    expect(
+      code(await new Browser(FIREFOX_LINUX).signIn(email, `${loser} parallel synthetic passphrase`)),
+    ).toBe("INVALID_CREDENTIALS");
+  });
+});
+
+describe("ACC-05@PoC FR 1: the password route is behind the release flag identity.profile", () => {
+  it("POST /v1/profile/password answers 404 as an unknown path while the flag is off, and changes nothing", async () => {
+    const { email, browser } = await signedIn("sec204-flag");
+    const token = await stepUpToken(browser);
+    profileFlagOn = false;
+    expect((await browser.changePassword(NEW_PASSWORD, token)).statusCode).toBe(404);
+    profileFlagOn = true;
+    expect((await new Browser(FIREFOX_LINUX).signIn(email, NEW_PASSWORD)).statusCode).toBe(401);
+    // The confirmation was not used by the hidden route.
+    expect((await browser.changePassword(NEW_PASSWORD, token)).statusCode).toBe(200);
+  });
+});
+
+describe("ACC-05@PoC FR 1, FR 4: the profile takes the name only; step-up while sign-in is locked elsewhere", () => {
+  it("PATCH /v1/profile with locale, timeZone, passwordHash or email is a 400 and changes nothing", async () => {
+    const { email, browser } = await signedIn("sec204-strict", { locale: "uk-UA", timeZone: "Europe/Kyiv" });
+    for (const extra of [
+      { locale: "en-US" },
+      { timeZone: "UTC" },
+      { passwordHash: "synthetic-not-a-hash" },
+      { email: "someone.else@example.test" },
+    ]) {
+      const res = await browser.send("PATCH", "/v1/profile", { name: "Інше Ім'я", ...extra });
+      expect(res.statusCode, JSON.stringify(extra)).toBe(400);
+    }
+    expect((await browser.profile()).json()).toMatchObject({
+      name: "Олена Профільна",
+      email,
+      locale: "uk-UA",
+      timeZone: "Europe/Kyiv",
+    });
+    expect((await new Browser(FIREFOX_LINUX).signIn(email)).json()).toEqual({ status: "signed-in" });
+  });
+
+  it("a step-up while sign-in is locked by failures elsewhere: 429 with the time to wait, the session stays, no letter", async () => {
+    const { email, browser } = await signedIn("sec204-locked");
+    const elsewhere = new Browser(FIREFOX_LINUX);
+    for (let i = 0; i < 5; i++) await elsewhere.signIn(email, WRONG);
+    expect(code(await elsewhere.signIn(email, WRONG))).toBe("SIGN_IN_LOCKED");
+    await flush();
+    const from = mail.sent.length;
+    const res = await browser.stepUp(PASSWORD);
+    expect(res.statusCode).toBe(429);
+    expect(code(res)).toBe("SIGN_IN_LOCKED");
+    await flush();
+    expect(lettersTo(email, from)).toEqual([]);
+    expect(browser.cookie).toBeDefined();
+    expect((await browser.session()).statusCode).toBe(200);
+  });
+});

@@ -220,39 +220,62 @@ describe("sec207: the owners' shares stay at most 100 % on every date against di
     ).rejects.toThrow();
   });
 
-  it.fails(
-    "sec207 follow-up: two concurrent transactions of 60 % each cannot both commit (each sees only its own row)",
-    async () => {
-      const { space, accountId } = await accountWithOwner();
-      await db.owner.query(
-        `UPDATE accounts.account_owners SET valid_to = '2026-12-31' WHERE household_id = $1 AND account_id = $2`,
-        [space.householdId, accountId],
-      );
-      let release!: () => void;
-      const gate = new Promise<void>((r) => (release = r));
-      let inserted = 0;
-      const insert = () =>
-        db.databases.for("accounts").inHousehold(space.householdId, async (q) => {
-          // The check runs now, before either transaction commits: neither sees the other's row.
-          await q.query(`SET CONSTRAINTS ALL IMMEDIATE`);
-          await q.query(
-            `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
-             VALUES ($1, $2, $3, 60, '2027-01-01')`,
-            [space.householdId, accountId, randomUUID()],
-          );
-          inserted += 1;
-          if (inserted === 2) release();
-          await gate;
-        });
-      await Promise.allSettled([insert(), insert()]);
-      const { rows } = await db.owner.query(
-        `SELECT coalesce(sum(share), 0)::text AS total FROM accounts.account_owners
-          WHERE household_id = $1 AND account_id = $2 AND valid_from = '2027-01-01'`,
-        [space.householdId, accountId],
-      );
-      expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
-    },
-  );
+  it("sec207 follow-up: two concurrent transactions of 60 % each cannot both commit (checked at once, before either commits)", async () => {
+    const { space, accountId } = await accountWithOwner();
+    await db.owner.query(
+      `UPDATE accounts.account_owners SET valid_to = '2026-12-31' WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, accountId],
+    );
+    // The first transaction holds its check open for a moment: without a lock per account the second one runs its
+    // check in that window, sees only its own row and passes; with the lock it waits for the first commit.
+    const insert = () =>
+      db.databases.for("accounts").inHousehold(space.householdId, async (q) => {
+        await q.query(`SET CONSTRAINTS ALL IMMEDIATE`);
+        await q.query(
+          `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
+           VALUES ($1, $2, $3, 60, '2027-01-01')`,
+          [space.householdId, accountId, randomUUID()],
+        );
+        await new Promise((r) => setTimeout(r, 400));
+      });
+    const results = await Promise.allSettled([insert(), insert()]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const { rows } = await db.owner.query(
+      `SELECT coalesce(sum(share), 0)::text AS total FROM accounts.account_owners
+        WHERE household_id = $1 AND account_id = $2 AND valid_from = '2027-01-01'`,
+      [space.householdId, accountId],
+    );
+    expect(Number((rows[0] as { total: string }).total)).toBe(60);
+  });
+
+  it("sec207 follow-up: two transactions of 60 % that commit together (the check at commit) cannot both stay", async () => {
+    const { space, accountId } = await accountWithOwner();
+    await db.owner.query(
+      `UPDATE accounts.account_owners SET valid_to = '2026-12-31' WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, accountId],
+    );
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    let inserted = 0;
+    const insert = () =>
+      db.databases.for("accounts").inHousehold(space.householdId, async (q) => {
+        await q.query(
+          `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
+           VALUES ($1, $2, $3, 60, '2027-01-01')`,
+          [space.householdId, accountId, randomUUID()],
+        );
+        inserted += 1;
+        if (inserted === 2) release();
+        await gate;
+      });
+    await Promise.allSettled([insert(), insert()]);
+    const { rows } = await db.owner.query(
+      `SELECT coalesce(sum(share), 0)::text AS total FROM accounts.account_owners
+        WHERE household_id = $1 AND account_id = $2 AND valid_from = '2027-01-01'`,
+      [space.householdId, accountId],
+    );
+    expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
+  });
 });
 
 describe("sec207: a full card number is refused however it is formatted (FIN-12 FR 4)", () => {
