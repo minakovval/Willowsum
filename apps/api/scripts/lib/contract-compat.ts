@@ -101,6 +101,13 @@ class Checker {
     }
   }
 
+  /** Runs a comparison and returns the problems it found instead of reporting them. */
+  private trial(compare: () => void): string[] {
+    const start = this.problems.length;
+    compare();
+    return this.problems.splice(start);
+  }
+
   private resolve(doc: Json, schema: unknown): Json {
     let current = schema;
     for (let i = 0; i < 32 && isObject(current) && typeof current["$ref"] === "string"; i++) {
@@ -238,9 +245,12 @@ class Checker {
         direction === "request"
           ? [bVariants, baseDoc, hVariants, headDoc]
           : [hVariants, headDoc, bVariants, baseDoc];
+      // Several variants may share a type (e.g. objects told apart by a `const` kind), so a variant is matched
+      // with the first candidate it is fully compatible with; when there is none, the closest candidate's
+      // problems are reported (#229).
       for (const variant of from) {
-        const match = to.find((candidate) => overlaps(variant, candidate));
-        if (!match) {
+        const candidates = to.filter((candidate) => overlaps(variant, candidate));
+        if (candidates.length === 0) {
           this.report(
             where,
             direction === "request"
@@ -249,8 +259,17 @@ class Checker {
           );
           continue;
         }
-        if (direction === "request") this.schema(where, fromDoc, variant, toDoc, match, direction, depth + 1);
-        else this.schema(where, toDoc, match, fromDoc, variant, direction, depth + 1);
+        let closest: string[] | undefined;
+        for (const candidate of candidates) {
+          const found = this.trial(() =>
+            direction === "request"
+              ? this.schema(where, fromDoc, variant, toDoc, candidate, direction, depth + 1)
+              : this.schema(where, toDoc, candidate, fromDoc, variant, direction, depth + 1),
+          );
+          if (!closest || found.length < closest.length) closest = found;
+          if (found.length === 0) break;
+        }
+        this.problems.push(...(closest ?? []));
       }
       return;
     }

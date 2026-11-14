@@ -28,6 +28,7 @@ import {
   CONSUMER,
   PRODUCER,
   behaviour,
+  drain,
   light,
   queueSetup,
   thingCreated,
@@ -64,15 +65,6 @@ function worker(extra: Partial<WorkerOptions> = {}, setup = queueSetup(databases
   });
   workers.push(w);
   return w;
-}
-
-async function drain(w: Worker): Promise<void> {
-  for (let i = 0; i < 200; i++) {
-    const handled = await w.tick();
-    await w.idle();
-    if (handled === 0) return;
-  }
-  throw new Error("the queue did not drain");
 }
 
 async function rows<R extends pg.QueryResultRow>(sql: string, values: unknown[] = []): Promise<R[]> {
