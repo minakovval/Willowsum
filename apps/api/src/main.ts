@@ -11,7 +11,7 @@ import { mountApi } from "./api.ts";
 import { createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
-import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
+import { createFxReporting, startFxRatesRefresh } from "./modules/fx-rates/index.ts";
 import {
   createHouseholdServices,
   createHouseholdSpaces,
@@ -178,11 +178,12 @@ const server = buildServer({
             // ACC-08: the space's settings write the rename into the space's own log.
             household: createHouseholdServices({ audit }),
             // FIN-01: accounts post «Початковий залишок» to the journal, keep a loan's and a card's terms in
-            // liabilities and seal the number with the space's key.
+            // liabilities, seal the number with the space's key and show balances at the NBU rate (fx-rates).
             accounts: createAccountsServices({
               ledger: createLedger(databases.for("ledger")),
               liabilities: createLiabilities(databases.for("liabilities"), audit),
               keys: createSpaceKeys(databases.for("household"), audit, kms),
+              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               audit,
               clock: systemClock,
               newId: randomUUID,

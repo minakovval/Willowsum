@@ -1,4 +1,5 @@
 import type { Money } from "@willowsum/domain-kernel";
+import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Ledger } from "../../ledger/index.ts";
 import { availableCredit, checkTerms, type Liabilities, type Liability } from "../../liabilities/index.ts";
 import {
@@ -56,6 +57,8 @@ export interface StoredAccount {
   readonly depositMaturesOn: string | null;
   readonly openedOn: string;
   readonly status: "active" | "closed";
+  /** The date of «Закритий» (FIN-01 FR 15, FR 22); closing comes with FIN-12 (wave 2 row 13). */
+  readonly closedOn: string | null;
   readonly source: "manual" | "import";
 }
 
@@ -127,6 +130,10 @@ export interface AccountsDeps {
   readonly seal: NumberSeal;
   readonly audit: AccountAudit;
   readonly newId: () => string;
+  /** Balances in the profile currency at the official NBU rate (fx-rates, VAL-04): «Гроші разом» and the list. */
+  readonly fx: Pick<FxReporting, "total">;
+  /** The profile currency (the space's reporting currency; EUR for every space in this release, ACC-06). */
+  readonly reportingCurrency: string;
   /** Today's date (YYYY-MM-DD) for balances and a deposit's accrual; from the clock, never read here. */
   readonly today: () => string;
 }
@@ -228,6 +235,7 @@ export async function createAccount(
     depositMaturesOn: draft.depositMaturesOn,
     openedOn: draft.openedOn,
     status: "active",
+    closedOn: null,
     source: "manual",
   };
   await tx.insertAccount(householdId, account);

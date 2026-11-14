@@ -1,6 +1,7 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
+import { REPORTING_CURRENCY, type FxReporting } from "../../../fx-rates/index.ts";
 import type { Ledger } from "../../../ledger/index.ts";
 import type { Liabilities } from "../../../liabilities/index.ts";
 import type { AccountAudit, AccountsDeps, NumberSeal } from "../../application/index.ts";
@@ -10,7 +11,8 @@ const BRAND = Symbol("willowsum-accounts-services");
 
 /**
  * What the API process wires for the accounts routes (src/api.ts → `ctx.services`): the journal (ledger), the
- * liabilities, the space's key for the number (household `SpaceKeys`), the audit log and the clock. Every port takes
+ * liabilities, the space's key for the number (household `SpaceKeys`), the official rates (fx-rates `FxReporting`),
+ * the audit log and the clock. Every port takes
  * the caller's space from `ctx.principal`.
  */
 export interface AccountsServices {
@@ -22,6 +24,8 @@ export function createAccountsServices(options: {
   readonly ledger: Pick<Ledger, "openAccount" | "post" | "balanceAt">;
   readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
   readonly keys: NumberSeal;
+  /** fx-rates' `createFxReporting` on the same clock: «Гроші разом» and the list in the profile currency. */
+  readonly fx: Pick<FxReporting, "total">;
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
@@ -32,6 +36,9 @@ export function createAccountsServices(options: {
       ledger: options.ledger,
       liabilities: options.liabilities,
       seal: options.keys,
+      fx: options.fx,
+      // The profile currency: EUR for every space in this release (ACC-06@PoC; household offers no other).
+      reportingCurrency: REPORTING_CURRENCY,
       audit: accountAudit(options.audit),
       newId: options.newId,
       // The UTC date; the profile's time zone (ACC-05) is not known to this module yet.
