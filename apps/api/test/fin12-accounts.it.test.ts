@@ -46,13 +46,19 @@ async function newSpace(): Promise<Space> {
   return { accountId, householdId };
 }
 
-function call(space: Space, method: "GET" | "POST" | "DELETE", url: string, body?: unknown) {
+function call(
+  space: Space,
+  method: "GET" | "POST" | "DELETE",
+  url: string,
+  body?: unknown,
+  principal: { role?: string; scoped?: boolean } = {},
+) {
   return app.inject({
     method,
     url,
     headers: {
       origin: WEB,
-      ...principalHeader({ userId: space.accountId, householdId: space.householdId }),
+      ...principalHeader({ userId: space.accountId, householdId: space.householdId, ...principal }),
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
     },
     ...(body !== undefined ? { payload: JSON.stringify(body) } : {}),
@@ -450,6 +456,31 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
       for (const res of [preview, close, reopen]) {
         expect(res.statusCode).toBe(404);
         expect(res.json()).toEqual(expect.objectContaining({ code: "NOT_FOUND" }));
+        expect(res.body).not.toContain("430");
+      }
+    }
+    // A scoped member of the same space: refused by the permission before anything is read — no balance, no account.
+    for (const scoped of [
+      { role: "editor", scoped: true },
+      { role: "viewer", scoped: true },
+    ]) {
+      const preview = await call(
+        space,
+        "GET",
+        `/v1/accounts/${acc.id}/closing?closedOn=${TODAY}`,
+        undefined,
+        scoped,
+      );
+      const close = await call(space, "POST", `/v1/accounts/${acc.id}/close`, { closedOn: TODAY }, scoped);
+      const update = await call(
+        space,
+        "POST",
+        `/v1/accounts/${acc.id}/balance`,
+        { balance: { amount: "1.00", currency: "EUR" } },
+        scoped,
+      );
+      for (const res of [preview, close, update]) {
+        expect(res.statusCode).toBe(403);
         expect(res.body).not.toContain("430");
       }
     }
