@@ -397,6 +397,48 @@ describe("FIN-12@PoC FR 4–6: «Основне» — the name and the kind", ()
   });
 });
 
+describe("FIN-12@PoC FR 11: a duplicate is not created by hand", () => {
+  /** A synthetic IBAN with a valid ISO 13616 check (the last 4 characters «1234»). */
+  const IBAN = "UA113223130000026007233561234";
+
+  it("FIN-12@PoC AC5: an imported «ПриватБанк ··1234» in UAH — the same IBAN in UAH by hand is «Такий рахунок уже є: ПриватБанк ••1234» with the account to open, and nothing is created (server side; the form — rows 113, 114)", async () => {
+    const space = await newSpace();
+    const institution = { name: "ПриватБанк", country: "UA" };
+    const imported = await createAccount(space, {
+      kind: "current",
+      name: "ПриватБанк ··1234",
+      institution,
+      number: IBAN,
+      balance: { amount: "100.00", currency: "UAH" },
+    });
+    // No import exists yet (IMP-*): the source is set as the importer would.
+    await db.owner.query(
+      `UPDATE accounts.accounts SET source = 'import' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, imported.id],
+    );
+    const probe = await call(space, "POST", "/v1/accounts/duplicate-check", {
+      institution,
+      number: IBAN,
+      currencies: ["UAH"],
+    });
+    expect(probe.json()).toEqual({
+      duplicate: { accountId: imported.id, institution: "ПриватБанк", maskedNumber: "••1234" },
+    });
+    expect(probe.body).not.toContain(IBAN);
+    const res = await call(space, "POST", "/v1/accounts", {
+      kind: "current",
+      name: "Мій ПриватБанк",
+      institution,
+      number: IBAN,
+      balance: { amount: "5.00", currency: "UAH" },
+      balanceDate: "2024-10-01",
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual(expect.objectContaining({ code: "ACCOUNT_DUPLICATE" }));
+    expect((await call(space, "GET", "/v1/accounts")).json().items).toHaveLength(1);
+  });
+});
+
 describe("FIN-12@PoC: who may change «Основне»", () => {
   it("FIN-12@PoC permissions of «Основне»: the Owner, an admin and an editor change it; a viewer, an advisor and every scoped member are refused; another space's account is «not found» and tells nothing", async () => {
     const space = await newSpace();

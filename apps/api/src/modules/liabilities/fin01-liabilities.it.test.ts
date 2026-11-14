@@ -76,7 +76,7 @@ describe("FIN-01@PoC FR 2: a loan is a liability with its rate and monthly payme
     expect(await liabilities.forAccount(randomUUID(), accountId)).toBeNull();
   });
 
-  it("FIN-01@PoC FR 16: the database refuses a loan without its terms and a card with a monthly payment", async () => {
+  it("FIN-01@PoC FR 16, FIN-12@PoC FR 5: the database refuses a card with a monthly payment and a bad rate; a loan without its terms is the application's to refuse", async () => {
     const householdId = randomUUID();
     const insert = (kind: string, rate: string | null, payment: string | null) =>
       db.databases.for("liabilities").inHousehold(householdId, (q) =>
@@ -86,7 +86,9 @@ describe("FIN-01@PoC FR 2: a loan is a liability with its rate and monthly payme
           [householdId, randomUUID(), randomUUID(), kind, rate, payment],
         ),
       );
-    await expect(insert("loan", null, "650")).rejects.toMatchObject({ code: "23514" });
+    // FIN-12@PoC AC12: «Кредитна картка» → «Кредит» leaves a loan without its payment until it is entered
+    // («Додайте ставку і платіж»), so the stored rule went (0002); a new loan still needs both (`checkTerms`, FIN-01 FR 5).
+    await expect(insert("loan", null, null)).resolves.toMatchObject({ rowCount: 1 });
     await expect(insert("credit-card", null, "10")).rejects.toMatchObject({ code: "23514" });
     await expect(insert("loan", "4.205", "650")).rejects.toMatchObject({ code: "23514" });
   });
