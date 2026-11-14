@@ -13,7 +13,7 @@ import { createFxRates, createFxReporting, type ReportedAmount } from "./index.t
 let db: RealModulesDatabase;
 // «Today» is Monday 2026-11-16 in Kyiv.
 const NOW = Date.UTC(2026, 10, 16, 10, 0);
-const reporting = () => createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW });
+const reporting = (now = NOW) => createFxReporting({ db: db.databases.for("fx-rates"), now: () => now });
 
 async function seed(rows: [date: string, currency: string, rate: string][]) {
   for (const [d, c, r] of rows)
@@ -101,10 +101,69 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect(item.value.toDecimalString()).toBe("9");
   });
 
-  it("VAL-04@PoC FR 3: «today» with a latest rate of a week ago is still not «приблизно» (open owner question)", async () => {
+  // The requirement changed (owner decision 2026-11-13, #185): «today» at a rate older than 3 calendar days is
+  // «приблизно». This replaces the test «… a week ago is still not «приблизно» (open owner question)» from #175.
+  it("VAL-04@PoC EC2: «today» with a latest rate of a week ago is «приблизно», keeps that rate and shows its date", async () => {
     await seed([["2026-11-09", "EUR", "50.00"]]);
-    const item = converted(await reporting().toReporting({ amount: Money.of("450", "UAH"), date: null }));
-    expect([item.conversion.rateDate, item.conversion.approximate]).toEqual(["2026-11-09", false]);
+    const total = await reporting().total([{ amount: Money.of("450", "UAH"), date: null }]);
+    const item = converted(total.items[0]!);
+    expect([item.conversion.rateDate, item.conversion.requestedDate, item.conversion.approximate]).toEqual([
+      "2026-11-09",
+      "2026-11-16",
+      true,
+    ]);
+    expect(item.value.toDecimalString()).toBe("9");
+    expect([
+      total.approximate,
+      total.staleRateCount,
+      total.nearestRateCount,
+      total.total?.toDecimalString(),
+    ]).toEqual([true, 1, 0, "9"]);
+  });
+
+  it("VAL-04@PoC EC2: exactly 3 calendar days is not «приблизно»; 4 days is — counted from today's Kyiv date", async () => {
+    await seed([["2026-11-13", "EUR", "50.00"]]); // Friday
+    const balance = { amount: Money.of("450", "UAH"), date: null };
+    // Sunday 2026-11-15 22:30 UTC is already Monday 2026-11-16 in Kyiv: 3 days after Friday.
+    const monday = converted(await reporting(Date.UTC(2026, 10, 15, 22, 30)).toReporting(balance));
+    expect([monday.conversion.requestedDate, monday.conversion.approximate]).toEqual(["2026-11-16", false]);
+    // Monday 2026-11-16 21:59 UTC is still Monday in Kyiv; 22:00 UTC is Tuesday 2026-11-17: 4 days.
+    const lateMonday = converted(await reporting(Date.UTC(2026, 10, 16, 21, 59)).toReporting(balance));
+    expect([lateMonday.conversion.requestedDate, lateMonday.conversion.approximate]).toEqual([
+      "2026-11-16",
+      false,
+    ]);
+    const tuesday = converted(await reporting(Date.UTC(2026, 10, 16, 22, 0)).toReporting(balance));
+    expect([tuesday.conversion.requestedDate, tuesday.conversion.approximate]).toEqual(["2026-11-17", true]);
+  });
+
+  it("VAL-04@PoC AC5: Monday; EUR/UAH last on Friday (3 days), PLN last on Wednesday (5 days) → the UAH balance at Friday's rate, plain; the PLN one at Wednesday's, «приблизно» with its date", async () => {
+    await seed([
+      ["2026-11-11", "EUR", "45.00"],
+      ["2026-11-11", "PLN", "10.80"],
+      ["2026-11-13", "EUR", "50.00"],
+    ]);
+    const total = await reporting().total([
+      { amount: Money.of("500.00", "UAH"), date: null },
+      { amount: Money.of("100.00", "PLN"), date: null },
+    ]);
+    const [uah, pln] = total.items.map(converted);
+    expect([uah!.conversion.rateDate, uah!.conversion.approximate, uah!.value.toDecimalString()]).toEqual([
+      "2026-11-13",
+      false,
+      "10",
+    ]);
+    expect([pln!.conversion.rateDate, pln!.conversion.approximate, pln!.value.toDecimalString()]).toEqual([
+      "2026-11-11",
+      true,
+      "24",
+    ]);
+    expect([
+      total.approximate,
+      total.staleRateCount,
+      total.nearestRateCount,
+      total.total?.toDecimalString(),
+    ]).toEqual([true, 1, 0, "34"]);
   });
 
   it("VAL-04@PoC AC3: PLN/CHF has no direct NBU rate → cross rate through the hryvnia from the NBU rates of the same date", async () => {
@@ -172,7 +231,7 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect([item.conversion.rateDate, item.conversion.approximate]).toEqual(["2026-11-12", true]);
   });
 
-  it("VAL-04@PoC EC2: a currency with restricted convertibility is converted at the official rate with the warning flag", async () => {
+  it("VAL-04@PoC EC3: a currency with restricted convertibility is converted at the official rate with the warning flag", async () => {
     await seed([
       ["2026-11-12", "BYN", "12.50"],
       ["2026-11-12", "EUR", "50.00"],
@@ -191,7 +250,7 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     expect([total.restricted, total.total?.toDecimalString()]).toEqual([true, "27"]);
   });
 
-  it("VAL-04@PoC EC2: a restricted reporting currency also carries the warning flag, although the amount's currency is not restricted", async () => {
+  it("VAL-04@PoC EC3: a restricted reporting currency also carries the warning flag, although the amount's currency is not restricted", async () => {
     await seed([
       ["2026-11-12", "BYN", "12.50"],
       ["2026-11-12", "USD", "40.00"],
@@ -207,7 +266,7 @@ describe("VAL-04@PoC: currencies and conversion", () => {
       );
   });
 
-  it("VAL-04@PoC EC3: no rate of the date but an earlier one → the nearest rate, «приблизно»; refined once the date's rate arrives", async () => {
+  it("VAL-04@PoC EC4: no rate of the date but an earlier one → the nearest rate, «приблизно»; refined once the date's rate arrives", async () => {
     await seed([["2026-11-09", "EUR", "40.00"]]);
     const items = [
       { amount: Money.of("440", "UAH"), date: "2026-11-12" },
@@ -232,7 +291,7 @@ describe("VAL-04@PoC: currencies and conversion", () => {
     ]).toEqual(["2026-11-12", false, 0, "18.8"]);
   });
 
-  it("VAL-04@PoC EC4: a currency with no rate at all stays in its own currency, «Курс недоступний», out of the total; the total is «приблизно» with the count", async () => {
+  it("VAL-04@PoC EC5: a currency with no rate at all stays in its own currency, «Курс недоступний», out of the total; the total is «приблизно» with the count", async () => {
     await seed([["2026-11-12", "EUR", "40.00"]]);
     const total = await reporting().total([
       { amount: Money.of("400", "UAH"), date: "2026-11-12" },

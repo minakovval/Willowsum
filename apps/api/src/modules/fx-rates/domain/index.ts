@@ -18,8 +18,10 @@ export type { PivotRate } from "./rates.ts";
 export {
   REPORTING_CURRENCY,
   RESTRICTED_CONVERTIBILITY,
+  TODAY_RATE_MAX_AGE_DAYS,
   isRestrictedConvertibility,
   rateCoversDate,
+  todayRateIsApproximate,
 } from "./currencies.ts";
 export { FIXED_CONVERSIONS, FIXED_CONVERSION_SOURCE, fixedConversionRate } from "./fixed-conversions.ts";
 export type { FixedConversion } from "./fixed-conversions.ts";
