@@ -8,6 +8,7 @@ import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.t
 import type { AccountsServices } from "./modules/accounts/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
+import type { TransactionsServices } from "./modules/transactions/index.ts";
 import { authenticateSession, SESSION_COOKIE, type IdentityServices } from "./modules/identity/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
@@ -47,6 +48,11 @@ export interface ApiWiring {
    * Omitted: its routes answer 500.
    */
   readonly accounts?: AccountsServices;
+  /**
+   * The transactions module's ports (FIN-03: the accounts directory, ledger, list totals, audit log, clock).
+   * Omitted: its routes answer 500.
+   */
+  readonly transactions?: TransactionsServices;
   /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly deployed?: boolean;
   /** The session of a request; by default the session cookie (with identity and spaces), else nobody. */
@@ -79,7 +85,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
           ? wiring.household
           : module === "accounts"
             ? wiring.accounts
-            : undefined,
+            : module === "transactions"
+              ? wiring.transactions
+              : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
