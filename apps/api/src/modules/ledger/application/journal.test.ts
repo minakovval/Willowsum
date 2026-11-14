@@ -108,6 +108,7 @@ describe("FIN-04 FR 5, ARC-11: repeats and reversals are decided before anything
     rulesVersion: 1,
     reversesEntryId: null,
     postings: [],
+    conversions: [],
   };
   /** A transaction stub: the given reads; any write fails the test. */
   const stub = (reads: {

@@ -40,8 +40,21 @@ export const ledgerModule = defineModule({
   consumes: [],
 });
 
-export { ACCOUNT_TYPES, EVENT_TYPES, LedgerError, RULES_VERSION, SERVICE_ACCOUNTS } from "./domain/index.ts";
-export type { AccountType, LedgerEvent, LedgerEventType, ServiceAccount } from "./domain/index.ts";
+export {
+  ACCOUNT_TYPES,
+  conversionDifference,
+  EVENT_TYPES,
+  LedgerError,
+  RULES_VERSION,
+  SERVICE_ACCOUNTS,
+} from "./domain/index.ts";
+export type {
+  AccountType,
+  EntryConversion,
+  LedgerEvent,
+  LedgerEventType,
+  ServiceAccount,
+} from "./domain/index.ts";
 export { INTEGRITY_CHECKS } from "./application/index.ts";
 export { entryRecorded, type EntryRecorded } from "./events.ts";
 export type {
@@ -159,11 +172,12 @@ export function createLedgerIntegrityCheck(
 /** Erasure of a space's journal (NFR-12@PoC FR 3, ARC-11 «Видалення даних»; ADR-0013): the owner's erasure script only. */
 export interface LedgerErasure {
   /**
-   * Deletes the space's postings, entries, accounts, queue rows (events, jobs) and balance cache in one transaction. Repeating it
-   * deletes nothing.
+   * Deletes the space's postings, rates of cross-currency entries, entries, accounts, queue rows (events, jobs) and
+   * balance cache in one transaction. Repeating it deletes nothing.
    */
   eraseHousehold(householdId: string): Promise<{
     readonly postings: number;
+    readonly conversions: number;
     readonly entries: number;
     readonly accounts: number;
     readonly events: number;

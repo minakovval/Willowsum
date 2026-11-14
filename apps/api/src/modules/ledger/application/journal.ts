@@ -3,6 +3,7 @@ import {
   ACCOUNT_TYPES,
   assertBalanced,
   balanceMovements,
+  conversionsFor,
   LedgerError,
   naturalBalance,
   postingsFor,
@@ -11,6 +12,7 @@ import {
   RULES_VERSION,
   type AccountRef,
   type AccountType,
+  type EntryConversion,
   type LedgerEvent,
   type Posting,
   type ServiceAccount,
@@ -48,6 +50,12 @@ export interface Entry {
   readonly rulesVersion: number;
   readonly reversesEntryId: string | null;
   readonly postings: readonly StoredPosting[];
+  /**
+   * The rates of a cross-currency entry (FIN-04 EC1, ARC-11 «Запис проводок»): for the account in another currency than
+   * the entry's, its actual amount, the entry's actual amount, the converted amount and the explicit dated rate. Empty
+   * for an entry in one currency; a reversal keeps the rates of the entry it reverses.
+   */
+  readonly conversions: readonly EntryConversion[];
 }
 
 export interface NewEntry {
@@ -88,6 +96,8 @@ export interface LedgerTx {
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
+  /** The rates of a cross-currency entry, with the entry and its postings in this transaction. */
+  insertConversions(entryId: string, conversions: readonly EntryConversion[]): Promise<void>;
   /**
    * The event «проводку записано» of a new entry, in this transaction (ARC-11, ARC-04 FR 2): it is published only if
    * the entry commits. Never called for an idempotent repeat, which writes nothing.
@@ -202,6 +212,13 @@ function assertKey(key: string): void {
     );
 }
 
+/**
+ * The key of a posting's side: an owner module's account by its id, a service account by its kind and the posting's
+ * currency (one per currency: a cross-currency entry has «Валютна різниця» in each of its currencies).
+ */
+const sideKey = (ref: AccountRef, posting: Posting): string =>
+  "account" in ref ? refKey(ref) : `${refKey(ref)}:${posting.amount.currency}`;
+
 /** Resolves every side of the postings to an account of the space; service accounts are made on first use. */
 async function resolve(
   tx: LedgerTx,
@@ -221,9 +238,9 @@ async function resolve(
     throw new LedgerError("UNKNOWN_ACCOUNT", "An account of the event does not exist in this space");
   for (const p of postings)
     for (const ref of [p.debit, p.credit])
-      if ("service" in ref && !resolved.has(refKey(ref)))
+      if ("service" in ref && !resolved.has(sideKey(ref, p)))
         resolved.set(
-          refKey(ref),
+          sideKey(ref, p),
           await tx.ensureServiceAccount(ref.service, p.amount.currency, deps.newId()),
         );
   return resolved;
@@ -235,6 +252,7 @@ async function write(
   deps: JournalDeps,
   header: Omit<NewEntry, "id" | "rulesVersion">,
   postings: readonly Posting[],
+  conversions: readonly EntryConversion[],
 ): Promise<Entry> {
   assertKey(header.idempotencyKey);
   assertDate(header.operationDate);
@@ -242,17 +260,18 @@ async function write(
   const existing = await tx.entryByKey(header.idempotencyKey);
   if (existing) return existing;
   const accounts = await resolve(tx, deps, postings);
-  const account = (ref: AccountRef) => accounts.get(refKey(ref))!;
-  assertBalanced(postings, (ref) => account(ref).currency);
+  const account = (ref: AccountRef, p: Posting) => accounts.get(sideKey(ref, p))!;
+  assertBalanced(postings, (ref, p) => account(ref, p).currency);
   const id = deps.newId();
   if (!(await tx.insertEntry({ ...header, id, rulesVersion: RULES_VERSION })))
     return (await tx.entryByKey(header.idempotencyKey))!;
   const stored = postings.map((p) => ({
-    debitAccountId: account(p.debit).id,
-    creditAccountId: account(p.credit).id,
+    debitAccountId: account(p.debit, p).id,
+    creditAccountId: account(p.credit, p).id,
     amount: p.amount,
   }));
   await tx.insertPostings(id, stored);
+  if (conversions.length > 0) await tx.insertConversions(id, conversions);
   await moveBalances(tx, header.operationDate, stored);
   const entry = (await tx.entry(id))!;
   await tx.recorded(entry);
@@ -286,6 +305,10 @@ async function moveBalances(tx: LedgerTx, day: string, postings: readonly Stored
 async function postIn(tx: LedgerTx, deps: JournalDeps, input: PostInput): Promise<Entry> {
   // An event without a rule is refused before anything is read or written (ARC-11).
   const postings = postingsFor(input.event);
+  assertKey(input.idempotencyKey);
+  assertDate(input.operationDate);
+  // A cross-currency event keeps its explicit dated rate on the entry (FIN-04 EC1, ARC-11).
+  const conversions = conversionsFor(input.event, input.operationDate);
   return write(
     tx,
     deps,
@@ -297,6 +320,7 @@ async function postIn(tx: LedgerTx, deps: JournalDeps, input: PostInput): Promis
       reversesEntryId: null,
     },
     postings,
+    conversions,
   );
 }
 
@@ -338,6 +362,8 @@ async function reverseIn(
       reversesEntryId: entryId,
     },
     reversalOf(postings),
+    // The same rates: a reversal offsets the entry exactly, in every currency.
+    original.conversions,
   );
 }
 
