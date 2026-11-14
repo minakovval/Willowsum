@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-14
 
 Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, CI
 green, every acceptance criterion covered by a test. Gate: no change to `apps/` or `packages/` for a release whose
@@ -53,6 +53,10 @@ audit entry, and a fixed or injected clock (never re-read `Date.now()` to pick a
 - Add the test files to «Перевіряється» in the **source** `<ID>.md` (one untagged line, or one tagged line per
   release range: `- [лише PoC] Перевіряється: …`), then `node tools/req-check/index.mjs --views`. A requirement not
   migrated yet is one plain file.
+- Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
+- Type checks: `tsc -p <pkg>/tsconfig.json` directly for every package you changed (e.g.
+  `pnpm exec tsc -p apps/api/tsconfig.json`): `pnpm typecheck` can miss what CI catches (#184; owner,
+  2026-11-14 — until a separate `sensitive:pipeline` PR fixes it).
 - Checks: typecheck, lint, unit, integration, e2e for UI (root `package.json`), `node --test tools/req-check`,
   `--views` and `--check-mentions` (0 errors), `--coverage` (every AC and EC of your view covered). Without
   Docker: `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- <command>`.
@@ -78,7 +82,8 @@ Exit 0 required; tick «Sensitive areas touched» if it lists `sensitive`; recor
 `owner-decision` — [details](../../references/local-pr-checks.md) (read when the output is unclear). GitHub
 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it happens).
 
-Open a draft PR with `.github/pull_request_template.md`: title `<ID>: <what>`; the criterion → test table (your
+Committing and pushing to your own PR branch is part of the task (owner, 2026-11-13, #178: «дозволяю»); if the
+permission classifier still refuses, stop and report it to the lead. Open a draft PR with `.github/pull_request_template.md`: title `<ID>: <what>`; the criterion → test table (your
 `--coverage` row); open owner questions; the sensitive box; «Follow-ups»; `docs/ops/integrations.md` updated for
 a new external service. Decisions go into a **new** file `docs/decisions/log/YYYY-MM-DD-<slug>.md`: an owner
 decision as the lead's report, a small detail as «Рішення ведучого (дата; власник не схвалював)».

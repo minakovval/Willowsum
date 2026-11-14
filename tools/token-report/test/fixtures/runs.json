@@ -1,0 +1,8 @@
+{
+  "total_count": 3,
+  "workflow_runs": [
+    { "id": 1, "name": "PR checks", "status": "completed", "run_started_at": "2026-01-01T10:00:00Z", "updated_at": "2026-01-01T10:06:00Z" },
+    { "id": 2, "name": "PR description", "status": "completed", "run_started_at": "2026-01-01T10:00:00Z", "updated_at": "2026-01-01T10:00:30Z" },
+    { "id": 3, "name": "PR checks", "status": "completed", "run_started_at": "2026-01-01T11:00:00Z", "updated_at": "2026-01-01T11:03:30Z" }
+  ]
+}
