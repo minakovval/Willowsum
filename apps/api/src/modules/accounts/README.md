@@ -57,7 +57,7 @@ FIN-01@PoC b) (хвиля 2, рядок 12 — серверна частина):
   - `GET /v1/accounts` (`listAccounts`, той самий дозвіл і 404 для учасника з областю) — сторінка рахунків (`pageQuery`,
     `pageOf`; порядок — додавання, потім id), `group` (`cash`, `credit`), `includeClosed` («Показати закриті», FR 22): на
     рядок — тип, група, назва, установа, `••1234`, стан і дата закриття, джерело, `updatedOn` (найпізніша дата залишку),
-    `balance` у валюті профілю, `currencies` (кожен субрахунок у своїй валюті й у валюті профілю з датою курсу), картка —
+    `inProfileCurrency` у валюті профілю, `currencies` (кожен субрахунок у своїй валюті й у валюті профілю з датою курсу), картка —
     ліміт, борг, доступно; кредит — ставка, платіж, борг.
   - `POST /v1/accounts/duplicate-check` (`findDuplicateAccount`, дозвіл `household.data.write` — учасник з областю не може
     промацувати рахунки поза нею) `{ institution, number, currencies }` → `{ duplicate: { accountId, institution,
