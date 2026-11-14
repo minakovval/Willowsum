@@ -479,6 +479,7 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
     const set: string[] = [];
     return Object.freeze({
       clientAddress: clientAddressKey(request.ip),
+      userAgent: (request.headers["user-agent"] ?? "").slice(0, 512),
       https: cookies.https,
       sessionCookie: (name: string) => readSessionCookie(request, name, cookies),
       setCookie: (header: string) => {

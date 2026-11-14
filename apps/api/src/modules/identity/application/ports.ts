@@ -1,7 +1,7 @@
 import type { CaptchaVerifier } from "../../../platform/adapters/captcha/index.ts";
 import type { MailMessage } from "../../../platform/adapters/mail/index.ts";
 import type { FixedWindowLimiter } from "../../../platform/http/rate-limit.ts";
-import type { SessionEndReason, SignInGuard } from "../domain/index.ts";
+import type { DeviceName, SessionEndReason, SignInGuard } from "../domain/index.ts";
 
 /** Ports of the identity use cases (ARC-01 FR 5); adapters are wired in ../index.ts. Times are epoch ms. */
 
@@ -11,6 +11,21 @@ export interface AccountRow {
   readonly displayName: string;
   readonly passwordHash: string;
   readonly emailConfirmedAt: number | null;
+  /** Set by «Це був не я»: every sign-in is refused until the password changes (ACC-04 FR 5). */
+  readonly passwordResetRequiredAt: number | null;
+}
+
+/** A «Це був не я» link of a new-device letter (ACC-04 FR 5) and the sign-in it is about. */
+export interface NotMeLinkRow {
+  readonly id: string;
+  readonly accountId: string;
+  readonly deviceDigest: Buffer;
+  readonly signedInAt: number;
+  readonly device: DeviceName;
+  /** Already masked (`89.64.•••.12`); the full address is never stored. */
+  readonly addressMasked: string;
+  readonly expiresAt: number;
+  readonly usedAt: number | null;
 }
 
 export interface ConfirmationRow {
@@ -98,7 +113,31 @@ export interface IdentityTx {
     account: { displayName: string; passwordHash: string },
     now: number,
   ): Promise<boolean>;
+  /** A new password; it also lifts «Це був не я»'s requirement to change it (ACC-04 FR 5). */
   setPassword(accountId: string, passwordHash: string, now: number): Promise<void>;
+  /** «Це був не я»: every sign-in is refused until the password changes. */
+  requirePasswordReset(accountId: string, now: number): Promise<void>;
+
+  /**
+   * Adds the device to the account's sign-in history (NFR-15 FR 29). `first`: the account had no history yet (its
+   * first sign-in starts it, no letter); `known`: the device is in it; `new`: a device the history did not have.
+   * Serialised per account, so two first sign-ins at once cannot both count as the first.
+   */
+  rememberDevice(accountId: string, deviceDigest: Buffer, now: number): Promise<"first" | "known" | "new">;
+  /** «Це був не я»: the device of the suspicious sign-in leaves the history, so its next sign-in is reported again. */
+  forgetDevice(accountId: string, deviceDigest: Buffer): Promise<void>;
+  insertNotMeLink(link: {
+    accountId: string;
+    tokenDigest: Buffer;
+    deviceDigest: Buffer;
+    signedInAt: number;
+    device: DeviceName;
+    addressMasked: string;
+    expiresAt: number;
+  }): Promise<void>;
+  /** The link of the digest; `lock` holds its row until the transaction ends (single use). */
+  findNotMeLink(digest: Buffer, lock?: boolean): Promise<NotMeLinkRow | null>;
+  useNotMeLink(id: string, now: number): Promise<void>;
 
   insertConfirmation(accountId: string, digest: Buffer, now: number, expiresAt: number): Promise<void>;
   /** Revokes every unused link of the account (a newer one replaces them). */
@@ -170,6 +209,7 @@ export interface SweepCounts {
   readonly emailConfirmations: number;
   readonly passwordResets: number;
   readonly sessions: number;
+  readonly notMeLinks: number;
 }
 
 /**
@@ -197,11 +237,16 @@ export interface Secrets {
   digest(text: string): Buffer;
 }
 
+/** Whether an account may sign in (ACC-04 FR 5): the audited state of «Це був не я». */
+export type SignInState = "allowed" | "password-reset-required";
+
 /** The changes identity writes to the platform audit log (no space exists yet): ids and states only. */
 export interface AccountAudit {
   accountChanged(accountId: string, before: string | null, after: string): Promise<void>;
   /** The password was replaced (a reset, or a new sign-up of an unconfirmed address); the value is masked. */
   passwordChanged(accountId: string): Promise<void>;
+  /** «Це був не я» (ACC-04 FR 5): sign-in refused until a new password (`password-reset-required`), or allowed again. */
+  signInChanged(accountId: string, before: SignInState, after: SignInState): Promise<void>;
   /** The daily task deleted an unconfirmed account (ACC-01 FR 6). */
   accountDeleted(accountId: string): Promise<void>;
 }
