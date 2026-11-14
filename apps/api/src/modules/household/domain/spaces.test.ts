@@ -46,4 +46,22 @@ describe("ACC-08@PoC FR 5: a new name of the space", () => {
     expect(spaceName("Коваль\u0000")).toBeNull();
     expect(spaceName("Родина Коваль")).toBe("Родина Коваль");
   });
+
+  it("ACC-08@PoC AC5: a name of invisible characters only (zero-width space, joiners) counts as empty", () => {
+    expect(spaceName("\u200B")).toBeNull();
+    expect(spaceName(" \u200B\u200C\u200D\u2060 ")).toBeNull();
+    // a joiner inside a visible name stays (emoji sequences, scripts that need it)
+    expect(spaceName("Родина 👨\u200D👩\u200D👧")).toBe("Родина 👨\u200D👩\u200D👧");
+  });
+
+  it("ACC-08@PoC FR 5: line and paragraph separators (U+2028, U+2029) break the one-line rule", () => {
+    expect(spaceName("Коваль\u2028батьки")).toBeNull();
+    expect(spaceName("Коваль\u2029батьки")).toBeNull();
+  });
+
+  it("ACC-08@PoC FR 5: bidi controls (U+202A–202E, U+2066–2069) are not saved", () => {
+    for (const cp of [0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069]) {
+      expect(spaceName(`Коваль${String.fromCodePoint(cp)}батьки`)).toBeNull();
+    }
+  });
 });

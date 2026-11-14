@@ -138,7 +138,7 @@ describe("ACC-08@PoC FR 5: the Owner renames the space in «Налаштуван
     expect(await nameOf(space.householdId)).toBe("Д".repeat(60));
   });
 
-  it("uniqueness is not required: two spaces may have one name; the same name again writes no entry", async () => {
+  it("ACC-08@PoC FR 5: uniqueness is not required: two spaces may have one name; the same name again writes no entry", async () => {
     const a = await newSpace("Андрій Тестовий");
     const b = await newSpace("Богдан Тестовий");
     expect(await nameOf(a.householdId)).toBe(await nameOf(b.householdId));
@@ -191,6 +191,41 @@ describe("ACC-08@PoC FR 2: the space's name for the profile, and only the sessio
     const res = await call(space, "GET");
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ name: "Родина Профільна", dataRegion: "eu", reportingCurrency: "EUR" });
+  });
+
+  it.each([["owner"], ["admin"], ["editor"], ["viewer"], ["advisor"]])(
+    "ACC-08@PoC FR 2: a %s reads the name of the space (200)",
+    async (role) => {
+      const space = await newSpace("Роксолана Ролева");
+      const res = await call(space, "GET", undefined, { role });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ name: "Родина Ролева", dataRegion: "eu", reportingCurrency: "EUR" });
+    },
+  );
+
+  it("ACC-08@PoC FR 5: markup in a name is saved and returned as plain text; no session gives 401; a cross-site PATCH 403", async () => {
+    const space = await newSpace("Тарас Розмітка");
+    const markup = `<img src=x onerror=alert(1)> & "q"`;
+    expect((await call(space, "PATCH", { name: markup })).json()).toMatchObject({ name: markup });
+    const read = await call(space, "GET");
+    expect(read.headers["content-type"]).toMatch(/application\/json/);
+    expect(read.json()).toMatchObject({ name: markup });
+
+    const anonymous = await app.inject({ method: "GET", url: "/v1/space", headers: { origin: WEB } });
+    expect(anonymous.statusCode).toBe(401);
+
+    const crossSite = await app.inject({
+      method: "PATCH",
+      url: "/v1/space",
+      headers: {
+        origin: "https://evil.example",
+        "content-type": "application/json",
+        ...principalHeader({ userId: space.accountId, householdId: space.householdId }),
+      },
+      payload: JSON.stringify({ name: "Чужа назва" }),
+    });
+    expect(crossSite.statusCode).toBe(403);
+    expect(await nameOf(space.householdId)).toBe(markup);
   });
 
   it("renaming space A changes nothing in space B; a space id in the request is ignored (П-5)", async () => {

@@ -52,7 +52,7 @@ What the numbers mean (#178, comments 6873807074 and 6866721229):
 - `subagent_tokens` in an agent's completion notice is its context size at the end, not its spend; it stays in
   #180 only for comparison. The real spend is the sum of `usage` (`cache_read_input_tokens`,
   `cache_creation_input_tokens`, `input_tokens`, `output_tokens`) of every model call in the agent's log
-  `tasks/<agentId>.output`, each `message.id` once — 30–90 times more.
+  `tasks/<agentId>.output`, each `message.id` once — 30–90 times more (the lead's estimate, [#180 «Токени агентів»](https://github.com/minakovval/Willowsum/issues/180); not measured in #178).
 - A resumed agent's notice shows only its last run: sum `duration_ms` (and `subagent_tokens`) of every run.
 - `get_session` usage never included the agents, and since 2026-11-14 it returns no `usage` at all: the lead's
   own spend is the sum of its session transcript `~/.claude/projects/<dir>/<session id>.jsonl` (#180, comment
