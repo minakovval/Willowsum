@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14 (FIN-01: `accounts.manual`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -58,7 +58,9 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 Прапорці: `household.core` — `operational`, власник `product-owner`, перегляд до 2027-02-04; `identity.sign-in` — `release`
 (ACC-01: реєстрація і вхід), власник `product-owner`, перегляд до 2027-02-12; `household.space-settings` — `release`,
 потребує `household.core` (ACC-08@PoC: назва простору і перейменування, `/v1/space`), власник `product-owner`, перегляд до
-2027-02-13; `accounts.manual` — `release` (FIN-01@PoC: ручні рахунки, `/v1/accounts`), власник `product-owner`, перегляд до
+2027-02-13; `identity.profile` — `release`, потребує `identity.sign-in` (ACC-05@PoC: профіль і зміна пароля зі step-up,
+`/v1/profile`, `/v1/session/step-up`; лише етап «all»), власник `product-owner`, перегляд до 2027-02-14;
+`accounts.manual` — `release` (FIN-01@PoC: ручні рахунки, `/v1/accounts`), власник `product-owner`, перегляд до
 2027-02-14.
 
 Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на

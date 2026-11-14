@@ -5,6 +5,7 @@ import {
   crossRate,
   fixedConversionRate,
   rateCoversDate,
+  todayRateIsApproximate,
   STALE_AFTER_MS,
 } from "../domain/index.ts";
 import type { FxRateStore } from "./ports.ts";
@@ -117,11 +118,18 @@ export function createFxRateReader(deps: { store: FxRateStore; now: () => number
 /**
  * The official rates as the list totals read them (DAT-01@PoC FR 12; `platform/lists/list-total.ts`): one read
  * for all the rates of a total, each the rate of its date or the nearest earlier one, and null — never a zero
- * rate — when there is none. Errors other than a missing rate reject the call.
+ * rate — when there is none. Errors other than a missing rate reject the call. `covers` — whether a rate is the
+ * rate of a dated record's date (weekends); `staleForToday` — whether «today»'s rate is older than 3 calendar days
+ * (VAL-04@PoC EC2).
  */
 export function officialDatedRates(fx: Pick<FxRates, "rates">): {
   rates(requests: readonly RateRequest[]): Promise<(ExchangeRate | null)[]>;
   covers(rateDate: string, date: string): boolean;
+  staleForToday(rateDate: string, today: string): boolean;
 } {
-  return { rates: (requests) => fx.rates(requests), covers: rateCoversDate };
+  return {
+    rates: (requests) => fx.rates(requests),
+    covers: rateCoversDate,
+    staleForToday: todayRateIsApproximate,
+  };
 }

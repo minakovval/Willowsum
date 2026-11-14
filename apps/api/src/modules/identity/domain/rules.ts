@@ -97,10 +97,19 @@ export function sessionAlive(
  * Why a session ended, as stored (ACC-04@PoC; ADR-0009 «Сесії», decision log 2026-11-13-acc04-session-refresh): `signed-out` (this browser — any tab — signed out),
  * `idle` (15 min without a user action), `expired` (12 h after sign-in), `password-reset` (a reset ended every
  * session of the account), `token-reuse` (a token replaced more than the grace period ago came back: it was copied,
- * so the whole session ends), `not-me` («Це був не я» ended every session of the account; ACC-04 FR 5).
+ * so the whole session ends), `not-me` («Це був не я» ended every session of the account; ACC-04 FR 5),
+ * `password-change` (a password change in the profile ended every other session; ACC-04 FR 6, ACC-05 FR 5),
+ * `step-up-locked` (wrong step-up passwords reached the sign-in limit and ended this session; NFR-01 FR 13).
  */
 export type SessionEndReason =
-  "signed-out" | "idle" | "expired" | "password-reset" | "token-reuse" | "not-me";
+  | "signed-out"
+  | "idle"
+  | "expired"
+  | "password-reset"
+  | "token-reuse"
+  | "not-me"
+  | "password-change"
+  | "step-up-locked";
 
 /**
  * What the client is told (ACC-04 «Стани інтерфейсу»): `idle` → «Сесію завершено через бездіяльність»;
@@ -117,8 +126,11 @@ export function shownEndReason(reason: SessionEndReason | null): SessionEndShown
     case "password-reset":
     case "token-reuse":
     case "not-me":
+    case "password-change":
       return "ended-elsewhere";
-    // A session ended before reasons were stored was ended by sign-out or by the failed first space.
+    // A session ended before reasons were stored was ended by sign-out or by the failed first space. A session the
+    // step-up lock ended was told so in the answer that ended it (429 SIGN_IN_LOCKED); its other tabs see the sign-in.
+    case "step-up-locked":
     case "signed-out":
     case null:
       return "signed-out";

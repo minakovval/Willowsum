@@ -4,10 +4,15 @@ import {
   REPORTING_CURRENCY,
   RESTRICTED_CONVERTIBILITY,
   isRestrictedConvertibility,
+  TODAY_RATE_MAX_AGE_DAYS,
   rateCoversDate,
+  todayRateIsApproximate,
 } from "./index.ts";
 
-/** VAL-04@PoC, pure rules of fx-rates: the space's reporting currency, ISO 4217, weekends, restricted currencies. */
+/**
+ * VAL-04@PoC, pure rules of fx-rates: the space's reporting currency, ISO 4217, weekends, the age of «today»'s rate,
+ * restricted currencies.
+ */
 describe("VAL-04@PoC domain: currencies of the space and the rate of a date", () => {
   it("VAL-04@PoC FR 2: the reporting currency of a space in this release is EUR, whatever the locale", () => {
     expect(REPORTING_CURRENCY).toBe("EUR");
@@ -49,7 +54,31 @@ describe("VAL-04@PoC domain: currencies of the space and the rate of a date", ()
     expect(rateCoversDate("2027-01-01", "2027-01-03")).toBe(true);
   });
 
-  it("VAL-04@PoC EC2: a currency with restricted convertibility gets the official rate with a warning", () => {
+  it("VAL-04@PoC AC5: on Monday, Friday's rate (3 calendar days) is not «приблизно», Wednesday's (5 days) is", () => {
+    // 2026-11-16 is a Monday.
+    expect(todayRateIsApproximate("2026-11-13", "2026-11-16")).toBe(false);
+    expect(todayRateIsApproximate("2026-11-11", "2026-11-16")).toBe(true);
+  });
+
+  it("VAL-04@PoC EC2: «today» is «приблизно» only when the latest rate is older than 3 calendar days; exactly 3 is not", () => {
+    expect(TODAY_RATE_MAX_AGE_DAYS).toBe(3);
+    expect(todayRateIsApproximate("2026-11-16", "2026-11-16")).toBe(false); // today's own rate
+    expect(todayRateIsApproximate("2026-11-15", "2026-11-16")).toBe(false); // 1 day
+    expect(todayRateIsApproximate("2026-11-14", "2026-11-17")).toBe(false); // 3 days, Saturday → Tuesday
+    expect(todayRateIsApproximate("2026-11-13", "2026-11-17")).toBe(true); // 4 days, Friday → Tuesday
+    // Calendar days, weekends included: Wednesday → Sunday is 4 days.
+    expect(todayRateIsApproximate("2026-11-11", "2026-11-15")).toBe(true);
+    // Across a month and a year end, and a leap day.
+    expect(todayRateIsApproximate("2026-12-29", "2027-01-01")).toBe(false);
+    expect(todayRateIsApproximate("2026-12-28", "2027-01-01")).toBe(true);
+    expect(todayRateIsApproximate("2028-02-27", "2028-03-01")).toBe(false); // 27.02 → 01.03 is 3 days in 2028
+    expect(todayRateIsApproximate("2027-02-26", "2027-03-01")).toBe(false);
+    expect(todayRateIsApproximate("2027-02-25", "2027-03-01")).toBe(true);
+    // A rate from after today never arrives here (`convert` refuses it); it is not «older».
+    expect(todayRateIsApproximate("2026-11-17", "2026-11-16")).toBe(false);
+  });
+
+  it("VAL-04@PoC EC3: a currency with restricted convertibility gets the official rate with a warning", () => {
     expect(isRestrictedConvertibility("BYN")).toBe(true);
     expect(isRestrictedConvertibility("EUR")).toBe(false);
     expect(isRestrictedConvertibility("UAH")).toBe(false);

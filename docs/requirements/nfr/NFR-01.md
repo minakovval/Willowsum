@@ -40,7 +40,7 @@
 - [v1-mobile] Спільні правила: П-5, П-6, П-8, П-10, ARC-03, ARC-06, ARC-07, CICD-02, CICD-12, NFR-13
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts
 - [PoC v2] Перевіряється: —
 
 **Мета.** Як користувач, що зберігає в Willowsum дані про весь капітал родини, я хочу, щоб дані були зашифровані, вхід захищений, а відомі вразливості закриті до релізу, щоб ризик витоку фінансових даних і захоплення акаунта був мінімальним.

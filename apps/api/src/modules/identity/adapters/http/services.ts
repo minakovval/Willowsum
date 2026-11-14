@@ -197,6 +197,16 @@ function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): Identit
           changes: [{ field: "password", before: "set", after: "set", sensitive: true }],
         });
       },
+      displayNameChanged: async (accountId) => {
+        await services.audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "web",
+          entity: { type: "identity.account", id: accountId },
+          action: "update",
+          // Sensitive: a person's name is not kept in the platform log, only the fact of the change (П-10).
+          changes: [{ field: "display_name", before: "set", after: "set", sensitive: true }],
+        });
+      },
       signInChanged: async (accountId, before, after) => {
         await services.audit.recordPlatform({
           actor: { kind: "system" },

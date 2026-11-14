@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-10, П-24, П-26, NFR-01, NFR-15
 - Сценарії: UC-ACC-25
 - Модуль: identity
-- Перевіряється: apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/domain/device.test.ts
+- Перевіряється: apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/domain/device.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts
 
 **Мета.** Як користувач, я хочу, щоб забуті сесії завершувалися самі, а підозрілий вхід можна було одразу зупинити, щоб доступ до моїх даних був під контролем.
 

@@ -124,8 +124,13 @@ export async function signUp(
     password: string;
     captchaToken: string | undefined;
     clientAddress: string;
+    /** The browser's format and time zone (ACC-05 FR 3), already validated; kept only on a new or replaced account. */
+    locale?: string | undefined;
+    timeZone?: string | undefined;
   },
 ): Promise<SignUpResult> {
+  const locale = input.locale ?? null;
+  const timeZone = input.timeZone ?? null;
   // NFR-14 FR 7: 5 sign-ups per hour per address, counted before anything else (also before the CAPTCHA).
   const limit = await deps.signUpLimiter.hit(
     `sign-up:${deps.secrets.digest(input.clientAddress).toString("hex")}`,
@@ -158,6 +163,8 @@ export async function signUp(
         normalizedEmail,
         displayName: input.name,
         passwordHash,
+        locale,
+        timeZone,
         now,
       });
     let id = await insert();
@@ -174,7 +181,11 @@ export async function signUp(
     if (
       id === null &&
       account.emailConfirmedAt === null &&
-      (await tx.replaceUnconfirmedAccount(account.id, { displayName: input.name, passwordHash }, now))
+      (await tx.replaceUnconfirmedAccount(
+        account.id,
+        { displayName: input.name, passwordHash, locale, timeZone },
+        now,
+      ))
     ) {
       // Pre-account squatting (owner decision 2026-11-12): a new sign-up with the address of an unconfirmed
       // account replaces its password (the latest wins); every earlier link is revoked, so only the newest
@@ -450,7 +461,8 @@ export type SessionCheck =
   | { readonly kind: "ended"; readonly reason: SessionEndShown }
   | { readonly kind: "none" };
 
-async function checkSession(
+/** Also used by the profile's routes (profile.ts): every request of a session runs this check first. */
+export async function checkSession(
   deps: IdentityDeps,
   tx: IdentityTx,
   token: string,

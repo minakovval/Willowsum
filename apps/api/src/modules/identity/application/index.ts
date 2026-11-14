@@ -18,6 +18,8 @@ export type { DailyCleanupReport } from "./maintenance.ts";
 export { confirmNotMe, notMeLinkState } from "./not-me.ts";
 export type { ConfirmNotMeResult, NotMeLinkState } from "./not-me.ts";
 export { completePasswordReset, passwordResetState, requestPasswordReset } from "./password-reset.ts";
+export { changePassword, confirmStepUp, profileOf, updateProfile } from "./profile.ts";
+export type { ChangePasswordResult, NoSession, Profile, StepUpResult } from "./profile.ts";
 export type { CompleteResetResult, ResetLinkState } from "./password-reset.ts";
 export type {
   ConfirmResult,

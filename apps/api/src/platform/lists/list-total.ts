@@ -5,8 +5,10 @@ import type { AmountGroup } from "./list-engine.ts";
  * The totals row of a list in several currencies (DAT-01@PoC FR 12, AC2–AC6, edge cases 2–5). Amounts in other
  * currencies are converted into the reporting currency at the free official reference rate (NBU; other pairs
  * cross through the hryvnia), never at the bank's actual rate or one the user typed: a transaction at the rate of
- * its own date, a value or balance at today's rate. With no rate on a transaction's date the latest earlier rate
- * is used, and the total is «приблизно» with the number of such transactions; once the rate of that date exists
+ * its own date, a value or balance at today's rate. A value or balance whose latest rate is older than 3 calendar
+ * days from today's Kyiv date makes the total «приблизно» (owner decision 2026-11-13; VAL-04@PoC edge case 2). With
+ * no rate on a transaction's date the latest earlier rate is used, and the total is «приблизно» with the number of
+ * such transactions; once the rate of that date exists
  * the same call gives the exact total. A record whose currency has no rate on or before its date at all is left
  * out (owner decision 2026-11-12): the total is the partial sum of the rest, marked «без N записів: немає курсу»;
  * such a record never counts as 0 and is never converted at a later date's rate. With no rate for any record there
@@ -29,6 +31,8 @@ export interface DatedRates {
   rates(requests: readonly DatedRateRequest[]): Promise<readonly (ExchangeRate | null)[]>;
   /** Whether a rate of `rateDate` is the rate of `date` (fx-rates' rule: a weekend takes the previous working day's rate). */
   covers(rateDate: string, date: string): boolean;
+  /** Whether «today»'s value at a rate of `rateDate` is «приблизно» (fx-rates' rule: older than 3 calendar days). */
+  staleForToday(rateDate: string, today: string): boolean;
 }
 
 export interface ListTotal {
@@ -41,10 +45,15 @@ export interface ListTotal {
   readonly total: Money | null;
   /** Some amount was in another currency: the row shows the hint «конвертовано». */
   readonly converted: boolean;
-  /** Some transaction was converted at the nearest earlier rate: the total is «приблизно». */
+  /**
+   * «приблизно»: some transaction was converted at the nearest earlier rate, or some value or balance at a rate
+   * older than 3 calendar days.
+   */
   readonly approximate: boolean;
   /** How many transactions were converted at the nearest earlier rate («N транзакцій за найближчим курсом»). */
   readonly nearestRateCount: number;
+  /** How many values or balances (no date) were converted at a latest rate older than 3 calendar days. */
+  readonly staleRateCount: number;
   /** Some records are left out of the total: the marker «без N записів: немає курсу». */
   readonly partial: boolean;
   /** How many records have no rate on or before their date at all (N of the marker). */
@@ -89,6 +98,7 @@ export function createListTotals(deps: { rates: DatedRates; now: () => number })
       let counted = 0;
       let converted = false;
       let nearestRateCount = 0;
+      let staleRateCount = 0;
       let noRateCount = 0;
       for (const group of groups) {
         if (group.currency === reportingCurrency) {
@@ -107,17 +117,20 @@ export function createListTotals(deps: { rates: DatedRates; now: () => number })
         const conversion = convert(group.sum, rate, date);
         total = total.plus(conversion.to);
         counted += group.count;
-        // Only dated records count as «за найближчим курсом»; today's values use the latest official rate, and a
-        // weekend that takes the previous working day's rate is the rate of that date (same rule as fx-rates).
-        if (group.date !== null && !deps.rates.covers(conversion.rateDate, group.date))
-          nearestRateCount += group.count;
+        // Only dated records count as «за найближчим курсом»; a weekend that takes the previous working day's rate
+        // is the rate of that date (same rule as fx-rates). Today's values use the latest official rate and are
+        // «приблизно» only when it is older than 3 calendar days.
+        if (group.date !== null) {
+          if (!deps.rates.covers(conversion.rateDate, group.date)) nearestRateCount += group.count;
+        } else if (deps.rates.staleForToday(conversion.rateDate, today)) staleRateCount += group.count;
       }
       return {
         count: groups.reduce((n, g) => n + g.count, 0),
         total: noRateCount > 0 && counted === 0 ? null : total,
         converted,
-        approximate: nearestRateCount > 0,
+        approximate: nearestRateCount > 0 || staleRateCount > 0,
         nearestRateCount,
+        staleRateCount,
         partial: noRateCount > 0,
         noRateCount,
       };

@@ -1,7 +1,13 @@
 import type { CaptchaVerifier } from "../../../platform/adapters/captcha/index.ts";
 import type { MailMessage } from "../../../platform/adapters/mail/index.ts";
 import type { FixedWindowLimiter } from "../../../platform/http/rate-limit.ts";
-import type { DeviceName, SessionEndReason, SignInGuard } from "../domain/index.ts";
+import type {
+  DeviceName,
+  SessionEndReason,
+  SignInGuard,
+  StepUpAction,
+  StepUpConfirmation,
+} from "../domain/index.ts";
 
 /** Ports of the identity use cases (ARC-01 FR 5); adapters are wired in ../index.ts. Times are epoch ms. */
 
@@ -13,6 +19,15 @@ export interface AccountRow {
   readonly emailConfirmedAt: number | null;
   /** Set by «Це був не я»: every sign-in is refused until the password changes (ACC-04 FR 5). */
   readonly passwordResetRequiredAt: number | null;
+  /** The format of dates and numbers from the browser at sign-up (BCP 47, canonical; ACC-05 FR 3), or null. */
+  readonly locale: string | null;
+  /** The IANA time zone from the browser at sign-up (ACC-05 FR 3), or null. */
+  readonly timeZone: string | null;
+}
+
+/** A step-up confirmation (NFR-01 FR 13, NFR-15 FR 4) as stored. */
+export interface StepUpRow extends StepUpConfirmation {
+  readonly id: string;
 }
 
 /** A «Це був не я» link of a new-device letter (ACC-04 FR 5) and the sign-in it is about. */
@@ -100,6 +115,8 @@ export interface IdentityTx {
     normalizedEmail: string;
     displayName: string;
     passwordHash: string;
+    locale: string | null;
+    timeZone: string | null;
     now: number;
   }): Promise<string | null>;
   /** Marks the address confirmed; false when it already was. */
@@ -110,9 +127,11 @@ export interface IdentityTx {
    */
   replaceUnconfirmedAccount(
     accountId: string,
-    account: { displayName: string; passwordHash: string },
+    account: { displayName: string; passwordHash: string; locale: string | null; timeZone: string | null },
     now: number,
   ): Promise<boolean>;
+  /** The profile's name (ACC-05 FR 1); false when the account is gone. */
+  setDisplayName(accountId: string, displayName: string, now: number): Promise<boolean>;
   /** A new password; it also lifts «Це був не я»'s requirement to change it (ACC-04 FR 5). */
   setPassword(accountId: string, passwordHash: string, now: number): Promise<void>;
   /** «Це був не я»: every sign-in is refused until the password changes. */
@@ -191,6 +210,20 @@ export interface IdentityTx {
   endSession(id: string, now: number, reason: SessionEndReason): Promise<void>;
   /** Ends every session of the account; returns how many were still open. */
   endSessions(accountId: string, now: number, reason: SessionEndReason): Promise<number>;
+  /** Ends every session of the account but `keep` (a password change in the profile; ACC-04 FR 6). */
+  endOtherSessions(accountId: string, keep: string, now: number, reason: SessionEndReason): Promise<number>;
+
+  /** A new step-up confirmation; it replaces the session's earlier ones for the same action. */
+  insertStepUp(confirmation: {
+    sessionId: string;
+    action: StepUpAction;
+    tokenDigest: Buffer;
+    now: number;
+    expiresAt: number;
+  }): Promise<void>;
+  /** The confirmation of the digest; `lock` holds its row until the transaction ends (single use). */
+  findStepUp(digest: Buffer, lock?: boolean): Promise<StepUpRow | null>;
+  useStepUp(id: string, now: number): Promise<void>;
 
   /**
    * Deletes up to `limit` unconfirmed accounts whose latest sign-up is at or before `signedUpBy`, with all their
@@ -243,8 +276,10 @@ export type SignInState = "allowed" | "password-reset-required";
 /** The changes identity writes to the platform audit log (no space exists yet): ids and states only. */
 export interface AccountAudit {
   accountChanged(accountId: string, before: string | null, after: string): Promise<void>;
-  /** The password was replaced (a reset, or a new sign-up of an unconfirmed address); the value is masked. */
+  /** The password was replaced (a reset, a change in the profile, or a new sign-up of an unconfirmed address); masked. */
   passwordChanged(accountId: string): Promise<void>;
+  /** The profile's name changed (ACC-05 FR 1); the values are masked (no personal data in the platform log). */
+  displayNameChanged(accountId: string): Promise<void>;
   /** «Це був не я» (ACC-04 FR 5): sign-in refused until a new password (`password-reset-required`), or allowed again. */
   signInChanged(accountId: string, before: SignInState, after: SignInState): Promise<void>;
   /** The daily task deleted an unconfirmed account (ACC-01 FR 6). */

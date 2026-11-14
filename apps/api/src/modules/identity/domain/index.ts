@@ -3,4 +3,6 @@
 export * from "./credentials.ts";
 export * from "./device.ts";
 export * from "./mail.ts";
+export * from "./profile.ts";
 export * from "./rules.ts";
+export * from "./step-up.ts";

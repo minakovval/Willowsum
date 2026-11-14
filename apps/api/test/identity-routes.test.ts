@@ -8,7 +8,8 @@ import { identityModule } from "../src/modules/identity/index.ts";
 
 /**
  * Identity's public routes (ACC-01, ADR-0009) on the API pipeline without a database: behind the identity kill
- * switch and the flag `identity.sign-in` (evaluated for everyone), before their body is read.
+ * switch and the flag `identity.sign-in` — the profile's (ACC-05) behind `identity.profile` — evaluated for everyone,
+ * before their body is read.
  */
 const routes = identityModule.routes ?? [];
 
@@ -23,8 +24,10 @@ async function serve(options: { killed?: string[]; flagOn?: boolean } = {}) {
   return app;
 }
 
-describe("identity routes are public routes of the module, each behind identity.sign-in", () => {
-  it("all fourteen are public, owned by identity and name the flag", () => {
+const PROFILE_ROUTES = ["getProfile", "updateProfile", "confirmStepUp", "changePassword"];
+
+describe("identity routes are public routes of the module, each behind identity.sign-in or identity.profile", () => {
+  it("all eighteen are public, owned by identity and name the flag", () => {
     expect(routes.map((r) => r.operationId)).toEqual([
       "signUp",
       "resendRegistrationEmail",
@@ -40,10 +43,13 @@ describe("identity routes are public routes of the module, each behind identity.
       "completePasswordReset",
       "checkNotMeLink",
       "confirmNotMe",
+      ...PROFILE_ROUTES,
     ]);
     for (const r of routes) {
       expect(r.module).toBe("identity");
-      expect(isPublic(r.access) && r.access.flag).toBe("identity.sign-in");
+      expect(isPublic(r.access) && r.access.flag).toBe(
+        PROFILE_ROUTES.includes(r.operationId) ? "identity.profile" : "identity.sign-in",
+      );
     }
   });
 

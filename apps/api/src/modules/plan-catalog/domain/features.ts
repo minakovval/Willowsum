@@ -10,6 +10,8 @@ export const FEATURES = {
   "household.space-settings":
     "Налаштування простору: назва простору в профілі і перейменування простору Owner (ACC-08@PoC)",
   "identity.sign-in": "Реєстрація за email і паролем, підтвердження email, вхід і вихід (ACC-01)",
+  "identity.profile":
+    "Профіль (ім'я, email лише для читання) і зміна пароля зі step-up поточним паролем (ACC-05@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

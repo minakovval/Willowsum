@@ -48,7 +48,10 @@ function officialRates(
       fake.calls += 1;
       return requests.map((r) => one(r.from, r.to, r.date));
     },
-    // fx-rates' rule (VAL-04 AC4, EC1); dat01-list.it.test.ts checks the real one.
+    // fx-rates' rules (VAL-04 AC4, AC5, EC1, EC2); dat01-list.it.test.ts checks the real ones.
+    staleForToday(rateDate: string, today: string) {
+      return Date.parse(`${today}T00:00:00Z`) - Date.parse(`${rateDate}T00:00:00Z`) > 3 * 86_400_000;
+    },
     covers(rateDate: string, date: string) {
       for (let d = new Date(`${rateDate}T00:00:00Z`); d.toISOString().slice(0, 10) < date;) {
         d = new Date(d.getTime() + 86_400_000);
@@ -127,18 +130,37 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     expect(monday).toMatchObject({ approximate: true, nearestRateCount: 1 });
   });
 
-  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно» (PR #182 security)", async () => {
-    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
-    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
-    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
-    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
+  // The requirement changed (owner decision 2026-11-13, #185; DAT-01@PoC FR 12, VAL-04@PoC EC2): a value or balance
+  // at a rate older than 3 calendar days is «приблизно». This replaces the tests «… at the latest official rate,
+  // older than today, is never «приблизно»» (#129, #182): a rate up to 3 days old still is not.
+  it("DAT-01@PoC FR 12: a value or balance (no date) at the latest official rate up to 3 calendar days old is not «приблизно»", async () => {
+    for (const latest of ["2026-11-10", "2026-11-09"]) {
+      // today is Thu 12.11; the latest rate is 2 (Tue 10.11), then 3 (Mon 09.11) days old
+      const rates = officialRates({ EUR: { [latest]: "40" } });
+      const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
+      expect(result.total?.equals(money("10", "EUR")), latest).toBe(true);
+      expect(result, latest).toMatchObject({ approximate: false, nearestRateCount: 0, staleRateCount: 0 });
+    }
   });
 
-  it("DAT-01@PoC EC2: a value or balance (no date) at the latest official rate, older than today, is never «приблизно»", async () => {
-    const rates = officialRates({ EUR: { "2026-11-10": "40" } }); // today is Thu 12.11; the latest rate is Tue 10.11
-    const result = await totals(rates).total([group("UAH", null, "400", 3)], "EUR");
-    expect(result.total?.equals(money("10", "EUR"))).toBe(true);
-    expect(result).toMatchObject({ approximate: false, nearestRateCount: 0 });
+  it("DAT-01@PoC FR 12: a value or balance (no date) at a rate older than 3 calendar days is «приблизно», not a nearest-rate transaction", async () => {
+    // today is Thu 12.11; the latest rate is Sun 08.11 (4 days); the transaction of 08.11 has its own date's rate
+    const rates = officialRates({ EUR: { "2026-11-08": "40" } });
+    const result = await totals(rates).total(
+      [group("UAH", null, "400", 3), group("EUR", "2026-11-03", "-5"), group("UAH", "2026-11-08", "-40")],
+      "EUR",
+    );
+    expect(result.total?.equals(money("4", "EUR"))).toBe(true); // 10 − 5 − 1
+    expect(result).toMatchObject({ approximate: true, nearestRateCount: 0, staleRateCount: 3, count: 5 });
+  });
+
+  it("DAT-01@PoC FR 12: «older than 3 days» counts from the Kyiv date of the clock", async () => {
+    const rates = officialRates({ EUR: { "2026-11-09": "40" } }); // Monday
+    const at = (ms: number) =>
+      createListTotals({ rates, now: () => ms }).total([group("UAH", null, "400")], "EUR");
+    // 2026-11-12 21:59 UTC is Thursday 12.11 in Kyiv (3 days); 22:00 UTC is Friday 13.11 (4 days).
+    expect(await at(Date.UTC(2026, 10, 12, 21, 59))).toMatchObject({ approximate: false, staleRateCount: 0 });
+    expect(await at(Date.UTC(2026, 10, 12, 22, 0))).toMatchObject({ approximate: true, staleRateCount: 1 });
   });
 
   it("DAT-01@PoC EC3: several transactions on a date without a rate are all counted at the nearest rate", async () => {
@@ -215,6 +237,7 @@ describe("DAT-01@PoC: totals in the reporting currency at the official rate of e
     const broken: DatedRates = {
       rates: () => Promise.reject(new Error("connection terminated")),
       covers: () => true,
+      staleForToday: () => false,
     };
     await expect(totals(broken).total([group("UAH", "2026-10-01", "-1")], "EUR")).rejects.toThrow(
       "connection terminated",

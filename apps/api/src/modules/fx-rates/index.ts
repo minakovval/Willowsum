@@ -35,9 +35,11 @@ export {
   RESTRICTED_CONVERTIBILITY,
   RateUnavailableError,
   STALE_AFTER_MS,
+  TODAY_RATE_MAX_AGE_DAYS,
   fixedConversionRate,
   isRestrictedConvertibility,
   rateCoversDate,
   retryDelayMs,
+  todayRateIsApproximate,
 } from "./domain/index.ts";
 export type { FixedConversion, PivotRate } from "./domain/index.ts";
