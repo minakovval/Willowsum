@@ -458,10 +458,16 @@ describe("FIN-12@PoC FR 14, FIN-04@PoC FR 10, FR 11: «Оновити залиш
     // Against «Коригування», not «Зовнішні кошти» (income and spending): the budget's projections leave it out.
     expect(await serviceSides(space.householdId, body.adjustment.id)).toEqual(["adjustment"]);
     const view = (await call(space, "GET", `/v1/accounts/${mono.id}`)).json();
-    expect(view.currencies[0]).toMatchObject({
-      balance: { amount: "5150", currency: "EUR" },
-      adjustment: { id: body.adjustment.id, permanent: false },
-    });
+    expect(view.currencies[0].balance).toEqual({ amount: "5150", currency: "EUR" });
+    expect(view.adjustments).toEqual([
+      {
+        id: body.adjustment.id,
+        currency: "EUR",
+        amount: { amount: "-50", currency: "EUR" },
+        date: TODAY,
+        permanent: false,
+      },
+    ]);
   });
 
   it("FIN-12@PoC AC14: «Готівка» at 300,00 € with an adjustment of −20,00 € — 250,00 € makes the same adjustment −70,00 €, no new one", async () => {
@@ -614,7 +620,7 @@ describe("FIN-04@PoC FR 10, FR 11: the adjustment of «Оновити залиш
       `/v1/accounts/${acc.id}/balance-adjustments/${made.adjustment.id}`,
     );
     expect(again.statusCode).toBe(404);
-    expect((await call(space, "GET", `/v1/accounts/${acc.id}`)).json().currencies[0].adjustment).toBeNull();
+    expect((await call(space, "GET", `/v1/accounts/${acc.id}`)).json().adjustments).toEqual([]);
   });
 });
 
@@ -634,15 +640,19 @@ describe("FIN-12@PoC FR 15: the statement recounts a temporary adjustment", () =
     });
     expect(result).toEqual({ kind: "changed" });
     const view = (await call(space, "GET", `/v1/accounts/${acc.id}`)).json();
-    expect(view.currencies[0]).toMatchObject({
-      balance: { amount: "1040", currency: "EUR" },
-      adjustment: { amount: { amount: "40", currency: "EUR" }, date: "2026-10-16", permanent: false },
-    });
+    expect(view.currencies[0].balance).toEqual({ amount: "1040", currency: "EUR" });
+    expect(view.adjustments).toEqual([
+      expect.objectContaining({
+        amount: { amount: "40", currency: "EUR" },
+        date: "2026-10-16",
+        permanent: false,
+      }),
+    ]);
     const [, recount] = await audit.entriesFor(space.householdId, {
       type: "accounts.balance-adjustment",
       id: acc.subaccountId,
     });
-    expect(recount).toMatchObject({ action: "update", channel: "import", actor: { kind: "system" } });
+    expect(recount).toMatchObject({ action: "update", channel: "import", actorKind: "system" });
   });
 
   it("FIN-12@PoC FR 15: a zero difference removes it; a manual account's adjustment is permanent", async () => {

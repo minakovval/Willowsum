@@ -1,6 +1,7 @@
 import { currencyCode, isId, Money } from "@willowsum/domain-kernel";
 import {
   ACCOUNT_TYPES,
+  EVENT_TYPES,
   assertBalanced,
   balanceMovements,
   conversionsFor,
@@ -93,6 +94,8 @@ export interface LedgerTx {
   entryByKey(idempotencyKey: string): Promise<Entry | null>;
   /** The id of the entry that reverses `entryId`, if any. */
   reversalOf(entryId: string): Promise<string | null>;
+  /** The source's entries of one event type that no entry reverses, in the order they were recorded. */
+  liveEntries(source: EntrySource, eventType: string): Promise<Entry[]>;
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
@@ -414,6 +417,22 @@ async function correctionReversalKey(replacementKey: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(replacementKey));
   const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
   return `reversal:${hex}`;
+}
+
+/**
+ * The entries of a source record and event type still in effect (FIN-12 FR 14: the one adjustment of «Оновити
+ * залишок»): neither a reversal nor reversed, in the order they were recorded. Reads only.
+ */
+export async function liveEntries(
+  deps: JournalDeps,
+  householdId: string,
+  source: EntrySource,
+  eventType: string,
+): Promise<Entry[]> {
+  assertSource(source);
+  if (!(EVENT_TYPES as readonly string[]).includes(eventType))
+    throw new LedgerError("UNKNOWN_EVENT_TYPE", "No posting rule for this event type");
+  return deps.store.inHousehold(householdId, (tx) => tx.liveEntries(source, eventType));
 }
 
 /** A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. */

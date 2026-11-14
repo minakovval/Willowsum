@@ -222,6 +222,19 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
       return rows[0]!;
     },
     entry: (id) => entries("id", id),
+    async liveEntries(source, eventType) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT e.id FROM entries e
+          WHERE e.household_id = $1 AND e.source_module = $2 AND e.source_id = $3 AND e.event_type = $4
+            AND e.reverses_entry_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM entries r WHERE r.household_id = e.household_id AND r.reverses_entry_id = e.id)
+          ORDER BY e.recorded_at, e.id`,
+        [q.householdId, source.module, source.id, eventType],
+      );
+      const found: Entry[] = [];
+      for (const row of rows) found.push((await entries("id", row.id))!);
+      return found;
+    },
     entryByKey: (key) => entries("idempotency_key", key),
     async reversalOf(entryId) {
       const { rows } = await q.query<{ id: string }>(
