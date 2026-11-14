@@ -20,8 +20,6 @@ import { createTestDatabase } from "./db.ts";
 // This list is hard-coded: a module leaves it in the PR that builds it (a wave-2 row that adds a migration, routes or
 // events to one of these modules). Removing that module here is not weakening the test.
 const SKELETONS = [
-  "accounts",
-  "liabilities",
   "transactions",
   "categories",
   "categorization",

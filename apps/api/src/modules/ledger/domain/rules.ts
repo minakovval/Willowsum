@@ -21,6 +21,11 @@ export type LedgerEvent =
   | { readonly type: "transaction"; readonly account: string; readonly amount: Money }
   /** A transfer between two accounts of the space: debit B, credit A. */
   | { readonly type: "transfer"; readonly from: string; readonly to: string; readonly amount: Money }
+  /**
+   * «Початковий залишок» of a new account (FIN-01@PoC FR 7): its balance on the date it is given, against «Зовнішні
+   * кошти». Signed from the holder's side like `transaction`: a debt (credit card, loan) is negative.
+   */
+  | { readonly type: "opening-balance"; readonly account: string; readonly amount: Money }
   /** «Оновити залишок»: the difference to the actual balance, against «Коригування». */
   | { readonly type: "balance-adjustment"; readonly account: string; readonly amount: Money }
   /** Purchase of an asset from an account: debit the asset (cost basis), credit the account. */
@@ -109,6 +114,7 @@ function positive(amount: Money): Money {
 const RULES: { readonly [T in LedgerEventType]: (event: Extract<LedgerEvent, { type: T }>) => Posting[] } = {
   transaction: (e) => signed(acc(e.account), EXTERNAL, e.amount),
   transfer: (e) => signed(acc(e.to), acc(e.from), positive(e.amount)),
+  "opening-balance": (e) => signed(acc(e.account), EXTERNAL, e.amount),
   "balance-adjustment": (e) => signed(acc(e.account), ADJUSTMENT, e.amount),
   "asset-purchase": (e) => signed(acc(e.asset), acc(e.account), positive(e.amount)),
   "asset-revaluation": (e) => signed(acc(e.asset), REVALUATION, e.change),

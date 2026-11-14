@@ -580,7 +580,12 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
           return reply.send(await respond(route.response.status, await route.handler(input, ctx)));
         }
         const store = options.idempotency(module);
-        const hash = requestHash(route.operationId, input);
+        const hash = requestHash(
+          route.operationId,
+          route.idempotencyHashInput
+            ? { params: undefined, query: undefined, body: route.idempotencyHashInput(input) }
+            : input,
+        );
         const begun = await store.begin(principal.householdId, key, hash);
         if (begun.kind === "mismatch") throw new ApiProblem("IDEMPOTENCY_KEY_REUSED");
         if (begun.kind === "in-progress") throw new ApiProblem("IDEMPOTENCY_REQUEST_IN_PROGRESS");

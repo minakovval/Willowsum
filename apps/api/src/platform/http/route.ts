@@ -130,6 +130,12 @@ export interface RouteDefinition<
   readonly response: { readonly status: 200 | 201; readonly description: string; readonly schema: S };
   /** A create request: accepts an `Idempotency-Key` header (ARC-07 FR 4). Only POST. */
   readonly create?: boolean;
+  /**
+   * What of a create request its stored idempotency hash covers, when the body carries a value that is kept sealed
+   * (ARC-06 FR 2): the hash is unsalted SHA-256 in a clear column, so a low-entropy sealed value in it could be
+   * recovered by trying candidates. The route returns the input with such values reduced to what is clear anyway.
+   */
+  readonly idempotencyHashInput?: (input: RouteInput<R>) => unknown;
   /** A list: server-side pagination with `pageQuery` and `pageOf` (ARC-07 FR 4). */
   readonly list?: boolean;
   /** Marked deprecated on that date (ISO); removable from the contract 6 months later (ARC-07 FR 3). */

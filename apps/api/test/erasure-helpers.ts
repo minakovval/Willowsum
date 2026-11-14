@@ -3,6 +3,7 @@ import { Money } from "@willowsum/domain-kernel";
 import { createAuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
+import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { withErasureDatabases } from "../src/platform/db/erasure-db.ts";
 import type { ModuleDatabases } from "../src/platform/db/module-db.ts";
@@ -11,7 +12,8 @@ import { householdSpaces, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
  * Synthetic people for the erasure tests (NFR-12@PoC FR 3, ADR-0013): a confirmed account with its first space, two
- * ledger entries, the space's audit entries and a sealed value. Names and values are invented.
+ * ledger entries, a money account with a sealed number and a liability (FIN-01), the space's audit entries and a sealed
+ * value. Names and values are invented.
  */
 export const kms = localKeyManagement();
 
@@ -50,6 +52,38 @@ export async function personWithSpace(db: RealModulesDatabase, label: string) {
     });
   const keys = createSpaceKeys(db.databases.for("household"), createAuditLog(db.databases.for("audit")), kms);
   const sealed = await keys.seal(householdId, "iban", ["UA00", "0000", "SYNTH"].join(" "));
+  // FIN-01: an account (with its subaccount, owner and a stored create response) and its liability.
+  const account = randomUUID();
+  await db.databases.for("accounts").inHousehold(householdId, async (q) => {
+    await q.query(
+      `INSERT INTO accounts (household_id, id, kind, name, institution_key, number_last4, number_sealed, opened_on)
+       VALUES ($1, $2, 'loan', 'Синтетичний кредит', '-', 'SYNT', $3, '2026-10-01')`,
+      [householdId, account, sealed],
+    );
+    await q.query(
+      `INSERT INTO subaccounts (household_id, id, account_id, currency, position, ledger_account_id, balance_date)
+       VALUES ($1, $2, $3, 'EUR', 0, $4, '2026-10-01')`,
+      [householdId, randomUUID(), account, randomUUID()],
+    );
+    await q.query(
+      `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
+       VALUES ($1, $2, $3, 100, '2026-10-01')`,
+      [householdId, account, accountId],
+    );
+    await q.query(
+      `INSERT INTO idempotency_keys (household_id, key, request_hash, expires_at)
+       VALUES ($1, $2, repeat('0', 64), now() + interval '1 day')`,
+      [householdId, randomUUID()],
+    );
+  });
+  await createLiabilities(
+    db.databases.for("liabilities"),
+    createAuditLog(db.databases.for("audit")),
+  ).register(householdId, {
+    actorAccountId: accountId,
+    accountId: account,
+    terms: { kind: "loan", currency: "EUR", annualRate: "4.2", monthlyPayment: "650" },
+  });
   return { email, accountId, householdId, sealed, keys };
 }
 

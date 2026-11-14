@@ -7,7 +7,7 @@
     },
     "accounts": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "ledger", "liabilities"]
     },
     "audit": {
       "layer": "platform",
@@ -35,7 +35,7 @@
     },
     "data-erasure": {
       "layer": "process",
-      "dependsOn": ["audit", "household", "identity", "ledger"]
+      "dependsOn": ["accounts", "audit", "household", "identity", "ledger", "liabilities"]
     },
     "debt-payoff": {
       "layer": "process",
@@ -87,7 +87,7 @@
     },
     "liabilities": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit"]
     },
     "merchants": {
       "layer": "subject",

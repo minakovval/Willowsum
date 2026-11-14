@@ -6,7 +6,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
+import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
+import { createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { startFxRatesRefresh } from "./modules/fx-rates/index.ts";
@@ -16,6 +18,9 @@ import {
   createSpaceKeys,
 } from "./modules/household/index.ts";
 import { createIdentityServices } from "./modules/identity/index.ts";
+import { createLedger } from "./modules/ledger/index.ts";
+import { createLiabilities } from "./modules/liabilities/index.ts";
+import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
@@ -172,6 +177,16 @@ const server = buildServer({
             ...(identity ? { identity, spaces } : {}),
             // ACC-08: the space's settings write the rename into the space's own log.
             household: createHouseholdServices({ audit }),
+            // FIN-01: accounts post «Початковий залишок» to the journal, keep a loan's and a card's terms in
+            // liabilities and seal the number with the space's key.
+            accounts: createAccountsServices({
+              ledger: createLedger(databases.for("ledger")),
+              liabilities: createLiabilities(databases.for("liabilities"), audit),
+              keys: createSpaceKeys(databases.for("household"), audit, kms),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
+            }),
             deployed: config.deployed,
           }),
       }
