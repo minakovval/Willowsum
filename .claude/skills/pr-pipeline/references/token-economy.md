@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178); the Fable model added (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178); the Fable model added and narrowed (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
@@ -10,13 +10,15 @@ Owner request 2026-11-12; rules decided by the lead.
    - the strongest model for implementing sensitive features and for security reviews of critical modules
      (isolation, money, auth, encryption);
    - **Fable** (owner, 2026-11-14, #178, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128):
-     «так, давай на fable»): for security reviews of critical modules (money, access, sign-in, encryption),
-     complex architecture rows (atomic transfer through ARC-04 events, #210 item 2; vault encryption; statement
-     import), root causes of flaky tests, and requirement sweeps `C0`/`D0`/`F0`. Not for follow-ups, docs or sync
-     confirmations. It draws on the owner's 100 USD subscription, the same limit as the main model, and spends it
-     faster: **at most one Fable task at a time**, the rest on the main model (lead 4 retrospective,
+     «так, давай на fable»; narrowed by the owner the same day, chat of lead 4: «так, 1–4 так, …»,
+     [comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)): **only**
+     security reviews of critical PRs (money, access, sign-in, encryption) and root-cause searches (e.g. flaky
+     tests); everything else (architecture rows, vault encryption, statement import, requirement sweeps
+     `C0`/`D0`/`F0`, follow-ups, docs, sync confirmations) is on the main model. **At most one Fable task at a
+     time** (owner decision, 2026-11-14, same comment; lead 4 retrospective,
      [#180](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6883180207): two parallel Fable tasks
-     with the other agents exhausted the 5-hour limit). After 3–4 Fable tasks, compare their #180 rows with similar
+     with the other agents exhausted the 5-hour limit). It draws on the owner's 100 USD subscription, the same
+     limit as the main model, and spends it faster. After 3–4 Fable tasks, compare their #180 rows with similar
      PRs on the main model and report to the owner before widening its use. Risks: about ×2 price per token;
      longer turns; Fable briefs are short and state the goal, not step-by-step instructions;
    - reviews (owner, 2026-11-13): a `review-pr` of a PR that changes **only docs and requirement text** may use
@@ -43,9 +45,10 @@ Owner request 2026-11-12; rules decided by the lead.
    fresh agent with a short brief: the diff, the findings, the patch. Every resume re-reads the agent's whole
    context: in lead session 1 the most expensive tasks were authors resumed many times (110, 70, 68 and 61
    million input tokens; #180, retrospective).
-8. **Workflow experiment** (owner, 2026-11-14, #178): once, a Workflow «супровідник» takes one PR without
-   `sensitive` from implementation to ready-to-merge, only after the owner's separate consent in chat for that
-   exact run; compare its tokens and time with the #180 rows of similar PRs before deciding on more.
+8. **Workflow experiment** (owner, 2026-11-14, #178; comment 6883729022: «пункт 3 як пробні 2 запуски»): 2 more
+   trial runs of a Workflow «супровідник», each taking one PR without `sensitive` (rows `R`) from implementation to
+   ready-to-merge; the runs may go in parallel. Compare their tokens (agents) and the number of lead turns with
+   #180 (the first run and the rows of similar PRs) and report to the owner before making it a rule.
 9. Not adopted (owner, 2026-11-14: «ок, тоді діємо як радиш. 6 не робимо»): (3) the lead confirming code-PR
    syncs itself, and (6) a cap on the number of parallel code PRs.
 10. **Rate limit** (owner, 2026-11-14, #178): at session start check `get_session` →
