@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { AuditLog } from "../audit/index.ts";
-import { liabilitiesTx } from "./adapters/index.ts";
+import { eraseHouseholdLiabilities, liabilitiesTx } from "./adapters/index.ts";
 import {
   registerLiability,
   type Liability,
@@ -85,4 +85,14 @@ export function createLiabilities(db: ModuleDatabase, audit: Pick<AuditLog, "rec
     forAccount: (householdId, accountId) =>
       db.inHousehold(householdId, (q) => liabilitiesTx(q).byAccount(householdId, accountId)),
   };
+}
+
+/** Erasure of a space's liabilities (NFR-12@PoC FR 3): the owner's erasure script only (module data-erasure). */
+export interface LiabilitiesErasure {
+  eraseHousehold(householdId: string): Promise<{ readonly liabilities: number }>;
+}
+
+/** `db` is the liabilities module's own database (`ModuleDatabases.for("liabilities")`). */
+export function createLiabilitiesErasure(db: ModuleDatabase): LiabilitiesErasure {
+  return { eraseHousehold: (householdId) => eraseHouseholdLiabilities(db, householdId) };
 }

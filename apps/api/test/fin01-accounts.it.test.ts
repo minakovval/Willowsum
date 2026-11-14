@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { mountApi } from "../../api.ts";
-import { buildServer } from "../../platform/process/server.ts";
-import { localKeyManagement } from "../../platform/adapters/kms/index.ts";
-import { fakeFlags, principalHeader, testAuthenticate } from "../../../test/http.ts";
-import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
-import { createAuditLog, type AuditLog } from "../audit/index.ts";
-import { createSpaceKeys, type HouseholdSpaces } from "../household/index.ts";
-import { createLedger } from "../ledger/index.ts";
-import { createLiabilities } from "../liabilities/index.ts";
-import { createAccountsServices } from "./index.ts";
+import { mountApi } from "../src/api.ts";
+import { buildServer } from "../src/platform/process/server.ts";
+import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
+import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
+import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
+import { createLedger } from "../src/modules/ledger/index.ts";
+import { createLiabilities } from "../src/modules/liabilities/index.ts";
+import { createAccountsServices } from "../src/modules/accounts/index.ts";
 
 /**
  * FIN-01@PoC, server side (wave 2 row 11), through the real API on a real PostgreSQL: «Новий рахунок» creates the

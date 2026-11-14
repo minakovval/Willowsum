@@ -35,7 +35,7 @@
     },
     "data-erasure": {
       "layer": "process",
-      "dependsOn": ["audit", "household", "identity", "ledger"]
+      "dependsOn": ["accounts", "audit", "household", "identity", "ledger", "liabilities"]
     },
     "debt-payoff": {
       "layer": "process",
