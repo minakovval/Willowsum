@@ -25,7 +25,7 @@ const NOW = Date.parse(`${TODAY}T10:00:00Z`);
 /** Synthetic IBANs with a valid ISO 13616 check; their tails are what may never appear in full. */
 const IBAN = "UA113223130000026007233561234";
 const IBAN_TAIL = "26007233561234";
-const OTHER_IBAN = "UA543052990000026001234567890";
+const OTHER_IBAN = "UA223052990000026001234567890";
 
 let db: RealModulesDatabase;
 let spaces: HouseholdSpaces;
