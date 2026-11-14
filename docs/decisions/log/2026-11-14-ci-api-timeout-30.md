@@ -10,3 +10,5 @@
   часу job. Злито 2026-11-14 (`c73bc97`).
 - Далі: шардинг інтеграційних тестів — окремий PR (`sensitive:pipeline`; пропозиція 2 ретроспективи ведучого 4,
   [#180, коментар 6883180207](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6883180207)).
+  Виконано: [2026-11-14-ci-integration-sharding-planned.md](2026-11-14-ci-integration-sharding-planned.md) (ліміт 30 хв
+  тепер діє для кожної частини `api-parts`).
