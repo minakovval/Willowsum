@@ -101,8 +101,9 @@ errors) lives only in `packages/domain-kernel`.
    Full conditions, exceptions and «merge on Ready, follow up separately»:
    [merge rules](.claude/references/merge-rules.md) (read when you merge or write «Owner decision»).
 
-The lead writes to the owner in chat only about a merge, a decision needed or a problem; no technical messages
-(owner, 2026-11-14) — `pr-pipeline`, «Мовчання в чаті».
+The lead writes to the owner in chat only about a merge, a decision needed or a problem, and at the end of a
+session the retrospective and handover; no technical messages (owner, 2026-11-14) — `pr-pipeline`, «Мовчання в
+чаті».
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
