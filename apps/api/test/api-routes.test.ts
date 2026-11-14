@@ -21,7 +21,8 @@ import { principalHeader, servedRoutes, testAuthenticate, testWiring } from "./h
 /**
  * Routes that may be called without a session; each serves no household data. Adding one is a reviewed change.
  * Identity's are sign-up, email confirmation, sign-in and password reset themselves (ACC-01): they work before a
- * session exists.
+ * session exists. Its profile routes (ACC-05) read the session cookie themselves, as `getSession` does: the account
+ * is not data of a space.
  */
 const PUBLIC_ROUTES = [
   "getMeta",
@@ -39,6 +40,10 @@ const PUBLIC_ROUTES = [
   "completePasswordReset",
   "checkNotMeLink",
   "confirmNotMe",
+  "getProfile",
+  "updateProfile",
+  "confirmStepUp",
+  "changePassword",
 ];
 
 const members = [

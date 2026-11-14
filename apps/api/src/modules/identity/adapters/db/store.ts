@@ -11,6 +11,7 @@ import type {
   RegistrationKind,
   RegistrationRow,
   SessionRow,
+  StepUpRow,
   ThrottleScope,
 } from "../../application/index.ts";
 import {
@@ -20,6 +21,7 @@ import {
   type DeviceOs,
   type SessionEndReason,
   type SignInGuard,
+  type StepUpAction,
 } from "../../domain/index.ts";
 
 /** The identity schema through the module's own role (ARC-01, ARC-03; tables in migrations/0001_accounts.sql). */
@@ -34,6 +36,8 @@ interface AccountDb {
   password_hash: string;
   email_confirmed_at: Date | null;
   password_reset_required_at: Date | null;
+  locale: string | null;
+  time_zone: string | null;
 }
 
 const toAccount = (r: AccountDb): AccountRow => ({
@@ -43,10 +47,12 @@ const toAccount = (r: AccountDb): AccountRow => ({
   passwordHash: r.password_hash,
   emailConfirmedAt: ms(r.email_confirmed_at),
   passwordResetRequiredAt: ms(r.password_reset_required_at),
+  locale: r.locale,
+  timeZone: r.time_zone,
 });
 
 const ACCOUNT_COLUMNS =
-  "id, email, display_name, password_hash, email_confirmed_at, password_reset_required_at";
+  "id, email, display_name, password_hash, email_confirmed_at, password_reset_required_at, locale, time_zone";
 const LOCK_CLAUSE = { share: " FOR SHARE", update: " FOR UPDATE" } as const;
 
 interface ResetDb {
@@ -76,11 +82,11 @@ function tx(q: ModuleQueryRunner): IdentityTx {
     },
     async insertAccount(a) {
       const { rows } = await q.query<{ id: string }>(
-        `INSERT INTO accounts (email, email_normalized, display_name, password_hash, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $5)
+        `INSERT INTO accounts (email, email_normalized, display_name, password_hash, locale, time_zone, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
          ON CONFLICT (email_normalized) DO NOTHING
          RETURNING id`,
-        [a.email, a.normalizedEmail, a.displayName, a.passwordHash, at(a.now)],
+        [a.email, a.normalizedEmail, a.displayName, a.passwordHash, a.locale, a.timeZone, at(a.now)],
       );
       return rows[0]?.id ?? null;
     },
@@ -94,10 +100,18 @@ function tx(q: ModuleQueryRunner): IdentityTx {
     },
     async replaceUnconfirmedAccount(accountId, account, now) {
       const result = await q.query(
-        `UPDATE accounts SET display_name = $2, password_hash = $3, updated_at = $4
+        `UPDATE accounts SET display_name = $2, password_hash = $3, locale = $4, time_zone = $5, updated_at = $6
          WHERE id = $1 AND email_confirmed_at IS NULL`,
-        [accountId, account.displayName, account.passwordHash, at(now)],
+        [accountId, account.displayName, account.passwordHash, account.locale, account.timeZone, at(now)],
       );
+      return (result.rowCount ?? 0) > 0;
+    },
+    async setDisplayName(accountId, displayName, now) {
+      const result = await q.query(`UPDATE accounts SET display_name = $2, updated_at = $3 WHERE id = $1`, [
+        accountId,
+        displayName,
+        at(now),
+      ]);
       return (result.rowCount ?? 0) > 0;
     },
     async setPassword(accountId, passwordHash, now) {
@@ -441,6 +455,53 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         [accountId, at(now), reason],
       );
       return result.rowCount ?? 0;
+    },
+    async endOtherSessions(accountId, keep, now, reason) {
+      const result = await q.query(
+        `UPDATE sessions SET ended_at = $3, end_reason = $4 WHERE account_id = $1 AND id <> $2 AND ended_at IS NULL`,
+        [accountId, keep, at(now), reason],
+      );
+      return result.rowCount ?? 0;
+    },
+    async insertStepUp(c) {
+      await q.query(`DELETE FROM step_up_confirmations WHERE session_id = $1 AND action = $2`, [
+        c.sessionId,
+        c.action,
+      ]);
+      await q.query(
+        `INSERT INTO step_up_confirmations (session_id, action, token_digest, created_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [c.sessionId, c.action, c.tokenDigest, at(c.now), at(c.expiresAt)],
+      );
+    },
+    async findStepUp(digest, lock) {
+      const { rows } = await q.query<{
+        id: string;
+        session_id: string;
+        action: StepUpAction;
+        expires_at: Date;
+        used_at: Date | null;
+      }>(
+        `SELECT id, session_id, action, expires_at, used_at FROM step_up_confirmations
+         WHERE token_digest = $1${lock ? " FOR UPDATE" : ""}`,
+        [digest],
+      );
+      const r = rows[0];
+      return r
+        ? ({
+            id: r.id,
+            sessionId: r.session_id,
+            action: r.action,
+            expiresAt: r.expires_at.getTime(),
+            usedAt: ms(r.used_at),
+          } satisfies StepUpRow)
+        : null;
+    },
+    async useStepUp(id, now) {
+      await q.query(`UPDATE step_up_confirmations SET used_at = $2 WHERE id = $1 AND used_at IS NULL`, [
+        id,
+        at(now),
+      ]);
     },
     async deleteUnconfirmedAccounts(signedUpBy, limit) {
       // updated_at of an unconfirmed account is its latest sign-up (insertAccount, replaceUnconfirmedAccount).

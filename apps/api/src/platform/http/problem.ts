@@ -48,6 +48,17 @@ export const PROBLEMS = {
    * is changed with the reset link sent to its email (ACC-04 FR 5). Never given for a wrong password.
    */
   PASSWORD_RESET_REQUIRED: { status: 403, title: "Change your password with the link in your email first" },
+  /**
+   * Step-up (NFR-01 FR 13, NFR-15 FR 4): the current password typed to confirm a sensitive action is wrong. One
+   * general answer, with no hint and no count of attempts left; it counts with the failed sign-ins.
+   */
+  STEP_UP_PASSWORD_INVALID: { status: 403, title: "The password is wrong" },
+  /**
+   * The sensitive action (the password change, ACC-05 FR 5) needs a step-up confirmation of this session for this
+   * action from the last 5 minutes, used once: none was sent, or it was used, is older, belongs to another session
+   * or action. The client asks for the current password again.
+   */
+  STEP_UP_REQUIRED: { status: 403, title: "Confirm this action with your current password" },
   IDEMPOTENCY_KEY_REUSED: {
     status: 409,
     title: "This idempotency key was already used for a different request",
@@ -124,7 +135,7 @@ export const ProblemSchema = z
     /** For SESSION_ENDED: why the session ended (ACC-04@PoC «Стани інтерфейсу»). */
     sessionEndReason: z.enum(["idle", "expired", "signed-out", "ended-elsewhere"]).optional().meta({
       description:
-        "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset, «Це був не я» or a reused token ended it)",
+        "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset, a password change in the profile on another device, «Це був не я» or a reused token ended it)",
     }),
     /** For LIMIT_REACHED: the limit that was reached (a number of the service, never of the plan). */
     limit: z
