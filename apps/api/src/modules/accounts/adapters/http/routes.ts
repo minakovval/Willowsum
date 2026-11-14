@@ -13,6 +13,7 @@ import {
   deleteAdjustment,
   findDuplicate,
   reopenAccount,
+  updateAccountSettings,
   updateBalance,
   type AccountListItem,
   type AdjustmentView,
@@ -128,7 +129,13 @@ const accountSchema = z.object({
     })
     .nullable(),
   loan: z
-    .object({ annualRate: z.string().nullable(), monthlyPayment: moneySchema.nullable(), debt: moneySchema })
+    .object({
+      annualRate: z.string().nullable(),
+      monthlyPayment: moneySchema.nullable(),
+      debt: moneySchema,
+      /** «Додайте ставку і платіж» (FIN-12 FR 5, AC12): the rate or the monthly payment is not entered yet. */
+      termsMissing: z.boolean(),
+    })
     .nullable(),
 });
 
@@ -411,7 +418,12 @@ const listItemSchema = z.object({
     .object({ creditLimit: moneySchema.nullable(), debt: moneySchema, available: moneySchema.nullable() })
     .nullable(),
   loan: z
-    .object({ annualRate: z.string().nullable(), monthlyPayment: moneySchema.nullable(), debt: moneySchema })
+    .object({
+      annualRate: z.string().nullable(),
+      monthlyPayment: moneySchema.nullable(),
+      debt: moneySchema,
+      termsMissing: z.boolean(),
+    })
     .nullable(),
 });
 
@@ -431,6 +443,7 @@ function presentItem(item: AccountListItem): z.input<typeof listItemSchema> {
       annualRate: item.loan.annualRate,
       monthlyPayment: maybeMoney(item.loan.monthlyPayment),
       debt: money(item.loan.debt),
+      termsMissing: item.loan.termsMissing,
     },
   };
 }
@@ -674,6 +687,54 @@ export const deleteBalanceAdjustmentRoute = defineRoute({
   },
 });
 
+export const updateAccountRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/accounts/{accountId}",
+  operationId: "updateAccount",
+  summary:
+    "«Налаштування» → «Основне»: rename the account or change its kind within its group (FIN-12 FR 4–6)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 4 * 1024,
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_KIND_OTHER_GROUP", "ACCOUNT_HAS_TRANSACTIONS"],
+  request: {
+    params: accountParams,
+    // No owners or shares: the API has no way to change them (FIN-12 FR 13) — an unknown field is 400.
+    body: z
+      .object({
+        /** «Назва*»: one line, 1–80 characters. */
+        name: z
+          .string()
+          .max(ACCOUNT_NAME_MAX * 4)
+          .optional(),
+        /** «Тип» within the group: «Кредит» ↔ «Кредитна картка» only without transactions. */
+        kind: z.enum(ACCOUNT_KINDS).optional(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account after the change", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    return ctx.inHousehold(async (q) => {
+      const tx = accountsTx(q);
+      const result = await updateAccountSettings(deps, tx, caller, params.accountId, body);
+      switch (result.kind) {
+        case "updated":
+        case "unchanged":
+          return presentAccount(deps, tx, caller.householdId, params.accountId);
+        case "other-group":
+          throw new ApiProblem("ACCOUNT_KIND_OTHER_GROUP");
+        case "has-transactions":
+          throw new ApiProblem("ACCOUNT_HAS_TRANSACTIONS");
+        default:
+          throw refusal(result);
+      }
+    });
+  },
+});
+
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
@@ -685,4 +746,5 @@ export const accountsRoutes = [
   reopenAccountRoute,
   updateAccountBalanceRoute,
   deleteBalanceAdjustmentRoute,
+  updateAccountRoute,
 ];

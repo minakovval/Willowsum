@@ -42,3 +42,9 @@ export {
   type StatementResult,
 } from "./manage.ts";
 export type { AdjustmentView } from "./adjustments.ts";
+export {
+  SETTINGS_FIELDS,
+  updateAccountSettings,
+  type SettingsInput,
+  type SettingsResult,
+} from "./settings.ts";

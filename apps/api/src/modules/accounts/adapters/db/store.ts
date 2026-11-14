@@ -174,6 +174,14 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
       );
       return rows[0] ? account(rows[0]) : null;
     },
+    async updateSettings(householdId, a) {
+      await q.query(
+        `UPDATE accounts SET name = $3, kind = $4, annual_rate = $5, deposit_opened_on = $6, deposit_matures_on = $7,
+           updated_at = now()
+         WHERE household_id = $1 AND id = $2`,
+        [householdId, a.id, a.name, a.kind, a.annualRate, a.depositOpenedOn, a.depositMaturesOn],
+      );
+    },
     async setStatus(householdId, accountId, status, closedOn) {
       await q.query(`UPDATE accounts SET status = $3, closed_on = $4 WHERE household_id = $1 AND id = $2`, [
         householdId,

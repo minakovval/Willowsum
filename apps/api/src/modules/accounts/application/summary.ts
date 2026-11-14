@@ -1,6 +1,6 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { ReportedAmount, ReportedTotal } from "../../fx-rates/index.ts";
-import { availableCredit } from "../../liabilities/index.ts";
+import { availableCredit, termsMissing } from "../../liabilities/index.ts";
 import {
   groupOf,
   inMoneyTogether,
@@ -93,6 +93,8 @@ export interface AccountListItem {
     readonly annualRate: string | null;
     readonly monthlyPayment: Money | null;
     readonly debt: Money;
+    /** «Додайте ставку і платіж» (FIN-12 FR 5, AC12). */
+    readonly termsMissing: boolean;
   } | null;
 }
 
@@ -359,6 +361,7 @@ export async function accountsPage(
               annualRate: liability?.annualRate ?? null,
               monthlyPayment: liability?.monthlyPayment ?? null,
               debt,
+              termsMissing: liability === null || termsMissing(liability),
             }
           : null,
     });
