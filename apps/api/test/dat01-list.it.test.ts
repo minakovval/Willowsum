@@ -204,6 +204,18 @@ describe("DAT-01@PoC: totals at the official rate of each transaction's date (Po
     expect(total).toMatchObject({ count: 2, partial: true, noRateCount: 1, approximate: false });
   });
 
+  it("DAT-01@PoC FR 12: balances at today's rate with the real fx-rates rule — 3 calendar days plain, older «приблизно» (owner decision 2026-11-13)", async () => {
+    // Today is Thursday 2026-11-12 in Kyiv.
+    const balances = [{ currency: "UAH", date: null, sum: Money.of("400", "UAH"), count: 2 }];
+    await eurRate("2026-11-09", "40"); // Monday: 3 days
+    expect(await totals().total(balances, "EUR")).toMatchObject({ approximate: false, staleRateCount: 0 });
+    await owner.query("TRUNCATE fx_rates.rates");
+    await eurRate("2026-11-08", "40"); // Sunday: 4 days
+    const stale = await totals().total(balances, "EUR");
+    expect(stale.total?.equals(eur("10"))).toBe(true);
+    expect(stale).toMatchObject({ approximate: true, staleRateCount: 2, nearestRateCount: 0 });
+  });
+
   it("DAT-01@PoC EC5: no record has any rate → no total, only the marker", async () => {
     await eurRate("2026-11-01", "40");
     await seed(spaceA, [{ on: "2026-01-05", amount: "-1000.00", currency: "UAH" }]);

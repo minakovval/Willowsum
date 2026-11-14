@@ -62,3 +62,20 @@ export function rateCoversDate(rateDate: string, requestedDate: string): boolean
   for (let day = from + 1; day <= to; day += 1) if (!isWeekendDay(day)) return false;
   return true;
 }
+
+/**
+ * «Today» (balances, values and list totals at the rate of the day of display; business rules, AC5, edge case 2):
+ * the amount is «приблизно» when the latest available rate of its currency is older than this many calendar days
+ * from today's Kyiv date (owner decision 2026-11-13). Calendar days, weekends included: on Monday, Friday's rate
+ * (3 days) is plain.
+ */
+export const TODAY_RATE_MAX_AGE_DAYS = 3;
+
+/**
+ * Whether «today»'s amount at a rate of `rateDate` is «приблизно»: `today` (the Kyiv date, YYYY-MM-DD) minus
+ * `rateDate` is more than {@link TODAY_RATE_MAX_AGE_DAYS} calendar days. Exactly 3 days is not; a rate dated after
+ * today is never «older» (and `convert` refuses it anyway).
+ */
+export function todayRateIsApproximate(rateDate: string, today: string): boolean {
+  return dayNumber(today) - dayNumber(rateDate) > TODAY_RATE_MAX_AGE_DAYS;
+}

@@ -6,7 +6,13 @@ import {
   isCalendarDate,
   type Conversion,
 } from "@willowsum/domain-kernel";
-import { REPORTING_CURRENCY, isRestrictedConvertibility, kyivDate, rateCoversDate } from "../domain/index.ts";
+import {
+  REPORTING_CURRENCY,
+  isRestrictedConvertibility,
+  kyivDate,
+  rateCoversDate,
+  todayRateIsApproximate,
+} from "../domain/index.ts";
 import type { FxRates } from "./rates.ts";
 
 /**
@@ -25,11 +31,12 @@ export interface DatedAmount {
  * is unrounded (rounding is for display).
  * - `reporting-currency`: already in the reporting currency, nothing converted;
  * - `converted`: `conversion` keeps the rate, its date, its source and the requested date (business rules);
- *   `conversion.approximate` — the nearest earlier rate was used (edge case 3), never for a weekend that takes the
- *   previous working day's rate (AC4) and never for «today», which uses the latest daily rate (FR 3);
- *   `restricted` — a currency with restricted convertibility: «Офіційний курс, ринковий може відрізнятися» (edge case 2);
+ *   `conversion.approximate` — «приблизно»: for a dated amount, the nearest earlier rate was used (edge case 4),
+ *   never for a weekend that takes the previous working day's rate (AC4); for «today», the latest daily rate (FR 3)
+ *   is older than 3 calendar days from today's Kyiv date (AC5, edge case 2; owner decision 2026-11-13);
+ *   `restricted` — a currency with restricted convertibility: «Офіційний курс, ринковий може відрізнятися» (edge case 3);
  * - `rate-unavailable`: no rate on or before the date at all: shown in its own currency with «Курс недоступний»
- *   (edge case 4).
+ *   (edge case 5).
  */
 export type ReportedAmount =
   | { readonly kind: "reporting-currency"; readonly original: Money; readonly value: Money }
@@ -42,15 +49,20 @@ export type ReportedAmount =
     }
   | { readonly kind: "rate-unavailable"; readonly original: Money };
 
-/** A total in the reporting currency (edge cases 3, 4). */
+/** A total in the reporting currency (AC5, edge cases 2, 4, 5). */
 export interface ReportedTotal {
   readonly currency: string;
   /** Sum of every amount with a rate (unrounded); null when amounts exist and none has a rate — never 0. */
   readonly total: Money | null;
-  /** «приблизно»: some amount used the nearest earlier rate, or some amount has no rate and is left out. */
+  /**
+   * «приблизно»: some dated amount used the nearest earlier rate, some «today» amount a rate older than 3 calendar
+   * days, or some amount has no rate and is left out.
+   */
   readonly approximate: boolean;
-  /** Amounts converted at the nearest earlier rate. */
+  /** Dated amounts converted at the nearest earlier rate. */
   readonly nearestRateCount: number;
+  /** «Today» amounts converted at a latest rate older than 3 calendar days (edge case 2). */
+  readonly staleRateCount: number;
   /** Amounts left out of the total, «Курс недоступний» (the hint names this number). */
   readonly unavailableCount: number;
   /** Some amount is in a currency with restricted convertibility. */
@@ -100,6 +112,7 @@ export function createFxReportingReader(deps: {
     let sum = Money.zero(reportingCurrency);
     let counted = 0;
     let nearestRateCount = 0;
+    let staleRateCount = 0;
     let unavailableCount = 0;
     let restricted = false;
     const items = amounts.map((a): ReportedAmount => {
@@ -116,13 +129,18 @@ export function createFxReportingReader(deps: {
       }
       // `convert` refuses a rate from after `date`.
       const exact = convert(a.amount, rate, date);
-      const approximate = a.date !== null && !rateCoversDate(rate.date, date);
+      // A dated amount: the rate of its date (a weekend takes Friday's). «Today»: the latest rate, «приблизно»
+      // only when it is older than 3 calendar days (`date` is then today's Kyiv date).
+      const stale = a.date === null && todayRateIsApproximate(rate.date, date);
+      const nearest = a.date !== null && !rateCoversDate(rate.date, date);
+      const approximate = stale || nearest;
       const conversion: Conversion = { ...exact, approximate };
       const isRestricted =
         isRestrictedConvertibility(a.amount.currency) || isRestrictedConvertibility(reportingCurrency);
       sum = sum.plus(conversion.to);
       counted += 1;
-      if (approximate) nearestRateCount += 1;
+      if (nearest) nearestRateCount += 1;
+      if (stale) staleRateCount += 1;
       if (isRestricted) restricted = true;
       return {
         kind: "converted",
@@ -135,8 +153,9 @@ export function createFxReportingReader(deps: {
     return {
       currency: reportingCurrency,
       total: unavailableCount > 0 && counted === 0 ? null : sum,
-      approximate: nearestRateCount > 0 || unavailableCount > 0,
+      approximate: nearestRateCount > 0 || staleRateCount > 0 || unavailableCount > 0,
       nearestRateCount,
+      staleRateCount,
       unavailableCount,
       restricted,
       items,
