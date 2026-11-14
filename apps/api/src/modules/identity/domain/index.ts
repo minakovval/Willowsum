@@ -6,3 +6,4 @@ export * from "./mail.ts";
 export * from "./profile.ts";
 export * from "./rules.ts";
 export * from "./step-up.ts";
+export * from "./journal.ts";

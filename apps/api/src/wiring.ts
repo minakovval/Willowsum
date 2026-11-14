@@ -86,8 +86,8 @@ export function readinessCheck(deps: {
  */
 export function schedulerDailyTasks(deps: {
   readonly databases: Pick<ModuleDatabases, "for">;
-  readonly audit: Pick<AuditLog, "recordPlatform">;
-  readonly spaces: Pick<HouseholdSpaces, "spaceIds">;
+  readonly audit: Pick<AuditLog, "recordPlatform" | "record">;
+  readonly spaces: Pick<HouseholdSpaces, "spaceIds" | "membershipOf">;
   readonly now?: () => number;
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
   readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
@@ -96,6 +96,8 @@ export function schedulerDailyTasks(deps: {
   const maintenance = createIdentityMaintenance({
     db: deps.databases.for("identity"),
     audit: deps.audit,
+    // ACC-04: a lapsed session the task ends is written to its space's sign-in journal.
+    spaces: deps.spaces,
     ...(deps.now ? { now: deps.now } : {}),
   });
   // FIN-04 FR 9, FR 10: the ledger's daily integrity check over every space (a failure is an «error» log event) and

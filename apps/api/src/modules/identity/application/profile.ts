@@ -161,7 +161,12 @@ export async function confirmStepUp(
     return { kind: "confirmed", stepUpToken, expiresInS: STEP_UP_TTL_MS / 1000 };
   });
   if (outcome.kind !== "locked-now") return outcome;
-  // After the commit: the letter only for a lock that happened.
+  // After the commit: the letter and the journal's entry only for a lock that happened (#209).
+  await deps.journal.record({
+    kind: "sign-in-locked",
+    accountId: first.account.accountId,
+    reason: "step-up",
+  });
   deps.sendLater(outcome.letter);
   return { kind: "locked", retryAfterS: outcome.retryAfterS, sessionEnded: true };
 }

@@ -72,10 +72,12 @@ function setCookies(res: Res): string[] {
 /** One browser on one device at one address: its user agent and its cookie jar. */
 class Browser {
   cookie: string | undefined;
-  constructor(
-    readonly userAgent: string,
-    readonly ip: string,
-  ) {}
+  readonly userAgent: string;
+  readonly ip: string;
+  constructor(userAgent: string, ip: string) {
+    this.userAgent = userAgent;
+    this.ip = ip;
+  }
   take(res: Res): Res {
     for (const c of setCookies(res)) {
       if (!c.startsWith("session=")) continue;
@@ -133,7 +135,7 @@ const audit = () => createAuditLog(db.databases.for("audit"));
 /** The account's sign-in journal in a space, as {event, reason, ip, device, session} per entry. */
 async function journal(space: string, id: string) {
   const entries = await audit().entriesFor(space, { type: "identity.sign-in", id });
-  return entries.map((e) => ({
+  return entries.map((e): Record<string, string | null> => ({
     ...Object.fromEntries(e.changes.map((c) => [c.field, c.after])),
     actor: e.actorKind,
     channel: e.channel,
@@ -426,9 +428,10 @@ describe("ACC-04@PoC: every session end is written with the IP address and the d
       await browser.send("POST", "/v1/session/step-up", { action: "password-change", password: WRONG });
     await flush();
     const tail = (await journal(space, id)).slice(-2);
+    // The session's end is written as its transaction commits, the lock right after it.
     expect(tail).toEqual([
-      expect.objectContaining({ event: "sign-in-locked", reason: "step-up", ip: "203.0.113.10" }),
       expect.objectContaining({ event: "session-ended", reason: "step-up-locked", ip: "203.0.113.10" }),
+      expect.objectContaining({ event: "sign-in-locked", reason: "step-up", ip: "203.0.113.10" }),
     ]);
   });
 

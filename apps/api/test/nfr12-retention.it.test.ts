@@ -334,7 +334,7 @@ describe("FIN-04@PoC FR 10 through the scheduler's task list: main.ts's alert ma
     const tasks = schedulerDailyTasks({
       databases: db.databases,
       audit: createAuditLog(db.databases.for("audit")),
-      spaces: { spaceIds: async () => [householdId] },
+      spaces: { spaceIds: async () => [householdId], membershipOf: async () => null },
       now: () => t,
       alertMail: { mail: outbox, to: "owner@example.test" },
     });
