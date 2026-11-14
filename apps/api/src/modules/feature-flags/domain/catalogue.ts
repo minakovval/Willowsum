@@ -65,6 +65,14 @@ export const FLAGS = {
     description:
       "Реєстрація, підтвердження email, вхід і вихід (ACC-01); до входу простору немає, тож діє лише етап «all»",
   },
+  "identity.profile": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-14",
+    requires: "identity.sign-in",
+    description:
+      "Профіль і зміна пароля зі step-up (ACC-05@PoC): /v1/profile, /v1/session/step-up; маршрути без простору, тож діє лише етап «all»",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

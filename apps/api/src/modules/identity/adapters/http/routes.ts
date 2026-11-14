@@ -4,11 +4,14 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type PublicContext } from "../../../../platform/http/route.ts";
 import {
   changeEmail,
+  changePassword,
   completePasswordReset,
+  confirmStepUp,
   confirmEmail,
   confirmNotMe,
   notMeLinkState,
   passwordResetState,
+  profileOf,
   refreshSession,
   requestPasswordReset,
   resendForLink,
@@ -17,15 +20,21 @@ import {
   signIn,
   signOut,
   signUp,
+  updateProfile,
+  type NoSession,
+  type Profile,
   type ResendResult,
 } from "../../application/index.ts";
 import {
   DEVICE_BROWSERS,
   DEVICE_SYSTEMS,
   emailSchema,
+  localeSchema,
   nameSchema,
   passwordSchema,
   SESSION_IDLE_MS,
+  STEP_UP_ACTIONS,
+  timeZoneSchema,
   type SessionEndShown,
 } from "../../domain/index.ts";
 import { identityDeps } from "./services.ts";
@@ -77,6 +86,13 @@ export const signUpRoute = defineRoute({
       password: passwordSchema,
       /** The CAPTCHA widget's token (ACC-01 FR 12). */
       captchaToken,
+      /**
+       * The browser's locale (`navigator.language`, BCP 47): the format of dates and numbers (ACC-05 FR 3). Kept in its
+       * canonical form on a new account; ignored for an address that already has a confirmed one.
+       */
+      locale: localeSchema.optional(),
+      /** The browser's IANA time zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`; ACC-05 FR 3). */
+      timeZone: timeZoneSchema.optional(),
     }),
   },
   response: {
@@ -97,6 +113,8 @@ export const signUpRoute = defineRoute({
       password: body.password,
       captchaToken: body.captchaToken,
       clientAddress: ctx.http.clientAddress,
+      locale: body.locale,
+      timeZone: body.timeZone,
     });
     if (result.kind === "too-many") throw new ApiProblem("RATE_LIMITED", { retryAfterS: result.retryAfterS });
     if (result.kind === "captcha") throw new ApiProblem("CAPTCHA_REQUIRED");
@@ -482,6 +500,154 @@ export const confirmNotMeRoute = defineRoute({
   },
 });
 
+/**
+ * The profile and the password change (ACC-05@PoC part a). Public routes of identity like `GET /v1/session`: they act
+ * on the account of the session cookie, which only identity can read, and take no account id. Behind the release flag
+ * `identity.profile` (requires `identity.sign-in`).
+ */
+const PROFILE_FLAG = "identity.profile";
+const PROFILE_PUBLIC =
+  "The profile and the password change act on the session cookie's own account, which only identity reads (ACC-05)";
+const SESSION_PROBLEMS = ["UNAUTHENTICATED", "SESSION_ENDED"] as const;
+
+const profileSchema = z.object({
+  name: z.string(),
+  /** Read only: there is no email change in this release (ACC-05 FR 4). */
+  email: z.string(),
+  /** The format of dates and numbers from the browser at sign-up (BCP 47), or null: then the browser's own. */
+  locale: z.string().nullable(),
+  /** The IANA time zone from the browser at sign-up, or null: then the browser's own. */
+  timeZone: z.string().nullable(),
+});
+
+function sessionToken(ctx: PublicContext): string {
+  const value = ctx.http.sessionCookie(SESSION_COOKIE);
+  if (value === undefined) throw new ApiProblem("UNAUTHENTICATED");
+  return value;
+}
+
+function profileAnswer(ctx: PublicContext, result: { kind: "profile"; profile: Profile } | NoSession) {
+  if (result.kind !== "profile") sessionGone(ctx, result);
+  return result.profile as z.input<typeof profileSchema>;
+}
+
+export const getProfileRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/profile",
+  operationId: "getProfile",
+  summary: "The profile of the signed-in account («Профіль»)",
+  access: { public: PROFILE_PUBLIC, flag: PROFILE_FLAG },
+  problems: [...SESSION_PROBLEMS],
+  response: {
+    status: 200,
+    description:
+      "Name, email (read only), the format and time zone taken from the browser at sign-up (ACC-05 FR 1, 3). Read at every load, never cached (FR 2). Reading does not extend the session",
+    schema: profileSchema,
+  },
+  handler: async (_input, ctx) => profileAnswer(ctx, await profileOf(identityDeps(ctx), sessionToken(ctx))),
+});
+
+export const updateProfileRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/profile",
+  operationId: "updateProfile",
+  summary: "Save the profile («Зберегти»): the name",
+  access: { public: PROFILE_PUBLIC, flag: PROFILE_FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: [...SESSION_PROBLEMS],
+  request: {
+    // Strict: a request that names the email (or anything else) is refused, never partly applied (ACC-05 FR 4, AC6).
+    body: z.strictObject({ name: nameSchema }),
+  },
+  response: {
+    status: 200,
+    description:
+      "The saved profile. Other tabs and devices show it at their next load or focus (ACC-05 FR 2). 400 VALIDATION_FAILED for an email or any other field: the email cannot be changed in this release",
+    schema: profileSchema,
+  },
+  handler: async ({ body }, ctx) =>
+    profileAnswer(ctx, await updateProfile(identityDeps(ctx), sessionToken(ctx), { name: body.name })),
+});
+
+export const stepUpRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/session/step-up",
+  operationId: "confirmStepUp",
+  summary: "Step-up: confirm a sensitive action with the current password",
+  access: { public: PROFILE_PUBLIC, flag: PROFILE_FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: [...SESSION_PROBLEMS, "STEP_UP_PASSWORD_INVALID", "SIGN_IN_LOCKED"],
+  request: {
+    body: z.strictObject({
+      /** The one action the confirmation is for (ACC-05 FR 5: the password change). */
+      action: z.enum(STEP_UP_ACTIONS),
+      password: z.string().min(1).max(1024),
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "A one-time confirmation of this session for the action, valid 5 min; no code by email (NFR-01 FR 13). 403 STEP_UP_PASSWORD_INVALID: «Пароль неправильний», counted with the failed sign-ins (5 in 15 min). 429 SIGN_IN_LOCKED with Retry-After: sign-in is locked — when this attempt reached the limit, this session has ended (its cookie is removed), the next sign-in needs a CAPTCHA and a security letter is on its way",
+    schema: z.object({
+      stepUpToken: token,
+      /** Seconds the confirmation stays valid (300). */
+      expiresInS: z.number().int().min(1),
+    }),
+  },
+  handler: async ({ body }, ctx) => {
+    const result = await confirmStepUp(identityDeps(ctx), sessionToken(ctx), body);
+    switch (result.kind) {
+      case "confirmed":
+        return { stepUpToken: result.stepUpToken, expiresInS: result.expiresInS };
+      case "wrong-password":
+        throw new ApiProblem("STEP_UP_PASSWORD_INVALID");
+      case "locked":
+        if (result.sessionEnded)
+          ctx.http.setCookie(clearedSessionCookie(SESSION_COOKIE, { https: ctx.http.https }));
+        throw new ApiProblem("SIGN_IN_LOCKED", { retryAfterS: result.retryAfterS });
+      default:
+        return sessionGone(ctx, result);
+    }
+  },
+});
+
+export const changePasswordRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/profile/password",
+  operationId: "changePassword",
+  summary: "Change the password in the profile (after step-up)",
+  access: { public: PROFILE_PUBLIC, flag: PROFILE_FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: [...SESSION_PROBLEMS, "STEP_UP_REQUIRED"],
+  request: {
+    body: z.strictObject({
+      /** The new password: at least 12 characters, no composition rules (ACC-05 FR 5); 400 too_small otherwise. */
+      password: passwordSchema,
+      /** The step-up confirmation of this session for `password-change` (POST /v1/session/step-up). */
+      stepUpToken: token,
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "The password is changed, every other session of the account has ended (this one goes on), earlier reset links no longer work and a security letter is on its way (ACC-05 FR 5, ACC-04 FR 6). 403 STEP_UP_REQUIRED when the confirmation is missing, used, older than 5 min, or of another session or action",
+    schema: z.object({ status: z.literal("password-changed") }),
+  },
+  handler: async ({ body }, ctx) => {
+    const result = await changePassword(identityDeps(ctx), sessionToken(ctx), {
+      stepUpToken: body.stepUpToken,
+      password: body.password,
+    });
+    if (result.kind === "step-up-required") throw new ApiProblem("STEP_UP_REQUIRED");
+    if (result.kind !== "changed") sessionGone(ctx, result);
+    return { status: "password-changed" as const };
+  },
+});
+
 export const identityRoutes = [
   signUpRoute,
   resendRegistrationRoute,
@@ -497,4 +663,8 @@ export const identityRoutes = [
   completePasswordResetRoute,
   checkNotMeLinkRoute,
   confirmNotMeRoute,
+  getProfileRoute,
+  updateProfileRoute,
+  stepUpRoute,
+  changePasswordRoute,
 ];

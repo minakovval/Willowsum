@@ -19,10 +19,30 @@ export function passwordLength(password: string): number {
   return [...normalizePassword(password)].length;
 }
 
-export const passwordSchema = z
-  .string()
-  .refine((p) => passwordLength(p) >= PASSWORD_MIN_LENGTH, { error: "too_short" })
-  .refine((p) => passwordLength(p) <= PASSWORD_MAX_LENGTH, { error: "too_long" });
+/**
+ * The length is counted in code points after NFKC, so `min`/`max` (UTF-16 units) cannot express it; the issues still
+ * carry the standard codes `too_small` / `too_big`, which the API passes on, so a client can explain the refusal
+ * (ACC-05 AC5: «зміна відхиляється з поясненням»).
+ */
+export const passwordSchema = z.string().check((ctx) => {
+  const length = passwordLength(ctx.value);
+  if (length < PASSWORD_MIN_LENGTH)
+    ctx.issues.push({
+      code: "too_small",
+      origin: "string",
+      minimum: PASSWORD_MIN_LENGTH,
+      inclusive: true,
+      input: ctx.value,
+    });
+  else if (length > PASSWORD_MAX_LENGTH)
+    ctx.issues.push({
+      code: "too_big",
+      origin: "string",
+      maximum: PASSWORD_MAX_LENGTH,
+      inclusive: true,
+      input: ctx.value,
+    });
+});
 
 /** The login key of an address: trimmed, lower case (one account per address, whatever the letter case). */
 export function normalizeEmail(email: string): string {

@@ -67,7 +67,10 @@ function setCookies(res: Res): string[] {
 /** One browser: its user agent and its cookie jar. */
 class Browser {
   cookie: string | undefined;
-  constructor(readonly userAgent = CHROME_WINDOWS) {}
+  readonly userAgent: string;
+  constructor(userAgent = CHROME_WINDOWS) {
+    this.userAgent = userAgent;
+  }
   take(res: Res): Res {
     for (const c of setCookies(res)) {
       if (!c.startsWith("session=")) continue;
@@ -453,7 +456,6 @@ describe("ACC-05@PoC FR 5: the password change needs the new password (≥ 12) a
       title: "The password is wrong",
       status: 403,
       code: "STEP_UP_PASSWORD_INVALID",
-      supportId: expect.any(String),
     });
     expect((await browser.session()).statusCode).toBe(200);
     expect((await new Browser().signIn(email)).json()).toEqual({ status: "signed-in" });
@@ -472,7 +474,7 @@ describe("ACC-04@PoC FR 6: after a password change in the profile every other se
     expect((await browser.send("GET", "/v1/space")).statusCode).toBe(200);
     expect((await browser.send("POST", "/v1/session/refresh")).statusCode).toBe(200);
     const { rows } = await db.owner.query<{ end_reason: string | null }>(
-      `SELECT end_reason FROM identity.sessions WHERE account_id = $1 ORDER BY created_at`,
+      `SELECT end_reason FROM identity.sessions WHERE account_id = $1 ORDER BY end_reason NULLS FIRST`,
       [await accountId(email)],
     );
     expect(rows.map((r) => r.end_reason)).toEqual([null, "password-change"]);

@@ -141,6 +141,75 @@ const PASSWORD_CHANGED: Record<MailLocale, (name: string, link: string) => Lette
   }),
 };
 
+const PASSWORD_CHANGED_IN_PROFILE: Record<MailLocale, (name: string, link: string) => Letter> = {
+  uk: (name, link) => ({
+    subject: "Пароль у Willowsum змінено",
+    text: [
+      `Вітаємо, ${name}!`,
+      "",
+      "Пароль вашого акаунта у Willowsum щойно змінено в профілі. Усі інші сесії акаунта завершено.",
+      "Якщо це були не ви, негайно відновіть пароль тут:",
+      link,
+    ].join("\n"),
+  }),
+  en: (name, link) => ({
+    subject: "Your Willowsum password was changed",
+    text: [
+      `Hello, ${name}!`,
+      "",
+      "The password of your Willowsum account was just changed in your profile. Every other session of the account has ended.",
+      "If it was not you, reset your password now:",
+      link,
+    ].join("\n"),
+  }),
+};
+
+const STEP_UP_LOCKED: Record<MailLocale, (name: string, link: string) => Letter> = {
+  uk: (name, link) => ({
+    subject: "Вхід у Willowsum тимчасово заблоковано",
+    text: [
+      `Вітаємо, ${name}!`,
+      "",
+      "Під час підтвердження дії паролем у вашому акаунті Willowsum кілька разів поспіль введено неправильний пароль.",
+      "Сесію завершено, а вхід заблоковано на 15 хвилин; після цього для входу знадобиться CAPTCHA.",
+      "Якщо це були не ви, відновіть пароль тут:",
+      link,
+    ].join("\n"),
+  }),
+  en: (name, link) => ({
+    subject: "Sign-in to Willowsum is temporarily locked",
+    text: [
+      `Hello, ${name}!`,
+      "",
+      "While an action in your Willowsum account was being confirmed with the password, a wrong password was entered several times.",
+      "The session has ended and sign-in is locked for 15 minutes; after that, signing in needs a CAPTCHA.",
+      "If it was not you, reset your password here:",
+      link,
+    ].join("\n"),
+  }),
+};
+
+/** The security letter after a password change in the profile (ACC-05 FR 5, AC5): only the link to the reset page. */
+export function passwordChangedInProfileLetter(
+  name: string,
+  link: string,
+  locale: MailLocale = DEFAULT_MAIL_LOCALE,
+): Letter {
+  return PASSWORD_CHANGED_IN_PROFILE[locale](name, link);
+}
+
+/**
+ * The security letter when wrong step-up passwords reach the sign-in limit (NFR-01 FR 13, NFR-15 FR 4, AC2): the
+ * session ended and sign-in is locked. Only the link to the reset page.
+ */
+export function stepUpLockedLetter(
+  name: string,
+  link: string,
+  locale: MailLocale = DEFAULT_MAIL_LOCALE,
+): Letter {
+  return STEP_UP_LOCKED[locale](name, link);
+}
+
 export function passwordResetLetter(
   name: string,
   link: string,
