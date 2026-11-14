@@ -145,7 +145,12 @@ async function confirmedAccountWithData(label: string) {
   const email = nextEmail(label);
   await signUp(email);
   await confirm(email);
-  expect((await signIn(email)).statusCode).toBe(200);
+  const signedIn = await signIn(email);
+  expect(signedIn.statusCode).toBe(200);
+  // Signed out again: a session left open lapses, and the daily task appends its end to the space's sign-in journal
+  // (ACC-04, audit log) — a new entry, not a change of the space's data, but these tests compare every row.
+  const cookie = String(signedIn.headers["set-cookie"]).split(";")[0]!;
+  expect((await request("DELETE", "/v1/session", { cookie })).statusCode).toBe(200);
   const id = (await accountId(email))!;
   const membership = (await householdSpaces(db).membershipOf(id))!;
   const ledger = createLedger(db.databases.for("ledger"));

@@ -120,7 +120,7 @@ async function accountId(email: string): Promise<string> {
 }
 
 /** A confirmed account signed in once (its space exists): the browser, the account and its space. */
-async function signedIn(label: string, ua = CHROME_WINDOWS, ip = "203.0.113.10") {
+async function signedIn(label: string, ua = CHROME_WINDOWS, ip = nextIp()) {
   const email = await confirmedAccount(label);
   const browser = new Browser(ua, ip);
   expect((await browser.signIn(email)).json()).toEqual({ status: "signed-in" });
@@ -330,7 +330,7 @@ describe("ACC-04@PoC: a failed sign-in for an address without an account or spac
 describe("ACC-04@PoC: every session end is written with the IP address and the device of the request that ended it", () => {
   it("sign-out", async () => {
     const { browser, id, space } = await signedIn("sign-out", CHROME_WINDOWS, "203.0.113.20");
-    expect((await browser.send("DELETE", "/v1/session")).statusCode).toBe(204);
+    expect((await browser.send("DELETE", "/v1/session")).statusCode).toBe(200);
     const [signIn, end] = await journal(space, id);
     expect(end).toEqual({
       event: "session-ended",
@@ -404,7 +404,7 @@ describe("ACC-04@PoC: every session end is written with the IP address and the d
   });
 
   it("a password change in the profile ends the other sessions (#209); a step-up lockout locks sign-in and ends the session", async () => {
-    const { email, browser, id, space } = await signedIn("change");
+    const { email, browser, id, space } = await signedIn("change", CHROME_WINDOWS, "203.0.113.11");
     const other = new Browser(FIREFOX_LINUX, "198.51.100.50");
     await other.signIn(email);
     const stepUp = await browser.send("POST", "/v1/session/step-up", {
@@ -422,7 +422,7 @@ describe("ACC-04@PoC: every session end is written with the IP address and the d
     ).toBe(200);
     const changed = (await journal(space, id)).filter((r) => r["event"] === "session-ended");
     expect(changed).toEqual([
-      expect.objectContaining({ reason: "password-change", ip: "203.0.113.10", actor: "user" }),
+      expect.objectContaining({ reason: "password-change", ip: "203.0.113.11", actor: "user" }),
     ]);
     for (let i = 0; i < 5; i++)
       await browser.send("POST", "/v1/session/step-up", { action: "password-change", password: WRONG });
@@ -430,8 +430,8 @@ describe("ACC-04@PoC: every session end is written with the IP address and the d
     const tail = (await journal(space, id)).slice(-2);
     // The session's end is written as its transaction commits, the lock right after it.
     expect(tail).toEqual([
-      expect.objectContaining({ event: "session-ended", reason: "step-up-locked", ip: "203.0.113.10" }),
-      expect.objectContaining({ event: "sign-in-locked", reason: "step-up", ip: "203.0.113.10" }),
+      expect.objectContaining({ event: "session-ended", reason: "step-up-locked", ip: "203.0.113.11" }),
+      expect.objectContaining({ event: "sign-in-locked", reason: "step-up", ip: "203.0.113.11" }),
     ]);
   });
 

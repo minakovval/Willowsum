@@ -50,7 +50,7 @@ describe("ACC-04@PoC FR 4: the device history before the browser-and-system rule
 
     const { rows } = await owner.query<{ id: string }>(
       `INSERT INTO identity.accounts (email, email_normalized, display_name, password_hash, email_confirmed_at)
-       VALUES ('migration@example.test', 'migration@example.test', 'Олена Міграційна', 'synthetic', now()) RETURNING id`,
+       VALUES ('migration@example.test', 'migration@example.test', 'Олена Міграційна', '$argon2id$v=19$m=19456,t=2,p=1$synthetic$synthetic', now()) RETURNING id`,
     );
     const id = rows[0]!.id;
     for (const ua of [CHROME_WINDOWS, FIREFOX_LINUX])
