@@ -114,7 +114,12 @@ beforeAll(async () => {
       pending.push(task());
     },
   });
-  maintenance = createIdentityMaintenance({ db: db.databases.for("identity"), audit, now: () => t });
+  maintenance = createIdentityMaintenance({
+    db: db.databases.for("identity"),
+    audit,
+    spaces: householdSpaces(db),
+    now: () => t,
+  });
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>

@@ -430,6 +430,7 @@ describe("ADR-0010: the daily task sweeps sessions past their absolute end with 
     await createIdentityMaintenance({
       db: db.databases.for("identity"),
       audit: createAuditLog(db.databases.for("audit")),
+      spaces: householdSpaces(db),
       now: () => t,
     }).dailyCleanup();
     expect(await sessionRows(email)).toEqual([]);
@@ -446,6 +447,7 @@ describe("ACC-04@PoC AC1, EC2: the reason survives the daily task until the brow
     createIdentityMaintenance({
       db: db.databases.for("identity"),
       audit: createAuditLog(db.databases.for("audit")),
+      spaces: householdSpaces(db),
       now: () => t,
     }).dailyCleanup();
 

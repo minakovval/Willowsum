@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { deviceKey, deviceName, maskedAddress, NOT_ME_TTL_MS, notMeLinkUsable } from "./device.ts";
+import {
+  deviceKey,
+  deviceKeyOf,
+  deviceName,
+  legacyDeviceKey,
+  maskedAddress,
+  NOT_ME_TTL_MS,
+  notMeLinkUsable,
+} from "./device.ts";
 import { letterTime, newSignInLetter, notMeLink } from "./mail.ts";
 
-describe("NFR-15@PoC FR 29: a device is its user agent; people see the browser and system", () => {
+describe("NFR-15@PoC FR 29: a device is its browser and system without versions", () => {
   it.each([
     [
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -38,11 +46,19 @@ describe("NFR-15@PoC FR 29: a device is its user agent; people see the browser a
     expect(deviceName(ua)).toEqual(name);
   });
 
-  it("the key is the whole user agent (trimmed, at most 512 characters): a browser update is another device", () => {
+  it("the key is the browser and the system without versions: a browser update is the same device", () => {
     const ua = "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0";
-    expect(deviceKey(` ${ua} `)).toBe(deviceKey(ua));
-    expect(deviceKey(ua)).not.toBe(deviceKey(ua.replace("133", "134")));
-    expect(deviceKey("x".repeat(600))).toBe(deviceKey("x".repeat(512)));
+    expect(deviceKey(ua)).toBe("device:firefox/linux");
+    expect(deviceKey(ua.replaceAll("133", "134"))).toBe(deviceKey(ua));
+    expect(deviceKey(ua)).toBe(deviceKeyOf({ browser: "firefox", os: "linux" }));
+    expect(deviceKey(ua)).not.toBe(deviceKey(ua.replace("X11; Linux x86_64", "Windows NT 10.0; Win64; x64")));
+    expect(deviceKey("curl/8.5.0")).toBe("device:other/other");
+  });
+
+  it("the key of the history before 2026-11-14 (the whole user agent, trimmed, at most 512 characters) is still known", () => {
+    const ua = "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0";
+    expect(legacyDeviceKey(` ${ua} `)).toBe(`device:${ua}`);
+    expect(legacyDeviceKey("x".repeat(600))).toBe(legacyDeviceKey("x".repeat(512)));
   });
 });
 
