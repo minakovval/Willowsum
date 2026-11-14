@@ -92,7 +92,7 @@ Post **one** review with event `COMMENT` (not «approve» or «request changes»
 - **Non-blocking** — everything else (the author lists it under «Follow-ups» in the PR body / report; the lead opens the issue);
 - where the output files are (scratchpad path) and how to apply them.
 
-Post the review as one comment of this shape (a combined short re-review confirmation with the `review-pr`
+Post one PR review of this shape (a combined short re-review confirmation with the `review-pr`
 review carries both verdict lines, each on its own line):
 
 ```

@@ -195,7 +195,15 @@ function options(argv) {
  * @returns {number} exit code
  */
 export function main(argv, io) {
-  const readFile = io.readFile ?? ((p) => fs.readFileSync(p, "utf8"));
+  const rawRead = io.readFile ?? ((p) => fs.readFileSync(p, "utf8"));
+  const readFile = (p) => {
+    try {
+      return rawRead(p);
+    } catch (e) {
+      if (e instanceof UsageError) throw e;
+      throw new UsageError(`${p}: cannot read the file (${e.code ?? e.message})`);
+    }
+  };
   try {
     const [mode, ...rest] = argv;
     const opts = options(rest);
@@ -208,6 +216,9 @@ export function main(argv, io) {
         since: opts.since,
         until: opts.until,
       });
+      if (u.messages === 0 && (opts.since || opts.until)) {
+        io.stderr("warning: no messages in the window --since/--until — the sums below are zero");
+      }
       io.stdout(
         `messages ${grouped(u.messages)} · input ${grouped(u.input)} · cache creation ${grouped(u.cacheCreation)} · ` +
           `cache read ${oneDecimal(u.cacheRead / 1e6)} млн (${grouped(u.cacheRead)}) · output ${grouped(u.output)} · ` +
@@ -220,6 +231,13 @@ export function main(argv, io) {
       if (!opts[key]) throw new UsageError(`--${key} is required\n${USAGE}`);
     if (opts.run.length === 0) throw new UsageError(`at least one --run is required\n${USAGE}`);
     const runs = opts.run.map(parseRun);
+    const noLog = runs.filter((r) => !r.log).map((r) => ROLES[r.role].label);
+    if (noLog.length === runs.length) {
+      throw new UsageError(
+        "no --run has log=…: the agents' spend would be zero; record the row by hand («журнал втрачено»)",
+      );
+    }
+    if (noLog.length) opts.note = [opts.note, `журнал втрачено: ${noLog.join(", ")}`].filter(Boolean).join("; ");
     const seen = new Map();
     for (const log of new Set(runs.map((r) => r.log).filter(Boolean))) {
       collectUsage(readFile(log), { path: log, seen });

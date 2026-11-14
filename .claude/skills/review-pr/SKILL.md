@@ -98,7 +98,7 @@ the review summary. A security review (sensitive areas) ends instead with a line
 «Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
 these lines.
 
-Post the review as one comment of this shape (a combined short re-review confirmation carries both verdict
+Post one PR review of this shape (a combined short re-review confirmation carries both verdict
 lines, each on its own line):
 
 ```
