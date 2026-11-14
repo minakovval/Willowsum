@@ -3,7 +3,13 @@ import {
   afterFailure,
   confirmationLetter,
   confirmationLink,
+  deviceKey,
+  deviceName,
+  maskedAddress,
   mailWaitS,
+  newSignInLetter,
+  NOT_ME_TTL_MS,
+  notMeLink,
   MAIL_COOLDOWN_MS,
   MAIL_WINDOW_MS,
   normalizeEmail,
@@ -20,6 +26,7 @@ import {
   tokenStanding,
   type SessionEndShown,
 } from "../domain/index.ts";
+import type { MailMessage } from "../../../platform/adapters/mail/index.ts";
 import type { AccountRow, IdentityDeps, IdentityTx, SessionRow, ThrottleScope } from "./ports.ts";
 
 /**
@@ -52,7 +59,9 @@ export type SignInResult =
     }
   | { readonly kind: "invalid" }
   | { readonly kind: "locked"; readonly retryAfterS: number }
-  | { readonly kind: "captcha" };
+  | { readonly kind: "captcha" }
+  /** The right password, but «Це був не я» requires a new one first (ACC-04 FR 5): no session. */
+  | { readonly kind: "password-reset-required" };
 
 export interface SessionAccount {
   readonly accountId: string;
@@ -317,7 +326,15 @@ const decoys = new WeakMap<object, Promise<string>>();
  */
 export async function signIn(
   deps: IdentityDeps,
-  input: { email: string; password: string; captchaToken: string | undefined },
+  input: {
+    email: string;
+    password: string;
+    captchaToken: string | undefined;
+    /** The request's user agent: the device of the sign-in (NFR-15 FR 29). */
+    userAgent: string;
+    /** The rate-limit form of the client address; only its mask is kept, in a «Це був не я» link. */
+    clientAddress: string;
+  },
 ): Promise<SignInResult> {
   const normalizedEmail = normalizeEmail(input.email);
   const key = deps.secrets.digest(normalizedEmail);
@@ -337,6 +354,7 @@ export async function signIn(
         sessionToken: string;
         maxAgeS: number;
         account: { accountId: string; displayName: string };
+        letter: MailMessage | null;
       };
   const result = await deps.store.transaction(async (tx): Promise<Signed> => {
     // Under the guard's row lock: parallel attempts for one email are counted one after another.
@@ -357,6 +375,9 @@ export async function signIn(
       await tx.clearEvents("sign-in-failure", key);
       return { kind: "locked", retryAfterS: secondsUntil(lock.lockedUntil!, now) };
     }
+    // The right password, but «Це був не я» was confirmed: no sign-in until a new password (ACC-04 FR 5). Asked only
+    // after the right password, so the answer tells nothing to someone without it (NFR-15 FR 1, 2).
+    if (account.passwordResetRequiredAt !== null) return { kind: "password-reset-required" };
     // The right password: the counter and the CAPTCHA mark of the email are cleared.
     await tx.clearEvents("sign-in-failure", key);
     if (guard.captchaRequired || guard.lockedUntil !== null)
@@ -375,11 +396,33 @@ export async function signIn(
     }
     const sessionToken = deps.secrets.token();
     await tx.insertSession(account.id, deps.secrets.digest(sessionToken), now, now + SESSION_ABSOLUTE_MS);
+    // NFR-15 FR 6, 29; ACC-04 FR 4: a device (user agent) not in the account's sign-in history gets the security
+    // letter with «Це був не я». The first sign-in of an account starts the history and sends nothing.
+    const deviceDigest = deps.secrets.digest(deviceKey(input.userAgent));
+    let letter: MailMessage | null = null;
+    if ((await tx.rememberDevice(account.id, deviceDigest, now)) === "new") {
+      const device = deviceName(input.userAgent);
+      const notMeToken = deps.secrets.token();
+      await tx.insertNotMeLink({
+        accountId: account.id,
+        tokenDigest: deps.secrets.digest(notMeToken),
+        deviceDigest,
+        signedInAt: now,
+        device,
+        addressMasked: maskedAddress(input.clientAddress),
+        expiresAt: now + NOT_ME_TTL_MS,
+      });
+      letter = {
+        to: account.email,
+        ...newSignInLetter(account.displayName, { at: now, device }, notMeLink(deps.webOrigin, notMeToken)),
+      };
+    }
     return {
       kind: "signed-in",
       sessionToken,
       maxAgeS: SESSION_ABSOLUTE_MS / 1000,
       account: { accountId: account.id, displayName: account.displayName },
+      letter,
     };
   });
   if (result.kind !== "signed-in") return result;
@@ -391,6 +434,8 @@ export async function signIn(
     await signOut(deps, result.sessionToken);
     throw error;
   }
+  // After the commit and the space: a letter only for a sign-in that happened.
+  if (result.letter) deps.sendLater(result.letter);
   return { kind: "signed-in", sessionToken: result.sessionToken, maxAgeS: result.maxAgeS };
 }
 

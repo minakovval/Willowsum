@@ -197,6 +197,15 @@ function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): Identit
           changes: [{ field: "password", before: "set", after: "set", sensitive: true }],
         });
       },
+      signInChanged: async (accountId, before, after) => {
+        await services.audit.recordPlatform({
+          actor: { kind: "system" },
+          channel: "web",
+          entity: { type: "identity.account", id: accountId },
+          action: "update",
+          changes: [{ field: "sign_in", before, after, sensitive: false }],
+        });
+      },
       // Deletions are written by the daily task (createIdentityMaintenance), never by a request.
       accountDeleted: async () => {
         throw new Error("identity: accounts are deleted only by the daily task");

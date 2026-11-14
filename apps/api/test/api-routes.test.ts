@@ -37,6 +37,8 @@ const PUBLIC_ROUTES = [
   "requestPasswordReset",
   "checkPasswordReset",
   "completePasswordReset",
+  "checkNotMeLink",
+  "confirmNotMe",
 ];
 
 const members = [

@@ -14,6 +14,7 @@ const SWEPT: SweepCounts = {
   emailConfirmations: 0,
   passwordResets: 0,
   sessions: 0,
+  notMeLinks: 0,
 };
 const deadlock = () => Object.assign(new Error("deadlock detected"), { code: "40P01" });
 
