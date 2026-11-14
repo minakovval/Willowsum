@@ -140,6 +140,13 @@ export const createAccountRoute = defineRoute({
   summary: "Create a money account with its opening balance («Новий рахунок»)",
   access: { permission: "household.data.write", feature: FEATURE },
   create: true,
+  // The full number is sealed (FIN-01 AC7): the stored request hash covers only its last 4 characters, which are
+  // clear anyway, so the hash cannot be searched for the full IBAN.
+  idempotencyHashInput: ({ body }) => {
+    if (typeof body.number !== "string") return body;
+    const parsed = parseAccountNumber(body.number);
+    return { ...body, number: typeof parsed === "string" ? null : parsed.last4 };
+  },
   bodyLimitBytes: 32 * 1024,
   problems: ["ACCOUNT_DUPLICATE"],
   request: {
@@ -202,6 +209,9 @@ export const getAccountRoute = defineRoute({
   request: { params: z.object({ accountId: z.uuid() }) },
   response: { status: 200, description: "The account", schema: accountSchema },
   handler: async ({ params }, ctx) => {
+    // A scoped member: «Рахунки» are closed by the visibility policy's default (00-general «Область доступу»), and
+    // the policy is not modelled yet — not found, exactly like an unknown id.
+    if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
     const { deps } = accountsServices(ctx);
     const view = await ctx.inHousehold((q) =>
       accountView(deps, accountsTx(q), ctx.principal.householdId, params.accountId),

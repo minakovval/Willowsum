@@ -374,7 +374,15 @@ describe("FIN-01@PoC business rule: the IBAN is kept sealed and shown only by it
         written.push(String(chunk));
         return true;
       });
-    const res = await create(space, { ...current, balance: { amount: "10", currency: "UAH" }, number: IBAN });
+    // With an Idempotency-Key, so that the idempotency_keys part of the dump below is not empty (security review).
+    const res = await call(
+      space,
+      "POST",
+      "/v1/accounts",
+      { ...current, balance: { amount: "10", currency: "UAH" }, number: IBAN },
+      {},
+      { "idempotency-key": randomUUID() },
+    );
     expect(res.statusCode).toBe(201);
     const id = res.json().id as string;
     expect(res.json().number).toEqual({ last4: "1234", masked: "••1234" });
