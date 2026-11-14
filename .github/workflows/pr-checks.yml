@@ -60,6 +60,10 @@ jobs:
           node-version: 22
       - name: Requirements checker unit tests
         run: node --test tools/req-check
+      # The lead's token and time report (#180, #196): zero dependencies and offline tests (a fake `gh`), about a
+      # second, so they run here, in the job that runs on every PR, instead of behind a path filter.
+      - name: Token report unit tests
+        run: node --test 'tools/token-report/**/*.test.mjs'
       # Structure, release/priority, self-containedness, acceptance criteria, the fact registry
       # (tools/req-check/facts.json) and release slices with their link headers. Known findings are in tools/req-check/baseline.json; new ones fail.
       - name: Check docs/requirements
@@ -133,6 +137,8 @@ jobs:
           key: pnpm-store-${{ runner.os }}-node22-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-${{ runner.os }}-node22-
       - run: pnpm install --frozen-lockfile
+      # The same command agents run locally: every workspace package's `typecheck` covers each of its tsconfig
+      # files, tests included (#184, #178; guard: tools/pr-rules/test/typecheck-scripts.test.mjs).
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
