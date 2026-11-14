@@ -7,7 +7,7 @@
     },
     "accounts": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "ledger", "liabilities"]
     },
     "audit": {
       "layer": "platform",
@@ -87,7 +87,7 @@
     },
     "liabilities": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit"]
     },
     "merchants": {
       "layer": "subject",
