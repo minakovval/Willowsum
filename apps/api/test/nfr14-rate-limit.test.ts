@@ -285,7 +285,9 @@ describe("NFR-14 FR 9: limits are off only when the API is explicitly told so (l
     const statuses = await send(app, { method: "GET", url: "/v1/meta", remoteAddress: CLIENT }, 61);
     expect(statuses.at(-1)).toBe(429);
   });
+});
 
+describe("NFR-14 FR 5: the limits count in fixed one-minute windows of the wall clock", () => {
   it("omitted limits follow the wall clock: 61 requests that cross a minute boundary are two windows", async () => {
     const boundary = FIXEDNOW_AT - 15_000 + RATE_LIMIT_WINDOW_MS;
     vi.useFakeTimers({ toFake: ["Date"], now: boundary - 30 });
