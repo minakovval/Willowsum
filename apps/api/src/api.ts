@@ -13,6 +13,7 @@ import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
 import type { ModuleDatabase } from "./platform/db/module-db.ts";
 import { registerApi, type ApiOptions } from "./platform/http/api.ts";
+import { clientAddressKey } from "./platform/http/rate-limit.ts";
 import { cookieContext, readSessionCookie } from "./platform/http/cookies.ts";
 import { moduleIdempotencyStore } from "./platform/http/idempotency.ts";
 import { platformRoutes } from "./platform/http/meta.ts";
@@ -120,7 +121,11 @@ function sessionAuthenticator(wiring: ApiWiring): (request: FastifyRequest) => P
     if (token === undefined) return null;
     if (!(await wiring.flags.isModuleAvailable("identity"))) return null;
     if (!(await (wiring.flags.isEnabledForAll?.(IDENTITY_FLAG) ?? Promise.resolve(false)))) return null;
-    const account = await authenticateSession(identity, db, token);
+    // The request's address and device: the journal's entry when this check ends a lapsed session (ACC-04).
+    const account = await authenticateSession(identity, db, token, {
+      clientAddress: clientAddressKey(request.ip),
+      userAgent: (request.headers["user-agent"] ?? "").slice(0, 512),
+    });
     if (!account) return null;
     const membership = await spaces.membershipOf(account.accountId);
     if (!membership) return null;
