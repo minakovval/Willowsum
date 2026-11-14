@@ -203,7 +203,7 @@ function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): Identit
           channel: "web",
           entity: { type: "identity.account", id: accountId },
           action: "update",
-          changes: [{ field: "sign-in", before, after, sensitive: false }],
+          changes: [{ field: "sign_in", before, after, sensitive: false }],
         });
       },
       // Deletions are written by the daily task (createIdentityMaintenance), never by a request.
