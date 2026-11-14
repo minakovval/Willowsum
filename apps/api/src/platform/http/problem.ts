@@ -80,6 +80,20 @@ export const PROBLEMS = {
     status: 409,
     title: "An account with this institution, number and currency already exists",
   },
+  /** «Закритий» (FIN-12@PoC FR 8): a closed account is read-only; nothing was written. */
+  ACCOUNT_CLOSED: { status: 409, title: "The account is closed" },
+  /** «Відкрити знову» of an account that is not closed (FIN-12@PoC FR 9); nothing was written. */
+  ACCOUNT_NOT_CLOSED: { status: 409, title: "The account is not closed" },
+  /**
+   * FIN-12@PoC FR 7: an account closes only with a zero balance on the closing date — choose «Перенести на інший
+   * рахунок» or «Списати коригуванням». Nothing was written.
+   */
+  ACCOUNT_BALANCE_NOT_ZERO: { status: 409, title: "The balance on the closing date is not zero" },
+  /** FIN-12@PoC FR 7: the account has movements after the closing date; nothing was written. */
+  ACCOUNT_ACTIVITY_AFTER_CLOSE: {
+    status: 409,
+    title: "The account has movements after the closing date",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

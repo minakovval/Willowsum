@@ -8,6 +8,8 @@ export {
   correct,
   dailyIntegrityCheck,
   INTEGRITY_CHECKS,
+  latestOperationDate,
+  liveEntries,
   openAccount,
   post,
   rebuildBalances,

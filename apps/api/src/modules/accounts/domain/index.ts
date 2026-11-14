@@ -16,6 +16,7 @@ export {
   ledgerTypeOf,
   maskedNumber,
   NOTE_MAX,
+  openingAmount,
   openingEventAmount,
   OWNER_SHARE,
   parseAccountNumber,
@@ -35,3 +36,12 @@ export {
 } from "./accounts.ts";
 export { daysBetween, depositAccrual, type DepositAccrual, type DepositTerms } from "./deposit.ts";
 export { inMoneyTogether, netByCurrency, wholePercents } from "./summary.ts";
+export {
+  balanceUpdatePlan,
+  closingDateIssue,
+  statementPlan,
+  typedBalance,
+  type AdjustmentPlan,
+  type ClosingDateIssue,
+  type LiveAdjustment,
+} from "./manage.ts";

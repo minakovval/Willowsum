@@ -2,6 +2,7 @@ import type { Money } from "@willowsum/domain-kernel";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Ledger } from "../../ledger/index.ts";
 import { availableCredit, checkTerms, type Liabilities, type Liability } from "../../liabilities/index.ts";
+import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
 import {
   checkNewAccount,
   depositAccrual,
@@ -105,6 +106,15 @@ export interface AccountsTx {
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;
   subaccounts(householdId: string, accountId: string): Promise<StoredSubaccount[]>;
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;
+  /** The account's row, locked until the transaction ends (FIN-12: one change of an account at a time). */
+  lockAccount(householdId: string, accountId: string): Promise<StoredAccount | null>;
+  /** «Закритий» with its date, or active again (FIN-12 FR 7–9). */
+  setStatus(
+    householdId: string,
+    accountId: string,
+    status: StoredAccount["status"],
+    closedOn: string | null,
+  ): Promise<void>;
 }
 
 /** The space's key for sensitive fields (household `SpaceKeys`, ARC-06 FR 2). */
@@ -122,10 +132,55 @@ export interface AccountAudit {
     subaccounts: readonly { readonly currency: string; readonly balance: Money; readonly date: string }[],
     owner: StoredOwner,
   ): Promise<void>;
+  /** Closed or reopened (FIN-12 FR 7–9): the status and date before and after, and how a balance was settled. */
+  statusChanged(
+    householdId: string,
+    actorAccountId: string,
+    before: Pick<StoredAccount, "id" | "status" | "closedOn">,
+    after: {
+      readonly status: StoredAccount["status"];
+      readonly closedOn: string | null;
+      readonly settlement:
+        | ({ readonly amounts: readonly { readonly currency: string; readonly balance: Money }[] } & (
+            { readonly kind: "transfer"; readonly toAccountId: string } | { readonly kind: "adjustment" }
+          ))
+        | null;
+    },
+  ): Promise<void>;
+  /**
+   * One currency's balance moved by «Перенести на інший рахунок» (FIN-12 FR 7), recorded right after its ledger entry
+   * committed, before the closing itself.
+   */
+  transferred(
+    householdId: string,
+    actorAccountId: string,
+    account: Pick<StoredAccount, "id">,
+    transfer: {
+      readonly toAccountId: string;
+      readonly currency: string;
+      readonly amount: Money;
+      readonly entryId: string;
+    },
+  ): Promise<void>;
+  /**
+   * The adjustment of «Оновити залишок» on a subaccount created, changed or deleted (FIN-12 FR 15, FIN-04 FR 11, AC7):
+   * amount and date before and after; by the user, or by the system for a statement's recount.
+   */
+  adjustmentChanged(
+    householdId: string,
+    actor: { readonly kind: "user"; readonly id: string } | { readonly kind: "system" },
+    channel: "web" | "import",
+    subaccount: Pick<StoredSubaccount, "id" | "accountId" | "currency">,
+    before: { readonly entryId: string; readonly amount: Money; readonly date: string } | null,
+    after: { readonly entryId: string; readonly amount: Money; readonly date: string } | null,
+  ): Promise<void>;
 }
 
 export interface AccountsDeps {
-  readonly ledger: Pick<Ledger, "openAccount" | "post" | "balanceAt">;
+  readonly ledger: Pick<
+    Ledger,
+    "openAccount" | "post" | "balanceAt" | "correct" | "reverse" | "liveEntries" | "latestOperationDate"
+  >;
   readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
   readonly seal: NumberSeal;
   readonly audit: AccountAudit;
@@ -307,6 +362,8 @@ export interface AccountView {
   readonly number: { readonly last4: string; readonly masked: string } | null;
   readonly note: string | null;
   readonly status: "active" | "closed";
+  /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
+  readonly closedOn: string | null;
   readonly source: "manual" | "import";
   readonly openedOn: string;
   readonly owners: readonly StoredOwner[];
@@ -316,6 +373,8 @@ export interface AccountView {
     readonly balance: Money;
     readonly balanceDate: string;
   }[];
+  /** The adjustments of «Оновити залишок» in effect, at most one per currency (FIN-12 FR 14, FR 15). */
+  readonly adjustments: readonly (AdjustmentView & { readonly currency: string })[];
   readonly savings: { readonly annualRate: string | null } | null;
   readonly deposit: {
     readonly annualRate: string | null;
@@ -349,6 +408,7 @@ export async function accountView(
   const today = deps.today();
   const subaccounts = await tx.subaccounts(householdId, accountId);
   const currencies = [];
+  const adjustments = [];
   for (const s of subaccounts) {
     const ledgerBalance = await deps.ledger.balanceAt(householdId, s.ledgerAccountId, today);
     currencies.push({
@@ -356,6 +416,9 @@ export async function accountView(
       balance: shownBalance(account.kind, ledgerBalance),
       balanceDate: s.balanceDate,
     });
+    const adjustment = await liveAdjustment(deps, householdId, s);
+    if (adjustment)
+      adjustments.push({ ...adjustment, currency: s.currency, permanent: account.source === "manual" });
   }
   // Every account has its main currency (position 0); none would be a broken invariant, not an empty account.
   if (currencies.length === 0) throw new Error("account without a currency");
@@ -378,10 +441,12 @@ export async function accountView(
         : null,
     note: account.note,
     status: account.status,
+    closedOn: account.closedOn,
     source: account.source,
     openedOn: account.openedOn,
     owners: await tx.owners(householdId, accountId),
     currencies,
+    adjustments,
     savings: account.kind === "savings" ? { annualRate: account.annualRate } : null,
     deposit:
       account.kind === "deposit"

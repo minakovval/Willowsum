@@ -1,7 +1,7 @@
 import { INTEGRITY_CHECKS, type IntegrityCheck, type IntegrityFindings } from "./journal.ts";
 
 /**
- * The letter to the product owner when the daily integrity check finds a discrepancy (FIN-04 FR 10, AC7; ARC-11
+ * The letter to the product owner when the daily integrity check finds a discrepancy (FIN-04 FR 10, AC6; ARC-11
  * «Перевірки цілісності»; owner decision 2026-11-12: PoC alerts are letters from the app, sent through its mail
  * adapter). One letter per discrepancy period: a period is a run of daily checks with the same findings (kinds and
  * counts); it ends with a clean run or when the findings change. The claim is kept in the module's own append-only

@@ -19,6 +19,8 @@ import {
   balanceAt,
   correct,
   dailyIntegrityCheck,
+  latestOperationDate,
+  liveEntries,
   openAccount,
   post,
   rebuildBalances,
@@ -31,7 +33,7 @@ import {
   type LedgerAccount,
   type PostInput,
 } from "./application/index.ts";
-import type { AccountType } from "./domain/index.ts";
+import type { AccountType, LedgerEventType } from "./domain/index.ts";
 import { entryRecorded } from "./events.ts";
 
 export const ledgerModule = defineModule({
@@ -87,6 +89,13 @@ export interface Ledger {
     replacement: PostInput,
   ): Promise<{ readonly reversal: Entry; readonly entry: Entry }>;
   /**
+   * The source record's entries of one event type that are still in effect — neither a reversal nor reversed — in
+   * the order they were recorded (e.g. the one adjustment of «Оновити залишок», FIN-12 FR 14).
+   */
+  liveEntries(householdId: string, source: EntrySource, eventType: LedgerEventType): Promise<Entry[]>;
+  /** The latest operation date of the account's entries (reversals included), or null without any. */
+  latestOperationDate(householdId: string, accountId: string): Promise<string | null>;
+  /**
    * The balance of an account on a date (inclusive); `asKnownAt` limits it to entries recorded by then. Served from
    * the daily balance cache when it can answer, else from the postings: the same numbers either way.
    */
@@ -114,6 +123,8 @@ export function createLedger(db: ModuleDatabase): Ledger {
     post: (householdId, input) => post(deps, householdId, input),
     reverse: (householdId, entryId, key) => reverse(deps, householdId, entryId, key),
     correct: (householdId, entryId, replacement) => correct(deps, householdId, entryId, replacement),
+    latestOperationDate: (householdId, accountId) => latestOperationDate(deps, householdId, accountId),
+    liveEntries: (householdId, source, eventType) => liveEntries(deps, householdId, source, eventType),
     balanceAt: (householdId, accountId, date, options) =>
       balanceAt(deps, householdId, accountId, date, options),
     rebuildBalances: (householdId, accountId) => rebuildBalances(deps, householdId, accountId),
@@ -133,7 +144,7 @@ export interface LedgerIntegrityAlerts {
 }
 
 /**
- * The scheduler's daily integrity check (FIN-04 FR 9, FR 10, AC7). `spaces` lists every space (the household
+ * The scheduler's daily integrity check (FIN-04 FR 9, FR 10, AC6). `spaces` lists every space (the household
  * module); a failed check goes to the server log as an «error» event without amounts or account names. With
  * `alerts`, a discrepancy also sends the one letter of its period to the product owner (kinds and counts only).
  */
