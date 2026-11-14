@@ -9,7 +9,8 @@ export type paths = {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The space's money accounts with today's balances, in the order they were added */
+        get: operations["listAccounts"];
         put?: never;
         /** Create a money account with its opening balance («Новий рахунок») */
         post: operations["createAccount"];
@@ -47,6 +48,23 @@ export type paths = {
         put?: never;
         /** The existing account a new one would duplicate (same institution, number or IBAN and currency), or null */
         post: operations["findDuplicateAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/accounts/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Гроші разом» with the breakdown by currency, the «Кредитні» header and «Джерела даних» (active accounts) */
+        get: operations["getAccountsSummary"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -440,6 +458,180 @@ export type components = {
 };
 export type $defs = Record<string, never>;
 export interface operations {
+    listAccounts: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                group?: "cash" | "credit";
+                includeClosed?: "true" | "false";
+                /** @description Items per page, 1–100. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of accounts */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            closedOn: string | null;
+                            creditCard: {
+                                available: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                creditLimit: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                debt: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | null;
+                            currencies: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                approximate: boolean;
+                                currency: string;
+                                equivalent: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                rateDate: string | null;
+                                restricted: boolean;
+                            }[];
+                            /** @enum {string} */
+                            group: "cash" | "credit";
+                            /** Format: uuid */
+                            id: string;
+                            inProfileCurrency: {
+                                approximate: boolean;
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                unavailableCount: number;
+                            };
+                            institution: {
+                                country: string;
+                                name: string;
+                            } | null;
+                            /** @enum {string} */
+                            kind: "current" | "savings" | "deposit" | "cash" | "credit-card" | "loan";
+                            loan: {
+                                annualRate: string | null;
+                                debt: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                monthlyPayment: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            } | null;
+                            name: string;
+                            number: {
+                                last4: string;
+                                masked: string;
+                            } | null;
+                            /** @enum {string} */
+                            source: "manual" | "import";
+                            /** @enum {string} */
+                            status: "active" | "closed";
+                            updatedOn: string;
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     createAccount: {
         parameters: {
             query?: never;
@@ -910,6 +1102,152 @@ export interface operations {
                 };
             };
             /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getAccountsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Totals in the profile currency at the dated NBU rate (fx-rates); amounts unrounded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credit: {
+                            cardDebt: {
+                                approximate: boolean;
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                unavailableCount: number;
+                            };
+                            loanDebt: {
+                                approximate: boolean;
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                unavailableCount: number;
+                            };
+                        };
+                        currency: string;
+                        moneyTogether: {
+                            approximate: boolean;
+                            breakdown: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                approximate: boolean;
+                                currency: string;
+                                equivalent: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                percent: number | null;
+                                rateDate: string | null;
+                                restricted: boolean;
+                            }[];
+                            rate: {
+                                date: string;
+                                source: string;
+                            } | null;
+                            staleRateCount: number;
+                            total: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            unavailableCount: number;
+                        };
+                        sources: {
+                            import: number;
+                            manual: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
             403: {
                 headers: {
                     [name: string]: unknown;

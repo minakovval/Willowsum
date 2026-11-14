@@ -7,7 +7,7 @@
     },
     "accounts": {
       "layer": "subject",
-      "dependsOn": ["audit", "ledger", "liabilities"]
+      "dependsOn": ["audit", "fx-rates", "ledger", "liabilities"]
     },
     "audit": {
       "layer": "platform",

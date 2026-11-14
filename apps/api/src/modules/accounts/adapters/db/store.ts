@@ -1,6 +1,7 @@
 import { Decimal } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import type {
+  AccountsListTx,
   AccountsTx,
   DuplicateCandidate,
   StoredAccount,
@@ -28,13 +29,15 @@ interface AccountRow {
   deposit_matures_on: string | null;
   opened_on: string;
   status: StoredAccount["status"];
+  closed_on: string | null;
   source: StoredAccount["source"];
 }
 
 // Dates as text, so no time zone of the driver touches them.
 const ACCOUNT_COLUMNS = `id, kind, name, institution_name, institution_country, institution_key, number_last4,
   number_sealed, note, annual_rate::text AS annual_rate, deposit_opened_on::text AS deposit_opened_on,
-  deposit_matures_on::text AS deposit_matures_on, opened_on::text AS opened_on, status, source`;
+  deposit_matures_on::text AS deposit_matures_on, opened_on::text AS opened_on, status,
+  closed_on::text AS closed_on, source`;
 
 function account(row: AccountRow): StoredAccount {
   return {
@@ -52,7 +55,30 @@ function account(row: AccountRow): StoredAccount {
     depositMaturesOn: row.deposit_matures_on,
     openedOn: row.opened_on,
     status: row.status,
+    closedOn: row.closed_on,
     source: row.source,
+  };
+}
+
+interface SubaccountRow {
+  id: string;
+  account_id: string;
+  currency: string;
+  position: number;
+  ledger_account_id: string;
+  balance_date: string;
+}
+
+const SUBACCOUNT_COLUMNS = `id, account_id, currency, position, ledger_account_id, balance_date::text AS balance_date`;
+
+function subaccount(r: SubaccountRow): StoredSubaccount {
+  return {
+    id: r.id,
+    accountId: r.account_id,
+    currency: r.currency,
+    position: r.position,
+    ledgerAccountId: r.ledger_account_id,
+    balanceDate: r.balance_date,
   };
 }
 
@@ -135,26 +161,11 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
       return rows[0] ? account(rows[0]) : null;
     },
     async subaccounts(householdId, accountId) {
-      const { rows } = await q.query<{
-        id: string;
-        account_id: string;
-        currency: string;
-        position: number;
-        ledger_account_id: string;
-        balance_date: string;
-      }>(
-        `SELECT id, account_id, currency, position, ledger_account_id, balance_date::text AS balance_date
-           FROM subaccounts WHERE household_id = $1 AND account_id = $2 ORDER BY position`,
+      const { rows } = await q.query<SubaccountRow>(
+        `SELECT ${SUBACCOUNT_COLUMNS} FROM subaccounts WHERE household_id = $1 AND account_id = $2 ORDER BY position`,
         [householdId, accountId],
       );
-      return rows.map((r): StoredSubaccount => ({
-        id: r.id,
-        accountId: r.account_id,
-        currency: r.currency,
-        position: r.position,
-        ledgerAccountId: r.ledger_account_id,
-        balanceDate: r.balance_date,
-      }));
+      return rows.map(subaccount);
     },
     async owners(householdId, accountId) {
       const { rows } = await q.query<{
@@ -173,6 +184,46 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
         validFrom: r.valid_from,
         validTo: r.valid_to,
       }));
+    },
+  };
+}
+
+/** What «Гроші разом» and «Рахунки» read (FIN-01 FR 13, FR 14, FR 18, FR 22), through the module's own role. */
+export function accountsListTx(q: ModuleQueryRunner): AccountsListTx {
+  return {
+    async listAccounts(householdId, filter) {
+      const params: unknown[] = [householdId];
+      const where = ["household_id = $1"];
+      if (!filter.includeClosed) where.push(`status = 'active'`);
+      if (filter.kinds) {
+        params.push([...filter.kinds]);
+        where.push(`kind = ANY($${params.length}::text[])`);
+      }
+      if (filter.after) {
+        // After the cursor's account in the order (created, id); an id the space does not have gives no rows.
+        params.push(filter.after.id);
+        where.push(
+          `(created_at, id) > (SELECT c.created_at, c.id FROM accounts c WHERE c.household_id = $1 AND c.id = $${params.length}::uuid)`,
+        );
+      }
+      let limit = "";
+      if (filter.limit !== null) {
+        params.push(filter.limit);
+        limit = ` LIMIT $${params.length}`;
+      }
+      const { rows } = await q.query<AccountRow>(
+        `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE ${where.join(" AND ")} ORDER BY created_at, id${limit}`,
+        params,
+      );
+      return rows.map(account);
+    },
+    async subaccountsOf(householdId, accountIds) {
+      const { rows } = await q.query<SubaccountRow>(
+        `SELECT ${SUBACCOUNT_COLUMNS} FROM subaccounts WHERE household_id = $1 AND account_id = ANY($2::uuid[])
+          ORDER BY account_id, position`,
+        [householdId, [...accountIds]],
+      );
+      return rows.map(subaccount);
     },
   };
 }

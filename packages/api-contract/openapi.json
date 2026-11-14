@@ -7,6 +7,564 @@
   },
   "paths": {
     "/v1/accounts": {
+      "get": {
+        "operationId": "listAccounts",
+        "summary": "The space's money accounts with today's balances, in the order they were added",
+        "tags": [
+          "accounts"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "accounts.manual",
+          "flags": [
+            "accounts.manual"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque cursor from `nextCursor` of the previous page.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "pattern": "^[A-Za-z0-9_-]+$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Items per page, 1–100.",
+            "schema": {
+              "default": 25,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "cash",
+                "credit"
+              ]
+            }
+          },
+          {
+            "name": "includeClosed",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "savings",
+                              "deposit",
+                              "cash",
+                              "credit-card",
+                              "loan"
+                            ],
+                            "x-extensible-enum": true
+                          },
+                          "group": {
+                            "type": "string",
+                            "enum": [
+                              "cash",
+                              "credit"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "institution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "country": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "country"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "number": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "last4": {
+                                    "type": "string"
+                                  },
+                                  "masked": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "last4",
+                                  "masked"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "closed"
+                            ],
+                            "x-extensible-enum": true
+                          },
+                          "closedOn": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "manual",
+                              "import"
+                            ],
+                            "x-extensible-enum": true
+                          },
+                          "updatedOn": {
+                            "type": "string"
+                          },
+                          "inProfileCurrency": {
+                            "type": "object",
+                            "properties": {
+                              "total": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "approximate": {
+                                "type": "boolean"
+                              },
+                              "unavailableCount": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "total",
+                              "approximate",
+                              "unavailableCount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "currencies": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "currency": {
+                                  "type": "string"
+                                },
+                                "amount": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "equivalent": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "rateDate": {
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "approximate": {
+                                  "type": "boolean"
+                                },
+                                "restricted": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "currency",
+                                "amount",
+                                "equivalent",
+                                "rateDate",
+                                "approximate",
+                                "restricted"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "creditCard": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "creditLimit": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "debt": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "available": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "creditLimit",
+                                  "debt",
+                                  "available"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "loan": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "annualRate": {
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "monthlyPayment": {
+                                    "anyOf": [
+                                      {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "debt": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": [
+                                  "annualRate",
+                                  "monthlyPayment",
+                                  "debt"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "kind",
+                          "group",
+                          "name",
+                          "institution",
+                          "number",
+                          "status",
+                          "closedOn",
+                          "source",
+                          "updatedOn",
+                          "inProfileCurrency",
+                          "currencies",
+                          "creditCard",
+                          "loan"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextCursor": {
+                      "description": "Cursor of the next page; null on the last page.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "items",
+                    "nextCursor"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "operationId": "createAccount",
         "summary": "Create a money account with its opening balance («Новий рахунок»)",
@@ -980,6 +1538,406 @@
           },
           "403": {
             "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/accounts/summary": {
+      "get": {
+        "operationId": "getAccountsSummary",
+        "summary": "«Гроші разом» with the breakdown by currency, the «Кредитні» header and «Джерела даних» (active accounts)",
+        "tags": [
+          "accounts"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "accounts.manual",
+          "flags": [
+            "accounts.manual"
+          ]
+        },
+        "responses": {
+          "200": {
+            "description": "Totals in the profile currency at the dated NBU rate (fx-rates); amounts unrounded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string"
+                    },
+                    "moneyTogether": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "approximate": {
+                          "type": "boolean"
+                        },
+                        "unavailableCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "staleRateCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "rate": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "string"
+                                },
+                                "date": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "date"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "breakdown": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "currency": {
+                                "type": "string"
+                              },
+                              "amount": {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "equivalent": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "rateDate": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "approximate": {
+                                "type": "boolean"
+                              },
+                              "restricted": {
+                                "type": "boolean"
+                              },
+                              "percent": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "currency",
+                              "amount",
+                              "equivalent",
+                              "rateDate",
+                              "approximate",
+                              "restricted",
+                              "percent"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "approximate",
+                        "unavailableCount",
+                        "staleRateCount",
+                        "rate",
+                        "breakdown"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "credit": {
+                      "type": "object",
+                      "properties": {
+                        "cardDebt": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "approximate": {
+                              "type": "boolean"
+                            },
+                            "unavailableCount": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "approximate",
+                            "unavailableCount"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "loanDebt": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "approximate": {
+                              "type": "boolean"
+                            },
+                            "unavailableCount": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "total",
+                            "approximate",
+                            "unavailableCount"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "cardDebt",
+                        "loanDebt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "sources": {
+                      "type": "object",
+                      "properties": {
+                        "import": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "manual": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "import",
+                        "manual"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "moneyTogether",
+                    "credit",
+                    "sources"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
             "content": {
               "application/problem+json": {
                 "schema": {
