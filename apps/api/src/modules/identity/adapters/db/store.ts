@@ -6,6 +6,7 @@ import type {
   ConfirmationRow,
   IdentityStore,
   IdentityTx,
+  NotMeLinkRow,
   PasswordResetRow,
   RegistrationKind,
   RegistrationRow,
@@ -15,6 +16,8 @@ import type {
 import {
   PASSWORD_RESET_RETENTION_MS,
   THROTTLE_RETENTION_MS,
+  type DeviceBrowser,
+  type DeviceOs,
   type SessionEndReason,
   type SignInGuard,
 } from "../../domain/index.ts";
@@ -30,6 +33,7 @@ interface AccountDb {
   display_name: string;
   password_hash: string;
   email_confirmed_at: Date | null;
+  password_reset_required_at: Date | null;
 }
 
 const toAccount = (r: AccountDb): AccountRow => ({
@@ -38,9 +42,11 @@ const toAccount = (r: AccountDb): AccountRow => ({
   displayName: r.display_name,
   passwordHash: r.password_hash,
   emailConfirmedAt: ms(r.email_confirmed_at),
+  passwordResetRequiredAt: ms(r.password_reset_required_at),
 });
 
-const ACCOUNT_COLUMNS = "id, email, display_name, password_hash, email_confirmed_at";
+const ACCOUNT_COLUMNS =
+  "id, email, display_name, password_hash, email_confirmed_at, password_reset_required_at";
 const LOCK_CLAUSE = { share: " FOR SHARE", update: " FOR UPDATE" } as const;
 
 interface ResetDb {
@@ -95,11 +101,91 @@ function tx(q: ModuleQueryRunner): IdentityTx {
       return (result.rowCount ?? 0) > 0;
     },
     async setPassword(accountId, passwordHash, now) {
-      await q.query(`UPDATE accounts SET password_hash = $2, updated_at = $3 WHERE id = $1`, [
+      await q.query(
+        `UPDATE accounts SET password_hash = $2, password_reset_required_at = NULL, updated_at = $3 WHERE id = $1`,
+        [accountId, passwordHash, at(now)],
+      );
+    },
+    async requirePasswordReset(accountId, now) {
+      await q.query(
+        `UPDATE accounts SET password_reset_required_at = COALESCE(password_reset_required_at, $2), updated_at = $2
+         WHERE id = $1`,
+        [accountId, at(now)],
+      );
+    },
+    async rememberDevice(accountId, deviceDigest, now) {
+      // One sign-in of the account at a time decides «first» / «new» (two first sign-ins at once: one is first).
+      await q.query(`SELECT pg_advisory_xact_lock(hashtext('identity:devices'), hashtext($1::text))`, [
         accountId,
-        passwordHash,
-        at(now),
       ]);
+      const { rows } = await q.query<{ known: boolean; any: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM sign_in_devices WHERE account_id = $1 AND device_digest = $2) AS known,
+                EXISTS (SELECT 1 FROM sign_in_devices WHERE account_id = $1) AS any`,
+        [accountId, deviceDigest],
+      );
+      const { known, any } = rows[0]!;
+      await q.query(
+        `INSERT INTO sign_in_devices (account_id, device_digest, first_seen_at, last_seen_at) VALUES ($1, $2, $3, $3)
+         ON CONFLICT (account_id, device_digest) DO UPDATE SET last_seen_at = GREATEST(sign_in_devices.last_seen_at, EXCLUDED.last_seen_at)`,
+        [accountId, deviceDigest, at(now)],
+      );
+      return known ? "known" : any ? "new" : "first";
+    },
+    async forgetDevice(accountId, deviceDigest) {
+      await q.query(`DELETE FROM sign_in_devices WHERE account_id = $1 AND device_digest = $2`, [
+        accountId,
+        deviceDigest,
+      ]);
+    },
+    async insertNotMeLink(link) {
+      await q.query(
+        `INSERT INTO not_me_links (account_id, token_digest, device_digest, signed_in_at, device_browser, device_os,
+                                   address_masked, created_at, expires_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $4, $8)`,
+        [
+          link.accountId,
+          link.tokenDigest,
+          link.deviceDigest,
+          at(link.signedInAt),
+          link.device.browser,
+          link.device.os,
+          link.addressMasked,
+          at(link.expiresAt),
+        ],
+      );
+    },
+    async findNotMeLink(digest, lock) {
+      const { rows } = await q.query<{
+        id: string;
+        account_id: string;
+        device_digest: Buffer;
+        signed_in_at: Date;
+        device_browser: DeviceBrowser;
+        device_os: DeviceOs;
+        address_masked: string;
+        expires_at: Date;
+        used_at: Date | null;
+      }>(
+        `SELECT id, account_id, device_digest, signed_in_at, device_browser, device_os, address_masked, expires_at, used_at
+           FROM not_me_links WHERE token_digest = $1${lock ? " FOR UPDATE" : ""}`,
+        [digest],
+      );
+      const r = rows[0];
+      return r
+        ? ({
+            id: r.id,
+            accountId: r.account_id,
+            deviceDigest: r.device_digest,
+            signedInAt: r.signed_in_at.getTime(),
+            device: { browser: r.device_browser, os: r.device_os },
+            addressMasked: r.address_masked,
+            expiresAt: r.expires_at.getTime(),
+            usedAt: ms(r.used_at),
+          } satisfies NotMeLinkRow)
+        : null;
+    },
+    async useNotMeLink(id, now) {
+      await q.query(`UPDATE not_me_links SET used_at = $2 WHERE id = $1 AND used_at IS NULL`, [id, at(now)]);
     },
     async insertConfirmation(accountId, digest, now, expiresAt) {
       await q.query(
@@ -397,6 +483,10 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         // бездіяльність», «з іншого пристрою») while its browser may hold the cookie: up to the absolute end, when the
         // cookie's Max-Age runs out. Its replaced tokens go with it (cascade).
         sessions: await count(`DELETE FROM sessions WHERE expires_at <= $1`, [at(now)]),
+        // A used or expired «Це був не я» link answers «Посилання недійсне», as an unknown one does.
+        notMeLinks: await count(`DELETE FROM not_me_links WHERE used_at IS NOT NULL OR expires_at <= $1`, [
+          at(now),
+        ]),
       };
     },
   };

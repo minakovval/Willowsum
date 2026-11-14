@@ -105,6 +105,9 @@ export async function completePasswordReset(
   });
   if (!done) return { kind: "invalid" };
   await deps.audit.passwordChanged(done.account.id);
+  // The new password lifts «Це був не я»'s refusal of every sign-in (ACC-04 FR 5).
+  if (done.account.passwordResetRequiredAt !== null)
+    await deps.audit.signInChanged(done.account.id, "password-reset-required", "allowed");
   if (done.confirmed) await deps.audit.accountChanged(done.account.id, "unconfirmed", "confirmed");
   // AC17: the security notice; it links only to the reset page, never with a token.
   deps.sendLater({

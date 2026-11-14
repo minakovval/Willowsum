@@ -97,9 +97,10 @@ export function sessionAlive(
  * Why a session ended, as stored (ACC-04@PoC; ADR-0009 «Сесії», decision log 2026-11-13-acc04-session-refresh): `signed-out` (this browser — any tab — signed out),
  * `idle` (15 min without a user action), `expired` (12 h after sign-in), `password-reset` (a reset ended every
  * session of the account), `token-reuse` (a token replaced more than the grace period ago came back: it was copied,
- * so the whole session ends).
+ * so the whole session ends), `not-me` («Це був не я» ended every session of the account; ACC-04 FR 5).
  */
-export type SessionEndReason = "signed-out" | "idle" | "expired" | "password-reset" | "token-reuse";
+export type SessionEndReason =
+  "signed-out" | "idle" | "expired" | "password-reset" | "token-reuse" | "not-me";
 
 /**
  * What the client is told (ACC-04 «Стани інтерфейсу»): `idle` → «Сесію завершено через бездіяльність»;
@@ -115,6 +116,7 @@ export function shownEndReason(reason: SessionEndReason | null): SessionEndShown
       return reason;
     case "password-reset":
     case "token-reuse":
+    case "not-me":
       return "ended-elsewhere";
     // A session ended before reasons were stored was ended by sign-out or by the failed first space.
     case "signed-out":

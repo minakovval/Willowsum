@@ -6,6 +6,8 @@ import {
   changeEmail,
   completePasswordReset,
   confirmEmail,
+  confirmNotMe,
+  notMeLinkState,
   passwordResetState,
   refreshSession,
   requestPasswordReset,
@@ -18,6 +20,8 @@ import {
   type ResendResult,
 } from "../../application/index.ts";
 import {
+  DEVICE_BROWSERS,
+  DEVICE_SYSTEMS,
   emailSchema,
   nameSchema,
   passwordSchema,
@@ -188,7 +192,7 @@ export const signInRoute = defineRoute({
   summary: "Sign in with email and password",
   access: { public: PUBLIC, flag: FLAG },
   bodyLimitBytes: BODY_LIMIT,
-  problems: ["INVALID_CREDENTIALS", "CAPTCHA_REQUIRED", "SIGN_IN_LOCKED"],
+  problems: ["INVALID_CREDENTIALS", "CAPTCHA_REQUIRED", "SIGN_IN_LOCKED", "PASSWORD_RESET_REQUIRED"],
   request: {
     body: z.object({
       // Any text: a malformed address is just a wrong one (one answer, ACC-01 FR 9).
@@ -200,7 +204,7 @@ export const signInRoute = defineRoute({
   response: {
     status: 200,
     description:
-      "signed-in: the session cookie is set. email-not-confirmed: no session; «Надіслати лист ще раз» uses registrationToken",
+      "signed-in: the session cookie is set; a device (user agent) not in the account's sign-in history gets a security letter with «Це був не я» (not on the account's first sign-in). email-not-confirmed: no session; «Надіслати лист ще раз» uses registrationToken. 403 PASSWORD_RESET_REQUIRED: the right password, but «Це був не я» requires a new one first",
     schema: z.object({
       status: z.enum(["signed-in", "email-not-confirmed"]),
       /** Only with email-not-confirmed. */
@@ -213,10 +217,14 @@ export const signInRoute = defineRoute({
       email: body.email,
       password: body.password,
       captchaToken: body.captchaToken,
+      userAgent: ctx.http.userAgent,
+      clientAddress: ctx.http.clientAddress,
     });
     switch (result.kind) {
       case "invalid":
         throw new ApiProblem("INVALID_CREDENTIALS");
+      case "password-reset-required":
+        throw new ApiProblem("PASSWORD_RESET_REQUIRED");
       case "locked":
         throw new ApiProblem("SIGN_IN_LOCKED", { retryAfterS: result.retryAfterS });
       case "captcha":
@@ -414,6 +422,66 @@ export const completePasswordResetRoute = defineRoute({
   },
 });
 
+export const checkNotMeLinkRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/not-me-links/check",
+  operationId: "checkNotMeLink",
+  summary: "What the «Це був не я» page shows before the confirmation",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["NOT_ME_LINK_INVALID"],
+  request: { body: z.object({ token }) },
+  response: {
+    status: 200,
+    description:
+      "valid: the sign-in of the new-device letter (time, browser and system, masked client address) and the account's email; the page asks to confirm. 410 NOT_ME_LINK_INVALID: «Посилання недійсне» (used, older than 7 days or unknown). Changes nothing",
+    schema: z.object({
+      status: z.literal("valid"),
+      email: z.string(),
+      signedInAt: z.iso.datetime(),
+      device: z.object({ browser: z.enum(DEVICE_BROWSERS), os: z.enum(DEVICE_SYSTEMS) }),
+      /** E.g. `89.64.•••.12`; location comes with a GeoIP database (NFR-15 FR 29). */
+      address: z.string(),
+    }),
+  },
+  handler: async ({ body }, ctx) => {
+    const state = await notMeLinkState(identityDeps(ctx), body.token);
+    if (state.kind !== "valid") throw new ApiProblem("NOT_ME_LINK_INVALID");
+    return {
+      status: "valid" as const,
+      email: state.email,
+      signedInAt: new Date(state.signedInAt).toISOString(),
+      device: state.device,
+      address: state.addressMasked,
+    };
+  },
+});
+
+export const confirmNotMeRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/not-me-links/confirm",
+  operationId: "confirmNotMe",
+  summary: "«Це був не я»: end every session and require a new password",
+  access: { public: PUBLIC, flag: FLAG },
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["NOT_ME_LINK_INVALID"],
+  request: { body: z.object({ token }) },
+  response: {
+    status: 200,
+    description:
+      "Every session of the account has ended (this browser's cookie is removed too), every sign-in is refused until the password is changed, and a password reset link is on its way to the account's email. 410 NOT_ME_LINK_INVALID when the link was used, is older than 7 days or unknown",
+    schema: z.object({ status: z.literal("secured") }),
+  },
+  handler: async ({ body }, ctx) => {
+    if ((await confirmNotMe(identityDeps(ctx), body.token)).kind !== "secured")
+      throw new ApiProblem("NOT_ME_LINK_INVALID");
+    ctx.http.setCookie(clearedSessionCookie(SESSION_COOKIE, { https: ctx.http.https }));
+    return { status: "secured" as const };
+  },
+});
+
 export const identityRoutes = [
   signUpRoute,
   resendRegistrationRoute,
@@ -427,4 +495,6 @@ export const identityRoutes = [
   requestPasswordResetRoute,
   checkPasswordResetRoute,
   completePasswordResetRoute,
+  checkNotMeLinkRoute,
+  confirmNotMeRoute,
 ];

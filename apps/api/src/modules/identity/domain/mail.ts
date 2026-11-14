@@ -3,6 +3,8 @@
  * full; no amounts or other data of a space. The letter about a sign-up with a taken address carries only the
  * link to password reset, never a confirmation link (ACC-01 FR 8).
  */
+import type { DeviceBrowser, DeviceName, DeviceOs } from "./device.ts";
+
 export const MAIL_LOCALES = ["uk", "en"] as const;
 export type MailLocale = (typeof MAIL_LOCALES)[number];
 export const DEFAULT_MAIL_LOCALE: MailLocale = "uk";
@@ -170,4 +172,92 @@ export function signUpAttemptLetter(
   locale: MailLocale = DEFAULT_MAIL_LOCALE,
 ): Letter {
   return SIGN_UP_ATTEMPT[locale](name, link);
+}
+
+/** The «Це був не я» page (S-004b); the one-time token is in the fragment, as for the other links. */
+export function notMeLink(webOrigin: string, token: string): string {
+  return `${webOrigin}/#/not-me?token=${encodeURIComponent(token)}`;
+}
+
+const BROWSER_NAMES: Record<DeviceBrowser, Record<MailLocale, string>> = {
+  chrome: { uk: "Chrome", en: "Chrome" },
+  edge: { uk: "Edge", en: "Edge" },
+  firefox: { uk: "Firefox", en: "Firefox" },
+  safari: { uk: "Safari", en: "Safari" },
+  opera: { uk: "Opera", en: "Opera" },
+  other: { uk: "невідомий браузер", en: "an unknown browser" },
+};
+
+const OS_NAMES: Record<DeviceOs, Record<MailLocale, string>> = {
+  windows: { uk: "Windows", en: "Windows" },
+  macos: { uk: "macOS", en: "macOS" },
+  ios: { uk: "iOS", en: "iOS" },
+  android: { uk: "Android", en: "Android" },
+  linux: { uk: "Linux", en: "Linux" },
+  chromeos: { uk: "ChromeOS", en: "ChromeOS" },
+  other: { uk: "невідомій системі", en: "an unknown system" },
+};
+
+/** «Chrome на Windows» / «Chrome on Windows». */
+export function deviceText(device: DeviceName, locale: MailLocale = DEFAULT_MAIL_LOCALE): string {
+  const on = locale === "uk" ? "на" : "on";
+  return `${BROWSER_NAMES[device.browser][locale]} ${on} ${OS_NAMES[device.os][locale]}`;
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** The time of a sign-in in a letter, in UTC (the account has no time zone in this release): `14.11.2026, 09:12 UTC`. */
+export function letterTime(epochMs: number, locale: MailLocale = DEFAULT_MAIL_LOCALE): string {
+  const d = new Date(epochMs);
+  const date =
+    locale === "uk"
+      ? `${pad(d.getUTCDate())}.${pad(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`
+      : `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+  return `${date}, ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
+const NEW_SIGN_IN: Record<
+  MailLocale,
+  (name: string, sign: { when: string; device: string }, link: string) => Letter
+> = {
+  uk: (name, sign, link) => ({
+    subject: "Новий вхід у ваш акаунт Willowsum",
+    text: [
+      `Вітаємо, ${name}!`,
+      "",
+      `У ваш акаунт Willowsum щойно увійшли з нового пристрою чи браузера: ${sign.device}, ${sign.when}.`,
+      "Якщо це були ви — нічого робити не треба.",
+      "Якщо це були не ви, захистіть акаунт: ми завершимо всі сесії і надішлемо посилання для нового пароля.",
+      `Це був не я: ${link}`,
+      "",
+      "Посилання одноразове і діє 7 днів.",
+    ].join("\n"),
+  }),
+  en: (name, sign, link) => ({
+    subject: "New sign-in to your Willowsum account",
+    text: [
+      `Hello, ${name}!`,
+      "",
+      `Someone just signed in to your Willowsum account from a new device or browser: ${sign.device}, ${sign.when}.`,
+      "If it was you, there is nothing to do.",
+      "If it was not you, protect the account: we will end every session and send a link for a new password.",
+      `It was not me: ${link}`,
+      "",
+      "The link works once and is valid for 7 days.",
+    ].join("\n"),
+  }),
+};
+
+/** The security letter about a sign-in from a new device or browser (ACC-04 FR 4, AC6; NFR-15 FR 6). */
+export function newSignInLetter(
+  name: string,
+  sign: { readonly at: number; readonly device: DeviceName },
+  link: string,
+  locale: MailLocale = DEFAULT_MAIL_LOCALE,
+): Letter {
+  return NEW_SIGN_IN[locale](
+    name,
+    { when: letterTime(sign.at, locale), device: deviceText(sign.device, locale) },
+    link,
+  );
 }

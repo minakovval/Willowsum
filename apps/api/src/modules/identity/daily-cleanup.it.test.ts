@@ -250,6 +250,7 @@ describe("ACC-01 AC9 / FR 6: 30 days after the sign-up the account and all its d
       emailConfirmations: 0,
       passwordResets: 0,
       sessions: 0,
+      notMeLinks: 0,
     });
   });
 });
