@@ -278,6 +278,46 @@ describe("sec207: the owners' shares stay at most 100 % on every date against di
     );
     expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
   });
+
+  it("sec207 follow-up: an UPDATE that raises a share and a concurrent INSERT cannot both commit (the lock covers UPDATE)", async () => {
+    const { space, accountId } = await accountWithOwner();
+    await db.owner.query(
+      `UPDATE accounts.account_owners SET valid_to = '2026-12-31' WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, accountId],
+    );
+    const second = randomUUID();
+    await db.databases.for("accounts").inHousehold(space.householdId, (q) =>
+      q.query(
+        `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
+         VALUES ($1, $2, $3, 40, '2027-01-01')`,
+        [space.householdId, accountId, second],
+      ),
+    );
+    const write = (sql: string, values: unknown[]) =>
+      db.databases.for("accounts").inHousehold(space.householdId, async (q) => {
+        await q.query(`SET CONSTRAINTS ALL IMMEDIATE`);
+        await q.query(sql, values);
+        await new Promise((r) => setTimeout(r, 400));
+      });
+    const results = await Promise.allSettled([
+      write(
+        `UPDATE account_owners SET share = 60 WHERE household_id = $1 AND account_id = $2 AND owner_account_id = $3`,
+        [space.householdId, accountId, second],
+      ),
+      write(
+        `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from)
+         VALUES ($1, $2, $3, 60, '2027-01-01')`,
+        [space.householdId, accountId, randomUUID()],
+      ),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    const { rows } = await db.owner.query(
+      `SELECT coalesce(sum(share), 0)::text AS total FROM accounts.account_owners
+        WHERE household_id = $1 AND account_id = $2 AND valid_from = '2027-01-01'`,
+      [space.householdId, accountId],
+    );
+    expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
+  });
 });
 
 describe("sec207: a full card number is refused however it is formatted (FIN-12 FR 4)", () => {

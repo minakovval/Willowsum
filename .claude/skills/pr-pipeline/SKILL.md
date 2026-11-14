@@ -52,7 +52,7 @@ Language and details: [lead communication](references/lead-communication.md).
    ask the owner); before tests `pg_lsclusters`, and if the cluster is down `pg_ctlcluster 16 main start` (the
    environment's setup script does not run when a container restarts); type checks as `pnpm typecheck` run in
    the agent's worktree (`cd <worktree> && pnpm typecheck`): it is the same command as the CI job `web` (#184);
-   on a rate-limit warning (step 2, «New lead session»), commit WIP to its branch after each step, so a cut-off
+   on a rate-limit warning («New lead session»), commit WIP to its branch after each step, so a cut-off
    costs little (owner, 2026-11-14, #178).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
