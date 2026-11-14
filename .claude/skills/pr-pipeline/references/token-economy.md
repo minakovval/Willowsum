@@ -12,8 +12,8 @@ Owner request 2026-11-12; rules decided by the lead.
    - **Fable** (owner, 2026-11-14, #178, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128):
      «так, давай на fable»; narrowed by the owner the same day, chat of lead 4: «так, 1–4 так, …»,
      [comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)): **only**
-     security reviews of critical PRs (money, access, sign-in, encryption) and root-cause searches for flaky
-     tests; everything else (architecture rows, vault encryption, statement import, requirement sweeps
+     security reviews of critical PRs (money, access, sign-in, encryption) and root-cause searches (e.g. flaky
+     tests); everything else (architecture rows, vault encryption, statement import, requirement sweeps
      `C0`/`D0`/`F0`, follow-ups, docs, sync confirmations) is on the main model. **At most one Fable task at a
      time** (owner decision, 2026-11-14, same comment; lead 4 retrospective,
      [#180](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6883180207): two parallel Fable tasks

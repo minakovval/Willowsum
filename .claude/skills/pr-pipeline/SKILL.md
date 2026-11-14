@@ -139,7 +139,7 @@ session title, and **start the next lead session yourself** (owner, 2026-11-14, 
 «так, дозволяю»): `create_session` with the ready start message ([restarts](references/restarts.md), «Start
 message»), the same environment and repository; then write the new session's ID into #179 and tell the owner
 briefly in chat. At most 2 automatic restarts in a row without an answer from the owner; the third only after the
-owner answers (the counter and the third-restart steps are the lead's mechanism, not owner-approved; ask in chat, with the start message in one code block the owner can also copy; owner, 2026-11-14;
+owner answers (the counter and the third-restart steps are the lead's mechanism: Рішення ведучого (2026-11-14; власник не схвалював; #230); ask in chat, with the start message in one code block the owner can also copy;
 [restarts](references/restarts.md), «Automatic restart»). A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, checks `get_session` →
 `external_metadata.rate_limit_info` (on a warning: at most 2–3 authors at once, reviews not cut; owner,
@@ -216,6 +216,6 @@ hand-made database: Рішення ведучого (2026-11-14; власник 
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
   a brief). **Fable** (owner, 2026-11-14, #178): **only** security reviews of critical PRs and root-cause
-  searches for flaky tests, at most one Fable task at a time (both owner decisions); everything else on the main
+  searches (e.g. flaky tests), at most one Fable task at a time (both owner decisions); everything else on the main
   model (token economy, item 1).
 

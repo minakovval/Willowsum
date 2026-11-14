@@ -69,8 +69,9 @@ For each suspected defect, trace a concrete path (input or caller → wrong resu
 locally if needed. Drop findings you cannot support. Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts). Integration tests: Cloud sessions have no Docker, so `pnpm db:test` fails there unless the admin URL is given:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`
 (`infra/local/README.md`).
-Load probes, repeated runs and mutants that need the database run only through `pnpm db:test run -- …`, each on
-its own database; never on a hand-made database (owner, 2026-11-14, #178, «так, 1–4 так»; #226).
+Load probes that need the database run only through `pnpm db:test run -- …`, each on its own database; never on a
+hand-made database (owner, 2026-11-14, #178, «так, 1–4 так, пункт 3 як пробні 2 запуски»). Mutants and repeated
+runs: Рішення ведучого (2026-11-14; власник не схвалював; #226; #178 comment 6883738878).
 
 **Rely on CI for the full suites** (owner, 2026-11-13): do not rerun the full suites (`pnpm test`,
 `pnpm test:integration`, `pnpm test:e2e`, all of `tools/*`): CI runs them on the head. Run only the tests of the
