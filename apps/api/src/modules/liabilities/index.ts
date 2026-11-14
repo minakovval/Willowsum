@@ -5,12 +5,14 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { AuditLog } from "../audit/index.ts";
 import { eraseHouseholdLiabilities, liabilitiesTx } from "./adapters/index.ts";
 import {
+  changeLiabilityKind,
   registerLiability,
+  type ChangeKindResult,
   type Liability,
   type LiabilityAudit,
   type RegisterResult,
 } from "./application/index.ts";
-import type { LiabilityTermsInput } from "./domain/index.ts";
+import type { LiabilityKind, LiabilityTermsInput } from "./domain/index.ts";
 
 export const liabilitiesModule = defineModule({
   name: "liabilities",
@@ -25,9 +27,10 @@ export {
   LIABILITY_KINDS,
   parseAnnualRate,
   parseTypedAmount,
+  termsMissing,
 } from "./domain/index.ts";
 export type { LiabilityKind, LiabilityTerms, LiabilityTermsInput, TermsIssue } from "./domain/index.ts";
-export type { Liability, RegisterResult } from "./application/index.ts";
+export type { ChangeKindResult, Liability, RegisterResult } from "./application/index.ts";
 
 /** Liabilities of a space (FIN-01@PoC FR 2, FR 16): every call is bound to one space. */
 export interface Liabilities {
@@ -45,6 +48,14 @@ export interface Liabilities {
   ): Promise<RegisterResult>;
   /** The liability of an account, or null. */
   forAccount(householdId: string, accountId: string): Promise<Liability | null>;
+  /**
+   * «Кредит» ↔ «Кредитна картка» (FIN-12@PoC FR 5): the account's liability takes the new kind, keeping the terms that
+   * kind may have; audited as changed by `actorAccountId`. The same kind again writes nothing.
+   */
+  changeKind(
+    householdId: string,
+    input: { readonly actorAccountId: string; readonly accountId: string; readonly kind: LiabilityKind },
+  ): Promise<ChangeKindResult>;
 }
 
 /** The terms' entry in the space's own log (П-10); amounts and rates are not personal data, nothing is masked. */
@@ -73,6 +84,25 @@ function liabilityAudit(audit: Pick<AuditLog, "record">): LiabilityAudit {
         ],
       });
     },
+    async liabilityChanged(householdId, actorAccountId, before, after) {
+      const terms = (l: Liability) => ({
+        kind: l.kind,
+        annualRate: l.annualRate,
+        monthlyPayment: l.monthlyPayment?.toDecimalString() ?? null,
+        creditLimit: l.creditLimit?.toDecimalString() ?? null,
+        gracePeriodDays: l.gracePeriodDays === null ? null : String(l.gracePeriodDays),
+      });
+      const [was, now] = [terms(before), terms(after)];
+      await audit.record(householdId, {
+        actor: { kind: "user", id: actorAccountId },
+        channel: "web",
+        entity: { type: "liabilities.liability", id: after.id },
+        action: "update",
+        changes: (Object.keys(was) as (keyof typeof was)[])
+          .filter((field) => was[field] !== now[field])
+          .map((field) => ({ field, before: was[field], after: now[field], sensitive: false })),
+      });
+    },
   };
 }
 
@@ -84,6 +114,8 @@ export function createLiabilities(db: ModuleDatabase, audit: Pick<AuditLog, "rec
       db.inHousehold(householdId, (q) => registerLiability(deps, liabilitiesTx(q), householdId, input)),
     forAccount: (householdId, accountId) =>
       db.inHousehold(householdId, (q) => liabilitiesTx(q).byAccount(householdId, accountId)),
+    changeKind: (householdId, input) =>
+      db.inHousehold(householdId, (q) => changeLiabilityKind(deps, liabilitiesTx(q), householdId, input)),
   };
 }
 

@@ -94,6 +94,15 @@ export const PROBLEMS = {
     status: 409,
     title: "The account has movements after the closing date",
   },
+  /**
+   * «Тип можна змінити лише в межах групи» (FIN-12@PoC FR 5, AC2): «Готівкові» ↔ «Кредитні» is refused; nothing was
+   * written.
+   */
+  ACCOUNT_KIND_OTHER_GROUP: { status: 409, title: "The kind can change only within its group" },
+  /**
+   * FIN-12@PoC FR 5, AC11: «Кредит» ↔ «Кредитна картка» only for an account without transactions; nothing was written.
+   */
+  ACCOUNT_HAS_TRANSACTIONS: { status: 409, title: "The account has transactions; its kind cannot change" },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

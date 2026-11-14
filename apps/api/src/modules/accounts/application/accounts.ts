@@ -1,7 +1,13 @@
 import type { Money } from "@willowsum/domain-kernel";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Ledger } from "../../ledger/index.ts";
-import { availableCredit, checkTerms, type Liabilities, type Liability } from "../../liabilities/index.ts";
+import {
+  availableCredit,
+  checkTerms,
+  termsMissing,
+  type Liabilities,
+  type Liability,
+} from "../../liabilities/index.ts";
 import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
 import {
   checkNewAccount,
@@ -108,6 +114,14 @@ export interface AccountsTx {
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;
   /** The account's row, locked until the transaction ends (FIN-12: one change of an account at a time). */
   lockAccount(householdId: string, accountId: string): Promise<StoredAccount | null>;
+  /** «Основне» (FIN-12 FR 4–6): the name, the kind and the kind's own fields of the account. */
+  updateSettings(
+    householdId: string,
+    account: Pick<
+      StoredAccount,
+      "id" | "name" | "kind" | "annualRate" | "depositOpenedOn" | "depositMaturesOn"
+    >,
+  ): Promise<void>;
   /** «Закритий» with its date, or active again (FIN-12 FR 7–9). */
   setStatus(
     householdId: string,
@@ -147,6 +161,17 @@ export interface AccountAudit {
         | null;
     },
   ): Promise<void>;
+  /** «Основне» changed (FIN-12 FR 6): every changed field with its value before and after. */
+  settingsChanged(
+    householdId: string,
+    actorAccountId: string,
+    accountId: string,
+    changes: readonly {
+      readonly field: string;
+      readonly before: string | null;
+      readonly after: string | null;
+    }[],
+  ): Promise<void>;
   /**
    * One currency's balance moved by «Перенести на інший рахунок» (FIN-12 FR 7), recorded right after its ledger entry
    * committed, before the closing itself.
@@ -179,9 +204,16 @@ export interface AccountAudit {
 export interface AccountsDeps {
   readonly ledger: Pick<
     Ledger,
-    "openAccount" | "post" | "balanceAt" | "correct" | "reverse" | "liveEntries" | "latestOperationDate"
+    | "openAccount"
+    | "post"
+    | "balanceAt"
+    | "correct"
+    | "reverse"
+    | "liveEntries"
+    | "latestOperationDate"
+    | "hasLiveEntries"
   >;
-  readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
+  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind">;
   readonly seal: NumberSeal;
   readonly audit: AccountAudit;
   readonly newId: () => string;
@@ -393,6 +425,8 @@ export interface AccountView {
     readonly annualRate: string | null;
     readonly monthlyPayment: Money | null;
     readonly debt: Money;
+    /** «Додайте ставку і платіж» (FIN-12 FR 5, AC12): the rate or the monthly payment is not entered yet. */
+    readonly termsMissing: boolean;
   } | null;
 }
 
@@ -481,6 +515,7 @@ export async function accountView(
             annualRate: liability?.annualRate ?? null,
             monthlyPayment: liability?.monthlyPayment ?? null,
             debt,
+            termsMissing: liability === null || termsMissing(liability),
           }
         : null,
   };

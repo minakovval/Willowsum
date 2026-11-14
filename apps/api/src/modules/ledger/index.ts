@@ -19,6 +19,7 @@ import {
   balanceAt,
   correct,
   dailyIntegrityCheck,
+  hasLiveEntries,
   latestOperationDate,
   liveEntries,
   openAccount,
@@ -96,6 +97,15 @@ export interface Ledger {
   /** The latest operation date of the account's entries (reversals included), or null without any. */
   latestOperationDate(householdId: string, accountId: string): Promise<string | null>;
   /**
+   * Whether the account has an entry in effect (neither a reversal nor reversed) of an event type other than those
+   * given — e.g. a transaction besides «Початковий залишок» (FIN-12 FR 5).
+   */
+  hasLiveEntries(
+    householdId: string,
+    accountId: string,
+    exceptEventTypes: readonly LedgerEventType[],
+  ): Promise<boolean>;
+  /**
    * The balance of an account on a date (inclusive); `asKnownAt` limits it to entries recorded by then. Served from
    * the daily balance cache when it can answer, else from the postings: the same numbers either way.
    */
@@ -125,6 +135,7 @@ export function createLedger(db: ModuleDatabase): Ledger {
     correct: (householdId, entryId, replacement) => correct(deps, householdId, entryId, replacement),
     latestOperationDate: (householdId, accountId) => latestOperationDate(deps, householdId, accountId),
     liveEntries: (householdId, source, eventType) => liveEntries(deps, householdId, source, eventType),
+    hasLiveEntries: (householdId, accountId, except) => hasLiveEntries(deps, householdId, accountId, except),
     balanceAt: (householdId, accountId, date, options) =>
       balanceAt(deps, householdId, accountId, date, options),
     rebuildBalances: (householdId, accountId) => rebuildBalances(deps, householdId, accountId),

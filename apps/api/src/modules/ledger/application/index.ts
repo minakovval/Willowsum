@@ -7,6 +7,7 @@ export {
   balanceAt,
   correct,
   dailyIntegrityCheck,
+  hasLiveEntries,
   INTEGRITY_CHECKS,
   latestOperationDate,
   liveEntries,

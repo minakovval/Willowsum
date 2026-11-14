@@ -59,6 +59,29 @@ export function liabilitiesTx(q: ModuleQueryRunner): LiabilitiesTx {
       );
       return rowCount === 1;
     },
+    async lockByAccount(householdId, accountId) {
+      const { rows } = await q.query<Row>(
+        `SELECT ${COLUMNS} FROM liabilities WHERE household_id = $1 AND account_id = $2 FOR UPDATE`,
+        [householdId, accountId],
+      );
+      return rows[0] ? liability(rows[0]) : null;
+    },
+    async update(householdId, l) {
+      await q.query(
+        `UPDATE liabilities SET kind = $3, annual_rate = $4, monthly_payment = $5, credit_limit = $6,
+           grace_period_days = $7
+         WHERE household_id = $1 AND id = $2`,
+        [
+          householdId,
+          l.id,
+          l.kind,
+          l.annualRate,
+          l.monthlyPayment?.toDecimalString() ?? null,
+          l.creditLimit?.toDecimalString() ?? null,
+          l.gracePeriodDays,
+        ],
+      );
+    },
     async byAccount(householdId, accountId) {
       const { rows } = await q.query<Row>(
         `SELECT ${COLUMNS} FROM liabilities WHERE household_id = $1 AND account_id = $2`,
