@@ -2,12 +2,12 @@
 
 **Створено:** 2026-11-14 · **Оновлено:** 2026-11-14
 
-Рішення власника з issue «Черга змін процесу» (#178), що ще не мали запису в журналі рішень. Виконано в PR «PRC:
-process queue #178 — token/time script, lead session rules, review verdicts as PR reviews». Змінені файли:
-`.claude/skills/pr-pipeline/SKILL.md` і його `references/` (`token-economy.md`, `restarts.md`, `merge-checklist.md`),
-`.claude/skills/implement-requirement/SKILL.md`, `.claude/skills/fix-review-findings/SKILL.md`,
-`.claude/skills/review-pr/SKILL.md` і `references/confirmation-rounds.md`, `.claude/skills/security-review/SKILL.md`,
-новий скрипт `tools/token-report/`.
+Рішення власника з issue «Черга змін процесу» (#178) і з чату ведучому 2026-11-14, що ще не мали запису в журналі
+рішень. Виконано в PR #194 «PRC-02: process queue #178 — token/time script, lead session rules, review verdicts as PR
+reviews». Змінені файли: `.claude/skills/pr-pipeline/SKILL.md` і його `references/` (`token-economy.md`,
+`restarts.md`, `merge-checklist.md`, `lead-communication.md`), `.claude/skills/implement-requirement/SKILL.md`,
+`.claude/skills/fix-review-findings/SKILL.md`, `.claude/skills/review-pr/SKILL.md` і
+`references/confirmation-rounds.md`, `.claude/skills/security-review/SKILL.md`, новий скрипт `tools/token-report/`.
 
 - Рішення власника (2026-11-13): схвалено, що агенти-виконавці і ведучий комітять і пушать у гілки своїх PR без
   окремого підтвердження власника; якщо класифікатор дозволів однаково відмовить, агент зупиняється і повідомляє
@@ -47,6 +47,11 @@ process queue #178 — token/time script, lead session rules, review verdicts as
     зупиняється й повідомляє ведучого, а виправлення переходить до сильної моделі (приклад: #191);
   - вердикт рецензента (і підтвердження) завжди публікується як PR review з `commit_id` голови, а не як коментар в
     issue (#185).
+- Рішення власника (2026-11-14): схвалено, що правило «на службові сповіщення власнику нічого не пишуть» охоплює й
+  власні службові дії ведучого: підписку на PR і відписку від нього, очікування звітів агентів, запуск агента.
+  Заборонений приклад: «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.» Джерело: чат
+  ведучому, 2026-11-14, «мені не треба писати такі повідомлення, лише важливе». Виконано:
+  `.claude/skills/pr-pipeline/references/lead-communication.md`, п. 2.
 - Рішення ведучого (2026-11-14; власник не схвалював; цей PR): `get_session` більше не повертає `usage` (помічено
   2026-11-14, [#180, коментар](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6874092809)), тому
   власна витрата ведучого — сума `usage` транскрипту його сесії (`~/.claude/projects/<dir>/<session>.jsonl`, режим
