@@ -53,8 +53,8 @@ worded as before; never append to the archive `docs/decisions/state-2026-11-05.m
 ## 4. Check
 
 Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
-Run what the changed code needs: type checks as `tsc -p <pkg>/tsconfig.json` for each changed package (not only
-`pnpm typecheck`, which can miss what CI catches, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
+Run what the changed code needs: `pnpm typecheck` (the same command as the CI job `web`, every tsconfig
+included; run it as `cd <worktree> && pnpm typecheck`, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
 `pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
 without Docker, as in cloud sessions, give the admin URL:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);

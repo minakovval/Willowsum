@@ -31,8 +31,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    Every implementer and fix brief also says (owner, 2026-11-13/14, #178): committing and pushing to its own PR
    branch is part of the task (if the permission classifier still refuses, the agent stops and reports it, and you
    ask the owner); before tests `pg_lsclusters`, and if the cluster is down `pg_ctlcluster 16 main start` (the
-   environment's setup script does not run when a container restarts); type checks as `tsc -p <pkg>/tsconfig.json`
-   directly, since `pnpm typecheck` can miss what CI catches (#184) until its own `sensitive:pipeline` PR fixes it.
+   environment's setup script does not run when a container restarts); type checks as `pnpm typecheck` run in
+   the agent's worktree (`cd <worktree> && pnpm typecheck`): it is the same command as the CI job `web` (#184).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.

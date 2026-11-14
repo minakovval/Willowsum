@@ -54,9 +54,10 @@ audit entry, and a fixed or injected clock (never re-read `Date.now()` to pick a
   release range: `- [лише PoC] Перевіряється: …`), then `node tools/req-check/index.mjs --views`. A requirement not
   migrated yet is one plain file.
 - Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
-- Type checks: `tsc -p <pkg>/tsconfig.json` directly for every package you changed (e.g.
-  `pnpm exec tsc -p apps/api/tsconfig.json`): `pnpm typecheck` can miss what CI catches (#184; owner,
-  2026-11-14 — until a separate `sensitive:pipeline` PR fixes it).
+- Type checks: `pnpm typecheck` is enough — the CI job `web` runs the same command, and every package's script
+  covers all its tsconfig files, tests included (owner, 2026-11-14, #178; guard
+  `tools/pr-rules/test/typecheck-scripts.test.mjs`). Run it in your worktree in the same command
+  (`cd <worktree> && pnpm typecheck`): a shell that starts in the main checkout checks the wrong tree (#184).
 - Checks: typecheck, lint, unit, integration, e2e for UI (root `package.json`), `node --test tools/req-check`,
   `--views` and `--check-mentions` (0 errors), `--coverage` (every AC and EC of your view covered). Without
   Docker: `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- <command>`.
