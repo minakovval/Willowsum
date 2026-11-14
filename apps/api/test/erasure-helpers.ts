@@ -76,6 +76,19 @@ export async function personWithSpace(db: RealModulesDatabase, label: string) {
       [householdId, randomUUID()],
     );
   });
+  // FIN-03: a transaction entered by hand on that account and a stored create response of the module.
+  await db.databases.for("transactions").inHousehold(householdId, async (q) => {
+    await q.query(
+      `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on, counterparty)
+       VALUES ($1, $2, $3, $4, '-42.17', 'EUR', '2026-10-03', 'Синтетичний магазин')`,
+      [householdId, randomUUID(), account, randomUUID()],
+    );
+    await q.query(
+      `INSERT INTO idempotency_keys (household_id, key, request_hash, expires_at)
+       VALUES ($1, $2, repeat('0', 64), now() + interval '1 day')`,
+      [householdId, randomUUID()],
+    );
+  });
   await createLiabilities(
     db.databases.for("liabilities"),
     createAuditLog(db.databases.for("audit")),

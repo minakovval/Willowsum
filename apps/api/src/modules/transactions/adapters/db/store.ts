@@ -145,7 +145,8 @@ export const transactionsList = defineList({
     /** The search of the list (FR 13): counterparty and description. */
     search: { column: "search_text", cast: "text", value: z.string().min(1).max(200), operators: ["has"] },
   },
-  sorts: { date: "occurred_on", amount: "amount", counterparty: "counterparty" },
+  // «Дата і час» (FR 13, AC13): the date, then within a day the time it was recorded (`recordedAt`, see the route).
+  sorts: { date: "occurred_on", recordedAt: "created_at", amount: "amount", counterparty: "counterparty" },
   defaultSort: { field: "date", direction: "desc" },
   amounts: {
     amountColumn: "amount",

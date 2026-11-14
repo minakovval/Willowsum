@@ -544,6 +544,18 @@ describe("FIN-03@PoC FR 13, FR 22: the list on the universal list engine (DAT-01
     ]);
   });
 
+  it("FIN-03@PoC AC13: within one date the list is by the time of «Дата і час», newest first (default and sort=date)", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, { name: "Щоденний", amount: "100.00" });
+    for (let i = 0; i < 8; i++) await add(space, tx(a, "-1.00", { date: "2026-10-15" }));
+    const list = (await call(space, "GET", "/v1/transactions")).json();
+    const times = list.items.map((t: { recordedAt: string }) => t.recordedAt);
+    expect(times).toEqual([...times].sort().reverse());
+    const asc = (await call(space, "GET", "/v1/transactions?sort=date")).json();
+    const ascTimes = asc.items.map((t: { recordedAt: string }) => t.recordedAt);
+    expect(ascTimes).toEqual([...ascTimes].sort());
+  });
+
   it("FIN-03@PoC AC14: 42 transactions, page size 25 by default → «1–25 з 42»; the next page «26–42 з 42»; sizes 25, 50, 100 only", async () => {
     const space = await newSpace();
     const a = await createAccount(space, { name: "Щоденний", amount: "1000.00" });

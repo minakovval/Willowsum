@@ -284,6 +284,16 @@ function listItem(row: Record<string, unknown>): z.input<typeof transactionSchem
   };
 }
 
+/**
+ * «Дата і час» (FR 13, AC13) is the date and, under it, the time: within one date the newer record comes first, so
+ * the date sort (and the default, no sort) carries the record time as its second key in the same direction.
+ */
+function dateAndTime(sort: string | undefined): string {
+  if (sort === undefined || sort === "" || sort === "-date") return "-date,-recordedAt";
+  if (sort === "date") return "date,recordedAt";
+  return sort;
+}
+
 export const listTransactionsRoute = defineRoute({
   module: MODULE,
   method: "GET",
@@ -319,7 +329,9 @@ export const listTransactionsRoute = defineRoute({
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
     const { totals, reportingCurrency } = transactionsServices(ctx);
-    const page = await ctx.inHousehold((q) => transactionsList.run(q, query));
+    const page = await ctx.inHousehold((q) =>
+      transactionsList.run(q, { ...query, sort: dateAndTime(query.sort) }),
+    );
     const of = (sign: AmountGroup["sign"]) => page.groups.filter((g) => g.sign === sign);
     const [income, expense, difference] = await Promise.all([
       totals.total(of("in"), reportingCurrency),
