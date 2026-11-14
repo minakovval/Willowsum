@@ -1,0 +1,4 @@
+{"type":"assistant","isSidechain":false,"timestamp":"2026-01-01T08:00:00.000Z","message":{"id":"msg_s1","role":"assistant","usage":{"input_tokens":5,"cache_creation_input_tokens":100,"cache_read_input_tokens":300000,"output_tokens":700}}}
+{"type":"assistant","isSidechain":true,"timestamp":"2026-01-01T08:30:00.000Z","message":{"id":"msg_s2","role":"assistant","usage":{"input_tokens":5,"cache_creation_input_tokens":100,"cache_read_input_tokens":9999999,"output_tokens":9999}}}
+{"type":"assistant","isSidechain":false,"timestamp":"2026-01-01T09:00:00.000Z","message":{"id":"msg_s3","role":"assistant","usage":{"input_tokens":5,"cache_creation_input_tokens":100,"cache_read_input_tokens":200000,"output_tokens":300}}}
+{"type":"assistant","isSidechain":false,"timestamp":"2026-01-01T12:00:00.000Z","message":{"id":"msg_s4","role":"assistant","usage":{"input_tokens":5,"cache_creation_input_tokens":100,"cache_read_input_tokens":100000,"output_tokens":100}}}

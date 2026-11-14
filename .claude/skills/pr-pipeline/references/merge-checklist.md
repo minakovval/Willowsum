@@ -1,8 +1,8 @@
 # Merge checklist (step 6, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only sync check added (owner, 2026-11-13, #178). Read when you are about to merge.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only sync check added (owner, 2026-11-13, #178); PR comments read before merge (owner, 2026-11-14, #178). Read when you are about to merge.
 
 6. **Merge** (squash): the lead merges only when all hold on the **current head SHA** — both verdicts Ready
    on that exact head (`review-pr`, and `security-review` for `sensitive`) and CI green (owner, 2026-11-13):
@@ -27,7 +27,10 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
      review below, «Docs-only PR after a sync»);
    - for `owner-decision` PRs: the body records the owner's decision (and the decision log has it); cloud or
      production actions: the owner's approval (AGENTS.md step 7);
-   - the owner has not commented «stop» or asked a question on the PR.
+   - the owner has not commented «stop» or asked a question on the PR: while an agent works on a PR the lead is
+     not subscribed to it (owner, 2026-11-14, #178), so before every merge read its comments,
+     `gh api repos/{owner}/{repo}/issues/<n>/comments --jq '.[] | [.user.login, .created_at, .body[0:200]] | @tsv'`,
+     and the review bodies. Subscribe to the PR only once it waits for merge.
    For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
    Do not ask the owner to confirm the merge.
    **Merge on Ready, follow up separately** (owner, 2026-11-13): both verdicts Ready and only non-blocking

@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»).
@@ -28,24 +28,37 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    result, blockers, owner questions; details go in the PR body or the review. Reviewer briefs ask for the same
    short report. Agents never create GitHub issues (owner, 2026-11-13): they list follow-ups in the PR body or
    their report, and the lead opens the issues and links them.
+   Every implementer and fix brief also says (owner, 2026-11-13/14, #178): committing and pushing to its own PR
+   branch is part of the task (if the permission classifier still refuses, the agent stops and reports it, and you
+   ask the owner); before tests `pg_lsclusters`, and if the cluster is down `pg_ctlcluster 16 main start` (the
+   environment's setup script does not run when a container restarts); type checks as `tsc -p <pkg>/tsconfig.json`
+   directly, since `pnpm typecheck` can miss what CI catches (#184) until its own `sensitive:pipeline` PR fixes it.
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
-3. **PR opened** → subscribe to its activity; then in parallel (every review, first or repeat, goes to a fresh
+3. **PR opened** → do not subscribe while an agent (author, reviewer, fix) works on it: act on the agent's
+   report (owner, 2026-11-14, #178); subscribe only when the PR waits for merge (step 6). Then in parallel (every review, first or repeat, goes to a fresh
    agent with a narrow brief, never a resumed long-context reviewer — owner, 2026-11-13,
    [token economy](references/token-economy.md)):
    - a reviewer with `review-pr`;
    - if the PR has the label `sensitive`: a security reviewer with `security-review`.
-   Each in a different session from the author, with the PR number and head SHA. Before that, open the
+   Each in a different session from the author, with the PR number and head SHA; the brief asks for the
+   verdict as a PR review with `commit_id=<head>`, never an issue comment (owner, 2026-11-14; #185), and for
+   the PostgreSQL check before tests (step 2). Before that, open the
    issues for any dependent slice the implementer listed and link them in the PR body (PRC-02).
 4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
    into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
    reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
    Resume the implementing agent at most 2 times (owner, 2026-11-13, #178); a third fix round goes to a fresh
    agent with a short brief: the diff, the findings, the patch ([token economy](references/token-economy.md)).
+   Fixes that only apply ready reviewer patches go to a fresh agent on a lighter model; if it must deviate from a
+   patch, it stops and reports to you, and the fix moves to the strong model (owner, 2026-11-14; #191: the
+   reviewer's patch deadlocked).
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
-6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for
+6. **Merge** (squash) only on the **current head SHA** (subscribe to the PR while it waits for merge; before
+   every merge read its comments, `gh api repos/{owner}/{repo}/issues/<n>/comments`, for an owner «stop» or
+   question — owner, 2026-11-14): CI green, the latest `Verdict: Ready` (and for
    `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
    `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question.
    Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
@@ -58,10 +71,11 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
    opens the issues; agents never do (owner, 2026-11-13).
-   **Token accounting** (owner, 2026-11-13, mandatory): in the same turn as the merge, add the PR's row to the
-   issue «Облік токенів» (#180) —
-   PR, type, rounds, the sum of `subagent_tokens` of its author, reviewers and confirmations
-   ([token economy](references/token-economy.md), «Token accounting»).
+   **Token and time accounting** (owner, 2026-11-13/14, mandatory): in the same turn as the merge, before the
+   container can lose the agent logs, run `node tools/token-report/index.mjs pr …` and add the row it prints to
+   the issue «Облік токенів» (#180): type, rounds, `subagent_tokens`, the agents' real spend from their logs,
+   author time (author and fix agents), review time (reviewers and confirmations; every run of a resumed agent
+   counted) and CI minutes of the branch ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
    Write only when something is merged (PR link, one line, and what is next), an owner decision is needed, or
    there is a problem (a blocker, red CI that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
@@ -78,10 +92,12 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
-**New lead session** (owner, 2026-11-13): when your context has already been compacted, or after 8–10 merged
-PRs, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
+**New lead session** (owner, 2026-11-13/14): when your context reaches ~400 k tokens (`get_session` →
+`external_metadata.context_usage.used_tokens`), has been compacted, or after 8–10 merged PRs, whichever comes
+first, start no new tasks and let the in-flight agents finish. Then write the state to the GitHub issue «Lead
 state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows,
-and the name for the next session. Record the session's token usage in #180, append «(завершено)» to your
+and the name for the next session; keep that issue current during the session too, after every 3 merges and
+whenever an owner question changes (owner, 2026-11-14). Record the session's token usage in #180, append «(завершено)» to your
 session title, and tell the owner to start a new session. A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, then reads «Lead state»
 ([restarts](references/restarts.md), [token economy](references/token-economy.md)).
@@ -133,6 +149,9 @@ cluster queue through `pnpm db:test run -- …` (roles are cluster-wide).
 
 - After a restart recover state from durable sources — [restarts](references/restarts.md) (read when you
   resume).
+- **Workflow experiment** (owner, 2026-11-14, #178): one run of a Workflow «супровідник» that takes one PR
+  without `sensitive` (e.g. a row `R`) from implementation to ready-to-merge; before starting it, ask the owner in
+  chat for consent to that exact run. Then compare its tokens and time with #180 and report before any second run.
 - Model by risk: the strongest model for sensitive features and security reviews of critical modules; a
   lighter one only for `review-pr` of docs-and-requirement-text-only PRs (not when they touch a security
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
