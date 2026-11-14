@@ -162,7 +162,10 @@ export interface AccountAudit {
 }
 
 export interface AccountsDeps {
-  readonly ledger: Pick<Ledger, "openAccount" | "post" | "balanceAt" | "correct" | "reverse" | "liveEntries">;
+  readonly ledger: Pick<
+    Ledger,
+    "openAccount" | "post" | "balanceAt" | "correct" | "reverse" | "liveEntries" | "latestOperationDate"
+  >;
   readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
   readonly seal: NumberSeal;
   readonly audit: AccountAudit;

@@ -24,9 +24,10 @@ import { ADJUSTMENT, adjustmentOf, liveAdjustment, type AdjustmentView } from ".
  * 3. the account's state changes (closing, reopening) in this transaction;
  * 4. the audit entry, last before this transaction commits.
  *
- * The ledger and the audit log are other modules' transactions (as in creating an account; ARC-04 hand-over is #210).
- * Every step is safe to repeat: a failure after the ledger committed leaves a movement the user asked for and the
- * account as it was, and the same request again finds the balance already moved and only finishes the rest.
+ * The ledger and the audit log are other modules' transactions, committed before this one (as in creating an account;
+ * the atomic hand-over with ARC-04 events is #210). A failure after the ledger committed leaves the movement the user
+ * asked for without its audit entry and, for a closing, the account still active; the same request again moves nothing
+ * twice (the balance has moved already) and finishes the closing, but does not restore a missed audit entry.
  *
  * The adjustment of «Оновити залишок» is a ledger event `balance-adjustment` of the subaccount against «Коригування»
  * (FIN-04 FR 7, FR 11): no income or spending. Its record is the journal itself — at most one is in effect per
@@ -163,9 +164,10 @@ export async function closeAccount(
   const subaccounts = await tx.subaccounts(householdId, accountId);
   const owed: { readonly subaccount: StoredSubaccount; readonly balance: Money }[] = [];
   for (const s of subaccounts) {
+    // FIN-01 EC4: «Після дати закриття є транзакції» — any entry after the date, even one that nets to zero.
+    const latest = await deps.ledger.latestOperationDate(householdId, s.ledgerAccountId);
+    if (latest !== null && latest > input.closedOn) return { kind: "activity-after-close" };
     const onDate = await shownOn(deps, householdId, account, s, input.closedOn);
-    const now = await shownOn(deps, householdId, account, s, today);
-    if (!onDate.equals(now)) return { kind: "activity-after-close" };
     if (!onDate.isZero()) owed.push({ subaccount: s, balance: onDate });
   }
   if (owed.length > 0 && !input.settlement) return { kind: "balance-not-zero" };

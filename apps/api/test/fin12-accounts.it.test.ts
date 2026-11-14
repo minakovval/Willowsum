@@ -161,8 +161,8 @@ afterAll(async () => {
   await db?.close();
 });
 
-describe("FIN-12@PoC FR 7, FR 8: closing an account", () => {
-  it("FIN-12@PoC AC3: a zero balance with 120 transactions over 2 years closes on 2026-09-30; out of the active list and «Гроші разом», shown with «Показати закриті», its history kept", async () => {
+describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
+  it("FIN-12@PoC AC3, FIN-01@PoC AC6: a zero balance with 120 transactions over 2 years closes on 2026-09-30; out of the active list and «Гроші разом», shown with «Показати закриті», its history kept", async () => {
     const space = await newSpace();
     const deposit = await createAccount(space, {
       kind: "savings",
@@ -222,7 +222,7 @@ describe("FIN-12@PoC FR 7, FR 8: closing an account", () => {
     ]);
   });
 
-  it("FIN-12@PoC AC4: 430 EUR on the closing date — the dialog shows 430 EUR; «Перенести на інший рахунок» to «Ощадний» makes a 430 EUR transfer and closes at zero", async () => {
+  it("FIN-12@PoC AC4, FIN-01@PoC EC5: 430 EUR on the closing date — the dialog shows 430 EUR; «Перенести на інший рахунок» to «Ощадний» makes a 430 EUR transfer and closes at zero", async () => {
     const space = await newSpace();
     const current = await createAccount(space, { kind: "current", name: "Поточний", amount: "430.00" });
     const savings = await createAccount(space, { kind: "savings", name: "Ощадний", amount: "1000.00" });
@@ -335,7 +335,7 @@ describe("FIN-12@PoC FR 7, FR 8: closing an account", () => {
     ]);
   });
 
-  it("FIN-12@PoC FR 7: movements after the closing date — the account does not close on that date", async () => {
+  it("FIN-01@PoC EC4: a closing date before the account's latest transaction is refused, even when the movements after it net to zero", async () => {
     const space = await newSpace();
     const acc = await createAccount(space, {
       kind: "current",
@@ -352,12 +352,17 @@ describe("FIN-12@PoC FR 7, FR 8: closing an account", () => {
       expect.objectContaining({ path: "closedOn", issue: "before_opening" }),
     ]);
 
-    await ledger.post(space.householdId, {
-      source: { module: "accounts", id: acc.subaccountId },
-      idempotencyKey: `test.later:${acc.subaccountId}`,
-      operationDate: "2026-10-16",
-      event: { type: "transaction", account: acc.ledgerAccountId, amount: Money.of("-20", "EUR") },
-    });
+    // +20 and −20 after 2026-10-12: the balance on that date equals today's, yet there are transactions after it.
+    for (const [day, amount] of [
+      ["2026-10-14", "20"],
+      ["2026-10-16", "-20"],
+    ] as const)
+      await ledger.post(space.householdId, {
+        source: { module: "accounts", id: acc.subaccountId },
+        idempotencyKey: `test.later:${acc.subaccountId}:${day}`,
+        operationDate: day,
+        event: { type: "transaction", account: acc.ledgerAccountId, amount: Money.of(amount, "EUR") },
+      });
     const later = await call(space, "POST", `/v1/accounts/${acc.id}/close`, {
       closedOn: "2026-10-12",
       settlement: { kind: "adjustment" },
@@ -414,6 +419,20 @@ describe("FIN-12@PoC FR 7, FR 8: closing an account", () => {
         expect.objectContaining({ field: "closedOn", before: TODAY, after: null }),
       ]),
     );
+  });
+
+  it("FIN-12@PoC AC7: an account without transactions for 90 days has no «Неактивний» mark and is listed as an ordinary active account (FR 10)", async () => {
+    const space = await newSpace();
+    const quiet = await createAccount(space, {
+      kind: "current",
+      name: "Тихий",
+      amount: "10.00",
+      date: "2026-07-01",
+    });
+    const [item] = (await call(space, "GET", "/v1/accounts")).json().items;
+    expect(item).toMatchObject({ id: quiet.id, status: "active", closedOn: null, updatedOn: "2026-07-01" });
+    expect(JSON.stringify(item)).not.toMatch(/inactive/i);
+    expect((await call(space, "GET", `/v1/accounts/${quiet.id}`)).json().status).toBe("active");
   });
 
   it("FIN-12@PoC AC6: closing from a user outside the space is «not found» and tells nothing about the space", async () => {
@@ -489,8 +508,10 @@ describe("FIN-12@PoC FR 14, FIN-04@PoC FR 10, FR 11: «Оновити залиш
       adjustment: { amount: { amount: "-70", currency: "EUR" }, permanent: true },
     });
     // One live adjustment: the first one reversed, its replacement posted (the journal is only appended to).
+    // The reversal and its replacement are one transaction: one time of recording, so their order is not asserted.
     const kinds = (await entries(space.householdId)).map((e) => e.event_type);
-    expect(kinds).toEqual(["opening-balance", "balance-adjustment", "reversal", "balance-adjustment"]);
+    expect(kinds.slice(0, 2)).toEqual(["opening-balance", "balance-adjustment"]);
+    expect(kinds.slice(2).sort()).toEqual(["balance-adjustment", "reversal"]);
     const live = await ledger.liveEntries(
       space.householdId,
       { module: "accounts", id: cash.subaccountId },

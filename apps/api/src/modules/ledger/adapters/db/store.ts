@@ -32,7 +32,7 @@ const ENTRY_COLUMNS = `id, source_module, source_id, event_type, operation_date:
 const ACCOUNT_COLUMNS = "id, type, currency";
 
 /**
- * The daily integrity check (FIN-04 FR 9, AC7) per space. A posting carries one positive amount for both sides (row
+ * The daily integrity check (FIN-04 FR 9, AC6) per space. A posting carries one positive amount for both sides (row
  * constraints), so an entry is unbalanced in a currency exactly when a posting's account is not in the posting's
  * currency — which the keys forbid, but a restore or a dropped key could let in.
  */
@@ -222,6 +222,15 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
       return rows[0]!;
     },
     entry: (id) => entries("id", id),
+    async latestOperationDate(accountId) {
+      const { rows } = await q.query<{ day: string | null }>(
+        `SELECT max(e.operation_date)::text AS day
+           FROM postings p JOIN entries e ON e.household_id = p.household_id AND e.id = p.entry_id
+          WHERE p.household_id = $1 AND (p.debit_account_id = $2 OR p.credit_account_id = $2)`,
+        [q.householdId, accountId],
+      );
+      return rows[0]?.day ?? null;
+    },
     async liveEntries(source, eventType) {
       const { rows } = await q.query<{ id: string }>(
         `SELECT e.id FROM entries e

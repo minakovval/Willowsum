@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-8, П-10, CMP-22, CMP-32, CMP-60, NFR-01
 - Сценарії: UC-FIN-01, UC-FIN-02, UC-FIN-03, UC-FIN-04, UC-FIN-05, UC-FIN-06, UC-FIN-07, UC-FIN-09, UC-FIN-11, UC-FIN-13, UC-FIN-10
 - Модуль: accounts, ledger, liabilities, fx-rates, notification-delivery
-- Перевіряється: apps/api/src/modules/accounts/domain/fin01-accounts.test.ts, apps/api/src/modules/liabilities/domain/fin01-liabilities.test.ts, apps/api/src/modules/ledger/domain/fin01-opening.test.ts, apps/api/src/modules/liabilities/fin01-liabilities.it.test.ts, apps/api/test/fin01-accounts.it.test.ts, apps/api/src/modules/accounts/domain/fin01-money-together.test.ts, apps/api/test/fin01-money-together.it.test.ts
+- Перевіряється: apps/api/src/modules/accounts/domain/fin01-accounts.test.ts, apps/api/src/modules/liabilities/domain/fin01-liabilities.test.ts, apps/api/src/modules/ledger/domain/fin01-opening.test.ts, apps/api/src/modules/liabilities/fin01-liabilities.it.test.ts, apps/api/test/fin01-accounts.it.test.ts, apps/api/src/modules/accounts/domain/fin01-money-together.test.ts, apps/api/test/fin01-money-together.it.test.ts, apps/api/test/fin12-accounts.it.test.ts
 
 **Мета.** Як учасник простору, що має рахунки в кількох банках і валютах, я хочу бачити всі грошові залишки в одному місці, щоб знати ліквідність родини.
 
