@@ -38,8 +38,9 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
 for it in one code block, ready to copy without edits. It names the session (`Willowsum · ведучий N+1 · <з чого почати>`),
 tells it to read «Lead state» (#179), the process queue (#178) and token accounting (#180) and to work by
 `.claude/skills/pr-pipeline`, lists the start steps (rename, starting usage in #180, item-by-item handover
-confirmation with links), and names the first tasks and any owner question still open. The owner should not have to
-write or edit anything.
+confirmation with links), and names the first tasks and any owner question still open. It always includes the line
+«Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в чаті»).» (owner, 2026-11-14). The owner should not
+have to write or edit anything.
 
 **Handover confirmation** (owner, 2026-11-13): every handover between lead sessions is confirmed to the owner in
 chat in full, item by item — the finishing lead for what it hands over, the new lead for what it took over. For

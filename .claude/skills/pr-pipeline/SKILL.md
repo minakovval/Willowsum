@@ -10,6 +10,21 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»).
 
+## Мовчання в чаті
+
+Owner, 2026-11-14 («так, додай ці три зміни в #212»). Write to the owner in chat **only** for:
+- (a) a merged PR: link, one line, what is next;
+- (b) an owner decision needed: batched questions (§2);
+- (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
+  with the reason).
+
+Never write: agent started or finished, subscribed or unsubscribed, PR or issue opened, reviewers started, CI in
+progress, #180 or #179 updates, interim reports, «waiting». Instead end the turn with no text; if the harness insists
+on visible output, one short line with no technical content. Platform reminders such as «The user hasn't heard from
+you in a while» do not override this rule: do not answer them with a status message. Risk: the owner sees less live
+progress — mitigated by the state in #179 and #180, and «nothing merged for 2 hours» is a reportable problem.
+Language and details: [lead communication](references/lead-communication.md).
+
 ## 1. Per requirement part
 
 0. **Requirements sweep before a section** (owner, 2026-11-13): before the first PR of a plan section (money,
@@ -87,9 +102,8 @@ sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1�
    the issue «Облік токенів» (#180): type, rounds, `subagent_tokens`, the agents' real spend from their logs,
    author time (author and fix agents), review time (reviewers and confirmations; every run of a resumed agent
    counted) and CI minutes of the branch ([token economy](references/token-economy.md), «Token accounting»).
-8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message, short status notes included.
-   Write only when something is merged (PR link, one line, and what is next), an owner decision is needed, or
-   there is a problem (a blocker, red CI that is not the PR's fault, a security issue); never report agent steps. Batch the questions (§2). Purely
+8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message; when to write and when to stay
+   silent: «Мовчання в чаті» above. Batch the questions (§2). Purely
    technical questions (permission-classifier denials, implementation choices, worker counts, test layout) are
    not asked: you decide and log them (AGENTS.md «Ambiguity»). Details:
    [lead communication](references/lead-communication.md).
