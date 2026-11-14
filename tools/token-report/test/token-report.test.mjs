@@ -199,6 +199,37 @@ describe("CLI", () => {
     assert.match(res.stderr, /no-usage\.jsonl: no `usage` fields/);
   });
 
+  it("pr: when no --run has log=, it fails with a clear message and prints no row (silent zero, #196)", () => {
+    const r = run(["pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,ms=1,tokens=1", "--ci-runs", fx("runs.json")]);
+    assert.equal(r.code, 1);
+    assert.equal(r.out, "");
+    assert.match(r.err, /no --run has log=/);
+  });
+
+  it("pr: a --run without log= among others is named in the note «журнал втрачено» (#196)", () => {
+    const r = run([...pr, "--run", "role=confirm,ms=1000,tokens=10", "--ci-runs", fx("runs.json")]);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.out, /журнал втрачено: підтвердження/);
+  });
+
+  it("pr: a missing log file fails with its path, not a stack trace (#196)", () => {
+    const res = spawnSync(
+      process.execPath,
+      [INDEX, "pr", "--pr", "195", "--type", "процес", "--rounds", "1", "--run", "role=author,log=/nonexistent/a.jsonl,ms=1,tokens=1", "--ci-runs", fx("runs.json")],
+      { encoding: "utf8" },
+    );
+    assert.equal(res.status, 1);
+    assert.equal(res.stdout, "");
+    assert.match(res.stderr, /error: .*\/nonexistent\/a\.jsonl/);
+    assert.doesNotMatch(res.stderr, /\n\s+at /);
+  });
+
+  it("session: an empty --since/--until window warns on stderr (#196)", () => {
+    const r = run(["session", fx("lead-session.jsonl"), "--since", "2030-01-01T00:00:00Z"]);
+    assert.equal(r.code, 0, r.err);
+    assert.match(r.err, /warning: no messages in the window/);
+  });
+
   it("pr: without --ci-runs or --branch it fails", () => {
     const r = run(pr);
     assert.equal(r.code, 1);

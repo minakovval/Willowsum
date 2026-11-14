@@ -102,7 +102,8 @@ export interface ProtectedContext {
   readonly db: HouseholdFreeDatabase;
   /**
    * What src/api.ts wired for the route's module (its ports, e.g. the audit log of a change — П-10), or undefined.
-   * Never a way to another household: the ports take the caller's household from `principal`.
+   * The ports are written to take the caller's household from `principal`; this type does not enforce it
+   * (e.g. `audit.record` accepts any household id), so a route must pass `principal`'s household.
    */
   readonly services: unknown;
 }

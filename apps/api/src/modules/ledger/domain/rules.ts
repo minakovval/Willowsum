@@ -1,4 +1,10 @@
-import type { Money } from "@willowsum/domain-kernel";
+import {
+  assertValidRate,
+  convert,
+  DomainError,
+  type ExchangeRate,
+  type Money,
+} from "@willowsum/domain-kernel";
 import { LedgerError, type AccountRef, type Posting } from "./postings.ts";
 
 /**
@@ -49,6 +55,31 @@ export type LedgerEvent =
       readonly account: string;
       readonly income: string;
       readonly amount: Money;
+    }
+  /**
+   * Income (positive) or spending (negative) in a currency other than the account's (FIN-04 EC1): `amount` in the
+   * event's currency — the entry's currency — against «Зовнішні кошти», `settled` (same sign) on the account in its
+   * own currency. `rate` (1 unit of the account's currency = `rate` units of the event's, dated) is given explicitly.
+   */
+  | {
+      readonly type: "fx-transaction";
+      readonly account: string;
+      readonly amount: Money;
+      readonly settled: Money;
+      readonly rate: ExchangeRate;
+    }
+  /**
+   * A transfer between accounts in two currencies (FIN-04 EC1): `sent` leaves `from` in its currency — the entry's
+   * currency — and `received` arrives on `to` in another. `rate`: 1 unit of `received`'s currency = `rate` units of
+   * `sent`'s, dated, given explicitly.
+   */
+  | {
+      readonly type: "fx-transfer";
+      readonly from: string;
+      readonly to: string;
+      readonly sent: Money;
+      readonly received: Money;
+      readonly rate: ExchangeRate;
     };
 
 export type LedgerEventType = LedgerEvent["type"];
@@ -58,6 +89,8 @@ const EXTERNAL: AccountRef = { service: "external-funds" };
 const ADJUSTMENT: AccountRef = { service: "adjustment" };
 const REVALUATION: AccountRef = { service: "revaluation-reserve" };
 const GAIN: AccountRef = { service: "realized-gain" };
+/** «Валютна різниця»: one per currency, so every pair of a cross-currency entry stays in one currency. */
+const FX: AccountRef = { service: "fx-difference" };
 
 /** Debit `debit` and credit `credit` by `amount`; a negative amount swaps the sides; zero gives no posting. */
 function signed(debit: AccountRef, credit: AccountRef, amount: Money): Posting[] {
@@ -95,7 +128,105 @@ const RULES: { readonly [T in LedgerEventType]: (event: Extract<LedgerEvent, { t
     ...signed(acc(e.interestExpense), acc(e.account), positive(e.interest)),
   ],
   "rental-income": (e) => signed(acc(e.account), acc(e.income), positive(e.amount)),
+  // Each currency is a balanced pair of its own, bridged by «Валютна різниця» of that currency (ADR-0011 pair model).
+  "fx-transaction": (e) => {
+    const { entryAmount, amount } = crossCurrency(e);
+    return [...signed(acc(e.account), FX, amount), ...signed(FX, EXTERNAL, entryAmount)];
+  },
+  "fx-transfer": (e) => {
+    const { entryAmount, amount } = crossCurrency(e);
+    return [...signed(FX, acc(e.from), entryAmount), ...signed(acc(e.to), FX, amount)];
+  },
 };
+
+type CrossCurrencyEvent = Extract<LedgerEvent, { type: "fx-transaction" | "fx-transfer" }>;
+
+/** A rate's source is a code (ARC-11: no free text in the journal), e.g. `NBU`, `EU`, `synthetic`. */
+const RATE_SOURCE_RE = /^[A-Za-z][A-Za-z0-9._-]{0,31}$/;
+
+/**
+ * The two actual amounts of a cross-currency event, checked: the entry's (in the event's currency) and the account's
+ * (in another), of one sign and not zero (a transfer: both positive); the rate converts the account's currency into
+ * the entry's, is valid (positive, at most 18 decimals, dated) and names its source by a code.
+ */
+function crossCurrency(e: CrossCurrencyEvent): { entryAmount: Money; amount: Money } {
+  const [entryAmount, amount] = e.type === "fx-transaction" ? [e.amount, e.settled] : [e.sent, e.received];
+  if (e.type === "fx-transfer") {
+    positive(entryAmount);
+    positive(amount);
+  }
+  if (entryAmount.isZero() || amount.isZero() || entryAmount.isNegative() !== amount.isNegative())
+    throw new LedgerError("INVALID_EVENT", "Both amounts of a cross-currency event move the same way");
+  if (entryAmount.currency === amount.currency)
+    throw new LedgerError(
+      "INVALID_EVENT",
+      "A cross-currency event has two currencies; use the one-currency event",
+    );
+  assertRate(e.rate, amount.currency, entryAmount.currency);
+  return { entryAmount, amount };
+}
+
+function assertRate(rate: ExchangeRate | undefined, base: string, quote: string): void {
+  if (rate === undefined || rate === null)
+    throw new LedgerError("INVALID_RATE", "A cross-currency event needs an explicit dated rate");
+  try {
+    assertValidRate(rate);
+  } catch (error) {
+    if (error instanceof DomainError) throw new LedgerError("INVALID_RATE", error.message);
+    throw error;
+  }
+  if (rate.base !== base || rate.quote !== quote)
+    throw new LedgerError(
+      "INVALID_RATE",
+      "The rate converts the account's currency into the entry's currency (base: account, quote: entry)",
+    );
+  if (!RATE_SOURCE_RE.test(rate.source))
+    throw new LedgerError("INVALID_RATE", "A rate's source is a code of 1–32 letters, digits and . _ -");
+}
+
+/**
+ * The rate kept on an entry for a posting in another currency than the entry's (ARC-11 «Запис проводок»): the actual
+ * amount on the account, the entry's actual amount, both positive, and the account's amount converted into the entry's
+ * currency at the rate. The conversion difference (`conversionDifference`) is what «Валютна різниця» holds for it.
+ */
+export interface EntryConversion {
+  /** The actual amount on the account, in its currency (the rate's base). */
+  readonly amount: Money;
+  /** The entry's actual amount, in the entry's currency (the rate's quote). */
+  readonly entryAmount: Money;
+  /** `amount` × the rate, in the entry's currency, at the storage scale of the kernel (18 decimals). */
+  readonly converted: Money;
+  readonly rate: ExchangeRate;
+}
+
+/**
+ * The conversions of an event (ARC-11): one for a cross-currency event, none for an event in one currency. The rate
+ * may not be dated after the operation (an explicit dated rate known on that day; the kernel's `convert` refuses it).
+ */
+export function conversionsFor(event: LedgerEvent, operationDate: string): EntryConversion[] {
+  if (event.type !== "fx-transaction" && event.type !== "fx-transfer") return [];
+  const { entryAmount, amount } = crossCurrency(event);
+  const actual = amount.isNegative() ? amount.negated() : amount;
+  try {
+    const { to } = convert(actual, event.rate, operationDate);
+    return [
+      {
+        amount: actual,
+        entryAmount: entryAmount.isNegative() ? entryAmount.negated() : entryAmount,
+        converted: to,
+        rate: event.rate,
+      },
+    ];
+  } catch (error) {
+    if (error instanceof DomainError) throw new LedgerError("INVALID_RATE", error.message);
+    throw error;
+  }
+}
+
+/** The conversion difference in the entry's currency: the converted amount minus the entry's actual amount. */
+export function conversionDifference(c: EntryConversion): Money {
+  return c.converted.minus(c.entryAmount);
+}
 
 /**
  * The postings of an event by the current rules (FIN-04 FR 2–4). An event without a rule is refused with

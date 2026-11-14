@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { exchangeRate, Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import type {
   Entry,
@@ -145,6 +145,21 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
         WHERE household_id = $1 AND entry_id = $2 ORDER BY seq`,
       [q.householdId, row.id],
     );
+    const conversions = await q.query<{
+      currency: string;
+      amount: string;
+      entry_currency: string;
+      entry_amount: string;
+      rate: string;
+      rate_date: string;
+      rate_source: string;
+      converted: string;
+    }>(
+      `SELECT currency, amount::text AS amount, entry_currency, entry_amount::text AS entry_amount, rate::text AS rate,
+              rate_date::text AS rate_date, rate_source, converted::text AS converted
+         FROM conversions WHERE household_id = $1 AND entry_id = $2 ORDER BY seq`,
+      [q.householdId, row.id],
+    );
     return {
       id: row.id,
       source: { module: row.source_module, id: row.source_id },
@@ -157,6 +172,18 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
         debitAccountId: p.debit_account_id,
         creditAccountId: p.credit_account_id,
         amount: Money.of(p.amount, p.currency),
+      })),
+      conversions: conversions.rows.map((c) => ({
+        amount: Money.of(c.amount, c.currency),
+        entryAmount: Money.of(c.entry_amount, c.entry_currency),
+        converted: Money.of(c.converted, c.entry_currency),
+        rate: exchangeRate({
+          base: c.currency,
+          quote: c.entry_currency,
+          rate: c.rate,
+          date: c.rate_date,
+          source: c.rate_source,
+        }),
       })),
     };
   };
@@ -245,6 +272,31 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
           postings.map((p) => p.creditAccountId),
           postings.map((p) => p.amount.toDecimalString()),
           postings.map((p) => p.amount.currency),
+        ],
+      );
+    },
+    async insertConversions(entryId, conversions) {
+      // The rate as its exact decimal text (never a float); the database checks converted = amount × rate.
+      await q.query(
+        `INSERT INTO conversions (household_id, entry_id, seq, currency, amount, entry_currency, entry_amount, rate,
+           rate_date, rate_source, converted)
+         SELECT $1, $2, s.seq, s.currency, s.amount, s.entry_currency, s.entry_amount, s.rate, s.rate_date,
+                s.rate_source, s.converted
+           FROM unnest($3::smallint[], $4::text[], $5::numeric[], $6::text[], $7::numeric[], $8::numeric[], $9::date[],
+                       $10::text[], $11::numeric[])
+             AS s(seq, currency, amount, entry_currency, entry_amount, rate, rate_date, rate_source, converted)`,
+        [
+          q.householdId,
+          entryId,
+          conversions.map((_, i) => i + 1),
+          conversions.map((c) => c.amount.currency),
+          conversions.map((c) => c.amount.toDecimalString()),
+          conversions.map((c) => c.entryAmount.currency),
+          conversions.map((c) => c.entryAmount.toDecimalString()),
+          conversions.map((c) => c.rate.rate.toFixed()),
+          conversions.map((c) => c.rate.date),
+          conversions.map((c) => c.rate.source),
+          conversions.map((c) => c.converted.toDecimalString()),
         ],
       );
     },

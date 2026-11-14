@@ -42,7 +42,10 @@ export const refKey = (ref: AccountRef): string =>
  * one posting; every amount positive; the two sides different accounts; and both accounts in the posting's currency
  * (an amount counted in another currency on one side would leave that currency unbalanced).
  */
-export function assertBalanced(postings: readonly Posting[], currencyOf: (ref: AccountRef) => string): void {
+export function assertBalanced(
+  postings: readonly Posting[],
+  currencyOf: (ref: AccountRef, posting: Posting) => string,
+): void {
   if (postings.length === 0)
     throw new LedgerError("EMPTY_POSTING_SET", "An entry needs at least one posting");
   if (postings.length > MAX_POSTINGS)
@@ -52,7 +55,7 @@ export function assertBalanced(postings: readonly Posting[], currencyOf: (ref: A
       throw new LedgerError("INVALID_POSTING", "A posting amount must be positive");
     if (refKey(p.debit) === refKey(p.credit))
       throw new LedgerError("INVALID_POSTING", "A posting must debit and credit different accounts");
-    if (currencyOf(p.debit) !== p.amount.currency || currencyOf(p.credit) !== p.amount.currency)
+    if (currencyOf(p.debit, p) !== p.amount.currency || currencyOf(p.credit, p) !== p.amount.currency)
       throw new LedgerError("UNBALANCED", "A posting's accounts must both be in the posting's currency");
   }
 }
