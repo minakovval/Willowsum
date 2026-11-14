@@ -131,6 +131,25 @@ function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
         ],
       });
     },
+    async transferred(householdId, actorAccountId, account, transfer) {
+      await audit.record(householdId, {
+        actor: { kind: "user", id: actorAccountId },
+        channel: "web",
+        entity: { type: "accounts.account", id: account.id },
+        action: "update",
+        changes: [
+          { field: "settlement.kind", before: null, after: "transfer", sensitive: false },
+          { field: "settlement.toAccountId", before: null, after: transfer.toAccountId, sensitive: false },
+          {
+            field: `settlement.${transfer.currency}`,
+            before: null,
+            after: transfer.amount.toDecimalString(),
+            sensitive: false,
+          },
+          { field: "settlement.entryId", before: null, after: transfer.entryId, sensitive: false },
+        ],
+      });
+    },
     async adjustmentChanged(householdId, actor, channel, subaccount, before, after) {
       const value = (a: typeof before, field: "entryId" | "amount" | "date") =>
         a === null ? null : field === "amount" ? a.amount.toDecimalString() : a[field];

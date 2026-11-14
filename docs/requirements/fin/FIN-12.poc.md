@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-10, П-12, П-24, П-25, П-26, CMP-32, CMP-60
 - Сценарії: UC-FIN-01, UC-FIN-03, UC-FIN-07, UC-FIN-08, UC-FIN-09, UC-FIN-11, UC-FIN-12, UC-FIN-13
 - Модуль: accounts, ledger
-- Перевіряється: apps/api/src/modules/accounts/domain/fin12-manage.test.ts, apps/api/test/fin12-accounts.it.test.ts
+- Перевіряється: apps/api/src/modules/accounts/domain/fin12-manage.test.ts, apps/api/test/fin12-accounts.it.test.ts, apps/api/test/sec224-manage.it.test.ts
 
 **Мета.** Як власник простору, я хочу впорядковувати, групувати й закривати рахунки без втрати історії, щоб список рахунків відповідав моїй реальній фінансовій картині.
 

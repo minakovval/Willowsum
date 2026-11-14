@@ -182,6 +182,7 @@ export async function closeAccount(
     const other = await tx.lockAccount(householdId, input.settlement.toAccountId);
     if (!other) return issueOf("not_found");
     if (other.status === "closed") return issueOf("closed");
+    if (other.openedOn > input.closedOn) return issueOf("opened_later");
     const theirs = await tx.subaccounts(householdId, other.id);
     const plans = [];
     for (const o of owed) {
@@ -194,11 +195,20 @@ export async function closeAccount(
       const [from, to] = balance.isNegative()
         ? [into.ledgerAccountId, subaccount.ledgerAccountId]
         : [subaccount.ledgerAccountId, into.ledgerAccountId];
-      await deps.ledger.post(householdId, {
+      const entry = await deps.ledger.post(householdId, {
         source: { module: "accounts", id: subaccount.id },
         idempotencyKey: `accounts.close:${deps.newId()}`,
         operationDate: input.closedOn,
         event: { type: "transfer", from, to, amount: balance.isNegative() ? balance.negated() : balance },
+      });
+      // Audited right after its own ledger transaction (#224 security review): a failure of a later step (another
+      // currency's transfer, the closing) must not leave a transfer that moved money without an audit entry — a retry
+      // finds that balance zero and would not record it again. The atomic hand-over stays #210.
+      await deps.audit.transferred(householdId, caller.accountId, account, {
+        toAccountId: other.id,
+        currency: subaccount.currency,
+        amount: balance,
+        entryId: entry.id,
       });
       settled.push({ currency: subaccount.currency, balance });
     }

@@ -293,7 +293,7 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
     expect(closed.json().loan.debt).toEqual({ amount: "0", currency: "EUR" });
   });
 
-  it("FIN-12@PoC FR 7: the transfer goes to another active account of the space in the same currency; the date is from the opening to today", async () => {
+  it("FIN-12@PoC FR 7: the transfer goes to another active account of the space in the same currency, opened by the closing date; the date is from the opening to today", async () => {
     const space = await newSpace();
     const other = await newSpace();
     const eur = await createAccount(space, { kind: "current", name: "Поточний", amount: "50.00" });
@@ -306,6 +306,12 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
     const closedTarget = await createAccount(space, { kind: "cash", name: "Стара готівка", amount: "0.00" });
     await call(space, "POST", `/v1/accounts/${closedTarget.id}/close`, { closedOn: TODAY });
     const foreign = await createAccount(other, { kind: "current", name: "Чужий", amount: "5.00" });
+    const laterAccount = await createAccount(space, {
+      kind: "current",
+      name: "Відкритий пізніше",
+      amount: "0.00",
+      date: "2026-10-10",
+    });
 
     const issue = async (body: unknown) => {
       const res = await call(space, "POST", `/v1/accounts/${eur.id}/close`, body);
@@ -328,6 +334,9 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
     expect(await issue(transfer(foreign.id))).toEqual([
       expect.objectContaining({ path: "settlement.toAccountId", issue: "not_found" }),
     ]);
+    expect(
+      await issue({ closedOn: "2026-10-01", settlement: { kind: "transfer", toAccountId: laterAccount.id } }),
+    ).toEqual([expect.objectContaining({ path: "settlement.toAccountId", issue: "opened_later" })]);
     expect(await issue({ closedOn: "2026-10-18" })).toEqual([
       expect.objectContaining({ path: "closedOn", issue: "in_future" }),
     ]);

@@ -148,6 +148,21 @@ export interface AccountAudit {
     },
   ): Promise<void>;
   /**
+   * One currency's balance moved by «Перенести на інший рахунок» (FIN-12 FR 7), recorded right after its ledger entry
+   * committed, before the closing itself.
+   */
+  transferred(
+    householdId: string,
+    actorAccountId: string,
+    account: Pick<StoredAccount, "id">,
+    transfer: {
+      readonly toAccountId: string;
+      readonly currency: string;
+      readonly amount: Money;
+      readonly entryId: string;
+    },
+  ): Promise<void>;
+  /**
    * The adjustment of «Оновити залишок» on a subaccount created, changed or deleted (FIN-12 FR 15, FIN-04 FR 11, AC7):
    * amount and date before and after; by the user, or by the system for a statement's recount.
    */
