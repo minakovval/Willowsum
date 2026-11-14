@@ -12,6 +12,8 @@ export const FEATURES = {
   "identity.sign-in": "Реєстрація за email і паролем, підтвердження email, вхід і вихід (ACC-01)",
   "identity.profile":
     "Профіль (ім'я, email лише для читання) і зміна пароля зі step-up поточним паролем (ACC-05@PoC)",
+  "transactions.manual":
+    "Ручні транзакції: створення, зміна і видалення через журнал, список транзакцій з підсумками (FIN-03@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

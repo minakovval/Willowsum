@@ -62,6 +62,11 @@ export interface ListAmounts {
    * each transaction) or `today` (values of assets and liabilities, account balances: the day of display).
    */
   readonly rateDate: { readonly column: string } | "today";
+  /**
+   * Also group by the sign of the amount (FIN-03@PoC FR 13: the totals of income, expenses and their difference):
+   * each group then holds only positive (`in`) or only negative (`out`) amounts.
+   */
+  readonly bySign?: boolean;
 }
 
 export interface ListSpec extends ListQuerySpec {
@@ -90,6 +95,8 @@ export interface AmountGroup {
   readonly date: string | null;
   readonly sum: Money;
   readonly count: number;
+  /** With `bySign`: whether the group's amounts are positive (`in`) or negative (`out`). */
+  readonly sign?: "in" | "out";
 }
 
 export interface ListResult {
@@ -204,17 +211,32 @@ export function defineList(spec: ListSpec): List {
       let count: number;
       let groups: AmountGroup[] = [];
       if (amounts) {
-        const { rows } = await q.query<{ currency: string; date: string | null; sum: string; count: number }>(
-          `SELECT ${quote(amounts.currencyColumn)}::text AS currency, ${dateExpr} AS date,
+        const signExpr = amounts.bySign
+          ? `CASE WHEN ${quote(amounts.amountColumn)} < 0 THEN 'out' ELSE 'in' END`
+          : "NULL::text";
+        const { rows } = await q.query<{
+          currency: string;
+          date: string | null;
+          sign: "in" | "out" | null;
+          sum: string;
+          count: number;
+        }>(
+          `SELECT ${quote(amounts.currencyColumn)}::text AS currency, ${dateExpr} AS date, ${signExpr} AS sign,
                   sum(${quote(amounts.amountColumn)})::text AS sum, count(*)::int AS count
-             FROM ${table} WHERE ${where} GROUP BY 1, 2 ORDER BY 1, 2`,
+             FROM ${table} WHERE ${where} GROUP BY 1, 2, 3 ORDER BY 1, 2, 3`,
           params,
         );
         groups = rows.map((r) => {
           // The column is NOT NULL (checked above); an empty date is never converted at today's rate.
           if (r.date === null && amounts.rateDate !== "today")
             throw new Error("list: a record has no rate date");
-          return { currency: r.currency, date: r.date, sum: Money.of(r.sum, r.currency), count: r.count };
+          const group = {
+            currency: r.currency,
+            date: r.date,
+            sum: Money.of(r.sum, r.currency),
+            count: r.count,
+          };
+          return r.sign === null ? group : { ...group, sign: r.sign };
         });
         count = groups.reduce((n, g) => n + g.count, 0);
       } else {

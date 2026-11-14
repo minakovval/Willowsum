@@ -80,6 +80,14 @@ export const FLAGS = {
     description:
       "Профіль і зміна пароля зі step-up (ACC-05@PoC): /v1/profile, /v1/session/step-up; маршрути без простору, тож діє лише етап «all»",
   },
+  "transactions.manual": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-14",
+    requires: "accounts.manual",
+    description:
+      "Ручні транзакції (FIN-03@PoC a): створення, зміна і видалення через журнал, список з підсумками; маршрути /v1/transactions",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

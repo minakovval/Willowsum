@@ -8,10 +8,15 @@ import { parseArgs } from "node:util";
 import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
-import { createAccountsServices } from "./modules/accounts/index.ts";
+import { createAccountDirectory, createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
-import { createFxReporting, startFxRatesRefresh } from "./modules/fx-rates/index.ts";
+import {
+  createFxRates,
+  createFxReporting,
+  officialDatedRates,
+  startFxRatesRefresh,
+} from "./modules/fx-rates/index.ts";
 import {
   createHouseholdServices,
   createHouseholdSpaces,
@@ -20,6 +25,7 @@ import {
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
+import { createTransactionsServices } from "./modules/transactions/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
@@ -33,6 +39,7 @@ import { scheduleDaily } from "./platform/process/daily.ts";
 import { createLifecycle } from "./platform/process/lifecycle.ts";
 import { createWorker } from "./platform/queue/index.ts";
 import { createApiRateLimits } from "./platform/http/rate-limit.ts";
+import { createListTotals } from "./platform/lists/list-total.ts";
 import { buildServer } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
 import { startTelemetry } from "./platform/telemetry/telemetry.ts";
@@ -184,6 +191,21 @@ const server = buildServer({
               liabilities: createLiabilities(databases.for("liabilities"), audit),
               keys: createSpaceKeys(databases.for("household"), audit, kms),
               fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
+            }),
+            // FIN-03: a transaction is one journal event on the account's subaccount (accounts' directory); the
+            // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates).
+            transactions: createTransactionsServices({
+              accounts: createAccountDirectory(databases.for("accounts")),
+              ledger: createLedger(databases.for("ledger")),
+              totals: createListTotals({
+                rates: officialDatedRates(
+                  createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+                ),
+                now: () => systemClock.now(),
+              }),
               audit,
               clock: systemClock,
               newId: randomUUID,
