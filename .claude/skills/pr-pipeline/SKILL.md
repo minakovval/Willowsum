@@ -98,7 +98,7 @@ first, start no new tasks and let the in-flight agents finish. Then write the st
 state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows,
 and the name for the next session; keep that issue current during the session too, after every 3 merges and
 whenever an owner question changes (owner, 2026-11-14). Record the session's token usage in #180, append «(завершено)» to your
-session title, and tell the owner to start a new session. A new session first renames itself
+session title, and tell the owner to start a new session, giving the ready start message for it in one code block that the owner only copies (owner, 2026-11-14; [restarts](references/restarts.md), «Start message»). A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, then reads «Lead state»
 ([restarts](references/restarts.md), [token economy](references/token-economy.md)).
 Every handover is confirmed to the owner in chat in full, item by item: what was done with each item and where

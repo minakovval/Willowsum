@@ -29,6 +29,13 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
   the next session (`Willowsum · ведучий N+1 · <з чого почати>`); then rename yourself with «(завершено)»
   appended to the current title, e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3 (завершено)`.
 
+**Start message** (owner, 2026-11-14): when the lead proposes a new session, it gives the owner the whole first message
+for it in one code block, ready to copy without edits. It names the session (`Willowsum · ведучий N+1 · <з чого почати>`),
+tells it to read «Lead state» (#179), the process queue (#178) and token accounting (#180) and to work by
+`.claude/skills/pr-pipeline`, lists the start steps (rename, starting usage in #180, item-by-item handover
+confirmation with links), and names the first tasks and any owner question still open. The owner should not have to
+write or edit anything.
+
 **Handover confirmation** (owner, 2026-11-13): every handover between lead sessions is confirmed to the owner in
 chat in full, item by item — the finishing lead for what it hands over, the new lead for what it took over. For
 each item: what was done with it and where it is recorded (skill or instruction file, PR or issue, with a link).
