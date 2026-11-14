@@ -6,6 +6,7 @@ import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import {
   dailyCleanup,
+  journaledStore,
   sessionAccount,
   type DailyCleanupReport,
   type FirstSpace,
@@ -13,8 +14,16 @@ import {
   type PasswordHasher,
   type Secrets,
   type SessionAccount,
+  type SignInJournal,
 } from "../../application/index.ts";
-import { SIGN_UP_WINDOW_MS, SIGN_UPS_PER_ADDRESS_PER_HOUR, signUpAllowlist } from "../../domain/index.ts";
+import {
+  deviceName,
+  journalEntry,
+  SIGN_UP_WINDOW_MS,
+  SIGN_UPS_PER_ADDRESS_PER_HOUR,
+  signUpAllowlist,
+  type JournalClient,
+} from "../../domain/index.ts";
 import { argon2Hasher, nodeSecrets } from "../crypto.ts";
 import { databaseIdentityStore, databaseSlidingLimiter } from "../db/store.ts";
 
@@ -28,9 +37,10 @@ export interface IdentityServices {
   readonly [BRAND]: true;
   readonly mail: MailSender;
   readonly captcha: CaptchaVerifier;
-  readonly audit: Pick<AuditLog, "recordPlatform">;
+  /** The platform log (account states) and the space's log (the sign-in journal, ACC-04). */
+  readonly audit: Pick<AuditLog, "recordPlatform" | "record">;
   readonly webOrigin: string;
-  /** The household module's first space (ACC-01 FR 7): created on the first sign-in. */
+  /** The household module's first space (ACC-01 FR 7): created on the first sign-in; the account's space. */
   readonly spaces: FirstSpace;
   /** May this login key sign up (ACC-01 FR 16)? From `signUpAllowlist`; the list itself is not kept here. */
   readonly signUpAllowed: (normalizedEmail: string) => boolean;
@@ -47,7 +57,7 @@ export interface IdentityServices {
 export interface IdentityServicesOptions {
   readonly mail: MailSender;
   readonly captcha: CaptchaVerifier;
-  readonly audit: Pick<AuditLog, "recordPlatform">;
+  readonly audit: Pick<AuditLog, "recordPlatform" | "record">;
   readonly webOrigin: string;
   readonly spaces: FirstSpace;
   /**
@@ -94,7 +104,39 @@ export function identityDeps(ctx: PublicContext): IdentityDeps {
   const services = ctx.services as IdentityServices | undefined;
   // Wired by src/api.ts; without it (or the module database) nothing of identity runs.
   if (!services || services[BRAND] !== true || !ctx.db) throw new ApiProblem("INTERNAL");
-  return depsFor(services, ctx.db);
+  return depsFor(services, ctx.db, journalClient(ctx.http));
+}
+
+/**
+ * The request as the sign-in journal names it: the client address in the form the server counts it by (IPv4 as is,
+ * IPv6 its /64 network; NFR-14 FR 8) and the device (browser and system without versions); never the user agent.
+ */
+export interface RequestClient {
+  readonly clientAddress: string;
+  readonly userAgent: string;
+}
+
+function journalClient(client: RequestClient): JournalClient {
+  return { address: client.clientAddress, device: deviceName(client.userAgent) };
+}
+
+/**
+ * The sign-in journal in the audit log of the account's space (ACC-04 business rules; NFR-15 FR 29; owner decision
+ * 2026-11-14 «журнал простору»): deleted with the space (NFR-12). An account without a space has no log, so nothing is
+ * written (a failed sign-in of a confirmed account before its first space). PoC: an account has one space.
+ */
+function signInJournal(
+  audit: Pick<AuditLog, "record">,
+  spaces: Pick<FirstSpace, "membershipOf">,
+  client: JournalClient | null,
+): SignInJournal {
+  return {
+    async record(event) {
+      const space = await spaces.membershipOf(event.accountId);
+      if (!space) return;
+      await audit.record(space.householdId, journalEntry(event, client));
+    },
+  };
 }
 
 /**
@@ -107,8 +149,10 @@ export function authenticateSession(
   services: IdentityServices,
   db: HouseholdFreeDatabase,
   token: string,
+  /** The request, for the journal's entry when this check ends a lapsed session. */
+  client?: RequestClient,
 ): Promise<SessionAccount | null> {
-  return sessionAccount(depsFor(services, db), token);
+  return sessionAccount(depsFor(services, db, client ? journalClient(client) : null), token);
 }
 
 /**
@@ -117,11 +161,16 @@ export function authenticateSession(
  */
 export function createIdentityMaintenance(options: {
   readonly db: HouseholdFreeDatabase;
-  readonly audit: Pick<AuditLog, "recordPlatform">;
+  readonly audit: Pick<AuditLog, "recordPlatform" | "record">;
+  /** The account's space, whose log gets the end of a lapsed session the task ends (ACC-04). */
+  readonly spaces: Pick<FirstSpace, "membershipOf">;
   readonly now?: () => number;
 }): { dailyCleanup(): Promise<DailyCleanupReport> } {
   const deps = {
-    store: databaseIdentityStore(options.db),
+    store: journaledStore(
+      databaseIdentityStore(options.db),
+      signInJournal(options.audit, options.spaces, null),
+    ),
     now: options.now ?? Date.now,
     audit: {
       accountDeleted: async (accountId: string) => {
@@ -138,9 +187,15 @@ export function createIdentityMaintenance(options: {
   return { dailyCleanup: () => dailyCleanup(deps) };
 }
 
-function depsFor(services: IdentityServices, db: HouseholdFreeDatabase): IdentityDeps {
+function depsFor(
+  services: IdentityServices,
+  db: HouseholdFreeDatabase,
+  client: JournalClient | null,
+): IdentityDeps {
+  const journal = signInJournal(services.audit, services.spaces, client);
   return {
-    store: databaseIdentityStore(db),
+    store: journaledStore(databaseIdentityStore(db), journal),
+    journal,
     now: services.now,
     hasher: services.hasher,
     secrets: services.secrets,

@@ -1,7 +1,8 @@
 /**
- * The device of a sign-in (ACC-04@PoC FR 4; NFR-15@PoC FR 29): a device is its user agent. The history keeps only
- * the SHA-256 of the user agent; letters and the «Це був не я» page name the browser and system from a fixed list,
- * never the user agent text. Location is not shown until there is a GeoIP database (NFR-15 FR 29).
+ * The device of a sign-in (ACC-04@PoC FR 4; NFR-15@PoC FR 29; owner decision 2026-11-14): a device is its browser and
+ * system without versions, from a fixed list («Chrome на Windows»), so a browser update is not a new device. The same
+ * value is the device of the sign-in journal. The history keeps only the SHA-256 of the key; the user agent text is
+ * never stored. Location is not shown until there is a GeoIP database (NFR-15 FR 29).
  */
 
 const DAY = 24 * 60 * 60_000;
@@ -9,7 +10,7 @@ const DAY = 24 * 60 * 60_000;
 /** A «Це був не я» link is valid 7 days and works once (ACC-04 FR 5). */
 export const NOT_ME_TTL_MS = 7 * DAY;
 
-/** The longest user agent the server reads; the rest is ignored (the digest is of these characters). */
+/** The longest user agent the server reads; the rest is ignored. */
 export const USER_AGENT_MAX = 512;
 
 export const DEVICE_BROWSERS = ["chrome", "edge", "firefox", "safari", "opera", "other"] as const;
@@ -22,14 +23,32 @@ export interface DeviceName {
   readonly os: DeviceOs;
 }
 
-/** The user agent as the server keys a device by it: trimmed, at most 512 characters. */
+/** The key of a device in the sign-in history (scheme 2): `device:<browser>/<os>`. */
+export function deviceKeyOf(device: DeviceName): string {
+  return `device:${device.browser}/${device.os}`;
+}
+
+/** The key of the device of a user agent: its browser and system, without versions. */
 export function deviceKey(userAgent: string): string {
+  return deviceKeyOf(deviceName(userAgent));
+}
+
+/**
+ * The key of the history kept before 2026-11-14 (scheme 1): the whole user agent, trimmed, at most 512 characters.
+ * Only for recognising such rows at sign-in; nothing new is keyed by it.
+ */
+export function legacyDeviceKey(userAgent: string): string {
   return `device:${userAgent.trim().slice(0, USER_AGENT_MAX)}`;
 }
 
-/** The browser and system of a user agent, for people (not for matching: that is the whole user agent). */
+/** As the journal and the history name a device: `<browser>/<os>` (e.g. `chrome/windows`). */
+export function deviceLabel(device: DeviceName): string {
+  return `${device.browser}/${device.os}`;
+}
+
+/** The browser and system of a user agent, without versions. */
 export function deviceName(userAgent: string): DeviceName {
-  const ua = userAgent;
+  const ua = userAgent.slice(0, USER_AGENT_MAX);
   const browser: DeviceBrowser = /\bEdg(?:e|A|iOS)?\//.test(ua)
     ? "edge"
     : /\b(?:OPR|Opera|OPT)\//.test(ua)

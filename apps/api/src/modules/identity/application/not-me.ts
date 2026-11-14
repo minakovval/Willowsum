@@ -1,4 +1,5 @@
 import {
+  deviceKeyOf,
   notMeLinkUsable,
   PASSWORD_RESET_TTL_MS,
   passwordResetLetter,
@@ -63,7 +64,8 @@ export async function confirmNotMe(deps: IdentityDeps, token: string): Promise<C
     // ACC-04 FR 5; NFR-01 FR 12: every session of the account ends, whichever device holds it.
     await tx.endSessions(account.id, now, "not-me");
     await tx.requirePasswordReset(account.id, now);
-    await tx.forgetDevice(account.id, link.deviceDigest);
+    // Each key the device may have in the history: the link's own and its browser and system (ACC-04 FR 4).
+    await tx.forgetDevice(account.id, [link.deviceDigest, deps.secrets.digest(deviceKeyOf(link.device))]);
     // A fresh reset link replaces the earlier ones. It is sent whatever the reset letter limit says: one per link.
     await tx.revokePasswordResets(account.id, now);
     await tx.insertPasswordReset(

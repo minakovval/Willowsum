@@ -14,6 +14,7 @@ export {
   signUp,
 } from "./accounts.ts";
 export { dailyCleanup, DEADLOCK_RETRIES, DELETE_BATCH } from "./maintenance.ts";
+export { journaledStore } from "./journal.ts";
 export type { DailyCleanupReport } from "./maintenance.ts";
 export { confirmNotMe, notMeLinkState } from "./not-me.ts";
 export type { ConfirmNotMeResult, NotMeLinkState } from "./not-me.ts";

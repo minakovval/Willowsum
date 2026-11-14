@@ -88,9 +88,9 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 
 1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
    tests table if tests were added, «Follow-ups».
-2. One fix commit for the round (`<ID>: address review round <n>`), plus a separate sync merge commit when the
-   branch is behind `main` (pr-pipeline step 4); WIP commits made during the round are fine (pr-pipeline step 2), with the attribution lines the session gives;
-   push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
+2. One fix commit for the round (`<ID>: address review round <n>`), with the attribution lines the session gives,
+   plus a separate sync merge commit when the branch is behind `main` (pr-pipeline step 4); WIP commits made during
+   the round are fine (pr-pipeline step 2); push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
 3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each
    blocking item → fixed by file / test, in one line each), blockers, owner questions. Follow-ups and check

@@ -5,6 +5,7 @@ import {
   confirmationLink,
   deviceKey,
   deviceName,
+  legacyDeviceKey,
   maskedAddress,
   mailWaitS,
   newSignInLetter,
@@ -25,6 +26,7 @@ import {
   signUpAttemptLetter,
   tokenStanding,
   type SessionEndShown,
+  type SignInEvent,
 } from "../domain/index.ts";
 import type { MailMessage } from "../../../platform/adapters/mail/index.ts";
 import type { AccountRow, IdentityDeps, IdentityTx, SessionRow, ThrottleScope } from "./ports.ts";
@@ -334,6 +336,13 @@ const decoys = new WeakMap<object, Promise<string>>();
  * Sign-in (ACC-01 FR 2, 5, 9, 12; NFR-14 FR 7; NFR-01 FR 9). The email's guard first: locked → wait; after a
  * lockout → CAPTCHA. Then the password, verified against the account's hash or a decoy, so an unknown address
  * takes the same time and gets the same answer. The 5th failure in 15 min locks the email for 15 min.
+ *
+ * The sign-in journal (ACC-04 business rules; NFR-15 FR 29): a sign-in, and a failed one whose password was checked
+ * for a confirmed account, are written to the space's audit log with the request's address and device. A failure is
+ * written after the answer (an address without an account writes nothing, so the work on the response path is the
+ * same for both; NFR-15 FR 1); an address without an account, an unconfirmed account and an account without a space
+ * write nothing (owner decision 2026-11-14). Attempts refused before the password is checked (locked, CAPTCHA) are
+ * not written: the lock bounds the entries anyone can add to a space's log to 5 a quarter-hour.
  */
 export async function signIn(
   deps: IdentityDeps,
@@ -358,6 +367,7 @@ export async function signIn(
     captchaPassed = true;
   }
   const decoy = await decoyHash(deps);
+  let failures: SignInEvent[] = [];
   type Signed =
     | Exclude<SignInResult, { kind: "signed-in" }>
     | {
@@ -365,9 +375,11 @@ export async function signIn(
         sessionToken: string;
         maxAgeS: number;
         account: { accountId: string; displayName: string };
+        sessionId: string;
         letter: MailMessage | null;
       };
   const result = await deps.store.transaction(async (tx): Promise<Signed> => {
+    failures = [];
     // Under the guard's row lock: parallel attempts for one email are counted one after another.
     const guard = await tx.lockGuard(key);
     const now = deps.now();
@@ -378,17 +390,26 @@ export async function signIn(
     const account = await tx.findAccountByEmail(normalizedEmail, "share");
     const ok = await deps.hasher.verify(account?.passwordHash ?? decoy, normalizePassword(input.password));
     if (!account || !ok) {
+      // Only a confirmed account has a journal (its space); nothing about an unknown or unconfirmed address is kept.
+      const journaled = account !== null && account.emailConfirmedAt !== null;
+      if (journaled)
+        failures.push({ kind: "sign-in-failed", accountId: account.id, reason: "invalid-password" });
       await tx.addEvent("sign-in-failure", key, now);
-      const failures = (await tx.eventTimes("sign-in-failure", key, now - SIGN_IN_FAILURE_WINDOW_MS)).length;
-      const lock = afterFailure(failures, now);
+      const count = (await tx.eventTimes("sign-in-failure", key, now - SIGN_IN_FAILURE_WINDOW_MS)).length;
+      const lock = afterFailure(count, now);
       if (!lock) return { kind: "invalid" };
+      if (journaled) failures.push({ kind: "sign-in-locked", accountId: account.id, reason: "sign-in" });
       await tx.setGuard(key, lock, now);
       await tx.clearEvents("sign-in-failure", key);
       return { kind: "locked", retryAfterS: secondsUntil(lock.lockedUntil!, now) };
     }
     // The right password, but «Це був не я» was confirmed: no sign-in until a new password (ACC-04 FR 5). Asked only
     // after the right password, so the answer tells nothing to someone without it (NFR-15 FR 1, 2).
-    if (account.passwordResetRequiredAt !== null) return { kind: "password-reset-required" };
+    if (account.passwordResetRequiredAt !== null) {
+      if (account.emailConfirmedAt !== null)
+        failures.push({ kind: "sign-in-failed", accountId: account.id, reason: "password-reset-required" });
+      return { kind: "password-reset-required" };
+    }
     // The right password: the counter and the CAPTCHA mark of the email are cleared.
     await tx.clearEvents("sign-in-failure", key);
     if (guard.captchaRequired || guard.lockedUntil !== null)
@@ -406,12 +427,19 @@ export async function signIn(
       return { kind: "email-not-confirmed", registrationToken, resendAfterS: 0 };
     }
     const sessionToken = deps.secrets.token();
-    await tx.insertSession(account.id, deps.secrets.digest(sessionToken), now, now + SESSION_ABSOLUTE_MS);
-    // NFR-15 FR 6, 29; ACC-04 FR 4: a device (user agent) not in the account's sign-in history gets the security
-    // letter with «Це був не я». The first sign-in of an account starts the history and sends nothing.
+    const sessionId = await tx.insertSession(
+      account.id,
+      deps.secrets.digest(sessionToken),
+      now,
+      now + SESSION_ABSOLUTE_MS,
+    );
+    // NFR-15 FR 6, 29; ACC-04 FR 4: a device (browser and system, without versions) not in the account's sign-in
+    // history gets the security letter with «Це був не я». The first sign-in of an account starts the history and
+    // sends nothing. A row of the previous release's history (the whole user agent) still counts as known.
     const deviceDigest = deps.secrets.digest(deviceKey(input.userAgent));
+    const legacyDigest = deps.secrets.digest(legacyDeviceKey(input.userAgent));
     let letter: MailMessage | null = null;
-    if ((await tx.rememberDevice(account.id, deviceDigest, now)) === "new") {
+    if ((await tx.rememberDevice(account.id, { digest: deviceDigest, legacyDigest }, now)) === "new") {
       const device = deviceName(input.userAgent);
       const notMeToken = deps.secrets.token();
       await tx.insertNotMeLink({
@@ -433,15 +461,31 @@ export async function signIn(
       sessionToken,
       maxAgeS: SESSION_ABSOLUTE_MS / 1000,
       account: { accountId: account.id, displayName: account.displayName },
+      sessionId,
       letter,
     };
   });
+  if (failures.length > 0) {
+    const events = failures;
+    deps.afterResponse(async () => {
+      for (const event of events) await deps.journal.record(event);
+    });
+  }
   if (result.kind !== "signed-in") return result;
   // The first sign-in creates the first space (ACC-01 FR 7); every later one finds it. A session is handed out only
-  // with a space: when the space cannot be made, the new session ends and the sign-in fails.
+  // with a space and with its entry in the space's journal: when either fails, the new session ends and the sign-in
+  // fails.
   try {
     await deps.spaces.ensureFirstSpace(result.account);
+    await deps.journal.record({
+      kind: "signed-in",
+      accountId: result.account.accountId,
+      sessionId: result.sessionId,
+    });
   } catch (error) {
+    // The device is in the history already: its letter goes now, or the next sign-in from it would be «known» and
+    // send nothing (NFR-15 FR 6, FR 29). The right password was given from that device.
+    if (result.letter) deps.sendLater(result.letter);
     await signOut(deps, result.sessionToken);
     throw error;
   }
