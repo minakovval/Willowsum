@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or when you find a process change.
+Owner rules, 2026-11-13 (chat to the lead); retrospective and proposal risks added (owner, 2026-11-14, #178). Read when you write to the owner or when you find a process change.
 
 ## Writing to the owner
 
@@ -18,6 +18,10 @@ Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or 
 4. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
    layout and the like. You decide, and record the decision in the decision log. Owner questions are only about
    product, scope, legal, money, access and infrastructure (AGENTS.md «Ambiguity»).
+5. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process
+   or a decision — comes at once with «ризики / мінуси / як пом'якшити» (owner, 2026-11-14, #178).
+6. At the end of every lead session: the retrospective as a comment on #180 and, briefly, to the owner in chat
+   ([token economy](token-economy.md), «Session retrospective»).
 
 ## Batching process changes
 

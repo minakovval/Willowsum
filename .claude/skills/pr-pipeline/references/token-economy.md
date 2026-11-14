@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
@@ -38,6 +38,13 @@ Owner request 2026-11-12; rules decided by the lead.
    exact run; compare its tokens and time with the #180 rows of similar PRs before deciding on more.
 9. Not adopted (owner, 2026-11-14: «ок, тоді діємо як радиш. 6 не робимо»): (3) the lead confirming code-PR
    syncs itself, and (6) a cap on the number of parallel code PRs.
+10. **Rate limit** (owner, 2026-11-14, #178): at session start check `get_session` →
+    `external_metadata.rate_limit_info`; on a warning run at most 2–3 authors at once (never fewer reviews), and
+    agents commit WIP after each step.
+11. Cost of rounds (owner, 2026-11-14, #178): one confirmation agent posts both verdicts of a `sensitive` PR (two
+    PR reviews with `commit_id`, ≈ 80–90 k context saved per sync); the fix agent does the sync with `main` in the
+    same push (separate commit), so no sync-confirmation round; cheap reviewer tests only in a fix round needed
+    anyway; split code PRs over one module and ≈ 1 500 lines (SKILL.md steps 1, 4–6).
 
 ## Token accounting
 
@@ -54,9 +61,9 @@ What the numbers mean (#178, comments 6873807074 and 6866721229):
   `cache_creation_input_tokens`, `input_tokens`, `output_tokens`) of every model call in the agent's log
   `tasks/<agentId>.output`, each `message.id` once — 30–90 times more (the lead's estimate, [#180 «Токени агентів»](https://github.com/minakovval/Willowsum/issues/180); not measured in #178).
 - A resumed agent's notice shows only its last run: sum `duration_ms` (and `subagent_tokens`) of every run.
-- `get_session` usage never included the agents, and since 2026-11-14 it returns no `usage` at all: the lead's
-  own spend is the sum of its session transcript `~/.claude/projects/<dir>/<session id>.jsonl` (#180, comment
-  6874092809).
+- `get_session` → `usage` is returned again and now includes the agents; it may be absent at session start
+  (owner, 2026-11-14, #178). The lead's own share is `tools/token-report session` on its transcript
+  `~/.claude/projects/<dir>/<session id>.jsonl` (#180, comment 6874092809).
 
 **Script** (owner, 2026-11-14, #178, comment 6873950124): `tools/token-report` (tests: `node --test
 'tools/token-report/**/*.test.mjs'`). Run it **right after the merge**: agent logs vanish with the container.
@@ -84,3 +91,10 @@ then record the row by hand with «журнал втрачено» in the note.
 3. **Weekly.** Once a week (the first session after 7 days since the last analysis) add a short «Аналіз» note
    to #180: which PR types cost most (sum and per PR, tokens and time), and the lead's own share (the session
    sums against the agents' sums). A change of process it suggests goes to the queue «Черга змін процесу» (#178).
+
+## Session retrospective
+
+At the end of every lead session (owner, 2026-11-14, #178): a comment on #180 in four parts — conclusions;
+productivity (tokens, time, the lead's share, the costliest PRs); improvement proposals, each with its risks,
+downsides and mitigations; risks. Tell it to the owner briefly in chat. Its process proposals go to «Черга змін
+процесу» (#178). Example: [#180, retrospective of «ведучий 3»](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
