@@ -48,3 +48,4 @@ export {
   type SettingsInput,
   type SettingsResult,
 } from "./settings.ts";
+export { updateAccountDetails, type DetailsResult } from "./details.ts";

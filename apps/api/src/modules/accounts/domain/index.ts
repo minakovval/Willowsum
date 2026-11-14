@@ -15,6 +15,7 @@ export {
   institutionOf,
   ledgerTypeOf,
   maskedNumber,
+  noteText,
   NOTE_MAX,
   openingAmount,
   openingEventAmount,
@@ -46,3 +47,11 @@ export {
   type LiveAdjustment,
 } from "./manage.ts";
 export { accountName, fieldsForKind, kindChange, type KindChange, type KindFields } from "./settings.ts";
+export {
+  checkDetails,
+  detailFieldsOf,
+  parseCardExpiry,
+  type DetailField,
+  type DetailsChange,
+  type DetailsInput,
+} from "./details.ts";

@@ -27,6 +27,7 @@ interface AccountRow {
   annual_rate: string | null;
   deposit_opened_on: string | null;
   deposit_matures_on: string | null;
+  card_expires: string | null;
   opened_on: string;
   status: StoredAccount["status"];
   closed_on: string | null;
@@ -36,7 +37,7 @@ interface AccountRow {
 // Dates as text, so no time zone of the driver touches them.
 const ACCOUNT_COLUMNS = `id, kind, name, institution_name, institution_country, institution_key, number_last4,
   number_sealed, note, annual_rate::text AS annual_rate, deposit_opened_on::text AS deposit_opened_on,
-  deposit_matures_on::text AS deposit_matures_on, opened_on::text AS opened_on, status,
+  deposit_matures_on::text AS deposit_matures_on, card_expires, opened_on::text AS opened_on, status,
   closed_on::text AS closed_on, source`;
 
 function account(row: AccountRow): StoredAccount {
@@ -53,6 +54,7 @@ function account(row: AccountRow): StoredAccount {
     annualRate: decimal(row.annual_rate),
     depositOpenedOn: row.deposit_opened_on,
     depositMaturesOn: row.deposit_matures_on,
+    cardExpiry: row.card_expires,
     openedOn: row.opened_on,
     status: row.status,
     closedOn: row.closed_on,
@@ -117,8 +119,8 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
       await q.query(
         `INSERT INTO accounts (household_id, id, kind, name, institution_name, institution_country, institution_key,
            number_last4, number_sealed, note, annual_rate, deposit_opened_on, deposit_matures_on, opened_on, status,
-           source)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
+           source, card_expires)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
         [
           householdId,
           a.id,
@@ -136,6 +138,7 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
           a.openedOn,
           a.status,
           a.source,
+          a.cardExpiry,
         ],
       );
     },
@@ -177,9 +180,37 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
     async updateSettings(householdId, a) {
       await q.query(
         `UPDATE accounts SET name = $3, kind = $4, annual_rate = $5, deposit_opened_on = $6, deposit_matures_on = $7,
-           updated_at = now()
+           card_expires = $8, updated_at = now()
          WHERE household_id = $1 AND id = $2`,
-        [householdId, a.id, a.name, a.kind, a.annualRate, a.depositOpenedOn, a.depositMaturesOn],
+        [
+          householdId,
+          a.id,
+          a.name,
+          a.kind,
+          a.annualRate,
+          a.depositOpenedOn,
+          a.depositMaturesOn,
+          a.cardExpiry,
+        ],
+      );
+    },
+    async updateDetails(householdId, a) {
+      await q.query(
+        `UPDATE accounts SET institution_name = $3, institution_country = $4, institution_key = $5, number_last4 = $6,
+           number_sealed = $7, note = $8, card_expires = $9, annual_rate = $10, updated_at = now()
+         WHERE household_id = $1 AND id = $2`,
+        [
+          householdId,
+          a.id,
+          a.institutionName,
+          a.institutionCountry,
+          a.institutionKey,
+          a.numberLast4,
+          a.numberSealed,
+          a.note,
+          a.cardExpiry,
+          a.annualRate,
+        ],
       );
     },
     async setStatus(householdId, accountId, status, closedOn) {
