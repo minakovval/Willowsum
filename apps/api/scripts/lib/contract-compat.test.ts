@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { contractProblems } from "./contract-compat.ts";
 
@@ -263,5 +264,93 @@ describe("ARC-07 FR 3 / criterion «несумісна зміна контрак
     expect(check(withRef(obj({ id: { type: "string" } }, ["id"])), withRef(obj({}, [])))).toEqual([
       expect.stringMatching(/\.id: field removed/),
     ]);
+  });
+
+  describe("oneOf / anyOf variants are matched by structure, not only by type (#229)", () => {
+    const transfer = {
+      type: "object",
+      properties: {
+        kind: { type: "string", const: "transfer" },
+        toAccountId: { type: "string", format: "uuid" },
+      },
+      required: ["kind", "toAccountId"],
+      additionalProperties: false,
+    };
+    const adjustment = {
+      type: "object",
+      properties: { kind: { type: "string", const: "adjustment" } },
+      required: ["kind"],
+      additionalProperties: false,
+    };
+    const withVariants = (
+      keyword: "oneOf" | "anyOf",
+      request: Json[],
+      response: Json[] = [
+        { $ref: "#/components/schemas/Transfer" },
+        { $ref: "#/components/schemas/Adjustment" },
+      ],
+    ): Json => ({
+      openapi: "3.1.1",
+      paths: {
+        "/v1/accounts/{accountId}/close": {
+          post: op({
+            body: obj({ closedOn: { type: "string" }, settlement: { [keyword]: request } }, ["closedOn"]),
+            response: obj({ settlement: { [keyword]: response } }, ["settlement"]),
+          }),
+        },
+      },
+      components: { schemas: { Transfer: transfer, Adjustment: adjustment } },
+    });
+    const refs = [{ $ref: "#/components/schemas/Transfer" }, { $ref: "#/components/schemas/Adjustment" }];
+
+    for (const keyword of ["oneOf", "anyOf"] as const) {
+      it(`${keyword} with inline and $ref branches of one type is compatible with itself`, () => {
+        expect(
+          check(withVariants(keyword, [transfer, adjustment]), withVariants(keyword, [transfer, adjustment])),
+        ).toEqual([]);
+        expect(check(withVariants(keyword, refs), withVariants(keyword, refs))).toEqual([]);
+        expect(check(withVariants(keyword, refs), withVariants(keyword, [adjustment, transfer]))).toEqual([]);
+      });
+
+      it(`${keyword}: a new required property in a request branch fails`, () => {
+        const stricter = {
+          ...adjustment,
+          properties: { ...adjustment.properties, reason: { type: "string" } },
+          required: ["kind", "reason"],
+        };
+        expect(
+          check(withVariants(keyword, [transfer, adjustment]), withVariants(keyword, [transfer, stricter])),
+        ).toEqual([expect.stringMatching(/settlement\.reason: new required request field/)]);
+      });
+
+      it(`${keyword}: a removed request branch fails`, () => {
+        expect(
+          check(withVariants(keyword, [transfer, adjustment]), withVariants(keyword, [transfer])),
+        ).not.toEqual([]);
+        expect(check(withVariants(keyword, refs), withVariants(keyword, [refs[1] as Json]))).not.toEqual([]);
+      });
+
+      it(`${keyword}: a new response branch fails; a new optional request branch field passes`, () => {
+        const other = {
+          type: "object",
+          properties: { kind: { type: "string", const: "writeOff" } },
+          required: ["kind"],
+        };
+        expect(check(withVariants(keyword, refs), withVariants(keyword, refs, [...refs, other]))).toEqual([
+          expect.stringMatching(/response 200 .*settlement.*may now return value "writeOff"/),
+        ]);
+        const looser = { ...transfer, properties: { ...transfer.properties, note: { type: "string" } } };
+        expect(
+          check(withVariants(keyword, [transfer, adjustment]), withVariants(keyword, [looser, adjustment])),
+        ).toEqual([]);
+      });
+    }
+
+    it("the committed packages/api-contract contract is compatible with itself", () => {
+      const contract = JSON.parse(
+        readFileSync(new URL("../../../../packages/api-contract/openapi.json", import.meta.url), "utf8"),
+      ) as Json;
+      expect(check(contract, structuredClone(contract))).toEqual([]);
+    });
   });
 });
