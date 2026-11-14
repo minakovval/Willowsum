@@ -134,12 +134,18 @@ proposals go to «Черга змін процесу» (owner, 2026-11-14, #178;
 state» (with a link to «Черга змін процесу»): open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows,
 and the name for the next session; keep that issue current during the session too, after every 3 merges and
 whenever an owner question changes (owner, 2026-11-14). Record the session's token usage in #180, append «(завершено)» to your
-session title, and tell the owner to start a new session, giving the ready start message for it in one code block that the owner only copies (owner, 2026-11-14; [restarts](references/restarts.md), «Start message»). A new session first renames itself
+session title, and **start the next lead session yourself** (owner, 2026-11-14, #178, [comment 6880323389](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880323389):
+«так, дозволяю»): `create_session` with the ready start message ([restarts](references/restarts.md), «Start
+message»), the same environment and repository; then write the new session's ID into #179 and tell the owner
+briefly in chat. At most 2 automatic restarts in a row without an answer from the owner; the third only after the
+owner answers (ask in chat, with the start message in one code block the owner can also copy; owner, 2026-11-14;
+[restarts](references/restarts.md), «Automatic restart»). A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, checks `get_session` →
 `external_metadata.rate_limit_info` (on a warning: at most 2–3 authors at once, reviews not cut; owner,
 2026-11-14, #178), then reads «Lead state»
 ([restarts](references/restarts.md), [token economy](references/token-economy.md)).
-Every handover is confirmed to the owner in chat in full, item by item: what was done with each item and where
+Every handover is confirmed to the owner in chat in full (after an automatic restart, always also as a comment
+on #179), item by item: what was done with each item and where
 it is recorded (file, PR or issue, with a link); an item not acted on is marked not done, with the reason. A
 shortened summary does not count. Every owner decision lives in a document (decision log, skill, AGENTS.md,
 requirement) and in the rules it changes, never only in session memory (owner, 2026-11-13).
@@ -182,7 +188,12 @@ Up to 3 branches at a time, each with its own worktree, PR and test database. **
 (named after its branch) and its own worktree; it stops only the processes it started, by PID (the skills that
 start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
-cluster queue through `pnpm db:test run -- …` (roles are cluster-wide).
+cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
+tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, never on a
+hand-made database: Рішення ведучого (2026-11-14; власник не схвалював; #226): повторні й навантажувальні
+запуски інтеграційних тестів — лише через `pnpm db:test run -- …`, кожен на власній базі й під блокуванням
+кластера; проба на 20 000 рядків у базі, створеній вручну, вичерпала спільну таблицю блокувань кластера
+(`out of shared memory`), і впав чужий тест.
 
 ## 4. Restarts and token economy
 
@@ -196,5 +207,7 @@ cluster queue through `pnpm db:test run -- …` (roles are cluster-wide).
   lighter one only for `review-pr` of docs-and-requirement-text-only PRs (not when they touch a security
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
-  a brief).
+  a brief). **Fable** (owner, 2026-11-14, #178): security reviews of critical modules, complex architecture
+  rows, root causes of flaky tests, sweeps `C0`/`D0`/`F0`; at most one Fable task at a time (token economy,
+  item 1).
 
