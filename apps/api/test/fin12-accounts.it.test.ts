@@ -706,3 +706,28 @@ describe("FIN-12@PoC FR 15: the statement recounts a temporary adjustment", () =
     expect(await balance(space, manual.id)).toEqual({ amount: "280", currency: "EUR" });
   });
 });
+
+describe("FIN-12@PoC FR 14: the ledger's reads for managing an account stay in the space", () => {
+  it("FIN-12@PoC FR 14: liveEntries and latestOperationDate see only the space's own entries; an unknown event type is refused", async () => {
+    const space = await newSpace();
+    const other = await newSpace();
+    const acc = await createAccount(space, { kind: "cash", name: "Готівка", amount: "300.00" });
+    await call(space, "POST", `/v1/accounts/${acc.id}/balance`, {
+      balance: { amount: "280.00", currency: "EUR" },
+    });
+    const source = { module: "accounts", id: acc.subaccountId };
+
+    expect(await ledger.liveEntries(space.householdId, source, "balance-adjustment")).toHaveLength(1);
+    expect(await ledger.liveEntries(other.householdId, source, "balance-adjustment")).toEqual([]);
+    await expect(
+      ledger.liveEntries(space.householdId, source, "no-such-event" as "transaction"),
+    ).rejects.toMatchObject({ code: "UNKNOWN_EVENT_TYPE" });
+
+    expect(await ledger.latestOperationDate(space.householdId, acc.ledgerAccountId)).toBe(TODAY);
+    await expect(ledger.latestOperationDate(other.householdId, acc.ledgerAccountId)).rejects.toMatchObject({
+      code: "UNKNOWN_ACCOUNT",
+    });
+    const fresh = await createAccount(space, { kind: "cash", name: "Порожня", amount: "0.00" });
+    expect(await ledger.latestOperationDate(space.householdId, fresh.ledgerAccountId)).toBeNull();
+  });
+});
