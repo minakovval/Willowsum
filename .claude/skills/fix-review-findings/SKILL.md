@@ -5,7 +5,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 
 # Fix review findings
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
 latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed commit that
@@ -27,7 +27,9 @@ fixes every blocking item, CI green, the new head SHA.
 2. Apply the reviewers' patches (or write the fix yourself when only the failing path is given).
 3. Flip each `it.fails` to `it` once its fix is in, and run it: it must pass.
 4. Two reviewers' patches conflict → apply the lead's decision from the request; no decision → ask the lead,
-   do not pick one yourself.
+   do not pick one yourself. On a lighter model applying ready patches (owner, 2026-11-14, #178): if a patch
+   cannot be applied as given (it fails, deadlocks or needs a different design, as in #191), stop and report to
+   the lead; the fix then moves to the strong model. Do not improvise.
 5. Never weaken, skip or delete a test to get green (AGENTS.md step 6); never edit an acceptance test unless
    the requirement changed. A test that fails only sometimes needs a root cause, never «load», «flake» or
    «timeout under load» (owner, 2026-11-13): reproduce it, compare with `main`, find the cause (#146: a shared
@@ -50,7 +52,9 @@ worded as before; never append to the archive `docs/decisions/state-2026-11-05.m
 
 ## 4. Check
 
-Run what the changed code needs: `pnpm typecheck`, `pnpm lint`, `pnpm test`; integration tests as
+Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
+Run what the changed code needs: type checks as `tsc -p <pkg>/tsconfig.json` for each changed package (not only
+`pnpm typecheck`, which can miss what CI catches, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
 `pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
 without Docker, as in cloud sessions, give the admin URL:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);
@@ -85,7 +89,8 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
    tests table if tests were added, «Follow-ups».
 2. One commit for the round (`<ID>: address review round <n>`), with the attribution lines the session gives;
-   push.
+   push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
+   2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
 3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each
    blocking item → fixed by file / test, in one line each), blockers, owner questions. Follow-ups and check
    details go in the PR body. The reviewers then re-review only this diff.

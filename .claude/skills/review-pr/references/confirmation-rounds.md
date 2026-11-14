@@ -1,6 +1,6 @@
 # Confirmation rounds («6. Confirmation rounds», full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
 Moved out of `review-pr` SKILL.md without change (owner, 2026-11-13). Read when you confirm a fix commit, a ready fix you gave or a `sync-branch` merge.
 
@@ -17,7 +17,9 @@ fix commit, a ready fix you gave, or a `sync-branch` merge (`<new>` = the PR hea
    `git merge-tree --write-tree M^1 M^2` is the tree of a clean merge; compare it with
    `git rev-parse M^{tree}`. Equal → the merge is mechanical: confirm in one line. Different, or a conflict → review only `git diff <that tree> M` (the hand resolution), as in step 1.
 4. The verdict names the exact head: `Reviewed head: <new>` (full SHA) and `Previous reviewed head: <old>` at
-   the top, the verdict line at the end, as in «5. Report». A later commit needs another confirmation.
+   the top, the verdict line at the end, as in «5. Report», posted as a PR review with `commit_id=<new>`
+   (`gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<new> -f event=COMMENT -F body=@<file>`), never
+   an issue comment (owner, 2026-11-14, #178). A later commit needs another confirmation.
 5. **Full re-review instead** when: `<old>` is not an ancestor of `<new>` (rebase or force-push); the diff
    adds behaviour, files or criteria beyond the findings and the merge resolution; the requirement view of
    the PR's ID changed in `main` since `<old>`; or the round would cover most of the PR anyway.

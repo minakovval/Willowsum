@@ -22,15 +22,21 @@ export function firstSpaceName(displayName: string): string {
   return [...name].slice(0, SPACE_NAME_MAX).join("");
 }
 
+/** Control characters, line and paragraph separators, bidi embedding/override/isolate controls. */
+const FORBIDDEN_IN_NAME = /[\p{Cc}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/u;
+/** Whitespace and format characters (zero-width space, joiners, word joiner): not visible on their own. */
+const INVISIBLE = /[\s\p{Cf}]/u;
+
 /**
  * A new name of a space (ACC-08@PoC FR 5, AC5): NFC, without leading or trailing whitespace, 1–60 characters
- * counted as code points, one line (no control characters); uniqueness is not required. Null — not saved.
+ * counted as code points, one line (no control, separator or bidi characters), not only invisible characters; uniqueness is not required. Null — not saved.
  */
 export function spaceName(input: string): string | null {
   const name = input.normalize("NFC").trim();
   const chars = [...name];
   if (chars.length < 1 || chars.length > SPACE_NAME_MAX) return null;
-  if (chars.some((c) => /\p{Cc}/u.test(c))) return null;
+  if (chars.some((c) => FORBIDDEN_IN_NAME.test(c))) return null;
+  if (!chars.some((c) => !INVISIBLE.test(c))) return null;
   return name;
 }
 

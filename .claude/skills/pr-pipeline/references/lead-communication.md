@@ -1,6 +1,6 @@
 # Lead communication and process-change queue
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
 Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or when you find a process change.
 
@@ -9,7 +9,10 @@ Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or 
 1. Ukrainian only, in every message, including a one-line status note.
 2. No reports of agent steps (agent spawned, review started, commit pushed and so on). Only what matters for the
    product (owner, 2026-11-13, #178): on a service notification (CI, PR subscription events, an agent's
-   interim state, «waiting for a commit») write nothing at all to the owner, not even one line.
+   interim state, «waiting for a commit») write nothing at all to the owner, not even one line. The same for
+   your own housekeeping (owner, 2026-11-14: «мені не треба писати такі повідомлення, лише важливе»):
+   subscribing to or unsubscribing from a PR, waiting for agents' reports, starting an agent. Forbidden example:
+   «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.»
 3. Write only when: something is merged (PR link, one line; what is next); an owner decision is needed; there is a problem (a blocker, red CI that
    is not the PR's fault, a security issue). Batch the questions (SKILL.md §2).
 4. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
