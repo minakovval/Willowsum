@@ -17,7 +17,7 @@ CREATE TABLE accounts (
   institution_key text NOT NULL CHECK (char_length(institution_key) BETWEEN 1 AND 110),
   number_last4 text CHECK (number_last4 ~ '^[A-Z0-9]{4}$'),
   -- The full IBAN or account number, sealed (`ws1.` and base64url); never answered or logged in full.
-  number_sealed text CHECK (number_sealed ~ '^ws1\.[A-Za-z0-9_-]{1,8192}$'),
+  number_sealed text CHECK (number_sealed ~ '^ws1\.[A-Za-z0-9_-]+$' AND char_length(number_sealed) <= 8192),
   note text CHECK (char_length(note) BETWEEN 1 AND 1000),
   -- «Ощадний», «Депозит»: percent per year, 0–100 with two decimals. A loan's and a card's terms are liabilities'.
   annual_rate numeric(38, 18) CHECK (annual_rate BETWEEN 0 AND 100 AND annual_rate = round(annual_rate, 2)),
