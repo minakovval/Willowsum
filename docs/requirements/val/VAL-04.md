@@ -39,7 +39,7 @@
 - [MVP] Спільні правила: П-5, П-6, П-10, NFR-01
 - [MVP] Сценарії: UC-VAL-12, UC-VAL-13, UC-VAL-14, UC-VAL-15, UC-VAL-16
 - [MVP] Модуль: fx-rates, net-worth
-- [лише PoC] Перевіряється: apps/api/src/modules/fx-rates/domain/val04.test.ts, apps/api/src/modules/fx-rates/val04.it.test.ts, apps/api/test/val04-original-currency.it.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/fx-rates/domain/val04.test.ts, apps/api/src/modules/fx-rates/val04.it.test.ts, apps/api/test/val04-original-currency.it.test.ts, apps/api/src/modules/fx-rates/domain/sec203-today-age.test.ts, apps/api/src/modules/fx-rates/application/sec203-reporting.test.ts
 - [MVP] Перевіряється: —
 
 [лише PoC] **Мета.** Як користувач із рахунками в кількох валютах, я хочу коректну конвертацію в EUR за курсом на дату, щоб бачити реальні залишки рахунків і суми транзакцій.

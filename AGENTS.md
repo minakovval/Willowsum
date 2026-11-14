@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-14
 
 This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
 the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …» (owner,
@@ -100,6 +100,9 @@ errors) lives only in `packages/domain-kernel`.
    write `Рішення власника (YYYY-MM-DD): схвалено …` only for a decision the owner gave. Never push to `main`.
    Full conditions, exceptions and «merge on Ready, follow up separately»:
    [merge rules](.claude/references/merge-rules.md) (read when you merge or write «Owner decision»).
+
+The lead writes to the owner in chat only about a merge, a decision needed or a problem; no technical messages
+(owner, 2026-11-14) — `pr-pipeline`, «Мовчання в чаті».
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.

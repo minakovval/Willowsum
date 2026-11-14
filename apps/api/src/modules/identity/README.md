@@ -73,7 +73,7 @@ ACC-05@PoC, частина a (сервер): п. 1–5, AC1, AC3, AC5, AC6 — �
     `ended-elsewhere`; cookie цього браузера видалено), будь-який вхід відхиляється до нового пароля, пристрій того входу
     вийшов з історії, на email іде посилання скидання пароля (60 хв); запис `sign_in` у журнал платформи; 410
     `NOT_ME_LINK_INVALID`. Новий пароль (скидання) знімає відмову.
-    - Профіль (ACC-05@PoC; прапорець `identity.profile`, що потребує `identity.sign-in`): маршрути діють на акаунт cookie
+  - Профіль (ACC-05@PoC; прапорець `identity.profile`, що потребує `identity.sign-in`): маршрути діють на акаунт cookie
     сесії і не беруть ідентифікатора акаунта; без живої сесії — 401 `UNAUTHENTICATED` або `SESSION_ENDED`, як
     `GET /v1/session`. `GET /v1/profile` (`getProfile`) → `{ name, email, locale, timeZone }` (`locale` — BCP 47,
     `timeZone` — IANA, або null). `PATCH /v1/profile` (`updateProfile`) — лише `{ name }`; будь-яке інше поле (email) —

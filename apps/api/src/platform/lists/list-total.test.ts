@@ -48,7 +48,8 @@ function officialRates(
       fake.calls += 1;
       return requests.map((r) => one(r.from, r.to, r.date));
     },
-    // fx-rates' rules (VAL-04 AC4, AC5, EC1, EC2); dat01-list.it.test.ts checks the real ones.
+    // A copy of fx-rates' rules (VAL-04 AC4, AC5, EC1, EC2): platform code may not import a module. The real ones are
+    // checked by dat01-list.it.test.ts and test/dat01-list-total-real-rule.test.ts.
     staleForToday(rateDate: string, today: string) {
       return Date.parse(`${today}T00:00:00Z`) - Date.parse(`${rateDate}T00:00:00Z`) > 3 * 86_400_000;
     },
