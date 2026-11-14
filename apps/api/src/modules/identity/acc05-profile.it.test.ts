@@ -515,7 +515,7 @@ describe("NFR-01@PoC AC7: the step-up dialog asks only the current password; no 
   });
 });
 
-describe("NFR-15@PoC AC5: a step-up confirmation is refused a second time, for another session or after 6 minutes", () => {
+describe("NFR-15@PoC AC5, NFR-01@PoC AC8: a step-up confirmation is refused a second time, for another session or after 6 minutes", () => {
   it("used once → a second change with it is refused (403 STEP_UP_REQUIRED)", async () => {
     const { browser } = await signedIn("nfr15-ac5-twice");
     const token = await stepUpToken(browser);

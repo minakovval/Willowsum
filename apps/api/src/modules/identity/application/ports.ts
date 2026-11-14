@@ -276,7 +276,7 @@ export type SignInState = "allowed" | "password-reset-required";
 /** The changes identity writes to the platform audit log (no space exists yet): ids and states only. */
 export interface AccountAudit {
   accountChanged(accountId: string, before: string | null, after: string): Promise<void>;
-  /** The password was replaced (a reset, or a new sign-up of an unconfirmed address); the value is masked. */
+  /** The password was replaced (a reset, a change in the profile, or a new sign-up of an unconfirmed address); masked. */
   passwordChanged(accountId: string): Promise<void>;
   /** The profile's name changed (ACC-05 FR 1); the values are masked (no personal data in the platform log). */
   displayNameChanged(accountId: string): Promise<void>;

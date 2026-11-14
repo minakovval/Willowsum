@@ -25,8 +25,8 @@ import type { IdentityDeps } from "./ports.ts";
  * Step-up is the current password typed right before the action: a one-time confirmation for the session and the
  * action, valid 5 min (STEP_UP_TTL_MS). A wrong password counts with the failed sign-ins of the account's address
  * (5 in 15 min); the one that reaches the limit locks sign-in as a failed sign-in would, ends this session and
- * sends a security letter. Lock order as everywhere in identity: the sign-in guard, then the session, then the
- * account, then a link or a confirmation.
+ * sends a security letter. Lock order as in sign-in, reset and «Це був не я»: the sign-in guard, then the account,
+ * then its sessions, then a link or a confirmation.
  */
 
 /** A session that is not alive: the routes answer 401 SESSION_ENDED (with the reason) or UNAUTHENTICATED. */
@@ -115,20 +115,20 @@ export async function confirmStepUp(
   token: string,
   input: { readonly action: StepUpAction; readonly password: string },
 ): Promise<StepUpResult> {
-  // The address's guard is locked before the session, as a sign-in and a reset lock them: first find the address.
+  // The guard and the account are locked before the session, as a reset and «Це був не я» lock them: first find them.
   const first = await deps.store.transaction((tx) => checkSession(deps, tx, token, deps.now()));
   if (first.kind !== "alive") return first;
   const key = deps.secrets.digest(normalizeEmail(first.account.email));
   type Outcome = StepUpResult | { kind: "locked-now"; retryAfterS: number; letter: MailMessage };
   const outcome = await deps.store.transaction(async (tx): Promise<Outcome> => {
     const guard = await tx.lockGuard(key);
+    const account = await tx.findAccount(first.account.accountId, "share");
     const now = deps.now();
     const check = await checkSession(deps, tx, token, now, true);
     if (check.kind !== "alive") return check;
+    if (!account || check.account.accountId !== account.id) return { kind: "none" };
     const gate = signInGate(guard, now);
     if (gate.kind === "locked") return { kind: "locked", retryAfterS: gate.retryAfterS, sessionEnded: false };
-    const account = await tx.findAccount(check.account.accountId, "share");
-    if (!account) return { kind: "none" };
     if (!(await deps.hasher.verify(account.passwordHash, normalizePassword(input.password)))) {
       await tx.addEvent("sign-in-failure", key, now);
       const failures = (await tx.eventTimes("sign-in-failure", key, now - SIGN_IN_FAILURE_WINDOW_MS)).length;
@@ -192,16 +192,17 @@ export async function changePassword(
     const confirmation = await tx.findStepUp(digest);
     if (!confirmation || !stepUpUsable(confirmation, use(check.session.id, now)))
       return { kind: "step-up-required" } as const;
-    return { kind: "usable" } as const;
+    return { kind: "usable", accountId: check.account.accountId } as const;
   });
   if (seen.kind !== "usable") return seen;
   const passwordHash = await deps.hasher.hash(normalizePassword(input.password));
   const done = await deps.store.transaction(async (tx) => {
+    // The account before its session, as a reset and «Це був не я» lock them.
+    const account = await tx.findAccount(seen.accountId, "update");
     const now = deps.now();
     const check = await checkSession(deps, tx, token, now, true);
     if (check.kind !== "alive") return check;
-    const account = await tx.findAccount(check.account.accountId, "update");
-    if (!account) return { kind: "none" } as const;
+    if (!account || check.account.accountId !== account.id) return { kind: "none" } as const;
     // Re-checked under the row lock: two changes with one confirmation → one of them.
     const confirmation = await tx.findStepUp(digest, true);
     if (!confirmation || !stepUpUsable(confirmation, use(check.session.id, now)))

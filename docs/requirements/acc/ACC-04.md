@@ -43,7 +43,7 @@
 - [лише MVP] Сценарії: UC-ACC-06, UC-ACC-22, UC-ACC-23, UC-ACC-24, UC-ACC-25, UC-ACC-66
 - [v1-mobile] Сценарії: UC-ACC-06, UC-ACC-22, UC-ACC-23, UC-ACC-24, UC-ACC-25, UC-ACC-26, UC-ACC-66
 - Модуль: identity
-- [лише PoC] Перевіряється: apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/domain/device.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/domain/device.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts
 - [PoC v2] Перевіряється: —
 
 [лише PoC] **Мета.** Як користувач, я хочу, щоб забуті сесії завершувалися самі, а підозрілий вхід можна було одразу зупинити, щоб доступ до моїх даних був під контролем.

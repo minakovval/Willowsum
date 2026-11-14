@@ -22,7 +22,7 @@ const confirmation = {
 };
 const use = { sessionId: SESSION, action: "password-change" as StepUpAction, now: T0 + 1000 };
 
-describe("NFR-15@PoC AC5: a step-up confirmation is refused a second time, for another action, from another session or after 6 min", () => {
+describe("NFR-15@PoC AC5, NFR-01@PoC AC8: a step-up confirmation is refused a second time, for another action, from another session or after 6 min", () => {
   it("usable once, for its session and action, until 5 min after it was given", () => {
     expect(STEP_UP_TTL_MS).toBe(5 * 60_000);
     expect(stepUpUsable(confirmation, use)).toBe(true);
