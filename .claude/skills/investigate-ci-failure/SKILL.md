@@ -5,7 +5,7 @@ description: Investigate a red or blocked Willowsum CI run on a PR — reproduce
 
 # Investigate a CI failure
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
 Input: a PR and its failing (or never started) run. Output: the root cause, a fix (or a follow-up with the
 evidence for the lead, who opens the issue) and the same check green on the new head, or a report to the lead that CI cannot run.
@@ -39,7 +39,11 @@ Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to
    unless the lead asks.
 3. Not reproduced locally: compare the CI environment (Node, pnpm, Postgres versions, env variables, which
    tests run together and in what order, the timeout the step gives). Run the suite the way CI runs it,
-   repeatedly if the failure is intermittent (a shell loop), until it shows.
+   repeatedly if the failure is intermittent (a shell loop), until it shows. Every repeated or load run of
+   integration tests goes through `pnpm db:test run -- …` (its own database, the cluster lock), never a
+   hand-made database: Рішення ведучого (2026-11-14; власник не схвалював; #226): повторні й навантажувальні
+   запуски інтеграційних тестів — лише через `pnpm db:test run -- …`; проба поза ним вичерпала спільну таблицю
+   блокувань кластера, і впав чужий тест.
 4. **At most one re-run** (`gh run rerun <run id> --failed`), and only to collect evidence, never as the fix.
    Green after a re-run is still a failure without a cause: keep going.
 

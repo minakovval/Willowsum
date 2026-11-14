@@ -28,6 +28,7 @@ import {
   CONSUMER,
   PRODUCER,
   behaviour,
+  drain,
   flaky,
   importFile,
   light,
@@ -66,20 +67,6 @@ function worker(extra: Partial<WorkerOptions> = {}, setup = queueSetup(databases
   });
   workers.push(w);
   return w;
-}
-
-/**
- * Passes until a pass that began with no job running finds nothing to do. A pass that finds nothing while a job is
- * still running proves little: that job's end can free the heavy limit or the capacity for jobs still queued (#199).
- */
-async function drain(w: Worker): Promise<void> {
-  for (let i = 0; i < 200; i++) {
-    await w.idle();
-    const handled = await w.tick();
-    await w.idle();
-    if (handled === 0) return;
-  }
-  throw new Error("the queue did not drain");
 }
 
 /** Rows as the database owner (outside the household policy, for the test's view of every space). */

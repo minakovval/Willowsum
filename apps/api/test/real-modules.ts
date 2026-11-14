@@ -34,13 +34,41 @@ export async function migrateRealModules(owner: pg.ClientBase, url: string): Pro
     });
     return;
   }
-  await migrate(owner, {
-    modules: realModules,
-    modulesDir: realModulesDir,
-    exemptions: JSON.parse(
-      readFileSync(path.join(apiDir, "schema-exemptions.json"), "utf8"),
-    ) as SchemaExemptions,
-  });
+  try {
+    await migrate(owner, {
+      modules: realModules,
+      modulesDir: realModulesDir,
+      exemptions: JSON.parse(
+        readFileSync(path.join(apiDir, "schema-exemptions.json"), "utf8"),
+      ) as SchemaExemptions,
+    });
+  } catch (error) {
+    throw sharedLockTableFull(error) ?? error;
+  }
+}
+
+/** SQLSTATE of «out of shared memory» (PostgreSQL class 53, insufficient resources). */
+const OUT_OF_SHARED_MEMORY = "53200";
+
+/**
+ * «out of shared memory» while a test database is prepared is not that test's failure. The lock table is one for the
+ * whole PostgreSQL cluster (`max_locks_per_transaction` × `max_connections` slots for all databases together), so a
+ * session in any other database that takes thousands of locks in one transaction leaves none for a migration here
+ * (#222: a 20 000-row probe in another database failed the ledger migration of `arc11-balance-cache`). Returns the
+ * error that says so, or undefined for any other error.
+ */
+export function sharedLockTableFull(error: unknown): Error | undefined {
+  const codeOf = (e: unknown) => (e as { code?: unknown } | null)?.code;
+  const cause = (error as { cause?: unknown } | null)?.cause;
+  if (codeOf(error) !== OUT_OF_SHARED_MEMORY && codeOf(cause) !== OUT_OF_SHARED_MEMORY) return undefined;
+  return new Error(
+    "The PostgreSQL cluster's shared lock table is full (53200, «out of shared memory»). The table serves every " +
+      "database of the cluster: another session, in any database, holds thousands of locks in one transaction. " +
+      "This is not a failure of the test. Find the session (SELECT pid, count(*) FROM pg_locks GROUP BY pid), " +
+      "run such work as `pnpm db:test run -- <command>` so that it waits for the integration runs " +
+      "(infra/local/README.md, «Limitation»), then run the tests again.",
+    { cause: error },
+  );
 }
 
 /** Login for every real module role and the binding role; one ModuleDatabases over them. */
@@ -73,10 +101,18 @@ export interface RealModulesDatabase {
 export async function setupRealModules(poolSize = 2): Promise<RealModulesDatabase> {
   const db = await createTestDatabase();
   const owner = new pg.Client({ connectionString: db.url });
-  await owner.connect();
-  await migrateRealModules(owner, db.url);
   const password = randomBytes(12).toString("hex");
-  const databases = await openRealModules(owner, db.url, poolSize, password);
+  let databases: ModuleDatabases;
+  try {
+    await owner.connect();
+    await migrateRealModules(owner, db.url);
+    databases = await openRealModules(owner, db.url, poolSize, password);
+  } catch (error) {
+    // The caller gets nothing it could close in `afterAll`: without this the database stays in the cluster (#222).
+    await owner.end().catch(() => undefined);
+    await db.drop().catch(() => undefined);
+    throw error;
+  }
   return {
     owner,
     databases,

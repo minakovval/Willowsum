@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -45,6 +45,15 @@ integration config's globalSetup (`apps/api/test/cluster-lock.ts`) takes the sam
 (`tools/test-guards/cluster-lock.mjs`), and a run started by `pnpm db:test run` does not take it twice. Separate
 databases are enough for everything else (migrations, `check:schema`, running the API). Run-scoped role names
 would remove the wait but change the isolation guard (ADR-0002); that is a follow-up.
+
+**Limitation: the lock table.** The lock table also belongs to the whole cluster: `max_locks_per_transaction` ×
+`max_connections` slots (64 × 100 by default) for all databases together. One transaction that takes thousands of
+locks — for example a bulk insert through a trigger that takes an advisory lock per row — leaves no slot for the
+others, and for that moment a statement in any other database fails with «out of shared memory» (SQLSTATE 53200).
+On 2026-11-14 a 20 000-row probe in a hand-made database failed the ledger migration of a full integration run this
+way (#222). Run such a probe, and any other experiment that loads the cluster, as `pnpm db:test run -- <command>`:
+it then holds the same lock as the integration runs and waits for them. The integration tests' setup names this
+cause when it meets it (`apps/api/test/real-modules.ts`, `sharedLockTableFull`).
 
 ## Credentials
 

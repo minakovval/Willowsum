@@ -17,7 +17,15 @@ import { createWorker, enqueueJob, type Worker } from "../src/platform/queue/ind
 import { buildServer } from "../src/platform/process/server.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
 import { fakeFlags } from "./http.ts";
-import { behaviour, CONSUMER, importFile, PRODUCER, queueSetup, type Behaviour } from "./queue-fixture.ts";
+import {
+  behaviour,
+  CONSUMER,
+  drain,
+  importFile,
+  PRODUCER,
+  queueSetup,
+  type Behaviour,
+} from "./queue-fixture.ts";
 import { migrateRealModules, realModules } from "./real-modules.ts";
 
 /**
@@ -123,16 +131,6 @@ afterAll(async () => {
   await db?.drop();
 });
 
-/** Passes of the worker until one finds nothing to do and every started job has ended. */
-async function drain(): Promise<void> {
-  for (let i = 0; i < 200; i++) {
-    const handled = await worker.tick();
-    await worker.idle();
-    if (handled === 0) return;
-  }
-  throw new Error("the queue did not drain");
-}
-
 describe("ACC-04@PoC AC4: an import or export the user started goes on when the session ends through inactivity", () => {
   it("ACC-04@PoC EC1: the long operation runs on the server, the session ends, the result is there after the next sign-in", async () => {
     const email = `acc04-bg.${randomUUID().slice(0, 8)}@example.test`;
@@ -184,7 +182,7 @@ describe("ACC-04@PoC AC4: an import or export the user started goes on when the 
     release();
     await pass;
     await worker.idle();
-    await drain();
+    await drain(worker);
     const { rows: jobs } = await owner.query<{ state: string }>(
       `SELECT state FROM queue_consumer.jobs WHERE dedupe_key = 'acc04-import-1'`,
     );
