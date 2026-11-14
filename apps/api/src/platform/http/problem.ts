@@ -38,6 +38,16 @@ export const PROBLEMS = {
    * newer link, older than 60 minutes or unknown — one answer for all; the client shows «Посилання недійсне».
    */
   RESET_LINK_INVALID: { status: 410, title: "This password reset link is no longer valid" },
+  /**
+   * A «Це був не я» link that was used, is older than 7 days or unknown (ACC-04 FR 5, AC7) — one answer for all; the
+   * client shows «Посилання недійсне».
+   */
+  NOT_ME_LINK_INVALID: { status: 410, title: "This link is no longer valid" },
+  /**
+   * The right password, but «Це був не я» was confirmed for the account: every sign-in is refused until the password
+   * is changed with the reset link sent to its email (ACC-04 FR 5). Never given for a wrong password.
+   */
+  PASSWORD_RESET_REQUIRED: { status: 403, title: "Change your password with the link in your email first" },
   IDEMPOTENCY_KEY_REUSED: {
     status: 409,
     title: "This idempotency key was already used for a different request",
@@ -114,7 +124,7 @@ export const ProblemSchema = z
     /** For SESSION_ENDED: why the session ended (ACC-04@PoC «Стани інтерфейсу»). */
     sessionEndReason: z.enum(["idle", "expired", "signed-out", "ended-elsewhere"]).optional().meta({
       description:
-        "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset or a reused token ended it)",
+        "SESSION_ENDED: idle (15 min without a user action), expired (12 h after sign-in), signed-out (this browser signed out), ended-elsewhere (a password reset, «Це був не я» or a reused token ended it)",
     }),
     /** For LIMIT_REACHED: the limit that was reached (a number of the service, never of the plan). */
     limit: z

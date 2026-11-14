@@ -60,6 +60,11 @@ export interface RouteInput<R extends RouteRequest> {
  */
 export interface RouteHttp {
   readonly clientAddress: string;
+  /**
+   * The request's `User-Agent` (empty without one), at most 512 characters: the device of a sign-in (NFR-15 FR 29).
+   * Personal data of a kind: identity keeps only its SHA-256 and the browser and system it names; never logged.
+   */
+  readonly userAgent: string;
   /** HTTPS for cookies (deployed, or the request's protocol): session cookies are `__Secure-` then. */
   readonly https: boolean;
   /** The value of one cookie of the request (only through cookies.ts: one value, `__Secure-` on HTTPS). */

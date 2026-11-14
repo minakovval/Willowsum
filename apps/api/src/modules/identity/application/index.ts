@@ -15,6 +15,8 @@ export {
 } from "./accounts.ts";
 export { dailyCleanup, DEADLOCK_RETRIES, DELETE_BATCH } from "./maintenance.ts";
 export type { DailyCleanupReport } from "./maintenance.ts";
+export { confirmNotMe, notMeLinkState } from "./not-me.ts";
+export type { ConfirmNotMeResult, NotMeLinkState } from "./not-me.ts";
 export { completePasswordReset, passwordResetState, requestPasswordReset } from "./password-reset.ts";
 export type { CompleteResetResult, ResetLinkState } from "./password-reset.ts";
 export type {
