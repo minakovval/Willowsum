@@ -6,7 +6,7 @@
   після #229 (#229 закрито в #231). Слова власника (чат ведучого 4): «так, 1–4 так, пункт 3 як пробні 2 запуски».
   Джерело: [#178, коментар 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022),
   пункт 2.
-- Статус: виконано в PR «CICD-02: run the api integration tests in 2 vitest shards behind the check `api`»
+- Статус: виконано в PR «CICD-02: run the api integration tests in 2 vitest shards behind the check api»
   (гілка `claude/adoring-cray-feh4dh-ci-shard`). У `.github/workflows/pr-checks.yml` матрична задача `api-parts`
   має три паралельні частини, кожна зі своїм сервісом PostgreSQL 17: `api checks` (усе, крім інтеграційних тестів)
   і `api integration 1/2`, `api integration 2/2` (`vitest --shard=i/2`, поділ за файлами). Обов'язкова перевірка
