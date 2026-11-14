@@ -436,7 +436,7 @@ describe("ARC-11@PoC criterion «Незбалансований запис у ж
     expect(await code(db.owner.query(`DELETE FROM ledger.conversions`))).toBe("42501");
   });
 
-  it("ARC-11@PoC criterion «Незбалансований запис у журналі»: another space's rates are not seen and cannot be written", async () => {
+  it("ARC-03@PoC criterion «Запит, що повертає дані іншого простору»: another space's rates are not seen and cannot be written", async () => {
     const other = await space();
     const seen = await db.databases
       .for("ledger")

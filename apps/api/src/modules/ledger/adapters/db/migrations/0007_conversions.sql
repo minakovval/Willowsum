@@ -57,19 +57,22 @@ CREATE CONSTRAINT TRIGGER conversions_with_their_entry AFTER INSERT ON conversio
 
 -- At commit, an entry in more than one currency keeps its rate (ARC-11: a posting on an account in another currency
 -- carries the rate, its date and source): every currency of its postings is a currency of its rates, and an entry
--- without rates is in one currency. Checked as the caller, so the row policy still applies.
+-- without rates is in one currency. Checked as the caller, so the row policy still applies. It runs for the entry and
+-- for every posting of it: a session that makes the check IMMEDIATE (SET CONSTRAINTS) still meets it after its last
+-- posting, when the entry's currencies are all known (rows are only added), so the check cannot be run too early.
 CREATE FUNCTION entry_currencies_have_rates() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   posted text[];
   rated text[];
+  entry uuid := COALESCE(pg_catalog.to_jsonb(NEW) ->> 'entry_id', pg_catalog.to_jsonb(NEW) ->> 'id')::uuid;
 BEGIN
   EXECUTE pg_catalog.format(
     'SELECT coalesce(array_agg(DISTINCT currency ORDER BY currency), ''{}'') FROM %I.postings
-      WHERE household_id = $1 AND entry_id = $2', TG_TABLE_SCHEMA) INTO posted USING NEW.household_id, NEW.id;
+      WHERE household_id = $1 AND entry_id = $2', TG_TABLE_SCHEMA) INTO posted USING NEW.household_id, entry;
   EXECUTE pg_catalog.format(
     'SELECT coalesce(array_agg(DISTINCT c ORDER BY c), ''{}'') FROM %I.conversions,
             LATERAL (VALUES (currency), (entry_currency)) AS v(c)
-      WHERE household_id = $1 AND entry_id = $2', TG_TABLE_SCHEMA) INTO rated USING NEW.household_id, NEW.id;
+      WHERE household_id = $1 AND entry_id = $2', TG_TABLE_SCHEMA) INTO rated USING NEW.household_id, entry;
   IF (pg_catalog.cardinality(rated) = 0 AND pg_catalog.cardinality(posted) > 1)
      OR (pg_catalog.cardinality(rated) > 0 AND NOT posted <@ rated) THEN
     RAISE EXCEPTION 'an entry in more than one currency needs the rate of each of them' USING ERRCODE = '23514';
@@ -77,4 +80,6 @@ BEGIN
   RETURN NULL;
 END $$;
 CREATE CONSTRAINT TRIGGER entries_rates_match_currencies AFTER INSERT ON entries
+  DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION entry_currencies_have_rates();
+CREATE CONSTRAINT TRIGGER postings_rates_match_currencies AFTER INSERT ON postings
   DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION entry_currencies_have_rates();
