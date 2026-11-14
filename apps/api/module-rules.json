@@ -35,7 +35,7 @@
     },
     "data-erasure": {
       "layer": "process",
-      "dependsOn": ["accounts", "audit", "household", "identity", "ledger", "liabilities"]
+      "dependsOn": ["accounts", "audit", "household", "identity", "ledger", "liabilities", "transactions"]
     },
     "debt-payoff": {
       "layer": "process",
@@ -115,7 +115,7 @@
     },
     "transactions": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["accounts", "audit", "fx-rates", "ledger"]
     },
     "transfer-matching": {
       "layer": "subject",

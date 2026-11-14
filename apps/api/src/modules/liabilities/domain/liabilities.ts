@@ -137,3 +137,19 @@ export function checkTerms(
 export function availableCredit(creditLimit: Money, debt: Money): Money {
   return creditLimit.minus(debt);
 }
+
+/**
+ * The terms after «Кредит» ↔ «Кредитна картка» (FIN-12@PoC FR 5): every term the new kind may have is kept, the ones it
+ * may not are dropped — a loan has no grace period, a credit card no monthly payment. A loan's missing rate or payment
+ * is not invented: the account is marked «Додайте ставку і платіж» until they are entered (`termsMissing`).
+ */
+export function termsAsKind<T extends LiabilityTerms>(terms: T, kind: LiabilityKind): T {
+  return kind === "loan"
+    ? { ...terms, kind, gracePeriodDays: null }
+    : { ...terms, kind, monthlyPayment: null };
+}
+
+/** «Додайте ставку і платіж» (FIN-12@PoC FR 5, AC12): a loan without its rate or its monthly payment. */
+export function termsMissing(terms: Pick<LiabilityTerms, "kind" | "annualRate" | "monthlyPayment">): boolean {
+  return terms.kind === "loan" && (terms.annualRate === null || terms.monthlyPayment === null);
+}

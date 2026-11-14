@@ -102,8 +102,8 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
         (e) => e.changes[0]!.after,
       ),
     ).toEqual(["erasure-request", "erasure-sweep"]);
-    // FIN-01: the space's accounts and liabilities are erased as their own recorded steps.
-    for (const type of ["accounts.records", "liabilities.records"])
+    // FIN-01, FIN-03: the space's transactions, accounts and liabilities are erased as their own recorded steps.
+    for (const type of ["transactions.records", "accounts.records", "liabilities.records"])
       expect(await audit.platformEntriesFor({ type, id: person.householdId }), type).toMatchObject([
         { action: "delete", changes: [{ field: "reason", after: "erasure-request" }] },
       ]);

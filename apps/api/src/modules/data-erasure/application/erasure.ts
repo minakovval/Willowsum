@@ -23,6 +23,7 @@ export interface ErasureDeps {
     eraseSpace(householdId: string): Promise<{ keyDestroyed: boolean }>;
   };
   readonly accounts: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly transactions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly audit: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -33,7 +34,8 @@ export interface ErasureDeps {
     /** A step that deletes rows of a space, recorded before it runs (ids only). */
     spaceStep(
       householdId: string,
-      step: "accounts.records" | "liabilities.records" | "ledger.journal" | "audit.log",
+      step:
+        "transactions.records" | "accounts.records" | "liabilities.records" | "ledger.journal" | "audit.log",
       reason?: "erasure-request" | "erasure-sweep",
     ): Promise<void>;
   };
@@ -93,7 +95,9 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
   await deps.identity.eraseAccount(request.accountId);
   for (const householdId of request.householdIds) {
     // Each deletion is recorded in the platform log first: a run that stops part-way still shows what went.
-    // Accounts and liabilities (FIN-01), then the journal they posted to.
+    // Transactions (FIN-03), accounts and liabilities (FIN-01), then the journal they posted to.
+    await deps.platformAudit.spaceStep(householdId, "transactions.records");
+    await deps.transactions.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "accounts.records");
     await deps.accounts.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "liabilities.records");

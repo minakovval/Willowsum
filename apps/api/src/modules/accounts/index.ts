@@ -57,3 +57,43 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
       ),
   };
 }
+
+/**
+ * An account as another module posts money to it (FIN-03@PoC FR 2, edge case 2; module transactions): its state and
+ * each currency (subaccount) with its journal account. Read only; another space's account is null, like an unknown one.
+ */
+export interface PostingAccount {
+  readonly accountId: string;
+  readonly status: "active" | "closed";
+  readonly subaccounts: readonly {
+    readonly subaccountId: string;
+    readonly currency: string;
+    readonly ledgerAccountId: string;
+  }[];
+}
+
+export interface AccountDirectory {
+  postingAccount(householdId: string, accountId: string): Promise<PostingAccount | null>;
+}
+
+/** `db` is the accounts module's own database (`ModuleDatabases.for("accounts")`). */
+export function createAccountDirectory(db: ModuleDatabase): AccountDirectory {
+  return {
+    postingAccount: (householdId, accountId) =>
+      db.inHousehold(householdId, async (q) => {
+        const tx = accountsTx(q);
+        const account = await tx.account(householdId, accountId);
+        if (!account) return null;
+        const subaccounts = await tx.subaccounts(householdId, accountId);
+        return {
+          accountId: account.id,
+          status: account.status,
+          subaccounts: subaccounts.map((s) => ({
+            subaccountId: s.id,
+            currency: s.currency,
+            ledgerAccountId: s.ledgerAccountId,
+          })),
+        };
+      }),
+  };
+}

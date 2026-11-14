@@ -7,6 +7,8 @@ export {
   LIABILITY_KINDS,
   parseAnnualRate,
   parseTypedAmount,
+  termsAsKind,
+  termsMissing,
   type LiabilityKind,
   type LiabilityTerms,
   type LiabilityTermsInput,

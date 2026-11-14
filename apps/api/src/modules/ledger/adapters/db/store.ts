@@ -231,6 +231,18 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
       );
       return rows[0]?.day ?? null;
     },
+    async hasLiveEntries(accountId, exceptEventTypes) {
+      const { rows } = await q.query<{ found: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1 FROM postings p JOIN entries e ON e.household_id = p.household_id AND e.id = p.entry_id
+            WHERE p.household_id = $1 AND (p.debit_account_id = $2 OR p.credit_account_id = $2)
+              AND e.reverses_entry_id IS NULL AND NOT (e.event_type = ANY($3::text[]))
+              AND NOT EXISTS (SELECT 1 FROM entries r WHERE r.household_id = e.household_id AND r.reverses_entry_id = e.id)
+         ) AS found`,
+        [q.householdId, accountId, [...exceptEventTypes]],
+      );
+      return rows[0]?.found === true;
+    },
     async liveEntries(source, eventType) {
       const { rows } = await q.query<{ id: string }>(
         `SELECT e.id FROM entries e
