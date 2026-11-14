@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { metaRoute } from "../src/platform/http/meta.ts";
+import { createApiRateLimits, RATE_LIMIT_WINDOW_MS } from "../src/platform/http/rate-limit.ts";
 import { defineRoute } from "../src/platform/http/route.ts";
 import { API_SECURITY_HEADERS, HSTS_HEADER, HSTS_VALUE } from "../src/platform/http/security-headers.ts";
 import { buildServer, type ReadinessCheck } from "../src/platform/process/server.ts";
@@ -211,7 +212,9 @@ describe("NFR-14 FR 1: the security headers of the table on every API response",
   });
 
   it("429 RATE_LIMITED carries them", async () => {
-    const server = await serve();
+    // One fixed instant: read live, a minute boundary inside the loop starts a new window and the 61st passes.
+    const at = Math.floor(Date.now() / RATE_LIMIT_WINDOW_MS) * RATE_LIMIT_WINDOW_MS + 20_000;
+    const server = await serve({ api: { rateLimits: createApiRateLimits({ now: () => at }) } });
     for (let i = 0; i < 60; i++) await server.inject({ method: "GET", url: "/v1/meta" });
     const refused = await server.inject({ method: "GET", url: "/v1/meta" });
     expect(refused.statusCode).toBe(429);
