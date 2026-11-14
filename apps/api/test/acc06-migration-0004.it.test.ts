@@ -9,9 +9,9 @@ import { createTestDatabase } from "./db.ts";
 import { realModulesDir } from "./real-modules.ts";
 
 /**
- * ACC-06@PoC FR 1, FR 2: a space created before migration 0004 gets the reporting currency EUR when 0004 is applied
- * (the column default fills existing rows). The real household migrations are applied in two steps — 0001–0003, a
- * space inserted, then 0004 — on a throw-away database. The space is synthetic.
+ * ACC-06@PoC FR 1: a space created before migration 0004 gets the reporting currency EUR when 0004 is applied (the
+ * column default fills existing rows), and keeps its name and data region. The real household migrations are applied
+ * in two steps — 0001–0003, a space inserted, then 0004 — on a throw-away database. The space is synthetic.
  */
 let db: { url: string; drop: () => Promise<void> };
 let owner: pg.Client;
@@ -31,7 +31,7 @@ afterAll(async () => {
 });
 
 describe("ACC-06@PoC FR 1: migration 0004 fills the reporting currency of existing spaces", () => {
-  it("ACC-06@PoC FR 2: a space inserted after 0001–0003 has EUR once 0004 is applied", async () => {
+  it("ACC-06@PoC FR 1: a space inserted after 0001–0003 has EUR once 0004 is applied, its name and region unchanged", async () => {
     const source = path.join(realModulesDir, "household/adapters/db/migrations");
     const target = path.join(dir, "household/adapters/db/migrations");
     mkdirSync(target, { recursive: true });
@@ -60,9 +60,9 @@ describe("ACC-06@PoC FR 1: migration 0004 fills the reporting currency of existi
     expect(result.applied).toEqual([expect.stringContaining("0004_reporting_currency")]);
 
     const { rows } = await owner.query(
-      `SELECT reporting_currency FROM household.households WHERE household_id = $1`,
+      `SELECT name, data_region, reporting_currency FROM household.households WHERE household_id = $1`,
       [id],
     );
-    expect(rows).toEqual([{ reporting_currency: "EUR" }]);
+    expect(rows).toEqual([{ name: "Родина Міграційна", data_region: "eu", reporting_currency: "EUR" }]);
   });
 });

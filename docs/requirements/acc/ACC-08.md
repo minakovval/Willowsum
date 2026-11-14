@@ -49,7 +49,7 @@
 - [v1] Спільні правила: П-5, П-6, П-10, П-21, NFR-01, NFR-12
 - [v1] Сценарії: UC-ACC-02, UC-ACC-17, UC-ACC-37, UC-ACC-38, UC-ACC-40, UC-ACC-41, UC-ACC-42, UC-ACC-43, UC-ACC-44, UC-ACC-45, UC-ACC-46, UC-ACC-47, UC-ACC-48
 - [MVP] Модуль: household, data-erasure
-- [лише PoC] Перевіряється: apps/api/src/modules/household/household.it.test.ts, apps/api/src/modules/household/domain/spaces.test.ts, apps/api/src/modules/household/space-settings.it.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/household/household.it.test.ts, apps/api/src/modules/household/domain/spaces.test.ts, apps/api/src/modules/household/space-settings.it.test.ts, apps/api/test/acc08-space-scoped.it.test.ts
 - [PoC v2] Перевіряється: —
 
 [PoC–PoC v2] **Мета.** Як голова родини, я хочу тримати дані родини в окремому просторі, щоб дані родини не змішувалися з даними інших людей.

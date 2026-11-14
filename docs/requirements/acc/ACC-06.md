@@ -42,7 +42,7 @@
 - [MVP] Спільні правила: П-1, П-2, П-3, П-15, П-22
 - [MVP] Сценарії: UC-ACC-31, UC-ACC-32, UC-ACC-33, UC-ACC-34
 - Модуль: household, fx-rates
-- [лише PoC] Перевіряється: apps/api/test/acc06-reporting-currency.it.test.ts, apps/api/src/modules/fx-rates/domain/acc06.test.ts
+- [лише PoC] Перевіряється: apps/api/test/acc06-reporting-currency.it.test.ts, apps/api/src/modules/fx-rates/domain/acc06.test.ts, apps/api/test/acc06-migration-0004.it.test.ts
 - [лише PoC v2] Перевіряється: —
 - [MVP] Перевіряється: —
 

@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-10, П-24, П-26, NFR-01, NFR-12
 - Сценарії: UC-ACC-43
 - Модуль: household
-- Перевіряється: apps/api/src/modules/household/household.it.test.ts, apps/api/src/modules/household/domain/spaces.test.ts, apps/api/src/modules/household/space-settings.it.test.ts
+- Перевіряється: apps/api/src/modules/household/household.it.test.ts, apps/api/src/modules/household/domain/spaces.test.ts, apps/api/src/modules/household/space-settings.it.test.ts, apps/api/test/acc08-space-scoped.it.test.ts
 
 **Мета.** Як голова родини, я хочу тримати дані родини в окремому просторі, щоб дані родини не змішувалися з даними інших людей.
 
