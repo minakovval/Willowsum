@@ -6,6 +6,7 @@ import {
   defineJobHandler,
   postgresJobStore,
   type EventSubscription,
+  type Worker,
   type WorkerQueue,
 } from "../src/platform/queue/index.ts";
 
@@ -59,6 +60,22 @@ export function behaviour(): Behaviour {
 }
 
 export class FlakyError extends Error {}
+
+/**
+ * Passes until a pass that began with no job running finds nothing to do. A pass that finds nothing while a job is
+ * still running proves little: that job's end can free the heavy limit or the capacity for jobs still queued, so
+ * stopping there leaves them queued (#199, #222). The one helper of every queue test: a copy that lacks the first
+ * `idle()` fails only when a released job is slower to finish than the pass is to reach its claim.
+ */
+export async function drain(w: Pick<Worker, "tick" | "idle">): Promise<void> {
+  for (let i = 0; i < 200; i++) {
+    await w.idle();
+    const handled = await w.tick();
+    await w.idle();
+    if (handled === 0) return;
+  }
+  throw new Error("the queue did not drain");
+}
 
 export function queueSetup(
   databases: Pick<ModuleDatabases, "for">,
