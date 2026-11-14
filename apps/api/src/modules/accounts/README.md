@@ -50,6 +50,7 @@ FIN-01@PoC (хвиля 2, рядок 11 — серверна частина): п
 - `createAccountsServices({ ledger, liabilities, keys, audit, clock, newId })` → `AccountsServices` — порти маршрутів
   (`src/api.ts` → `ctx.services`; `main.ts`): `createLedger`, `createLiabilities`, `createSpaceKeys` модуля household
   (тип `NumberSeal`, поле `accounts.number` — `NUMBER_FIELD`), журнал аудиту, годинник («сьогодні» — дата UTC).
+- `createAccountsErasure(db)` → `AccountsErasure` (див. «Власні таблиці»).
 - `ACCOUNT_KINDS`, `groupOf`, `maskedNumber`, `parseAccountNumber`, `depositAccrual`, типи `AccountKind`, `AccountGroup`,
   `AccountView`, `DepositAccrual`.
 
@@ -88,4 +89,10 @@ FIN-01@PoC (хвиля 2, рядок 11 — серверна частина): п
 | `account_owners` | Власники з частками й датами дії; тригер обмеження під час коміту: сума часток на кожну дату ≤ 100 % |
 | `idempotency_keys` | Ключі ідемпотентності маршруту створення (ARC-07 п. 4, `platform/http/idempotency-keys.sql` дослівно) |
 
-Видалення рядків модуля разом із простором (NFR-12) — ще ні: див. «Follow-ups» PR.
+Ключі до `accounts` у `subaccounts` і `account_owners` перевіряються під час коміту (DEFERRABLE).
+
+Видалення простору (NFR-12@PoC п. 3): `createAccountsErasure(db)` → `eraseHousehold(householdId)` — усі рахунки простору
+з субрахунками, власниками і ключами ідемпотентності, однією транзакцією ролі модуля; викликає лише `data-erasure`.
+
+Синтетичні дані: `synthetic.ts` (3 поточні рахунки з одним субрахунком і власником 100 % кожен, 2 ключі ідемпотентності на
+простір; номери — лише останні 4 символи).

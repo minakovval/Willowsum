@@ -42,6 +42,9 @@ CREATE TABLE accounts (
 CREATE INDEX accounts_duplicates ON accounts (household_id, institution_key, number_last4)
   WHERE number_last4 IS NOT NULL;
 
+-- The keys to `accounts` are checked at commit (DEFERRABLE): rows of one transaction may come in any order (the
+-- synthetic loader writes tables in name order).
+
 -- A currency of an account (FIN-01 FR 12): position 0 is the main one; a multi-currency current account has more.
 -- `ledger_account_id` is its account in the journal (ledger `openAccount`, owner `accounts` / this id).
 CREATE TABLE subaccounts (
@@ -59,6 +62,7 @@ CREATE TABLE subaccounts (
   UNIQUE (household_id, account_id, position),
   UNIQUE (household_id, ledger_account_id),
   FOREIGN KEY (household_id, account_id) REFERENCES accounts (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Owners of an account with shares and dates (FIN-01 business rule; FIN-12 FR 13): in this release one row, the
@@ -72,7 +76,8 @@ CREATE TABLE account_owners (
   valid_to date,
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (household_id, account_id, owner_account_id, valid_from),
-  FOREIGN KEY (household_id, account_id) REFERENCES accounts (household_id, id) ON DELETE CASCADE,
+  FOREIGN KEY (household_id, account_id) REFERENCES accounts (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED,
   CHECK (valid_to IS NULL OR valid_to > valid_from)
 );
 
