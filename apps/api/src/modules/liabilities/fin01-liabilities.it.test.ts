@@ -5,7 +5,7 @@ import { createAuditLog, type AuditLog } from "../audit/index.ts";
 import { createLiabilities, type Liabilities } from "./index.ts";
 
 /**
- * FIN-01@PoC FR 2, FR 16 on a real PostgreSQL: a liability per account with its terms, audited once, registered again
+ * FIN-01@PoC FR 2, FR 3 on a real PostgreSQL: a liability per account with its terms, audited once, registered again
  * without a second row, and only within its own space. Ids are synthetic; the spaces need no record here.
  */
 let db: RealModulesDatabase;
@@ -76,20 +76,35 @@ describe("FIN-01@PoC FR 2: a loan is a liability with its rate and monthly payme
     expect(await liabilities.forAccount(randomUUID(), accountId)).toBeNull();
   });
 
-  it("FIN-01@PoC FR 16, FIN-12@PoC FR 5: the database refuses a card with a monthly payment and a bad rate; a loan without its terms is the application's to refuse", async () => {
+  it("FIN-01@PoC FR 2, FR 3, FIN-12@PoC FR 5: the database refuses a loan without its terms or with a grace period, a card with a monthly payment and a bad rate; only a loan marked after a kind change may miss its terms", async () => {
     const householdId = randomUUID();
-    const insert = (kind: string, rate: string | null, payment: string | null) =>
+    const insert = (
+      kind: string,
+      rate: string | null,
+      payment: string | null,
+      { pending = false, grace = null as number | null } = {},
+    ) =>
       db.databases.for("liabilities").inHousehold(householdId, (q) =>
         q.query(
-          `INSERT INTO liabilities (household_id, id, account_id, kind, currency, annual_rate, monthly_payment)
-           VALUES ($1, $2, $3, $4, 'EUR', $5, $6)`,
-          [householdId, randomUUID(), randomUUID(), kind, rate, payment],
+          `INSERT INTO liabilities (household_id, id, account_id, kind, currency, annual_rate, monthly_payment,
+             grace_period_days, terms_pending)
+           VALUES ($1, $2, $3, $4, 'EUR', $5, $6, $7, $8)`,
+          [householdId, randomUUID(), randomUUID(), kind, rate, payment, grace, pending],
         ),
       );
-    // FIN-12@PoC AC12: «Кредитна картка» → «Кредит» leaves a loan without its payment until it is entered
-    // («Додайте ставку і платіж»), so the stored rule went (0002); a new loan still needs both (`checkTerms`, FIN-01 FR 5).
-    await expect(insert("loan", null, null)).resolves.toMatchObject({ rowCount: 1 });
+    await expect(insert("loan", null, null)).rejects.toMatchObject({ code: "23514" });
+    await expect(insert("loan", "6", null)).rejects.toMatchObject({ code: "23514" });
+    await expect(insert("loan", "6", "650", { grace: 30 })).rejects.toMatchObject({ code: "23514" });
     await expect(insert("credit-card", null, "10")).rejects.toMatchObject({ code: "23514" });
     await expect(insert("loan", "4.205", "650")).rejects.toMatchObject({ code: "23514" });
+    // FIN-12@PoC AC12: «Кредитна картка» → «Кредит» leaves a loan without its payment until it is entered («Додайте
+    // ставку і платіж»), so 0002 lets a loan marked `terms_pending` miss them; only the kind change sets the mark.
+    await expect(insert("loan", null, null, { pending: true })).resolves.toMatchObject({ rowCount: 1 });
+    await expect(insert("loan", null, null, { pending: true, grace: 30 })).rejects.toMatchObject({
+      code: "23514",
+    });
+    await expect(insert("credit-card", null, null, { pending: true })).rejects.toMatchObject({
+      code: "23514",
+    });
   });
 });

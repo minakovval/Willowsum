@@ -1,9 +1,13 @@
 import { Decimal, Money } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { LiabilitiesTx, Liability } from "../../application/index.ts";
-import type { LiabilityKind } from "../../domain/index.ts";
+import { termsMissing, type LiabilityKind } from "../../domain/index.ts";
 
-/** The liabilities schema through the module's own role (migrations/0001_liabilities.sql). */
+/**
+ * The liabilities schema through the module's own role (migrations/0001_liabilities.sql, 0002). `terms_pending` marks a
+ * loan that may miss its rate or payment after «Кредитна картка» → «Кредит» (FIN-12@PoC AC12); only `update` sets it,
+ * so a new loan stays under the stored rule «a loan has its rate and monthly payment».
+ */
 
 interface Row {
   id: string;
@@ -69,7 +73,7 @@ export function liabilitiesTx(q: ModuleQueryRunner): LiabilitiesTx {
     async update(householdId, l) {
       await q.query(
         `UPDATE liabilities SET kind = $3, annual_rate = $4, monthly_payment = $5, credit_limit = $6,
-           grace_period_days = $7
+           grace_period_days = $7, terms_pending = $8
          WHERE household_id = $1 AND id = $2`,
         [
           householdId,
@@ -79,6 +83,7 @@ export function liabilitiesTx(q: ModuleQueryRunner): LiabilitiesTx {
           l.monthlyPayment?.toDecimalString() ?? null,
           l.creditLimit?.toDecimalString() ?? null,
           l.gracePeriodDays,
+          termsMissing(l),
         ],
       );
     },
