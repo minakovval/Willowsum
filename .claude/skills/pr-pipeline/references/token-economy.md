@@ -2,13 +2,23 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178); the Fable model added (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
 1. Pick the agent's model by risk:
    - the strongest model for implementing sensitive features and for security reviews of critical modules
      (isolation, money, auth, encryption);
+   - **Fable** (owner, 2026-11-14, #178, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128):
+     «так, давай на fable»): for security reviews of critical modules (money, access, sign-in, encryption),
+     complex architecture rows (atomic transfer through ARC-04 events, #210 item 2; vault encryption; statement
+     import), root causes of flaky tests, and requirement sweeps `C0`/`D0`/`F0`. Not for follow-ups, docs or sync
+     confirmations. It draws on the owner's 100 USD subscription, the same limit as the main model, and spends it
+     faster: **at most one Fable task at a time**, the rest on the main model (lead 4 retrospective,
+     [#180](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6883180207): two parallel Fable tasks
+     with the other agents exhausted the 5-hour limit). After 3–4 Fable tasks, compare their #180 rows with similar
+     PRs on the main model and report to the owner before widening its use. Risks: about ×2 price per token;
+     longer turns; Fable briefs are short and state the goal, not step-by-step instructions;
    - reviews (owner, 2026-11-13): a `review-pr` of a PR that changes **only docs and requirement text** may use
      a lighter, cheaper model (the Agent tool's model option). Docs-only means every changed file is one that
      `isDocsOnly` in `tools/pr-rules/lib/ci-paths.mjs` accepts (the job `changes` skips all heavy jobs: `docs/`,
