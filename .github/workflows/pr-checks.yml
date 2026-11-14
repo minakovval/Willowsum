@@ -199,7 +199,8 @@ jobs:
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
     # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03).
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 30 = about 2x the p90 (about 15 min) of the last 10 api jobs on PR runs (8.7-15.2 min, 2026-11-14), which hit the old 15-minute limit.
+    timeout-minutes: 30
     services:
       postgres:
         # Same pinned image as the local environment (infra/local/compose.yaml).
