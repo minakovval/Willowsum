@@ -483,6 +483,9 @@ export async function signIn(
       sessionId: result.sessionId,
     });
   } catch (error) {
+    // The device is in the history already: its letter goes now, or the next sign-in from it would be «known» and
+    // send nothing (NFR-15 FR 6, FR 29). The right password was given from that device.
+    if (result.letter) deps.sendLater(result.letter);
     await signOut(deps, result.sessionToken);
     throw error;
   }

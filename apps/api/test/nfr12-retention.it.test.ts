@@ -114,6 +114,7 @@ async function identityRowsOf(id: string): Promise<Record<string, number>> {
  * Every row of a space, as the superuser sees it (no row policy): each table with a household_id column in any
  * module schema — found from the catalogue, so a table a later module adds is covered without editing this
  * test — plus the space's login directory rows. Rows are hashed whole, so a changed row counts as a change too.
+ * The audit log is the one exception: it only grows (see `auditRows`).
  */
 async function spaceRows(householdId: string): Promise<Record<string, string>> {
   const { rows: tables } = await db.owner.query<{ schema: string; table: string }>(
@@ -134,10 +135,35 @@ async function spaceRows(householdId: string): Promise<Record<string, string>> {
     );
     out[name] = `${rows[0].n as number}:${rows[0].h as string}`;
   };
-  for (const { schema, table } of tables)
+  for (const { schema, table } of tables) {
+    if (schema === "audit" && table === "entries") continue;
     await digest(`${schema}.${table}`, `(SELECT * FROM "${schema}"."${table}" WHERE household_id = $1)`);
+  }
   await digest("household.account_spaces", `(SELECT * FROM household.account_spaces WHERE space_id = $1)`);
   return out;
+}
+
+/** The space's audit entries by id: the whole row hashed, and its entity type. */
+async function auditRows(householdId: string): Promise<Map<string, { hash: string; entityType: string }>> {
+  const { rows } = await db.owner.query<{ id: string; hash: string; entity_type: string }>(
+    `SELECT id, md5(r::text) AS hash, entity_type FROM audit.entries r WHERE household_id = $1`,
+    [householdId],
+  );
+  return new Map(rows.map((r) => [r.id, { hash: r.hash, entityType: r.entity_type }]));
+}
+
+/**
+ * Retention never changes or removes an audit entry; a session left open may add the entry of its end (ACC-04,
+ * the space's sign-in journal), and nothing else may be added.
+ */
+async function expectAuditOnlyGrew(
+  householdId: string,
+  before: Map<string, { hash: string; entityType: string }>,
+) {
+  const after = await auditRows(householdId);
+  for (const [id, row] of before) expect(after.get(id), `audit entry ${id}`).toEqual(row);
+  for (const [id, row] of after)
+    if (!before.has(id)) expect(row.entityType, `new audit entry ${id}`).toBe("identity.sign-in");
 }
 
 /** A confirmed, signed-in account with its first space, audit entries of it and ledger rows in it. */
@@ -145,12 +171,9 @@ async function confirmedAccountWithData(label: string) {
   const email = nextEmail(label);
   await signUp(email);
   await confirm(email);
-  const signedIn = await signIn(email);
-  expect(signedIn.statusCode).toBe(200);
-  // Signed out again: a session left open lapses, and the daily task appends its end to the space's sign-in journal
-  // (ACC-04, audit log) — a new entry, not a change of the space's data, but these tests compare every row.
-  const cookie = String(signedIn.headers["set-cookie"]).split(";")[0]!;
-  expect((await request("DELETE", "/v1/session", { cookie })).statusCode).toBe(200);
+  expect((await signIn(email)).statusCode).toBe(200);
+  // The session stays open: it lapses, and the daily task appends its end to the space's sign-in journal (ACC-04,
+  // audit log) — the only change retention may make to the space (`expectAuditOnlyGrew`).
   const id = (await accountId(email))!;
   const membership = (await householdSpaces(db).membershipOf(id))!;
   const ledger = createLedger(db.databases.for("ledger"));
@@ -268,8 +291,9 @@ describe("NFR-12@PoC FR 1, FR 2: the data of a confirmed account and its space s
   it("years of daily runs that do delete unconfirmed accounts never change a row of the confirmed account or its space", async () => {
     const owner = await confirmedAccountWithData("kept");
     const before = await spaceRows(owner.householdId);
+    const auditBefore = await auditRows(owner.householdId);
     // The space really holds data in every module that has some: audit entries and ledger rows.
-    expect(before["audit.entries"]).not.toMatch(/^0:/);
+    expect(auditBefore.size).toBeGreaterThan(0);
     expect(before["ledger.entries"]).toMatch(/^2:/);
     expect(before["ledger.postings"]).toMatch(/^2:/);
     expect(before["household.households"]).toMatch(/^1:/);
@@ -284,6 +308,7 @@ describe("NFR-12@PoC FR 1, FR 2: the data of a confirmed account and its space s
       expect(await accountId(stale)).toBeUndefined();
       expect(await accountId(owner.email)).toBe(owner.id);
       expect(await spaceRows(owner.householdId)).toEqual(before);
+      await expectAuditOnlyGrew(owner.householdId, auditBefore);
     }
     // Still the same login, with the same space.
     const again = await signIn(owner.email);
@@ -313,12 +338,14 @@ describe("NFR-12@PoC FR 1, FR 2: the data of a confirmed account and its space s
   it("deleting an unconfirmed account touches no row of any space", async () => {
     const owner = await confirmedAccountWithData("neighbour");
     const before = await spaceRows(owner.householdId);
+    const auditBefore = await auditRows(owner.householdId);
     const stale = nextEmail("stale-neighbour");
     await signUp(stale);
     t += THIRTY_DAYS;
     await daily.runNow();
     expect(await accountId(stale)).toBeUndefined();
     expect(await spaceRows(owner.householdId)).toEqual(before);
+    await expectAuditOnlyGrew(owner.householdId, auditBefore);
   });
 });
 
