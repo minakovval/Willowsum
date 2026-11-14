@@ -28,7 +28,7 @@
 - [лише PoC] Розширює: —
 - [лише PoC] Залежить від: ACC-01@PoC, ACC-06@PoC, ACC-08@PoC, BUD-02@PoC
 - [лише PoC v2] Розширює: FLW-01@PoC
-- [лише PoC v2] Залежить від: ACC-01@PoC v2, ACC-06@PoC, ACC-08@PoC v2, BUD-02@PoC v2, FIN-02@PoC v2
+- [лише PoC v2] Залежить від: ACC-01@PoC v2, ACC-06@PoC v2, ACC-08@PoC v2, BUD-02@PoC v2, FIN-02@PoC v2
 - [PoC–PoC v2] Дизайн: S-001, S-002, S-003, S-121
 - [PoC–PoC v2] Спільні правила: П-15, П-24, П-25, П-26, GRID-06, SCR-02
 - [PoC–PoC v2] Сценарії: UC-ACC-01, UC-ACC-09
