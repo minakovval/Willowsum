@@ -32,6 +32,58 @@ test('jobNames: job keys, or a plain `name:`', () => {
   assert.deepEqual(jobNames(yml), ['a', 'Bee', 'd']);
 });
 
+test('jobNames: a matrix job that another job needs is covered by that aggregate job, not listed', () => {
+  const yml = [
+    'jobs:',
+    '  parts:',
+    '    name: p ${{ matrix.part }}',
+    '    strategy:',
+    '      matrix:',
+    '        part: [a, b]',
+    '  agg:',
+    '    needs: [changes, parts]',
+    '  other:',
+    '    name: o ${{ matrix.x }}',
+    '  listed:',
+    '    needs:',
+    '      - other',
+    '  lone:',
+    '    name: l ${{ matrix.x }}',
+    '  plain:',
+    '    name: Plain',
+    '  dep:',
+    '    needs: plain',
+    '',
+  ].join('\n');
+  // `lone` is needed by nobody: it stays listed by its key, so a missing check run is reported, never lost.
+  assert.deepEqual(jobNames(yml), ['agg', 'listed', 'lone', 'Plain', 'dep']);
+});
+
+// Owner, 2026-11-14 (#178 comment 6883729022 item 2): integration tests in 2 shards. `api` stays the one required
+// check and fails unless every part (checks, integration 1/2, integration 2/2) passed.
+test('CICD-02: the api integration tests run in 2 vitest shards behind the aggregate check `api`', () => {
+  const wf = read('.github/workflows/pr-checks.yml');
+  const block = (job) => new RegExp(`^ {2}${job}:\\n((?: {4,}.*\\n|\\s*\\n)*)`, 'm').exec(wf)?.[1] ?? '';
+  const parts = block('api-parts');
+  assert.match(parts, /^ {4}name: api \$\{\{ matrix\.part \}\}$/m);
+  assert.match(parts, /fail-fast: false/);
+  const shards = [...parts.matchAll(/^ {12}shard: (\S+)$/gm)].map((m) => m[1]);
+  assert.deepEqual(shards, ['1/2', '2/2']);
+  assert.match(parts, /^ {10}- part: checks$/m);
+  // Every part has its own PostgreSQL service (cluster-wide roles never meet another part's).
+  assert.match(parts, /^ {4}services:\n {6}postgres:\n/m);
+  // The integration step runs only in a shard, and with that shard; every other step only in `checks`.
+  assert.match(parts, /- name: Integration tests on PostgreSQL 17 \(shard \$\{\{ matrix\.shard \}\}\)\n {8}if: matrix\.shard\n {8}env:\n {10}WS_SHARD: \$\{\{ matrix\.shard \}\}\n {8}run: pnpm --filter @willowsum\/api test:integration --shard="\$WS_SHARD"\n/);
+  const steps = parts.split(/^ {6}- /m).slice(1).filter((s) => !/^(uses: actions\/(checkout|setup-node)|name: (Enable pnpm|pnpm store path|Cache the pnpm store|Integration tests)|run: pnpm install)/.test(s));
+  assert.ok(steps.length >= 9, String(steps.length));
+  for (const s of steps) assert.match(s, /^ {8}if: matrix\.part == 'checks'$/m, s.split('\n')[0]);
+  const api = block('api');
+  assert.match(api, /^ {4}needs: \[changes, api-parts\]$/m);
+  assert.match(api, /^ {10}PARTS: \$\{\{ needs\.api-parts\.result \}\}$/m);
+  assert.match(api, /test "\$PARTS" = "success"/);
+  assert.doesNotMatch(api, /continue-on-error/);
+});
+
 test('CICD-01 FR 3: the required CI jobs are exactly the ones AGENTS.md lists', () => {
   const jobs = REQUIRED_WORKFLOWS.flatMap((wf) => jobNames(read(wf))).sort();
   assert.deepEqual(jobs, ['api', 'changes', 'e2e', 'infra', 'local-env', 'requirements', 'secrets', 'traceability', 'web']);
