@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178); rate limit at start, WIP commits and the session retrospective added (owner, 2026-11-14, #178). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
 
 The container can restart and agents' context is lost. Recover state from durable sources, not memory:
 - open PRs and their heads: `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .head.ref, .head.sha] | @tsv'` (GraphQL, so `gh pr list`, is blocked in cloud sessions);
@@ -11,6 +11,9 @@ The container can restart and agents' context is lost. Recover state from durabl
 - worktrees (`git worktree list`) and test databases (`pnpm db:test list`); the PostgreSQL cluster
   (`pg_lsclusters`; down → `pg_ctlcluster 16 main start`: the setup script does not run when a container restarts).
 Then continue from the first step that is not done; re-subscribe only to open PRs that wait for merge (no agent on them).
+An agent cut off by a limit or a restart: save its uncommitted work at once with a WIP commit on its branch (in its
+worktree: `git add -A && git commit -m "WIP: <task> (agent cut off)"`, then push), and brief the next agent from it
+(owner, 2026-11-14, #178; #197).
 
 **New lead session** (owner, 2026-11-13/14): when the context reaches ~400 k tokens (`get_session` →
 `external_metadata.context_usage.used_tokens`), after a compaction or after 8–10 merged PRs, whichever comes first,
@@ -23,9 +26,11 @@ an owner question changes (owner, 2026-11-14), so a lost container loses little.
 e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one more than the previous lead's number).
 - At start, before other work: `get_session` (no `session_id`) gives this session's id and title; rename it with
   `set_session_title` (that id, the name «Lead state» proposes, or one in the format above). Then record the
-  starting token usage in #180 from the session transcript (`get_session` no longer returns `usage`;
-  [token economy](token-economy.md), «Token accounting»).
-- Before finishing: record the session's usage and its difference in #180; write into «Lead state» the name for
+  starting token usage in #180 ([token economy](token-economy.md), «Token accounting»). Check `get_session` →
+  `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews are not cut), and agents
+  commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178).
+- Before finishing: post the session retrospective on #180 and tell it to the owner briefly in chat
+  ([token economy](token-economy.md), «Session retrospective»); record the session's usage and its difference in #180; write into «Lead state» the name for
   the next session (`Willowsum · ведучий N+1 · <з чого почати>`); then rename yourself with «(завершено)»
   appended to the current title, e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3 (завершено)`.
 
@@ -33,8 +38,9 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
 for it in one code block, ready to copy without edits. It names the session (`Willowsum · ведучий N+1 · <з чого почати>`),
 tells it to read «Lead state» (#179), the process queue (#178) and token accounting (#180) and to work by
 `.claude/skills/pr-pipeline`, lists the start steps (rename, starting usage in #180, item-by-item handover
-confirmation with links), and names the first tasks and any owner question still open. The owner should not have to
-write or edit anything.
+confirmation with links), and names the first tasks and any owner question still open. It always includes the line
+«Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в чаті»).» (owner, 2026-11-14). The owner should not
+have to write or edit anything.
 
 **Handover confirmation** (owner, 2026-11-13): every handover between lead sessions is confirmed to the owner in
 chat in full, item by item — the finishing lead for what it hands over, the new lead for what it took over. For

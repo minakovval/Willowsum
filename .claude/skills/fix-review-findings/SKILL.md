@@ -1,6 +1,6 @@
 ---
 name: fix-review-findings
-description: Apply the findings of the review-pr and security-review reviews to a Willowsum PR — reviewer tests first, then their patches, one commit, updated PR body, head SHA reported. Use when the lead asks the implementing agent to fix review findings on its PR.
+description: Apply the findings of the review-pr and security-review reviews to a Willowsum PR — reviewer tests first, then their patches, one fix commit, updated PR body, head SHA reported. Use when the lead asks the implementing agent to fix review findings on its PR.
 ---
 
 # Fix review findings
@@ -8,7 +8,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 **Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
-latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed commit that
+latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed fix commit that
 fixes every blocking item, CI green, the new head SHA.
 
 ## 1. Load
@@ -53,8 +53,8 @@ worded as before; never append to the archive `docs/decisions/state-2026-11-05.m
 ## 4. Check
 
 Before tests (owner, 2026-11-14, #178): `pg_lsclusters`; if the cluster is down, `pg_ctlcluster 16 main start` (the environment's setup script does not run when a container restarts).
-Run what the changed code needs: type checks as `tsc -p <pkg>/tsconfig.json` for each changed package (not only
-`pnpm typecheck`, which can miss what CI catches, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
+Run what the changed code needs: `pnpm typecheck` (the same command as the CI job `web`, every tsconfig
+included; run it as `cd <worktree> && pnpm typecheck`, #184; owner, 2026-11-14), `pnpm lint`, `pnpm test`; integration tests as
 `pnpm db:test run -- pnpm test:integration` when the database is involved (one run per cluster at a time;
 without Docker, as in cloud sessions, give the admin URL:
 `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm test:integration`);
@@ -88,7 +88,8 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 
 1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
    tests table if tests were added, «Follow-ups».
-2. One commit for the round (`<ID>: address review round <n>`), with the attribution lines the session gives;
+2. One fix commit for the round (`<ID>: address review round <n>`), plus a separate sync merge commit when the
+   branch is behind `main` (pr-pipeline step 4); WIP commits made during the round are fine (pr-pipeline step 2), with the attribution lines the session gives;
    push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
 3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each

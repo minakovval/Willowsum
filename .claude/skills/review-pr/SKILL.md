@@ -98,8 +98,7 @@ the review summary. A security review (sensitive areas) ends instead with a line
 «Схвалюю» or «Approved»: that line is the owner's alone. The daily check of `main` (ADR-0008) reads exactly
 these lines.
 
-Post one PR review of this shape (a combined short re-review confirmation carries both verdict
-lines, each on its own line):
+Post one PR review of this shape (a confirmation of a sensitive PR by one agent posts two PR reviews with commit_id, one per verdict line; pr-pipeline step 5, owner, 2026-11-14, #178):
 
 ```
 Reviewed head: <full SHA>

@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or when you find a process change.
+Owner rules, 2026-11-13 (chat to the lead); retrospective and proposal risks added (owner, 2026-11-14, #178). Read when you write to the owner or when you find a process change.
 
 ## Writing to the owner
 
@@ -14,10 +14,15 @@ Owner rules, 2026-11-13 (chat to the lead). Read when you write to the owner or 
    subscribing to or unsubscribing from a PR, waiting for agents' reports, starting an agent. Forbidden example:
    «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.»
 3. Write only when: something is merged (PR link, one line; what is next); an owner decision is needed; there is a problem (a blocker, red CI that
-   is not the PR's fault, a security issue). Batch the questions (SKILL.md §2).
+   is not the PR's fault, a security issue, nothing merged for 2 hours); at the end of a session, the retrospective, the handover confirmation and the start message (item 6, SKILL.md «New lead session»). Batch the questions (SKILL.md §2). Full
+   rule, including platform reminders about silence: SKILL.md «Мовчання в чаті» (owner, 2026-11-14).
 4. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
    layout and the like. You decide, and record the decision in the decision log. Owner questions are only about
    product, scope, legal, money, access and infrastructure (AGENTS.md «Ambiguity»).
+5. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process
+   or a decision — comes at once with «ризики / мінуси / як пом'якшити» (owner, 2026-11-14, #178).
+6. At the end of every lead session: the retrospective as a comment on #180 and, briefly, to the owner in chat
+   ([token economy](token-economy.md), «Session retrospective»).
 
 ## Batching process changes
 

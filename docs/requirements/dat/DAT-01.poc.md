@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-13, П-24, П-25, П-26, CMP-13, CMP-26, CMP-32
 - Сценарії: UC-DAT-01, UC-DAT-03, UC-DAT-04
 - Модуль: transactions
-- Перевіряється: apps/api/src/platform/lists/list-total.test.ts, apps/api/src/platform/lists/list-engine.test.ts, apps/api/test/dat01-list.it.test.ts, apps/api/test/sec129-list.it.test.ts
+- Перевіряється: apps/api/src/platform/lists/list-total.test.ts, apps/api/src/platform/lists/list-engine.test.ts, apps/api/test/dat01-list.it.test.ts, apps/api/test/sec129-list.it.test.ts, apps/api/test/dat01-list-total-real-rule.test.ts
 
 **Мета.** Як користувач з великою кількістю активів, транзакцій і документів, я хочу працювати з будь-яким списком однаково — сортувати, фільтрувати, обирати колонки і зберігати свої вигляди, щоб швидко знаходити потрібне без окремого інтерфейсу для кожного типу.
 

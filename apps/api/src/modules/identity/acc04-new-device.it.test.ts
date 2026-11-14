@@ -3,6 +3,7 @@ import { mountApi } from "../../api.ts";
 import { syntheticCaptchaVerifier, SYNTHETIC_CAPTCHA_PASS } from "../../platform/adapters/captcha/index.ts";
 import { syntheticMailSender } from "../../platform/adapters/mail/index.ts";
 import { buildServer } from "../../platform/process/server.ts";
+import { exportedText, testTelemetryForFile } from "../../platform/telemetry/testing.ts";
 import { fakeFlags } from "../../../test/http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { createAuditLog } from "../audit/index.ts";
@@ -14,6 +15,7 @@ import { argon2Hasher, createIdentityMaintenance, createIdentityServices } from 
  * FR 12. The clock is the test's own (`t`); a device is the request's user agent.
  */
 const WEB = "http://localhost:5173";
+const telemetry = testTelemetryForFile();
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
 const HOUR = 60 * MINUTE;
@@ -27,6 +29,25 @@ const CHROME_WINDOWS_NEXT = CHROME_WINDOWS.replace("Chrome/131", "Chrome/132");
 const FIREFOX_LINUX = "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0";
 const SAFARI_IPHONE =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1";
+
+/** Holds the next password check until `release()`, so a test can run another request while a sign-in is inside it. */
+const verifyGate: { entered: (() => void) | null; wait: Promise<void> | null } = {
+  entered: null,
+  wait: null,
+};
+const inner = argon2Hasher();
+const gatedHasher = {
+  hash: inner.hash,
+  verify: async (phc: string, password: string) => {
+    const wait = verifyGate.wait;
+    if (wait) {
+      verifyGate.wait = null;
+      verifyGate.entered?.();
+      await wait;
+    }
+    return inner.verify(phc, password);
+  },
+};
 
 let db: RealModulesDatabase;
 let app: ReturnType<typeof buildServer>;
@@ -156,7 +177,7 @@ beforeAll(async () => {
     webOrigin: WEB,
     spaces,
     now: () => t,
-    hasher: argon2Hasher(),
+    hasher: gatedHasher,
     deliver: (task) => {
       pending.push(task());
     },
@@ -315,7 +336,7 @@ describe("ACC-04@PoC AC7: «Це був не я» → every session ends, a rese
     expect((await intruder.session()).statusCode).toBe(200);
   });
 
-  it("the confirmation ends every session, sends a reset link and refuses every sign-in until the password changes", async () => {
+  it("NFR-15@PoC AC1: the confirmation ends every session, sends a reset link and refuses every sign-in until the password changes", async () => {
     const { email, owner, intruder, token } = await suspiciousSignIn("ac7-confirm");
     const from = mail.sent.length;
     const res = await confirm(token, owner);
@@ -472,5 +493,86 @@ describe("NFR-01@PoC FR 12: «Це був не я» revokes every session of the
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ code: "SESSION_ENDED", sessionEndReason: "ended-elsewhere" });
     }
+  });
+});
+
+describe("ACC-04@PoC FR 5, NFR-01@PoC FR 12: «Це був не я» against a sign-in in flight, earlier reset links, isolation and telemetry", () => {
+  it("a sign-in whose password check is under way when «Це був не я» is confirmed leaves no live session behind", async () => {
+    const { email, token } = await suspiciousSignIn("sec198-race");
+    const id = await accountId(email);
+    let entered!: () => void;
+    const inside = new Promise<void>((r) => (entered = r));
+    let release!: () => void;
+    verifyGate.entered = entered;
+    verifyGate.wait = new Promise<void>((r) => (release = r));
+    const browser = new Browser(CHROME_WINDOWS);
+    const signingIn = browser.signIn(email);
+    await inside;
+    // The sign-in has read the account (no refusal yet) and checks the password. The confirmation starts now: it
+    // must wait for that sign-in (the account row is read FOR SHARE) and end the session it creates.
+    const confirming = confirm(token);
+    await new Promise((r) => setTimeout(r, 400));
+    release();
+    const [signed, secured] = await Promise.all([signingIn, confirming]);
+    expect(secured.statusCode).toBe(200);
+    expect([200, 403]).toContain(signed.statusCode);
+    const live = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM identity.sessions WHERE account_id = $1 AND ended_at IS NULL`,
+      [id],
+    );
+    expect(live.rows[0]!.n).toBe(0);
+    expect((await browser.session()).statusCode).toBe(401);
+  });
+
+  it("reset links issued before the confirmation stop working; only the fresh one from the confirmation does", async () => {
+    const { email, token } = await suspiciousSignIn("sec198-revoke");
+    const askedFrom = mail.sent.length;
+    expect((await request("POST", "/v1/password-resets", { body: { email } })).statusCode).toBe(200);
+    await flush();
+    const earlier = resetToken(lettersTo(email, askedFrom).at(-1)!.text)!;
+    expect(earlier).toBeDefined();
+    const from = mail.sent.length;
+    expect((await confirm(token)).statusCode).toBe(200);
+    await flush();
+    const fresh = resetToken(lettersTo(email, from)[0]!.text)!;
+    expect(fresh).not.toBe(earlier);
+    const old = await request("POST", "/v1/password-resets/complete", {
+      body: { token: earlier, password: NEW_PASSWORD },
+    });
+    expect(old.statusCode).toBe(410);
+    expect(old.json().code).toBe("RESET_LINK_INVALID");
+    // The account is still refused until the fresh link changes the password.
+    expect((await new Browser(CHROME_WINDOWS).signIn(email)).statusCode).toBe(403);
+    expect(
+      (
+        await request("POST", "/v1/password-resets/complete", {
+          body: { token: fresh, password: NEW_PASSWORD },
+        })
+      ).json(),
+    ).toEqual({ status: "password-changed" });
+  });
+
+  it("one account's link never ends another account's sessions or refuses its sign-in", async () => {
+    const mine = await suspiciousSignIn("sec198-iso-a");
+    const other = await suspiciousSignIn("sec198-iso-b");
+    expect((await confirm(mine.token)).statusCode).toBe(200);
+    expect((await other.owner.session()).statusCode).toBe(200);
+    expect((await other.intruder.session()).statusCode).toBe(200);
+    expect((await new Browser(CHROME_WINDOWS).signIn(other.email)).json()).toEqual({ status: "signed-in" });
+    expect((await new Browser(CHROME_WINDOWS).signIn(mine.email)).statusCode).toBe(403);
+    // The other account's link still works.
+    expect((await check(other.token)).statusCode).toBe(200);
+  });
+
+  it("neither the user agent, the address, the token nor the email reaches the exported telemetry", async () => {
+    telemetry.memory.reset();
+    const { email, token } = await suspiciousSignIn("sec198-telemetry");
+    await check(token);
+    expect((await confirm(token)).statusCode).toBe(200);
+    await flush();
+    const text = await exportedText(telemetry);
+    expect(text.length).toBeGreaterThan(100);
+    for (const value of [email, email.split("@")[0]!, token, "Firefox/133", "198.51.100.77", "198.51.100"])
+      expect(text, value).not.toContain(value);
   });
 });
