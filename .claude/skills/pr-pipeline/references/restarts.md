@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178); rate limit at start, WIP commits and the session retrospective added (owner, 2026-11-14, #178); the lead starting the next session itself added (owner, 2026-11-14, #178). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178); rate limit at start, WIP commits and the session retrospective added (owner, 2026-11-14, #178); the lead starting the next session itself and the 350 k stop added (owner, 2026-11-14, #178). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
 
 The container can restart and agents' context is lost. Recover state from durable sources, not memory:
 - open PRs and their heads: `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .head.ref, .head.sha] | @tsv'` (GraphQL, so `gh pr list`, is blocked in cloud sessions);
@@ -14,6 +14,12 @@ Then continue from the first step that is not done; re-subscribe only to open PR
 An agent cut off by a limit or a restart: save its uncommitted work at once with a WIP commit on its branch (in its
 worktree: `git add -A && git commit -m "WIP: <task> (agent cut off)"`, then push), and brief the next agent from it
 (owner, 2026-11-14, #178; #197).
+
+**350 k stop** (owner, 2026-11-14, #178, [comment 6883744259](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883744259):
+«так, погоджуюсь»): from ~350 k tokens of context the lead takes no new tasks and only brings the current PRs to
+merge; the new-session limit stays ~400 k (or compaction, or 8–10 merged PRs). Reason: in lead 4 the 400 k limit
+fired with 3–4 PRs in work and finishing them took the context to ≈ 480 k. Risks and mitigation: 1–2 PRs fewer per
+session and more frequent handovers; the lead starts the next session itself, a start costs ≈ 100–150 k tokens.
 
 **New lead session** (owner, 2026-11-13/14): when the context reaches ~400 k tokens (`get_session` →
 `external_metadata.context_usage.used_tokens`), after a compaction or after 8–10 merged PRs, whichever comes first,
@@ -41,7 +47,7 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
 2. `create_session` with the start message below as `prompt`, the title `Willowsum · ведучий N+1 · <з чого почати>`,
    the same environment (omit `environment_id`: it is inherited) and the same repository (`source_url`).
 3. The new session's ID goes into #179 and, briefly, to the owner in chat.
-4. **Limit:** at most 2 automatic restarts in a row without an answer from the owner; the third only after the
+4. **Limit** (the counter and the third-restart steps below are the lead's mechanism: Рішення ведучого (2026-11-14; власник не схвалював; #230)): at most 2 automatic restarts in a row without an answer from the owner; the third only after the
    owner answers. The finishing lead then asks in chat and gives the start message in one code block, so the owner
    can also start it. The start message states the count: «N-й автоматичний перезапуск із 2».
 5. Risks and mitigations: a chain of sessions runs without the owner — the handover confirmation is always posted

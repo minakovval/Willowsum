@@ -124,7 +124,8 @@ Language and details: [lead communication](references/lead-communication.md).
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
-**New lead session** (owner, 2026-11-13/14): when your context reaches ~400 k tokens (`get_session` →
+**New lead session** (owner, 2026-11-13/14): from ~350 k tokens of context take no new tasks and only bring
+the current PRs to merge (owner, 2026-11-14, #178, «так, погоджуюсь»; [restarts](references/restarts.md)). When your context reaches ~400 k tokens (`get_session` →
 `external_metadata.context_usage.used_tokens`), has been compacted, or after 8–10 merged PRs, whichever comes
 first, start no new tasks and let the in-flight agents finish. Post the session's retrospective — conclusions,
 productivity (tokens, time, the lead's share, the costliest PRs), improvement proposals each with its risks,
@@ -138,7 +139,7 @@ session title, and **start the next lead session yourself** (owner, 2026-11-14, 
 «так, дозволяю»): `create_session` with the ready start message ([restarts](references/restarts.md), «Start
 message»), the same environment and repository; then write the new session's ID into #179 and tell the owner
 briefly in chat. At most 2 automatic restarts in a row without an answer from the owner; the third only after the
-owner answers (ask in chat, with the start message in one code block the owner can also copy; owner, 2026-11-14;
+owner answers (the counter and the third-restart steps are the lead's mechanism, not owner-approved; ask in chat, with the start message in one code block the owner can also copy; owner, 2026-11-14;
 [restarts](references/restarts.md), «Automatic restart»). A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, checks `get_session` →
 `external_metadata.rate_limit_info` (on a warning: at most 2–3 authors at once, reviews not cut; owner,
@@ -157,9 +158,10 @@ requirement) and in the rules it changes, never only in session memory (owner, 2
   in a retrospective or anywhere else, comes with its risks, downsides and mitigations (owner, 2026-11-14, #178).
 - **Questions for a later release** (owner, 2026-11-14: «не треба повторювати питання до мене, що не мають відношення до
   пос, вони мають бути десь записані і підніматись коли буде актуально»): a question that does not concern the PoC
-  is not asked or repeated in chat. Record it once in `docs/plans/owner-questions-later.md` (release, question with
-  options and recommendation, source, trigger: the first plan row or PR it blocks) and raise it only when that
-  trigger row is taken or its release starts.
+  is not repeated in chat. Record it once in `docs/plans/owner-questions-later.md` (release, question with
+  options and recommendation, source, trigger) and raise it only when that trigger row is taken or its release
+  starts. The «не повторювати» rule is the owner's; the trigger column and the moment of raising are the lead's
+  mechanism (Рішення ведучого (2026-11-14; власник не схвалював; #230)).
 - **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
   on small details) and send them together in one message, with the next merge report or decision request. Urgent ones go at once,
   alone: a blocker that stops all parallel work, billing or CI that cannot run, and anything about security (a
@@ -205,14 +207,15 @@ hand-made database: Рішення ведучого (2026-11-14; власник 
 - After a restart recover state from durable sources — [restarts](references/restarts.md) (read when you
   resume). An agent cut off by a limit or a restart: save its uncommitted work at once with a WIP commit on its
   branch (owner, 2026-11-14, #178; #197).
-- **Workflow experiment** (owner, 2026-11-14, #178): one run of a Workflow «супровідник» that takes one PR
-  without `sensitive` (e.g. a row `R`) from implementation to ready-to-merge; before starting it, ask the owner in
-  chat for consent to that exact run. Then compare its tokens and time with #180 and report before any second run.
+- **Workflow experiment** (owner, 2026-11-14, #178; «пункт 3 як пробні 2 запуски»): 2 more trial runs of a
+  Workflow «супровідник», each on one PR without `sensitive` (rows `R`), from implementation to ready-to-merge;
+  they may run in parallel. Compare agent tokens and the number of lead turns with #180 and report to the owner
+  before making it a rule (token economy, item 8).
 - Model by risk: the strongest model for sensitive features and security reviews of critical modules; a
   lighter one only for `review-pr` of docs-and-requirement-text-only PRs (not when they touch a security
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
-  a brief). **Fable** (owner, 2026-11-14, #178): security reviews of critical modules, complex architecture
-  rows, root causes of flaky tests, sweeps `C0`/`D0`/`F0`; at most one Fable task at a time (token economy,
-  item 1).
+  a brief). **Fable** (owner, 2026-11-14, #178): **only** security reviews of critical PRs and root-cause
+  searches for flaky tests, at most one Fable task at a time (both owner decisions); everything else on the main
+  model (token economy, item 1).
 
