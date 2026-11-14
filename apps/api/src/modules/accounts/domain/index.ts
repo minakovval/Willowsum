@@ -12,6 +12,7 @@ export {
   groupOf,
   INSTITUTION_NAME_MAX,
   institutionKey,
+  institutionOf,
   ledgerTypeOf,
   maskedNumber,
   NOTE_MAX,

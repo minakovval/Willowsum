@@ -43,6 +43,13 @@ export const flagDefinition = z
 export type FlagDefinition = z.infer<typeof flagDefinition>;
 
 export const FLAGS = {
+  "accounts.manual": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-14",
+    description:
+      "Ручні рахунки (FIN-01@PoC): створення рахунку з початковим залишком, картка рахунку, перевірка дубля; маршрути /v1/accounts",
+  },
   "household.core": {
     kind: "operational",
     owner: "product-owner",

@@ -4,6 +4,8 @@
  * never appear in code (AGENTS.md «Plans»).
  */
 export const FEATURES = {
+  "accounts.manual":
+    "Ручні рахунки: створення рахунку з початковим залишком, кредитні картки й кредити, перевірка дубля (FIN-01@PoC)",
   "household.core": "Робота з власним простором: перегляд і зміна його даних через API",
   "household.space-settings":
     "Налаштування простору: назва простору в профілі і перейменування простору Owner (ACC-08@PoC)",

@@ -5,6 +5,7 @@
  */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.ts";
+import type { AccountsServices } from "./modules/accounts/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import { authenticateSession, SESSION_COOKIE, type IdentityServices } from "./modules/identity/index.ts";
@@ -40,6 +41,11 @@ export interface ApiWiring {
   readonly spaces?: Pick<HouseholdSpaces, "membershipOf">;
   /** The household module's ports (ACC-08: the space's audit log for a rename). Omitted: its writes answer 500. */
   readonly household?: HouseholdServices;
+  /**
+   * The accounts module's ports (FIN-01: ledger, liabilities, the space's key for the number, audit log, clock).
+   * Omitted: its routes answer 500.
+   */
+  readonly accounts?: AccountsServices;
   /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly deployed?: boolean;
   /** The session of a request; by default the session cookie (with identity and spaces), else nobody. */
@@ -66,7 +72,13 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
       ? { checkFlagForAll: (flag: string) => wiring.flags.isEnabledForAll!(flag) }
       : {}),
     services: (module) =>
-      module === "identity" ? wiring.identity : module === "household" ? wiring.household : undefined,
+      module === "identity"
+        ? wiring.identity
+        : module === "household"
+          ? wiring.household
+          : module === "accounts"
+            ? wiring.accounts
+            : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
