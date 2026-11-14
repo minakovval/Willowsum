@@ -15,6 +15,7 @@ import {
   type AccountType,
   type EntryConversion,
   type LedgerEvent,
+  type LedgerEventType,
   type Posting,
   type ServiceAccount,
 } from "../domain/index.ts";
@@ -98,6 +99,8 @@ export interface LedgerTx {
   latestOperationDate(accountId: string): Promise<string | null>;
   /** The source's entries of one event type that no entry reverses, in the order they were recorded. */
   liveEntries(source: EntrySource, eventType: string): Promise<Entry[]>;
+  /** Whether an entry in effect (neither a reversal nor reversed) of another event type has a posting on the account. */
+  hasLiveEntries(accountId: string, exceptEventTypes: readonly string[]): Promise<boolean>;
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
@@ -451,6 +454,28 @@ export async function latestOperationDate(
     const [account] = await tx.accounts([accountId]);
     if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
     return tx.latestOperationDate(account.id);
+  });
+}
+
+/**
+ * Whether the account has an entry in effect — neither a reversal nor reversed — of an event type other than those
+ * given (FIN-12 FR 5: «Кредит» ↔ «Кредитна картка» only without transactions; «Початковий залишок» is not one). An
+ * entry corrected or deleted since does not count. Reads only; another space's account — `UNKNOWN_ACCOUNT`.
+ */
+export async function hasLiveEntries(
+  deps: JournalDeps,
+  householdId: string,
+  accountId: string,
+  exceptEventTypes: readonly LedgerEventType[],
+): Promise<boolean> {
+  assertId(accountId, "UNKNOWN_ACCOUNT");
+  for (const type of exceptEventTypes)
+    if (!(EVENT_TYPES as readonly string[]).includes(type))
+      throw new LedgerError("UNKNOWN_EVENT_TYPE", "No posting rule for this event type");
+  return deps.store.inHousehold(householdId, async (tx) => {
+    const [account] = await tx.accounts([accountId]);
+    if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
+    return tx.hasLiveEntries(account.id, exceptEventTypes);
   });
 }
 

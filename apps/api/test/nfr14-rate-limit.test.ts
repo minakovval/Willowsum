@@ -1,6 +1,6 @@
 import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
 import type { FastifyInstance, InjectOptions } from "fastify";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { registerApi, type ApiOptions } from "../src/platform/http/api.ts";
 import { metaRoute } from "../src/platform/http/meta.ts";
@@ -51,6 +51,7 @@ const routes = [metaRoute, getThing, uploadThing];
 
 let app: FastifyInstance | undefined;
 afterEach(async () => {
+  vi.useRealTimers();
   await app?.close();
   app = undefined;
 });
@@ -263,6 +264,10 @@ describe("NFR-14 FR 8: a proxy that writes the client as ip:port", () => {
 
 describe("NFR-14 FR 9: limits are off only when the API is explicitly told so (load test)", () => {
   it('rateLimits: "off" lets every request through; omitted, the limits are on', async () => {
+    // Omitted limits count in windows of the wall clock (`Date.now`), which no option replaces here. The
+    // test holds that clock still, so the 61 requests share one window: read live, a minute boundary inside
+    // the loop gave the 61st request a new window and 200 (CI job `web`, 2026-11-14 20:32:00 UTC).
+    vi.useFakeTimers({ toFake: ["Date"], now: FIXEDNOW_AT });
     const off = await serve({ api: { rateLimits: "off" } });
     expect(new Set(await send(off, { method: "GET", url: "/v1/meta", remoteAddress: CLIENT }, 70))).toEqual(
       new Set([200]),
@@ -279,6 +284,28 @@ describe("NFR-14 FR 9: limits are off only when the API is explicitly told so (l
     await app.ready();
     const statuses = await send(app, { method: "GET", url: "/v1/meta", remoteAddress: CLIENT }, 61);
     expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("omitted limits follow the wall clock: 61 requests that cross a minute boundary are two windows", async () => {
+    const boundary = FIXEDNOW_AT - 15_000 + RATE_LIMIT_WINDOW_MS;
+    vi.useFakeTimers({ toFake: ["Date"], now: boundary - 30 });
+    app = buildServer({
+      readiness: async () => ({ ready: true }),
+      api: (a) => registerApi(a, testApiOptions(routes)),
+    });
+    await app.ready();
+    const meta = { method: "GET" as const, url: "/v1/meta", remoteAddress: CLIENT };
+    // 30 requests in the last 30 ms of a minute, then 60 in the next minute: all pass (FR 5, fixed windows).
+    const statuses: number[] = [];
+    for (let i = 0; i < 90; i++) {
+      statuses.push((await app.inject(meta)).statusCode);
+      vi.advanceTimersByTime(1);
+    }
+    expect(statuses).toEqual(Array(90).fill(200));
+    // The 61st of the new minute is refused until that minute ends.
+    const refused = await app.inject(meta);
+    expect(refused.statusCode).toBe(429);
+    expect(refused.headers["retry-after"]).toBe("60");
   });
 });
 

@@ -45,3 +45,4 @@ export {
   type ClosingDateIssue,
   type LiveAdjustment,
 } from "./manage.ts";
+export { accountName, fieldsForKind, kindChange, type KindChange, type KindFields } from "./settings.ts";

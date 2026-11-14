@@ -21,7 +21,7 @@ export interface AccountsServices {
 
 export function createAccountsServices(options: {
   readonly ledger: AccountsDeps["ledger"];
-  readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
+  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind">;
   readonly keys: NumberSeal;
   /** fx-rates' `createFxReporting` on the same clock: «Гроші разом» and the list in the profile currency. */
   readonly fx: Pick<FxReporting, "total">;
@@ -129,6 +129,15 @@ function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
               ]
             : []),
         ],
+      });
+    },
+    async settingsChanged(householdId, actorAccountId, accountId, changes) {
+      await audit.record(householdId, {
+        actor: { kind: "user", id: actorAccountId },
+        channel: "web",
+        entity: { type: "accounts.account", id: accountId },
+        action: "update",
+        changes: changes.map((c) => ({ ...c, sensitive: false })),
       });
     },
     async transferred(householdId, actorAccountId, account, transfer) {
