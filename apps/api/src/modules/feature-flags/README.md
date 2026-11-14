@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -61,7 +61,8 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 2027-02-13; `identity.profile` — `release`, потребує `identity.sign-in` (ACC-05@PoC: профіль і зміна пароля зі step-up,
 `/v1/profile`, `/v1/session/step-up`; лише етап «all»), власник `product-owner`, перегляд до 2027-02-14;
 `accounts.manual` — `release` (FIN-01@PoC: ручні рахунки, `/v1/accounts`), власник `product-owner`, перегляд до
-2027-02-14.
+2027-02-14; `transactions.manual` — `release`, потребує `accounts.manual` (FIN-03@PoC a: ручні транзакції, `/v1/transactions`),
+власник `product-owner`, перегляд до 2027-02-14.
 
 Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на
 етапі `all` (і так само кожен прапорець із `requires`), бо до входу немає простору для тестової групи чи частки (ADR-0009).

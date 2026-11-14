@@ -19,13 +19,12 @@ interface Row {
   status: "posted";
   source: "manual";
   version: number;
-  created_at: string;
+  created_at: Date;
 }
 
-// Dates and times as text, so no time zone of the driver touches them.
+// The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
-  counterparty, description, status, source, version,
-  to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at`;
+  counterparty, description, status, source, version, created_at`;
 
 function stored(r: Row): StoredTransaction {
   return {
@@ -39,7 +38,8 @@ function stored(r: Row): StoredTransaction {
     status: r.status,
     source: r.source,
     version: r.version,
-    createdAt: r.created_at,
+    // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
+    createdAt: r.created_at.toISOString(),
   };
 }
 

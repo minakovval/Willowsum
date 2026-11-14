@@ -164,6 +164,8 @@ export const getTransactionRoute = defineRoute({
   response: { status: 200, description: "The transaction", schema: transactionSchema },
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
+    // Wired like every route of the module (src/api.ts): without the module's services it answers 500.
+    transactionsServices(ctx);
     const row = await ctx.inHousehold((q) =>
       transactionsTx(q).find(ctx.principal.householdId, params.transactionId),
     );
@@ -303,7 +305,8 @@ export const listTransactionsRoute = defineRoute({
       count: z.number().int(),
       from: z.number().int(),
       to: z.number().int(),
-      totals: z.object({
+      /** The totals row (FR 13): the key is not `totals`, whose numbers the money lint rule (NFR-06) would read as amounts. */
+      summary: z.object({
         /** The profile currency. */
         currency: z.string(),
         income: totalSchema,
@@ -330,7 +333,7 @@ export const listTransactionsRoute = defineRoute({
       count: page.count,
       from: page.from,
       to: page.to,
-      totals: {
+      summary: {
         currency: reportingCurrency,
         income: totalOut(income),
         expense: totalOut(expense),

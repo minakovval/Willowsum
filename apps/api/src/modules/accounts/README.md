@@ -1,6 +1,6 @@
 # Модуль accounts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14 (FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок» — серверна частина)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14 (FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок» — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -101,6 +101,10 @@ FIN-04@PoC п. 10, 11, AC5, AC7; FIN-01@PoC п. 15, AC6, граничні вип
 позначка «приблизно» (курс старший за 3 календарні дні, VAL-04) — `FxReporting.total`, без власного правила; кожен
 підсумок — один запит курсів. Закриті рахунки не входять у жоден підсумок і в кількості «Джерела даних».
 - `createAccountsErasure(db)` → `AccountsErasure` (див. «Власні таблиці»).
+- `createAccountDirectory(db)` → `AccountDirectory.postingAccount(householdId, accountId)` → `PostingAccount` (`accountId`,
+  `status`, `subaccounts`: `subaccountId`, `currency`, `ledgerAccountId`) або null — рахунок, на який інший модуль
+  проводить гроші (модуль `transactions`, FIN-03@PoC п. 2, граничний випадок 2); лише читання; рахунок іншого простору —
+  null, як неіснуючий.
 - `ACCOUNT_KINDS`, `groupOf`, `maskedNumber`, `parseAccountNumber`, `depositAccrual`, типи `AccountKind`, `AccountGroup`,
   `AccountView`, `DepositAccrual`.
 
