@@ -155,6 +155,11 @@ requirement) and in the rules it changes, never only in session memory (owner, 2
 - Questions to the owner are explicit and separate: one numbered list, each with options and your
   recommendation; only real product questions (AGENTS.md «Ambiguity»). Every improvement proposal to the owner,
   in a retrospective or anywhere else, comes with its risks, downsides and mitigations (owner, 2026-11-14, #178).
+- **Questions for a later release** (owner, 2026-11-14: «не треба повторювати питання до мене, що не мають відношення до
+  пос, вони мають бути десь записані і підніматись коли буде актуально»): a question that does not concern the PoC
+  is not asked or repeated in chat. Record it once in `docs/plans/owner-questions-later.md` (release, question with
+  options and recommendation, source, trigger: the first plan row or PR it blocks) and raise it only when that
+  trigger row is taken or its release starts.
 - **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
   on small details) and send them together in one message, with the next merge report or decision request. Urgent ones go at once,
   alone: a blocker that stops all parallel work, billing or CI that cannot run, and anything about security (a
