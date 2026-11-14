@@ -9,9 +9,9 @@ import { createAuditLog } from "../audit/index.ts";
 import { argon2Hasher, createIdentityMaintenance, createIdentityServices } from "./index.ts";
 
 /**
- * ACC-04@PoC part a2 (server) on a real PostgreSQL through the real API: the sign-in history and the new-device
- * letter (FR 4, AC6; NFR-15@PoC FR 6, 29), «Це був не я» (FR 5, AC7; NFR-15@PoC FR 7; NFR-01@PoC FR 12). The clock
- * is the test's own (`t`); a device is the request's user agent.
+ * ACC-04@PoC part a2 (server) on a real PostgreSQL through the real API: the sign-in history, the new-device
+ * letter and «Це був не я» (ACC-04@PoC FR 4, FR 5, AC6, AC7), with NFR-15@PoC FR 6, FR 7, FR 29 and NFR-01@PoC
+ * FR 12. The clock is the test's own (`t`); a device is the request's user agent.
  */
 const WEB = "http://localhost:5173";
 const SECOND = 1000;
