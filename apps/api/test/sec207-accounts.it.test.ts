@@ -10,6 +10,7 @@ import { createAuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
+import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices } from "../src/modules/accounts/index.ts";
 
 /**
@@ -81,6 +82,7 @@ beforeAll(async () => {
           ledger: createLedger(db.databases.for("ledger")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
+          fx: createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW }),
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,

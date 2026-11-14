@@ -1,8 +1,19 @@
 import type { Money } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
+import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
-import { accountView, createAccount, findDuplicate, type AccountView } from "../../application/index.ts";
+import {
+  accountsPage,
+  accountsSummary,
+  accountView,
+  createAccount,
+  findDuplicate,
+  type AccountListItem,
+  type AccountView,
+  type ConvertedAmount,
+  type ReportedSum,
+} from "../../application/index.ts";
 import {
   ACCOUNT_KINDS,
   ACCOUNT_NAME_MAX,
@@ -16,7 +27,7 @@ import {
   parseAccountNumber,
   type FieldIssue,
 } from "../../domain/index.ts";
-import { accountsTx } from "../db/store.ts";
+import { accountsListTx, accountsTx } from "../db/store.ts";
 import { accountsServices } from "./services.ts";
 
 /**
@@ -270,4 +281,176 @@ export const findDuplicateAccountRoute = defineRoute({
   },
 });
 
-export const accountsRoutes = [createAccountRoute, findDuplicateAccountRoute, getAccountRoute];
+/** A sum in the profile currency: unrounded; null only when no amount has any rate (never 0). */
+const reportedSumSchema = z.object({
+  total: moneySchema.nullable(),
+  /** «приблизно»: a rate older than 3 calendar days (VAL-04), or an amount without any rate left out. */
+  approximate: z.boolean(),
+  /** Amounts left out for want of any rate («Курс недоступний»). */
+  unavailableCount: z.number().int(),
+});
+const convertedSchema = z.object({
+  currency: z.string(),
+  /** In its own currency, as the ledger has it (a debt negative). */
+  amount: moneySchema,
+  /** In the profile currency; null without any rate. */
+  equivalent: moneySchema.nullable(),
+  /** The date of the NBU rate used; null when nothing was converted. */
+  rateDate: z.string().nullable(),
+  approximate: z.boolean(),
+  restricted: z.boolean(),
+});
+
+const sum = (r: ReportedSum) => ({ ...r, total: maybeMoney(r.total) });
+const convertedOut = (c: ConvertedAmount) => ({
+  ...c,
+  amount: money(c.amount),
+  equivalent: maybeMoney(c.equivalent),
+});
+
+/** Scoped members: «Рахунки» are closed by the visibility policy's default (00-general «Область доступу»). */
+function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
+  if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
+}
+
+export const accountsSummaryRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts/summary",
+  operationId: "getAccountsSummary",
+  summary:
+    "«Гроші разом» with the breakdown by currency, the «Кредитні» header and «Джерела даних» (active accounts)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  response: {
+    status: 200,
+    description: "Totals in the profile currency at the dated NBU rate (fx-rates); amounts unrounded",
+    schema: z.object({
+      /** The profile currency. */
+      currency: z.string(),
+      /** FIN-01 FR 18: cash accounts minus the credit cards' debt; loans never count. */
+      moneyTogether: reportedSumSchema.extend({
+        staleRateCount: z.number().int(),
+        /** «курс НБУ на <дата>»: the earliest rate date used; null when nothing was converted. */
+        rate: z.object({ source: z.string(), date: z.string() }).nullable(),
+        /** One bar segment and legend line per currency: the largest equivalent first. */
+        breakdown: z.array(
+          convertedSchema.extend({
+            /** Whole percent of the bar (they add up to 100); null without a segment. */
+            percent: z.number().int().nullable(),
+          }),
+        ),
+      }),
+      /** FIN-01 FR 19: what is owed on cards, and «Кредити: −<сума>» (both positive debts). */
+      credit: z.object({ cardDebt: reportedSumSchema, loanDebt: reportedSumSchema }),
+      /** FIN-01 FR 21: active accounts per source. */
+      sources: z.object({ import: z.number().int(), manual: z.number().int() }),
+    }),
+  },
+  handler: async (_request, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const s = await ctx.inHousehold((q) =>
+      accountsSummary(deps, accountsListTx(q), ctx.principal.householdId),
+    );
+    return {
+      currency: s.currency,
+      moneyTogether: {
+        ...sum(s.moneyTogether),
+        staleRateCount: s.moneyTogether.staleRateCount,
+        rate: s.moneyTogether.rate,
+        breakdown: s.moneyTogether.breakdown.map((b) => ({ ...convertedOut(b), percent: b.percent })),
+      },
+      credit: { cardDebt: sum(s.credit.cardDebt), loanDebt: sum(s.credit.loanDebt) },
+      sources: s.sources,
+    };
+  },
+});
+
+const listItemSchema = z.object({
+  id: z.uuid(),
+  kind: z.enum(ACCOUNT_KINDS).meta({ "x-extensible-enum": true }),
+  group: z.enum(["cash", "credit"]),
+  name: z.string(),
+  institution: z.object({ name: z.string(), country: z.string() }).nullable(),
+  number: z.object({ last4: z.string(), masked: z.string() }).nullable(),
+  status: z.enum(ACCOUNT_STATUSES).meta({ "x-extensible-enum": true }),
+  closedOn: z.string().nullable(),
+  source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
+  /** «Дата останнього оновлення»: the latest balance date of the account. */
+  updatedOn: z.string(),
+  /** The account in the profile currency (a debt negative); a multi-currency account is one row (FR 13). */
+  inProfileCurrency: reportedSumSchema,
+  /** Each subaccount in its own currency and in the profile currency. */
+  currencies: z.array(convertedSchema),
+  creditCard: z
+    .object({ creditLimit: moneySchema.nullable(), debt: moneySchema, available: moneySchema.nullable() })
+    .nullable(),
+  loan: z
+    .object({ annualRate: z.string().nullable(), monthlyPayment: moneySchema.nullable(), debt: moneySchema })
+    .nullable(),
+});
+
+const listPosition = z.object({ i: z.uuid() }).strict();
+
+function presentItem(item: AccountListItem): z.input<typeof listItemSchema> {
+  return {
+    ...item,
+    inProfileCurrency: sum(item.inProfileCurrency),
+    currencies: item.currencies.map(convertedOut),
+    creditCard: item.creditCard && {
+      creditLimit: maybeMoney(item.creditCard.creditLimit),
+      debt: money(item.creditCard.debt),
+      available: maybeMoney(item.creditCard.available),
+    },
+    loan: item.loan && {
+      annualRate: item.loan.annualRate,
+      monthlyPayment: maybeMoney(item.loan.monthlyPayment),
+      debt: money(item.loan.debt),
+    },
+  };
+}
+
+export const listAccountsRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts",
+  operationId: "listAccounts",
+  summary: "The space's money accounts with today's balances, in the order they were added",
+  access: { permission: "household.data.read", feature: FEATURE },
+  list: true,
+  request: {
+    query: z.object({
+      ...pageQuery.shape,
+      /** «Готівкові» or «Кредитні» (FIN-01 FR 14); both when absent. */
+      group: z.enum(["cash", "credit"]).optional(),
+      /** «Параметри» → «Показати закриті» (FIN-01 FR 22). */
+      includeClosed: z.enum(["true", "false"]).optional(),
+    }),
+  },
+  response: { status: 200, description: "A page of accounts", schema: pageOf(listItemSchema) },
+  handler: async ({ query }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const after = query.cursor ? decodeCursor(query.cursor, listPosition) : null;
+    const page = await ctx.inHousehold((q) =>
+      accountsPage(deps, accountsListTx(q), ctx.principal.householdId, {
+        group: query.group ?? null,
+        includeClosed: query.includeClosed === "true",
+        after: after && { id: after.i },
+        limit: query.limit,
+      }),
+    );
+    return {
+      items: page.items.map(presentItem),
+      nextCursor: page.next ? encodeCursor({ i: page.next.id }) : null,
+    };
+  },
+});
+
+export const accountsRoutes = [
+  createAccountRoute,
+  findDuplicateAccountRoute,
+  accountsSummaryRoute,
+  listAccountsRoute,
+  getAccountRoute,
+];
