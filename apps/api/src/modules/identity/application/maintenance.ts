@@ -28,13 +28,16 @@ async function withDeadlockRetry<T>(store: IdentityStore, work: (tx: IdentityTx)
 
 export interface DailyCleanupReport extends SweepCounts {
   readonly unconfirmedAccounts: number;
+  /** Open sessions that had lapsed, ended here (each written to the sign-in journal by the store). */
+  readonly lapsedSessions: number;
 }
 
 /**
  * The daily task of identity (ACC-01 FR 6, AC8, AC9; NFR-12; ADR-0010). Unconfirmed accounts whose latest sign-up
  * is 30 days old or older are deleted with all their rows; no reminder is ever sent. Then the rows that no longer
  * change any answer or limit are swept. Idempotent: running it twice, or on two instances, deletes nothing more.
- * The clock is read once, so one run judges every row by the same time.
+ * Open sessions that lapsed are ended (and so journaled) before the sweep. The clock is read once, so one run judges
+ * every row by the same time.
  */
 export async function dailyCleanup(deps: MaintenanceDeps): Promise<DailyCleanupReport> {
   const now = deps.now();
@@ -48,6 +51,9 @@ export async function dailyCleanup(deps: MaintenanceDeps): Promise<DailyCleanupR
     unconfirmedAccounts += ids.length;
     if (ids.length < DELETE_BATCH) break;
   }
+  // A session nobody came back to has lapsed but was never ended: it ends now, with its reason, so its end is in the
+  // sign-in journal (ACC-04 business rules) before the sweep deletes it.
+  const lapsed = await withDeadlockRetry(deps.store, (tx) => tx.endLapsedSessions(now));
   const swept = await withDeadlockRetry(deps.store, (tx) => tx.sweep(now));
-  return { unconfirmedAccounts, ...swept };
+  return { unconfirmedAccounts, lapsedSessions: lapsed.length, ...swept };
 }

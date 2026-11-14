@@ -114,7 +114,12 @@ beforeAll(async () => {
       pending.push(task());
     },
   });
-  maintenance = createIdentityMaintenance({ db: db.databases.for("identity"), audit, now: () => t });
+  maintenance = createIdentityMaintenance({
+    db: db.databases.for("identity"),
+    audit,
+    spaces: householdSpaces(db),
+    now: () => t,
+  });
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>
@@ -244,6 +249,7 @@ describe("ACC-01 AC9 / FR 6: 30 days after the sign-up the account and all its d
     expect((await maintenance.dailyCleanup()).unconfirmedAccounts).toBe(1);
     expect(await maintenance.dailyCleanup()).toEqual({
       unconfirmedAccounts: 0,
+      lapsedSessions: 0,
       throttleEvents: 0,
       signInGuards: 0,
       registrations: 0,

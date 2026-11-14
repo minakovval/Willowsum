@@ -27,6 +27,7 @@ function fakeStore(failures: { delete: unknown[]; sweep: unknown[] }) {
       if (failure) throw failure;
       return ["00000000-0000-4000-8000-000000000001"];
     },
+    endLapsedSessions: async () => [],
     sweep: async () => {
       calls.sweep++;
       const failure = failures.sweep.shift();

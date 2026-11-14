@@ -238,7 +238,7 @@ describe("ARC-11@PoC through main.ts's wiring: the worker dispatches the ledger'
     const tasks = schedulerDailyTasks({
       databases: db.databases,
       audit: createAuditLog(db.databases.for("audit")),
-      spaces: { spaceIds: async () => [s.householdId] },
+      spaces: { spaceIds: async () => [s.householdId], membershipOf: async () => null },
       now: () => Date.now(),
     });
     const cleanup = tasks.find((t) => t.name === "queue.retention-cleanup");

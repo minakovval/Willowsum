@@ -4,6 +4,7 @@ import type { FixedWindowLimiter } from "../../../platform/http/rate-limit.ts";
 import type {
   DeviceName,
   SessionEndReason,
+  SignInEvent,
   SignInGuard,
   StepUpAction,
   StepUpConfirmation,
@@ -85,6 +86,13 @@ export interface RegistrationRow {
   readonly supersededAt: number | null;
 }
 
+/** A session a transaction ended: for its entry in the sign-in journal. */
+export interface EndedSession {
+  readonly id: string;
+  readonly accountId: string;
+  readonly reason: SessionEndReason;
+}
+
 export interface SessionRow {
   readonly id: string;
   readonly accountId: string;
@@ -138,13 +146,19 @@ export interface IdentityTx {
   requirePasswordReset(accountId: string, now: number): Promise<void>;
 
   /**
-   * Adds the device to the account's sign-in history (NFR-15 FR 29). `first`: the account had no history yet (its
-   * first sign-in starts it, no letter); `known`: the device is in it; `new`: a device the history did not have.
-   * Serialised per account, so two first sign-ins at once cannot both count as the first.
+   * Adds the device (scheme 2: browser and system) to the account's sign-in history (NFR-15 FR 29). `first`: the
+   * account had no history yet (its first sign-in starts it, no letter); `known`: the device is in it, or a row of the
+   * previous release's history (scheme 1, `legacyDigest`: the whole user agent) is, which is then replaced by the new
+   * key; `new`: a device the history did not have. Serialised per account, so two first sign-ins at once cannot both
+   * count as the first.
    */
-  rememberDevice(accountId: string, deviceDigest: Buffer, now: number): Promise<"first" | "known" | "new">;
-  /** «Це був не я»: the device of the suspicious sign-in leaves the history, so its next sign-in is reported again. */
-  forgetDevice(accountId: string, deviceDigest: Buffer): Promise<void>;
+  rememberDevice(
+    accountId: string,
+    device: { readonly digest: Buffer; readonly legacyDigest: Buffer },
+    now: number,
+  ): Promise<"first" | "known" | "new">;
+  /** «Це був не я»: the device of the suspicious sign-in leaves the history (each of its keys), so its next sign-in is reported again. */
+  forgetDevice(accountId: string, deviceDigests: readonly Buffer[]): Promise<void>;
   insertNotMeLink(link: {
     accountId: string;
     tokenDigest: Buffer;
@@ -197,7 +211,8 @@ export interface IdentityTx {
   readGuard(key: Buffer): Promise<SignInGuard | null>;
   setGuard(key: Buffer, guard: SignInGuard, now: number): Promise<void>;
 
-  insertSession(accountId: string, digest: Buffer, now: number, expiresAt: number): Promise<void>;
+  /** Returns the new session's id. */
+  insertSession(accountId: string, digest: Buffer, now: number, expiresAt: number): Promise<string>;
   /**
    * The session of a token: its current one or one a refresh replaced (`retiredAt`). `lock` holds the session row
    * until the transaction ends, so two refreshes of one session run one after another.
@@ -207,11 +222,22 @@ export interface IdentityTx {
   touchSession(id: string, now: number): Promise<void>;
   /** Refresh token rotation (NFR-01 FR 12): `next` becomes the session's token, its current one is retired. */
   rotateSession(id: string, next: Buffer, now: number): Promise<void>;
-  endSession(id: string, now: number, reason: SessionEndReason): Promise<void>;
-  /** Ends every session of the account; returns how many were still open. */
-  endSessions(accountId: string, now: number, reason: SessionEndReason): Promise<number>;
-  /** Ends every session of the account but `keep` (a password change in the profile; ACC-04 FR 6). */
-  endOtherSessions(accountId: string, keep: string, now: number, reason: SessionEndReason): Promise<number>;
+  /** Ends the session if it is still open; returns it, or null when it had already ended. */
+  endSession(id: string, now: number, reason: SessionEndReason): Promise<EndedSession | null>;
+  /** Ends every open session of the account; returns them. */
+  endSessions(accountId: string, now: number, reason: SessionEndReason): Promise<EndedSession[]>;
+  /** Ends every open session of the account but `keep` (a password change in the profile; ACC-04 FR 6). */
+  endOtherSessions(
+    accountId: string,
+    keep: string,
+    now: number,
+    reason: SessionEndReason,
+  ): Promise<EndedSession[]>;
+  /**
+   * The daily task: ends every open session that has lapsed at `now` (12 h since sign-in → `expired`, else 15 min
+   * without a user action → `idle`), as a request would have; returns them.
+   */
+  endLapsedSessions(now: number): Promise<EndedSession[]>;
 
   /** A new step-up confirmation; it replaces the session's earlier ones for the same action. */
   insertStepUp(confirmation: {
@@ -250,7 +276,21 @@ export interface SweepCounts {
  * `ensureFirstSpace`, wired by main.ts. Idempotent, also under concurrent sign-ins.
  */
 export interface FirstSpace {
-  ensureFirstSpace(owner: { readonly accountId: string; readonly displayName: string }): Promise<unknown>;
+  ensureFirstSpace(owner: {
+    readonly accountId: string;
+    readonly displayName: string;
+  }): Promise<{ readonly householdId: string }>;
+  /** The space of the account (PoC: its one space), or null: the space whose audit log gets its sign-in journal. */
+  membershipOf(accountId: string): Promise<{ readonly householdId: string } | null>;
+}
+
+/**
+ * The sign-in journal in the space's audit log (ACC-04 business rules; NFR-15 FR 29): `record` writes the event to
+ * the log of the account's space with the address and device of the request it is bound to (none for the daily
+ * task). An account without a space has no log: nothing is written.
+ */
+export interface SignInJournal {
+  record(event: SignInEvent): Promise<void>;
 }
 
 export interface IdentityStore {
@@ -307,6 +347,11 @@ export interface IdentityDeps {
   readonly webOrigin: string;
   /** The first space on the first sign-in (household module). */
   readonly spaces: FirstSpace;
+  /**
+   * The sign-in journal, bound to this request's address and device. Session ends reach it through the store
+   * (`journaledStore`); the use cases record sign-ins, failed sign-ins and locks.
+   */
+  readonly journal: SignInJournal;
   /**
    * May this login key (`normalizeEmail`) sign up (ACC-01 FR 16)? The family's list from the server's configuration;
    * without one (local development and CI) every address may.

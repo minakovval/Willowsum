@@ -12,7 +12,7 @@ import { argon2Hasher, createIdentityMaintenance, createIdentityServices } from 
 /**
  * ACC-04@PoC part a2 (server) on a real PostgreSQL through the real API: the sign-in history, the new-device
  * letter and «Це був не я» (ACC-04@PoC FR 4, FR 5, AC6, AC7), with NFR-15@PoC FR 6, FR 7, FR 29 and NFR-01@PoC
- * FR 12. The clock is the test's own (`t`); a device is the request's user agent.
+ * FR 12. The clock is the test's own (`t`); a device is the browser and system of the request's user agent.
  */
 const WEB = "http://localhost:5173";
 const telemetry = testTelemetryForFile();
@@ -234,7 +234,7 @@ describe("ACC-04@PoC AC6: a sign-in from a device or browser not in the account'
     );
     expect(letters[0]!.text).toContain("Це був не я: http://localhost:5173/#/not-me?token=");
     expect(notMeToken(letters[0]!.text)).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    // Only the SHA-256 of the token and of the user agent are stored; no user agent text, no full address.
+    // Only the SHA-256 of the token and of the device key are stored; no user agent text, no full address.
     const { rows } = await db.owner.query(`SELECT l.* FROM identity.not_me_links l WHERE l.account_id = $1`, [
       await accountId(email),
     ]);
@@ -299,15 +299,16 @@ describe("NFR-15@PoC FR 6: a new device or browser at sign-in sends a warning le
   });
 });
 
-describe("NFR-15@PoC FR 29: a new device is told at least by its user agent", () => {
-  it("another address with the same user agent is the same device; another user agent (even a browser update) is new", async () => {
+describe("NFR-15@PoC FR 29: a new device is its browser and system without versions, not the whole user agent", () => {
+  it("another address or a browser update is the same device; another browser is new", async () => {
     const email = await confirmedAccount("nfr15-29");
     await new Browser(CHROME_WINDOWS).signIn(email, PASSWORD, "203.0.113.5");
     const from = mail.sent.length;
     await new Browser(CHROME_WINDOWS).signIn(email, PASSWORD, "198.51.100.9");
+    await new Browser(CHROME_WINDOWS_NEXT).signIn(email);
     await flush();
     expect(lettersTo(email, from)).toEqual([]);
-    await new Browser(CHROME_WINDOWS_NEXT).signIn(email);
+    await new Browser(FIREFOX_LINUX).signIn(email);
     await flush();
     expect(newDeviceLetters(email, from)).toHaveLength(1);
     const { rows } = await db.owner.query<{ n: number }>(
@@ -473,6 +474,7 @@ describe("NFR-15@PoC FR 7: «Це був не я» ends every session and requir
     const report = await createIdentityMaintenance({
       db: db.databases.for("identity"),
       audit: createAuditLog(db.databases.for("audit")),
+      spaces: householdSpaces(db),
       now: () => t,
     }).dailyCleanup();
     expect(report.notMeLinks).toBeGreaterThanOrEqual(1);

@@ -4,6 +4,7 @@ import type { FixedWindowLimiter } from "../../../../platform/http/rate-limit.ts
 import type {
   AccountRow,
   ConfirmationRow,
+  EndedSession,
   IdentityStore,
   IdentityTx,
   NotMeLinkRow,
@@ -16,6 +17,7 @@ import type {
 } from "../../application/index.ts";
 import {
   PASSWORD_RESET_RETENTION_MS,
+  SESSION_IDLE_MS,
   THROTTLE_RETENTION_MS,
   type DeviceBrowser,
   type DeviceOs,
@@ -63,6 +65,14 @@ interface ResetDb {
   used_at: Date | null;
   revoked_at: Date | null;
 }
+
+interface EndedRow {
+  id: string;
+  account_id: string;
+  end_reason: SessionEndReason;
+}
+const ENDED = "id, account_id, end_reason";
+const ended = (r: EndedRow): EndedSession => ({ id: r.id, accountId: r.account_id, reason: r.end_reason });
 
 function tx(q: ModuleQueryRunner): IdentityTx {
   return {
@@ -127,29 +137,47 @@ function tx(q: ModuleQueryRunner): IdentityTx {
         [accountId, at(now)],
       );
     },
-    async rememberDevice(accountId, deviceDigest, now) {
+    async rememberDevice(accountId, device, now) {
       // One sign-in of the account at a time decides «first» / «new» (two first sign-ins at once: one is first).
       await q.query(`SELECT pg_advisory_xact_lock(hashtext('identity:devices'), hashtext($1::text))`, [
         accountId,
       ]);
-      const { rows } = await q.query<{ known: boolean; any: boolean }>(
-        `SELECT EXISTS (SELECT 1 FROM sign_in_devices WHERE account_id = $1 AND device_digest = $2) AS known,
+      const { rows } = await q.query<{ known: boolean; legacy: boolean; any: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM sign_in_devices
+                         WHERE account_id = $1 AND device_digest = $2 AND key_scheme = 2) AS known,
+                EXISTS (SELECT 1 FROM sign_in_devices
+                         WHERE account_id = $1 AND device_digest = $3 AND key_scheme = 1) AS legacy,
                 EXISTS (SELECT 1 FROM sign_in_devices WHERE account_id = $1) AS any`,
-        [accountId, deviceDigest],
+        [accountId, device.digest, device.legacyDigest],
       );
-      const { known, any } = rows[0]!;
+      const { known, legacy, any } = rows[0]!;
+      // A row of the previous release's history (the whole user agent) is replaced by the device's new key, keeping
+      // its first sign-in: the same browser is known, also after its next update.
+      const first = legacy
+        ? (
+            await q.query<{ first_seen_at: Date }>(
+              `DELETE FROM sign_in_devices WHERE account_id = $1 AND device_digest = $2 AND key_scheme = 1
+               RETURNING first_seen_at`,
+              [accountId, device.legacyDigest],
+            )
+          ).rows[0]!.first_seen_at
+        : at(now);
       await q.query(
-        `INSERT INTO sign_in_devices (account_id, device_digest, first_seen_at, last_seen_at) VALUES ($1, $2, $3, $3)
-         ON CONFLICT (account_id, device_digest) DO UPDATE SET last_seen_at = GREATEST(sign_in_devices.last_seen_at, EXCLUDED.last_seen_at)`,
-        [accountId, deviceDigest, at(now)],
+        `INSERT INTO sign_in_devices (account_id, device_digest, first_seen_at, last_seen_at, key_scheme)
+         VALUES ($1, $2, LEAST($3::timestamptz, $4::timestamptz), $4, 2)
+         ON CONFLICT (account_id, device_digest) DO UPDATE
+           SET last_seen_at = GREATEST(sign_in_devices.last_seen_at, EXCLUDED.last_seen_at),
+               first_seen_at = LEAST(sign_in_devices.first_seen_at, EXCLUDED.first_seen_at),
+               key_scheme = 2`,
+        [accountId, device.digest, first, at(now)],
       );
-      return known ? "known" : any ? "new" : "first";
+      return known || legacy ? "known" : any ? "new" : "first";
     },
-    async forgetDevice(accountId, deviceDigest) {
-      await q.query(`DELETE FROM sign_in_devices WHERE account_id = $1 AND device_digest = $2`, [
-        accountId,
-        deviceDigest,
-      ]);
+    async forgetDevice(accountId, deviceDigests) {
+      await q.query(
+        `DELETE FROM sign_in_devices WHERE account_id = $1 AND device_digest = ANY($2::bytea[])`,
+        [accountId, deviceDigests],
+      );
     },
     async insertNotMeLink(link) {
       await q.query(
@@ -386,10 +414,12 @@ function tx(q: ModuleQueryRunner): IdentityTx {
       );
     },
     async insertSession(accountId, digest, now, expiresAt) {
-      await q.query(
-        `INSERT INTO sessions (account_id, token_digest, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $3, $4)`,
+      const { rows } = await q.query<{ id: string }>(
+        `INSERT INTO sessions (account_id, token_digest, created_at, last_seen_at, expires_at) VALUES ($1, $2, $3, $3, $4)
+         RETURNING id`,
         [accountId, digest, at(now), at(expiresAt)],
       );
+      return rows[0]!.id;
     },
     async findSession(digest, lock) {
       const columns = `s.id, s.account_id, s.created_at, s.last_seen_at, s.expires_at, s.ended_at, s.end_reason`;
@@ -443,25 +473,41 @@ function tx(q: ModuleQueryRunner): IdentityTx {
       await q.query(`UPDATE sessions SET token_digest = $2 WHERE id = $1`, [id, next]);
     },
     async endSession(id, now, reason) {
-      await q.query(`UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE id = $1 AND ended_at IS NULL`, [
-        id,
-        at(now),
-        reason,
-      ]);
+      const { rows } = await q.query<EndedRow>(
+        `UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE id = $1 AND ended_at IS NULL
+         RETURNING ${ENDED}`,
+        [id, at(now), reason],
+      );
+      return rows[0] ? ended(rows[0]) : null;
     },
     async endSessions(accountId, now, reason) {
-      const result = await q.query(
-        `UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE account_id = $1 AND ended_at IS NULL`,
+      const { rows } = await q.query<EndedRow>(
+        `UPDATE sessions SET ended_at = $2, end_reason = $3 WHERE account_id = $1 AND ended_at IS NULL
+         RETURNING ${ENDED}`,
         [accountId, at(now), reason],
       );
-      return result.rowCount ?? 0;
+      return rows.map(ended);
     },
     async endOtherSessions(accountId, keep, now, reason) {
-      const result = await q.query(
-        `UPDATE sessions SET ended_at = $3, end_reason = $4 WHERE account_id = $1 AND id <> $2 AND ended_at IS NULL`,
+      const { rows } = await q.query<EndedRow>(
+        `UPDATE sessions SET ended_at = $3, end_reason = $4
+          WHERE account_id = $1 AND id <> $2 AND ended_at IS NULL
+         RETURNING ${ENDED}`,
         [accountId, keep, at(now), reason],
       );
-      return result.rowCount ?? 0;
+      return rows.map(ended);
+    },
+    async endLapsedSessions(now) {
+      // The same rule as sessionLapse: 12 h since sign-in → expired, else 15 min since the last user action → idle.
+      const { rows } = await q.query<EndedRow>(
+        `UPDATE sessions
+            SET ended_at = $1,
+                end_reason = CASE WHEN expires_at <= $1 THEN 'expired' ELSE 'idle' END
+          WHERE ended_at IS NULL AND (expires_at <= $1 OR last_seen_at <= $1::timestamptz - make_interval(secs => $2))
+         RETURNING ${ENDED}`,
+        [at(now), SESSION_IDLE_MS / 1000],
+      );
+      return rows.map(ended);
     },
     async insertStepUp(c) {
       await q.query(`DELETE FROM step_up_confirmations WHERE session_id = $1 AND action = $2`, [
