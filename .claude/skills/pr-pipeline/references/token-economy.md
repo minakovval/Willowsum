@@ -40,7 +40,7 @@ Owner request 2026-11-12; rules decided by the lead.
    syncs itself, and (6) a cap on the number of parallel code PRs.
 10. **Rate limit** (owner, 2026-11-14, #178): at session start check `get_session` →
     `external_metadata.rate_limit_info`; on a warning run at most 2–3 authors at once (never fewer reviews), and
-    agents commit WIP after each step.
+    agents commit WIP after each step (SKILL.md step 2).
 11. Cost of rounds (owner, 2026-11-14, #178): one confirmation agent posts both verdicts of a `sensitive` PR (two
     PR reviews with `commit_id`, ≈ 80–90 k context saved per sync); the fix agent does the sync with `main` in the
     same push (separate commit), so no sync-confirmation round; cheap reviewer tests only in a fix round needed

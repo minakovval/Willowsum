@@ -48,7 +48,7 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
    round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head). When a fix
    round is due anyway, the fix agent does the sync as a separate commit in the same push, and the fix
    confirmation covers it: no separate sync-confirmation round (owner, 2026-11-14, #178; #207). A confirmation of
-   a `sensitive` PR goes to one agent that posts both verdicts as two PR reviews with `commit_id`.
+   a `sensitive` PR goes to one agent that posts both verdicts as two PR reviews with `commit_id`. It loads both `review-pr` and `security-review`, runs in a session other than the author's and the fix agent's, and switches to a full security review per `security-review` §7 when needed.
    **Docs-only PR after a sync** (owner, 2026-11-13, #178): a PR whose every file is docs-only (`isDocsOnly`,
    [token economy](token-economy.md) item 1: `docs/`, `design/`, `.claude/`, root `*.md`) and not labelled
    `sensitive` needs no confirmation agent when `main`'s changes do not touch its files. The lead checks it

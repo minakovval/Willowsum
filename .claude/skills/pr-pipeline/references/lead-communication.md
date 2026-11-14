@@ -14,7 +14,7 @@ Owner rules, 2026-11-13 (chat to the lead); retrospective and proposal risks add
    subscribing to or unsubscribing from a PR, waiting for agents' reports, starting an agent. Forbidden example:
    «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.»
 3. Write only when: something is merged (PR link, one line; what is next); an owner decision is needed; there is a problem (a blocker, red CI that
-   is not the PR's fault, a security issue, nothing merged for 2 hours). Batch the questions (SKILL.md §2). Full
+   is not the PR's fault, a security issue, nothing merged for 2 hours); at the end of a session, the retrospective, the handover confirmation and the start message (item 6, SKILL.md «New lead session»). Batch the questions (SKILL.md §2). Full
    rule, including platform reminders about silence: SKILL.md «Мовчання в чаті» (owner, 2026-11-14).
 4. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
    layout and the like. You decide, and record the decision in the decision log. Owner questions are only about

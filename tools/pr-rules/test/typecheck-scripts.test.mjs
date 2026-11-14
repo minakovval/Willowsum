@@ -70,7 +70,7 @@ test('#184: CI type-checks with the same `pnpm typecheck`, never a `tsc` of its 
   const workflows = fs.readdirSync(dir).filter((n) => /\.ya?ml$/.test(n));
   for (const name of workflows) {
     const text = fs.readFileSync(path.join(dir, name), 'utf8');
-    assert.doesNotMatch(text, /^\s*(?:-\s*)?run:.*\btsc\b/m, `${name} runs tsc directly; use pnpm typecheck`);
+    assert.doesNotMatch(text.replace(/#.*$/gm, ''), /\btsc\b/, `${name} runs tsc directly; use pnpm typecheck`);
   }
   assert.match(read('.github/workflows/pr-checks.yml'), /^\s*- run: pnpm typecheck$/m);
 });

@@ -16,7 +16,9 @@ Owner, 2026-11-14 («так, додай ці три зміни в #212»). Write
 - (a) a merged PR: link, one line, what is next;
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
-  with the reason).
+  with the reason);
+- (d) the end of a lead session: the short retrospective, the item-by-item handover confirmation and the
+  start message for the next session («New lead session»; owner, 2026-11-14, #178).
 
 Never write: agent started or finished, subscribed or unsubscribed, PR or issue opened, reviewers started, CI in
 progress, #180 or #179 updates, interim reports, «waiting». Instead end the turn with no text; if the harness insists
@@ -50,7 +52,8 @@ Language and details: [lead communication](references/lead-communication.md).
    ask the owner); before tests `pg_lsclusters`, and if the cluster is down `pg_ctlcluster 16 main start` (the
    environment's setup script does not run when a container restarts); type checks as `pnpm typecheck` run in
    the agent's worktree (`cd <worktree> && pnpm typecheck`): it is the same command as the CI job `web` (#184);
-   commit WIP to its branch after each step, so a cut-off costs little (owner, 2026-11-14, #178).
+   on a rate-limit warning (step 2, «New lead session»), commit WIP to its branch after each step, so a cut-off
+   costs little (owner, 2026-11-14, #178).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
@@ -79,7 +82,10 @@ Language and details: [lead communication](references/lead-communication.md).
 5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
    plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
    A confirmation (of fixes or a sync) of a `sensitive` PR goes to **one** agent that posts both verdicts,
-   `Verdict` and `Security verdict`, as two PR reviews with `commit_id` (owner, 2026-11-14, #178).
+   `Verdict` and `Security verdict`, as two PR reviews with `commit_id` (owner, 2026-11-14, #178). It loads both
+   `review-pr` and `security-review`, runs in a session other than the author's and the fix agent's, and
+   switches to a full security review per `security-review` §7 when the diff adds a guard, endpoint, query or
+   sensitive path, or the PR gains a `sensitive:<category>`.
 6. **Merge** (squash) only on the **current head SHA** (subscribe to the PR while it waits for merge; before
    every merge read its comments, `gh api repos/{owner}/{repo}/issues/<n>/comments`, for an owner «stop» or
    question — owner, 2026-11-14): CI green, the latest `Verdict: Ready` (and for

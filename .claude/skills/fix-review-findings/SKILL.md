@@ -1,6 +1,6 @@
 ---
 name: fix-review-findings
-description: Apply the findings of the review-pr and security-review reviews to a Willowsum PR — reviewer tests first, then their patches, one commit, updated PR body, head SHA reported. Use when the lead asks the implementing agent to fix review findings on its PR.
+description: Apply the findings of the review-pr and security-review reviews to a Willowsum PR — reviewer tests first, then their patches, one fix commit, updated PR body, head SHA reported. Use when the lead asks the implementing agent to fix review findings on its PR.
 ---
 
 # Fix review findings
@@ -8,7 +8,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 **Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
-latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed commit that
+latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed fix commit that
 fixes every blocking item, CI green, the new head SHA.
 
 ## 1. Load
@@ -88,7 +88,8 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 
 1. Update the PR body (from a file: first check that it is the one you wrote for this PR): the criteria →
    tests table if tests were added, «Follow-ups».
-2. One commit for the round (`<ID>: address review round <n>`), with the attribution lines the session gives;
+2. One fix commit for the round (`<ID>: address review round <n>`), plus a separate sync merge commit when the
+   branch is behind `main` (pr-pipeline step 4); WIP commits made during the round are fine (pr-pipeline step 2), with the attribution lines the session gives;
    push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
 3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each

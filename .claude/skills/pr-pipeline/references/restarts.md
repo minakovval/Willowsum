@@ -28,7 +28,7 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
   `set_session_title` (that id, the name «Lead state» proposes, or one in the format above). Then record the
   starting token usage in #180 ([token economy](token-economy.md), «Token accounting»). Check `get_session` →
   `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews are not cut), and agents
-  commit WIP after each step (owner, 2026-11-14, #178).
+  commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178).
 - Before finishing: post the session retrospective on #180 and tell it to the owner briefly in chat
   ([token economy](token-economy.md), «Session retrospective»); record the session's usage and its difference in #180; write into «Lead state» the name for
   the next session (`Willowsum · ведучий N+1 · <з чого почати>`); then rename yourself with «(завершено)»
