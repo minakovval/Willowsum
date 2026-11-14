@@ -2,7 +2,6 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY, type FxReporting } from "../../../fx-rates/index.ts";
-import type { Ledger } from "../../../ledger/index.ts";
 import type { Liabilities } from "../../../liabilities/index.ts";
 import type { AccountAudit, AccountsDeps, NumberSeal } from "../../application/index.ts";
 import { maskedNumber } from "../../domain/index.ts";
@@ -21,7 +20,7 @@ export interface AccountsServices {
 }
 
 export function createAccountsServices(options: {
-  readonly ledger: Pick<Ledger, "openAccount" | "post" | "balanceAt">;
+  readonly ledger: AccountsDeps["ledger"];
   readonly liabilities: Pick<Liabilities, "register" | "forAccount">;
   readonly keys: NumberSeal;
   /** fx-rates' `createFxReporting` on the same clock: «Гроші разом» and the list in the profile currency. */
@@ -95,6 +94,80 @@ function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
           change("owners.0.ownerAccountId", owner.ownerAccountId),
           change("owners.0.share", owner.share),
           change("owners.0.validFrom", owner.validFrom),
+        ],
+      });
+    },
+    async statusChanged(householdId, actorAccountId, before, after) {
+      const settlement = after.settlement;
+      await audit.record(householdId, {
+        actor: { kind: "user", id: actorAccountId },
+        channel: "web",
+        entity: { type: "accounts.account", id: before.id },
+        action: "update",
+        changes: [
+          { field: "status", before: before.status, after: after.status, sensitive: false },
+          { field: "closedOn", before: before.closedOn, after: after.closedOn, sensitive: false },
+          ...(settlement
+            ? [
+                { field: "settlement.kind", before: null, after: settlement.kind, sensitive: false },
+                ...(settlement.kind === "transfer"
+                  ? [
+                      {
+                        field: "settlement.toAccountId",
+                        before: null,
+                        after: settlement.toAccountId,
+                        sensitive: false,
+                      },
+                    ]
+                  : []),
+                ...settlement.amounts.map((a) => ({
+                  field: `settlement.${a.currency}`,
+                  before: null,
+                  after: a.balance.toDecimalString(),
+                  sensitive: false,
+                })),
+              ]
+            : []),
+        ],
+      });
+    },
+    async transferred(householdId, actorAccountId, account, transfer) {
+      await audit.record(householdId, {
+        actor: { kind: "user", id: actorAccountId },
+        channel: "web",
+        entity: { type: "accounts.account", id: account.id },
+        action: "update",
+        changes: [
+          { field: "settlement.kind", before: null, after: "transfer", sensitive: false },
+          { field: "settlement.toAccountId", before: null, after: transfer.toAccountId, sensitive: false },
+          {
+            field: `settlement.${transfer.currency}`,
+            before: null,
+            after: transfer.amount.toDecimalString(),
+            sensitive: false,
+          },
+          { field: "settlement.entryId", before: null, after: transfer.entryId, sensitive: false },
+        ],
+      });
+    },
+    async adjustmentChanged(householdId, actor, channel, subaccount, before, after) {
+      const value = (a: typeof before, field: "entryId" | "amount" | "date") =>
+        a === null ? null : field === "amount" ? a.amount.toDecimalString() : a[field];
+      await audit.record(householdId, {
+        actor,
+        channel,
+        // One adjustment per currency of an account: its history is the subaccount's (FIN-12 FR 14).
+        entity: { type: "accounts.balance-adjustment", id: subaccount.id },
+        action: before === null ? "create" : after === null ? "delete" : "update",
+        changes: [
+          { field: "accountId", before: subaccount.accountId, after: subaccount.accountId, sensitive: false },
+          { field: "currency", before: subaccount.currency, after: subaccount.currency, sensitive: false },
+          ...(["entryId", "amount", "date"] as const).map((field) => ({
+            field,
+            before: value(before, field),
+            after: value(after, field),
+            sensitive: false,
+          })),
         ],
       });
     },

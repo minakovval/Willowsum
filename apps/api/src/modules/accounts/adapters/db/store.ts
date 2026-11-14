@@ -167,6 +167,21 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
       );
       return rows.map(subaccount);
     },
+    async lockAccount(householdId, accountId) {
+      const { rows } = await q.query<AccountRow>(
+        `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE household_id = $1 AND id = $2 FOR UPDATE`,
+        [householdId, accountId],
+      );
+      return rows[0] ? account(rows[0]) : null;
+    },
+    async setStatus(householdId, accountId, status, closedOn) {
+      await q.query(`UPDATE accounts SET status = $3, closed_on = $4 WHERE household_id = $1 AND id = $2`, [
+        householdId,
+        accountId,
+        status,
+        closedOn,
+      ]);
+    },
     async owners(householdId, accountId) {
       const { rows } = await q.query<{
         owner_account_id: string;

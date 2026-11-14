@@ -29,3 +29,16 @@ export {
   type ListPosition,
   type ReportedSum,
 } from "./summary.ts";
+export {
+  closeAccount,
+  closingPreview,
+  deleteAdjustment,
+  reconcileStatement,
+  reopenAccount,
+  updateBalance,
+  type CurrencyBalance,
+  type ManageRefusal,
+  type Settlement,
+  type StatementResult,
+} from "./manage.ts";
+export type { AdjustmentView } from "./adjustments.ts";

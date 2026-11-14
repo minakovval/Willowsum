@@ -1,6 +1,7 @@
 import { currencyCode, isId, Money } from "@willowsum/domain-kernel";
 import {
   ACCOUNT_TYPES,
+  EVENT_TYPES,
   assertBalanced,
   balanceMovements,
   conversionsFor,
@@ -68,7 +69,7 @@ export interface NewEntry {
   readonly reversesEntryId: string | null;
 }
 
-/** The checks of the daily integrity check (FIN-04 FR 9, AC7; ARC-11 «Перевірки цілісності»). */
+/** The checks of the daily integrity check (FIN-04 FR 9, AC6; ARC-11 «Перевірки цілісності»). */
 export const INTEGRITY_CHECKS = [
   "unbalanced-entry",
   "empty-entry",
@@ -93,6 +94,10 @@ export interface LedgerTx {
   entryByKey(idempotencyKey: string): Promise<Entry | null>;
   /** The id of the entry that reverses `entryId`, if any. */
   reversalOf(entryId: string): Promise<string | null>;
+  /** The latest operation date of an entry with a posting on the account; null when it has none. */
+  latestOperationDate(accountId: string): Promise<string | null>;
+  /** The source's entries of one event type that no entry reverses, in the order they were recorded. */
+  liveEntries(source: EntrySource, eventType: string): Promise<Entry[]>;
   /** False when an entry with this idempotency key already exists (nothing is written then). */
   insertEntry(entry: NewEntry): Promise<boolean>;
   insertPostings(entryId: string, postings: readonly StoredPosting[]): Promise<void>;
@@ -416,6 +421,39 @@ async function correctionReversalKey(replacementKey: string): Promise<string> {
   return `reversal:${hex}`;
 }
 
+/**
+ * The entries of a source record and event type still in effect (FIN-12 FR 14: the one adjustment of «Оновити
+ * залишок»): neither a reversal nor reversed, in the order they were recorded. Reads only.
+ */
+export async function liveEntries(
+  deps: JournalDeps,
+  householdId: string,
+  source: EntrySource,
+  eventType: string,
+): Promise<Entry[]> {
+  assertSource(source);
+  if (!(EVENT_TYPES as readonly string[]).includes(eventType))
+    throw new LedgerError("UNKNOWN_EVENT_TYPE", "No posting rule for this event type");
+  return deps.store.inHousehold(householdId, (tx) => tx.liveEntries(source, eventType));
+}
+
+/**
+ * The latest operation date of the account's entries, reversals included (FIN-01 EC4: a closing date before the
+ * account's latest transaction is refused); null for an account without entries. Reads only.
+ */
+export async function latestOperationDate(
+  deps: JournalDeps,
+  householdId: string,
+  accountId: string,
+): Promise<string | null> {
+  assertId(accountId, "UNKNOWN_ACCOUNT");
+  return deps.store.inHousehold(householdId, async (tx) => {
+    const [account] = await tx.accounts([accountId]);
+    if (!account) throw new LedgerError("UNKNOWN_ACCOUNT", "No such account in this space");
+    return tx.latestOperationDate(account.id);
+  });
+}
+
 /** A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. */
 export async function openAccount(
   deps: JournalDeps,
@@ -485,7 +523,7 @@ export async function rebuildBalances(
 }
 
 /**
- * The daily integrity check (FIN-04 FR 9, FR 10, AC7; ARC-11): every space's entries are balanced, not empty,
+ * The daily integrity check (FIN-04 FR 9, FR 10, AC6; ARC-11): every space's entries are balanced, not empty,
  * every reversal exactly offsets its entry, and every account's cached daily balances equal the sum of its postings. Each failing check is reported once with the number of entries only —
  * no amounts, accounts or spaces; the user is shown nothing.
  */

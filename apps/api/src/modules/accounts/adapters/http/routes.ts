@@ -7,9 +7,16 @@ import {
   accountsPage,
   accountsSummary,
   accountView,
+  closeAccount,
+  closingPreview,
   createAccount,
+  deleteAdjustment,
   findDuplicate,
+  reopenAccount,
+  updateBalance,
   type AccountListItem,
+  type AdjustmentView,
+  type ManageRefusal,
   type AccountView,
   type ConvertedAmount,
   type ReportedSum,
@@ -62,6 +69,17 @@ const ownerSchema = z.object({
   validTo: z.string().nullable(),
 });
 
+/** «Коригування залишку» (FIN-12 FR 14, FR 15; FIN-04 FR 11): the one adjustment of a currency of the account. */
+const adjustmentSchema = z.object({
+  /** The adjustment's id (the ledger entry in effect): it changes when the adjustment changes. */
+  id: z.uuid(),
+  /** What it adds to the balance, from the holder's side. */
+  amount: moneySchema,
+  date: z.string(),
+  /** A manual account's adjustment is permanent; an imported one's is recounted by the next statement. */
+  permanent: z.boolean(),
+});
+
 const accountSchema = z.object({
   id: z.uuid(),
   kind: z.enum(ACCOUNT_KINDS).meta({ "x-extensible-enum": true }),
@@ -73,11 +91,15 @@ const accountSchema = z.object({
   number: z.object({ last4: z.string(), masked: z.string() }).nullable(),
   note: z.string().nullable(),
   status: z.enum(ACCOUNT_STATUSES).meta({ "x-extensible-enum": true }),
+  /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
+  closedOn: z.string().nullable(),
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
   openedOn: z.string(),
   owners: z.array(ownerSchema),
   /** Per currency: today's balance from the ledger in the subaccount's currency; a debt is negative. */
   currencies: z.array(z.object({ currency: z.string(), balance: moneySchema, balanceDate: z.string() })),
+  /** The adjustments of «Оновити залишок» in effect, at most one per currency (FIN-12 FR 14, FR 15). */
+  adjustments: z.array(adjustmentSchema.extend({ currency: z.string() })),
   savings: z.object({ annualRate: z.string().nullable() }).nullable(),
   deposit: z
     .object({
@@ -111,6 +133,8 @@ const accountSchema = z.object({
 });
 
 const money = (m: Money) => m.toJSON();
+const adjustmentOut = (a: AdjustmentView | null) =>
+  a && { id: a.entryId, amount: money(a.amount), date: a.date, permanent: a.permanent };
 const maybeMoney = (m: Money | null) => (m === null ? null : m.toJSON());
 
 function present(v: AccountView): z.input<typeof accountSchema> {
@@ -118,6 +142,7 @@ function present(v: AccountView): z.input<typeof accountSchema> {
     ...v,
     owners: [...v.owners],
     currencies: v.currencies.map((c) => ({ ...c, balance: money(c.balance) })),
+    adjustments: v.adjustments.map((a) => ({ ...adjustmentOut(a)!, currency: a.currency })),
     deposit: v.deposit && {
       ...v.deposit,
       accrual: v.deposit.accrual && { ...v.deposit.accrual, accrued: money(v.deposit.accrual.accrued) },
@@ -447,10 +472,217 @@ export const listAccountsRoute = defineRoute({
   },
 });
 
+/** A refusal of managing an account as the API answers it; nothing was written for any of them. */
+function refusal(r: ManageRefusal): ApiProblem {
+  switch (r.kind) {
+    case "not-found":
+      return new ApiProblem("NOT_FOUND");
+    case "closed":
+      return new ApiProblem("ACCOUNT_CLOSED");
+    case "not-closed":
+      return new ApiProblem("ACCOUNT_NOT_CLOSED");
+    case "invalid":
+      return invalid(r.issues);
+    case "activity-after-close":
+      return new ApiProblem("ACCOUNT_ACTIVITY_AFTER_CLOSE");
+    case "balance-not-zero":
+      return new ApiProblem("ACCOUNT_BALANCE_NOT_ZERO");
+  }
+}
+
+const accountParams = z.object({ accountId: z.uuid() });
+
+/** The account after a change, as `GET` answers it. */
+async function presentAccount(
+  deps: ReturnType<typeof accountsServices>["deps"],
+  tx: ReturnType<typeof accountsTx>,
+  householdId: string,
+  accountId: string,
+) {
+  const view = await accountView(deps, tx, householdId, accountId);
+  if (!view) throw new ApiProblem("INTERNAL");
+  return present(view);
+}
+
+export const accountClosingRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts/{accountId}/closing",
+  operationId: "getAccountClosing",
+  summary: "The closing dialog: the account's balance on the closing date per currency (FIN-12 FR 7)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  request: { params: accountParams, query: z.object({ closedOn: isoDate }) },
+  problems: ["ACCOUNT_CLOSED"],
+  response: {
+    status: 200,
+    description: "The balances on the closing date; `zero` — the account can close without a choice",
+    schema: z.object({
+      closedOn: z.string(),
+      zero: z.boolean(),
+      currencies: z.array(z.object({ currency: z.string(), balance: moneySchema })),
+    }),
+  },
+  handler: async ({ params, query }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const result = await ctx.inHousehold((q) =>
+      closingPreview(deps, accountsTx(q), ctx.principal.householdId, params.accountId, query.closedOn),
+    );
+    if (result.kind !== "preview") throw refusal(result);
+    return {
+      closedOn: query.closedOn,
+      zero: result.currencies.every((c) => c.balance.isZero()),
+      currencies: result.currencies.map((c) => ({ currency: c.currency, balance: money(c.balance) })),
+    };
+  },
+});
+
+export const closeAccountRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/accounts/{accountId}/close",
+  operationId: "closeAccount",
+  summary:
+    "«Закрити рахунок»: with a zero balance on the closing date, after a transfer or a write-off (FIN-12 FR 7)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 4 * 1024,
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_BALANCE_NOT_ZERO", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  request: {
+    params: accountParams,
+    body: z
+      .object({
+        /** «Дата закриття»: from the opening date to today. */
+        closedOn: isoDate,
+        /** A balance that is not zero: «Перенести на інший рахунок» or «Списати коригуванням». */
+        settlement: z
+          .discriminatedUnion("kind", [
+            z.object({ kind: z.literal("transfer"), toAccountId: z.uuid() }).strict(),
+            z.object({ kind: z.literal("adjustment") }).strict(),
+          ])
+          .optional(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The closed account", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    return ctx.inHousehold(async (q) => {
+      const tx = accountsTx(q);
+      const result = await closeAccount(deps, tx, caller, params.accountId, {
+        closedOn: body.closedOn,
+        settlement: body.settlement ?? null,
+      });
+      if (result.kind !== "account-closed") throw refusal(result);
+      return presentAccount(deps, tx, caller.householdId, params.accountId);
+    });
+  },
+});
+
+export const reopenAccountRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/accounts/{accountId}/reopen",
+  operationId: "reopenAccount",
+  summary: "«Відкрити знову»: a closed account is active again (FIN-12 FR 9)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["ACCOUNT_NOT_CLOSED"],
+  request: { params: accountParams },
+  response: { status: 200, description: "The account, active again", schema: accountSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    return ctx.inHousehold(async (q) => {
+      const tx = accountsTx(q);
+      const result = await reopenAccount(deps, tx, caller, params.accountId);
+      if (result.kind !== "reopened") throw refusal(result);
+      return presentAccount(deps, tx, caller.householdId, params.accountId);
+    });
+  },
+});
+
+export const updateAccountBalanceRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/accounts/{accountId}/balance",
+  operationId: "updateBalanceOfAccount",
+  summary:
+    "«Оновити залишок»: one adjustment of the difference against «Коригування», dated today (FIN-12 FR 14)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 4 * 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    params: accountParams,
+    body: z
+      .object({
+        /** «Поточний залишок*» in a currency of the account; a card's and a loan's debt as a positive amount. */
+        balance: z.object({ amount: typedAmount, currency }).strict(),
+      })
+      .strict(),
+  },
+  response: {
+    status: 200,
+    description: "The adjustment in effect and today's balance; `changed` false — the difference was zero",
+    schema: z.object({
+      changed: z.boolean(),
+      adjustment: adjustmentSchema.nullable(),
+      balance: moneySchema,
+    }),
+  },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      updateBalance(deps, accountsTx(q), caller, params.accountId, body.balance),
+    );
+    if (result.kind !== "updated") throw refusal(result);
+    return {
+      changed: result.changed,
+      adjustment: adjustmentOut(result.adjustment),
+      balance: money(result.balance),
+    };
+  },
+});
+
+export const deleteBalanceAdjustmentRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/accounts/{accountId}/balance-adjustments/{adjustmentId}",
+  operationId: "deleteBalanceAdjustment",
+  summary:
+    "Deletes the adjustment of «Оновити залишок»: its reversal brings the previous balance back (FIN-04 FR 11)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["ACCOUNT_CLOSED"],
+  request: { params: z.object({ accountId: z.uuid(), adjustmentId: z.uuid() }) },
+  response: {
+    status: 200,
+    description: "Today's balance of the adjustment's currency",
+    schema: z.object({ balance: moneySchema }),
+  },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      deleteAdjustment(deps, accountsTx(q), caller, params.accountId, params.adjustmentId),
+    );
+    if (result.kind !== "deleted") throw refusal(result);
+    return { balance: money(result.balance) };
+  },
+});
+
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
   accountsSummaryRoute,
   listAccountsRoute,
   getAccountRoute,
+  accountClosingRoute,
+  closeAccountRoute,
+  reopenAccountRoute,
+  updateAccountBalanceRoute,
+  deleteBalanceAdjustmentRoute,
 ];

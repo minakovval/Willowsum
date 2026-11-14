@@ -257,7 +257,7 @@ function date(text: string): string | null {
  * A typed opening balance: not negative, except on a current account (an overdraft); at most the currency's minor
  * units.
  */
-function openingAmount(kind: AccountKind, amount: string, currency: string): Money | null {
+export function openingAmount(kind: AccountKind, amount: string, currency: string): Money | null {
   const negative = SIGNED_RE.test(amount);
   if (negative && kind !== "current") return null;
   const typed = parseTypedAmount(negative ? amount.slice(1) : amount, currency);

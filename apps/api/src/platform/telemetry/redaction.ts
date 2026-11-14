@@ -82,7 +82,7 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   // How many times a job ran before it went to the dead-letter queue (ARC-04 FR 4: at most 8).
   "ws.job.attempts": int(1, 100),
   "ws.outcome": str(/^(success|failure)$/, 16),
-  // The ledger's daily integrity check (FIN-04 AC7): which check failed and for how many entries, and how many spaces
+  // The ledger's daily integrity check (FIN-04 AC6): which check failed and for how many entries, and how many spaces
   // could not be checked — never amounts, accounts or spaces.
   "ws.ledger.check": closed(/^(unbalanced-entry|empty-entry|reversal-mismatch|balance-cache)$/, 32),
   "ws.ledger.entries": int(1, 1_000_000_000),
