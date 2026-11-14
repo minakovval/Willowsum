@@ -158,7 +158,7 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
         WHERE table_schema = 'ledger' AND grantee NOT IN ('ws_own_ledger') ORDER BY 1, 2, 3`,
     );
     // ADR-0013 option A (the owner's decision of 2026-11-13): besides the module role, only the erasure role, with
-    // SELECT and DELETE on the three journal tables (its triggers let it delete a whole space only) and on the queue
+    // SELECT and DELETE on the journal tables (with the rates of cross-currency entries) (its triggers let it delete a whole space only) and on the queue
     // tables (ARC-11: the space's events and jobs go with its journal) and the balance cache — nothing else.
     expect(
       rows
@@ -169,6 +169,8 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       "ws_era_ledger:accounts:SELECT",
       "ws_era_ledger:balance_versions:DELETE",
       "ws_era_ledger:balance_versions:SELECT",
+      "ws_era_ledger:conversions:DELETE",
+      "ws_era_ledger:conversions:SELECT",
       "ws_era_ledger:daily_balances:DELETE",
       "ws_era_ledger:daily_balances:SELECT",
       "ws_era_ledger:entries:DELETE",
@@ -194,6 +196,9 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       "balance_versions:INSERT",
       "balance_versions:SELECT",
       "balance_versions:UPDATE",
+      // FIN-04 EC1 / ARC-11: the rates of cross-currency entries are journal rows, append-only (0007_conversions.sql).
+      "conversions:INSERT",
+      "conversions:SELECT",
       "daily_balances:DELETE",
       "daily_balances:INSERT",
       "daily_balances:SELECT",
