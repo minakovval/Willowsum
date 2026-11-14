@@ -58,6 +58,7 @@ const CHECK_TITLES: Record<IntegrityCheck, string> = {
   "unbalanced-entry": "Незбалансований запис",
   "empty-entry": "Запис без проводок",
   "reversal-mismatch": "Сторно не збігається з початковим записом",
+  "balance-cache": "Рахунки, кеш залишків яких не дорівнює сумі проводок",
 };
 
 /** The text of the letter: fixed words and counts only (no amounts, accounts, spaces, entries or persons). */
@@ -68,7 +69,7 @@ export function integrityAlertMessage(summary: IntegrityAlertSummary): { subject
   return {
     subject: "Willowsum: перевірка цілісності журналу знайшла розбіжність",
     text: [
-      "Щоденна перевірка цілісності журналу проводок знайшла порушення (кількість записів за видом перевірки):",
+      "Щоденна перевірка цілісності журналу проводок знайшла порушення (кількість записів, для кешу залишків — рахунків, за видом перевірки):",
       ...lines,
       ...(summary.failedSpaces > 0 ? [`Просторів, які не вдалося перевірити: ${summary.failedSpaces}.`] : []),
       "Подробиці — подія ledger.integrity_violation у журналі сервера.",

@@ -21,6 +21,7 @@ const findings = (f: Partial<IntegrityFindings> = {}): IntegrityFindings => ({
   "unbalanced-entry": 0,
   "empty-entry": 0,
   "reversal-mismatch": 0,
+  "balance-cache": 0,
   ...f,
 });
 
@@ -94,7 +95,9 @@ describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy peri
     await t.run(findings({ "unbalanced-entry": 2 }), 1);
     expect(t.letters).toEqual([{ findings: findings({ "unbalanced-entry": 2 }), failedSpaces: 1 }]);
     expect(t.events).toEqual([{ kind: "alert-sent" }]);
-    expect(t.store.log).toEqual([{ period: "unbalanced-entry=2;empty-entry=0;reversal-mismatch=0", at: T0 }]);
+    expect(t.store.log).toEqual([
+      { period: "unbalanced-entry=2;empty-entry=0;reversal-mismatch=0;balance-cache=0", at: T0 },
+    ]);
   });
 
   it("FIN-04@PoC AC6: the same findings on the next daily runs send no more letters", async () => {
@@ -143,7 +146,7 @@ describe("FIN-04@PoC FR 10: one letter to the product owner per discrepancy peri
     t.nextDay();
     // Nothing found, but 2 spaces could not be checked: the discrepancy may still be there.
     await t.run(findings(), 2);
-    expect(t.store.latest()).toBe("unbalanced-entry=0;empty-entry=0;reversal-mismatch=1");
+    expect(t.store.latest()).toBe("unbalanced-entry=0;empty-entry=0;reversal-mismatch=1;balance-cache=0");
     t.nextDay();
     await t.run(broken);
     expect(t.letters).toHaveLength(1);
@@ -238,7 +241,7 @@ describe("FIN-04@PoC FR 10: the letter and the period key hold only the kinds an
 
   it("the period key is the kinds and counts of the findings, in a fixed order", () => {
     expect(integrityPeriodKey(findings({ "reversal-mismatch": 2, "unbalanced-entry": 1 }))).toBe(
-      "unbalanced-entry=1;empty-entry=0;reversal-mismatch=2",
+      "unbalanced-entry=1;empty-entry=0;reversal-mismatch=2;balance-cache=0",
     );
   });
 });

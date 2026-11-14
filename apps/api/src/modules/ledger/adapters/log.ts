@@ -3,7 +3,7 @@ import type { IntegrityAlertEvent, IntegrityCheck } from "../application/index.t
 
 /**
  * A failed integrity check in the server log (FIN-04 FR 10, AC7): an event of level «error» with the check and the
- * number of entries only — no amounts, accounts, spaces or other data of a space.
+ * number of entries (for `balance-cache`, of accounts) only — no amounts, accounts, spaces or other data of a space.
  */
 export function logIntegrityViolation(check: IntegrityCheck, entries: number): void {
   logEvent("ledger.integrity_violation", "error", {

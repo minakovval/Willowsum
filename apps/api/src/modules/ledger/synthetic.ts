@@ -1,7 +1,10 @@
 // Synthetic journal (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
-// Tables load in name order (accounts, entries, jobs, outbox_events, postings); the keys between them are derived from the space and the
-// row number, so posting n belongs to entry n and moves money from account 2 to account 1. A run needs at least two
-// accounts and no more postings than entries (the defaults below).
+// Tables load in name order (accounts, balance_versions, daily_balances, entries, jobs, outbox_events, postings); the
+// keys between them are derived from the space and the row number, so posting n belongs to entry n and moves money
+// from account 2 to account 1. A run needs at least two accounts and no more postings than entries (the defaults
+// below). The balance cache covers only account 3, which has no postings: its cached totals are zero, so
+// the cache agrees with the postings (the daily integrity check); the other accounts are answered from the postings
+// until the rebuild command caches them.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -24,6 +27,35 @@ export const synthetic = [
           owner_module: "accounts",
           owner_id: rng.uuid(),
           service_kind: null,
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "ledger.balance_versions",
+    perHousehold: 1,
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          account_id: key(household.id, "account", 2 + i),
+          version: "1",
+          last_recorded_at: null,
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "ledger.daily_balances",
+    perHousehold: 10,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          account_id: key(household.id, "account", 2),
+          day: `2026-01-${String(i + 1).padStart(2, "0")}`,
+          currency: "EUR",
+          debits: "0",
+          credits: "0",
         };
     },
   }),

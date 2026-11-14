@@ -15,7 +15,7 @@
 FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, обмеження бази; частина 2 — сторно і зміна події
 (п. 5, AC3), щоденна перевірка цілісності (п. 9, 10, ядро AC7); лист власнику продукту про розбіжність (п. 10, AC7,
 граничні випадки 4–5; issue #130). ARC-11@PoC: подія «проводку записано» через чергу ARC-04 (#125), правило схеми «у таблицях ledger немає вільного
-тексту» (#128); без кешу залишків.
+тексту» (#128); кеш залишків за днями з перевіркою версії, повтором конфлікту і командою перебудови (#126).
 Далі: AC5, AC6, AC8–AC11 (рахунки, транзакції, аудит коригувань, імпорт виписок).
 
 ## Публічний інтерфейс
@@ -38,9 +38,19 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
     одній транзакції; ключ сторно виводиться з ключа заміни фіксованої довжини (`reversal:` і SHA-256, 73 символи),
     тож підходить будь-який ключ заміни 1–200 символів; ключ заміни, вже вжитий іншим записом (зокрема ключ самого
     запису), — `IDEMPOTENCY_KEY_REUSED`.
-  - `balanceAt(householdId, accountId, date, { asKnownAt? })` → `Money` зі знаком типу рахунку.
+  - `balanceAt(householdId, accountId, date, { asKnownAt? })` → `Money` зі знаком типу рахунку. З кешу залишків за
+    днями, коли він може відповісти, інакше — сумою проводок (рахунок без кешу; `asKnownAt` раніше за найпізніший запис
+    у кеші); числа ті самі.
+  - `rebuildBalances(householdId, accountId?)` → `{ accounts, days }` — команда перебудови кешу залишків простору чи
+    одного рахунку з проводок в одній транзакції, кожен рахунок — під новою версією; інший простір —
+    `UNKNOWN_ACCOUNT`. Скрипт: `pnpm --filter @willowsum/api ledger:rebuild-balances <простір> [<рахунок>]`
+    (`scripts/ledger-balances.ts`, роль модуля, друкує лише кількості).
+  - Кеш оновлюється в транзакції запису (`post`, `reverse`, `correct`): для кожного рахунку запису в порядку
+    ідентифікаторів — перевірка версії (`UPDATE … WHERE version = $n`); конфлікт (інший запис змінив рахунок першим)
+    повторюється на свіжій версії, до `BALANCE_ATTEMPTS` (5) разів, далі `BALANCE_CONFLICT` і відкат.
 - `createLedgerIntegrityCheck(db, spaces, report?, failed?, alerts?)` → `{ run }` — щоденна перевірка цілісності
-  (планувальник, `main.ts`); порушення — подія `ledger.integrity_violation` рівня «помилка» без сум і назв. Простір,
+  (планувальник, `main.ts`; перевірки `INTEGRITY_CHECKS`, серед них `balance-cache` — кількість рахунків, кеш залишків
+  яких не дорівнює сумі проводок); порушення — подія `ledger.integrity_violation` рівня «помилка» без сум і назв. Простір,
   перевірка якого впала з помилкою, не зупиняє інші: їхні порушення звітуються, а кількість таких просторів — подія
   `ledger.integrity_check_failed` рівня «помилка» (`ws.ledger.spaces`, без ідентифікаторів). `alerts`
   (`LedgerIntegrityAlerts`: `alertMail` — поштовий адаптер і `WS_ALERT_EMAIL`, `clock`, `report`) — лист власнику
@@ -53,12 +63,13 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
   `alerts.recipient_missing` («помилка», без адреси листа немає). Збій листа ніколи не зриває перевірку.
 - `LedgerError` (коди: `UNKNOWN_EVENT_TYPE`, `EMPTY_POSTING_SET`, `INVALID_POSTING`, `INVALID_EVENT`, `UNBALANCED`,
   `UNKNOWN_ACCOUNT`, `ENTRY_NOT_FOUND`, `ALREADY_REVERSED`, `REVERSAL_OF_REVERSAL`, `IDEMPOTENCY_KEY_REUSED`,
-  `INVALID_DATE`, …),
+  `INVALID_DATE`, `BALANCE_CONFLICT`, …),
   `ACCOUNT_TYPES`, `SERVICE_ACCOUNTS`, `EVENT_TYPES`, `RULES_VERSION`, `INTEGRITY_CHECKS`, типи `Entry`, `PostInput`,
   `LedgerEvent`, `LedgerAccount`.
 
-- `createLedgerErasure(db)` → `LedgerErasure.eraseHousehold(householdId)` → `{ postings, entries, accounts, events, jobs }`
-  — видалення журналу одного простору цілком, разом із його рядками черги (`outbox_events`, `jobs`), в одній транзакції (NFR-12@PoC п. 3, ARC-11 «Видалення даних»; ADR-0013, варіант A).
+- `createLedgerErasure(db)` → `LedgerErasure.eraseHousehold(householdId)` → `{ postings, entries, accounts, events, jobs,
+  balanceDays, balanceAccounts }` — видалення журналу одного простору цілком, разом із його рядками черги
+  (`outbox_events`, `jobs`) і кешем залишків (`daily_balances`, `balance_versions`), в одній транзакції (NFR-12@PoC п. 3, ARC-11 «Видалення даних»; ADR-0013, варіант A).
   `db` — пул ролі видалення `ws_era_ledger`, єдиної, яку тригери пускають до DELETE, і лише простору цілком
   (`migrations/0003_erasure.sql`); UPDATE і TRUNCATE заборонені всім; `integrity_alerts` не видаляються. Викликає лише
   `data-erasure` зі скрипта власника.
@@ -91,7 +102,9 @@ FIN-04@PoC, хвиля 1: частина 1 — п. 1–4, 6, 7, AC1, AC2, AC4, �
 | `entries` | Записи: джерело, тип події, дата операції, час запису (ставить база), версія правил, ключ ідемпотентності, `reverses_entry_id` |
 | `postings` | Проводки: дебет, кредит, сума NUMERIC(38,18) > 0, валюта — обидва рахунки в ній (складені зовнішні ключі) |
 | `outbox_events`, `jobs` | Черга модуля (ARC-04, `platform/queue/queue-tables.sql` дослівно, `migrations/0004_outbox.sql`) з перевірками «лише коди»; роль модуля має SELECT, INSERT, UPDATE, DELETE (воркер, прибирання за строком), роль видалення — SELECT і DELETE |
+| `balance_versions` | Кеш залишків (ARC-11 «Баланси і продуктивність»): рядок на рахунок із кешем — версія (перевірка версії під час оновлення), найпізніший час запису записів у кеші, час останньої зміни. Похідна таблиця, не журнал: роль модуля має SELECT, INSERT, UPDATE, DELETE, роль видалення — SELECT і DELETE (`migrations/0006_balance_cache.sql`) |
+| `daily_balances` | Кеш залишків за днями: на рахунок і день із проводками — суми дебетів і кредитів усіх проводок до цього дня включно, NUMERIC(38,18), валюта рахунку. Баланс на дату — рядок найпізнішого дня до неї. Тригер обмеження під час коміту відхиляє проводку на рахунку з кешем без зміни кешу в тій самій транзакції |
 | `integrity_alerts` | Журнал заявок на лист про розбіжність (лише дописування): `seq`, період (види і кількості знахідок) або NULL — періоду немає, час. Без `household_id` (`schema-exemptions.json`): ні просторів, ні сум, ні адреси |
 
-Синтетичні дані: `synthetic.ts` (4 рахунки, 100 записів, 100 проводок, 100 відправлених подій і 3 виконані задачі на
-простір).
+Синтетичні дані: `synthetic.ts` (4 рахунки, 100 записів, 100 проводок, 100 відправлених подій, 3 виконані задачі,
+кеш залишків одного рахунку без проводок — 1 версія і 10 нульових днів на простір).

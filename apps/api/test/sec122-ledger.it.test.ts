@@ -159,7 +159,7 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
     );
     // ADR-0013 option A (the owner's decision of 2026-11-13): besides the module role, only the erasure role, with
     // SELECT and DELETE on the three journal tables (its triggers let it delete a whole space only) and on the queue
-    // tables (ARC-11: the space's events and jobs go with its journal) — nothing else.
+    // tables (ARC-11: the space's events and jobs go with its journal) and the balance cache — nothing else.
     expect(
       rows
         .filter((r) => r.grantee !== "ws_mod_ledger")
@@ -167,6 +167,10 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
     ).toEqual([
       "ws_era_ledger:accounts:DELETE",
       "ws_era_ledger:accounts:SELECT",
+      "ws_era_ledger:balance_versions:DELETE",
+      "ws_era_ledger:balance_versions:SELECT",
+      "ws_era_ledger:daily_balances:DELETE",
+      "ws_era_ledger:daily_balances:SELECT",
       "ws_era_ledger:entries:DELETE",
       "ws_era_ledger:entries:SELECT",
       "ws_era_ledger:jobs:DELETE",
@@ -184,6 +188,16 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       ].sort(),
     ).toEqual([
       "accounts:SELECT",
+      // ARC-11 «Баланси і продуктивність»: the daily balance cache is derived from the postings, not the journal: it is
+      // changed in place and rebuilt from them (migrations/0006_balance_cache.sql). The row policy keeps it in one space.
+      "balance_versions:DELETE",
+      "balance_versions:INSERT",
+      "balance_versions:SELECT",
+      "balance_versions:UPDATE",
+      "daily_balances:DELETE",
+      "daily_balances:INSERT",
+      "daily_balances:SELECT",
+      "daily_balances:UPDATE",
       "entries:SELECT",
       // FIN-04 FR 10: the claim log of the integrity letter, append-only like the journal.
       "integrity_alerts:INSERT",
@@ -201,12 +215,12 @@ describe("sec122 least privilege: only the ledger's own roles hold rights on its
       "postings:INSERT",
       "postings:SELECT",
     ]);
-    // The column grants on accounts and entries exclude the times the database sets (the queue tables, listed above,
-    // are not the journal).
+    // The column grants on accounts and entries exclude the times the database sets (the queue tables and the balance
+    // cache, listed above, are not the journal).
     const cols = await db.owner.query<{ table_name: string; column_name: string }>(
       `SELECT table_name, column_name FROM information_schema.column_privileges
         WHERE table_schema = 'ledger' AND grantee = 'ws_mod_ledger' AND privilege_type IN ('UPDATE', 'REFERENCES')
-          AND table_name NOT IN ('jobs', 'outbox_events')`,
+          AND table_name NOT IN ('jobs', 'outbox_events', 'balance_versions', 'daily_balances')`,
     );
     expect(cols.rows).toEqual([]);
   });

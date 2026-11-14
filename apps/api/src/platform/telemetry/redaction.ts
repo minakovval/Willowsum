@@ -84,7 +84,7 @@ export const ATTRIBUTE_RULES: Readonly<Record<string, Rule>> = Object.freeze({
   "ws.outcome": str(/^(success|failure)$/, 16),
   // The ledger's daily integrity check (FIN-04 AC7): which check failed and for how many entries, and how many spaces
   // could not be checked — never amounts, accounts or spaces.
-  "ws.ledger.check": closed(/^(unbalanced-entry|empty-entry|reversal-mismatch)$/, 32),
+  "ws.ledger.check": closed(/^(unbalanced-entry|empty-entry|reversal-mismatch|balance-cache)$/, 32),
   "ws.ledger.entries": int(1, 1_000_000_000),
   "ws.ledger.spaces": int(1, 1_000_000_000),
   // The daily rewrap of the keys of spaces (ARC-06 FR 3): how many spaces' keys failed — never ids or keys.

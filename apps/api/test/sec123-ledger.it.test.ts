@@ -189,6 +189,7 @@ describe("sec123 — the daily integrity check (FIN-04 FR 9, AC6): no false posi
       "unbalanced-entry": 0,
       "empty-entry": 0,
       "reversal-mismatch": 0,
+      "balance-cache": 0,
     });
   });
 

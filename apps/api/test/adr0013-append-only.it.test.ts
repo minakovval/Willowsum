@@ -42,11 +42,16 @@ describe("NFR-12@PoC FR 3 / ADR-0013: only the erasure role empties a space from
     // Each entry wrote its «проводку записано» event (ARC-11); the space's queue rows go with its journal.
     expect(result.ledger).toMatchObject({ postings: expect.any(Number), entries: 2, events: 2, jobs: 0 });
     expect(result.ledger.postings).toBeGreaterThanOrEqual(2);
+    // The daily balance cache of its accounts goes too (ARC-11 «Баланси і продуктивність»).
+    expect(result.ledger.balanceAccounts).toBeGreaterThanOrEqual(2);
+    expect(result.ledger.balanceDays).toBeGreaterThanOrEqual(2);
     expect(result.audit.entries).toBeGreaterThanOrEqual(2);
     const left = await spaceRows(db, mine.householdId);
     for (const table of [
       "audit.entries",
       "ledger.accounts",
+      "ledger.balance_versions",
+      "ledger.daily_balances",
       "ledger.entries",
       "ledger.jobs",
       "ledger.outbox_events",
