@@ -4,4 +4,4 @@ export { goalsTx } from "./db/store.ts";
 export { goalsRoutes } from "./http/routes.ts";
 export { createGoalsServices, goalsAudit, type GoalsServices } from "./http/services.ts";
 export { goalsWorkerQueue, requeueDeadHandOffs } from "./queue/hand-off.ts";
-export { HAND_OFF_JOB } from "./queue/job.ts";
+export { ENTRY_RECORDED_JOB, HAND_OFF_JOB } from "./queue/job.ts";

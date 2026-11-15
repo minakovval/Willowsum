@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
+import { entryRecorded } from "../../../ledger/index.ts";
 import {
   GOAL_AUDIT_ENTITIES,
   GOAL_HAND_OFF_ACTIONS,
@@ -14,7 +15,7 @@ const value = z.string().max(400).nullable();
 const handOffSchema = z.strictObject({
   entity: z.enum(GOAL_AUDIT_ENTITIES),
   entityId: z.uuid(),
-  actorAccountId: z.uuid(),
+  actorAccountId: z.uuid().nullable(),
   action: z.enum(GOAL_HAND_OFF_ACTIONS),
   changeId: z.uuid(),
   changes: z
@@ -35,6 +36,13 @@ const handOffSchema = z.strictObject({
  * back daily (`goals.hand-off-recovery`).
  */
 export const HAND_OFF_JOB = defineJob({ name: "goals.hand-off", schema: handOffSchema });
+
+/**
+ * AC5, edge case 5: «Проводку записано» of module ledger (`ledger.entry-recorded` v1), one job per event (its id is the
+ * key). A reversal of a transaction's event — the transaction changed or deleted by hand or by a repeated import —
+ * cancels the spends made on the reversed event. Light; dead jobs go back daily with the hand-offs.
+ */
+export const ENTRY_RECORDED_JOB = defineJob({ name: "goals.entry-recorded", schema: entryRecorded.schema });
 
 /** Enqueues the hand-off in the caller's goals transaction; the same change twice is one job. */
 export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: GoalHandOff): Promise<void> {
