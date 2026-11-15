@@ -4,7 +4,7 @@ import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY, type FxReporting } from "../../../fx-rates/index.ts";
 import type { Liabilities } from "../../../liabilities/index.ts";
-import type { AccountAudit, AccountsDeps, NumberSeal } from "../../application/index.ts";
+import type { AccountAudit, AccountsDeps, NumberSeal, WalletUsage } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-accounts-services");
 
@@ -28,6 +28,8 @@ export function createAccountsServices(options: {
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  /** IMP-02 FR 15: the modules that keep subaccount ids (transactions' `createTransactionWalletUsage`). */
+  readonly walletUsage?: readonly WalletUsage[];
 }): AccountsServices {
   return {
     [BRAND]: true,
@@ -42,6 +44,7 @@ export function createAccountsServices(options: {
       newId: options.newId,
       // The UTC date; the profile's time zone (ACC-05) is not known to this module yet.
       today: () => new Date(options.clock.now()).toISOString().slice(0, 10),
+      walletUsage: options.walletUsage ?? [],
     },
   };
 }

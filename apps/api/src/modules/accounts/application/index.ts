@@ -55,6 +55,7 @@ export {
 } from "./settings.ts";
 export { updateAccountDetails, type DetailsResult } from "./details.ts";
 export { addCurrency, removeCurrency, type CurrencyRefusal, type CurrencyResult } from "./currencies.ts";
+export type { WalletUsage } from "./accounts.ts";
 export {
   applyHandOff,
   applyMoves,

@@ -135,7 +135,7 @@ export async function addCurrency(
 
 /** Removing a currency of an account (IMP-02 FR 15, AC14): only one that is not the main one and has no transactions. */
 export async function removeCurrency(
-  deps: Pick<AccountsDeps, "ledger" | "newId">,
+  deps: Pick<AccountsDeps, "ledger" | "newId" | "walletUsage">,
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
@@ -161,7 +161,11 @@ export async function removeCurrency(
     subaccount.ledgerAccountId,
     NOT_TRANSACTIONS,
   );
-  const issue = removalIssue(subaccount.position, hasTransactions);
+  // A transaction the journal does not hold yet («Очікує», or a hand-off not run) is one too: its row keeps the wallet.
+  let used = hasTransactions;
+  for (const usage of deps.walletUsage)
+    if (!used) used = (await usage.used(householdId, [subaccount.id])).has(subaccount.id);
+  const issue = removalIssue(subaccount.position, used);
   if (issue === "has_transactions") return { kind: "has-transactions" };
   if (issue === "main_currency") return { kind: "main-currency" };
 

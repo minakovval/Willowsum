@@ -181,6 +181,18 @@ export interface NumberSeal {
  */
 export type AccountAudit = HandOffAudit;
 
+/**
+ * IMP-02@PoC FR 15, AC14: «валюту з транзакціями прибрати не можна» is a question to every module that keeps
+ * subaccount ids — `transactions` (its rows, «Очікує» included, and a posted one its hand-off has not brought to the
+ * journal yet). Each answers which of `ids` its records of the space use. A module that starts to keep subaccount ids
+ * adds its own to the API's wiring (src/main.ts) in the same PR.
+ */
+export interface WalletUsage {
+  /** The answering module, for the reader of the wiring. */
+  readonly module: string;
+  used(householdId: string, subaccountIds: readonly string[]): Promise<ReadonlySet<string>>;
+}
+
 export interface AccountsDeps {
   readonly ledger: Pick<
     Ledger,
@@ -203,6 +215,8 @@ export interface AccountsDeps {
   readonly reportingCurrency: string;
   /** Today's date (YYYY-MM-DD) for balances and a deposit's accrual; from the clock, never read here. */
   readonly today: () => string;
+  /** The modules that keep subaccount ids (IMP-02 FR 15): a wallet one of them uses is not removed. */
+  readonly walletUsage: readonly WalletUsage[];
 }
 
 export interface Caller {
