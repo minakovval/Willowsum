@@ -15,6 +15,8 @@ export interface MergeSide {
   readonly accountId: string;
   readonly subaccountId: string;
   readonly amount: Money;
+  /** FR 24: «Очікує» does not change the balance. */
+  readonly status: "posted" | "pending";
   readonly hidden: boolean;
   readonly transfer: TransferLink | null;
   readonly mergedInto: string | null;
@@ -43,6 +45,10 @@ export function mergeIssues(
     if (side.transfer !== null) issues.push({ field, issue: "in_transfer" });
   }
   if (duplicateHasDuplicates) issues.push({ field: "duplicateId", issue: "has_duplicates" });
+  // The operation counts once (FR 11): a posted duplicate is never merged into an «Очікує» one, which would take the
+  // operation out of the balance; the user merges the other way («Об'єднати з іншою» on the posted one).
+  if (kept.status === "pending" && duplicate.status !== "pending")
+    issues.push({ field: "transactionId", issue: "pending" });
   if (kept.accountId !== duplicate.accountId)
     issues.push({ field: "duplicateId", issue: "account_mismatch" });
   else if (kept.subaccountId !== duplicate.subaccountId || !kept.amount.equals(duplicate.amount))

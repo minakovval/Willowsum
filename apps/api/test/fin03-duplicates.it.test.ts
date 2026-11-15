@@ -354,6 +354,38 @@ describe("FIN-03@PoC FR 12: «Можливий дубль» — the system marks
 });
 
 describe("FIN-03@PoC FR 11, FR 27: «Об'єднати» — the operation counts once", () => {
+  it("FIN-03@PoC FR 11: the one that stays keeps its categories (the split) after the merge and after «Роз'єднати»", async () => {
+    const { space, first, second } = await twice();
+    const cats = (await call(space, "GET", "/v1/categories"))
+      .json()
+      .groups.flatMap((g: { categories: { id: string; kind: string }[] }) => g.categories) as {
+      id: string;
+      kind: string;
+    }[];
+    const [food, home] = cats.filter((c) => c.kind === "expense");
+    const split = await call(space, "POST", `/v1/transactions/${first.id}/split`, {
+      mode: "categories",
+      parts: [
+        { categoryId: food!.id, amount: "-20.00" },
+        { categoryId: home!.id, amount: "-10.00" },
+      ],
+    });
+    expect(split.statusCode, split.body).toBe(200);
+    const parts = (t: unknown) =>
+      (t as { split: { parts: { categoryId: string; amount: { amount: string } }[] } }).split.parts.map(
+        (x) => [x.categoryId, x.amount.amount],
+      );
+    const before = parts(await get(space, first.id));
+    expect(before).toEqual([
+      [food!.id, "-20"],
+      [home!.id, "-10"],
+    ]);
+    expect((await merge(space, first.id, second.id)).statusCode).toBe(200);
+    expect(parts(await get(space, first.id))).toEqual(before);
+    expect((await unmerge(space, second.id)).statusCode).toBe(200);
+    expect(parts(await get(space, first.id))).toEqual(before);
+  });
+
   it("FIN-03@PoC FR 11: the duplicate is merged into the one that stays — hidden, without its journal event; the other keeps its fields and is «Об'єднано»", async () => {
     const { space, a, first, second } = await twice();
     await call(space, "PATCH", `/v1/transactions/${first.id}`, { description: "Синтетична нотатка" });

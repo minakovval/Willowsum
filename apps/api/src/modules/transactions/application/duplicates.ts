@@ -109,7 +109,8 @@ export async function unmergeDuplicate(
       const now = locked.get(id) ?? (await tx.find(householdId, id));
       return now ? { kind: "ok", transaction: now, handOffs: [] } : { kind: "not-found" };
     }
-    if (await anyClosed(deps, householdId, [kept])) return { kind: "closed" };
+    // The duplicates' own accounts too: the one that stays may have moved to another account since the merge.
+    if (await anyClosed(deps, householdId, [kept, ...duplicates])) return { kind: "closed" };
     const handOffs: TransactionHandOff[] = [];
     let result = kept;
     for (const duplicate of duplicates) {

@@ -12,6 +12,7 @@ function t(id: string, amount = "-30.00", extra: Partial<MergeSide> = {}): Merge
     accountId: ACCOUNT,
     subaccountId: SUB,
     amount: Money.of(amount, "EUR"),
+    status: "posted",
     hidden: false,
     transfer: null,
     mergedInto: null,
@@ -52,6 +53,16 @@ describe("FIN-03@PoC FR 11, FR 27: «Об'єднати» — one operation enter
       { field: "transactionId", issue: "merged" },
     ]);
     expect(mergeIssues(t(A), t(B), true)).toEqual([{ field: "duplicateId", issue: "has_duplicates" }]);
+  });
+
+  it("FIN-03@PoC FR 11, FR 24: a posted duplicate is not merged into an «Очікує» one — the operation would leave the balance", () => {
+    expect(mergeIssues(t(A, "-30.00", { status: "pending" }), t(B), false)).toEqual([
+      { field: "transactionId", issue: "pending" },
+    ]);
+    expect(mergeIssues(t(A), t(B, "-30.00", { status: "pending" }), false)).toEqual([]);
+    expect(
+      mergeIssues(t(A, "-30.00", { status: "pending" }), t(B, "-30.00", { status: "pending" }), false),
+    ).toEqual([]);
   });
 });
 
