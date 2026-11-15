@@ -118,7 +118,7 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
 **Lead sessions** — [restarts](references/restarts.md) (read when a session starts or finishes, at ~350 k tokens
 of context and after a compaction): the 350 k stop, «After compaction» (lead N+1 in the same session), «Lead state»
 (#179), start steps, a new session only when the container is lost or no compaction by ~450 k, the automatic
-restart and its limit, the start message, the process review every 3rd lead number, the handover confirmation. The retrospective: [token economy](references/token-economy.md), «Session retrospective».
+restart and its limit, the start message, the process review every 3rd lead number, the handover confirmation and its template (#179). The retrospective: [token economy](references/token-economy.md), «Session retrospective».
 
 ## 2. Owner
 

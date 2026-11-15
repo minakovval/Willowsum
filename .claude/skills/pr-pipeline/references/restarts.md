@@ -104,6 +104,29 @@ what it hands over, the new lead for what it took over. For each item: what was 
 recorded (skill or instruction file, PR or issue, with a link). An item not acted on is marked «не виконано» with
 the reason. A shortened summary does not count.
 
+**Handover template** (owner, 2026-11-15, #178,
+[comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): the confirmation
+is always the table below on #179 — at every handover, after a compaction too — with the fixed items in this order;
+the finishing lead fills «Передано» (at a compaction: in «Lead state» before it, from the 350 k stop), the new lead
+fills «Прийнято». An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries
+«перенесено N разів»: the number of handovers it has passed without being done, one more than in the previous table.
+Before the handover, every file in the scratchpad `keep/` goes to a branch or an issue (linked in item 7); nothing is
+handed over in the scratchpad alone. Test database names are not handed over: they do not survive a new container.
+```markdown
+| № | Пункт | Передано (хто завершує: що, де, посилання) | Прийнято (новий ведучий: що зроблено, де) | Перенесено N разів |
+| --- | --- | --- | --- | --- |
+| 1 | Відкриті PR: номер, повний head SHA, вердикти, наступний крок | | | |
+| 2 | Агенти й незавершена робота: гілка, WIP-коміт запушено | | | |
+| 3 | Питання власнику (посилання) | | | |
+| 4 | Рішення сесії: власника й ведучого — де записано (файл або відкритий PR) | | | |
+| 5 | Follow-ups: issues і списки злитих PR | | | |
+| 6 | Наступні рядки плану | | | |
+| 7 | Файли з `keep/`: гілка або issue | | | |
+| 8 | Ліміт (`rate_limit_info`) і лічильник перезапусків | | | |
+| 9 | #180: знімок, рядки PR, рядок «Сесії», ретроспектива | | | |
+| 10 | Назва наступної сесії або сегмента | | | |
+```
+
 **Owner decisions in documents** (owner, 2026-11-13): every owner decision is recorded in a concrete document (the
 decision log, a skill, AGENTS.md, a requirement) and carried into the rules it changes (SKILL.md §2). The lead
 never keeps a decision only in session memory: before a handover, check that each decision of the session is in
