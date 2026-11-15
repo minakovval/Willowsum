@@ -319,6 +319,33 @@ describe("sec207: the owners' shares stay at most 100 % on every date against di
     );
     expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
   });
+
+  it("sec207 follow-up (#219): the check is refused under REPEATABLE READ (a stale snapshot would let two 60 % rows commit), allowed under READ COMMITTED and SERIALIZABLE", async () => {
+    const { space, accountId } = await accountWithOwner();
+    const insert = async (level: string, valid: string) => {
+      await db.owner.query(`BEGIN ISOLATION LEVEL ${level}`);
+      try {
+        await db.owner.query(`SET CONSTRAINTS ALL IMMEDIATE`);
+        await db.owner.query(
+          `INSERT INTO accounts.account_owners (household_id, account_id, owner_account_id, share, valid_from, valid_to)
+           VALUES ($1, $2, $3, 10, $4, $4::date + 1)`,
+          [space.householdId, accountId, randomUUID(), valid],
+        );
+        await db.owner.query(`COMMIT`);
+      } catch (error) {
+        await db.owner.query(`ROLLBACK`);
+        throw error;
+      }
+    };
+    await expect(insert("REPEATABLE READ", "2020-01-01")).rejects.toMatchObject({ code: "40001" });
+    await insert("READ COMMITTED", "2020-02-01");
+    await insert("SERIALIZABLE", "2020-03-01");
+    const { rows } = await db.owner.query(
+      `SELECT count(*)::int AS n FROM accounts.account_owners WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, accountId],
+    );
+    expect((rows[0] as { n: number }).n).toBe(3);
+  });
 });
 
 describe("sec207: a full card number is refused however it is formatted (FIN-12 FR 4)", () => {
