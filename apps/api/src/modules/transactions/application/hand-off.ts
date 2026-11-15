@@ -301,7 +301,8 @@ async function matchOwnEvent(
   if (!inEffect) {
     // The first event of a transaction posted from the start keeps the key of its create; a later one (posted after
     // «Очікує», or again after going back to it, or after a transfer's mark is removed) the key of the row's version,
-    // so a reversed event is never reused.
+    // so a reversed event is never reused (#264 item 8: the idempotency key returns the entry it made, reversed or not,
+    // so a later posting of the same transaction needs a key no earlier posting used — the row's version is new each time).
     const posted = await deps.ledger.post(householdId, {
       ...replacement,
       idempotencyKey:
