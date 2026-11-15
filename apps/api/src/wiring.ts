@@ -152,7 +152,12 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly subscriptions: readonly EventSubscription[];
 } {
   return {
-    queues: [{ store: postgresJobStore(databases.for("ledger")), handlers: [] }],
+    // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
+    // subscribe in the parts that bring them.
+    queues: [
+      { store: postgresJobStore(databases.for("ledger")), handlers: [] },
+      { store: postgresJobStore(databases.for("categories")), handlers: [] },
+    ],
     subscriptions: [],
   };
 }

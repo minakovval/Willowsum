@@ -88,6 +88,13 @@ export const FLAGS = {
     description:
       "Ручні транзакції (FIN-03@PoC a): створення, зміна і видалення через журнал, список з підсумками; маршрути /v1/transactions",
   },
+  "categories.tree": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Дерево категорій простору (BUD-01@PoC a): системне дерево, власні групи й категорії, перейменування, приховування, об'єднання; маршрути /v1/categories, /v1/category-groups",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;
