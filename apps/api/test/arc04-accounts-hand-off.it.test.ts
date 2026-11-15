@@ -13,7 +13,7 @@ import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/
 import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createLiabilities, type Liabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
-import { createAccountsServices } from "../src/modules/accounts/index.ts";
+import { createAccountsErasure, createAccountsServices } from "../src/modules/accounts/index.ts";
 
 /**
  * ARC-04@PoC FR 2, FR 3 (issue #210 «Атомарна передача між модулями», #238 item 1): «Новий рахунок» and «Основне»
@@ -427,5 +427,64 @@ describe("ARC-04@PoC FR 2 (#238 item 1): «Кредит» ↔ «Кредитна
     expect(await kindOf(space.householdId, created.id)).toBe("credit-card");
     expect((await call(space, "GET", `/v1/accounts/${created.id}`)).json().kind).toBe("credit-card");
     expect(await pendingJobs(space.householdId)).toBe(0);
+  });
+});
+
+describe("ARC-04@PoC FR 3: the other modules' steps of the hand-off can run again", () => {
+  it("ARC-04@PoC FR 3: audit.record with the same key appends one entry and returns it; the platform log takes no key", async () => {
+    const space = await newSpace();
+    const entityId = randomUUID();
+    const entry = {
+      actor: { kind: "user" as const, id: space.accountId },
+      channel: "web" as const,
+      entity: { type: "accounts.account", id: entityId },
+      action: "create" as const,
+      changes: [{ field: "name", before: null, after: "Синтетичний", sensitive: false }],
+      key: `accounts.account-created:${entityId}`,
+    };
+    const first = await audit.record(space.householdId, entry);
+    const again = await audit.record(space.householdId, entry);
+    expect(again.id).toBe(first.id);
+    expect(await audit.entriesFor(space.householdId, entry.entity)).toHaveLength(1);
+    // Without a key every call appends, as before.
+    const unkeyed = { ...entry, key: undefined };
+    await audit.record(space.householdId, unkeyed);
+    await audit.record(space.householdId, unkeyed);
+    expect(await audit.entriesFor(space.householdId, entry.entity)).toHaveLength(3);
+    // Another space's same key is its own entry.
+    const other = await newSpace();
+    await audit.record(other.householdId, { ...entry, actor: { kind: "user", id: other.accountId } });
+    expect(await audit.entriesFor(other.householdId, entry.entity)).toHaveLength(1);
+    await expect(audit.record(space.householdId, { ...entry, key: "not a code" })).rejects.toThrow();
+    await expect(
+      audit.recordPlatform({ ...entry, actor: { kind: "system" }, channel: "system" }),
+    ).rejects.toThrow();
+  });
+
+  it("ARC-04@PoC FR 3: ledger.openAccount with the owner's id opens it once; another id for the same owner is ACCOUNT_CONFLICT", async () => {
+    const space = await newSpace();
+    const owner = { module: "accounts", id: randomUUID() };
+    const id = randomUUID();
+    const opened = await ledger.openAccount(space.householdId, owner, { type: "asset", currency: "EUR", id });
+    expect(opened.id).toBe(id);
+    expect(
+      (await ledger.openAccount(space.householdId, owner, { type: "asset", currency: "EUR", id })).id,
+    ).toBe(id);
+    expect((await ledger.openAccount(space.householdId, owner, { type: "asset", currency: "EUR" })).id).toBe(
+      id,
+    );
+    await expect(
+      ledger.openAccount(space.householdId, owner, { type: "asset", currency: "EUR", id: randomUUID() }),
+    ).rejects.toMatchObject({ code: "ACCOUNT_CONFLICT" });
+  });
+
+  it("ARC-04@PoC FR 2: the space's erasure takes the accounts queue's rows with its accounts", async () => {
+    const space = await newSpace();
+    expect((await call(space, "POST", "/v1/accounts", loan)).statusCode).toBe(201);
+    const erased = await createAccountsErasure(db.databases.for("accounts")).eraseHousehold(
+      space.householdId,
+    );
+    expect(erased).toEqual({ accounts: 1, idempotencyKeys: 0, jobs: 1 });
+    expect(await n("accounts.jobs WHERE household_id = $1", space.householdId)).toBe(0);
   });
 });
