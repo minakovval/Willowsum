@@ -799,7 +799,11 @@ export const mergeDuplicateRoute = defineRoute({
       })
       .strict(),
   },
-  response: { status: 200, description: "The transaction that stays, «Об'єднано»", schema: transactionSchema },
+  response: {
+    status: 200,
+    description: "The transaction that stays, «Об'єднано»",
+    schema: transactionSchema,
+  },
   handler: async ({ params, body }, ctx) => {
     refuseScoped(ctx);
     const { deps } = transactionsServices(ctx);

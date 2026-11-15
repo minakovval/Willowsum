@@ -13,7 +13,8 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
-import { createTransactionsServices } from "../src/modules/transactions/index.ts";
+import { createDuplicateCandidates, createTransactionsServices } from "../src/modules/transactions/index.ts";
+import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 
 /**
  * FIN-03@PoC b) (wave 2 row 16a), through the real API on a real PostgreSQL: «Очікує» (no journal event until posted),
@@ -193,6 +194,10 @@ beforeAll(async () => {
             newId: randomUUID,
           }),
           flags: { isEnabled },
+          // FR 18: only a duplicate is hidden — the tests that hide enter the transaction twice (FIN-03 b, row 16c).
+          duplicates: createDuplicateCheck({
+            candidates: createDuplicateCandidates(db.databases.for("transactions")),
+          }),
         }),
         categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
         allowedOrigins: new Set([WEB]),
@@ -268,16 +273,18 @@ describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» k
     const space = await newSpace();
     const account = await createAccount(space, "1000.00");
     const kept = await add(space, tx(account, "-10.00"));
+    // FR 18: entered twice, so a duplicate that may be hidden.
     const t = await add(space, tx(account, "-45.50"));
+    const copy = await add(space, tx(account, "-45.50"));
     const hide = await call(space, "POST", `/v1/transactions/${t.id}/hide`);
     expect(hide.statusCode, hide.body).toBe(200);
     expect(hide.json().hidden).toBe(true);
-    expect(await balance(space, account)).toBe("944.5");
-    expect(await liveEvents(space.householdId)).toEqual([kept.id, t.id]);
+    expect(await balance(space, account)).toBe("899");
+    expect(await liveEvents(space.householdId)).toEqual([kept.id, t.id, copy.id]);
     const shown = await list(space);
-    expect(shown.items.map((i: { id: string }) => i.id)).toEqual([kept.id]);
-    expect(shown.count).toBe(1);
-    expect(shown.summary.expense.total).toEqual({ amount: "-10", currency: "EUR" });
+    expect(shown.items.map((i: { id: string }) => i.id).sort()).toEqual([kept.id, copy.id].sort());
+    expect(shown.count).toBe(2);
+    expect(shown.summary.expense.total).toEqual({ amount: "-55.5", currency: "EUR" });
     const hidden = await list(space, "?filter=hidden.eq:true");
     expect(hidden.items.map((i: { id: string; hidden: boolean }) => [i.id, i.hidden])).toEqual([
       [t.id, true],
@@ -289,11 +296,12 @@ describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» k
     const space = await newSpace();
     const account = await createAccount(space, "100.00");
     const t = await add(space, tx(account, "-5.00"));
+    await add(space, tx(account, "-5.00")); // FR 18: a duplicate
     await call(space, "POST", `/v1/transactions/${t.id}/hide`);
     await call(space, "POST", `/v1/transactions/${t.id}/hide`);
     const show = await call(space, "POST", `/v1/transactions/${t.id}/show`);
     expect(show.json().hidden).toBe(false);
-    expect((await list(space)).count).toBe(1);
+    expect((await list(space)).count).toBe(2);
     const log = await audit.entriesFor(space.householdId, { type: "transactions.transaction", id: t.id });
     expect(log.map((e) => [e.action, e.changes.map((c) => `${c.field}:${c.before}→${c.after}`)])).toEqual([
       ["create", expect.any(Array)],
@@ -320,6 +328,7 @@ describe("FIN-03@PoC FR 22, FR 23: «Стан» filters and the split in the lis
     const pending = await add(space, tx(account, "-1.00", { status: "pending" }));
     const split = await add(space, tx(account, "-2.00"));
     const hidden = await add(space, tx(account, "-3.00"));
+    await add(space, tx(account, "-3.00")); // FR 18: a duplicate, so it may be hidden
     await add(space, tx(account, "-4.00"));
     await call(space, "POST", `/v1/transactions/${split.id}/split`, {
       mode: "categories",
@@ -333,7 +342,7 @@ describe("FIN-03@PoC FR 22, FR 23: «Стан» filters and the split in the lis
     expect(await ids("?filter=status.eq:pending")).toEqual([pending.id]);
     expect(await ids("?filter=split.eq:true")).toEqual([split.id]);
     expect(await ids("?filter=hidden.eq:true")).toEqual([hidden.id]);
-    expect((await list(space)).count).toBe(3);
+    expect((await list(space)).count).toBe(4);
     expect((await call(space, "GET", "/v1/transactions?filter=status.eq:reviewed")).statusCode).toBe(400);
   });
 
@@ -593,6 +602,7 @@ describe("FIN-03@PoC «Права доступу» / BUD-13@PoC AC7: splitting a
       const account = await createAccount(space, "100.00");
       const c = await pick(space);
       const t = await add(space, tx(account, "-10.00"));
+      await add(space, tx(account, "-10.00")); // FR 18: a duplicate, so it may be hidden
       const split = await call(
         space,
         "POST",

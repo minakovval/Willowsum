@@ -4,7 +4,7 @@
 // into two parts (transaction_parts loads first; its key to the row is checked at commit). Every transaction's hand-off job is done
 // (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check. One transfer
 // pairs the outflow −11,50 € (transaction 1) with the inflow 1 000,00 € (transaction 0); its key to the rows is checked
-// at commit, and the rows do not point back at it (the column is nullable).
+// at commit, and the rows do not point back at it (the column is nullable). Transactions 2 and 3 are «Не дубль».
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -70,6 +70,21 @@ export const synthetic = [
           rate_date: null,
           rate_source: null,
         };
+    },
+  }),
+  defineSyntheticTable({
+    table: "transactions.duplicate_dismissals",
+    perHousehold: 1,
+    // «Не дубль» of transactions 2 and 3 (in the order of their ids); another would point at rows not loaded.
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++) {
+        const [first, second] = [
+          key(household.id, "transaction", 2),
+          key(household.id, "transaction", 3),
+        ].sort();
+        yield { household_id: household.id, first_id: first!, second_id: second! };
+      }
     },
   }),
   defineSyntheticTable({

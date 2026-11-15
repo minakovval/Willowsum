@@ -216,7 +216,8 @@ async function desiredJournal(
     readonly date: string;
   } | null;
 }> {
-  if (row === null || row.status === "pending" || row.mergedInto !== null) return { own: null, transfer: null };
+  if (row === null || row.status === "pending" || row.mergedInto !== null)
+    return { own: null, transfer: null };
   if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
   const inflow = await find(row.transfer.inflowId);

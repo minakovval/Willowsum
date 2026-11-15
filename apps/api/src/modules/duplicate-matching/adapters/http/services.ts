@@ -24,7 +24,9 @@ export function createDuplicateMatchingServices(deps: DuplicateDeps): DuplicateM
 export function createDuplicateCheck(deps: DuplicateDeps): {
   isPossibleDuplicate(householdId: string, transactionId: string): Promise<boolean>;
 } {
-  return { isPossibleDuplicate: (householdId, transactionId) => isDuplicateNow(deps, householdId, transactionId) };
+  return {
+    isPossibleDuplicate: (householdId, transactionId) => isDuplicateNow(deps, householdId, transactionId),
+  };
 }
 
 /** The services of a duplicate-matching route; without them (never in the API process) the route answers 500. */

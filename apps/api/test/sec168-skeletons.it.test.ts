@@ -22,7 +22,6 @@ import { createTestDatabase } from "./db.ts";
 const SKELETONS = [
   "categorization",
   "merchants",
-  "duplicate-matching",
   "budget",
   "goals",
   "recurring",

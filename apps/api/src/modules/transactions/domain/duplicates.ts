@@ -51,10 +51,7 @@ export function mergeIssues(
 }
 
 /** «Не дубль» (FR 12): only a pair that could be one — two transactions on one account, same amount and currency. */
-export function dismissIssues(
-  transaction: MergeSide,
-  counterpart: MergeSide,
-): FieldIssue[] {
+export function dismissIssues(transaction: MergeSide, counterpart: MergeSide): FieldIssue[] {
   if (transaction.id === counterpart.id) return [{ field: "counterpartId", issue: "invalid" }];
   if (transaction.accountId !== counterpart.accountId)
     return [{ field: "counterpartId", issue: "account_mismatch" }];

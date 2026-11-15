@@ -53,7 +53,11 @@ export async function lockBoth(
   return [await tx.lock(householdId, a), second];
 }
 
-export async function anyClosed(deps: TransactionsDeps, householdId: string, rows: readonly StoredTransaction[]) {
+export async function anyClosed(
+  deps: TransactionsDeps,
+  householdId: string,
+  rows: readonly StoredTransaction[],
+) {
   for (const row of rows) {
     const account = await deps.accounts.postingAccount(householdId, row.accountId);
     if (account?.status === "closed") return true;
