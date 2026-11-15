@@ -24,8 +24,8 @@ export interface MergeSide {
  * What stops merging `duplicate` into `kept` (`duplicateId` is the field of the request): one operation twice is on one
  * account with the same amount and currency (FR 10, FR 12; the user's own choice needs no date window); neither is
  * hidden, a side of a transfer (FR 18) or merged already; the duplicate is not one others were merged into (no chains,
- * so «Роз'єднати» always gives back what was merged). `keptHasDuplicates`/`duplicateHasDuplicates` — whether others were
- * merged into each.
+ * so «Роз'єднати» always gives back what was merged). `duplicateHasDuplicates` — whether others were merged into the
+ * duplicate.
  */
 export function mergeIssues(
   kept: MergeSide,
