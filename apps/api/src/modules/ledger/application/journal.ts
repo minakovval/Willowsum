@@ -17,6 +17,7 @@ import {
   type LedgerEvent,
   type LedgerEventType,
   type Posting,
+  type PostingLeg,
   type ServiceAccount,
 } from "../domain/index.ts";
 
@@ -38,6 +39,19 @@ export interface StoredPosting {
   readonly debitAccountId: string;
   readonly creditAccountId: string;
   readonly amount: Money;
+  /** The event's leg this posting is (IMP-02@PoC FR 5); none for the other events. */
+  readonly leg?: PostingLeg;
+}
+
+/**
+ * A leg of an entry (IMP-02@PoC FR 5, AC11), as the event `legs` gave it: `main` — the amount on the account, signed
+ * from its side (positive into it); `fee` — the fee charged from the account, positive. A reversal's legs are the
+ * same with the opposite sign.
+ */
+export interface EntryLeg {
+  readonly kind: PostingLeg;
+  readonly accountId: string;
+  readonly amount: Money;
 }
 
 export interface Entry {
@@ -58,6 +72,8 @@ export interface Entry {
    * for an entry in one currency; a reversal keeps the rates of the entry it reverses.
    */
   readonly conversions: readonly EntryConversion[];
+  /** The legs of an entry made by the event `legs`, in order, the fee last (IMP-02@PoC FR 5); empty for the others. */
+  readonly legs: readonly EntryLeg[];
 }
 
 export interface NewEntry {
@@ -273,10 +289,11 @@ async function write(
   const id = deps.newId();
   if (!(await tx.insertEntry({ ...header, id, rulesVersion: RULES_VERSION })))
     return (await tx.entryByKey(header.idempotencyKey))!;
-  const stored = postings.map((p) => ({
+  const stored = postings.map((p): StoredPosting => ({
     debitAccountId: account(p.debit, p).id,
     creditAccountId: account(p.credit, p).id,
     amount: p.amount,
+    ...(p.leg ? { leg: p.leg } : {}),
   }));
   await tx.insertPostings(id, stored);
   if (conversions.length > 0) await tx.insertConversions(id, conversions);
@@ -357,6 +374,7 @@ async function reverseIn(
     debit: { account: p.debitAccountId },
     credit: { account: p.creditAccountId },
     amount: p.amount,
+    ...(p.leg ? { leg: p.leg } : {}),
   }));
   // Dated as the original, so balances on every later date are as if the original had not been posted.
   return write(

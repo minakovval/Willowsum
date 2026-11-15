@@ -34,6 +34,7 @@ import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionLookup,
+  createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
@@ -208,6 +209,7 @@ const server = buildServer({
               audit,
               clock: systemClock,
               newId: randomUUID,
+              walletUsage: [createTransactionWalletUsage(databases.for("transactions"))],
             }),
             // FIN-03: a transaction is one journal event on the account's subaccount (accounts' directory); the
             // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates); split parts

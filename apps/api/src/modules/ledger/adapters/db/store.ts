@@ -2,6 +2,7 @@ import { exchangeRate, Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import type {
   Entry,
+  EntryLeg,
   IntegrityAlertStore,
   IntegrityFindings,
   LedgerAccount,
@@ -9,7 +10,7 @@ import type {
   LedgerTx,
 } from "../../application/index.ts";
 import { publishEvent } from "../../../../platform/queue/index.ts";
-import { LedgerError, SERVICE_ACCOUNTS } from "../../domain/index.ts";
+import { LedgerError, SERVICE_ACCOUNTS, type PostingLeg } from "../../domain/index.ts";
 import { entryRecorded } from "../../events.ts";
 
 /** The ledger schema through the module's own role (FIN-04, ARC-11; tables in migrations/0001_journal.sql). */
@@ -135,14 +136,20 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
     );
     const row = rows[0];
     if (!row) return null;
+    // With the leg of each posting and whether its debit side is a service account, so a leg's account and sign are
+    // known: a leg posting has the owner's account on one side and «Зовнішні кошти» on the other (IMP-02 FR 5).
     const postings = await q.query<{
       debit_account_id: string;
       credit_account_id: string;
       amount: string;
       currency: string;
+      leg: PostingLeg | null;
+      debit_is_service: boolean;
     }>(
-      `SELECT debit_account_id, credit_account_id, amount::text AS amount, currency FROM postings
-        WHERE household_id = $1 AND entry_id = $2 ORDER BY seq`,
+      `SELECT p.debit_account_id, p.credit_account_id, p.amount::text AS amount, p.currency, p.leg,
+              (d.service_kind IS NOT NULL) AS debit_is_service
+         FROM postings p JOIN accounts d ON d.household_id = p.household_id AND d.id = p.debit_account_id
+        WHERE p.household_id = $1 AND p.entry_id = $2 ORDER BY p.seq`,
       [q.householdId, row.id],
     );
     const conversions = await q.query<{
@@ -172,7 +179,17 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
         debitAccountId: p.debit_account_id,
         creditAccountId: p.credit_account_id,
         amount: Money.of(p.amount, p.currency),
+        ...(p.leg ? { leg: p.leg } : {}),
       })),
+      legs: postings.rows.flatMap((p): EntryLeg[] => {
+        if (p.leg === null) return [];
+        const amount = Money.of(p.amount, p.currency);
+        // From the owner's account's side: debited — into it, credited — out of it.
+        const [accountId, fromAccount] = p.debit_is_service
+          ? [p.credit_account_id, amount.negated()]
+          : [p.debit_account_id, amount];
+        return [{ kind: p.leg, accountId, amount: p.leg === "fee" ? fromAccount.negated() : fromAccount }];
+      }),
       conversions: conversions.rows.map((c) => ({
         amount: Money.of(c.amount, c.currency),
         entryAmount: Money.of(c.entry_amount, c.entry_currency),
@@ -294,10 +311,10 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
     async insertPostings(entryId, postings) {
       // One statement for the whole set: it is written completely or not at all.
       await q.query(
-        `INSERT INTO postings (household_id, entry_id, seq, debit_account_id, credit_account_id, amount, currency)
-         SELECT $1, $2, s.seq, s.debit, s.credit, s.amount, s.currency
-           FROM unnest($3::smallint[], $4::uuid[], $5::uuid[], $6::numeric[], $7::text[])
-             AS s(seq, debit, credit, amount, currency)`,
+        `INSERT INTO postings (household_id, entry_id, seq, debit_account_id, credit_account_id, amount, currency, leg)
+         SELECT $1, $2, s.seq, s.debit, s.credit, s.amount, s.currency, s.leg
+           FROM unnest($3::smallint[], $4::uuid[], $5::uuid[], $6::numeric[], $7::text[], $8::text[])
+             AS s(seq, debit, credit, amount, currency, leg)`,
         [
           q.householdId,
           entryId,
@@ -306,6 +323,7 @@ function tx(q: HouseholdQueryRunner): LedgerTx {
           postings.map((p) => p.creditAccountId),
           postings.map((p) => p.amount.toDecimalString()),
           postings.map((p) => p.amount.currency),
+          postings.map((p) => p.leg ?? null),
         ],
       );
     },

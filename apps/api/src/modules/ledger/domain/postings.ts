@@ -22,10 +22,18 @@ export type ServiceAccount = keyof typeof SERVICE_ACCOUNTS;
 /** A side of a posting: an owner module's ledger account by id, or a service account of the space. */
 export type AccountRef = { readonly account: string } | { readonly service: ServiceAccount };
 
+/**
+ * The leg of an event a posting carries (IMP-02@PoC FR 5): `main` — one of the event's legs (an amount on an account),
+ * `fee` — the separate fee leg. Postings of the other events carry none.
+ */
+export const POSTING_LEGS = ["main", "fee"] as const;
+export type PostingLeg = (typeof POSTING_LEGS)[number];
+
 export interface Posting {
   readonly debit: AccountRef;
   readonly credit: AccountRef;
   readonly amount: Money;
+  readonly leg?: PostingLeg;
 }
 
 export class LedgerError extends DomainError {}
@@ -60,9 +68,14 @@ export function assertBalanced(
   }
 }
 
-/** The reversal of a posting set (FIN-04 FR 5): the same postings with debit and credit swapped. */
+/** The reversal of a posting set (FIN-04 FR 5): the same postings with debit and credit swapped, each in its leg. */
 export function reversalOf(postings: readonly Posting[]): Posting[] {
-  return postings.map((p) => ({ debit: p.credit, credit: p.debit, amount: p.amount }));
+  return postings.map((p) => ({
+    debit: p.credit,
+    credit: p.debit,
+    amount: p.amount,
+    ...(p.leg ? { leg: p.leg } : {}),
+  }));
 }
 
 /**

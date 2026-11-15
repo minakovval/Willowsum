@@ -39,25 +39,24 @@ const moveSchema = z.discriminatedUnion("op", [
   }),
 ]);
 
+/** A subaccount whose ledger account and opening balance a hand-off opens (application/hand-off.ts `HandOffSubaccount`). */
+const subaccountSchema = z.strictObject({
+  subaccountId: uuid,
+  ledgerAccountId: uuid,
+  ledgerType: z.enum(["asset", "liability"]),
+  currency,
+  opening: decimal.nullable(),
+  date,
+});
+const changesSchema = z.array(z.strictObject({ field, before: value, after: value, sensitive: z.boolean() }));
+
 /** The payload of `accounts.hand-off` (application/hand-off.ts `HandOff`), checked when enqueued and when run. */
 const handOffSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     kind: z.literal("account-created"),
     accountId: uuid,
     actorAccountId: uuid,
-    subaccounts: z
-      .array(
-        z.strictObject({
-          subaccountId: uuid,
-          ledgerAccountId: uuid,
-          ledgerType: z.enum(["asset", "liability"]),
-          currency,
-          opening: decimal.nullable(),
-          date,
-        }),
-      )
-      .min(1)
-      .max(10),
+    subaccounts: z.array(subaccountSchema).min(1).max(10),
     liability: z
       .strictObject({
         kind: z.enum(["loan", "credit-card"]),
@@ -107,10 +106,16 @@ const handOffSchema = z.discriminatedUnion("kind", [
     accountId: uuid,
     actorAccountId: uuid,
     changeId: uuid,
-    changes: z
-      .array(z.strictObject({ field, before: value, after: value, sensitive: z.boolean() }))
-      .min(1)
-      .max(20),
+    changes: changesSchema.min(1).max(20),
+  }),
+  z.strictObject({
+    kind: z.literal("currency-changed"),
+    accountId: uuid,
+    actorAccountId: uuid,
+    changeId: uuid,
+    added: subaccountSchema.nullable(),
+    removed: z.strictObject({ subaccountId: uuid, openingEntryId: uuid.nullable() }).nullable(),
+    changes: changesSchema.min(1).max(3),
   }),
 ]) satisfies z.ZodType<HandOff>;
 

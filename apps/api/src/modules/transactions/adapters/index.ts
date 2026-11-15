@@ -6,6 +6,7 @@ export {
   duplicateCandidates,
   categoriesInParts,
   categorizableFacts,
+  subaccountsInUse,
   transactionsList,
   transactionsTx,
   transferCandidates,

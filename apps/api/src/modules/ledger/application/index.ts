@@ -26,6 +26,7 @@ export type {
 } from "./integrity-alert.ts";
 export type {
   Entry,
+  EntryLeg,
   EntrySource,
   IntegrityCheck,
   IntegrityFindings,

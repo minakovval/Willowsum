@@ -50,6 +50,7 @@ export const LEDGER_CODE_COLUMNS: Readonly<Record<string, string>> = {
   "ledger.entries.event_type": "event type code",
   "ledger.entries.idempotency_key": "the source's event id (a code without spaces)",
   "ledger.postings.currency": "currency code (its accounts' currency)",
+  "ledger.postings.leg": "the event's leg of a posting, one of two codes (IMP-02 FR 5)",
   "ledger.daily_balances.currency": "currency code (its account's currency)",
   "ledger.conversions.currency": "currency code (the account's, the rate's base)",
   "ledger.conversions.entry_currency": "currency code (the entry's, the rate's quote)",

@@ -3,11 +3,13 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
+import type { WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
   categoriesInParts,
   categorizableFacts,
+  subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
@@ -184,5 +186,16 @@ export function createTransactionLookup(db: ModuleDatabase): TransactionLookup {
         throw error;
       }
     },
+  };
+}
+
+/**
+ * IMP-02@PoC FR 15: the subaccounts the space's transactions are on, for module accounts (a wallet with transactions
+ * stays). Read only. `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`).
+ */
+export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
+  return {
+    module: "transactions",
+    used: (householdId, ids) => db.inHousehold(householdId, (q) => subaccountsInUse(q, householdId, ids)),
   };
 }
