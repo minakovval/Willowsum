@@ -11,6 +11,7 @@ import {
   accountsWorkerQueue,
   eraseHouseholdAccounts,
   HAND_OFF_JOB,
+  requeueDeadHandOffs,
   type AccountsServices,
 } from "./adapters/index.ts";
 import { reconcileStatement, type HandOffDeps, type StatementResult } from "./application/index.ts";
@@ -44,6 +45,24 @@ export function createAccountsWorkerQueue(
     liabilities: ports.liabilities,
     audit: accountAudit(ports.audit),
   });
+}
+
+/**
+ * The scheduler's daily recovery of the hand-off (ARC-04 FR 2–4; src/wiring.ts): puts the hand-off jobs the worker gave
+ * up on back in the accounts queue, so no account stays without its ledger entries, liability and audit entry for good.
+ * Returns how many jobs went back. Idempotent.
+ */
+export function createAccountsHandOffRecovery(
+  db: ModuleDatabase,
+  households: () => Promise<readonly string[]>,
+): { run(): Promise<number> } {
+  return {
+    async run() {
+      let requeued = 0;
+      for (const householdId of await households()) requeued += await requeueDeadHandOffs(db, householdId);
+      return requeued;
+    },
+  };
 }
 export { NUMBER_FIELD } from "./application/index.ts";
 export type { AccountView, NumberSeal, StatementResult } from "./application/index.ts";

@@ -41,3 +41,23 @@ export function accountsWorkerQueue(db: ModuleDatabase, deps: HandOffDeps): Work
     ],
   };
 }
+
+/**
+ * ARC-04 FR 4 gives a job 8 attempts (about 21 minutes); a hand-off that used them all — another module was away for
+ * longer — must still be finished, or the account stays without its ledger account, «Початковий залишок», liability
+ * and audit entry for good, and the retention cleanup later deletes the only copy of the amount (the job's payload).
+ * So the scheduler puts the space's dead hand-off jobs back in the queue once a day, before that cleanup
+ * (src/wiring.ts, `accounts.hand-off-recovery`): the worker tries them again, with an «error» event each time they
+ * are dead-lettered, until they are done. Every step is idempotent, so trying again writes nothing twice.
+ */
+export async function requeueDeadHandOffs(db: ModuleDatabase, householdId: string): Promise<number> {
+  return db.inHousehold(householdId, async (q) => {
+    const requeued = await q.query(
+      `UPDATE jobs SET state = 'queued', attempts = 0, run_after = now(), finished_at = NULL,
+              lease_owner = NULL, lease_until = NULL
+        WHERE household_id = $1 AND name = $2 AND state = 'dead'`,
+      [q.householdId, HAND_OFF_JOB.name],
+    );
+    return requeued.rowCount ?? 0;
+  });
+}

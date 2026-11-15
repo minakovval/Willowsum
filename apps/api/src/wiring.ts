@@ -4,7 +4,7 @@
  * module (feature-flags) to the platform.
  */
 import type pg from "pg";
-import { createAccountsWorkerQueue } from "./modules/accounts/index.ts";
+import { createAccountsHandOffRecovery, createAccountsWorkerQueue } from "./modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
@@ -115,9 +115,21 @@ export function schedulerDailyTasks(deps: {
     undefined,
     deps.alertMail ? { alertMail: deps.alertMail } : {},
   );
+  const handOffRecovery = createAccountsHandOffRecovery(deps.databases.for("accounts"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
+    // ARC-04 FR 2–4 (ADR-0015): a hand-off the worker gave up on goes back to the accounts queue — before the
+    // retention cleanup below, which would otherwise delete it after 30 days with the only copy of what it carries.
+    {
+      name: "accounts.hand-off-recovery",
+      run: async () => {
+        const requeued = await handOffRecovery.run();
+        if (requeued > 0) logEvent("accounts.hand_off_requeued", "warn", { "ws.module": "accounts" });
+      },
+    },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
     // queue's working copies go; the changes they report stay in the modules' own tables.
     {

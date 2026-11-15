@@ -468,6 +468,15 @@ describe("sec233 audit and concurrency", () => {
     // ARC-04: each kind change's hand-off gives the liability the account's kind as it is then, with the account's row
     // locked, so a change overtaken by a later one before its hand-off ran moves the liability no more (no entry).
     expect(changedL.length).toBeLessThanOrEqual(changedA.length);
+    // The `<=` also holds with no entry at all, so the chain is checked too: when the card ended as a loan, at least one
+    // liability update entry exists and one of them moved its kind to the final kind (review 5908367712, follow-up 1).
+    const finalKind = (end.accounts[0] as { kind: string }).kind;
+    if (finalKind !== "credit-card") {
+      expect(changedL.length).toBeGreaterThanOrEqual(1);
+      expect(changedL.some((e) => e.changes.some((c) => c.field === "kind" && c.after === finalKind))).toBe(
+        true,
+      );
+    }
     expect(results.filter((r, i) => i !== 7 && r.statusCode === 200).length).toBeGreaterThanOrEqual(
       changedA.length,
     );
