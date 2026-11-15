@@ -427,6 +427,36 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
   });
 });
 
+describe("BUD-05@PoC FR 2, FR 12: «Змінити ціль» when the account fell below its envelopes (edge case 1)", () => {
+  it("BUD-05@PoC FR 2 (server part): a change that reserves no more is saved; one that reserves more is refused", async () => {
+    const space = await newSpace();
+    const savings = await account(space, "5000.00");
+    const g = await goal(
+      space,
+      travel({ part: { kind: "envelope", accountId: savings, startAmount: "4000.00" } }),
+    );
+    const fell = await call(space, "POST", `/v1/accounts/${savings}/balance`, { balance: eur("3000.00") });
+    expect(fell.statusCode, fell.body).toBe(200);
+    await runWorker(space.householdId);
+    expect((await call(space, "GET", `/v1/goals/${g.id}`)).json().part.freeBalance).toEqual(eur("-1000"));
+    const renamed = await call(space, "PATCH", `/v1/goals/${g.id}`, { name: "Італія" });
+    expect(renamed.statusCode, renamed.body).toBe(200);
+    const extended = await call(space, "PATCH", `/v1/goals/${g.id}`, { targetDate: "2027-09-01" });
+    expect(extended.statusCode, extended.body).toBe(200);
+    const reduced = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: savings, startAmount: "3500.00" },
+    });
+    expect(reduced.statusCode, reduced.body).toBe(200);
+    expect(reduced.json().part.freeBalance).toEqual(eur("-500"));
+    const more = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: savings, startAmount: "3600.00" },
+    });
+    expect(more.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("600") });
+    const mark = await call(space, "POST", `/v1/goals/${g.id}/contributions`, { amount: eur("1.00") });
+    expect(mark.json().code).toBe("GOAL_ENVELOPES_OVER_BALANCE");
+  });
+});
+
 describe("BUD-05@PoC AC6: the space's boundary", () => {
   it("BUD-05@PoC AC6: a user of another space gets «not found» for the goals of this one — no records, counts or sums", async () => {
     const owner = await newSpace();

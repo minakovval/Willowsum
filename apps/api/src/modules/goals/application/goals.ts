@@ -180,7 +180,9 @@ const reservedBy = (g: StoredGoal, contributions: readonly StoredContribution[])
 /**
  * Under the account's lock: FR 2 — one own goal per account, and its balance is wholly the goal's, so no envelope sits
  * beside it (lead decision); FR 3 — the envelopes of the account, with `adding` more for this goal, never exceed its
- * balance.
+ * balance. `before` — what this goal already reserved on the same account: a change that does not reserve more is never
+ * refused, so a goal whose account fell below its envelopes (edge case 1) can still be renamed, extended (FR 12) or
+ * reduced.
  */
 async function checkAccount(
   tx: GoalsTx,
@@ -193,6 +195,7 @@ async function checkAccount(
   },
   reserved: Money,
   balance: Money | null,
+  before: Money | null = null,
 ): Promise<Result<null>> {
   if (goal.accountId === null || goal.partKind === "marks" || balance === null)
     return { kind: "ok", value: null };
@@ -208,7 +211,9 @@ async function checkAccount(
   );
   const total = envelopes.reduce((sum, o) => sum.plus(reservedBy(o, theirs)), reserved);
   const excess = envelopeExcess(balance, total);
-  return excess ? { kind: "envelopes-over-balance", excess } : { kind: "ok", value: null };
+  const growth = before === null ? null : reserved.minus(before);
+  const reservesMore = growth === null || !(growth.isNegative() || growth.isZero());
+  return excess && reservesMore ? { kind: "envelopes-over-balance", excess } : { kind: "ok", value: null };
 }
 
 /** «Створити ціль» (FR 2, FR 3). `balance` — `partBalance` of the checked fields. */
@@ -282,12 +287,15 @@ export async function updateGoal(
   const changes = changesOf(stored, next);
   if (changes.length === 0) return { result: { kind: "ok", value: stored }, handOff: null };
   const own = await tx.contributions(caller.householdId, [id]);
+  const sameEnvelope =
+    stored.partKind === "envelope" && next.partKind === "envelope" && stored.accountId === next.accountId;
   const checked = await checkAccount(
     tx,
     caller.householdId,
     { ...next, currency: next.target.currency },
     reservedBy(next, own),
     balance,
+    sameEnvelope ? reservedBy(stored, own) : null,
   );
   if (checked.kind !== "ok") return { result: checked, handOff: null };
   const updated = await tx.updateGoal(caller.householdId, next);
