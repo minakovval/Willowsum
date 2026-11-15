@@ -106,6 +106,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/accounts/{accountId}/details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** «Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate (FIN-12 FR 4) */
+        patch: operations["updateAccountDetails"];
+        trace?: never;
+    };
     "/v1/accounts/{accountId}/reopen": {
         parameters: {
             query?: never;
@@ -832,6 +849,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            cardExpiry: string | null;
                             creditLimit: {
                                 amount: string;
                                 currency: string;
@@ -1032,6 +1050,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            cardExpiry: string | null;
                             creditLimit: {
                                 amount: string;
                                 currency: string;
@@ -1231,6 +1250,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            cardExpiry: string | null;
                             creditLimit: {
                                 amount: string;
                                 currency: string;
@@ -1690,6 +1710,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            cardExpiry: string | null;
                             creditLimit: {
                                 amount: string;
                                 currency: string;
@@ -1972,6 +1993,221 @@ export interface operations {
             };
         };
     };
+    updateAccountDetails: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    annualRate?: string | null;
+                    cardExpiry?: string | null;
+                    institution?: {
+                        /** @description ISO 3166-1 alpha-2 */
+                        country: string;
+                        name: string;
+                    } | null;
+                    note?: string | null;
+                    number?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The account after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        adjustments: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            currency: string;
+                            date: string;
+                            /** Format: uuid */
+                            id: string;
+                            permanent: boolean;
+                        }[];
+                        closedOn: string | null;
+                        creditCard: {
+                            annualRate: string | null;
+                            available: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            cardExpiry: string | null;
+                            creditLimit: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            gracePeriodDays: number | null;
+                        } | null;
+                        currencies: {
+                            balance: {
+                                amount: string;
+                                currency: string;
+                            };
+                            balanceDate: string;
+                            currency: string;
+                        }[];
+                        deposit: {
+                            accrual: {
+                                accrued: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                days: number;
+                                daysToMaturity: number;
+                                matured: boolean;
+                            } | null;
+                            annualRate: string | null;
+                            maturesOn: string | null;
+                            openedOn: string | null;
+                        } | null;
+                        /** @enum {string} */
+                        group: "cash" | "credit";
+                        /** Format: uuid */
+                        id: string;
+                        institution: {
+                            country: string;
+                            name: string;
+                        } | null;
+                        /** @enum {string} */
+                        kind: "current" | "savings" | "deposit" | "cash" | "credit-card" | "loan";
+                        loan: {
+                            annualRate: string | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            monthlyPayment: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            termsMissing: boolean;
+                        } | null;
+                        name: string;
+                        note: string | null;
+                        number: {
+                            last4: string;
+                            masked: string;
+                        } | null;
+                        openedOn: string;
+                        owners: {
+                            /** Format: uuid */
+                            ownerAccountId: string;
+                            /** @description Percent, a decimal string */
+                            share: string;
+                            validFrom: string;
+                            validTo: string | null;
+                        }[];
+                        savings: {
+                            annualRate: string | null;
+                        } | null;
+                        /** @enum {string} */
+                        source: "manual" | "import";
+                        /** @enum {string} */
+                        status: "active" | "closed";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); An account with this institution, number and currency already exists (ACCOUNT_DUPLICATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     reopenAccount: {
         parameters: {
             query?: never;
@@ -2008,6 +2244,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            cardExpiry: string | null;
                             creditLimit: {
                                 amount: string;
                                 currency: string;

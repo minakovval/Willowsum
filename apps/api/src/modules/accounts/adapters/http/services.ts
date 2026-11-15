@@ -137,7 +137,7 @@ function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
         channel: "web",
         entity: { type: "accounts.account", id: accountId },
         action: "update",
-        changes: changes.map((c) => ({ ...c, sensitive: false })),
+        changes: changes.map((c) => ({ ...c, sensitive: c.sensitive ?? false })),
       });
     },
     async transferred(householdId, actorAccountId, account, transfer) {
