@@ -379,4 +379,53 @@ describe("FIN-12@PoC FR 5 (#289 item 3): old code + new schema — a kind change
     ]);
     expect((await liabilities.termsOn(space.householdId, id, DAY1))?.kind).toBe("loan");
   });
+
+  it("FIN-12@PoC FR 5: the drifted terms are dated on the day of the next change, never back on the last period's day", async () => {
+    now = Date.parse(`${DAY1}T10:00:00Z`);
+    const space = await newSpace();
+    const id = await newLoan(space);
+    expect((await details(space, id, { annualRate: "8.5" })).statusCode).toBe(200);
+    await db.owner.query(
+      `UPDATE liabilities.liabilities SET kind = 'credit-card', monthly_payment = NULL WHERE household_id = $1`,
+      [space.householdId],
+    );
+    await db.owner.query(
+      `UPDATE accounts.accounts SET kind = 'credit-card' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, id],
+    );
+    now = Date.parse(`${DAY2}T09:00:00Z`);
+    expect((await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" })).statusCode).toBe(200);
+    const history = await liabilities.termsHistory(space.householdId, id);
+    expect(history?.map((p) => [p.validFrom, p.terms.kind])).toEqual([
+      [null, "loan"],
+      [DAY1, "loan"],
+      [DAY2, "credit-card"],
+      [DAY2, "loan"],
+    ]);
+    // On DAY1 the history still says what it recorded then (the old code's change has no known day).
+    expect((await liabilities.termsOn(space.householdId, id, DAY1))?.kind).toBe("loan");
+  });
+  it("#222: liabilities «today» is the Kyiv date — a kind change at 22:30 UTC is dated on the next (Kyiv) day", async () => {
+    now = Date.parse(`${DAY1}T10:00:00Z`);
+    const space = await newSpace();
+    const id = await newLoan(space);
+    expect((await details(space, id, { annualRate: "8.5" })).statusCode).toBe(200);
+    await db.owner.query(
+      `UPDATE liabilities.liabilities SET kind = 'credit-card', monthly_payment = NULL WHERE household_id = $1`,
+      [space.householdId],
+    );
+    await db.owner.query(
+      `UPDATE accounts.accounts SET kind = 'credit-card' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, id],
+    );
+    now = Date.parse("2026-11-14T22:30:00Z"); // 00:30 on DAY2 in Kyiv
+    expect((await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" })).statusCode).toBe(200);
+    const history = await liabilities.termsHistory(space.householdId, id);
+    expect(history?.map((p) => [p.validFrom, p.terms.kind])).toEqual([
+      [null, "loan"],
+      [DAY1, "loan"],
+      [DAY2, "credit-card"],
+      [DAY2, "loan"],
+    ]);
+  });
 });

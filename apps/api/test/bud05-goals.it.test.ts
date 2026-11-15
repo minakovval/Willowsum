@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Money } from "@willowsum/domain-kernel";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -32,6 +33,8 @@ let db: RealModulesDatabase;
 let spaces: HouseholdSpaces;
 let audit: AuditLog;
 let app: ReturnType<typeof buildServer>;
+/** Runs once before the next balance read of the goals' ledger — a change by another request between a read and its write. */
+let beforeBalance: (() => Promise<unknown>) | undefined;
 const telemetry = testTelemetryForFile();
 
 interface Space {
@@ -150,7 +153,15 @@ beforeAll(async () => {
         }),
         goals: createGoalsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),
-          ledger,
+          ledger: {
+            ...ledger,
+            balanceAt: async (...args: Parameters<typeof ledger.balanceAt>) => {
+              const hook = beforeBalance;
+              beforeBalance = undefined;
+              await hook?.();
+              return ledger.balanceAt(...args);
+            },
+          },
           audit,
           clock,
           newId: randomUUID,
@@ -366,7 +377,7 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     now = at(TODAY);
     const card = (await call(space, "GET", `/v1/goals/${g.id}`)).json();
     // 900 € since 18 July (92 days ≈ 3.02 months); June's 900 € is older than the window.
-    expect(Number.parseFloat(card.pace.amount).toFixed(2)).toBe("297.76");
+    expect(Money.of(card.pace.amount, "EUR").toDisplayDecimal().toFixed(2)).toBe("297.76");
     expect(card.contributedThisMonth).toEqual(eur("300"));
     expect(card.collected).toEqual(eur("2800"));
     // 1 200 € left at ≈ 297.76 € a month: 123 days.
@@ -454,6 +465,129 @@ describe("BUD-05@PoC FR 2, FR 12: «Змінити ціль» when the account f
     expect(more.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("600") });
     const mark = await call(space, "POST", `/v1/goals/${g.id}/contributions`, { amount: eur("1.00") });
     expect(mark.json().code).toBe("GOAL_ENVELOPES_OVER_BALANCE");
+  });
+});
+
+describe("BUD-05@PoC FR 3: an envelope moved to another account is checked in full", () => {
+  it("BUD-05@PoC FR 3: moving a large envelope to a full account with a smaller amount is refused", async () => {
+    const space = await newSpace();
+    const big = await account(space, "5000.00");
+    const full = await account(space, "1000.00");
+    await goal(
+      space,
+      travel({ name: "Диван", part: { kind: "envelope", accountId: full, startAmount: "1000.00" } }),
+    );
+    const g = await goal(
+      space,
+      travel({ part: { kind: "envelope", accountId: big, startAmount: "4000.00" } }),
+    );
+    const moved = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: full, startAmount: "1.00" },
+    });
+    expect(moved.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("1") });
+  });
+});
+
+describe("BUD-05@PoC FR 2 (PR 295 follow-ups): a closed account, a concurrent change, a part patched without its start amount", () => {
+  it("BUD-05@PoC FR 2: an account closed in «Рахунки» is refused as a goal's part, on create and on «Змінити ціль»", async () => {
+    const space = await newSpace();
+    const closed = await account(space, "100.00");
+    expect(
+      (await call(space, "POST", `/v1/accounts/${closed}/balance`, { balance: eur("0.00") })).statusCode,
+    ).toBe(200);
+    await runWorker(space.householdId);
+    const shut = await call(space, "POST", `/v1/accounts/${closed}/close`, { closedOn: TODAY });
+    expect(shut.statusCode, shut.body).toBe(200);
+    const created = await call(
+      space,
+      "POST",
+      "/v1/goals",
+      travel({ part: { kind: "envelope", accountId: closed, startAmount: "0" } }),
+    );
+    expect(created.statusCode).toBe(400);
+    expect(created.json().errors).toEqual([{ in: "body", path: "part.accountId", issue: "closed" }]);
+    const g = await goal(space, travel());
+    const moved = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: closed, startAmount: "0" },
+    });
+    expect(moved.statusCode).toBe(400);
+    expect(moved.json().errors).toEqual([{ in: "body", path: "part.accountId", issue: "closed" }]);
+    expect(await n("goals.goals WHERE household_id = $1", space.householdId)).toBe(1);
+  });
+
+  it("BUD-05@PoC FR 2: a change made by another request while «Змінити ціль» reads the balance is not overwritten — the change is merged again on the fresh goal", async () => {
+    const space = await newSpace();
+    const savings = await account(space, "5000.00");
+    const g = await goal(
+      space,
+      travel({ part: { kind: "envelope", accountId: savings, startAmount: "100.00" } }),
+    );
+    beforeBalance = async () => {
+      await db.owner.query(
+        `UPDATE goals.goals SET name = 'Конкурентна назва', version = version + 1 WHERE household_id = $1 AND id = $2`,
+        [space.householdId, g.id],
+      );
+    };
+    const res = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: savings, startAmount: "200.00" },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toMatchObject({ name: "Конкурентна назва", version: 3 });
+    expect(res.json().part).toMatchObject({ startAmount: eur("200") });
+  });
+
+  it("BUD-05@PoC FR 2: a goal that keeps changing under «Змінити ціль» ends with 409 VERSION_CONFLICT after three tries, nothing written", async () => {
+    const space = await newSpace();
+    const savings = await account(space, "5000.00");
+    const g = await goal(
+      space,
+      travel({ part: { kind: "envelope", accountId: savings, startAmount: "100.00" } }),
+    );
+    const bump = async () => {
+      await db.owner.query(
+        `UPDATE goals.goals SET version = version + 1 WHERE household_id = $1 AND id = $2`,
+        [space.householdId, g.id],
+      );
+      beforeBalance = bump;
+    };
+    beforeBalance = bump;
+    const res = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: savings, startAmount: "200.00" },
+    });
+    beforeBalance = undefined;
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toMatchObject({ code: "VERSION_CONFLICT" });
+    const { rows } = await db.owner.query<{ start_amount: string }>(
+      `SELECT start_amount::text FROM goals.goals WHERE household_id = $1 AND id = $2`,
+      [space.householdId, g.id],
+    );
+    expect(Number(rows[0]!.start_amount)).toBe(100);
+  });
+
+  it("BUD-05@PoC FR 2: «Змінити ціль» with a part and no start amount keeps the stored start amount while the part stays; a changed part starts from 0", async () => {
+    const space = await newSpace();
+    const savings = await account(space, "5000.00");
+    const other = await account(space, "5000.00");
+    const g = await goal(
+      space,
+      travel({ part: { kind: "envelope", accountId: savings, startAmount: "1500.00" } }),
+    );
+    const same = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: savings },
+    });
+    expect(same.statusCode, same.body).toBe(200);
+    expect(same.json().part).toMatchObject({ startAmount: eur("1500") });
+    const marks = await goal(
+      space,
+      travel({ name: "Ноутбук", part: { kind: "marks", startAmount: "700.00" } }),
+    );
+    const kept = await call(space, "PATCH", `/v1/goals/${marks.id}`, { part: { kind: "marks" } });
+    expect(kept.json().part).toMatchObject({ startAmount: eur("700") });
+    const moved = await call(space, "PATCH", `/v1/goals/${g.id}`, {
+      part: { kind: "envelope", accountId: other },
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+    expect(moved.json().part).toMatchObject({ startAmount: eur("0") });
   });
 });
 

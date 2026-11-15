@@ -567,7 +567,7 @@ export const accountClosingRoute = defineRoute({
   summary: "The closing dialog: the account's balance on the closing date per currency (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   request: { params: accountParams, query: z.object({ closedOn: isoDate }) },
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
   response: {
     status: 200,
     description: "The balances on the closing date; `zero` — the account can close without a choice",

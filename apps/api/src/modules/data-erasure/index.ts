@@ -46,8 +46,7 @@ export interface DataErasure {
 }
 
 export interface DataErasureOptions {
-  /** The module pools (identity, household, bulk-actions, transactions, categorization, categories, accounts, liabilities, audit — the platform log). */
-  /** The module pools (identity, household, bulk-actions, transactions, categories, goals, accounts, liabilities, audit — the platform log). */
+  /** The module pools (identity, household, bulk-actions, transactions, categorization, categories, goals, accounts, liabilities, audit — the platform log). */
   readonly databases: Pick<ModuleDatabases, "for">;
   /** The erasure pools of audit and ledger (`withErasureDatabases`, platform/db/erasure-db.ts). */
   readonly erasureDatabases: Pick<ModuleDatabases, "for">;

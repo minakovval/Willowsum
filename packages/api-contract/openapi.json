@@ -4689,7 +4689,7 @@
             }
           },
           "409": {
-            "description": "The account is closed (ACCOUNT_CLOSED)",
+            "description": "The account is closed (ACCOUNT_CLOSED); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE)",
             "content": {
               "application/problem+json": {
                 "schema": {
