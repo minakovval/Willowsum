@@ -9,6 +9,10 @@ import {
   applyHandOff,
   createTransaction,
   deleteTransaction,
+  removeSplit,
+  setHidden,
+  setSplit,
+  splitCategoryKinds,
   updateTransaction,
   type HandOffDeps,
   type StoredTransaction,
@@ -16,17 +20,22 @@ import {
   type TransactionResult,
 } from "../../application/index.ts";
 import {
+  CATEGORY_PARTS_MAX,
   COUNTERPARTY_MAX,
   DESCRIPTION_MAX,
+  SPLIT_MODES,
+  SPLIT_MONTHS_MAX,
+  SPLIT_MONTHS_MIN,
   TRANSACTION_SOURCES,
   TRANSACTION_STATUSES,
   TRANSACTION_TYPES,
   typeOf,
   type FieldIssue,
+  type Split,
 } from "../../domain/index.ts";
-import { transactionsList, transactionsTx } from "../db/store.ts";
+import { listedSplit, partsOf, transactionsList, transactionsTx } from "../db/store.ts";
 import { transactionRows } from "../queue/hand-off.ts";
-import { transactionsServices } from "./services.ts";
+import { STATES_FLAG, transactionsServices } from "./services.ts";
 
 /**
  * Transactions entered by hand (FIN-03@PoC FR 1–3, FR 13, FR 16, FR 20, FR 22, FR 29, edge case 2; wave 2 row 15):
@@ -38,6 +47,8 @@ import { transactionsServices } from "./services.ts";
  */
 const MODULE = "transactions";
 const FEATURE = "transactions.manual";
+/** BUD-13: «атрибути транзакцій» — here «Розділити» (FR 6–8); its own key and flag, which requires `transactions.manual`. */
+const ATTRIBUTES = "transactions.attributes";
 
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const moneyInput = z
@@ -50,6 +61,7 @@ const moneyInput = z
       .meta({ description: "ISO 4217 code; the account's (subaccount's) currency" }),
   })
   .strict();
+const statusInput = z.enum(TRANSACTION_STATUSES).optional();
 const isoDate = z.string().max(10).meta({ description: "YYYY-MM-DD; never after today" });
 const optionalText = (max: number) =>
   z
@@ -57,6 +69,22 @@ const optionalText = (max: number) =>
     .max(max * 4)
     .nullable()
     .optional();
+
+const splitSchema = z.object({
+  /** «За категоріями» or «На кілька місяців». */
+  mode: z.enum(SPLIT_MODES),
+  /** BUD-01 FR 6: the amount changed after the split — «потребує перегляду». */
+  needsReview: z.boolean(),
+  parts: z.array(
+    z.object({
+      categoryId: z.uuid(),
+      /** «На кілька місяців»: the share's month (YYYY-MM); null for «За категоріями». */
+      month: z.string().nullable(),
+      /** Signed, in the transaction's currency; the parts summed to its amount when saved. */
+      amount: moneySchema,
+    }),
+  ),
+});
 
 const transactionSchema = z.object({
   id: z.uuid(),
@@ -68,11 +96,29 @@ const transactionSchema = z.object({
   date: z.string(),
   counterparty: z.string().nullable(),
   description: z.string().nullable(),
+  /** FR 24: «Проведена» or «Очікує» (no journal event, so no change of the balance, until posted — FR 4). */
   status: z.enum(TRANSACTION_STATUSES).meta({ "x-extensible-enum": true }),
   source: z.enum(TRANSACTION_SOURCES).meta({ "x-extensible-enum": true }),
+  /** FR 16, FR 17: «Приховати транзакцію» — out of the list (unless filtered for), the budget and the reports. */
+  hidden: z.boolean(),
+  /** BUD-13 FR 6–8: the budget's view of the amount; «Категорія» of the list shows the first part (FIN-03 FR 23). */
+  split: splitSchema.nullable(),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
 });
+
+function splitOut(split: Split | null): z.input<typeof splitSchema> | null {
+  if (split === null) return null;
+  return {
+    mode: split.mode,
+    needsReview: split.needsReview,
+    parts: split.parts.map((p) => ({
+      categoryId: p.categoryId,
+      month: p.month?.slice(0, 7) ?? null,
+      amount: p.amount.toJSON(),
+    })),
+  };
+}
 
 function present(t: StoredTransaction): z.input<typeof transactionSchema> {
   return {
@@ -85,6 +131,8 @@ function present(t: StoredTransaction): z.input<typeof transactionSchema> {
     description: t.description,
     status: t.status,
     source: t.source,
+    hidden: t.hidden,
+    split: splitOut(t.split),
     recordedAt: t.createdAt,
   };
 }
@@ -171,6 +219,8 @@ export const createTransactionRoute = defineRoute({
         counterparty: optionalText(COUNTERPARTY_MAX),
         /** «Опис»: up to 1 000 characters. */
         description: optionalText(DESCRIPTION_MAX),
+        /** «Статус» (FR 28): «Проведена» by default; «Очікує» behind the flag `transactions.states`. */
+        status: statusInput,
       })
       .strict(),
   },
@@ -228,6 +278,8 @@ export const updateTransactionRoute = defineRoute({
         /** null or "" removes it. */
         counterparty: optionalText(COUNTERPARTY_MAX),
         description: optionalText(DESCRIPTION_MAX),
+        /** «Проведена» posts it to the journal, «Очікує» takes it out (FR 4). */
+        status: statusInput,
       })
       .strict(),
   },
@@ -303,7 +355,10 @@ function dateText(value: unknown): string {
   return String(value);
 }
 
-function listItem(row: Record<string, unknown>): z.input<typeof transactionSchema> {
+function listItem(
+  row: Record<string, unknown>,
+  parts: Awaited<ReturnType<typeof partsOf>>,
+): z.input<typeof transactionSchema> {
   const amount = Money.of(String(row["amount"]), String(row["currency"]));
   const recorded = row["createdAt"];
   return {
@@ -316,6 +371,8 @@ function listItem(row: Record<string, unknown>): z.input<typeof transactionSchem
     description: (row["description"] as string | null) ?? null,
     status: row["status"] as StoredTransaction["status"],
     source: row["source"] as StoredTransaction["source"],
+    hidden: row["hidden"] === true,
+    split: splitOut(listedSplit(row, parts)),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
   };
 }
@@ -328,6 +385,15 @@ function dateAndTime(sort: string | undefined): string {
   if (sort === undefined || sort === "" || sort === "-date") return "-date,-recordedAt";
   if (sort === "date") return "date,recordedAt";
   return sort;
+}
+
+/**
+ * FR 16, FR 17: a hidden transaction is out of the list — its rows, count and totals — unless the filter asks for
+ * hidden ones («Стан: приховані», `hidden.eq:true`).
+ */
+function shownUnlessAsked(filter: string | readonly string[] | undefined): string[] {
+  const filters = filter === undefined ? [] : typeof filter === "string" ? [filter] : [...filter];
+  return filters.some((f) => f.startsWith("hidden.")) ? filters : [...filters, "hidden.eq:false"];
 }
 
 export const listTransactionsRoute = defineRoute({
@@ -365,9 +431,15 @@ export const listTransactionsRoute = defineRoute({
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
     const { totals, reportingCurrency } = transactionsServices(ctx);
-    const page = await ctx.inHousehold((q) =>
-      transactionsList.run(q, { ...query, sort: dateAndTime(query.sort) }),
-    );
+    const { page, parts } = await ctx.inHousehold(async (q) => {
+      const page = await transactionsList.run(q, {
+        ...query,
+        filter: shownUnlessAsked(query.filter),
+        sort: dateAndTime(query.sort),
+      });
+      const split = page.items.filter((r) => r["splitMode"] !== null).map((r) => String(r["id"]));
+      return { page, parts: await partsOf(q, ctx.principal.householdId, split) };
+    });
     const of = (sign: AmountGroup["sign"]) => page.groups.filter((g) => g.sign === sign);
     const [income, expense, difference] = await Promise.all([
       totals.total(of("in"), reportingCurrency),
@@ -375,7 +447,7 @@ export const listTransactionsRoute = defineRoute({
       totals.total(page.groups, reportingCurrency),
     ]);
     return {
-      items: page.items.map(listItem),
+      items: page.items.map((row) => listItem(row, parts)),
       page: page.page,
       pageSize: page.pageSize,
       count: page.count,
@@ -391,10 +463,128 @@ export const listTransactionsRoute = defineRoute({
   },
 });
 
+const partInput = z
+  .object({
+    categoryId: z.uuid(),
+    /** Signed like the transaction, at most the currency's minor units. */
+    amount: z.string().max(48).meta({ description: "A signed plain decimal, e.g. -85.00" }),
+  })
+  .strict();
+
+const splitInput = z.discriminatedUnion("mode", [
+  z
+    .object({
+      /** «За категоріями»: 2–20 parts that sum to the amount exactly; no parts — the split is cancelled. */
+      mode: z.literal("categories"),
+      parts: z.array(partInput).max(CATEGORY_PARTS_MAX),
+    })
+    .strict(),
+  z
+    .object({
+      /** «На кілька місяців»: equal shares, the rounding remainder in the last. */
+      mode: z.literal("months"),
+      /** «Починаючи з»: YYYY-MM. */
+      startMonth: z.string().max(7),
+      /** «Місяців»: 2–60. */
+      months: z.number().int().min(SPLIT_MONTHS_MIN).max(SPLIT_MONTHS_MAX),
+      categoryId: z.uuid(),
+    })
+    .strict(),
+]);
+
+const splitWiring = (ctx: ProtectedContext) => {
+  const { splits } = transactionsServices(ctx);
+  if (splits === null) throw new ApiProblem("INTERNAL");
+  return splits;
+};
+
+export const splitTransactionRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/{transactionId}/split",
+  operationId: "splitTransaction",
+  summary:
+    "«Розділити»: the budget's view of the amount by categories or by months; no new transaction, the journal and the balance unchanged",
+  access: { permission: "household.data.write", feature: ATTRIBUTES },
+  bodyLimitBytes: 16 * 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: { params, body: splitInput },
+  response: { status: 200, description: "The transaction with its split", schema: transactionSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const deps = splitWiring(ctx);
+    const kinds = await splitCategoryKinds(deps, ctx.principal.householdId, body);
+    if (Array.isArray(kinds)) throw invalid(kinds);
+    const result = await ctx.inHousehold((q) =>
+      setSplit(deps, transactionsTx(q), caller(ctx), params.transactionId, body, kinds),
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOff);
+    return present(result.transaction);
+  },
+});
+
+export const unsplitTransactionRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/transactions/{transactionId}/split",
+  operationId: "unsplitTransaction",
+  summary: "«Об'єднати назад»: the transaction is whole again (BUD-13 FR 8)",
+  access: { permission: "household.data.write", feature: ATTRIBUTES },
+  problems: ["ACCOUNT_CLOSED"],
+  request: { params },
+  response: { status: 200, description: "The transaction without a split", schema: transactionSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const deps = splitWiring(ctx);
+    const result = await ctx.inHousehold((q) =>
+      removeSplit(deps, transactionsTx(q), caller(ctx), params.transactionId),
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOff);
+    return present(result.transaction);
+  },
+});
+
+const visibilityRoute = (hidden: boolean) =>
+  defineRoute({
+    module: MODULE,
+    method: "POST",
+    path: `/v1/transactions/{transactionId}/${hidden ? "hide" : "show"}`,
+    operationId: hidden ? "hideTransaction" : "showTransaction",
+    summary: hidden
+      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17)"
+      : "A hidden transaction is shown again (FIN-03 FR 16)",
+    access: { permission: "household.data.write", feature: STATES_FLAG },
+    problems: ["ACCOUNT_CLOSED"],
+    request: { params },
+    response: { status: 200, description: "The transaction", schema: transactionSchema },
+    handler: async ({ params }, ctx) => {
+      refuseScoped(ctx);
+      const { deps } = transactionsServices(ctx);
+      const result = await ctx.inHousehold((q) =>
+        setHidden(deps, transactionsTx(q), caller(ctx), params.transactionId, hidden),
+      );
+      outcome(result);
+      if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+      await handOffNow(ctx, deps, result.handOff);
+      return present(result.transaction);
+    },
+  });
+
+export const hideTransactionRoute = visibilityRoute(true);
+export const showTransactionRoute = visibilityRoute(false);
+
 export const transactionsRoutes = [
   createTransactionRoute,
   listTransactionsRoute,
   getTransactionRoute,
   updateTransactionRoute,
   deleteTransactionRoute,
+  splitTransactionRoute,
+  unsplitTransactionRoute,
+  hideTransactionRoute,
+  showTransactionRoute,
 ];

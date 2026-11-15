@@ -2,9 +2,13 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { kyivToday, type ListTotals } from "../../../../platform/lists/list-total.ts";
 import type { AccountDirectory } from "../../../accounts/index.ts";
+import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
-import type { TransactionAudit, TransactionsDeps } from "../../application/index.ts";
+import type { SplitDeps, TransactionAudit, TransactionsDeps } from "../../application/index.ts";
+
+/** The release flag of «Очікує» and hiding (FIN-03 b, wave 2 row 16a); the routes of hiding are behind it too. */
+export const STATES_FLAG = "transactions.states";
 
 const BRAND = Symbol("willowsum-transactions-services");
 
@@ -16,6 +20,8 @@ const BRAND = Symbol("willowsum-transactions-services");
 export interface TransactionsServices {
   readonly [BRAND]: true;
   readonly deps: TransactionsDeps;
+  /** «Розділити» (BUD-13 FR 6–8): the same ports and the space's category tree; null when it is not wired. */
+  readonly splits: SplitDeps | null;
   readonly totals: ListTotals;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
@@ -29,19 +35,27 @@ export function createTransactionsServices(options: {
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  /** The categories module's directory, for the categories of split parts; without it «Розділити» answers 500. */
+  readonly categories?: Pick<CategoryDirectory, "category">;
+  /** The flag runtime (feature-flags), for `transactions.states` on the create and edit form; without it — off. */
+  readonly flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> };
 }): TransactionsServices {
+  const deps: TransactionsDeps = {
+    accounts: options.accounts,
+    ledger: options.ledger,
+    audit: transactionAudit(options.audit),
+    newId: options.newId,
+    // «Сьогодні» of the form (FR 29): the Kyiv date, the day of the official rates; never earlier than the UTC
+    // date, so a transaction of the user's today is never refused as a future one (the profile's time zone,
+    // ACC-05, is not known to this module yet).
+    today: () => kyivToday(options.clock.now()),
+    statesEnabled: (householdId) =>
+      options.flags ? options.flags.isEnabled(householdId, STATES_FLAG) : Promise.resolve(false),
+  };
   return {
     [BRAND]: true,
-    deps: {
-      accounts: options.accounts,
-      ledger: options.ledger,
-      audit: transactionAudit(options.audit),
-      newId: options.newId,
-      // «Сьогодні» of the form (FR 29): the Kyiv date, the day of the official rates; never earlier than the UTC
-      // date, so a transaction of the user's today is never refused as a future one (the profile's time zone,
-      // ACC-05, is not known to this module yet).
-      today: () => kyivToday(options.clock.now()),
-    },
+    deps,
+    splits: options.categories ? { ...deps, categories: options.categories } : null,
     totals: options.totals,
     reportingCurrency: REPORTING_CURRENCY,
   };
@@ -66,7 +80,9 @@ export function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAu
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
         entity: { type: "transactions.transaction", id: transactionId },
-        action,
+        // The log knows create, update and delete: a split, hiding and showing are updates of the transaction, told
+        // apart by their fields (`split.*`, `hidden`) and the key (`transactions.split:…`, `transactions.hide:…`).
+        action: action === "create" || action === "delete" ? action : "update",
         changes: values.map((v) => ({
           field: v.field,
           before: v.before,

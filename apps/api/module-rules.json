@@ -124,7 +124,7 @@
     },
     "transactions": {
       "layer": "subject",
-      "dependsOn": ["accounts", "audit", "fx-rates", "ledger"]
+      "dependsOn": ["accounts", "audit", "categories", "fx-rates", "ledger"]
     },
     "transfer-matching": {
       "layer": "subject",

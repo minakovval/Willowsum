@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
-import { handOffKey, type TransactionHandOff } from "../../application/index.ts";
+import { HAND_OFF_ACTIONS, handOffKey, type TransactionHandOff } from "../../application/index.ts";
 
 const value = z.string().max(1000).nullable();
 
@@ -9,7 +9,7 @@ const value = z.string().max(1000).nullable();
 const handOffSchema = z.strictObject({
   transactionId: z.uuid(),
   actorAccountId: z.uuid(),
-  action: z.enum(["create", "update", "delete"]),
+  action: z.enum(HAND_OFF_ACTIONS),
   version: z.number().int().min(1),
   audit: z
     .array(
@@ -20,7 +20,8 @@ const handOffSchema = z.strictObject({
         sensitive: z.boolean(),
       }),
     )
-    .max(20),
+    // The form's fields, «прихована», and a split's mode and parts (up to 60 shares of «На кілька місяців»).
+    .max(100),
 }) satisfies z.ZodType<TransactionHandOff>;
 
 /**
