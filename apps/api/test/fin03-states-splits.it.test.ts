@@ -194,7 +194,12 @@ beforeAll(async () => {
           }),
           flags: { isEnabled },
         }),
-        categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => NOW },
+          newId: randomUUID,
+          usage: [],
+        }),
         allowedOrigins: new Set([WEB]),
       }),
   });

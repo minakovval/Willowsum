@@ -159,7 +159,12 @@ beforeAll(async () => {
         entitlements: "all-enabled",
         flags: { ...base, isEnabled: async (_householdId, flag) => !off.has(flag) },
         authenticate: testAuthenticate,
-        categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => NOW },
+          newId: randomUUID,
+          usage: [],
+        }),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -369,8 +374,9 @@ describe("BUD-01@PoC FR 2, FR 3: custom groups and categories, rename, hide", ()
   it("BUD-01@PoC AC7: a system category («Подорожі») cannot be deleted — only hidden; hidden, it stays in the settings tree and may be shown again", async () => {
     const space = await newSpace();
     const travel = await category(space, "Подорожі");
+    // FR 12: a system category is never deleted (the route deletes empty custom ones only).
     const del = await call(space, "DELETE", `/v1/categories/${travel.id}`);
-    expect(del.statusCode).toBe(404);
+    expect([del.statusCode, del.json().code]).toEqual([409, "CATEGORY_SYSTEM_FIXED"]);
     expect((await category(space, "Подорожі")).id).toBe(travel.id);
     const hide = await call(space, "PATCH", `/v1/categories/${travel.id}`, { hidden: true });
     expect(hide.statusCode, hide.body).toBe(200);

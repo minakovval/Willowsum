@@ -3,7 +3,9 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
+import type { CategoryUsage } from "../categories/index.ts";
 import {
+  categoriesInParts,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
@@ -101,3 +103,14 @@ export function createTransferCandidates(db: ModuleDatabase): TransferCandidates
   };
 }
 export type { CandidateSide };
+
+/**
+ * BUD-01@PoC FR 12: the categories the space's split parts use, for module categories («порожня» категорія). Read
+ * only. `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`).
+ */
+export function createTransactionCategoryUsage(db: ModuleDatabase): CategoryUsage {
+  return {
+    module: "transactions",
+    used: (householdId, ids) => db.inHousehold(householdId, (q) => categoriesInParts(q, householdId, ids)),
+  };
+}

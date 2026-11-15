@@ -3,6 +3,7 @@ import {
   categoryName,
   contrastRatio,
   customGroupTone,
+  deleteProblem,
   iconTone,
   INK,
   mergeProblem,
@@ -166,5 +167,14 @@ describe("BUD-01@PoC FR 2, FR 3, FR 8: names and merging", () => {
   it("BUD-01@PoC FR 3: after a merge a system category is hidden (edge case 5), a custom one taken out of use", () => {
     expect(stateAfterMerge(true)).toBe("hidden");
     expect(stateAfterMerge(false)).toBe("retired");
+  });
+});
+
+describe("BUD-01@PoC FR 12: deleting a category", () => {
+  it("BUD-01@PoC FR 12: a custom category is deleted only while empty; a system one never, empty or not", () => {
+    expect(deleteProblem({ systemKey: null }, false)).toBeNull();
+    expect(deleteProblem({ systemKey: null }, true)).toBe("not_empty");
+    expect(deleteProblem({ systemKey: "travel" }, false)).toBe("system");
+    expect(deleteProblem({ systemKey: "travel" }, true)).toBe("system");
   });
 });

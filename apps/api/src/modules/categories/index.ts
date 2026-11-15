@@ -10,6 +10,7 @@ import {
   eraseHouseholdCategories,
 } from "./adapters/index.ts";
 import { ensureTree, type StoredCategory } from "./application/index.ts";
+export type { CategoryUsage } from "./application/index.ts";
 import type { CategoryKind, CategoryState, ServiceCategoryKey } from "./domain/index.ts";
 import { categoryMerged } from "./events.ts";
 
