@@ -99,10 +99,34 @@ before new pipeline tasks; it costs ≈ 100–150 k tokens of context, so the re
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
 
 **Handover confirmation** (owner, 2026-11-13/14): every handover between lead sessions is confirmed to the owner in
-chat in full (after an automatic restart, always also as a comment on #179), item by item — the finishing lead for
+chat in full (and always as the table on #179, «Handover template» below), item by item — the finishing lead for
 what it hands over, the new lead for what it took over. For each item: what was done with it and where it is
 recorded (skill or instruction file, PR or issue, with a link). An item not acted on is marked «не виконано» with
 the reason. A shortened summary does not count.
+
+**Handover template** (owner, 2026-11-15, #178,
+[comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): the confirmation
+is always the table below on #179 — at every handover — with the fixed items in this order; the finishing lead fills
+«Передано», the new lead fills «Прийнято». Рішення ведучого (2026-11-15; власник не схвалював; #287): the table is
+kept at a compaction too (lead N → N+1 in one session), its «Передано» being «Lead state» kept current from the
+350 k stop; because a compaction changes the lead number like any handover. An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries
+«перенесено N разів»: the number of handovers it has passed without being done, one more than in the previous table.
+Before the handover, every file in the scratchpad `keep/` goes to a branch or an issue (linked in item 7); nothing is
+handed over in the scratchpad alone. Test database names are not handed over: they do not survive a new container.
+```markdown
+| № | Пункт | Передано (хто завершує: що, де, посилання) | Прийнято (новий ведучий: що зроблено, де) | Перенесено N разів |
+| --- | --- | --- | --- | --- |
+| 1 | Відкриті PR: номер, повний head SHA, вердикти, наступний крок | | | |
+| 2 | Агенти й незавершена робота: гілка, WIP-коміт запушено | | | |
+| 3 | Питання власнику (посилання) | | | |
+| 4 | Рішення сесії: власника й ведучого — де записано (файл або відкритий PR) | | | |
+| 5 | Follow-ups: issues і списки злитих PR | | | |
+| 6 | Наступні рядки плану | | | |
+| 7 | Файли з `keep/`: гілка або issue | | | |
+| 8 | Ліміт (`rate_limit_info`) і лічильник перезапусків | | | |
+| 9 | #180: знімок, рядки PR, рядок «Сесії», ретроспектива | | | |
+| 10 | Назва наступної сесії або сегмента | | | |
+```
 
 **Owner decisions in documents** (owner, 2026-11-13): every owner decision is recorded in a concrete document (the
 decision log, a skill, AGENTS.md, a requirement) and carried into the rules it changes (SKILL.md §2). The lead
