@@ -449,9 +449,9 @@ describe("IMP-02@PoC FR 15: «+ додати ще валюту» and removing a 
       balance: money("2.00", "GBP"),
       balanceDate: "2026-11-01",
     });
-    expect(off.statusCode).toBeGreaterThanOrEqual(400);
+    expect([off.statusCode, off.json().code]).toEqual([404, "NOT_FOUND"]);
     const offRemove = await callOn(flagOff, space, "DELETE", `/v1/accounts/${id}/wallets/PLN`);
-    expect([offRemove.statusCode, offRemove.json().code]).toEqual([off.statusCode, off.json().code]);
+    expect([offRemove.statusCode, offRemove.json().code]).toEqual([404, "NOT_FOUND"]);
     expect((await view(space, id)).currencies.map((c: { currency: string }) => c.currency)).toEqual([
       "EUR",
       "PLN",

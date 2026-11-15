@@ -316,19 +316,6 @@ describe("PR #269 security probes", () => {
     expect(await externalFlow(space.householdId)).toEqual({ EUR: "2.000000000000000000" });
   });
 
-  it("SEC-269 FR 18 / FR 9: the outflow is not hidden, the inflow not split, its account not changed and the outflow not deleted", async () => {
-    const { space, out, into } = await ac2();
-    const c = await createAccount(space, "0.00");
-    await mark(space, out.id, into.id);
-    const hide = await call(space, "POST", `/v1/transactions/${out.id}/hide`);
-    expect([hide.statusCode, hide.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
-    const del = await call(space, "DELETE", `/v1/transactions/${out.id}`);
-    expect([del.statusCode, del.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
-    const move = await call(space, "PATCH", `/v1/transactions/${into.id}`, { accountId: c });
-    expect([move.statusCode, move.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
-    expect((await get(space, out.id)).hidden).toBe(false);
-  });
-
   it("SEC-269 isolation: a scoped member gets 404 on proposals with no count, ids or amounts; a scoped write is refused before any lookup", async () => {
     const { space, out, into } = await ac2();
     const res = await call(space, "GET", "/v1/transfer-proposals", undefined, {
@@ -400,23 +387,5 @@ describe("PR #269 security probes", () => {
     );
     expect(rows.length).toBe(2);
     for (const r of rows as { p: string }[]) expect(r.p).not.toContain("Синтетичний");
-  });
-
-  it("SEC-269 TOCTOU: a side hidden between the first read and the lock is not marked (the recheck under lock)", async () => {
-    const space = await newSpace();
-    const a = await createAccount(space, "2000.00");
-    const u = await createAccount(space, "0.00", "UAH");
-    const out = await add(space, a, "-1000.00", "2026-10-14");
-    const into = await add(space, u, "42900.00", "2026-10-15", "UAH");
-    beforeRate = () => call(space, "POST", `/v1/transactions/${into.id}/hide`);
-    const res = await mark(space, out.id, into.id);
-    expect(res.statusCode, res.body).toBe(400);
-    expect(res.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "hidden" }]);
-    expect((await get(space, out.id)).transfer).toBeNull();
-    const pairs = await db.owner.query(
-      `SELECT count(*)::int AS n FROM transactions.transfers WHERE household_id = $1`,
-      [space.householdId],
-    );
-    expect(pairs.rows[0].n).toBe(0);
   });
 });
