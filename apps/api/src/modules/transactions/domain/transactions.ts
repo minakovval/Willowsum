@@ -10,8 +10,11 @@ export const COUNTERPARTY_MAX = 200;
 export const DESCRIPTION_MAX = 1000;
 /** The earliest date a transaction may be dated (the same bound as an account's balance date; a lead decision). */
 export const EARLIEST_DATE = "1900-01-01";
-/** FR 24: «Проведена» only in this part; «Очікує» comes with pending bank transactions. */
-export const TRANSACTION_STATUSES = ["posted"] as const;
+/**
+ * FR 24: «Проведена» or «Очікує». «Очікує» is not in the journal: it changes no balance until it is posted (FR 4).
+ */
+export const TRANSACTION_STATUSES = ["posted", "pending"] as const;
+export type TransactionStatus = (typeof TRANSACTION_STATUSES)[number];
 export const TRANSACTION_SOURCES = ["manual"] as const;
 /** FR 3: «надходження» is income, «списання» an expense. */
 export const TRANSACTION_TYPES = ["income", "expense"] as const;
@@ -19,7 +22,17 @@ export type TransactionType = (typeof TRANSACTION_TYPES)[number];
 
 export type FieldIssue = {
   readonly field: string;
-  readonly issue: "invalid" | "zero" | "date_in_future" | "currency_mismatch" | "not_found";
+  readonly issue:
+    | "invalid"
+    | "zero"
+    | "date_in_future"
+    | "currency_mismatch"
+    | "not_found"
+    // A split (splits.ts): the number of parts or months, a part's sign, the parts' sum, a part's category.
+    | "count"
+    | "sign"
+    | "sum_mismatch"
+    | "kind_mismatch";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;

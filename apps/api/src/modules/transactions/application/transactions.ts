@@ -7,6 +7,7 @@ import {
   subaccountFor,
   type FieldIssue,
   type PostingAccount,
+  type TransactionStatus,
 } from "../domain/index.ts";
 import { transactionAuditValues, type HandOffDeps, type TransactionHandOff } from "./hand-off.ts";
 import type { NewStoredTransaction, StoredTransaction } from "./stored.ts";
@@ -41,6 +42,8 @@ export interface TransactionsDeps extends HandOffDeps {
   readonly newId: () => string;
   /** Today's date (YYYY-MM-DD) for «Дата» (FR 29); from the clock, never read here. */
   readonly today: () => string;
+  /** The release flag `transactions.states` for the space: «Очікує» and hiding (FIN-03 b); off — «Проведена» only. */
+  readonly statesEnabled: (householdId: string) => Promise<boolean>;
 }
 
 export interface Caller {
@@ -55,6 +58,8 @@ export interface TransactionInput {
   readonly date: string;
   readonly counterparty?: string | null | undefined;
   readonly description?: string | null | undefined;
+  /** «Статус» (FR 28): «Проведена» by default, or «Очікує» (FR 24). */
+  readonly status?: TransactionStatus | undefined;
 }
 
 /** The fields of the edit form that were sent; absent ones keep their value. */
@@ -110,6 +115,7 @@ interface Checked {
   readonly date: string;
   readonly counterparty: string | null;
   readonly description: string | null;
+  readonly status: TransactionStatus;
 }
 
 /** Every field of the form against its rule, then the account and the currency (FR 2, FR 29, FR 32, edge case 2). */
@@ -128,6 +134,10 @@ async function check(
   if (counterparty === undefined) issues.push({ field: "counterparty", issue: "invalid" });
   const description = text(input.description, descriptionText, current?.description ?? null);
   if (description === undefined) issues.push({ field: "description", issue: "invalid" });
+  const status = input.status ?? current?.status ?? "posted";
+  // «Очікує» only behind its flag; a transaction already pending may stay so.
+  if (status === "pending" && current?.status !== "pending" && !(await deps.statesEnabled(householdId)))
+    issues.push({ field: "status", issue: "invalid" });
   // Another space's account and an unknown one answer the same: the space's accounts only (П-5).
   const account = await deps.accounts.postingAccount(householdId, input.accountId);
   if (!account) issues.push({ field: "accountId", issue: "not_found" });
@@ -150,10 +160,14 @@ async function check(
     date: input.date,
     counterparty: counterparty!,
     description: description!,
+    status,
   };
 }
 
-/** «Додати транзакцію» (FR 1–3): one journal event, the balance recounted at once (the balance is the journal's). */
+/**
+ * «Додати транзакцію» (FR 1–3): one journal event, the balance recounted at once (the balance is the journal's); with
+ * «Статус: Очікує» no event until it is posted (FR 4, FR 24).
+ */
 export async function createTransaction(
   deps: TransactionsDeps,
   tx: TransactionsTx,
@@ -172,8 +186,10 @@ export async function createTransaction(
     date: checked.date,
     counterparty: checked.counterparty,
     description: checked.description,
-    status: "posted",
+    status: checked.status,
     source: "manual",
+    hidden: false,
+    split: null,
     version: 1,
   });
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
@@ -207,6 +223,7 @@ export async function updateTransaction(
       date: change.date ?? current.date,
       counterparty: change.counterparty,
       description: change.description,
+      status: change.status,
     },
     current,
   );
@@ -218,7 +235,14 @@ export async function updateTransaction(
     checked.date !== current.date;
   const textsChanged =
     checked.counterparty !== current.counterparty || checked.description !== current.description;
-  if (!moneyChanged && !textsChanged) return { kind: "ok", transaction: current, handOff: null };
+  const statusChanged = checked.status !== current.status;
+  if (!moneyChanged && !textsChanged && !statusChanged)
+    return { kind: "ok", transaction: current, handOff: null };
+  // BUD-01 FR 6: a split outlives a change of the amount, marked «потребує перегляду».
+  const split =
+    current.split && !checked.amount.equals(current.amount)
+      ? { ...current.split, needsReview: true }
+      : current.split;
   const next = await tx.update(householdId, {
     id,
     accountId: checked.account.accountId,
@@ -227,8 +251,10 @@ export async function updateTransaction(
     date: checked.date,
     counterparty: checked.counterparty,
     description: checked.description,
-    status: current.status,
+    status: checked.status,
     source: current.source,
+    hidden: current.hidden,
+    split,
     version: current.version + 1,
   });
   return { kind: "ok", transaction: next, handOff: await handOff(tx, caller, "update", current, next) };
@@ -252,4 +278,43 @@ export async function deleteTransaction(
   if (holder?.status === "closed") return { kind: "closed" };
   await tx.remove(householdId, id);
   return { kind: "ok", handOff: await handOff(tx, caller, "delete", current, null) };
+}
+
+/**
+ * «Приховати транзакцію» and showing it again (FIN-03 FR 16–18, FR 27): out of the list (unless asked for), the budget
+ * and the reports; the journal event stays, so the balance does not change. Hiding twice changes nothing.
+ */
+export async function setHidden(
+  deps: TransactionsDeps,
+  tx: TransactionsTx,
+  caller: Caller,
+  id: string,
+  hidden: boolean,
+): Promise<TransactionResult> {
+  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", (current) =>
+    current.hidden === hidden ? null : { ...current, hidden },
+  );
+}
+
+/**
+ * One change of a row that leaves the journal as it is (hiding, a split): under the row's lock, refused on a closed
+ * account (FIN-12 FR 8), with its hand-off — the audit entry; `next` null: nothing to change.
+ */
+export async function changeRow(
+  deps: TransactionsDeps,
+  tx: TransactionsTx,
+  caller: Caller,
+  id: string,
+  action: TransactionHandOff["action"],
+  next: (current: StoredTransaction) => StoredTransaction | FieldIssue[] | null,
+): Promise<TransactionResult> {
+  const current = await tx.lock(caller.householdId, id);
+  if (!current) return { kind: "not-found" };
+  const holder = await deps.accounts.postingAccount(caller.householdId, current.accountId);
+  if (holder?.status === "closed") return { kind: "closed" };
+  const changed = next(current);
+  if (Array.isArray(changed)) return { kind: "invalid", issues: changed };
+  if (changed === null) return { kind: "ok", transaction: current, handOff: null };
+  const row = await tx.update(caller.householdId, { ...changed, version: current.version + 1 });
+  return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, action, current, row) };
 }

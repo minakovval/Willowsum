@@ -1,6 +1,7 @@
 // Synthetic transactions (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
 // Row n points to the synthetic account n of the accounts module (same derived ids); its journal event is not
-// generated here (the ledger's own synthetic entries stand for the journal). Every transaction's hand-off job is done
+// generated here (the ledger's own synthetic entries stand for the journal). Transaction 0 is split «За категоріями»
+// into two parts (transaction_parts loads first; its key to the row is checked at commit). Every transaction's hand-off job is done
 // (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
@@ -14,11 +15,11 @@ export const synthetic = [
   defineSyntheticTable({
     table: "transactions.transactions",
     perHousehold: 20,
-    *rows({ household, rng, count }) {
+    *rows({ household, count }) {
       for (let i = 0; i < count; i++)
         yield {
           household_id: household.id,
-          id: rng.uuid(),
+          id: key(household.id, "transaction", i),
           account_id: key(household.id, "account", i % 3),
           subaccount_id: key(household.id, "subaccount", i % 3),
           amount: i % 4 === 0 ? `${1000 + i}.00` : `-${10 + i}.50`,
@@ -26,9 +27,28 @@ export const synthetic = [
           occurred_on: `2026-10-${String(1 + (i % 28)).padStart(2, "0")}`,
           counterparty: `Синтетичний контрагент ${(i % 5) + 1}`,
           description: null,
-          status: "posted",
+          status: i % 7 === 3 ? "pending" : "posted",
           source: "manual",
+          hidden: i === 5 ? "true" : "false",
+          split_mode: i === 0 ? "categories" : null,
+          split_needs_review: "false",
           version: "1",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "transactions.transaction_parts",
+    perHousehold: 2,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          transaction_id: key(household.id, "transaction", 0),
+          position: String(i),
+          category_id: key(household.id, "category", i),
+          month: null,
+          amount: i === 0 ? "600.00" : "400.00",
+          currency: "EUR",
         };
     },
   }),

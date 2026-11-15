@@ -88,6 +88,22 @@ export const FLAGS = {
     description:
       "Ручні транзакції (FIN-03@PoC a): створення, зміна і видалення через журнал, список з підсумками; маршрути /v1/transactions",
   },
+  "transactions.states": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Стан «Очікує» і приховані транзакції (FIN-03@PoC b): «Статус» форми, /v1/transactions/{id}/hide і /show",
+  },
+  "transactions.attributes": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Розділення транзакції (BUD-13@PoC, FIN-03@PoC b): за категоріями і на кілька місяців; /v1/transactions/{id}/split",
+  },
   "categories.tree": {
     kind: "release",
     owner: "product-owner",

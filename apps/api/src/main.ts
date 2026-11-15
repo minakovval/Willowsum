@@ -10,7 +10,7 @@ import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
 import { createAccountDirectory, createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
-import { createCategoriesServices } from "./modules/categories/index.ts";
+import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import {
   createFxRates,
@@ -197,7 +197,8 @@ const server = buildServer({
               newId: randomUUID,
             }),
             // FIN-03: a transaction is one journal event on the account's subaccount (accounts' directory); the
-            // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates).
+            // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates); split parts
+            // take categories of the space's tree (categories' directory); «Очікує» is behind its flag.
             transactions: createTransactionsServices({
               accounts: createAccountDirectory(databases.for("accounts")),
               ledger: createLedger(databases.for("ledger")),
@@ -210,6 +211,12 @@ const server = buildServer({
               audit,
               clock: systemClock,
               newId: randomUUID,
+              categories: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
+              flags,
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use.
             categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),
