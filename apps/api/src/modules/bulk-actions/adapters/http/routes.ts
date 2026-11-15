@@ -232,6 +232,8 @@ export const startBulkActionRoute = defineRoute({
     "Runs a bulk action: up to 50 records at once, more in the background with «Оброблено X з N»; one at a time per account",
   access: { permission: "household.data.write", feature: FEATURE },
   create: true,
+  // #272 item 3: another account of the space repeating the key and the body gets no report of the first's action.
+  idempotencyScope: "account",
   bodyLimitBytes: BODY_LIMIT,
   problems: [...PROBLEMS],
   request: { body: requestBody },

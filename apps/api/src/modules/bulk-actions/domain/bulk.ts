@@ -6,6 +6,24 @@
 
 /** FR 7, NFR-15@PoC FR 17: at most 500 records in one action (the platform's `TECHNICAL_LIMITS.bulkItems`). */
 export const BULK_ITEMS_MAX = 500;
+/**
+ * FR 11 (#272 item 2): the size of one record's part of the group audit entry, which the audit log checks again when the
+ * entry is written (`auditEntryInput`: at most 4 changes per record of a 500-record entry, a value of at most 1000
+ * characters, a field name of the form below). A record whose planned or previous values do not fit is skipped as
+ * «невалідний» (`audit_size`) before anything is written, so the entry of a run can never be refused for good.
+ */
+export const AUDIT_FIELDS_PER_RECORD = 4;
+export const AUDIT_VALUE_MAX = 1000;
+export const AUDIT_ISSUE = "audit_size";
+const AUDIT_FIELD_RE = /^[a-zA-Z][a-zA-Z0-9_.]{0,62}$/;
+
+export function fitsAuditEntry(before: BulkValues, after: BulkValues): boolean {
+  const fields = Object.keys(after);
+  if (fields.length > AUDIT_FIELDS_PER_RECORD) return false;
+  const fits = (v: string | null | undefined) => v == null || v.length <= AUDIT_VALUE_MAX;
+  return fields.every((f) => AUDIT_FIELD_RE.test(f) && fits(after[f]) && fits(before[f]));
+}
+
 /** FR 6: an action on more than 50 records runs in the background. */
 export const FOREGROUND_MAX = 50;
 /** FR 8, FR 9: «Відмінити» within 24 hours of the end of the action. */

@@ -9,6 +9,7 @@ import {
   IDEMPOTENCY_HEADER,
   IDEMPOTENCY_KEY_RE,
   IDEMPOTENCY_REPLAYED_HEADER,
+  accountScopedKey,
   requestHash,
   type IdempotencyStore,
 } from "./idempotency.ts";
@@ -575,7 +576,11 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
             db.inHousehold(principal.householdId, work),
           services: options.services?.(module),
         });
-        const key = route.create ? idempotencyKey(request) : undefined;
+        const sent = route.create ? idempotencyKey(request) : undefined;
+        const key =
+          sent !== undefined && route.idempotencyScope === "account"
+            ? accountScopedKey(principal.userId, sent)
+            : sent;
         if (key === undefined) {
           return reply.send(await respond(route.response.status, await route.handler(input, ctx)));
         }
