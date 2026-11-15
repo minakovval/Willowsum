@@ -104,13 +104,21 @@ export async function personWithSpace(db: RealModulesDatabase, label: string) {
       [householdId, transfer!.id],
     );
   });
-  await createLiabilities(
+  const liabilities = createLiabilities(
     db.databases.for("liabilities"),
     createAuditLog(db.databases.for("audit")),
-  ).register(householdId, {
+  );
+  await liabilities.register(householdId, {
     actorAccountId: accountId,
     accountId: account,
     terms: { kind: "loan", currency: "EUR", annualRate: "4.2", monthlyPayment: "650" },
+  });
+  // FIN-12 AC10: a changed rate, so the space has a dated history of terms to erase too.
+  await liabilities.changeTerms(householdId, {
+    actorAccountId: accountId,
+    accountId: account,
+    change: { annualRate: "3.9" },
+    validFrom: "2026-10-01",
   });
   return { email, accountId, householdId, sealed, keys };
 }

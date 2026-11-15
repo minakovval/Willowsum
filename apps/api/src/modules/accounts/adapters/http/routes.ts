@@ -800,13 +800,13 @@ export const updateAccountDetailsRoute = defineRoute({
   path: "/v1/accounts/{accountId}/details",
   operationId: "updateAccountDetails",
   summary:
-    "«Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate (FIN-12 FR 4)",
+    "«Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate; a loan's rate and payment and a card's limit from today (FIN-12 FR 4, AC10)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 8 * 1024,
   problems: ["ACCOUNT_CLOSED", "ACCOUNT_DUPLICATE"],
   request: {
     params: accountParams,
-    // A field left out is not changed, null clears it. A card's limit and a loan's terms are not here (400).
+    // A field left out is not changed, null clears it (a loan's rate and payment cannot be cleared). An unknown field is 400.
     body: z
       .object({
         /** «Банк або установа»: name and country. */
@@ -817,8 +817,15 @@ export const updateAccountDetailsRoute = defineRoute({
         note: optional(z.string().max(NOTE_MAX * 4)),
         /** «Кредитна картка»: «Строк дії», YYYY-MM. */
         cardExpiry: optional(z.string().max(7).meta({ description: "YYYY-MM" })),
-        /** «Ощадний», «Депозит»: percent per year, 0–100, two decimals. */
+        /**
+         * «Ощадний», «Депозит», «Кредит»: percent per year, 0–100, two decimals. A loan's applies from today (the
+         * liability's dated terms, FIN-12 AC10).
+         */
         annualRate: optional(z.string().max(10)),
+        /** «Кредит»: «Щомісячний платіж», > 0 in the account's currency; applies from today. */
+        monthlyPayment: optional(typedAmount),
+        /** «Кредитна картка»: «Кредитний ліміт», ≥ 0 in the account's currency; null clears it; applies from today. */
+        creditLimit: optional(typedAmount),
       })
       .strict(),
   },
@@ -841,6 +848,18 @@ export const updateAccountDetailsRoute = defineRoute({
         throw new ApiProblem("ACCOUNT_DUPLICATE");
       default:
         throw refusal(result);
+    }
+    // A loan's or a card's terms: the liability's own change (its transaction, history and audit entry), checked in the
+    // accounts transaction already; they apply from today (FIN-12 AC10).
+    if (result.terms !== null) {
+      const terms = await deps.liabilities.changeTerms(caller.householdId, {
+        actorAccountId: caller.accountId,
+        accountId: params.accountId,
+        change: result.terms,
+        validFrom: deps.today(),
+      });
+      if (terms.kind === "invalid") throw invalid(terms.issues);
+      if (terms.kind === "not-found") throw new ApiProblem("INTERNAL");
     }
     return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },

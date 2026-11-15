@@ -604,7 +604,8 @@ describe("pr266-sec: the owner's erasure takes the liabilities queue", () => {
       );
     }
     const neighbourBefore = await spaceRows(db, neighbour.householdId);
-    expect(neighbourBefore["liabilities.jobs"]!.startsWith("3:")).toBe(true);
+    // The fixture's create and its change of terms (FIN-12 AC10, erasure-helpers.ts), plus the dead and the done job.
+    expect(neighbourBefore["liabilities.jobs"]!.startsWith("4:")).toBe(true);
     const dir = mkdtempSync(path.join(tmpdir(), "ws-sec266-"));
     try {
       const t = Date.UTC(2027, 5, 1);
