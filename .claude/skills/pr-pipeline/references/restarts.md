@@ -1,8 +1,8 @@
 # Restarts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178); rate limit at start, WIP commits and the session retrospective added (owner, 2026-11-14, #178); the lead starting the next session itself and the 350 k stop added (owner, 2026-11-14, #178). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); session names, handover confirmation and owner decisions in documents added (owner, 2026-11-13, #178); context limit, «Lead state» cadence and PostgreSQL check added (owner, 2026-11-14, #178); rate limit at start, WIP commits and the session retrospective added (owner, 2026-11-14, #178); the lead starting the next session itself and the 350 k stop added (owner, 2026-11-14, #178); the process review every 3rd session added (owner, 2026-11-15, #178, comment 6892387923). Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
 
 The container can restart and agents' context is lost. Recover state from durable sources, not memory:
 - open PRs and their heads: `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .head.ref, .head.sha] | @tsv'` (GraphQL, so `gh pr list`, is blocked in cloud sessions);
@@ -59,9 +59,27 @@ code block, ready to copy without edits, whenever the owner starts the session. 
 tells it to read «Lead state» (#179), the process queue (#178) and token accounting (#180) and to work by
 `.claude/skills/pr-pipeline`, lists the start steps (rename, starting usage in #180, item-by-item handover
 confirmation with links, on #179 too after an automatic restart), names the first tasks and any owner question
-still open, and for an automatic restart states its count («1-й автоматичний перезапуск із 2»). It always includes the line
+still open, and for an automatic restart states its count («1-й автоматичний перезапуск із 2»). For a session whose
+number is a multiple of 3 (9, 12, …) it says that the session starts with the process review («Process review»
+below) before new pipeline tasks (owner, 2026-11-15, #178, comment 6892387923). It always includes the line
 «Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в чаті»).» (owner, 2026-11-14). The owner should not
 have to write or edit anything.
+
+**Process review** (owner, 2026-11-15, #178, comment 6892387923): «кожна третя сесія при запуску має ретроспективно передивитись всі
+покращення і зміни в процесах». A lead session whose number is a multiple of 3 — the first is lead 9, lead 8 does
+not review — does this after the usual start steps:
+1. **Process changes since session 1.** Every accepted improvement — owner and lead decisions in #178,
+   `docs/decisions/log/`, AGENTS.md, the skills: is it rational, needed, useful, optimal? Conclusions rest on the data
+   in #180 (tokens, time, rounds).
+2. **Current instructions.** AGENTS.md, `pr-pipeline` and its `references/`, the other skills, `.claude/references/`:
+   contradictions, duplication, outdated or unneeded text, what can be simplified or shortened.
+3. **Handovers of the last 5 sessions.** Errors in «Lead state» (#179), start messages and handover confirmations:
+   what was lost or inaccurate, what the new session had to rebuild (e.g. session 7: lead 6's file
+   `keep/sec241-tests.mjs` was lost with its container).
+4. **Result.** A report to the owner as a comment on #180: conclusions and proposals, each with its risks, downsides
+   and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
+Рішення ведучого (2026-11-15; власник не схвалював; #178): перегляд — до нових задач конвеєра; ціна ≈ 100–150 тис.
+токенів контексту, тому сесія перегляду зіллє на 1–2 PR менше.
 
 **Handover confirmation** (owner, 2026-11-13): every handover between lead sessions is confirmed to the owner in
 chat in full (after an automatic restart, always also as a comment on #179; owner, 2026-11-14), item by item — the finishing lead for what it hands over, the new lead for what it took over. For

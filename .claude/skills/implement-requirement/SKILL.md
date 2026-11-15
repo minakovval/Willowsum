@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-15
 
 Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, CI
 green, every acceptance criterion covered by a test. Gate: no change to `apps/` or `packages/` for a release whose
@@ -62,6 +62,12 @@ audit entry, and a fixed or injected clock (never re-read `Date.now()` to pick a
   `--views` and `--check-mentions` (0 errors), `--coverage` (every AC and EC of your view covered). Without
   Docker: `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- <command>`.
   Traceability files and the report are not committed (generate on demand if you need to read them).
+- A PR that changes `migrations/`: before push, one more check — «old code + new schema» (ARC-03 FR 4, the CI
+  step of the same name): `main`'s module tests on this branch's migrations (owner, 2026-11-15, #178, comment
+  6891308063). With `main` checked out in a scratch worktree `<base>` (`git worktree add <base> origin/main`):
+  `cd <base> && pnpm install --frozen-lockfile && WS_COMPAT_SCHEMA_FROM=<worktree>/apps/api pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts src/modules --passWithNoTests`.
+- A PR with a background job queue: a test for a job in state `dead` and for its daily recovery (owner,
+  2026-11-15, #178, comment 6891308063; #249).
 - Servers, databases, background processes: only your slot's ports and your own PIDs —
   [own ports](../../references/own-ports.md) (read when you start any of them).
 - A test that fails only sometimes needs a root cause — [flaky tests](../../references/flaky-tests.md) (read

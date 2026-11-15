@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»).
@@ -38,7 +38,8 @@ Language and details: [lead communication](references/lead-communication.md).
    «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
    and UI). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
    Split a code PR that touches more than one module **and** more than ≈ 1 500 lines; take the dependent part
-   right after the first (owner, 2026-11-14, #178).
+   right after the first (owner, 2026-11-14, #178). The ≈ 1 500 lines are counted without tests and without the
+   generated contract; tests have a separate limit of ≈ 1 500 lines (owner, 2026-11-15, #178, comment 6891308063).
 2. **Implementer**: a new agent with the `implement-requirement` skill, in its own git worktree on its own
    branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
    Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its slot
@@ -53,7 +54,9 @@ Language and details: [lead communication](references/lead-communication.md).
    environment's setup script does not run when a container restarts); type checks as `pnpm typecheck` run in
    the agent's worktree (`cd <worktree> && pnpm typecheck`): it is the same command as the CI job `web` (#184);
    on a rate-limit warning («New lead session»), commit WIP to its branch after each step, so a cut-off
-   costs little (owner, 2026-11-14, #178).
+   costs little (owner, 2026-11-14, #178). A PR with a background job queue: a test for a job in state `dead` and
+   for its daily recovery (#249); a PR that changes `migrations/`: the «old code + new schema» command in the
+   author's checks before push (`implement-requirement` §4) (owner, 2026-11-15, #178, comment 6891308063).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique
    to the PR and role (`pr153-review/`, owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
@@ -94,6 +97,10 @@ Language and details: [lead communication](references/lead-communication.md).
    Do not ask the owner to confirm. Ready with only non-blocking items left → merge; they go to follow-ups.
    Order: code PRs with Ready before docs PRs (otherwise their syncs and confirmations repeat, #203); a docs PR
    with decisions that code depends on — at once (owner, 2026-11-14, #178).
+   Check `mergeable_state` together with `behind_by`: on a conflicting PR CI does not run (#249). A `sensitive`
+   PR whose verdict is expected within ≈ 1 h merges first, and the PR without `sensitive` is synced after it;
+   otherwise merge a ready PR at once. A branch that updates from `main` with no conflicts and no regenerated files
+   the lead updates itself, then the usual confirmation; otherwise an agent does it (owner, 2026-11-15, #178, comment 6891308063).
    Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR not labelled `sensitive`
    that does not overlap `main`'s changes: one command and the lead's review instead). Wait for CI of several PRs with one command. Full list and both
    commands: [merge checklist](references/merge-checklist.md) (read before every merge).
@@ -145,6 +152,12 @@ owner answers (the counter and the third-restart steps are the lead's mechanism:
 `external_metadata.rate_limit_info` (on a warning: at most 2–3 authors at once, reviews not cut; owner,
 2026-11-14, #178), then reads «Lead state»
 ([restarts](references/restarts.md), [token economy](references/token-economy.md)).
+**Process review every 3rd session** (owner, 2026-11-15, #178, comment 6892387923): a lead session whose number is
+a multiple of 3 (the first is lead 9; lead 8 does not) reviews, after the usual start steps, every process change
+accepted since session 1, the current instructions, and the handovers of the last 5 sessions, and reports to the
+owner on #180; its proposals go to «Черга змін процесу», and it changes no rule without an owner decision
+([restarts](references/restarts.md), «Process review»). Рішення ведучого (2026-11-15; власник не схвалював; #178):
+перегляд — до нових задач конвеєра; ціна ≈ 100–150 тис. токенів контексту, тому сесія перегляду зіллє на 1–2 PR менше.
 Every handover is confirmed to the owner in chat in full (after an automatic restart, always also as a comment
 on #179), item by item: what was done with each item and where
 it is recorded (file, PR or issue, with a link); an item not acted on is marked not done, with the reason. A
