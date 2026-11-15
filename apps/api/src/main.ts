@@ -11,6 +11,10 @@ import { mountApi } from "./api.ts";
 import { createAccountDirectory, createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
+import {
+  createCategorizationCategoryUsage,
+  createCategorizationServices,
+} from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import {
   createFxRates,
@@ -29,6 +33,7 @@ import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
+  createTransactionLookup,
   createTransactionsServices,
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
@@ -246,7 +251,17 @@ const server = buildServer({
                 ),
             }),
             // DAT-03: bulk actions of the selection panels, with the same targets and actions as the worker's.
-            bulkActions: bulkActionsServicesFor(audit),
+            bulkActions: bulkActionsServicesFor(audit, databases),
+            // BUD-01 b: a transaction's category and its source, changed by hand (categorization).
+            categorization: createCategorizationServices({
+              transactions: createTransactionLookup(databases.for("transactions")),
+              categories: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
+              audit,
+            }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the
             // split parts of transactions; categorization, budget and recurring add theirs with their tables).
@@ -254,7 +269,13 @@ const server = buildServer({
               audit,
               clock: systemClock,
               newId: randomUUID,
-              usage: [createTransactionCategoryUsage(databases.for("transactions"))],
+              usage: [
+                createTransactionCategoryUsage(databases.for("transactions")),
+                createCategorizationCategoryUsage(
+                  databases.for("categorization"),
+                  createTransactionLookup(databases.for("transactions")),
+                ),
+              ],
             }),
             deployed: config.deployed,
           }),

@@ -26,6 +26,7 @@ export interface ErasureDeps {
   readonly transactions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly bulkActions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly categories: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly audit: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -39,6 +40,7 @@ export interface ErasureDeps {
       step:
         | "bulk-actions.records"
         | "transactions.records"
+        | "categorization.records"
         | "categories.records"
         | "accounts.records"
         | "liabilities.records"
@@ -109,6 +111,9 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // Transactions (FIN-03), accounts and liabilities (FIN-01), then the journal they posted to.
     await deps.platformAudit.spaceStep(householdId, "transactions.records");
     await deps.transactions.eraseHousehold(householdId);
+    // The categories of the transactions (BUD-01 b), then the tree they refer to.
+    await deps.platformAudit.spaceStep(householdId, "categorization.records");
+    await deps.categorization.eraseHousehold(householdId);
     // The category tree (BUD-01): after the transactions that will refer to it.
     await deps.platformAudit.spaceStep(householdId, "categories.records");
     await deps.categories.eraseHousehold(householdId);

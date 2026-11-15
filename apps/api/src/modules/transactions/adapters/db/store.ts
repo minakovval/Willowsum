@@ -559,3 +559,22 @@ export async function categoriesInParts(
   );
   return new Set(rows.map((r) => r.id));
 }
+
+/**
+ * What module categorization asks of the space's transactions before it changes one's category (BUD-01@PoC FR 5, FR 6;
+ * FIN-03 FR 7, FR 11): whether each of `ids` exists (hidden too), is a side of a transfer, is split or is a merged
+ * duplicate. Missing ids are absent from the map.
+ */
+export async function categorizableFacts(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<ReadonlyMap<string, { transfer: boolean; split: boolean; merged: boolean }>> {
+  if (ids.length === 0) return new Map();
+  const { rows } = await q.query<{ id: string; transfer: boolean; split: boolean; merged: boolean }>(
+    `SELECT id, is_transfer AS transfer, is_split AS split, merged_into IS NOT NULL AS merged
+       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  return new Map(rows.map((r) => [r.id, { transfer: r.transfer, split: r.split, merged: r.merged }]));
+}

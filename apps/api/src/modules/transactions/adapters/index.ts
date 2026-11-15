@@ -5,6 +5,7 @@ export { HAND_OFF_JOB } from "./queue/job.ts";
 export {
   duplicateCandidates,
   categoriesInParts,
+  categorizableFacts,
   transactionsList,
   transactionsTx,
   transferCandidates,

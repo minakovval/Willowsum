@@ -31,7 +31,7 @@
     },
     "categorization": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "bulk-actions", "categories", "transactions"]
     },
     "data-erasure": {
       "layer": "process",
@@ -40,6 +40,7 @@
         "audit",
         "bulk-actions",
         "categories",
+        "categorization",
         "household",
         "identity",
         "ledger",

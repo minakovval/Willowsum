@@ -106,6 +106,7 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
     for (const type of [
       "bulk-actions.records",
       "transactions.records",
+      "categorization.records",
       "categories.records",
       "accounts.records",
       "liabilities.records",
