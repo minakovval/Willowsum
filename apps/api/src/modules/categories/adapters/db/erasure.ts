@@ -17,8 +17,7 @@ export async function eraseHouseholdCategories(
 }> {
   return db.inHousehold(householdId, async (q) => {
     const count = async (sql: string) => (await q.query(sql, [householdId])).rowCount ?? 0;
-    // A merged category points to its target: the pointers go first.
-    await q.query(`UPDATE categories SET merged_into = NULL WHERE household_id = $1`, [householdId]);
+    // One statement takes every category, so a merged one and its target go together.
     const categories = await count(`DELETE FROM categories WHERE household_id = $1`);
     const groups = await count(`DELETE FROM category_groups WHERE household_id = $1`);
     const idempotencyKeys = await count(`DELETE FROM idempotency_keys WHERE household_id = $1`);
