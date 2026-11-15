@@ -30,7 +30,8 @@ export interface TransactionHandOff {
   readonly actorAccountId: string;
   /**
    * `split` — «Розділити» or «Об'єднати назад» (BUD-13 FR 6, FR 8); `hide` / `show` — «Приховати транзакцію» and
-   * showing it again (FIN-03 FR 16). Neither changes the journal: the hand-off finds it matching the row already.
+   * showing it again (FIN-03 FR 16, FR 17): a hidden manual transaction (a duplicate) leaves the journal, shown again it
+   * is posted; a split does not change the journal.
    */
   readonly action: (typeof HAND_OFF_ACTIONS)[number];
   /** The row's version after the change (a delete: the version deleted); makes each change its own job and entry. */
@@ -216,7 +217,14 @@ async function desiredJournal(
     readonly date: string;
   } | null;
 }> {
-  if (row === null || row.status === "pending" || row.mergedInto !== null)
+  // FIN-03 FR 17 (owner, 2026-11-15, #281 item 1): a manual transaction hidden as a duplicate leaves the balance as a
+  // merged one does, and comes back when shown; an imported one (bank data) keeps its event so the balance matches the bank.
+  if (
+    row === null ||
+    row.status === "pending" ||
+    row.mergedInto !== null ||
+    (row.hidden && row.source === "manual")
+  )
     return { own: null, transfer: null };
   if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
@@ -293,14 +301,20 @@ async function matchOwnEvent(
   if (!inEffect) {
     // The first event of a transaction posted from the start keeps the key of its create; a later one (posted after
     // «Очікує», or again after going back to it, or after a transfer's mark is removed) the key of the row's version,
-    // so a reversed event is never reused.
-    await deps.ledger.post(householdId, {
+    // so a reversed event is never reused (#264 item 8: the idempotency key returns the entry it made, reversed or not,
+    // so a later posting of the same transaction needs a key no earlier posting used — the row's version is new each time).
+    const posted = await deps.ledger.post(householdId, {
       ...replacement,
       idempotencyKey:
         row.version === 1
           ? `transactions.create:${transactionId}`
           : `transactions.post:${transactionId}:${row.version}`,
     });
+    // #257 item 2: a key already used returns its (reversed) entry and posts nothing; the old order could leave a row of
+    // version 1 whose only entry is reversed. Never report success then: the job fails and the recovery shows it.
+    const live = await deps.ledger.liveEntries(householdId, source(transactionId), EVENT);
+    if (!live.some((entry) => entry.id === posted.id))
+      throw new Error("the transaction's journal event is reversed and was not posted again");
     return;
   }
   const matches =

@@ -354,7 +354,7 @@ export async function deleteTransaction(
 
 /**
  * «Приховати транзакцію» and showing it again (FIN-03 FR 16–18, FR 27): out of the list (unless asked for), the budget
- * and the reports; the journal event stays, so the balance does not change. Hiding twice changes nothing. FR 18: only a
+ * and the reports; a manual row's journal entry is reversed on hiding and posted again on showing (FIN-03 FR 17; an imported row keeps its entry). Hiding twice changes nothing. FR 18: only a
  * duplicate is hidden — a «Можливий дубль» now by module duplicate-matching's rule, read under the account's lock of
  * hiding (so of two copies only one is ever hidden); technical records come with bank connections, none is in this
  * release. A transfer between own accounts is never hidden. Without the rule wired, hiding throws (500).
@@ -380,7 +380,7 @@ export async function setHidden(
 }
 
 /**
- * One change of a row that leaves the journal as it is (hiding, a split): under the row's lock, refused on a closed
+ * One change of a row that does not change its amount or account (hiding, a split; hiding a manual row reverses its journal entry at the hand-off): under the row's lock, refused on a closed
  * account (FIN-12 FR 8), with its hand-off — the audit entry; `next` null: nothing to change.
  */
 export async function changeRow(

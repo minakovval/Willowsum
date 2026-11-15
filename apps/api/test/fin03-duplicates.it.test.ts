@@ -542,7 +542,34 @@ describe("FIN-03@PoC FR 18: hiding is for duplicates only; a transfer is never h
     expect((await hide(space, second.id)).statusCode).toBe(200);
     // The other copy is the one left: hiding it too would take the operation out of the budget.
     expect((await hide(space, first.id)).json().code).toBe("TRANSACTION_NOT_HIDEABLE");
-    expect(await balance(space, a)).toBe("933");
+    // FR 17 (owner, 2026-11-15): the hidden manual copy left the balance (1 000 − 30 − 30 − 7 = 933, plus the 30 back).
+    expect(await balance(space, a)).toBe("963");
+  });
+
+  it("FIN-03@PoC AC25: 100 − 30 − 30 = 40; hiding one possible duplicate → 70; showing it again → 40; both in the audit log", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const first = await add(space, a, "-30.00", "2026-10-10");
+    const second = await add(space, a, "-30.00", "2026-10-12");
+    expect(await balance(space, a)).toBe("40");
+    expect((await hide(space, second.id)).statusCode).toBe(200);
+    expect(await balance(space, a)).toBe("70");
+    expect(await liveEntries(space.householdId)).toEqual([["transaction", "2026-10-10"]]);
+    expect((await get(space, first.id)).hidden).toBe(false);
+    const shown = await call(space, "POST", `/v1/transactions/${second.id}/show`);
+    expect(shown.statusCode, shown.body).toBe(200);
+    expect(await balance(space, a)).toBe("40");
+    expect(await liveEntries(space.householdId)).toHaveLength(2);
+    // Hidden twice more: each hiding is its own journal reversal and posting (no reversed event is reused).
+    expect((await hide(space, second.id)).statusCode).toBe(200);
+    expect(await balance(space, a)).toBe("70");
+    expect((await call(space, "POST", `/v1/transactions/${second.id}/show`)).statusCode).toBe(200);
+    expect(await balance(space, a)).toBe("40");
+    const log = await audit.entriesFor(space.householdId, {
+      type: "transactions.transaction",
+      id: second.id,
+    });
+    expect(log.map((e) => e.action)).toEqual(["create", "update", "update", "update", "update"]);
   });
 
   it("FIN-03@PoC FR 18: both copies hidden at once — exactly one is hidden, the other refused", async () => {
@@ -709,5 +736,43 @@ describe("ARC-04@PoC FR 2–4: a merge's journal follows the commit, from the wo
     expect(left.rows[0].n).toBe(0);
     expect(await liveEntries(space.householdId)).toEqual([["transaction", "2026-10-10"]]);
     expect(await balance(space, a)).toBe("970");
+  });
+});
+
+describe("pr278-confirm: «Роз'єднати» checks the duplicate's own account", () => {
+  it("FIN-03@PoC «Права доступу»: the one that stays moved to another account, the duplicate's account closed — «Роз'єднати» is refused (409), nothing posted", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "0.00");
+    const b = await createAccount(space, "1000.00");
+    const first = await add(space, a, "-30.00", "2026-10-10");
+    const second = await add(space, a, "-30.00", "2026-10-11");
+    expect((await merge(space, first.id, second.id)).statusCode).toBe(200);
+    const moved = await call(space, "PATCH", `/v1/transactions/${first.id}`, { accountId: b });
+    expect(moved.statusCode, moved.body).toBe(200);
+    const closed = await call(space, "POST", `/v1/accounts/${a}/close`, { closedOn: TODAY });
+    expect(closed.statusCode, closed.body).toBe(200);
+    expect((await unmerge(space, second.id)).statusCode).toBe(409);
+    expect((await get(space, second.id)).mergedInto).toBe(first.id);
+  });
+});
+
+describe("FIN-03@PoC FR 12, FR 17: «Не дубль» never leaves a hidden copy out of the balance", () => {
+  it("FIN-03@PoC FR 17: one copy hidden (100 − 30 = 70) — «Не дубль» on the pair is refused (400), the balance stays 70; shown again, «Не дубль» → 40", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const first = await add(space, a, "-30.00", "2026-10-10");
+    const second = await add(space, a, "-30.00", "2026-10-12");
+    expect((await hide(space, second.id)).statusCode).toBe(200);
+    for (const [id, other] of [
+      [first.id, second.id],
+      [second.id, first.id],
+    ] as const) {
+      const res = await notDuplicate(space, id, other);
+      expect(res.statusCode, res.body).toBe(400);
+    }
+    expect(await balance(space, a)).toBe("70");
+    expect((await call(space, "POST", `/v1/transactions/${second.id}/show`)).statusCode).toBe(200);
+    expect((await notDuplicate(space, first.id, second.id)).statusCode).toBe(200);
+    expect(await balance(space, a)).toBe("40");
   });
 });
