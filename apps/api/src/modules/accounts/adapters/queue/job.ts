@@ -7,6 +7,37 @@ const uuid = z.uuid();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const currency = z.string().regex(/^[A-Z]{3}$/);
 const decimal = z.string().regex(/^-?\d{1,20}(\.\d{1,18})?$/);
+const field = z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.]{0,62}$/);
+const value = z.string().max(1000).nullable();
+const status = z.strictObject({ status: z.enum(["active", "closed"]), closedOn: date.nullable() });
+const amounts = z.array(z.strictObject({ currency, balance: decimal })).max(10);
+
+/** A journal move of a managing hand-off (application/hand-off.ts `HandOffMove`). */
+const moveSchema = z.discriminatedUnion("op", [
+  z.strictObject({
+    op: z.literal("transfer"),
+    subaccountId: uuid,
+    currency,
+    toAccountId: uuid,
+    from: uuid,
+    to: uuid,
+    balance: decimal,
+    date,
+  }),
+  z.strictObject({
+    op: z.literal("adjust"),
+    subaccountId: uuid,
+    currency,
+    ledgerAccountId: uuid,
+    date,
+    plan: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("post"), amount: decimal }),
+      z.strictObject({ kind: z.literal("correct"), entryId: uuid, amount: decimal }),
+      z.strictObject({ kind: z.literal("reverse"), entryId: uuid }),
+    ]),
+    before: z.strictObject({ entryId: uuid, amount: decimal, date }).nullable(),
+  }),
+]);
 
 /** The payload of `accounts.hand-off` (application/hand-off.ts `HandOff`), checked when enqueued and when run. */
 const handOffSchema = z.discriminatedUnion("kind", [
@@ -40,14 +71,47 @@ const handOffSchema = z.discriminatedUnion("kind", [
     audit: z
       .array(
         z.strictObject({
-          field: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.]{0,62}$/),
-          after: z.string().max(1000).nullable(),
+          field,
+          after: value,
           sensitive: z.boolean(),
         }),
       )
       .max(200),
   }),
   z.strictObject({ kind: z.literal("credit-kind"), accountId: uuid, actorAccountId: uuid }),
+  z.strictObject({
+    kind: z.literal("managed"),
+    accountId: uuid,
+    changeId: uuid,
+    actor: z.discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("user"), id: uuid }),
+      z.strictObject({ kind: z.literal("system") }),
+    ]),
+    channel: z.enum(["web", "import"]),
+    moves: z.array(moveSchema).max(10),
+    status: z
+      .strictObject({
+        before: status,
+        after: status,
+        settlement: z
+          .discriminatedUnion("kind", [
+            z.strictObject({ kind: z.literal("transfer"), toAccountId: uuid, amounts }),
+            z.strictObject({ kind: z.literal("adjustment"), amounts }),
+          ])
+          .nullable(),
+      })
+      .nullable(),
+  }),
+  z.strictObject({
+    kind: z.literal("settings-changed"),
+    accountId: uuid,
+    actorAccountId: uuid,
+    changeId: uuid,
+    changes: z
+      .array(z.strictObject({ field, before: value, after: value, sensitive: z.boolean() }))
+      .min(1)
+      .max(20),
+  }),
 ]) satisfies z.ZodType<HandOff>;
 
 /**
@@ -56,6 +120,11 @@ const handOffSchema = z.discriminatedUnion("kind", [
  * with an «error» log event (ADR-0014).
  */
 export const HAND_OFF_JOB = defineJob({ name: "accounts.hand-off", schema: handOffSchema });
+
+/** The payload of a job as the application reads it back (`AccountsTx.pendingManaged`). */
+export function handOffOf(payload: unknown): HandOff {
+  return handOffSchema.parse(payload);
+}
 
 /** Enqueues the hand-off in the caller's accounts transaction; the same key twice is one job. */
 export async function enqueueHandOff(

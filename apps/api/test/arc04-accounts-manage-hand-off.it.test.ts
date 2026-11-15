@@ -506,6 +506,7 @@ describe("ARC-04@PoC FR 4: a managing hand-off the worker gave up on", () => {
   it("ARC-04@PoC FR 4: a dead hand-off of «Оновити залишок» goes back to the accounts queue with the daily recovery and is finished", async () => {
     const space = await newSpace();
     const id = await account(space, "Готівка", "300.00");
+    await runWorker(space.householdId);
     vi.spyOn(ledger, "post").mockRejectedValue(new Error("injected"));
     // The worker with the test's own (failing) journal, until the job has used all its attempts.
     const w = createWorker({

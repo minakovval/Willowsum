@@ -10,7 +10,14 @@ import {
   type LiveAdjustment,
 } from "../domain/index.ts";
 import type { AccountsDeps, AccountsTx, Caller, StoredAccount, StoredSubaccount } from "./accounts.ts";
-import { ADJUSTMENT, adjustmentOf, liveAdjustment, type AdjustmentView } from "./adjustments.ts";
+import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
+import {
+  applyMoves,
+  type HandOffMove,
+  type HandOffStatus,
+  type ManageActor,
+  type ManagedHandOff,
+} from "./hand-off.ts";
 
 /**
  * Managing an account (FIN-12@PoC FR 7–9, FR 14, FR 15; FIN-04@PoC FR 10, FR 11; wave 2 row 13): closing with the
@@ -18,16 +25,17 @@ import { ADJUSTMENT, adjustmentOf, liveAdjustment, type AdjustmentView } from ".
  * recount of a temporary adjustment by a statement. Each runs in the accounts transaction with the account's row
  * locked (two requests on one account run one after the other):
  *
- * 1. the request is checked against the account as it is — nothing is written for a refusal;
- * 2. the money moves in one ledger transaction (a transfer, or the adjustment posted, corrected or reversed): its
- *    postings are written together or not at all (FIN-04 FR 2);
- * 3. the account's state changes (closing, reopening) in this transaction;
- * 4. the audit entry, last before this transaction commits.
+ * 1. the journal moves of the account's earlier changes not handed over yet are finished first (ARC-04, #252 item 3),
+ *    so the balance read next is the one those changes left;
+ * 2. the request is checked against the account as it is — nothing is written for a refusal;
+ * 3. the money to move is planned (a transfer, or the adjustment posted, corrected or reversed) and the account's state
+ *    changes (closing, reopening) in this transaction;
+ * 4. the hand-off job, in the same transaction (ARC-04 FR 2, hand-off.ts `managed`): once it has committed, the moves
+ *    go to the journal by keys of this change, each in one ledger transaction (FIN-04 FR 2), then the audit entries —
+ *    right away from the route, and from the worker if that fails.
  *
- * The ledger and the audit log are other modules' transactions, committed before this one (as in creating an account;
- * the atomic hand-over with ARC-04 events is #210). A failure after the ledger committed leaves the movement the user
- * asked for without its audit entry and, for a closing, the account still active; the same request again moves nothing
- * twice (the balance has moved already) and finishes the closing, but does not restore a missed audit entry.
+ * So a failure before the commit leaves nothing in the journal or the audit log, and a failure after it leaves the
+ * change made, finished by the worker without moving anything twice (#210, #224 security review).
  *
  * The adjustment of «Оновити залишок» is a ledger event `balance-adjustment` of the subaccount against «Коригування»
  * (FIN-04 FR 7, FR 11): no income or spending. Its record is the journal itself — at most one is in effect per
@@ -56,47 +64,58 @@ const shownOn = async (
   date: string,
 ) => shownBalance(account.kind, await deps.ledger.balanceAt(householdId, s.ledgerAccountId, date));
 
-/** Applies an adjustment plan in one ledger transaction; the adjustment in effect afterwards. */
-async function applyPlan(
-  deps: Pick<AccountsDeps, "ledger" | "newId">,
-  householdId: string,
+/** An adjustment plan as a move of the hand-off (none: no move). */
+function adjustMove(
   subaccount: StoredSubaccount,
   plan: AdjustmentPlan,
   date: string,
   before: LiveAdjustment | null,
-): Promise<LiveAdjustment | null> {
-  const source = { module: "accounts", id: subaccount.id };
-  const event = (amount: Money) =>
-    ({
-      type: ADJUSTMENT,
-      account: subaccount.ledgerAccountId,
-      amount,
-    }) as const;
-  switch (plan.kind) {
-    case "none":
-      return before;
-    case "post": {
-      const entry = await deps.ledger.post(householdId, {
-        source,
-        idempotencyKey: `accounts.adjust:${deps.newId()}`,
-        operationDate: date,
-        event: event(plan.amount),
-      });
-      return adjustmentOf(entry, subaccount);
-    }
-    case "correct": {
-      const { entry } = await deps.ledger.correct(householdId, plan.entryId, {
-        source,
-        idempotencyKey: `accounts.adjust:${deps.newId()}`,
-        operationDate: date,
-        event: event(plan.amount),
-      });
-      return adjustmentOf(entry, subaccount);
-    }
-    case "reverse":
-      await deps.ledger.reverse(householdId, plan.entryId, `accounts.adjust-delete:${plan.entryId}`);
-      return null;
-  }
+): HandOffMove | null {
+  if (plan.kind === "none") return null;
+  return {
+    op: "adjust",
+    subaccountId: subaccount.id,
+    currency: subaccount.currency,
+    ledgerAccountId: subaccount.ledgerAccountId,
+    date,
+    plan:
+      plan.kind === "reverse"
+        ? { kind: "reverse", entryId: plan.entryId }
+        : plan.kind === "post"
+          ? { kind: "post", amount: plan.amount.toDecimalString() }
+          : { kind: "correct", entryId: plan.entryId, amount: plan.amount.toDecimalString() },
+    before: before && {
+      entryId: before.entryId,
+      amount: before.amount.toDecimalString(),
+      date: before.date,
+    },
+  };
+}
+
+/** The managing hand-off of one change (a new `changeId`), enqueued in this transaction. */
+async function handOver(
+  deps: Pick<AccountsDeps, "newId">,
+  tx: AccountsTx,
+  householdId: string,
+  change: Omit<ManagedHandOff, "kind" | "changeId">,
+): Promise<ManagedHandOff> {
+  const handOff: ManagedHandOff = { kind: "managed", changeId: deps.newId(), ...change };
+  await tx.enqueueHandOff(householdId, handOff, handOff.changeId);
+  return handOff;
+}
+
+/**
+ * Finishes the journal moves of the account's managing changes not handed over yet (their row is locked by the
+ * caller): a change planned next reads the balance they left, so it never moves the same money again.
+ */
+async function finishPending(
+  deps: Pick<AccountsDeps, "ledger">,
+  tx: AccountsTx,
+  householdId: string,
+  accountId: string,
+): Promise<void> {
+  for (const pending of await tx.pendingManaged(householdId, accountId))
+    await applyMoves(deps.ledger, householdId, pending);
 }
 
 /** The account's row, locked until the transaction ends; a refusal when it is not there or not active. */
@@ -108,6 +127,18 @@ async function activeAccount(
   const account = await tx.lockAccount(householdId, accountId);
   if (!account) return { kind: "not-found" };
   if (account.status === "closed") return { kind: "closed" };
+  return account;
+}
+
+/** The active account's row, locked, with its earlier changes' journal moves finished. */
+async function managedAccount(
+  deps: Pick<AccountsDeps, "ledger">,
+  tx: AccountsTx,
+  householdId: string,
+  accountId: string,
+): Promise<StoredAccount | ManageRefusal> {
+  const account = await activeAccount(tx, householdId, accountId);
+  if (!refused(account)) await finishPending(deps, tx, householdId, accountId);
   return account;
 }
 
@@ -149,13 +180,13 @@ export async function closeAccount(
   caller: Caller,
   accountId: string,
   input: { readonly closedOn: string; readonly settlement: Settlement | null },
-): Promise<ManageRefusal | { readonly kind: "account-closed" }> {
+): Promise<ManageRefusal | { readonly kind: "account-closed"; readonly handOff: ManagedHandOff }> {
   const { householdId } = caller;
   const target = input.settlement?.kind === "transfer" ? input.settlement.toAccountId : null;
   // Both rows locked in the order of their ids, so two closings that transfer to each other cannot deadlock.
   if (target !== null && target !== accountId && target < accountId)
     await tx.lockAccount(householdId, target);
-  const account = await activeAccount(tx, householdId, accountId);
+  const account = await managedAccount(deps, tx, householdId, accountId);
   if (refused(account)) return account;
   const today = deps.today();
   const issue = closingDateIssue(input.closedOn, account.openedOn, today);
@@ -172,7 +203,7 @@ export async function closeAccount(
   }
   if (owed.length > 0 && !input.settlement) return { kind: "balance-not-zero" };
 
-  const settled: CurrencyBalance[] = [];
+  const moves: HandOffMove[] = [];
   if (owed.length > 0 && input.settlement?.kind === "transfer") {
     const issueOf = (issue: string): ManageRefusal => ({
       kind: "invalid",
@@ -184,80 +215,109 @@ export async function closeAccount(
     if (other.status === "closed") return issueOf("closed");
     if (other.openedOn > input.closedOn) return issueOf("opened_later");
     const theirs = await tx.subaccounts(householdId, other.id);
-    const plans = [];
     for (const o of owed) {
       const into = theirs.find((t) => t.currency === o.subaccount.currency);
       if (!into) return issueOf("currency_missing");
-      plans.push({ ...o, into });
-    }
-    for (const { subaccount, into, balance } of plans) {
       // A positive balance leaves this account; a negative one (a debt, an overdraft) is paid from the other.
-      const [from, to] = balance.isNegative()
-        ? [into.ledgerAccountId, subaccount.ledgerAccountId]
-        : [subaccount.ledgerAccountId, into.ledgerAccountId];
-      const entry = await deps.ledger.post(householdId, {
-        source: { module: "accounts", id: subaccount.id },
-        idempotencyKey: `accounts.close:${deps.newId()}`,
-        operationDate: input.closedOn,
-        event: { type: "transfer", from, to, amount: balance.isNegative() ? balance.negated() : balance },
-      });
-      // Audited right after its own ledger transaction (#224 security review): a failure of a later step (another
-      // currency's transfer, the closing) must not leave a transfer that moved money without an audit entry — a retry
-      // finds that balance zero and would not record it again. The atomic hand-over stays #210.
-      await deps.audit.transferred(householdId, caller.accountId, account, {
+      const [from, to] = o.balance.isNegative()
+        ? [into.ledgerAccountId, o.subaccount.ledgerAccountId]
+        : [o.subaccount.ledgerAccountId, into.ledgerAccountId];
+      moves.push({
+        op: "transfer",
+        subaccountId: o.subaccount.id,
+        currency: o.subaccount.currency,
         toAccountId: other.id,
-        currency: subaccount.currency,
-        amount: balance,
-        entryId: entry.id,
+        from,
+        to,
+        balance: o.balance.toDecimalString(),
+        date: input.closedOn,
       });
-      settled.push({ currency: subaccount.currency, balance });
     }
   } else if (owed.length > 0) {
     for (const { subaccount, balance } of owed) {
       const before = await liveAdjustment(deps, householdId, subaccount);
       const plan = balanceUpdatePlan(balance, Money.zero(subaccount.currency), before);
-      const after = await applyPlan(deps, householdId, subaccount, plan, input.closedOn, before);
-      await deps.audit.adjustmentChanged(householdId, actorOf(caller), "web", subaccount, before, after);
-      settled.push({ currency: subaccount.currency, balance });
+      const move = adjustMove(subaccount, plan, input.closedOn, before);
+      if (move) moves.push(move);
     }
   }
 
   await tx.setStatus(householdId, accountId, "closed", input.closedOn);
-  await deps.audit.statusChanged(householdId, caller.accountId, account, {
-    status: "closed",
-    closedOn: input.closedOn,
-    settlement: owed.length > 0 && input.settlement ? { ...input.settlement, amounts: settled } : null,
+  const status: HandOffStatus = {
+    before: { status: account.status, closedOn: account.closedOn },
+    after: { status: "closed", closedOn: input.closedOn },
+    settlement:
+      owed.length > 0 && input.settlement
+        ? {
+            ...input.settlement,
+            amounts: owed.map((o) => ({
+              currency: o.subaccount.currency,
+              balance: o.balance.toDecimalString(),
+            })),
+          }
+        : null,
+  };
+  const handOff = await handOver(deps, tx, householdId, {
+    accountId,
+    actor: actorOf(caller),
+    channel: "web",
+    moves,
+    status,
   });
-  return { kind: "account-closed" };
+  return { kind: "account-closed", handOff };
 }
 
 /** «Відкрити знову» (FIN-12 FR 9): a closed account is active again; its history is as it was. */
 export async function reopenAccount(
-  deps: Pick<AccountsDeps, "audit">,
+  deps: Pick<AccountsDeps, "newId">,
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
-): Promise<ManageRefusal | { readonly kind: "reopened" }> {
+): Promise<ManageRefusal | { readonly kind: "reopened"; readonly handOff: ManagedHandOff }> {
   const account = await tx.lockAccount(caller.householdId, accountId);
   if (!account) return { kind: "not-found" };
   if (account.status !== "closed") return { kind: "not-closed" };
   await tx.setStatus(caller.householdId, accountId, "active", null);
-  await deps.audit.statusChanged(caller.householdId, caller.accountId, account, {
-    status: "active",
-    closedOn: null,
-    settlement: null,
+  const handOff = await handOver(deps, tx, caller.householdId, {
+    accountId,
+    actor: actorOf(caller),
+    channel: "web",
+    moves: [],
+    status: {
+      before: { status: account.status, closedOn: account.closedOn },
+      after: { status: "active", closedOn: null },
+      settlement: null,
+    },
   });
-  return { kind: "reopened" };
+  return { kind: "reopened", handOff };
 }
 
-const actorOf = (caller: Caller) => ({ kind: "user", id: caller.accountId }) as const;
+const actorOf = (caller: Caller): ManageActor => ({ kind: "user", id: caller.accountId });
 const permanent = (account: StoredAccount) => account.source === "manual";
 const view = (account: StoredAccount, a: LiveAdjustment | null): AdjustmentView | null =>
   a && { ...a, permanent: permanent(account) };
 
+/** A currency's adjustment in effect and balance today, as the journal has them now (after the hand-off). */
+export async function balanceNow(
+  deps: Pick<AccountsDeps, "ledger" | "today">,
+  tx: AccountsTx,
+  householdId: string,
+  accountId: string,
+  currency: string,
+): Promise<{ readonly adjustment: AdjustmentView | null; readonly balance: Money } | null> {
+  const account = await tx.account(householdId, accountId);
+  const subaccount = (await tx.subaccounts(householdId, accountId)).find((s) => s.currency === currency);
+  if (!account || !subaccount) return null;
+  return {
+    adjustment: view(account, await liveAdjustment(deps, householdId, subaccount)),
+    balance: await shownOn(deps, householdId, account, subaccount, deps.today()),
+  };
+}
+
 /**
  * «Оновити залишок» (FIN-12 FR 14, AC13, AC14, AC16; FIN-04 FR 10, FR 11, AC5): the balance entered for one currency
  * of the account, dated today. The adjustment is the difference — or its change, when the currency has one already.
+ * `balance` is the balance once the hand-off is done: the one entered.
  */
 export async function updateBalance(
   deps: AccountsDeps,
@@ -270,12 +330,13 @@ export async function updateBalance(
   | {
       readonly kind: "updated";
       readonly changed: boolean;
+      readonly handOff: ManagedHandOff | null;
       readonly adjustment: AdjustmentView | null;
       readonly balance: Money;
     }
 > {
   const { householdId } = caller;
-  const account = await activeAccount(tx, householdId, accountId);
+  const account = await managedAccount(deps, tx, householdId, accountId);
   if (refused(account)) return account;
   const subaccount = (await tx.subaccounts(householdId, accountId)).find(
     (s) => s.currency === input.currency,
@@ -287,20 +348,29 @@ export async function updateBalance(
   const current = await shownOn(deps, householdId, account, subaccount, today);
   const before = await liveAdjustment(deps, householdId, subaccount);
   const plan = balanceUpdatePlan(current, target, before);
-  const after = await applyPlan(deps, householdId, subaccount, plan, today, before);
-  if (plan.kind !== "none")
-    await deps.audit.adjustmentChanged(householdId, actorOf(caller), "web", subaccount, before, after);
-  return {
-    kind: "updated",
-    changed: plan.kind !== "none",
-    adjustment: view(account, after),
-    balance: await shownOn(deps, householdId, account, subaccount, today),
-  };
+  const move = adjustMove(subaccount, plan, today, before);
+  if (!move)
+    return {
+      kind: "updated",
+      changed: false,
+      handOff: null,
+      adjustment: view(account, before),
+      balance: current,
+    };
+  const handOff = await handOver(deps, tx, householdId, {
+    accountId,
+    actor: actorOf(caller),
+    channel: "web",
+    moves: [move],
+    status: null,
+  });
+  return { kind: "updated", changed: true, handOff, adjustment: null, balance: target };
 }
 
 /**
  * Deleting the adjustment (FIN-04 FR 11, AC7): its reversal brings the previous balance back. Only the adjustment in
- * effect is found by its id; one changed or deleted since is «not found».
+ * effect is found by its id; one changed or deleted since is «not found». `balance` is the balance once the hand-off is
+ * done.
  */
 export async function deleteAdjustment(
   deps: AccountsDeps,
@@ -308,16 +378,32 @@ export async function deleteAdjustment(
   caller: Caller,
   accountId: string,
   adjustmentId: string,
-): Promise<ManageRefusal | { readonly kind: "deleted"; readonly balance: Money }> {
+): Promise<
+  | ManageRefusal
+  | {
+      readonly kind: "deleted";
+      readonly handOff: ManagedHandOff;
+      readonly currency: string;
+      readonly balance: Money;
+    }
+> {
   const { householdId } = caller;
-  const account = await activeAccount(tx, householdId, accountId);
+  const account = await managedAccount(deps, tx, householdId, accountId);
   if (refused(account)) return account;
   for (const s of await tx.subaccounts(householdId, accountId)) {
     const before = await liveAdjustment(deps, householdId, s);
     if (before?.entryId !== adjustmentId) continue;
-    await deps.ledger.reverse(householdId, before.entryId, `accounts.adjust-delete:${before.entryId}`);
-    await deps.audit.adjustmentChanged(householdId, actorOf(caller), "web", s, before, null);
-    return { kind: "deleted", balance: await shownOn(deps, householdId, account, s, deps.today()) };
+    const today = deps.today();
+    const handOff = await handOver(deps, tx, householdId, {
+      accountId,
+      actor: actorOf(caller),
+      channel: "web",
+      moves: [adjustMove(s, { kind: "reverse", entryId: before.entryId }, today, before)!],
+      status: null,
+    });
+    // An adjustment is dated today at the latest, so today's balance loses all of it.
+    const balance = (await shownOn(deps, householdId, account, s, today)).minus(before.amount);
+    return { kind: "deleted", handOff, currency: s.currency, balance };
   }
   return { kind: "not-found" };
 }
@@ -339,21 +425,28 @@ export async function reconcileStatement(
   tx: AccountsTx,
   householdId: string,
   input: { readonly accountId: string; readonly statementEnd: string; readonly closingBalance: Money },
-): Promise<StatementResult> {
-  const account = await activeAccount(tx, householdId, input.accountId);
-  if (refused(account)) return account.kind === "closed" ? { kind: "closed" } : { kind: "not-found" };
+): Promise<{ readonly result: StatementResult; readonly handOff: ManagedHandOff | null }> {
+  const account = await managedAccount(deps, tx, householdId, input.accountId);
+  const done = (result: StatementResult) => ({ result, handOff: null });
+  if (refused(account)) return done(account.kind === "closed" ? { kind: "closed" } : { kind: "not-found" });
   const subaccount = (await tx.subaccounts(householdId, account.id)).find(
     (s) => s.currency === input.closingBalance.currency,
   );
-  if (!subaccount) return { kind: "not-found" };
+  if (!subaccount) return done({ kind: "not-found" });
   const before = await liveAdjustment(deps, householdId, subaccount);
-  if (before && permanent(account)) return { kind: "permanent" };
+  if (before && permanent(account)) return done({ kind: "permanent" });
   const onEnd = await shownOn(deps, householdId, account, subaccount, input.statementEnd);
   const included =
     before && before.date <= input.statementEnd ? before.amount : Money.zero(subaccount.currency);
   const plan = statementPlan(onEnd.minus(included), input.closingBalance, before, input.statementEnd);
-  const after = await applyPlan(deps, householdId, subaccount, plan, input.statementEnd, before);
-  if (plan.kind === "none") return { kind: "none" };
-  await deps.audit.adjustmentChanged(householdId, { kind: "system" }, "import", subaccount, before, after);
-  return { kind: plan.kind === "reverse" ? "deleted" : "changed" };
+  const move = adjustMove(subaccount, plan, input.statementEnd, before);
+  if (!move) return done({ kind: "none" });
+  const handOff = await handOver(deps, tx, householdId, {
+    accountId: account.id,
+    actor: { kind: "system" },
+    channel: "import",
+    moves: [move],
+    status: null,
+  });
+  return { result: { kind: plan.kind === "reverse" ? "deleted" : "changed" }, handOff };
 }

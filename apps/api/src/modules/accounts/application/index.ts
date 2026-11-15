@@ -33,6 +33,7 @@ export {
   type ReportedSum,
 } from "./summary.ts";
 export {
+  balanceNow,
   closeAccount,
   closingPreview,
   deleteAdjustment,
@@ -46,6 +47,7 @@ export {
 } from "./manage.ts";
 export type { AdjustmentView } from "./adjustments.ts";
 export {
+  settingsHandOff,
   SETTINGS_FIELDS,
   updateAccountSettings,
   type SettingsInput,
@@ -54,9 +56,15 @@ export {
 export { updateAccountDetails, type DetailsResult } from "./details.ts";
 export {
   applyHandOff,
+  applyMoves,
   handOffKey,
   type AccountKinds,
+  type AuditChange,
   type AuditValue,
+  type HandOffMove,
+  type HandOffStatus,
+  type ManageActor,
+  type ManagedHandOff,
   type HandOff,
   type HandOffAudit,
   type HandOffDeps,

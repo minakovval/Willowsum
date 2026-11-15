@@ -10,7 +10,7 @@ import {
 } from "../../liabilities/index.ts";
 import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
 import { AUDIT_MASK } from "../../audit/index.ts";
-import type { AuditValue, HandOff, HandOffAudit, HandOffSubaccount } from "./hand-off.ts";
+import type { AuditValue, HandOff, HandOffAudit, HandOffSubaccount, ManagedHandOff } from "./hand-off.ts";
 import {
   checkNewAccount,
   depositAccrual,
@@ -119,6 +119,11 @@ export interface AccountsTx {
    * job `accounts.hand-off`); `changeId` makes each kind change its own job.
    */
   enqueueHandOff(householdId: string, handOff: HandOff, changeId: string): Promise<void>;
+  /**
+   * The account's managing hand-offs not done yet (ARC-04, #252 item 3), oldest first: their journal moves are finished
+   * before a later change of the account's money is planned.
+   */
+  pendingManaged(householdId: string, accountId: string): Promise<ManagedHandOff[]>;
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;
   subaccounts(householdId: string, accountId: string): Promise<StoredSubaccount[]>;
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;
@@ -163,66 +168,11 @@ export interface NumberSeal {
   open(householdId: string, field: string, sealed: string): Promise<string>;
 }
 
-/** The space's audit log (П-10): who created which account, the number masked. */
-export interface AccountAudit extends HandOffAudit {
-  /** Closed or reopened (FIN-12 FR 7–9): the status and date before and after, and how a balance was settled. */
-  statusChanged(
-    householdId: string,
-    actorAccountId: string,
-    before: Pick<StoredAccount, "id" | "status" | "closedOn">,
-    after: {
-      readonly status: StoredAccount["status"];
-      readonly closedOn: string | null;
-      readonly settlement:
-        | ({ readonly amounts: readonly { readonly currency: string; readonly balance: Money }[] } & (
-            { readonly kind: "transfer"; readonly toAccountId: string } | { readonly kind: "adjustment" }
-          ))
-        | null;
-    },
-  ): Promise<void>;
-  /**
-   * «Основне» or «Реквізити» changed (FIN-12 FR 4, FR 6): every changed field with its value before and after; a
-   * `sensitive` one (the sealed number, the note) is masked by the log itself (NFR-01 FR 6).
-   */
-  settingsChanged(
-    householdId: string,
-    actorAccountId: string,
-    accountId: string,
-    changes: readonly {
-      readonly field: string;
-      readonly before: string | null;
-      readonly after: string | null;
-      readonly sensitive?: boolean;
-    }[],
-  ): Promise<void>;
-  /**
-   * One currency's balance moved by «Перенести на інший рахунок» (FIN-12 FR 7), recorded right after its ledger entry
-   * committed, before the closing itself.
-   */
-  transferred(
-    householdId: string,
-    actorAccountId: string,
-    account: Pick<StoredAccount, "id">,
-    transfer: {
-      readonly toAccountId: string;
-      readonly currency: string;
-      readonly amount: Money;
-      readonly entryId: string;
-    },
-  ): Promise<void>;
-  /**
-   * The adjustment of «Оновити залишок» on a subaccount created, changed or deleted (FIN-12 FR 15, FIN-04 FR 11, AC7):
-   * amount and date before and after; by the user, or by the system for a statement's recount.
-   */
-  adjustmentChanged(
-    householdId: string,
-    actor: { readonly kind: "user"; readonly id: string } | { readonly kind: "system" },
-    channel: "web" | "import",
-    subaccount: Pick<StoredSubaccount, "id" | "accountId" | "currency">,
-    before: { readonly entryId: string; readonly amount: Money; readonly date: string } | null,
-    after: { readonly entryId: string; readonly amount: Money; readonly date: string } | null,
-  ): Promise<void>;
-}
+/**
+ * The space's audit log (П-10): who created, changed, closed or reopened which account, and its adjustments; the
+ * number masked. Written only by the hand-off, after the accounts transaction committed (ARC-04, hand-off.ts).
+ */
+export type AccountAudit = HandOffAudit;
 
 export interface AccountsDeps {
   readonly ledger: Pick<
