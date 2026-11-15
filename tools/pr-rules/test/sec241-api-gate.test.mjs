@@ -1,4 +1,4 @@
-// Security review of PR #241 (CICD-02, pipeline; follow-up #243 item 1): the required check `api` is a gate over the
+// Security review of PR #241 (pipeline; follow-up #243 item 1): the required check `api` is a gate over the
 // matrix job `api-parts`, held by tests so a later edit cannot loosen it silently. Mutants this file kills:
 // `test "$PARTS" = "success" || true`, `skipped` accepted as success, `continue-on-error` on the matrix job or on one of
 // its steps, the gate no longer depending on `api-parts`, and the gate reading something other than its result.
