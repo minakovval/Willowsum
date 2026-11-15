@@ -12,7 +12,7 @@ Owner request 2026-11-12; rules decided by the lead.
    - **Fable** (owner, 2026-11-15, #178, [comment 6894721169](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6894721169):
      «1. і додати аудит зріз по моделям»; earlier: 2026-11-14, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128),
      [comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)): **only**
-     root-cause searches (e.g. flaky tests) and the security review of the highest-risk PRs (sign-in, encryption,
+     root-cause searches of flaky tests and the security review of the highest-risk PRs (sign-in, encryption,
      data isolation of the household/space). Other security reviews are on the main model, as is everything else
      (architecture rows, vault encryption, statement import, requirement sweeps, follow-ups, docs, sync
      confirmations). **At most one Fable task at a time.** **Mutation testing of critical modules is mandatory on any

@@ -232,7 +232,7 @@ hand-made database: Рішення ведучого (2026-11-14; власник 
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
   a brief). **Fable** (owner, 2026-11-15, #178, comment 6894721169): only root-cause
-  searches (e.g. flaky tests), and security reviews of the highest-risk PRs (sign-in, encryption, data isolation of
+  searches of flaky tests, and security reviews of the highest-risk PRs (sign-in, encryption, data isolation of
   the household/space); at most one Fable task at a time; mutation testing of critical modules is mandatory on any
   model; everything else on the main model (token economy, item 1).
 

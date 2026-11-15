@@ -110,10 +110,10 @@ export function modelLines(byModel) {
   );
 }
 
-/** «моделі: opus 4,1 млн / fable 1,2 млн cache read» — the note of the row; families merged. */
+/** «моделі: opus 4,1 млн / fable 1,2 млн cache read» — the note of the row; families merged; models with no cache read (`<synthetic>`) stay out. */
 export function modelNote(byModel) {
   const fam = new Map();
-  for (const [model, u] of byModel) fam.set(modelFamily(model), (fam.get(modelFamily(model)) ?? 0) + u.cacheRead);
+  for (const [model, u] of byModel) if (u.cacheRead > 0) fam.set(modelFamily(model), (fam.get(modelFamily(model)) ?? 0) + u.cacheRead);
   const list = [...fam].sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} ${oneDecimal(n / 1e6)} млн`);
   return `моделі: ${list.join(" / ")} cache read`;
 }

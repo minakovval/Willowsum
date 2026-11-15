@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addUpByModel, collectUsage, ciMinutes, formatRow, main, parseRun, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -288,6 +288,12 @@ describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => 
     );
     assert.equal(m.size, 1);
     assert.deepEqual(m.get("claude-fable-5-2"), { messages: 1, input: 1, cacheCreation: 10, cacheRead: 100, output: 9 });
+  });
+
+  it("modelNote skips models with no cache read (<synthetic>) but byModel keeps them", () => {
+    const m = byModel([rec("a", "claude-opus-5-5", 2_000_000, 1), rec("b", "<synthetic>", 0, 0)].join("\n"));
+    assert.ok(m.has("<synthetic>"));
+    assert.equal(modelNote(m), "моделі: opus 2,0 млн cache read");
   });
 
   it("pr: prints the row, then one line per model; the note names the families; the row columns stay the same", () => {
