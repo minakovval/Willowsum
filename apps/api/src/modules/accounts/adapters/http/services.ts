@@ -4,7 +4,6 @@ import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY, type FxReporting } from "../../../fx-rates/index.ts";
 import type { Liabilities } from "../../../liabilities/index.ts";
 import type { AccountAudit, AccountsDeps, NumberSeal } from "../../application/index.ts";
-import { maskedNumber } from "../../domain/index.ts";
 
 const BRAND = Symbol("willowsum-accounts-services");
 
@@ -54,47 +53,25 @@ export function accountsServices(ctx: ProtectedContext): AccountsServices {
 }
 
 /**
- * The account's entry in the space's own log (FIN-01 FR 17, П-10): every field with its new value; the full number
- * is masked by the log itself (`sensitive`), and only «••1234» is kept in the clear (FIN-01 AC7). The note is free
- * text and masked too.
+ * The account's entries in the space's own log (П-10). A create's values come from its hand-off with the sensitive
+ * ones masked already (application/hand-off.ts `accountCreatedValues`); the log masks them again (`sensitive`).
+ * Also the worker's (src/wiring.ts, `createAccountsWorkerQueue`).
  */
-function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
+export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
   return {
-    async accountCreated(householdId, actorAccountId, account, currencies, owner) {
-      const change = (field: string, after: string | null, sensitive = false) => ({
-        field,
-        before: null,
-        after,
-        sensitive,
-      });
+    async accountCreated(householdId, actorAccountId, accountId, values, key) {
       await audit.record(householdId, {
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
-        entity: { type: "accounts.account", id: account.id },
+        entity: { type: "accounts.account", id: accountId },
         action: "create",
-        changes: [
-          change("kind", account.kind),
-          change("name", account.name),
-          change("institutionName", account.institutionName),
-          change("institutionCountry", account.institutionCountry),
-          change("number", account.numberSealed === null ? null : "sealed", true),
-          change("numberLast4", account.numberLast4 === null ? null : maskedNumber(account.numberLast4)),
-          change("note", account.note, true),
-          change("annualRate", account.annualRate),
-          change("depositOpenedOn", account.depositOpenedOn),
-          change("depositMaturesOn", account.depositMaturesOn),
-          change("openedOn", account.openedOn),
-          change("status", account.status),
-          change("source", account.source),
-          ...currencies.flatMap((c, i) => [
-            change(`currencies.${i}.currency`, c.currency),
-            change(`currencies.${i}.openingBalance`, c.balance.toDecimalString()),
-            change(`currencies.${i}.balanceDate`, c.date),
-          ]),
-          change("owners.0.ownerAccountId", owner.ownerAccountId),
-          change("owners.0.share", owner.share),
-          change("owners.0.validFrom", owner.validFrom),
-        ],
+        changes: values.map((v) => ({
+          field: v.field,
+          before: null,
+          after: v.after,
+          sensitive: v.sensitive,
+        })),
+        key,
       });
     },
     async statusChanged(householdId, actorAccountId, before, after) {

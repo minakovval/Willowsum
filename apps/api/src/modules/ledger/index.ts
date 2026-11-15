@@ -73,11 +73,15 @@ export type {
 
 /** The double-entry journal of the spaces (FIN-04@PoC, ARC-11; ADR-0011). Every call is bound to one space. */
 export interface Ledger {
-  /** The ledger account of an owner module's record (a cash account, an asset, a liability). Idempotent. */
+  /**
+   * The ledger account of an owner module's record (a cash account, an asset, a liability). Idempotent per owner.
+   * `id`: the id the owner chose for it beforehand (ARC-04 hand-off); the owner's account under another id is
+   * `ACCOUNT_CONFLICT`.
+   */
   openAccount(
     householdId: string,
     owner: EntrySource,
-    account: { readonly type: AccountType; readonly currency: string },
+    account: { readonly type: AccountType; readonly currency: string; readonly id?: string | undefined },
   ): Promise<LedgerAccount>;
   /** Posts an event as one balanced posting set, atomically; a repeated idempotency key returns the entry made. */
   post(householdId: string, input: PostInput): Promise<Entry>;

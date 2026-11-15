@@ -48,11 +48,15 @@ const toPlatformEntry = (r: Omit<Row, "household_id">): PlatformAuditEntry => ({
 /** The logs in schema «audit»: tables `entries` (per household) and `platform_entries` (append-only; see the migrations). */
 export function databaseAuditStore(db: ModuleDatabase): AuditStore {
   return {
-    append: (householdId, row) =>
+    append: (householdId, row, key = null) =>
       db.inHousehold(householdId, async (q) => {
+        // A key already in the space (migrations/0004_dedupe_key.sql): nothing is appended, the entry there is returned.
         const { rows } = await q.query<Row>(
-          `INSERT INTO entries (household_id, actor_kind, actor_id, channel, entity_type, entity_id, action, changes)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING ${COLUMNS}`,
+          `INSERT INTO entries (household_id, actor_kind, actor_id, channel, entity_type, entity_id, action, changes,
+                                dedupe_key)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           ON CONFLICT (household_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+           RETURNING ${COLUMNS}`,
           [
             q.householdId,
             row.actorKind,
@@ -62,9 +66,15 @@ export function databaseAuditStore(db: ModuleDatabase): AuditStore {
             row.entityId,
             row.action,
             JSON.stringify(row.changes),
+            key,
           ],
         );
-        return toEntry(rows[0]!);
+        if (rows[0]) return toEntry(rows[0]);
+        const existing = await q.query<Row>(
+          `SELECT ${COLUMNS} FROM entries WHERE household_id = $1 AND dedupe_key = $2`,
+          [q.householdId, key],
+        );
+        return toEntry(existing.rows[0]!);
       }),
     forEntity: (householdId, entityType, entityId) =>
       db.inHousehold(householdId, async (q) => {

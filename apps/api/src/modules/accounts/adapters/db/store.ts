@@ -8,6 +8,7 @@ import type {
   StoredOwner,
   StoredSubaccount,
 } from "../../application/index.ts";
+import { enqueueHandOff } from "../queue/job.ts";
 
 /** The accounts schema through the module's own role (migrations/0001_accounts.sql). The row policy binds the space; SQL filters it too. */
 
@@ -156,6 +157,8 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
         [householdId, accountId, o.ownerAccountId, o.share, o.validFrom, o.validTo],
       );
     },
+    enqueueHandOff: (householdId, handOff, changeId) =>
+      enqueueHandOff({ ...q, householdId }, handOff, changeId),
     async account(householdId, accountId) {
       const { rows } = await q.query<AccountRow>(
         `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE household_id = $1 AND id = $2`,

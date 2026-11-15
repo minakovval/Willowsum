@@ -4,11 +4,17 @@
  * module (feature-flags) to the platform.
  */
 import type pg from "pg";
-import type { AuditLog } from "./modules/audit/index.ts";
+import { createAccountsWorkerQueue } from "./modules/accounts/index.ts";
+import { createAuditLog, type AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
-import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./modules/ledger/index.ts";
+import {
+  createLedger,
+  createLedgerIntegrityCheck,
+  type LedgerIntegrityAlerts,
+} from "./modules/ledger/index.ts";
+import { createLiabilities } from "./modules/liabilities/index.ts";
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
@@ -145,14 +151,24 @@ export function schedulerDailyTasks(deps: {
  * The worker role's queues (ARC-04): each module that publishes events or runs jobs adds its store
  * (`postgresJobStore(databases.for(<module>))`) and handlers here, and each consumer of an event its subscription.
  * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); no
- * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014).
+ * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014). `accounts`
+ * runs its hand-off jobs (ARC-04 FR 2, #210): the ledger accounts and opening balances, the liability and the audit
+ * entries of a create or a kind change, after the accounts transaction committed.
  */
 export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
 } {
+  const audit = createAuditLog(databases.for("audit"));
   return {
-    queues: [{ store: postgresJobStore(databases.for("ledger")), handlers: [] }],
+    queues: [
+      { store: postgresJobStore(databases.for("ledger")), handlers: [] },
+      createAccountsWorkerQueue(databases.for("accounts"), {
+        ledger: createLedger(databases.for("ledger")),
+        liabilities: createLiabilities(databases.for("liabilities"), audit),
+        audit,
+      }),
+    ],
     subscriptions: [],
   };
 }

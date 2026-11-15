@@ -3,6 +3,7 @@
 export {
   accountView,
   createAccount,
+  createdAccountView,
   findDuplicate,
   NUMBER_FIELD,
   type AccountAudit,
@@ -11,6 +12,7 @@ export {
   type AccountView,
   type Caller,
   type CreateResult,
+  type CreatedAccount,
   type Duplicate,
   type DuplicateCandidate,
   type NumberSeal,
@@ -49,3 +51,13 @@ export {
   type SettingsResult,
 } from "./settings.ts";
 export { updateAccountDetails, type DetailsResult } from "./details.ts";
+export {
+  accountCreatedValues,
+  applyHandOff,
+  handOffKey,
+  type AccountKinds,
+  type AuditValue,
+  type HandOff,
+  type HandOffDeps,
+  type HandOffSubaccount,
+} from "./hand-off.ts";
