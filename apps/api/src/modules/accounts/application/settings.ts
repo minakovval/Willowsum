@@ -17,10 +17,10 @@ import type { HandOff } from "./hand-off.ts";
  * 2. «Кредит» ↔ «Кредитна картка» only without transactions: no ledger entry in effect besides «Початковий залишок»
  *    on any of its currencies (an adjustment of «Оновити залишок» is a transaction, FR 14);
  * 3. the account's name, kind and the kind's own fields;
- * 4. the audit entry with every changed field before and after, last before this transaction commits (FR 6);
- * 5. for a new credit kind, the hand-off job in the same transaction (ARC-04 FR 2, hand-off.ts): once it has
+ * 4. for a new credit kind, the hand-off job in the same transaction (ARC-04 FR 2, hand-off.ts): once it has
  *    committed, the liability takes the account's kind (`liabilities`, its own transaction and audit entry) — right
- *    away from the route, and from the worker if that fails.
+ *    away from the route, and from the worker if that fails;
+ * 5. the audit entry with every changed field before and after, last before this transaction commits (FR 6).
  *
  * The ledger is never touched: the ledger type (asset or liability) is the group's, so the transactions and their
  * postings stay as they are (FR 6). A failure before the commit leaves the liability as it was (#238 item 1); the
@@ -96,18 +96,18 @@ export async function updateAccountSettings(
   const changes = SETTINGS_FIELDS.filter((field) => account[field] !== after[field]);
   if (changes.length === 0) return { kind: "unchanged" };
   await tx.updateSettings(householdId, after);
-  await deps.audit.settingsChanged(
-    householdId,
-    caller.accountId,
-    accountId,
-    changes.map((field) => ({ field, before: account[field], after: after[field] })),
-  );
   // A new credit kind: the liability follows once this commits (ARC-04 FR 2).
   const handOff: HandOff | null =
     after.kind !== account.kind && groupOf(after.kind) === "credit"
       ? { kind: "credit-kind", accountId, actorAccountId: caller.accountId }
       : null;
   if (handOff) await tx.enqueueHandOff(householdId, handOff, deps.newId());
+  await deps.audit.settingsChanged(
+    householdId,
+    caller.accountId,
+    accountId,
+    changes.map((field) => ({ field, before: account[field], after: after[field] })),
+  );
   return { kind: "updated", handOff };
 }
 
