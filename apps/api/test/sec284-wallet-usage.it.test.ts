@@ -230,4 +230,19 @@ describe("PR 284 security: a wallet with transactions the journal does not hold 
     expect(res.json().code).toBe("ACCOUNT_CURRENCY_HAS_TRANSACTIONS");
     expect(await plnWallets(space.householdId, id)).toBe(1);
   });
+
+  it("IMP-02@PoC FR 15: a PLN wallet whose only transaction is hidden and «Очікує» cannot be removed (hidden rows count too)", async () => {
+    const space = await newSpace();
+    const id = await multi(space);
+    const t = await add(space, plnTx(id, "pending"));
+    // A merged «Очікує» duplicate is hidden (FIN-03 FR 18); set directly, so this row is the wallet's only one.
+    await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = $2`,
+      [space.householdId, t.id],
+    );
+    const res = await call(space, "DELETE", `/v1/accounts/${id}/wallets/PLN`);
+    expect(res.statusCode, res.body).toBe(409);
+    expect(res.json().code).toBe("ACCOUNT_CURRENCY_HAS_TRANSACTIONS");
+    expect(await plnWallets(space.householdId, id)).toBe(1);
+  });
 });

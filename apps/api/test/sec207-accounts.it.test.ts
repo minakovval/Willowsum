@@ -79,6 +79,7 @@ beforeAll(async () => {
         flags: fakeFlags(),
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
+          walletUsage: [],
           ledger: createLedger(db.databases.for("ledger")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

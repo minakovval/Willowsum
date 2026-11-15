@@ -29,7 +29,7 @@ export function createAccountsServices(options: {
   readonly clock: { now(): number };
   readonly newId: () => string;
   /** IMP-02 FR 15: the modules that keep subaccount ids (transactions' `createTransactionWalletUsage`). */
-  readonly walletUsage?: readonly WalletUsage[];
+  readonly walletUsage: readonly WalletUsage[];
 }): AccountsServices {
   return {
     [BRAND]: true,
@@ -44,7 +44,7 @@ export function createAccountsServices(options: {
       newId: options.newId,
       // The UTC date; the profile's time zone (ACC-05) is not known to this module yet.
       today: () => new Date(options.clock.now()).toISOString().slice(0, 10),
-      walletUsage: options.walletUsage ?? [],
+      walletUsage: options.walletUsage,
     },
   };
 }

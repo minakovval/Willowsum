@@ -80,7 +80,7 @@ FIN-12@PoC e) (хвиля 2, рядок 18b; #244 п. 7): у «Реквізит�
     ліміт, борг, доступно; кредит — ставка, платіж, борг.
   - `POST /v1/accounts/duplicate-check` (`findDuplicateAccount`, дозвіл `household.data.write` — учасник з областю не може
     промацувати рахунки поза нею) `{ institution, number, currencies }` → `{ duplicate: { accountId, institution,
-maskedNumber } | null }` — для «Такий рахунок уже є: <установа> ••1234» і «Відкрити наявний».
+    maskedNumber } | null }` — для «Такий рахунок уже є: <установа> ••1234» і «Відкрити наявний».
   - `GET /v1/accounts/{accountId}/closing?closedOn=` (`getAccountClosing`, дозвіл `household.data.write`) — діалог
     закриття (FIN-12 п. 7): залишок кожної валюти на дату закриття і `zero`.
   - `POST /v1/accounts/{accountId}/close` (`closeAccount`) `{ closedOn, settlement? }` — закриття лише з нульовим залишком на
@@ -134,7 +134,7 @@ maskedNumber } | null }` — для «Такий рахунок уже є: <ус
     Рядок субрахунку видаляється, рахунок журналу лишається з нулем. → 200 рахунок.
     Нові маршрути: учасник з областю — 403 (дозвіл `household.data.write`, до обробника), рахунок іншого простору — 404, як неіснуючий.
 - `createAccountStatements(db, services)` → `AccountStatements.reconcile(householdId, { accountId, statementEnd,
-closingBalance })` — перерахунок тимчасового коригування випискою з кінцевим залишком (FIN-12 п. 15, AC15) для імпорту
+  closingBalance })` — перерахунок тимчасового коригування випискою з кінцевим залишком (FIN-12 п. 15, AC15) для імпорту
   виписок: нова різниця = залишок банку − залишок без коригування на кінець виписки; нуль — коригування видалено
   (`deleted`), інша сума чи дата — змінено датою кінця виписки (`changed`), та сама — `none`; ручний рахунок — `permanent`,
   без коригування нічого не створюється (FIN-04 п. 11). Аудит — від системи, канал `import`.
