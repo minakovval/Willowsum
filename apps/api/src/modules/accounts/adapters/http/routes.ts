@@ -9,6 +9,7 @@ import {
   accountsSummary,
   accountView,
   applyHandOff,
+  balanceNow,
   closeAccount,
   closingPreview,
   createAccount,
@@ -619,15 +620,17 @@ export const closeAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    return ctx.inHousehold(async (q) => {
-      const tx = accountsTx(q);
-      const result = await closeAccount(deps, tx, caller, params.accountId, {
+    const result = await ctx.inHousehold((q) =>
+      closeAccount(deps, accountsTx(q), caller, params.accountId, {
         closedOn: body.closedOn,
         settlement: body.settlement ?? null,
-      });
-      if (result.kind !== "account-closed") throw refusal(result);
-      return presentAccount(deps, tx, caller.householdId, params.accountId);
-    });
+      }),
+    );
+    if (result.kind !== "account-closed") throw refusal(result);
+    // The transfer or the write-off and the audit entries, after the commit (ARC-04 FR 2); the worker finishes them
+    // if this fails, and the account answers as it is meanwhile (closed, its balance not moved yet).
+    await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },
 });
 
@@ -645,12 +648,10 @@ export const reopenAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    return ctx.inHousehold(async (q) => {
-      const tx = accountsTx(q);
-      const result = await reopenAccount(deps, tx, caller, params.accountId);
-      if (result.kind !== "reopened") throw refusal(result);
-      return presentAccount(deps, tx, caller.householdId, params.accountId);
-    });
+    const result = await ctx.inHousehold((q) => reopenAccount(deps, accountsTx(q), caller, params.accountId));
+    if (result.kind !== "reopened") throw refusal(result);
+    await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },
 });
 
@@ -690,10 +691,20 @@ export const updateAccountBalanceRoute = defineRoute({
       updateBalance(deps, accountsTx(q), caller, params.accountId, body.balance),
     );
     if (result.kind !== "updated") throw refusal(result);
+    // The adjustment, after the commit (ARC-04 FR 2). Once it is in the journal the answer is the journal's; while the
+    // worker still has it, the change as written: the balance entered, no adjustment in effect yet.
+    const now =
+      result.handOff && (await handOffNow(ctx, deps, result.handOff))
+        ? await ctx
+            .inHousehold((q) =>
+              balanceNow(deps, accountsTx(q), caller.householdId, params.accountId, body.balance.currency),
+            )
+            .catch(() => null)
+        : null;
     return {
       changed: result.changed,
-      adjustment: adjustmentOut(result.adjustment),
-      balance: money(result.balance),
+      adjustment: adjustmentOut(now ? now.adjustment : result.adjustment),
+      balance: money(now ? now.balance : result.balance),
     };
   },
 });
@@ -721,7 +732,14 @@ export const deleteBalanceAdjustmentRoute = defineRoute({
       deleteAdjustment(deps, accountsTx(q), caller, params.accountId, params.adjustmentId),
     );
     if (result.kind !== "deleted") throw refusal(result);
-    return { balance: money(result.balance) };
+    const now = (await handOffNow(ctx, deps, result.handOff))
+      ? await ctx
+          .inHousehold((q) =>
+            balanceNow(deps, accountsTx(q), caller.householdId, params.accountId, result.currency),
+          )
+          .catch(() => null)
+      : null;
+    return { balance: money(now ? now.balance : result.balance) };
   },
 });
 
@@ -769,8 +787,9 @@ export const updateAccountRoute = defineRoute({
       default:
         throw refusal(result);
     }
-    // The liability's kind, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
-    if (result.kind === "updated" && result.handOff) await handOffNow(ctx, deps, result.handOff);
+    // The liability's kind and the audit entry, after the commit (ARC-04 FR 2); the worker finishes them if this fails.
+    if (result.kind === "updated")
+      for (const handOff of result.handOffs) await handOffNow(ctx, deps, handOff);
     return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },
 });
@@ -808,19 +827,22 @@ export const updateAccountDetailsRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    return ctx.inHousehold(async (q) => {
-      const tx = accountsTx(q);
-      const result = await updateAccountDetails(deps, tx, caller, params.accountId, body);
-      switch (result.kind) {
-        case "updated":
-        case "unchanged":
-          return presentAccount(deps, tx, caller.householdId, params.accountId);
-        case "duplicate":
-          throw new ApiProblem("ACCOUNT_DUPLICATE");
-        default:
-          throw refusal(result);
-      }
-    });
+    const result = await ctx.inHousehold((q) =>
+      updateAccountDetails(deps, accountsTx(q), caller, params.accountId, body),
+    );
+    switch (result.kind) {
+      case "updated":
+        // The audit entry, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
+        await handOffNow(ctx, deps, result.handOff);
+        break;
+      case "unchanged":
+        break;
+      case "duplicate":
+        throw new ApiProblem("ACCOUNT_DUPLICATE");
+      default:
+        throw refusal(result);
+    }
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },
 });
 

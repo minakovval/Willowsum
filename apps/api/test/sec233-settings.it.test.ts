@@ -12,6 +12,8 @@ import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createLiabilities, type Liabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices } from "../src/modules/accounts/index.ts";
+import { createWorker } from "../src/platform/queue/index.ts";
+import { workerQueues } from "../src/wiring.ts";
 
 /**
  * Security review of PR #233 (FIN-12@PoC b): «Основне» — isolation between spaces and roles, no existence oracle,
@@ -91,6 +93,17 @@ function shape(res: { statusCode: number; body: string }) {
   const rest = JSON.parse(res.body) as Record<string, unknown>;
   for (const key of ["traceId", "instance", "requestId"]) delete rest[key];
   return { status: res.statusCode, ...rest };
+}
+
+/** One pass of the worker as main.ts wires it (the real audit log), until the jobs it took have ended. */
+async function runWorker(householdId: string): Promise<void> {
+  const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
+  try {
+    await worker.tick();
+    await worker.idle();
+  } finally {
+    await worker.stop();
+  }
 }
 
 const stored = async (householdId: string) => ({
@@ -387,7 +400,9 @@ describe("sec233 liabilities/0002: the stored rule widens only for a loan marked
 });
 
 describe("sec233 audit and concurrency", () => {
-  it("sec233: without its audit entry the rename and the cash kind change are not stored", async () => {
+  // ARC-04 (#252 item 3): the audit entry of «Основне» is a hand-off job of the accounts transaction, written after it
+  // commits. An audit outage then no longer undoes the change: the worker writes the entry once the log is back.
+  it("sec233: an audit outage after a rename and a cash kind change keeps the change; the worker writes its audit entry once", async () => {
     const space = await newSpace();
     const acc = await createAccount(space, {
       kind: "deposit",
@@ -404,17 +419,29 @@ describe("sec233 audit and concurrency", () => {
         name: "Нова",
         kind: "current",
       });
-      expect(res.statusCode).toBe(500);
+      expect(res.statusCode).toBe(200);
       expect(res.body).not.toMatch(/audit log is down/);
     } finally {
       refuseAuditOf = null;
     }
-    expect(await stored(space.householdId)).toEqual(before);
+    const mid = await stored(space.householdId);
+    expect(mid.accounts[0]).toEqual(expect.objectContaining({ name: "Нова", kind: "current" }));
+    expect(mid.audit).toEqual(before.audit);
+    await runWorker(space.householdId);
+    await runWorker(space.householdId);
+    const updates = (
+      await audit.entriesFor(space.householdId, { type: "accounts.account", id: acc.id })
+    ).filter((e) => e.action === "update");
+    expect(updates).toHaveLength(1);
+    expect(updates[0]!.changes.map((c) => c.field)).toEqual(
+      expect.arrayContaining(["name", "kind", "depositOpenedOn", "depositMaturesOn"]),
+    );
   });
 
-  // ARC-04 (#238 item 1): the liability follows the account only after the accounts transaction commits, so an audit
-  // outage that rolls the change back leaves the liability as it was (before, it was changed already).
-  it("sec233: an audit outage in the middle of «Кредитна картка» → «Кредит» leaves the account and its liability as they were; the same request again makes the change", async () => {
+  // ARC-04 (#238 item 1, #252 item 3): the liability and the account's audit entry follow the account only after the
+  // accounts transaction commits, so an audit outage leaves the account and its liability changed together, and the
+  // audit entry comes with the worker.
+  it("sec233: an audit outage in the middle of «Кредитна картка» → «Кредит» changes the account and its liability together; the worker writes the account's audit entry", async () => {
     const space = await newSpace();
     const card = await createAccount(space, {
       kind: "credit-card",
@@ -427,20 +454,24 @@ describe("sec233 audit and concurrency", () => {
     try {
       expect(
         (await callOn(auditDown, space, "PATCH", `/v1/accounts/${card.id}`, { kind: "loan" })).statusCode,
-      ).toBe(500);
+      ).toBe(200);
     } finally {
       refuseAuditOf = null;
     }
     const mid = await stored(space.householdId);
-    expect(mid.accounts[0]).toEqual(expect.objectContaining({ kind: "credit-card" }));
-    expect(mid.liabilities[0]).toEqual(expect.objectContaining({ kind: "credit-card" }));
+    expect(mid.accounts[0]).toEqual(expect.objectContaining({ kind: "loan" }));
+    expect(mid.liabilities[0]).toEqual(expect.objectContaining({ kind: "loan", grace_period_days: null }));
     // The account still answers (no 500) in between.
     expect((await call(space, "GET", `/v1/accounts/${card.id}`)).statusCode).toBe(200);
     expect((await call(space, "GET", "/v1/accounts")).statusCode).toBe(200);
-    expect((await patch(space, card.id, { kind: "loan" })).statusCode).toBe(200);
-    const end = await stored(space.householdId);
-    expect(end.accounts[0]).toEqual(expect.objectContaining({ kind: "loan" }));
-    expect(end.liabilities[0]).toEqual(expect.objectContaining({ kind: "loan", grace_period_days: null }));
+    await runWorker(space.householdId);
+    const kindChanges = (
+      await audit.entriesFor(space.householdId, { type: "accounts.account", id: card.id })
+    ).filter((e) => e.action === "update" && e.changes.some((c) => c.field === "kind"));
+    expect(kindChanges).toHaveLength(1);
+    expect(await stored(space.householdId)).toEqual(
+      expect.objectContaining({ accounts: mid.accounts, liabilities: mid.liabilities }),
+    );
   });
 
   it("sec233: twelve concurrent kind changes and adjustments of one card leave the account and its liability with the same kind, every change audited, and no kind change after a transaction", async () => {

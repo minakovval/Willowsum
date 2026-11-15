@@ -8,7 +8,7 @@ import type {
   StoredOwner,
   StoredSubaccount,
 } from "../../application/index.ts";
-import { enqueueHandOff } from "../queue/job.ts";
+import { enqueueHandOff, HAND_OFF_JOB, handOffOf } from "../queue/job.ts";
 
 /** The accounts schema through the module's own role (migrations/0001_accounts.sql). The row policy binds the space; SQL filters it too. */
 
@@ -159,6 +159,25 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
     },
     enqueueHandOff: (householdId, handOff, changeId) =>
       enqueueHandOff({ ...q, householdId }, handOff, changeId),
+    async pendingManaged(householdId, accountId) {
+      // Every state but done: queued (also one the route has run already, #252 item 9), running, dead. Also the
+      // closings of other accounts whose balance is on its way to this one (a transfer not handed over yet), so this
+      // account's balance is never planned — nor the account closed — without it.
+      const { rows } = await q.query<{ payload: unknown }>(
+        `SELECT payload FROM jobs
+          WHERE household_id = $1 AND name = $2 AND state <> 'done'
+            AND payload->>'kind' = 'managed'
+            AND (payload->>'accountId' = $3
+              OR payload->'moves' @> jsonb_build_array(jsonb_build_object('op', 'transfer', 'toAccountId', $3::text)))
+          ORDER BY created_at, id`,
+        [householdId, HAND_OFF_JOB.name, accountId],
+      );
+      return rows.map((r) => {
+        const handOff = handOffOf(r.payload);
+        if (handOff.kind !== "managed") throw new Error("not a managing hand-off");
+        return handOff;
+      });
+    },
     async account(householdId, accountId) {
       const { rows } = await q.query<AccountRow>(
         `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE household_id = $1 AND id = $2`,

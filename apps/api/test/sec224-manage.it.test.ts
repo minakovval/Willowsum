@@ -18,6 +18,8 @@ import {
 } from "../src/modules/accounts/index.ts";
 
 import type { Ledger as LedgerPort } from "../src/modules/ledger/index.ts";
+import { createWorker } from "../src/platform/queue/index.ts";
+import { workerQueues } from "../src/wiring.ts";
 
 /**
  * Security review of #224 (FIN-12@PoC a): the guards of closing, reopening, «Оновити залишок» and deleting its
@@ -381,8 +383,9 @@ describe("sec224: money moves the right way, once", () => {
   });
 });
 
-describe("sec224: the non-atomic hand-over (#210) on a closing by transfer", () => {
-  it("FIN-12@PoC FR 7, FR 15: a failure after the first of two transfers committed: after the retry every transfer that moved money is in the audit log", async () => {
+// ARC-04 (#252 item 3): the closing commits with its hand-off job; the transfers and their audit entries follow it.
+describe("sec224: the hand-off (#210) of a closing by transfer", () => {
+  it("FIN-12@PoC FR 7, FR 15: a failure after the first of two transfers: the account is closed, and once the worker is done every transfer that moved money is in the audit log, each once", async () => {
     const space = await newSpace();
     const src = await createAccount(space, {
       kind: "current",
@@ -399,16 +402,26 @@ describe("sec224: the non-atomic hand-over (#210) on a closing by transfer", () 
     const body = { closedOn: TODAY, settlement: { kind: "transfer", toAccountId: both.id } };
     failTransfer = 2;
     const first = await callOn(faulty, space, "POST", `/v1/accounts/${src.id}/close`, body);
-    expect(first.statusCode).toBe(500);
-    // The EUR transfer committed in the ledger's own transaction.
+    expect(first.statusCode).toBe(200);
+    expect(first.json().status).toBe("closed");
+    // The EUR transfer went in right away; the UAH one waits for the worker.
     expect((await eventTypes(space.householdId)).filter((t) => t === "transfer")).toHaveLength(1);
-    const retry = await call(space, "POST", `/v1/accounts/${src.id}/close`, body);
-    expect(retry.statusCode).toBe(200);
+    expect((await call(space, "POST", `/v1/accounts/${src.id}/close`, body)).statusCode).toBe(409);
+    for (let i = 0; i < 2; i++) {
+      const worker = createWorker({
+        ...workerQueues(db.databases),
+        households: async () => [space.householdId],
+      });
+      await worker.tick();
+      await worker.idle();
+      await worker.stop();
+    }
     expect((await eventTypes(space.householdId)).filter((t) => t === "transfer")).toHaveLength(2);
 
     const changes = (
       await audit.entriesFor(space.householdId, { type: "accounts.account", id: src.id })
     ).flatMap((e) => e.changes.map((c) => [c.field, c.after]));
+    expect(changes.filter(([field]) => field === "settlement.entryId")).toHaveLength(2);
     expect(changes).toEqual(
       expect.arrayContaining([
         ["settlement.EUR", "10"],

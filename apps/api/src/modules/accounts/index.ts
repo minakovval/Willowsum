@@ -6,6 +6,7 @@ import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import {
   accountAudit,
+  accountKinds,
   accountsRoutes,
   accountsTx,
   accountsWorkerQueue,
@@ -14,7 +15,13 @@ import {
   requeueDeadHandOffs,
   type AccountsServices,
 } from "./adapters/index.ts";
-import { reconcileStatement, type HandOffDeps, type StatementResult } from "./application/index.ts";
+import { logEvent } from "../../platform/telemetry/signals.ts";
+import {
+  applyHandOff,
+  reconcileStatement,
+  type HandOffDeps,
+  type StatementResult,
+} from "./application/index.ts";
 
 export const accountsModule = defineModule({
   name: "accounts",
@@ -100,10 +107,25 @@ export interface AccountStatements {
 /** `db` is the accounts module's own database; `services` the same as the routes'. */
 export function createAccountStatements(db: ModuleDatabase, services: AccountsServices): AccountStatements {
   return {
-    reconcile: (householdId, statement) =>
-      db.inHousehold(householdId, (q) =>
+    async reconcile(householdId, statement) {
+      const { result, handOff } = await db.inHousehold(householdId, (q) =>
         reconcileStatement(services.deps, accountsTx(q), householdId, statement),
-      ),
+      );
+      // The adjustment and its audit entry, after the commit (ARC-04 FR 2); the worker finishes them if this fails.
+      if (handOff)
+        await applyHandOff(
+          services.deps,
+          accountKinds((work) => db.inHousehold(householdId, work)),
+          householdId,
+          handOff,
+        ).catch((error: unknown) =>
+          logEvent("accounts.hand_off_deferred", "warn", {
+            "ws.module": "accounts",
+            "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+          }),
+        );
+      return result;
+    },
   };
 }
 

@@ -1,3 +1,4 @@
+import { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
@@ -53,9 +54,9 @@ export function accountsServices(ctx: ProtectedContext): AccountsServices {
 }
 
 /**
- * The account's entries in the space's own log (П-10). A create's values come from its hand-off with the sensitive
- * ones masked already (application/hand-off.ts `accountCreatedValues`); the log masks them again (`sensitive`).
- * Also the worker's (src/wiring.ts, `createAccountsWorkerQueue`).
+ * The account's entries in the space's own log (П-10), each written once per key by the hand-off (ARC-04 FR 3). The
+ * values come from the hand-off's job with the sensitive ones masked already (application/hand-off.ts); the log masks
+ * them again (`sensitive`). Also the worker's (src/wiring.ts, `createAccountsWorkerQueue`).
  */
 export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
   return {
@@ -74,16 +75,21 @@ export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
         key,
       });
     },
-    async statusChanged(householdId, actorAccountId, before, after) {
-      const settlement = after.settlement;
+    async statusChanged(householdId, actorAccountId, accountId, status, key) {
+      const settlement = status.settlement;
       await audit.record(householdId, {
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
-        entity: { type: "accounts.account", id: before.id },
+        entity: { type: "accounts.account", id: accountId },
         action: "update",
         changes: [
-          { field: "status", before: before.status, after: after.status, sensitive: false },
-          { field: "closedOn", before: before.closedOn, after: after.closedOn, sensitive: false },
+          { field: "status", before: status.before.status, after: status.after.status, sensitive: false },
+          {
+            field: "closedOn",
+            before: status.before.closedOn,
+            after: status.after.closedOn,
+            sensitive: false,
+          },
           ...(settlement
             ? [
                 { field: "settlement.kind", before: null, after: settlement.kind, sensitive: false },
@@ -100,28 +106,31 @@ export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
                 ...settlement.amounts.map((a) => ({
                   field: `settlement.${a.currency}`,
                   before: null,
-                  after: a.balance.toDecimalString(),
+                  // The canonical decimal, as the amount's own entries show it.
+                  after: Money.of(a.balance, a.currency).toDecimalString(),
                   sensitive: false,
                 })),
               ]
             : []),
         ],
+        key,
       });
     },
-    async settingsChanged(householdId, actorAccountId, accountId, changes) {
+    async settingsChanged(householdId, actorAccountId, accountId, changes, key) {
       await audit.record(householdId, {
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
         entity: { type: "accounts.account", id: accountId },
         action: "update",
-        changes: changes.map((c) => ({ ...c, sensitive: c.sensitive ?? false })),
+        changes: [...changes],
+        key,
       });
     },
-    async transferred(householdId, actorAccountId, account, transfer) {
+    async transferred(householdId, actorAccountId, accountId, transfer, key) {
       await audit.record(householdId, {
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
-        entity: { type: "accounts.account", id: account.id },
+        entity: { type: "accounts.account", id: accountId },
         action: "update",
         changes: [
           { field: "settlement.kind", before: null, after: "transfer", sensitive: false },
@@ -134,9 +143,10 @@ export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
           },
           { field: "settlement.entryId", before: null, after: transfer.entryId, sensitive: false },
         ],
+        key,
       });
     },
-    async adjustmentChanged(householdId, actor, channel, subaccount, before, after) {
+    async adjustmentChanged(householdId, actor, channel, subaccount, before, after, key) {
       const value = (a: typeof before, field: "entryId" | "amount" | "date") =>
         a === null ? null : field === "amount" ? a.amount.toDecimalString() : a[field];
       await audit.record(householdId, {
@@ -155,6 +165,7 @@ export function accountAudit(audit: Pick<AuditLog, "record">): AccountAudit {
             sensitive: false,
           })),
         ],
+        key,
       });
     },
   };
