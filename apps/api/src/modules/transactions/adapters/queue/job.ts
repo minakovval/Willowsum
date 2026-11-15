@@ -11,6 +11,7 @@ const handOffSchema = z.strictObject({
   actorAccountId: z.uuid(),
   action: z.enum(HAND_OFF_ACTIONS),
   version: z.number().int().min(1),
+  transferId: z.uuid().optional(),
   audit: z
     .array(
       z.strictObject({

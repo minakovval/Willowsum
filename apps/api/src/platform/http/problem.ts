@@ -122,6 +122,14 @@ export const PROBLEMS = {
   BULK_UNDO_UNAVAILABLE: { status: 409, title: "This bulk action can no longer be undone" },
   /** DAT-03@PoC FR 10: «Продовжити» only for an interrupted bulk action; nothing was written. */
   BULK_ACTION_NOT_INTERRUPTED: { status: 409, title: "This bulk action is not interrupted" },
+  /**
+   * FIN-03@PoC FR 7, FR 9, FR 18: a side of a transfer between own accounts is never hidden, split or deleted, and its
+   * account, amount, date and state change only once the mark is removed; nothing was written.
+   */
+  TRANSACTION_IN_TRANSFER: {
+    status: 409,
+    title: "The transaction is a side of a transfer; remove the mark first",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

@@ -96,6 +96,14 @@ export const FLAGS = {
     description:
       "Стан «Очікує» і приховані транзакції (FIN-03@PoC b): «Статус» форми, /v1/transactions/{id}/hide і /show",
   },
+  "transactions.transfers": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Перекази між власними рахунками (FIN-03@PoC b): /v1/transactions/{id}/transfer, пропозиції /v1/transfer-proposals",
+  },
   "transactions.attributes": {
     kind: "release",
     owner: "product-owner",

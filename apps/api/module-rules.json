@@ -129,7 +129,7 @@
     },
     "transfer-matching": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["fx-rates", "transactions"]
     }
   }
 }

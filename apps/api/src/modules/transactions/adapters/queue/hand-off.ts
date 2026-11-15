@@ -18,7 +18,10 @@ export function transactionRows(
 ): TransactionRows {
   return {
     whileLocked: (householdId, transactionId, work) =>
-      inTransaction(async (q) => work(await transactionsTx(q).lock(householdId, transactionId))),
+      inTransaction(async (q) => {
+        const tx = transactionsTx(q);
+        return work(await tx.lock(householdId, transactionId), (id) => tx.find(householdId, id));
+      }),
   };
 }
 

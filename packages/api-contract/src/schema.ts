@@ -735,7 +735,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** «Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17) */
+        /** «Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); never a transfer (FR 18) */
         post: operations["hideTransaction"];
         delete?: never;
         options?: never;
@@ -778,6 +778,41 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/transfer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Позначити як переказ» / «Підтвердити» a pair: two transactions on two accounts as one transfer — neither income nor expense (FIN-03 FR 6, FR 7, FR 27) */
+        post: operations["markTransfer"];
+        /** The transfer mark removed: both transactions are income and expense again (FIN-03 FR 9) */
+        delete: operations["unmarkTransfer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transfer-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Пари · N»: pairs of a debit and a credit on two own accounts within 3 days that look like one transfer; the system never marks them itself */
+        get: operations["listTransferProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -790,7 +825,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT: the current version of the record */
             currentVersion?: number;
             detail?: string;
@@ -4688,7 +4723,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.attributes" | "categories.tree" | "data.bulk_actions")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.attributes" | "categories.tree" | "data.bulk_actions")[];
                     };
                 };
             };
@@ -6633,6 +6668,24 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             status: "posted" | "pending";
+                            transfer: {
+                                /** Format: uuid */
+                                counterpartId: string;
+                                date: string;
+                                fee: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                rate: {
+                                    date: string;
+                                    rate: string;
+                                    source: string;
+                                } | null;
+                                /** @enum {string} */
+                                side: "outflow" | "inflow";
+                            } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
                         }[];
@@ -6825,6 +6878,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -6964,6 +7035,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7113,7 +7202,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7221,6 +7310,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7271,7 +7378,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7360,6 +7467,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7410,7 +7535,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7499,6 +7624,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7658,6 +7801,181 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unsplitTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction without a split */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        recordedAt: string;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7748,7 +8066,7 @@ export interface operations {
             };
         };
     };
-    unsplitTransaction: {
+    markTransfer: {
         parameters: {
             query?: never;
             header?: never;
@@ -7757,9 +8075,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    counterpartId: string;
+                };
+            };
+        };
         responses: {
-            /** @description The transaction without a split */
+            /** @description The transaction, a side of the transfer */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7797,6 +8122,24 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
                     };
@@ -7847,8 +8190,306 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unmarkTransfer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction, no longer a transfer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        recordedAt: string;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listTransferProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposals, newest first; «Підтвердити» is POST /v1/transactions/{outflow}/transfer with the inflow */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            converted: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            date: string;
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            inflow: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                date: string;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                            /** @enum {string} */
+                            kind: "same-currency" | "cross-currency";
+                            outflow: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                date: string;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                        }[];
+                        more: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

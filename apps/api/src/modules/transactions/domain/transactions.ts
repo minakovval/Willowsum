@@ -32,7 +32,16 @@ export type FieldIssue = {
     | "count"
     | "sign"
     | "sum_mismatch"
-    | "kind_mismatch";
+    | "kind_mismatch"
+    // A transfer (transfers.ts): a side that may not be one, or a pair that is not a transfer.
+    | "pending"
+    | "hidden"
+    | "split"
+    | "in_transfer"
+    | "same_account"
+    | "same_direction"
+    | "amount_mismatch"
+    | "rate_unavailable";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;
