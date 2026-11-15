@@ -270,8 +270,10 @@ export default tseslint.config(
   {
     // BUD-01@PoC FR 10: a category's colour is data of the space the user changes, stored with the category; these
     // files hold the default colours of the system tree (reference data of the product) and the icon contrast rule.
-    files: ["apps/api/src/modules/categories/domain/**"],
-    ignores: ["**/*.test.{ts,tsx}"],
+    files: [
+      "apps/api/src/modules/categories/domain/catalogue.ts",
+      "apps/api/src/modules/categories/domain/categories.ts",
+    ],
     rules: { "no-restricted-syntax": ["error", ...NO_FLOAT_MONEY, ...NO_PLAN_NAMES] },
   },
   {

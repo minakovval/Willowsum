@@ -86,7 +86,12 @@ export interface CategoriesTx {
   insertCategory(householdId: string, category: StoredCategory): Promise<StoredCategory>;
   updateCategory(householdId: string, category: StoredCategory): Promise<StoredCategory>;
   /** Categories merged before into `from` now point to `to` (FR 8: one hop to the category in use). */
-  repointMerged(householdId: string, from: string, to: string): Promise<void>;
+  /** Each category re-pointed, before and after (its version bumped), for the audit log. */
+  repointMerged(
+    householdId: string,
+    from: string,
+    to: string,
+  ): Promise<{ readonly before: StoredCategory; readonly after: StoredCategory }[]>;
   publishMerged(event: MergedEvent): Promise<void>;
 }
 
@@ -437,7 +442,7 @@ export async function mergeCategory(
   if (!target || target.state === "retired") return invalid("targetId", "not_found");
   const problem = mergeProblem(source, target);
   if (problem !== null) return MERGE_RESULT[problem];
-  await tx.repointMerged(caller.householdId, source.id, target.id);
+  const repointed = await tx.repointMerged(caller.householdId, source.id, target.id);
   const after = await tx.updateCategory(caller.householdId, {
     ...source,
     state: stateAfterMerge(source.systemKey !== null),
@@ -458,5 +463,15 @@ export async function mergeCategory(
     categoryValues(source),
     categoryValues(after),
   );
+  // Every category re-pointed is a change of its own: one entry each (`mergedInto` before and after).
+  for (const r of repointed)
+    await deps.audit.changed(
+      caller.householdId,
+      caller,
+      { type: "categories.category", id: r.after.id },
+      "update",
+      categoryValues(r.before),
+      categoryValues(r.after),
+    );
   return ok({ source: after, target });
 }

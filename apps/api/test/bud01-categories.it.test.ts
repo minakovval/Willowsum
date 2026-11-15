@@ -462,6 +462,15 @@ describe("BUD-01@PoC FR 8: merging categories", () => {
     await call(space, "POST", `/v1/categories/${a.id}/merge`, { targetId: b.id });
     await call(space, "POST", `/v1/categories/${b.id}/merge`, { targetId: groceries.id });
     expect((await directory.category(space.householdId, a.id))?.mergedInto).toBe(groceries.id);
+    // The re-pointed category is a change of its own: an audit entry with `mergedInto` before and after.
+    const log = await audit.entriesFor(space.householdId, { type: "categories.category", id: a.id });
+    expect(log.map((e) => e.action)).toEqual(["create", "update", "update"]);
+    expect(log[2]!.changes).toEqual([
+      expect.objectContaining({ field: "mergedInto", before: b.id, after: groceries.id }),
+    ]);
+    expect(log[2]!.actorId).toBe(space.accountId);
+    const version = await db.owner.query(`SELECT version FROM categories.categories WHERE id = $1`, [a.id]);
+    expect(version.rows[0].version).toBe(3);
     const self = await call(space, "POST", `/v1/categories/${groceries.id}/merge`, {
       targetId: groceries.id,
     });

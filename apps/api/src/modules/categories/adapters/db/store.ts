@@ -215,10 +215,17 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
       return rows[0]!;
     },
     async repointMerged(householdId, from, to) {
-      await q.query(
-        `UPDATE categories SET merged_into = $3, updated_at = now() WHERE household_id = $1 AND merged_into = $2`,
+      const before = await categories(
+        `SELECT ${CATEGORY_COLUMNS} FROM categories WHERE household_id = $1 AND merged_into = $2 ORDER BY id FOR UPDATE`,
+        [householdId, from],
+      );
+      const after = await categories(
+        `UPDATE categories SET merged_into = $3, version = version + 1, updated_at = now()
+          WHERE household_id = $1 AND merged_into = $2 RETURNING ${CATEGORY_COLUMNS}`,
         [householdId, from, to],
       );
+      const byId = new Map(after.map((c) => [c.id, c]));
+      return before.map((b) => ({ before: b, after: byId.get(b.id)! }));
     },
     async publishMerged(event) {
       await publishEvent(q, categoryMerged, event);
