@@ -1,8 +1,8 @@
 # Stacked PRs and CI that cannot run
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Moved out of `pr-pipeline` SKILL.md without change (owner, 2026-11-13). Read when a PR depends on another open PR, or CI cannot run (billing, outage).
+Read when a PR depends on another open PR, or CI cannot run (billing, outage).
 
 **Stacked PRs** (owner, 2026-11-13): a PR that needs another open PR still targets `main`. Branch it from the
 parent's branch and say in its body which PR it waits for; it is merged only after the parent. After the
