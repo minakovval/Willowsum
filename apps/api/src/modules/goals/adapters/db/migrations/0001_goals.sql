@@ -9,9 +9,9 @@ CREATE TABLE goals (
   -- «Подорож», «Покупка», «Подушка безпеки», «Власна» (FR 1).
   template text NOT NULL CHECK (template IN ('travel', 'purchase', 'emergency', 'custom')),
   name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 60),
-  -- The target and every amount of the goal (start, contributions) are in this currency.
-  currency text NOT NULL CHECK (currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
+  -- The target and every amount of the goal (start, contributions) are in the target's currency.
   target_amount numeric(38, 18) NOT NULL CHECK (target_amount > 0),
+  target_currency text NOT NULL CHECK (target_currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
   -- Optional (FR 2); without it the goal shows only progress and pace (FR 12).
   target_date date,
   -- «Скільки місяців витрат» of «Подушка безпеки» (FR 10); null for the other templates.
@@ -20,6 +20,7 @@ CREATE TABLE goals (
   account_id uuid,
   -- The start amount of an envelope or of marks; an own account's collected is its balance, so 0 there.
   start_amount numeric(38, 18) NOT NULL DEFAULT 0 CHECK (start_amount >= 0),
+  start_currency text NOT NULL CHECK (start_currency = target_currency),
   -- The day (Kyiv) the goal was created: the pace never looks before it (FR 7).
   created_on date NOT NULL,
   version integer NOT NULL DEFAULT 1 CHECK (version >= 1),
@@ -42,6 +43,8 @@ CREATE TABLE contributions (
   id uuid NOT NULL,
   goal_id uuid NOT NULL,
   amount numeric(38, 18) NOT NULL CHECK (amount > 0),
+  -- The goal's currency (FR 6: «Внести» in the goal's currency).
+  currency text NOT NULL CHECK (currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
   -- The day of the contribution (Kyiv): this month's contributions and the pace (FR 5, FR 7) go by it.
   contributed_on date NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),

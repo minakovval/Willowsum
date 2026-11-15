@@ -23,13 +23,14 @@ export const synthetic = [
           id: key(household.id, "goal", i),
           template: i % 3 === 2 ? "emergency" : i % 3 === 0 ? "travel" : "purchase",
           name: `${NAMES[i % 3]} ${i + 1}`,
-          currency: "EUR",
           target_amount: "4000",
+          target_currency: "EUR",
           target_date: i % 2 === 0 ? "2027-07-01" : null,
           emergency_months: i % 3 === 2 ? "3" : null,
           part_kind: "marks",
           account_id: null,
           start_amount: "1000",
+          start_currency: "EUR",
           created_on: "2026-10-01",
         };
     },
@@ -45,6 +46,7 @@ export const synthetic = [
           id: rng.uuid(),
           goal_id: key(household.id, "goal", 0),
           amount: "334",
+          currency: "EUR",
           contributed_on: "2026-10-15",
         };
     },

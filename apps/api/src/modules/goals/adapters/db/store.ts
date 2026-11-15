@@ -4,7 +4,7 @@ import type { GoalsTx, StoredContribution, StoredGoal } from "../../application/
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The goals schema through the module's own role (migrations/0001_goals.sql). The row policy binds the space; SQL filters it too. */
-const GOAL_COLUMNS = `id, template, name, currency, target_amount::text AS target_amount,
+const GOAL_COLUMNS = `id, template, name, target_currency AS currency, target_amount::text AS target_amount,
   to_char(target_date, 'YYYY-MM-DD') AS target_date, emergency_months, part_kind, account_id,
   start_amount::text AS start_amount, to_char(created_on, 'YYYY-MM-DD') AS created_on, version`;
 
@@ -55,9 +55,9 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
     },
     async insertGoal(householdId, g) {
       await q.query(
-        `INSERT INTO goals (household_id, id, template, name, currency, target_amount, target_date, emergency_months,
-           part_kind, account_id, start_amount, created_on)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        `INSERT INTO goals (household_id, id, template, name, target_currency, target_amount, target_date, emergency_months,
+           part_kind, account_id, start_amount, start_currency, created_on)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $5, $12)`,
         [
           householdId,
           g.id,
@@ -107,8 +107,8 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
         currency: string;
         date: string;
       }>(
-        `SELECT c.id, c.goal_id, c.amount::text AS amount, g.currency, to_char(c.contributed_on, 'YYYY-MM-DD') AS date
-           FROM contributions c JOIN goals g ON g.household_id = c.household_id AND g.id = c.goal_id
+        `SELECT c.id, c.goal_id, c.amount::text AS amount, c.currency, to_char(c.contributed_on, 'YYYY-MM-DD') AS date
+           FROM contributions c
           WHERE c.household_id = $1 AND c.goal_id = ANY($2::uuid[])
           ORDER BY c.contributed_on DESC, c.created_at DESC`,
         [householdId, goalIds],
@@ -122,8 +122,9 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
     },
     async insertContribution(householdId, c) {
       await q.query(
-        `INSERT INTO contributions (household_id, id, goal_id, amount, contributed_on) VALUES ($1, $2, $3, $4, $5)`,
-        [householdId, c.id, c.goalId, c.amount.toDecimalString(), c.date],
+        `INSERT INTO contributions (household_id, id, goal_id, amount, currency, contributed_on)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [householdId, c.id, c.goalId, c.amount.toDecimalString(), c.amount.currency, c.date],
       );
     },
     async lockAccount(householdId, accountId) {

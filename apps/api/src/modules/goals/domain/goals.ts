@@ -237,7 +237,8 @@ export function paceWindowStart(createdOn: string, today: string): string {
 export function pacePerMonth(cameIn: Money, windowStart: string, today: string): Money | null {
   if (cameIn.isNegative() || cameIn.isZero()) return null;
   const months = Decimal.max("1", new Decimal(String(daysBetween(windowStart, today) + 1)).div(MONTH_DAYS));
-  return Money.of(cameIn.amount.div(months), cameIn.currency);
+  // Kept exact to the stored scale; rounded only for display.
+  return Money.of(cameIn.amount.div(months).toDecimalPlaces(18), cameIn.currency);
 }
 
 /** FR 7: the forecast date at the pace; null once collected, without a pace or beyond 100 years. */
