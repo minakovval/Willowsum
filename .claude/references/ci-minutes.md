@@ -1,6 +1,6 @@
 # CI minutes and path filters
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
 Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you add or change a workflow, or a job was skipped by its path filter.
 
@@ -12,3 +12,15 @@ except `infra/`, `tools/` and the root lint, format and ignore files, with only 
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
 scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
 `main` (about a minute; owner, 2026-11-13) to publish the generated traceability files.
+
+**The job `api` in parts** (owner, 2026-11-14, [#178, comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)
+item 2: integration tests in 2 shards): the matrix job `api-parts` runs three parallel parts, each with its own
+PostgreSQL 17 service — `api checks` (module boundaries, contract, flags, schema, migrations, old code + new
+schema, the image) and `api integration 1/2`, `api integration 2/2` (`vitest --shard=i/2`, split by file). The
+required check stays `api`: a small job that needs the parts and fails unless all three passed; it and the parts are
+skipped together by the path filter. The parts are not required by name (`tools/pr-rules/lib/workflows.mjs`
+leaves out a matrix job another job needs). Cost: three runners each install the workspace (about 1–2 min each), so
+the minutes go up a little while the wall time drops. Reproduce one shard locally:
+`pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts --shard=1/2`
+(a test that passes alone but fails in its shard on a fresh cluster depends on another file: fix the dependency,
+[flaky tests](flaky-tests.md)).

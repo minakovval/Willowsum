@@ -194,12 +194,28 @@ jobs:
         if: always()
         run: node tools/local-env/index.mjs down
 
-  api:
+  api-parts:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
-    # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03).
+    # Backend (ARC-01): module boundaries, the API contract (ARC-07) and integration tests on a real PostgreSQL 17 (ARC-03),
+    # in three parallel parts (owner, 2026-11-14: integration tests in 2 shards): `checks` (everything but the
+    # integration tests) and `integration 1/2`, `integration 2/2` (vitest --shard). Each part has its own PostgreSQL
+    # service, so the cluster-wide roles of the integration tests never meet another part's. The required check is
+    # the job `api` below, which passes only when every part passed; the parts are not required checks by name
+    # (tools/pr-rules/lib/workflows.mjs).
+    name: api ${{ matrix.part }}
+    strategy:
+      fail-fast: false # a failure in one shard still reports every failing test of the other
+      matrix:
+        include:
+          - part: checks
+          - part: integration 1/2
+            shard: 1/2
+          - part: integration 2/2
+            shard: 2/2
     runs-on: ubuntu-latest
-    # 30 = about 2x the p90 (about 15 min) of the last 10 api jobs on PR runs (8.7-15.2 min, 2026-11-14), which hit the old 15-minute limit.
+    # 30 = about 2x the p90 (about 15 min) of the last 10 single api jobs on PR runs (8.7-15.2 min, 2026-11-14), which hit
+    # the old 15-minute limit; each part is now about half of that.
     timeout-minutes: 30
     services:
       postgres:
@@ -237,28 +253,39 @@ jobs:
           restore-keys: pnpm-store-${{ runner.os }}-node22-
       - run: pnpm install --frozen-lockfile
       - name: Module boundaries, dependency rules and event contracts (ARC-01)
+        if: matrix.part == 'checks'
         run: pnpm --filter @willowsum/api check:modules
       - name: API contract matches the routes; the typed client matches the contract (ARC-07)
+        if: matrix.part == 'checks'
         run: pnpm contract:check
       - name: Feature flags have an owner and a review date; none past it or fully enabled over 30 days (CICD-06)
+        if: matrix.part == 'checks'
         run: pnpm check:flags
-      - name: Integration tests on PostgreSQL 17
-        run: pnpm --filter @willowsum/api test:integration
+      - name: Integration tests on PostgreSQL 17 (shard ${{ matrix.shard }})
+        if: matrix.shard
+        env:
+          WS_SHARD: ${{ matrix.shard }}
+        run: pnpm --filter @willowsum/api test:integration --shard="$WS_SHARD"
       - name: Schema check — row policies, household column, amounts, UTC time, region (ARC-03)
+        if: matrix.part == 'checks'
         run: pnpm --filter @willowsum/api check:schema
       - name: Base version of the PR (for migration compatibility, ARC-03 FR 4)
+        if: matrix.part == 'checks'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .base
           persist-credentials: false
       - name: API contract changes only compatibly within /v1 against the base branch (ARC-07 FR 3)
+        if: matrix.part == 'checks'
         run: pnpm --filter @willowsum/api contract:compat "$GITHUB_WORKSPACE/.base/packages/api-contract/openapi.json"
       - name: Migrations expand → migrate → contract; released migrations unchanged (ARC-03 FR 4)
+        if: matrix.part == 'checks'
         env:
           WS_MIGRATION_BASE_DIR: ${{ github.workspace }}/.base
         run: pnpm --filter @willowsum/api check:migrations
       - name: Old code + new schema — the base version's module tests on this PR's migrations (ARC-03 FR 4)
+        if: matrix.part == 'checks'
         env:
           WS_COMPAT_SCHEMA_FROM: ${{ github.workspace }}/apps/api
         run: |
@@ -270,6 +297,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts src/modules --passWithNoTests
       - name: One image, three roles (ARC-02); without configuration it refuses to start and names the variables
+        if: matrix.part == 'checks'
         run: |
           docker build -q -f apps/api/Dockerfile -t willowsum-api:ci .
           for role in api worker scheduler; do
@@ -282,6 +310,23 @@ jobs:
             # Names only: the list grows with every module (WS_DB_PASSWORD_<SCHEMA>), values never appear.
             echo "$out" | grep -Eq '^Configuration error: missing or invalid ([A-Z0-9_]+, )*WS_DB_HOST, ([A-Z0-9_]+, )*WS_DB_NAME(, [A-Z0-9_]+)*$'
           done
+
+  api:
+    needs: [changes, api-parts]
+    if: ${{ !cancelled() && needs.changes.outputs.api != 'false' }}
+    # The required check `api` (AGENTS.md, branch rules, the daily check of main): passes only when every part of
+    # `api-parts` passed (checks and both integration shards). It is skipped, and counts as passed, only when the
+    # path filter says the PR does not need it; then the parts are skipped too. When `changes` fails, its outputs are
+    # empty, the parts and this job run (fail closed).
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every part passed — checks, integration 1/2 and 2/2
+        env:
+          PARTS: ${{ needs.api-parts.result }}
+        run: |
+          echo "api-parts: $PARTS"
+          test "$PARTS" = "success"
 
   e2e:
     needs: changes

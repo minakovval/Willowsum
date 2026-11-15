@@ -55,10 +55,14 @@ test('pr-checks.yml: heavy jobs depend on `changes` and run unless it says false
   assert.match(wf, /^concurrency:\n {2}group: pr-checks-\$\{\{ github\.event\.pull_request\.number \}\}\n {2}cancel-in-progress: true$/m);
   for (const job of PATH_FILTERED_JOBS) {
     const block = jobBlock(wf, job);
-    assert.match(block, /^ {4}needs: changes$/m, job);
+    assert.match(block, /^ {4}needs: (changes|\[changes(, [\w-]+)+\])$/m, job);
     // !cancelled(): when `changes` fails its outputs are empty, and the job runs (fail closed).
     assert.match(block, new RegExp(`^ {4}if: \\$\\{\\{ !cancelled\\(\\) && needs\\.changes\\.outputs\\.${job.replace('-', '_')} != 'false' \\}\\}$`, 'm'), job);
   }
+  // The parts of `api` (checks and the two integration shards) follow the same filter as `api` itself.
+  const parts = jobBlock(wf, 'api-parts');
+  assert.match(parts, /^ {4}needs: changes$/m);
+  assert.match(parts, /^ {4}if: \$\{\{ !cancelled\(\) && needs\.changes\.outputs\.api != 'false' \}\}$/m);
   for (const job of ['requirements', 'secrets', 'changes']) assert.doesNotMatch(jobBlock(wf, job), /^ {4}(if|needs):/m, job);
   assert.match(jobBlock(wf, 'changes'), /run: node tools\/pr-rules\/index\.mjs changes/);
   assert.match(jobBlock(wf, 'changes'), /^ {4}outputs:\n {6}web: .*\n {6}api: .*\n {6}local_env: .*\n {6}infra: .*\n {6}e2e: /m);
@@ -66,7 +70,7 @@ test('pr-checks.yml: heavy jobs depend on `changes` and run unless it says false
 
 test('pnpm store is cached with a pinned action keyed by the lockfile', () => {
   const wf = read('.github/workflows/pr-checks.yml');
-  for (const job of ['web', 'api']) {
+  for (const job of ['web', 'api-parts']) {
     const block = jobBlock(wf, job);
     assert.match(block, /uses: actions\/cache@[0-9a-f]{40} # v\d+\.\d+\.\d+/, job);
     assert.match(block, /hashFiles\('pnpm-lock\.yaml'\)/, job);
