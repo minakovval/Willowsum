@@ -394,7 +394,8 @@ export async function viewGoals(
   const views: GoalView[] = [];
   for (const g of goals) {
     const currency = g.target.currency;
-    const own = contributions.filter((c) => c.goalId === g.id).sort((a, b) => (a.date < b.date ? 1 : -1));
+    // Newest first, as the store reads them.
+    const own = contributions.filter((c) => c.goalId === g.id);
     const windowStart = paceWindowStart(g.createdOn, today);
     let collected: Money;
     let cameIn: Money;
