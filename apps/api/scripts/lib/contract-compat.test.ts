@@ -324,10 +324,47 @@ describe("ARC-07 FR 3 / criterion «несумісна зміна контрак
       });
 
       it(`${keyword}: a removed request branch fails`, () => {
+        // The removed branch is compared with the closest remaining one, so its `kind` value is reported (#232).
         expect(
           check(withVariants(keyword, [transfer, adjustment]), withVariants(keyword, [transfer])),
-        ).not.toEqual([]);
-        expect(check(withVariants(keyword, refs), withVariants(keyword, [refs[1] as Json]))).not.toEqual([]);
+        ).toEqual([
+          expect.stringMatching(
+            /body application\/json\.settlement\.kind: value "adjustment" no longer accepted$/,
+          ),
+          expect.stringMatching(
+            /body application\/json\.settlement\.toAccountId: new required request field$/,
+          ),
+        ]);
+        expect(check(withVariants(keyword, refs), withVariants(keyword, [refs[1] as Json]))).toEqual([
+          expect.stringMatching(
+            /body application\/json\.settlement\.kind: value "transfer" no longer accepted$/,
+          ),
+          expect.stringMatching(
+            /body application\/json\.settlement\.toAccountId: field removed without a deprecation mark/,
+          ),
+        ]);
+      });
+
+      it(`${keyword}: an incompatible change inside a matched response branch fails (#232)`, () => {
+        const optionalTarget = { ...transfer, required: ["kind"] };
+        expect(
+          check(withVariants(keyword, refs), withVariants(keyword, refs, [optionalTarget, refs[1] as Json])),
+        ).toEqual([
+          expect.stringMatching(
+            /response 200 application\/json\.settlement\.toAccountId: response field no longer always present$/,
+          ),
+        ]);
+        const nullableTarget = {
+          ...transfer,
+          properties: { ...transfer.properties, toAccountId: { type: ["string", "null"], format: "uuid" } },
+        };
+        expect(
+          check(withVariants(keyword, refs), withVariants(keyword, refs, [nullableTarget, refs[1] as Json])),
+        ).toEqual([
+          expect.stringMatching(
+            /response 200 application\/json\.settlement\.toAccountId: may now return type null$/,
+          ),
+        ]);
       });
 
       it(`${keyword}: a new response branch fails; a new optional request branch field passes`, () => {
