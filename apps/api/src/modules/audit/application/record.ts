@@ -25,9 +25,23 @@ export interface PlatformAuditEntry extends NewAuditRow {
   readonly occurredAt: string;
 }
 
+/**
+ * ARC-04 FR 3 (#252 item 2): an entry's key is already the key of another entity's or another action's entry in the
+ * space. Nothing is appended; the message names no key, entity or value.
+ */
+export class AuditKeyConflict extends Error {
+  constructor() {
+    super("The audit key is already used by an entry of another entity or action");
+    this.name = "AuditKeyConflict";
+  }
+}
+
 /** Port: append-only storage of one household's log, and of the platform log. */
 export interface AuditStore {
-  /** With `key` (ARC-04 FR 3), the space's entry of that key if there is one — nothing is appended again. */
+  /**
+   * With `key` (ARC-04 FR 3), the space's entry of that key if there is one — nothing is appended again; that entry of
+   * another entity or action is `AuditKeyConflict`.
+   */
   append(householdId: string, row: NewAuditRow, key?: string | null): Promise<AuditEntry>;
   forEntity(householdId: string, entityType: string, entityId: string): Promise<AuditEntry[]>;
   appendPlatform(row: NewAuditRow): Promise<PlatformAuditEntry>;

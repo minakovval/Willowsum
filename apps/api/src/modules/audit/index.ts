@@ -17,6 +17,7 @@ export const auditModule = defineModule({
 });
 
 export type { AuditEntry, PlatformAuditEntry } from "./application/index.ts";
+export { AuditKeyConflict } from "./application/index.ts";
 export { AUDIT_MASK } from "./domain/index.ts";
 export type { AuditChange, AuditEntryInput, PlatformEntryInput } from "./domain/index.ts";
 

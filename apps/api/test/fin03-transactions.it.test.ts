@@ -731,7 +731,7 @@ describe("FIN-03@PoC «Права доступу»: the Owner works with transac
 });
 
 describe("NFR-12@PoC FR 3: a space's transactions are erased with it", () => {
-  it("NFR-12@PoC FR 3: the erasure deletes every transaction and stored create response of the space; the neighbour keeps its own", async () => {
+  it("NFR-12@PoC FR 3: the erasure deletes every transaction, stored create response and hand-off job of the space; the neighbour keeps its own", async () => {
     const a = await newSpace();
     const b = await newSpace();
     const accountA = await createAccount(a, { name: "Щоденний", amount: "100.00" });
@@ -742,7 +742,7 @@ describe("NFR-12@PoC FR 3: a space's transactions are erased with it", () => {
     const erased = await createTransactionsErasure(db.databases.for("transactions")).eraseHousehold(
       a.householdId,
     );
-    expect(erased).toEqual({ transactions: 2, idempotencyKeys: 1 });
+    expect(erased).toEqual({ transactions: 2, idempotencyKeys: 1, jobs: 2 });
     expect(await rows(a.householdId)).toBe(0);
     expect(await rows(b.householdId)).toBe(1);
   });

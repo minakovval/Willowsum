@@ -196,15 +196,19 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
     const seen = await db.databases.for("transactions").inHousehold(b.householdId, async (q) => ({
       t: (await q.query(`SELECT count(*)::int AS n FROM transactions`)).rows[0]!.n,
       k: (await q.query(`SELECT count(*)::int AS n FROM idempotency_keys`)).rows[0]!.n,
+      j: (await q.query(`SELECT count(*)::int AS n FROM jobs`)).rows[0]!.n,
       sum: (await q.query(`SELECT coalesce(sum(amount), 0)::text AS s FROM transactions`)).rows[0]!.s,
     }));
-    expect(seen).toEqual({ t: 0, k: 0, sum: "0" });
+    expect(seen).toEqual({ t: 0, k: 0, j: 0, sum: "0" });
     const { rows: rls } = await db.owner.query(
       `SELECT c.relname, c.relrowsecurity, c.relforcerowsecurity FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = 'transactions' AND c.relkind = 'r' ORDER BY 1`,
     );
     expect(rls).toEqual([
       { relname: "idempotency_keys", relrowsecurity: true, relforcerowsecurity: true },
+      // The hand-off queue (ARC-04, migrations/0003_queue.sql).
+      { relname: "jobs", relrowsecurity: true, relforcerowsecurity: true },
+      { relname: "outbox_events", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "transactions", relrowsecurity: true, relforcerowsecurity: true },
     ]);
   });
