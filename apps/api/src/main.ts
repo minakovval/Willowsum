@@ -26,7 +26,11 @@ import {
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
-import { createTransactionsServices, createTransferCandidates } from "./modules/transactions/index.ts";
+import {
+  createTransactionCategoryUsage,
+  createTransactionsServices,
+  createTransferCandidates,
+} from "./modules/transactions/index.ts";
 import { createTransferMatchingServices } from "./modules/transfer-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
@@ -235,8 +239,15 @@ const server = buildServer({
             }),
             // DAT-03: bulk actions of the selection panels, with the same targets and actions as the worker's.
             bulkActions: bulkActionsServicesFor(audit),
-            // BUD-01: the category tree of the space; the system tree is written on first use.
-            categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),
+            // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
+            // category is deleted only while empty — every module that keeps category ids answers here (today the
+            // split parts of transactions; categorization, budget and recurring add theirs with their tables).
+            categories: createCategoriesServices({
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
+              usage: [createTransactionCategoryUsage(databases.for("transactions"))],
+            }),
             deployed: config.deployed,
           }),
       }

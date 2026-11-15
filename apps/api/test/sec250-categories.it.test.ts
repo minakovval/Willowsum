@@ -72,7 +72,12 @@ beforeAll(async () => {
         entitlements: "all-enabled",
         flags: fakeFlags(),
         authenticate: testAuthenticate,
-        categories: createCategoriesServices({ audit, clock: { now: () => Date.now() }, newId: randomUUID }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => Date.now() },
+          newId: randomUUID,
+          usage: [],
+        }),
         allowedOrigins: new Set([WEB]),
       }),
   });

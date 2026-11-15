@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; BUD-01 п. 12: категорії частин)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -106,6 +106,8 @@ FIN-03@PoC b) (хвиля 2, рядок 16b — серверна частина)
 - `createTransactionsHandOffRecovery(db, households)` → `{ run() }` — щоденна задача планувальника
   `transactions.hand-off-recovery` (до очищення черги): невдалі (`dead`) задачі передачі повертаються в чергу; подія логу
   `transactions.hand_off_requeued` (WARN), якщо хоч одна повернулася.
+- `createTransactionCategoryUsage(db)` → `CategoryUsage` модуля categories (BUD-01@PoC п. 12): які з даних категорій
+  мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`.

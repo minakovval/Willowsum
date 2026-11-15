@@ -1,24 +1,31 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
-import type { CategoriesAudit, CategoriesDeps } from "../../application/index.ts";
+import type { CategoriesAudit, CategoriesDeps, CategoryUsage } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-categories-services");
 
-/** What the API process wires for the categories routes (src/api.ts → `ctx.services`): the audit log and the clock. */
+/**
+ * What the API process wires for the categories routes (src/api.ts → `ctx.services`): the audit log, the clock and
+ * the modules that keep category ids (FR 12: «порожня»).
+ */
 export interface CategoriesServices {
   readonly [BRAND]: true;
   readonly deps: CategoriesDeps;
+  readonly usage: readonly CategoryUsage[];
 }
 
 export function createCategoriesServices(options: {
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  /** Every module that keeps category ids (FR 12); required, so a wiring cannot forget it. */
+  readonly usage: readonly CategoryUsage[];
 }): CategoriesServices {
   return {
     [BRAND]: true,
     deps: { audit: categoriesAudit(options.audit), newId: options.newId, now: () => options.clock.now() },
+    usage: options.usage,
   };
 }
 
@@ -42,12 +49,13 @@ export function categoriesAudit(audit: Pick<AuditLog, "record">): CategoriesAudi
         channel: actor === "system" ? "system" : "web",
         entity,
         action,
-        changes: Object.keys(after)
-          .filter((field) => before === null || before[field] !== after[field])
+        // A delete (FR 12) lists every field before, each after null.
+        changes: Object.keys(after ?? before ?? {})
+          .filter((field) => before === null || after === null || before[field] !== after[field])
           .map((field) => ({
             field,
             before: before?.[field] ?? null,
-            after: after[field] ?? null,
+            after: after?.[field] ?? null,
             sensitive: false,
           })),
       });
