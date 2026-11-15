@@ -228,6 +228,27 @@ export async function runPart(
   const action = await store.lock(job.actionId);
   if (!action || action.status !== "running" || action.run !== job.run) return;
   if (job.attempt > 1) {
+    // EC2, FR 11, FR 9: a record the failed try already wrote (its outcome rolled back with the part) is «changed» now,
+    // so the run's group entry lists it and «Відмінити» restores it, even when nobody presses «Продовжити».
+    const pending = await store.pending(action.id, Number.POSITIVE_INFINITY);
+    if (pending.length > 0) {
+      const caller: BulkCaller = { householdId, actorId: action.actorId, scoped: false };
+      const current = await targetOf(deps, action).read(
+        caller,
+        pending.map((i) => i.recordId),
+      );
+      for (const item of pending) {
+        const turn = decideTurn(
+          { versionBefore: item.versionBefore ?? 0, after: item.after ?? {} },
+          current.get(item.recordId),
+        );
+        if (turn.kind === "already")
+          await store.setOutcome(action.id, item.position, "changed", {
+            versionAfter: turn.version,
+            run: action.run,
+          });
+      }
+    }
     await store.setStatus(action.id, "interrupted", { endedAt: deps.clock.now() });
     await jobs.audit(action.id, "run", action.run);
     return;

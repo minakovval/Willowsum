@@ -77,4 +77,9 @@ describe("DAT-03@PoC FR 11: a group entry lists its records", () => {
       auditEntryInput.safeParse({ ...base, changes: Array.from({ length: 201 }, () => change()) }).success,
     ).toBe(false);
   });
+  it("DAT-03@PoC FR 11: a group entry holds at most 2 200 changes", () => {
+    const many = (n: number) => Array.from({ length: n }, () => change(record));
+    expect(auditEntryInput.safeParse({ ...base, changes: many(2200) }).success).toBe(true);
+    expect(auditEntryInput.safeParse({ ...base, changes: many(2201) }).success).toBe(false);
+  });
 });

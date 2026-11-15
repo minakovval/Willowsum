@@ -531,6 +531,24 @@ describe("DAT-03@PoC FR 10, AC8: an interrupted action and «Продовжит�
     expect(ids.map((id) => writes.get(id))).toEqual(Array(60).fill(1));
   });
 
+  it("DAT-03@PoC FR 9, FR 11: records written before a failure count as changed even if «Продовжити» is never pressed — the group entry lists them and «Відмінити» restores them", async () => {
+    const space = await newSpace();
+    const ids = seed(space, 60);
+    const r = await start(space, byIds(ids));
+    failAtWrite = 5;
+    await work(space.householdId);
+    await work(space.householdId);
+    expect(await report(space, r.id)).toMatchObject({ status: "interrupted", changed: 4, processed: 4 });
+    await drain(space.householdId);
+    const run = await groupEntries(space, r.id);
+    expect(run).toHaveLength(1);
+    expect(run[0]!.changes.slice(1).map((c) => c.record)).toEqual(ids.slice(0, 4));
+    await call(space, "POST", `/v1/bulk-actions/${r.id}/undo`);
+    await drain(space.householdId);
+    expect(ids.slice(0, 4).map((id) => label(space, id))).toEqual([null, null, null, null]);
+    expect((await report(space, r.id)).undo).toMatchObject({ restored: 4, notRestored: 0 });
+  });
+
   it("ARC-04@PoC FR 4 / DAT-03@PoC FR 10: a dead job of a run goes back to the queue with the daily recovery and the run ends", async () => {
     const space = await newSpace();
     const r = await start(space, byIds(seed(space, 60)));
@@ -552,6 +570,61 @@ describe("DAT-03@PoC FR 10, AC8: an interrupted action and «Продовжит�
     expect(await jobsOf(space.householdId, "dead")).toBe(0);
     await drain(space.householdId);
     expect(await report(space, r.id)).toMatchObject({ status: "completed", changed: 60 });
+  });
+
+  /** Owner rule 2026-11-15: every job of the module has a `dead` test with the daily recovery. */
+  const recoverDead = async (space: Space) => {
+    const tasks = schedulerDailyTasks({
+      databases: db.databases,
+      audit,
+      spaces: { spaceIds: async () => [space.householdId], membershipOf: spaces.membershipOf },
+      now: () => now,
+    });
+    await tasks.find((t) => t.name === "bulk-actions.recovery")!.run();
+  };
+  const killQueued = async (space: Space, name: string) =>
+    Number(
+      (
+        await db.owner.query(
+          `UPDATE bulk_actions.jobs SET state = 'dead', attempts = 8
+            WHERE household_id = $1 AND name = $2 AND state = 'queued'`,
+          [space.householdId, name],
+        )
+      ).rowCount,
+    );
+
+  it("ARC-04@PoC FR 4 / DAT-03@PoC FR 11: a dead bulk-actions.audit job goes back to the queue with the daily recovery and the group entry is written", async () => {
+    const space = await newSpace();
+    const r = await start(space, byIds(seed(space, 60)));
+    for (let i = 0; i < 10 && (await report(space, r.id)).status === "running"; i++)
+      await work(space.householdId);
+    expect(await killQueued(space, "bulk-actions.audit")).toBe(1);
+    await drain(space.householdId);
+    expect(await groupEntries(space, r.id)).toHaveLength(0);
+    expect(await jobsOf(space.householdId, "dead")).toBe(1);
+    await recoverDead(space);
+    expect(await jobsOf(space.householdId, "dead")).toBe(0);
+    await drain(space.householdId);
+    expect(await groupEntries(space, r.id)).toHaveLength(1);
+  });
+
+  it("ARC-04@PoC FR 4 / DAT-03@PoC FR 9: a dead bulk-actions.undo job (the fallback of the route's own run) goes back to the queue with the daily recovery and writes nothing twice", async () => {
+    const space = await newSpace();
+    const ids = seed(space, 60);
+    const r = await start(space, byIds(ids));
+    await drain(space.householdId);
+    await call(space, "POST", `/v1/bulk-actions/${r.id}/undo`);
+    expect(await killQueued(space, "bulk-actions.undo")).toBe(1);
+    await drain(space.householdId);
+    expect(await jobsOf(space.householdId, "dead")).toBe(1);
+    await recoverDead(space);
+    expect(await jobsOf(space.householdId, "dead")).toBe(0);
+    await drain(space.householdId);
+    expect(await jobsOf(space.householdId, "queued")).toBe(0);
+    expect(ids.every((id) => label(space, id) === null)).toBe(true);
+    expect(ids.map((id) => writes.get(id))).toEqual(Array(60).fill(2));
+    expect((await report(space, r.id)).undo).toMatchObject({ restored: 60, notRestored: 0 });
+    expect(await groupEntries(space, r.id)).toHaveLength(2);
   });
 });
 
