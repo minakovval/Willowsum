@@ -110,6 +110,18 @@ export const PROBLEMS = {
   CATEGORY_KINDS_DIFFER: { status: 409, title: "Categories of different types cannot be merged" },
   /** BUD-01@PoC FR 3: «Переказ» and «Коригування» are never hidden or merged; nothing was written. */
   CATEGORY_SERVICE_FIXED: { status: 409, title: "A service category cannot be hidden or merged" },
+  /**
+   * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
+   * written.
+   */
+  BULK_ACTION_RUNNING: { status: 409, title: "Another bulk action is still running" },
+  /**
+   * DAT-03@PoC FR 8, AC4: «Відмінити» is not available — the 24 hours after the end are over, the action was undone
+   * already or is still running; nothing was written.
+   */
+  BULK_UNDO_UNAVAILABLE: { status: 409, title: "This bulk action can no longer be undone" },
+  /** DAT-03@PoC FR 10: «Продовжити» only for an interrupted bulk action; nothing was written. */
+  BULK_ACTION_NOT_INTERRUPTED: { status: 409, title: "This bulk action is not interrupted" },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

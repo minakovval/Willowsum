@@ -10,6 +10,12 @@ import {
   createAccountsWorkerQueue,
 } from "./modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "./modules/audit/index.ts";
+import {
+  createBulkActionsRecovery,
+  createBulkActionsServices,
+  createBulkActionsWorkerQueue,
+  type BulkActionsServices,
+} from "./modules/bulk-actions/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
@@ -35,6 +41,21 @@ import {
 } from "./platform/queue/index.ts";
 import type { ReadinessCheck } from "./platform/process/server.ts";
 import { logEvent } from "./platform/telemetry/signals.ts";
+import { systemClock } from "./platform/adapters/index.ts";
+import { randomUUID } from "node:crypto";
+
+/**
+ * The bulk actions of the selection panels (DAT-03@PoC FR 2), the same for the API (main.ts) and the worker: each
+ * entity's target and each action come from the module that owns the records, through its public interface. None is
+ * on `main` yet: «Змінити категорію» and «Підтвердити категорії» come with the transaction's category (BUD-01 b,
+ * BUD-12 a; wave 2 rows 20, 24), «Додати теги» with the tags (BUD-13 a, row 21) — until then every action is unknown.
+ */
+export function bulkActionsServicesFor(
+  audit: Pick<AuditLog, "record">,
+  clock: { now(): number } = systemClock,
+): BulkActionsServices {
+  return createBulkActionsServices({ targets: [], actions: [], audit, clock, newId: randomUUID });
+}
 
 /**
  * The flag runtime's reload health as log events (ARC-09): `flags.reload_failed` (ERROR, the error class only)
@@ -129,6 +150,9 @@ export function schedulerDailyTasks(deps: {
   const transactionsRecovery = createTransactionsHandOffRecovery(deps.databases.for("transactions"), () =>
     deps.spaces.spaceIds(),
   );
+  const bulkActionsRecovery = createBulkActionsRecovery(deps.databases.for("bulk-actions"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -147,6 +171,15 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await transactionsRecovery.run();
         if (requeued > 0) logEvent("transactions.hand_off_requeued", "warn", { "ws.module": "transactions" });
+      },
+    },
+    // The same for the bulk-actions queue (ARC-04 FR 4; DAT-03 FR 6, FR 9, FR 11): a part of a run, an undo, a group
+    // audit entry. A part tried again from its first attempt goes on where the run stopped.
+    {
+      name: "bulk-actions.recovery",
+      run: async () => {
+        const requeued = await bulkActionsRecovery.run();
+        if (requeued > 0) logEvent("bulk_actions.jobs_requeued", "warn", { "ws.module": "bulk-actions" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -209,6 +242,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         ledger,
         audit,
       }),
+      // DAT-03: the parts of background bulk actions, undos and their group audit entries (ARC-04).
+      createBulkActionsWorkerQueue(databases.for("bulk-actions"), bulkActionsServicesFor(audit)),
     ],
     subscriptions: [],
   };

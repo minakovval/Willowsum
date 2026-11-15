@@ -111,6 +111,13 @@ export const FLAGS = {
     description:
       "Дерево категорій простору (BUD-01@PoC a): системне дерево, власні групи й категорії, перейменування, приховування, об'єднання; маршрути /v1/categories, /v1/category-groups",
   },
+  "data.bulk_actions": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Масові дії (DAT-03@PoC a): підсумок, до 500 записів, фонове виконання, «Відмінити» 24 год; маршрути /v1/bulk-actions",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

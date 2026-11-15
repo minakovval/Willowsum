@@ -10,6 +10,8 @@ export const AUDIT_MASK = "•••";
 
 const uuid = z.uuid();
 const value = z.string().max(1000).nullable();
+/** Changes of one group entry: 500 records × 4 fields, and the entry's own fields. */
+export const GROUP_CHANGES_MAX = 2200;
 
 export const auditEntryInput = z
   .object({
@@ -24,6 +26,11 @@ export const auditEntryInput = z
       .array(
         z
           .object({
+            /**
+             * A group entry (DAT-03 FR 11: a bulk action, an import): the record of the entity's list this change
+             * belongs to. Absent for a change of the entry's own entity.
+             */
+            record: uuid.optional(),
             field: z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.]{0,62}$/),
             before: value,
             after: value,
@@ -31,7 +38,11 @@ export const auditEntryInput = z
           })
           .strict(),
       )
-      .max(200),
+      // A group entry lists up to 500 records (NFR-15 FR 17) with up to 4 fields each; at most 200 of its own fields.
+      .max(GROUP_CHANGES_MAX)
+      .refine((changes) => changes.filter((c) => c.record === undefined).length <= 200, {
+        message: "at most 200 changes of the entry's own entity",
+      }),
     /**
      * ARC-04 FR 3: the entry is appended once per key in the space — a hand-off that runs again (a job's retry)
      * appends nothing more. A code (`<module>.<what>:<id>`), never free text.
@@ -61,6 +72,8 @@ export type AuditChange = AuditEntryInput["changes"][number];
 
 /** What is stored for one changed field. */
 export interface StoredChange {
+  /** The record of a group entry the change belongs to (absent for the entry's own entity). */
+  readonly record?: string;
   readonly field: string;
   readonly before: string | null;
   readonly after: string | null;
@@ -69,6 +82,7 @@ export interface StoredChange {
 
 export function maskChanges(changes: readonly AuditChange[]): StoredChange[] {
   return changes.map((c) => ({
+    ...(c.record !== undefined ? { record: c.record } : {}),
     field: c.field,
     before: c.sensitive && c.before !== null ? AUDIT_MASK : c.before,
     after: c.sensitive && c.after !== null ? AUDIT_MASK : c.after,

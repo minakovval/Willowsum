@@ -104,6 +104,7 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
     ).toEqual(["erasure-request", "erasure-sweep"]);
     // FIN-01, FIN-03: the space's transactions, accounts and liabilities are erased as their own recorded steps.
     for (const type of [
+      "bulk-actions.records",
       "transactions.records",
       "categories.records",
       "accounts.records",

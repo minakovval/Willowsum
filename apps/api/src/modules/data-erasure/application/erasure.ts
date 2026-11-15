@@ -24,6 +24,7 @@ export interface ErasureDeps {
   };
   readonly accounts: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly transactions: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly bulkActions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly categories: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -36,6 +37,7 @@ export interface ErasureDeps {
     spaceStep(
       householdId: string,
       step:
+        | "bulk-actions.records"
         | "transactions.records"
         | "categories.records"
         | "accounts.records"
@@ -101,6 +103,9 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
   await deps.identity.eraseAccount(request.accountId);
   for (const householdId of request.householdIds) {
     // Each deletion is recorded in the platform log first: a run that stops part-way still shows what went.
+    // Bulk actions (DAT-03): the values before and after of the records they changed, before those records go.
+    await deps.platformAudit.spaceStep(householdId, "bulk-actions.records");
+    await deps.bulkActions.eraseHousehold(householdId);
     // Transactions (FIN-03), accounts and liabilities (FIN-01), then the journal they posted to.
     await deps.platformAudit.spaceStep(householdId, "transactions.records");
     await deps.transactions.eraseHousehold(householdId);
