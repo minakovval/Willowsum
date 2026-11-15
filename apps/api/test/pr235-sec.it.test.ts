@@ -205,6 +205,8 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
         WHERE n.nspname = 'transactions' AND c.relkind = 'r' ORDER BY 1`,
     );
     expect(rls).toEqual([
+      // «Не дубль» pairs (FIN-03 b, migrations/0006_duplicates.sql).
+      { relname: "duplicate_dismissals", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "idempotency_keys", relrowsecurity: true, relforcerowsecurity: true },
       // The hand-off queue (ARC-04, migrations/0003_queue.sql).
       { relname: "jobs", relrowsecurity: true, relforcerowsecurity: true },

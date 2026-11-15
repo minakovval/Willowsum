@@ -53,7 +53,7 @@
     },
     "duplicate-matching": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["transactions"]
     },
     "feature-flags": {
       "layer": "platform",

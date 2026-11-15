@@ -60,6 +60,10 @@ export const HAND_OFF_ACTIONS = [
   "show",
   "transfer",
   "untransfer",
+  // FIN-03 FR 11, FR 12, edge case 4 (application/duplicates.ts): «Об'єднати», «Роз'єднати» and «Не дубль».
+  "merge",
+  "unmerge",
+  "not-duplicate",
 ] as const;
 
 /** The job's key (the queue's `dedupe_key`): one hand-off per change of a transaction. */
@@ -125,6 +129,8 @@ function fieldsOf(t: StoredTransaction | null): Map<string, string | null> {
     else fields.set(field, t[field]);
   }
   if (t?.hidden) fields.set("hidden", "true");
+  // FIN-03 FR 11: the transaction a duplicate was merged into.
+  if (t?.mergedInto) fields.set("mergedInto", t.mergedInto);
   // FIN-03 FR 7: the side and the other transaction of its transfer, and the rate kept in two currencies.
   if (t?.transfer) {
     const outflow = t.transfer.outflowId === t.id;
@@ -193,8 +199,8 @@ interface OwnEvent {
 }
 
 /**
- * What the journal should hold for the row (FIN-03 FR 4, FR 7, FR 8, edge case 1): no row, «Очікує» or the inflow of a
- * transfer — no own event; the outflow of a transfer — its fee in one currency (else none) and the transfer event, both
+ * What the journal should hold for the row (FIN-03 FR 4, FR 7, FR 8, FR 11, edge case 1): no row, «Очікує», a duplicate
+ * merged into another (the operation counts once) or the inflow of a transfer — no own event; the outflow of a transfer — its fee in one currency (else none) and the transfer event, both
  * dated by the transfer's earlier side; any other posted row — its amount on its date.
  */
 async function desiredJournal(
@@ -210,7 +216,8 @@ async function desiredJournal(
     readonly date: string;
   } | null;
 }> {
-  if (row === null || row.status === "pending") return { own: null, transfer: null };
+  if (row === null || row.status === "pending" || row.mergedInto !== null)
+    return { own: null, transfer: null };
   if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
   const inflow = await find(row.transfer.inflowId);

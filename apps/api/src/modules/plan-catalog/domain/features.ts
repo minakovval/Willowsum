@@ -17,6 +17,8 @@ export const FEATURES = {
   "transactions.states": "Стан транзакції «Очікує» і приховані транзакції (FIN-03@PoC)",
   "transactions.transfers":
     "Перекази між власними рахунками: пропозиції пар, позначка переказу, комісія і валютна різниця (FIN-03@PoC)",
+  "transactions.duplicates":
+    "Дублі транзакцій: «Можливий дубль», «Об'єднати», «Роз'єднати» і «Не дубль» (FIN-03@PoC)",
   "transactions.attributes":
     "Атрибути транзакцій: розділення за категоріями і на кілька місяців (BUD-13@PoC, FIN-03@PoC)",
   "categories.tree":

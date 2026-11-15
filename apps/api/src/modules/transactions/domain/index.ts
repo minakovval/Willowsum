@@ -3,3 +3,4 @@
 export * from "./transactions.ts";
 export * from "./splits.ts";
 export * from "./transfers.ts";
+export * from "./duplicates.ts";

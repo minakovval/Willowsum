@@ -1,2 +1,7 @@
 // Adapters of duplicate-matching: database (ModuleDatabase, schema «duplicate_matching»), HTTP, external services.
-export {};
+export {
+  createDuplicateCheck,
+  createDuplicateMatchingServices,
+  duplicateMatchingRoutes,
+  type DuplicateMatchingServices,
+} from "./http/index.ts";

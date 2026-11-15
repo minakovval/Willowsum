@@ -20,6 +20,11 @@ export interface StoredTransaction {
   readonly split: Split | null;
   /** FIN-03 FR 7: the transfer between own accounts it is a side of; null — none (domain/transfers.ts). */
   readonly transfer: TransferLink | null;
+  /**
+   * FIN-03 FR 11, FR 12: the transaction this one was merged into as its duplicate («Об'єднати»): hidden, without its own
+   * journal event until «Роз'єднати»; null — not merged.
+   */
+  readonly mergedInto: string | null;
   readonly version: number;
   /** ISO 8601 UTC; set by the database. */
   readonly createdAt: string;

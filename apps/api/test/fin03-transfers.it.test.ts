@@ -16,6 +16,7 @@ import { createFxRates, createFxReporting, officialDatedRates } from "../src/mod
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import { createTransactionsServices, createTransferCandidates } from "../src/modules/transactions/index.ts";
+import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 import { createTransferMatchingServices } from "../src/modules/transfer-matching/index.ts";
 
 /**
@@ -215,6 +216,7 @@ beforeAll(async () => {
           }),
           flags: { isEnabled },
           rates: (requests) => fx.rates(requests),
+          duplicates: createDuplicateCheck(),
         }),
         transferMatching: createTransferMatchingServices({
           candidates: createTransferCandidates(db.databases.for("transactions")),
@@ -291,6 +293,14 @@ describe("FIN-03@PoC FR 5, FR 6: «Пари · N» — the system proposes, the 
     await add(space, a, "300.00", "2026-10-10"); // one account
     const hidden = await add(space, a, "-400.00", "2026-10-12");
     await add(space, b, "400.00", "2026-10-12");
+    // FR 18: only a duplicate is hidden — its copy here is «Очікує», so no side of a proposal itself.
+    const copy = await call(space, "POST", "/v1/transactions", {
+      accountId: a,
+      amount: { amount: "-400.00", currency: "EUR" },
+      date: "2026-10-12",
+      status: "pending",
+    });
+    expect(copy.statusCode, copy.body).toBe(201);
     expect((await call(space, "POST", `/v1/transactions/${hidden.id}/hide`)).statusCode).toBe(200);
     const pending = await call(space, "POST", "/v1/transactions", {
       accountId: a,
@@ -502,8 +512,9 @@ describe("FIN-03@PoC FR 18: a transfer between own accounts is never hidden or s
   });
 
   it("FIN-03@PoC FR 18: a hidden or split transaction cannot be marked as a transfer", async () => {
-    const { space, out, into } = await ac2();
-    await call(space, "POST", `/v1/transactions/${into.id}/hide`);
+    const { space, b, out, into } = await ac2();
+    await add(space, b, "498.00", "2026-10-15"); // FR 18: a duplicate, so it may be hidden
+    expect((await call(space, "POST", `/v1/transactions/${into.id}/hide`)).statusCode).toBe(200);
     const res = await mark(space, out.id, into.id);
     expect(res.statusCode).toBe(400);
     expect(res.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "hidden" }]);
