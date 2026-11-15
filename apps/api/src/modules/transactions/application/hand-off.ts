@@ -30,7 +30,8 @@ export interface TransactionHandOff {
   readonly actorAccountId: string;
   /**
    * `split` — «Розділити» or «Об'єднати назад» (BUD-13 FR 6, FR 8); `hide` / `show` — «Приховати транзакцію» and
-   * showing it again (FIN-03 FR 16). Neither changes the journal: the hand-off finds it matching the row already.
+   * showing it again (FIN-03 FR 16, FR 17): a hidden manual transaction (a duplicate) leaves the journal, shown again it
+   * is posted; a split does not change the journal.
    */
   readonly action: (typeof HAND_OFF_ACTIONS)[number];
   /** The row's version after the change (a delete: the version deleted); makes each change its own job and entry. */
@@ -216,7 +217,14 @@ async function desiredJournal(
     readonly date: string;
   } | null;
 }> {
-  if (row === null || row.status === "pending" || row.mergedInto !== null)
+  // FIN-03 FR 17 (owner, 2026-11-15, #281 item 1): a manual transaction hidden as a duplicate leaves the balance as a
+  // merged one does, and comes back when shown; an imported one (bank data) keeps its event so the balance matches the bank.
+  if (
+    row === null ||
+    row.status === "pending" ||
+    row.mergedInto !== null ||
+    (row.hidden && row.source === "manual")
+  )
     return { own: null, transfer: null };
   if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
