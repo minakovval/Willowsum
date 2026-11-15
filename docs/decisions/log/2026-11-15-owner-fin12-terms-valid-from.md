@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-15 · **Оновлено:** 2026-11-15
 
-Джерело: [#289](https://github.com/minakovval/Willowsum/issues/289#issuecomment-6900296893); контекст — злитий PR #288
+Джерело: [#289](https://github.com/minakovval/Willowsum/issues/289#issuecomment-6900296893), [рішення про реліз MVP](https://github.com/minakovval/Willowsum/issues/289#issuecomment-6900501715); контекст — злитий PR #288
 (FIN-12 AC10: нові значення ставки й платежу діють з дати зміни).
 
 - Рішення власника (2026-11-15): схвалено — у «Реквізитах» кредиту і картки буде необов'язкова дата «Діє з» для нових
