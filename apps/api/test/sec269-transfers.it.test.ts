@@ -393,6 +393,34 @@ describe("PR #269 security probes", () => {
     expect(await externalFlow(space.householdId)).toEqual({});
   });
 
+  it("SEC-269 M14 (#294 item 2): the inflow marked with another outflow between the first read and the locked recheck — 400, nothing of the first pair written", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "2000.00");
+    const u = await createAccount(space, "0.00", "UAH");
+    const u2 = await createAccount(space, "50000.00", "UAH");
+    const out = await add(space, a, "-1000.00", "2026-10-14");
+    const into = await add(space, u, "42900.00", "2026-10-15", "UAH");
+    const other = await add(space, u2, "-42900.00", "2026-10-15", "UAH");
+    let inner: { statusCode: number; body: string } | undefined;
+    beforeRate = async () => {
+      inner = await mark(space, other.id, into.id);
+    };
+    const res = await mark(space, out.id, into.id);
+    expect(inner?.statusCode, inner?.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(400);
+    expect((await get(space, into.id)).transfer?.counterpartId).toBe(other.id);
+    expect((await get(space, out.id)).transfer).toBeNull();
+    const pairs = await db.owner.query(
+      `SELECT count(*)::int AS n FROM transactions.transfers WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(pairs.rows[0].n).toBe(1);
+    expect((await liveEntries(space.householdId)).map((e) => e[0]).sort()).toEqual([
+      "transaction",
+      "transfer",
+    ]);
+  });
+
   it("SEC-269 privacy: the hand-off job payloads carry ids and masked values only, never the counterparty", async () => {
     const { space, out, into } = await ac2();
     await mark(space, out.id, into.id);
