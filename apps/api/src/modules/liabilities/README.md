@@ -50,7 +50,7 @@ FIN-01@PoC п. 2, 3 (поля кредиту й картки), 5 (обов'яз�
   - `termsHistory(householdId, accountId)` → періоди `{ validFrom, terms }` (`validFrom` null — від реєстрації; за
     датою, потім у порядку запису; останній діє зараз) або null; `termsOn(householdId, accountId, date)` → умови,
     що діяли на дату, або null.
-- `createLiabilities(db, audit, clock?)` — `clock` датує в історії умови після зміни типу (UTC; типово годинник процесу).
+- `createLiabilities(db, audit, clock?)` — `clock` датує в історії умови після зміни типу (київська дата; типово годинник процесу).
 - `createLiabilitiesWorkerQueue(db, audit)` → `WorkerQueue` — черга модуля для воркера (`src/wiring.ts`, `workerQueues`);
   `createLiabilitiesHandOffRecovery(db, households)` → `run()` — щоденне повернення в чергу задач `dead`
   (`liabilities.hand-off-recovery`, до очищення черги; WARN `liabilities.hand_off_requeued`); `HAND_OFF_JOB`.

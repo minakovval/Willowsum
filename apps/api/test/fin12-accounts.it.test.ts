@@ -775,7 +775,7 @@ describe("FIN-12@PoC FR 15 (#228): the statement's end is a date from the accoun
       balance: { amount: "1040.00", currency: "EUR" },
     });
     const before = await entries(space.householdId);
-    for (const statementEnd of ["2026-10-18", "2024-09-30", "2026-13-40", "yesterday"])
+    for (const statementEnd of ["2026-10-18", "2024-09-30", "2026-13-40", "2026-02-30", "yesterday"])
       expect(
         await statements.reconcile(space.householdId, {
           accountId: acc.id,

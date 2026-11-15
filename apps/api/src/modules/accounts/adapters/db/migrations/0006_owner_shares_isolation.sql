@@ -1,13 +1,15 @@
--- Owners' shares trigger: refuse the check under REPEATABLE READ (follow-up of #216 security review, item 1; #219).
+-- Owners' shares trigger: the check runs only under READ COMMITTED (follow-up of #216 security review, item 1; #219).
 -- Under REPEATABLE READ the check reads the transaction's snapshot, so the lock of 0003 serialises the writers but the
--- second one still does not see the first one's committed row (two 60 % rows both commit). READ COMMITTED (the default,
--- set nowhere in the code) and SERIALIZABLE are safe; REPEATABLE READ fails with the retryable 40001.
+-- second one still does not see the first one's committed row (two 60 % rows both commit). SERIALIZABLE has the same
+-- snapshot and is safe only when every writer is SERIALIZABLE: SSI does not track a READ COMMITTED writer, so a READ
+-- COMMITTED 60 % row and a SERIALIZABLE 60 % row both commit (PR #299 security review). READ COMMITTED (the default,
+-- the only level the code uses) is the only level allowed; any other fails with the retryable 40001.
 CREATE OR REPLACE FUNCTION account_owner_shares_at_most_100() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   exceeded boolean;
 BEGIN
-  IF pg_catalog.current_setting('transaction_isolation') = 'repeatable read' THEN
-    RAISE EXCEPTION 'the owners'' shares are checked under READ COMMITTED or SERIALIZABLE, not REPEATABLE READ' USING ERRCODE = '40001';
+  IF pg_catalog.current_setting('transaction_isolation') OPERATOR(pg_catalog.<>) 'read committed' THEN
+    RAISE EXCEPTION 'the owners'' shares are checked under READ COMMITTED only' USING ERRCODE = '40001';
   END IF;
   -- One check at a time per account: two transactions that each see only their own row (the check runs before the
   -- other commits) would both pass, 60 % + 60 %. The lock is held to the end of the transaction, so the second check

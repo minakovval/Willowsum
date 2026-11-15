@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
@@ -320,7 +321,7 @@ describe("sec207: the owners' shares stay at most 100 % on every date against di
     expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
   });
 
-  it("sec207 follow-up (#219): the check is refused under REPEATABLE READ (a stale snapshot would let two 60 % rows commit), allowed under READ COMMITTED and SERIALIZABLE", async () => {
+  it("sec207 follow-up (#219): the check is refused under REPEATABLE READ and SERIALIZABLE (a stale snapshot would let two 60 % rows commit), allowed under READ COMMITTED", async () => {
     const { space, accountId } = await accountWithOwner();
     const insert = async (level: string, valid: string) => {
       await db.owner.query(`BEGIN ISOLATION LEVEL ${level}`);
@@ -338,13 +339,48 @@ describe("sec207: the owners' shares stay at most 100 % on every date against di
       }
     };
     await expect(insert("REPEATABLE READ", "2020-01-01")).rejects.toMatchObject({ code: "40001" });
+    await expect(insert("SERIALIZABLE", "2020-03-01")).rejects.toMatchObject({ code: "40001" });
     await insert("READ COMMITTED", "2020-02-01");
-    await insert("SERIALIZABLE", "2020-03-01");
     const { rows } = await db.owner.query(
       `SELECT count(*)::int AS n FROM accounts.account_owners WHERE household_id = $1 AND account_id = $2`,
       [space.householdId, accountId],
     );
-    expect((rows[0] as { n: number }).n).toBe(3);
+    expect((rows[0] as { n: number }).n).toBe(2);
+  });
+  it("sec299 (#219): a READ COMMITTED 60 % row and a SERIALIZABLE 60 % row cannot both commit (SSI does not track the READ COMMITTED writer)", async () => {
+    const { space, accountId } = await accountWithOwner();
+    await db.owner.query(
+      `UPDATE accounts.account_owners SET valid_to = '2026-12-31' WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, accountId],
+    );
+    const rc = new pg.Client({ connectionString: db.url });
+    const ser = new pg.Client({ connectionString: db.url });
+    await rc.connect();
+    await ser.connect();
+    const insert = `INSERT INTO accounts.account_owners (household_id, account_id, owner_account_id, share, valid_from)
+                    VALUES ($1, $2, $3, 60, '2027-01-01')`;
+    try {
+      await ser.query(`BEGIN ISOLATION LEVEL SERIALIZABLE`);
+      await ser.query(`SELECT count(*) FROM accounts.account_owners`); // the SERIALIZABLE snapshot
+      await rc.query(`BEGIN ISOLATION LEVEL READ COMMITTED`);
+      await rc.query(insert, [space.householdId, accountId, randomUUID()]);
+      await rc.query(`COMMIT`);
+      try {
+        await ser.query(insert, [space.householdId, accountId, randomUUID()]);
+        await ser.query(`COMMIT`);
+      } catch {
+        await ser.query(`ROLLBACK`).catch(() => {});
+      }
+    } finally {
+      await rc.end();
+      await ser.end();
+    }
+    const { rows } = await db.owner.query(
+      `SELECT coalesce(sum(share), 0)::text AS total FROM accounts.account_owners
+        WHERE household_id = $1 AND account_id = $2 AND valid_from = '2027-01-01'`,
+      [space.householdId, accountId],
+    );
+    expect(Number((rows[0] as { total: string }).total)).toBeLessThanOrEqual(100);
   });
 });
 

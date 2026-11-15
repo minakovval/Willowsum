@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { isCalendarDate, Money } from "@willowsum/domain-kernel";
 import {
   balanceUpdatePlan,
   closingDateIssue,
@@ -444,7 +444,7 @@ export async function reconcileStatement(
   if (refused(account)) return done(account.kind === "closed" ? { kind: "closed" } : { kind: "not-found" });
   // The caller passes the space of its principal after its own check of rights; the date is checked here (#228).
   if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(input.statementEnd) ||
+    !isCalendarDate(input.statementEnd) ||
     input.statementEnd > deps.today() ||
     input.statementEnd < account.openedOn
   )
