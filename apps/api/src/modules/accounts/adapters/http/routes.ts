@@ -1,10 +1,12 @@
-import type { Money } from "@willowsum/domain-kernel";
+import { Money } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
+  addCurrency,
+  removeCurrency,
   accountsPage,
   accountsSummary,
   accountView,
@@ -27,6 +29,7 @@ import {
   type ConvertedAmount,
   type ReportedSum,
   type HandOff,
+  type CurrencyRefusal,
 } from "../../application/index.ts";
 import {
   ACCOUNT_KINDS,
@@ -846,6 +849,102 @@ export const updateAccountDetailsRoute = defineRoute({
   },
 });
 
+/** A refusal of adding or removing a currency as the API answers it; nothing was written for any of them. */
+function currencyRefusal(r: CurrencyRefusal): ApiProblem {
+  switch (r.kind) {
+    case "duplicate":
+      return new ApiProblem("ACCOUNT_DUPLICATE");
+    case "main-currency":
+      return new ApiProblem("ACCOUNT_MAIN_CURRENCY");
+    case "has-transactions":
+      return new ApiProblem("ACCOUNT_CURRENCY_HAS_TRANSACTIONS");
+    default:
+      return refusal(r);
+  }
+}
+
+export const addAccountCurrencyRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/accounts/{accountId}/currencies",
+  operationId: "addAccountCurrency",
+  summary:
+    "«+ додати ще валюту» in «Основне»: a currency (wallet) of a current account with its opening balance and date (IMP-02 FR 15)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 4 * 1024,
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_DUPLICATE"],
+  request: {
+    params: accountParams,
+    body: z
+      .object({
+        /** «Валюта» and «Залишок» — the opening balance, at most the currency's minor units. */
+        balance: z.object({ amount: typedAmount, currency }).strict(),
+        /** «На дату»: not before the account's opening, not after today. */
+        balanceDate: isoDate,
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account with the currency added", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      addCurrency(deps, accountsTx(q), caller, params.accountId, {
+        currency: body.balance.currency,
+        amount: body.balance.amount,
+        date: body.balanceDate,
+      }),
+    );
+    if (result.kind !== "added") throw currencyRefusal(result);
+    // The ledger account, the opening balance and the audit entry, after the commit (ARC-04 FR 2); the worker
+    // finishes them if this fails, and the account answers meanwhile with the new currency at 0.
+    const done = await handOffNow(ctx, deps, result.handOff);
+    const added = result.handOff.kind === "currency-changed" ? result.handOff.added : null;
+    // Until the hand-off is done the new wallet has no ledger account: it answers as a ledger without it would, 0.
+    const answering =
+      done || !added
+        ? deps
+        : {
+            ...deps,
+            ledger: {
+              ...deps.ledger,
+              balanceAt: (householdId: string, ledgerAccountId: string, date: string) =>
+                ledgerAccountId === added.ledgerAccountId
+                  ? Promise.resolve(Money.zero(added.currency))
+                  : deps.ledger.balanceAt(householdId, ledgerAccountId, date),
+            },
+          };
+    return ctx.inHousehold((q) =>
+      presentAccount(answering, accountsTx(q), caller.householdId, params.accountId),
+    );
+  },
+});
+
+export const removeAccountCurrencyRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/accounts/{accountId}/currencies/{currency}",
+  operationId: "removeAccountCurrency",
+  summary:
+    "Removes a currency (wallet) without transactions from an account; the main currency and one with transactions stay (IMP-02 FR 15)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_MAIN_CURRENCY", "ACCOUNT_CURRENCY_HAS_TRANSACTIONS"],
+  request: { params: z.object({ accountId: z.uuid(), currency }) },
+  response: { status: 200, description: "The account without the currency", schema: accountSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      removeCurrency(deps, accountsTx(q), caller, params.accountId, params.currency),
+    );
+    if (result.kind !== "removed") throw currencyRefusal(result);
+    await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
+  },
+});
+
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
@@ -859,4 +958,6 @@ export const accountsRoutes = [
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
   updateAccountDetailsRoute,
+  addAccountCurrencyRoute,
+  removeAccountCurrencyRoute,
 ];

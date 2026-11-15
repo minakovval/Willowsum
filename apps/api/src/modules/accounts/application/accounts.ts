@@ -113,6 +113,8 @@ export interface AccountsTx {
   ): Promise<DuplicateCandidate[]>;
   insertAccount(householdId: string, account: StoredAccount): Promise<void>;
   insertSubaccount(householdId: string, subaccount: StoredSubaccount): Promise<void>;
+  /** A currency removed from its account (IMP-02 FR 15): its subaccount row; the ledger keeps its account. */
+  deleteSubaccount(householdId: string, subaccountId: string): Promise<void>;
   insertOwner(householdId: string, accountId: string, owner: StoredOwner): Promise<void>;
   /**
    * ARC-04 FR 2: the hand-off of this change to the other modules, enqueued in this transaction (the accounts queue,
@@ -124,6 +126,11 @@ export interface AccountsTx {
    * item 3), oldest first: their journal moves are finished before a later change of the account's money is planned.
    */
   pendingManaged(householdId: string, accountId: string): Promise<ManagedHandOff[]>;
+  /**
+   * The subaccounts whose ledger accounts and opening balances the account's hand-offs not done yet open (its create,
+   * an added currency), per hand-off, oldest first: a removal of a currency finishes its wallet's first.
+   */
+  pendingOpenings(householdId: string, accountId: string): Promise<(readonly HandOffSubaccount[])[]>;
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;
   subaccounts(householdId: string, accountId: string): Promise<StoredSubaccount[]>;
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;

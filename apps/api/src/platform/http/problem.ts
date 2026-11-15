@@ -104,6 +104,13 @@ export const PROBLEMS = {
    * FIN-12@PoC FR 5, AC11: «Кредит» ↔ «Кредитна картка» only for an account without transactions; nothing was written.
    */
   ACCOUNT_HAS_TRANSACTIONS: { status: 409, title: "The account has transactions; its kind cannot change" },
+  /** IMP-02@PoC FR 15: the account's main currency (its own) stays; nothing was written. */
+  ACCOUNT_MAIN_CURRENCY: { status: 409, title: "The account's main currency cannot be removed" },
+  /** IMP-02@PoC FR 15, AC14: a currency whose wallet has transactions cannot be removed; nothing was written. */
+  ACCOUNT_CURRENCY_HAS_TRANSACTIONS: {
+    status: 409,
+    title: "The currency has transactions on this account; it cannot be removed",
+  },
   /** «Така назва вже існує» (BUD-01@PoC FR 2): a category or group of the space has the name (any case); nothing written. */
   CATEGORY_NAME_TAKEN: { status: 409, title: "A category with this name already exists" },
   /** «Категорії різних типів не можна об'єднати» (BUD-01@PoC FR 8, AC6); nothing was written. */

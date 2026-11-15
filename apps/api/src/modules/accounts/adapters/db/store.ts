@@ -1,12 +1,13 @@
 import { Decimal } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
-import type {
-  AccountsListTx,
-  AccountsTx,
-  DuplicateCandidate,
-  StoredAccount,
-  StoredOwner,
-  StoredSubaccount,
+import {
+  openedSubaccounts,
+  type AccountsListTx,
+  type AccountsTx,
+  type DuplicateCandidate,
+  type StoredAccount,
+  type StoredOwner,
+  type StoredSubaccount,
 } from "../../application/index.ts";
 import { enqueueHandOff, HAND_OFF_JOB, handOffOf } from "../queue/job.ts";
 
@@ -150,6 +151,12 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
         [householdId, s.id, s.accountId, s.currency, s.position, s.ledgerAccountId, s.balanceDate],
       );
     },
+    async deleteSubaccount(householdId, subaccountId) {
+      await q.query(`DELETE FROM subaccounts WHERE household_id = $1 AND id = $2`, [
+        householdId,
+        subaccountId,
+      ]);
+    },
     async insertOwner(householdId, accountId, o) {
       await q.query(
         `INSERT INTO account_owners (household_id, account_id, owner_account_id, share, valid_from, valid_to)
@@ -177,6 +184,17 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
         if (handOff.kind !== "managed") throw new Error("not a managing hand-off");
         return handOff;
       });
+    },
+    async pendingOpenings(householdId, accountId) {
+      // Every state but done, as pendingManaged: the account's create and its added currencies not handed over yet.
+      const { rows } = await q.query<{ payload: unknown }>(
+        `SELECT payload FROM jobs
+          WHERE household_id = $1 AND name = $2 AND state <> 'done'
+            AND payload->>'kind' IN ('account-created', 'currency-changed') AND payload->>'accountId' = $3
+          ORDER BY created_at, id`,
+        [householdId, HAND_OFF_JOB.name, accountId],
+      );
+      return rows.map((r) => openedSubaccounts(handOffOf(r.payload)));
     },
     async account(householdId, accountId) {
       const { rows } = await q.query<AccountRow>(
