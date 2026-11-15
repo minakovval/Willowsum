@@ -1,4 +1,11 @@
 // Adapters of transactions: database (ModuleDatabase, schema «transactions»), HTTP, external services.
 export { eraseHouseholdTransactions } from "./db/erasure.ts";
+export { requeueDeadHandOffs, transactionRows, transactionsWorkerQueue } from "./queue/hand-off.ts";
+export { HAND_OFF_JOB } from "./queue/job.ts";
 export { transactionsList, transactionsTx } from "./db/store.ts";
-export { createTransactionsServices, transactionsRoutes, type TransactionsServices } from "./http/index.ts";
+export {
+  createTransactionsServices,
+  transactionAudit,
+  transactionsRoutes,
+  type TransactionsServices,
+} from "./http/index.ts";

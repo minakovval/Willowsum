@@ -1,6 +1,7 @@
 // Synthetic transactions (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
 // Row n points to the synthetic account n of the accounts module (same derived ids); its journal event is not
-// generated here (the ledger's own synthetic entries stand for the journal).
+// generated here (the ledger's own synthetic entries stand for the journal). Every transaction's hand-off job is done
+// (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -44,6 +45,48 @@ export const synthetic = [
           response_status: null,
           response_body: null,
           expires_at: "2026-12-31T00:00:00Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "transactions.jobs",
+    perHousehold: 3,
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++) {
+        const transactionId = rng.uuid();
+        yield {
+          household_id: household.id,
+          id: rng.uuid(),
+          name: "transactions.hand-off",
+          dedupe_key: `create:${transactionId}:1`,
+          payload: JSON.stringify({
+            transactionId,
+            actorAccountId: key(household.id, "actor", i),
+            action: "create",
+            version: 1,
+            audit: [{ field: "amount", before: null, after: `-${10 + i}.5`, sensitive: false }],
+          }),
+          heavy: "false",
+          state: "done",
+          attempts: "1",
+          finished_at: "2026-10-30T10:00:02Z",
+        };
+      }
+    },
+  }),
+  defineSyntheticTable({
+    table: "transactions.outbox_events",
+    perHousehold: 1,
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: rng.uuid(),
+          event_name: "transactions.synthetic-event",
+          event_version: "1",
+          payload: JSON.stringify({ transactionId: rng.uuid() }),
+          traceparent: null,
+          dispatched_at: "2026-10-30T10:00:01Z",
         };
     },
   }),

@@ -1,5 +1,10 @@
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import { defineJobHandler, postgresJobStore, type WorkerQueue } from "../../../../platform/queue/index.ts";
+import {
+  defineJobHandler,
+  postgresJobStore,
+  requeueDeadJobs,
+  type WorkerQueue,
+} from "../../../../platform/queue/index.ts";
 import { applyHandOff, type AccountKinds, type HandOffDeps } from "../../application/index.ts";
 import { accountsTx } from "../db/store.ts";
 import { HAND_OFF_JOB } from "./job.ts";
@@ -50,14 +55,6 @@ export function accountsWorkerQueue(db: ModuleDatabase, deps: HandOffDeps): Work
  * (src/wiring.ts, `accounts.hand-off-recovery`): the worker tries them again, with an «error» event each time they
  * are dead-lettered, until they are done. Every step is idempotent, so trying again writes nothing twice.
  */
-export async function requeueDeadHandOffs(db: ModuleDatabase, householdId: string): Promise<number> {
-  return db.inHousehold(householdId, async (q) => {
-    const requeued = await q.query(
-      `UPDATE jobs SET state = 'queued', attempts = 0, run_after = now(), finished_at = NULL,
-              lease_owner = NULL, lease_until = NULL
-        WHERE household_id = $1 AND name = $2 AND state = 'dead'`,
-      [q.householdId, HAND_OFF_JOB.name],
-    );
-    return requeued.rowCount ?? 0;
-  });
+export function requeueDeadHandOffs(db: ModuleDatabase, householdId: string): Promise<number> {
+  return requeueDeadJobs(db, householdId, HAND_OFF_JOB.name);
 }
