@@ -2,7 +2,8 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Read when the container restarted, you resume the pipeline, or a lead session starts or finishes.
+Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
+finishes.
 
 The container can restart and agents' context is lost. Recover state from durable sources, not memory:
 - open PRs and their heads: `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .head.ref, .head.sha] | @tsv'` (GraphQL, so `gh pr list`, is blocked in cloud sessions);
@@ -16,21 +17,35 @@ commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task>
 and brief the next agent from it (owner, 2026-11-14, #178, #197).
 
 **350 k stop** (owner, 2026-11-14, #178): from ~350 k tokens of context the lead takes no new tasks and only brings
-the current PRs to merge. Risks and mitigation: 1–2 PRs fewer per session and more frequent handovers; the lead
-starts the next session itself, a start costs ≈ 100–150 k tokens.
+the current PRs to merge. Risks and mitigation: 1–2 PRs fewer per segment; keep «Lead state» (#179) current from
+here on, so the compaction at ~400 k («After compaction») loses little.
 
-**New lead session** (owner, 2026-11-13/14): when the context reaches ~400 k tokens (`get_session` →
-`external_metadata.context_usage.used_tokens`), after a compaction or after 8–10 merged PRs, whichever comes first,
-the lead starts no new tasks and lets the in-flight agents finish. It posts the session retrospective
-([token economy](token-economy.md), «Session retrospective»), writes its state to the GitHub issue «Lead state»
-(#179, with a link to «Черга змін процесу»: open PRs with heads and verdicts, running work, owner questions,
-follow-ups, next plan rows, the name for the next session) and starts the new session itself («Automatic restart»
-below). The new lead reads that issue first, then the sources above. «Lead state» is also updated during the
-session, after every 3 merges and whenever an owner question changes (owner, 2026-11-14), so a lost container
-loses little.
+**After compaction** (owner, 2026-11-15, #178,
+[comment 6897443899](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6897443899)): at ~400 k tokens of
+context the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000` on the environment,
+set by the owner in Settings); the lead does not stop the session. «Lead state» (#179, with a link to «Черга змін
+процесу»: open PRs with heads and verdicts, running work, owner questions, follow-ups, next plan rows) is updated
+after every 3 merges, whenever an owner question changes and, from the 350 k stop, before each long step, so the
+compaction loses little. After it the `SessionStart` hook (`.claude/settings.json`, matcher `compact`) reminds the
+agent; the lead then, in the same session:
+1. re-reads «Lead state» (#179) and the `pr-pipeline` skill, then the sources above as needed;
+2. becomes lead N+1 — the numbering continues, it does not restart — and renames the session with
+   `set_session_title` to `Willowsum · ведучий N+1 · <з чого продовжує>`;
+3. posts the retrospective of the finished segment (lead N; [token economy](token-economy.md), «Session
+   retrospective») and adds its «Сесії» row to #180, then records the new segment's start in #180 («Token
+   accounting» item 1);
+4. continues the pipeline. A lead number that is a multiple of 3 starts with the process review («Process review»
+   below), whether it began after a compaction or in a new session.
+
+**New lead session** (owner, 2026-11-15, #178): only when the container is lost or the compaction did not happen
+by ~450 k tokens (`get_session` → `external_metadata.context_usage.used_tokens`). The finishing lead (if it still
+can) starts no new tasks, lets the in-flight agents finish, posts the retrospective, writes «Lead state» with the
+name for the next session and starts it itself («Automatic restart» below). The new lead reads that issue first, then the
+sources above.
 
 **Session names** (owner, 2026-11-13, #178): every lead session is named `Willowsum · ведучий N · <з чого починає>`,
-e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one more than the previous lead's number).
+e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one more than the previous lead's number, whether that
+lead ended in a compaction or a session).
 - At start, before other work: `get_session` (no `session_id`) gives this session's id and title; rename it with
   `set_session_title` (that id, the name «Lead state» proposes, or one in the format above). Then record the
   starting token usage in #180 ([token economy](token-economy.md), «Token accounting» item 1). Check `get_session` →
@@ -38,9 +53,10 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
   commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178).
 - **After a limit cut-off** (owner, 2026-11-15, #178): schedule `send_later` at `rate_limit_info.resetsAt` +
   5 minutes to resume, and delete that scheduled task (`delete_trigger`) after the wake-up.
-- Before finishing: the retrospective (above); record the session's usage and its difference in #180; write into
-  «Lead state» the name for the next session (`Willowsum · ведучий N+1 · <з чого почати>`); then rename yourself
-  with «(завершено)» appended to the current title, e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3 (завершено)`.
+- Before finishing a session (not at a compaction): the retrospective (above); record the segment's usage and its
+  difference in #180; write into «Lead state» the name for the next session (`Willowsum · ведучий N+1 · <з чого
+  почати>`); then rename yourself with «(завершено)» appended to the current title, e.g.
+  `Willowsum · ведучий 2 · хвиля 2 з рядка 3 (завершено)`.
 
 **Automatic restart** (owner, 2026-11-14, #178). When the new-session rule fires, the finishing lead starts the
 next lead session itself:
@@ -69,15 +85,15 @@ the line «Технічних повідомлень у чаті не пиши (
 write or edit anything.
 
 **Process review** (owner, 2026-11-15, #178): «кожна третя сесія при запуску має ретроспективно передивитись всі
-покращення і зміни в процесах». A lead session whose number is a multiple of 3 — the first is lead 9, lead 8 does
-not review — does this after the usual start steps and before new pipeline tasks; it costs ≈ 100–150 k tokens of
-context, so the review session merges 1–2 PRs fewer:
+покращення і зміни в процесах». A lead whose number is a multiple of 3 — the first is lead 9, lead 8 does not
+review; after a compaction it is the new number in the same session — does this after the usual start steps and
+before new pipeline tasks; it costs ≈ 100–150 k tokens of context, so the review segment merges 1–2 PRs fewer:
 1. **Process changes since session 1.** Every accepted improvement — owner and lead decisions in #178,
    `docs/decisions/log/`, AGENTS.md, the skills: is it rational, needed, useful, optimal? Conclusions rest on the data
    in #180 (tokens, time, rounds).
 2. **Current instructions.** AGENTS.md, `pr-pipeline` and its `references/`, the other skills, `.claude/references/`:
    contradictions, duplication, outdated or unneeded text, what can be simplified or shortened.
-3. **Handovers of the last 5 sessions.** Errors in «Lead state» (#179), start messages and handover confirmations:
+3. **Handovers of the last 5 leads.** Errors in «Lead state» (#179), start messages and handover confirmations:
    what was lost or inaccurate, what the new session had to rebuild.
 4. **Result.** A report to the owner as a comment on #180: conclusions and proposals, each with its risks, downsides
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.

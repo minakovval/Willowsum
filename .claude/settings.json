@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/tools/lead-hooks/after-compact.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
