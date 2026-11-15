@@ -1,8 +1,8 @@
 # Merge checklist (step 6, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only sync check added (owner, 2026-11-13, #178); PR comments read before merge (owner, 2026-11-14, #178); merge order, sync by the fix agent and one confirmation agent added (owner, 2026-11-14, #178). Read when you are about to merge.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only sync check added (owner, 2026-11-13, #178); PR comments read before merge (owner, 2026-11-14, #178); merge order, sync by the fix agent and one confirmation agent added (owner, 2026-11-14, #178); `mergeable_state`, the `sensitive`-first order and the lead's own sync added (owner, 2026-11-15, #178, comment 6891308063). Read when you are about to merge.
 
 6. **Merge** (squash): the lead merges only when all hold on the **current head SHA** — both verdicts Ready
    on that exact head (`review-pr`, and `security-review` for `sensitive`) and CI green (owner, 2026-11-13):
@@ -34,7 +34,9 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
    For a docs-only PR that moves scope between releases (owner, 2026-11-12), a security review covers only the moved lines that state a protection.
    Do not ask the owner to confirm the merge.
    **Order** (owner, 2026-11-14, #178): code PRs with Ready before docs PRs (otherwise their syncs and
-   confirmations repeat, #203); a docs PR with decisions that code depends on — at once.
+   confirmations repeat, #203); a docs PR with decisions that code depends on — at once. A `sensitive` PR whose
+   verdict is expected within ≈ 1 h merges first, and the PR without `sensitive` is synced after it; if that
+   verdict is not expected so soon, merge the ready PR at once (owner, 2026-11-15, #178, comment 6891308063).
    **Merge on Ready, follow up separately** (owner, 2026-11-13): both verdicts Ready and only non-blocking
    findings left → merge; do not send the non-blocking items back to the implementer for the same PR, since
    that starts another review round. Exception: an item the reviewer marks as cheap and safe to fold in may
@@ -43,9 +45,13 @@ Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); CI wait and docs-only s
    merge without them (owner, 2026-11-14, #178).
    Before every merge, check that the branch is not behind `main`:
    `gh api repos/{owner}/{repo}/compare/main...<head-sha> --jq .behind_by` must print `0`; a «clean» mergeable
-   state does not mean the branch is up to date.
+   state does not mean the branch is up to date. Check `mergeable_state` with it
+   (owner, 2026-11-15, #178, comment 6891308063): `gh api repos/{owner}/{repo}/pulls/<n> --jq .mergeable_state`; `dirty` means a
+   conflict, and on a conflicting PR CI does not run (#249); `unknown` → ask again after a few seconds.
    Branch behind (`behind_by` > 0) or conflicting with `main` → the `sync-branch` skill (merge, never rebase), then a confirmation
-   round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head). When a fix
+   round on the merge (`review-pr` «6. Confirmation rounds»: tree comparison, verdict on the new head). A branch
+   that updates from `main` with no conflicts and no regenerated files the lead updates itself (as with #255 and
+   #256), then the usual confirmation; otherwise an agent does it (owner, 2026-11-15, #178, comment 6891308063). When a fix
    round is due anyway, the fix agent does the sync as a separate commit in the same push, and the fix
    confirmation covers it: no separate sync-confirmation round (owner, 2026-11-14, #178; #207). A confirmation of
    a `sensitive` PR goes to one agent that posts both verdicts as two PR reviews with `commit_id`. It loads both `review-pr` and `security-review`, runs in a session other than the author's and the fix agent's, and switches to a full security review per `security-review` §7 when needed.
