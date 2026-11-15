@@ -272,8 +272,8 @@ describe("FIN-03@PoC FR 4, FR 24: «Очікує» changes the balance only once
   });
 });
 
-describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» keeps the journal event but takes it out of the list and its totals", () => {
-  it("FIN-03@PoC FR 17: a hidden transaction keeps its posting (the balance), is not listed or totalled, and is found by «Стан: приховані»", async () => {
+describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» takes it out of the list and its totals; a manual duplicate leaves the balance", () => {
+  it("FIN-03@PoC FR 17: a hidden manual duplicate leaves the balance (owner, 2026-11-15), is not listed or totalled, and is found by «Стан: приховані»", async () => {
     const space = await newSpace();
     const account = await createAccount(space, "1000.00");
     const kept = await add(space, tx(account, "-10.00"));
@@ -283,8 +283,8 @@ describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» k
     const hide = await call(space, "POST", `/v1/transactions/${t.id}/hide`);
     expect(hide.statusCode, hide.body).toBe(200);
     expect(hide.json().hidden).toBe(true);
-    expect(await balance(space, account)).toBe("899");
-    expect(await liveEvents(space.householdId)).toEqual([kept.id, t.id, copy.id]);
+    expect(await balance(space, account)).toBe("944.5");
+    expect(await liveEvents(space.householdId)).toEqual([kept.id, copy.id]);
     const shown = await list(space);
     expect(shown.items.map((i: { id: string }) => i.id).sort()).toEqual([kept.id, copy.id].sort());
     expect(shown.count).toBe(2);

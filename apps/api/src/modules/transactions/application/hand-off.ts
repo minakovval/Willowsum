@@ -302,13 +302,18 @@ async function matchOwnEvent(
     // The first event of a transaction posted from the start keeps the key of its create; a later one (posted after
     // «Очікує», or again after going back to it, or after a transfer's mark is removed) the key of the row's version,
     // so a reversed event is never reused.
-    await deps.ledger.post(householdId, {
+    const posted = await deps.ledger.post(householdId, {
       ...replacement,
       idempotencyKey:
         row.version === 1
           ? `transactions.create:${transactionId}`
           : `transactions.post:${transactionId}:${row.version}`,
     });
+    // #257 item 2: a key already used returns its (reversed) entry and posts nothing; the old order could leave a row of
+    // version 1 whose only entry is reversed. Never report success then: the job fails and the recovery shows it.
+    const live = await deps.ledger.liveEntries(householdId, source(transactionId), EVENT);
+    if (!live.some((entry) => entry.id === posted.id))
+      throw new Error("the transaction's journal event is reversed and was not posted again");
     return;
   }
   const matches =
