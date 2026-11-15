@@ -20,7 +20,15 @@ export function transactionRows(
     whileLocked: (householdId, transactionId, work) =>
       inTransaction(async (q) => {
         const tx = transactionsTx(q);
-        return work(await tx.lock(householdId, transactionId), (id) => tx.find(householdId, id));
+        const row = await tx.lock(householdId, transactionId);
+        // #257 item 3: a deleted row has nothing to lock, so two hand-offs of it (the route's and the worker's, or two
+        // of the worker's) could reverse the same entries at once; they take turns on the transaction's id instead.
+        if (row === null)
+          await q.query(
+            `SELECT pg_advisory_xact_lock(hashtextextended('transactions.hand-off:' || $1 || ':' || $2, 0))`,
+            [householdId, transactionId],
+          );
+        return work(row, (id) => tx.find(householdId, id));
       }),
   };
 }

@@ -859,7 +859,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** «Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18) */
+        /** «Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18) */
         post: operations["hideTransaction"];
         delete?: never;
         options?: never;

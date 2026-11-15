@@ -150,6 +150,9 @@ export async function dismissDuplicate(
       ["counterpartId", counterpart],
     ] as const)
       if (side.mergedInto !== null) issues.push({ field, issue: "merged" });
+      // FR 17: a hidden manual copy is out of the balance as a duplicate; «Не дубль» would leave a real operation out of
+      // it, hidden. «Показати» first (as «Об'єднати» refuses a hidden side).
+      else if (side.hidden) issues.push({ field, issue: "hidden" });
     if (issues.length > 0) return { kind: "invalid", issues };
     if (await anyClosed(deps, householdId, [current])) return { kind: "closed" };
     const [first, second] = dismissalPair(id, counterpartId);
