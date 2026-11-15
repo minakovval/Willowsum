@@ -4,6 +4,7 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
+import { kyivToday } from "../../platform/lists/list-total.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
 import { systemClock } from "../../platform/adapters/index.ts";
 import {
@@ -152,14 +153,14 @@ async function handOffNow(
 
 /**
  * `db` is the liabilities module's own database (`ModuleDatabases.for("liabilities")`); `clock` dates a kind change's
- * terms in their history (UTC; tests pass their own).
+ * terms in their history (the Kyiv date, as accounts'; tests pass their own clock).
  */
 export function createLiabilities(
   db: ModuleDatabase,
   audit: Pick<AuditLog, "record">,
   clock: { now(): number } = systemClock,
 ): Liabilities {
-  const deps = { newId: randomUUID, today: () => new Date(clock.now()).toISOString().slice(0, 10) };
+  const deps = { newId: randomUUID, today: () => kyivToday(clock.now()) };
   const history = (householdId: string, accountId: string) =>
     db.inHousehold(householdId, (q) => liabilityTermsHistory(liabilitiesTx(q), householdId, accountId));
   const log = liabilityAudit(audit);

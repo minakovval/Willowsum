@@ -1,4 +1,5 @@
 import { Money } from "@willowsum/domain-kernel";
+import { kyivToday } from "../../../../platform/lists/list-total.ts";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
@@ -42,8 +43,9 @@ export function createAccountsServices(options: {
       reportingCurrency: REPORTING_CURRENCY,
       audit: accountAudit(options.audit),
       newId: options.newId,
-      // The UTC date; the profile's time zone (ACC-05) is not known to this module yet.
-      today: () => new Date(options.clock.now()).toISOString().slice(0, 10),
+      // The Kyiv date, as the NBU rate's (fx-rates) and the other modules' «today»: near midnight the balance and the
+      // rate never fall on different days (#222). The profile's time zone (ACC-05) is not known to this module yet.
+      today: () => kyivToday(options.clock.now()),
       walletUsage: options.walletUsage,
     },
   };
