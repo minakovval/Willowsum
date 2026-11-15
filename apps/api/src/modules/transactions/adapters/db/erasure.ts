@@ -1,7 +1,7 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
 
 /**
- * Erasure of a space's transactions (NFR-12@PoC FR 3): every transaction with the parts of its split and its transfer, the stored responses of its create requests
+ * Erasure of a space's transactions (NFR-12@PoC FR 3): every transaction with the parts of its split, its transfer and its «Не дубль» pairs, the stored responses of its create requests
  * and its queue rows (hand-off jobs, migrations/0003_queue.sql), in one transaction of the module's own role (the
  * tables are not append-only). Their journal entries go with the ledger's own erasure.
  */
@@ -12,6 +12,7 @@ export async function eraseHouseholdTransactions(
   return db.inHousehold(householdId, async (q) => {
     await q.query(`DELETE FROM transaction_parts WHERE household_id = $1`, [householdId]);
     await q.query(`DELETE FROM transfers WHERE household_id = $1`, [householdId]);
+    await q.query(`DELETE FROM duplicate_dismissals WHERE household_id = $1`, [householdId]);
     const transactions = await q.query(`DELETE FROM transactions WHERE household_id = $1`, [householdId]);
     const keys = await q.query(`DELETE FROM idempotency_keys WHERE household_id = $1`, [householdId]);
     const jobs = await q.query(`DELETE FROM jobs WHERE household_id = $1`, [householdId]);

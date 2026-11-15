@@ -130,6 +130,19 @@ export const PROBLEMS = {
     status: 409,
     title: "The transaction is a side of a transfer; remove the mark first",
   },
+  /**
+   * FIN-03@PoC FR 11, edge case 4: a duplicate merged into another changes only through «Роз'єднати», and a transaction
+   * that others were merged into is deleted only once they are unmerged; nothing was written.
+   */
+  TRANSACTION_MERGED: {
+    status: 409,
+    title: "The transaction is merged with a duplicate; unmerge it first",
+  },
+  /** FIN-03@PoC FR 18: hiding is for duplicates and technical records only; nothing was written. */
+  TRANSACTION_NOT_HIDEABLE: {
+    status: 409,
+    title: "Only a duplicate or a technical record can be hidden",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

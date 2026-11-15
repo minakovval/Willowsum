@@ -12,6 +12,7 @@ import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/inde
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import type { TransactionsServices } from "./modules/transactions/index.ts";
 import type { TransferMatchingServices } from "./modules/transfer-matching/index.ts";
+import type { DuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
 import { authenticateSession, SESSION_COOKIE, type IdentityServices } from "./modules/identity/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
@@ -68,6 +69,8 @@ export interface ApiWiring {
    * Omitted: its routes answer 500.
    */
   readonly transferMatching?: TransferMatchingServices;
+  /** The duplicate-matching module's ports (FIN-03: the transactions module's candidate pairs). Omitted: 500. */
+  readonly duplicateMatching?: DuplicateMatchingServices;
   /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly deployed?: boolean;
   /** The session of a request; by default the session cookie (with identity and spaces), else nobody. */
@@ -108,7 +111,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                   ? wiring.bulkActions
                   : module === "transfer-matching"
                     ? wiring.transferMatching
-                    : undefined,
+                    : module === "duplicate-matching"
+                      ? wiring.duplicateMatching
+                      : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

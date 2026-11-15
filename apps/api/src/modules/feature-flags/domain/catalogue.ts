@@ -104,6 +104,14 @@ export const FLAGS = {
     description:
       "Перекази між власними рахунками (FIN-03@PoC b): /v1/transactions/{id}/transfer, пропозиції /v1/transfer-proposals",
   },
+  "transactions.duplicates": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Дублі транзакцій (FIN-03@PoC b): «Можливий дубль» /v1/duplicate-proposals, /v1/transactions/{id}/merge і /not-duplicate",
+  },
   "transactions.attributes": {
     kind: "release",
     owner: "product-owner",

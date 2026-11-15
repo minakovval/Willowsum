@@ -39,7 +39,7 @@ export type TransferResult =
   | { readonly kind: "conflict" };
 
 /** Both rows locked in the order of their ids; null where there is none. */
-async function lockBoth(
+export async function lockBoth(
   tx: TransactionsTx,
   householdId: string,
   a: string,
@@ -53,7 +53,7 @@ async function lockBoth(
   return [await tx.lock(householdId, a), second];
 }
 
-async function anyClosed(deps: TransactionsDeps, householdId: string, rows: readonly StoredTransaction[]) {
+export async function anyClosed(deps: TransactionsDeps, householdId: string, rows: readonly StoredTransaction[]) {
   for (const row of rows) {
     const account = await deps.accounts.postingAccount(householdId, row.accountId);
     if (account?.status === "closed") return true;
