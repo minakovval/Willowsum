@@ -103,6 +103,8 @@ export function liabilitiesTx(q: ModuleQueryRunner): LiabilitiesTx {
       );
       return rows.map((row) => ({ validFrom: row.valid_from, terms: liability(row) }));
     },
+    // `seq` (migrations/0004_terms_history.sql) is never set by the application: the database numbers the rows, so the
+    // order of changes on one day is the order of the inserts (the last one wins); a restore may load copied values.
     async recordTerms(householdId, { validFrom, terms: l }) {
       await q.query(
         `INSERT INTO liability_terms (household_id, id, liability_id, valid_from, kind, currency, annual_rate,

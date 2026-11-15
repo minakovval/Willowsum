@@ -177,6 +177,10 @@ async function newPeriod(
     null,
   );
   const validFrom = latest !== null && latest > date ? latest : date;
+  // Old code + new schema (#289 item 3): the previous code's change of the row (a kind change) writes no period, so the
+  // terms in effect now can differ from the history's last one; add them first, so `termsOn(today)` stays the row's.
+  const last = history.at(-1);
+  if (last && !sameTerms(before, last.terms)) await tx.recordTerms(householdId, { validFrom, terms: before });
   await tx.recordTerms(householdId, { validFrom, terms: after });
   return validFrom;
 }

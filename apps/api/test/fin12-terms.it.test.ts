@@ -353,3 +353,30 @@ describe("FIN-12@PoC FR 8 and access: the terms of a closed account or of anothe
     expect(await historyRows(space)).toBe(0);
   });
 });
+
+describe("FIN-12@PoC FR 5 (#289 item 3): old code + new schema — a kind change by the previous code leaves no period", () => {
+  it("FIN-12@PoC FR 5: after a row change without a period, the next kind change adds the terms now first, so termsOn(today) is the row's", async () => {
+    now = Date.parse(`${DAY1}T10:00:00Z`);
+    const space = await newSpace();
+    const id = await newLoan(space);
+    expect((await details(space, id, { annualRate: "8.5" })).statusCode).toBe(200);
+    // What the previous code's changeKind writes: the row only (no liability_terms period).
+    await db.owner.query(
+      `UPDATE liabilities.liabilities SET kind = 'credit-card', monthly_payment = NULL WHERE household_id = $1`,
+      [space.householdId],
+    );
+    await db.owner.query(
+      `UPDATE accounts.accounts SET kind = 'credit-card' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, id],
+    );
+    expect((await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" })).statusCode).toBe(200);
+    const history = await liabilities.termsHistory(space.householdId, id);
+    expect(history?.map((p) => [p.validFrom, p.terms.kind])).toEqual([
+      [null, "loan"],
+      [DAY1, "loan"],
+      [DAY1, "credit-card"],
+      [DAY1, "loan"],
+    ]);
+    expect((await liabilities.termsOn(space.householdId, id, DAY1))?.kind).toBe("loan");
+  });
+});
