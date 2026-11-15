@@ -10,7 +10,7 @@ import { HAND_OFF_JOB } from "./job.ts";
 
 /**
  * The worker's liabilities queue (src/wiring.ts): the store in the liabilities schema and the hand-off's handler, which
- * writes the audit entry through the audit log's public interface (ADR-0015).
+ * writes the audit entry through the audit log's public interface (ADR-0015), holding the job's row lock.
  */
 export function liabilitiesWorkerQueue(db: ModuleDatabase, audit: LiabilityAudit): WorkerQueue {
   return {
@@ -18,7 +18,17 @@ export function liabilitiesWorkerQueue(db: ModuleDatabase, audit: LiabilityAudit
     handlers: [
       defineJobHandler({
         job: HAND_OFF_JOB,
-        run: (job) => applyHandOff(audit, job.householdId, job.payload),
+        run: async (job, q) => {
+          // #270 item 2: the job's row is locked while the entry is written, so the space's erasure (which deletes the
+          // queue rows) waits for it and its audit step then removes the entry; a job whose row the erasure took
+          // already writes nothing into the erased space.
+          const { rowCount } = await q.query(
+            `SELECT 1 FROM jobs WHERE household_id = $1 AND id = $2 FOR UPDATE`,
+            [job.householdId, job.id],
+          );
+          if (!rowCount) return;
+          await applyHandOff(audit, job.householdId, job.payload);
+        },
       }),
     ],
   };

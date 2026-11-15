@@ -1,8 +1,10 @@
 import type { AuditLog } from "../../audit/index.ts";
 import {
   BULK_ITEMS_MAX,
+  AUDIT_ISSUE,
   decideTurn,
   distinctIds,
+  fitsAuditEntry,
   runsInBackground,
   skipExamples,
   summarize,
@@ -124,13 +126,10 @@ async function resolve(deps: BulkDeps, caller: BulkCaller, request: BulkRequest)
     const plan = plans.get(recordId) ?? { kind: "invalid", issue: "invalid" };
     if (plan.kind === "unchanged") return { ...base, outcome: "unchanged" };
     if (plan.kind === "invalid") return { ...base, outcome: "invalid", issue: plan.issue };
-    return {
-      ...base,
-      outcome: "pending",
-      versionBefore: record.version,
-      before: pick(record.values, Object.keys(plan.after)),
-      after: plan.after,
-    };
+    const before = pick(record.values, Object.keys(plan.after));
+    // #272 item 2: a record whose values would make the group audit entry invalid is skipped, not run.
+    if (!fitsAuditEntry(before, plan.after)) return { ...base, outcome: "invalid", issue: AUDIT_ISSUE };
+    return { ...base, outcome: "pending", versionBefore: record.version, before, after: plan.after };
   });
   return { handler, target, params: parsed.data, items };
 }
@@ -409,8 +408,26 @@ export async function writeGroupAudit(
 ): Promise<void> {
   const action = await store.find(job.actionId);
   if (!action) return;
-  const sensitive = new Set(deps.registry.actions.get(action.action)?.sensitiveFields ?? []);
   const items = await store.items(action.id);
+  // #272 item 5: the undo's entry never precedes the entries of the runs it undoes. A run's entry whose own job is
+  // late or dead is written first, here (keyed: the run's job then appends nothing more).
+  if (job.kind === "undo")
+    for (let run = 1; run <= action.run; run += 1)
+      await recordGroupEntry(deps, audit, householdId, action, items, "run", run);
+  await recordGroupEntry(deps, audit, householdId, action, items, job.kind, job.run);
+}
+
+async function recordGroupEntry(
+  deps: BulkDeps,
+  audit: Pick<AuditLog, "record">,
+  householdId: string,
+  action: StoredAction,
+  items: readonly StoredItem[],
+  kind: "run" | "undo",
+  runNumber: number,
+): Promise<void> {
+  const job = { kind, run: runNumber };
+  const sensitive = new Set(deps.registry.actions.get(action.action)?.sensitiveFields ?? []);
   const records =
     job.kind === "run"
       ? items.filter((i) => i.outcome === "changed" && i.run === job.run)

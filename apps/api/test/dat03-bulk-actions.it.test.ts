@@ -108,6 +108,17 @@ const setLabel: BulkActionHandler = {
   },
 };
 
+/** Plans whatever fields it is given: a handler that does not keep to the size of an audit entry (#272 item 2). */
+const setRaw: BulkActionHandler = {
+  name: "test-records.set-raw",
+  entity: "test-records",
+  params: z.strictObject({ values: z.record(z.string(), z.string().nullable()) }),
+  async plan(_caller: BulkCaller, records, params) {
+    const { values } = params as { values: BulkValues };
+    return new Map(records.map((r) => [r.id, { kind: "change" as const, after: values }]));
+  },
+};
+
 let db: RealModulesDatabase;
 let spaces: HouseholdSpaces;
 let audit: AuditLog;
@@ -232,7 +243,7 @@ beforeAll(async () => {
   audit = createAuditLog(db.databases.for("audit"));
   services = createBulkActionsServices({
     targets: [target],
-    actions: [setLabel],
+    actions: [setLabel, setRaw],
     audit,
     clock: { now: () => now },
     newId: randomUUID,
@@ -788,5 +799,106 @@ describe("NFR-12@PoC FR 3: erasure", () => {
       ).rows[0]!.n;
     expect(await left(space.householdId)).toBe(0);
     expect(await left(neighbour.householdId)).toBe(2);
+  });
+});
+
+describe("DAT-03@PoC FR 11 (#272 item 2): the size of a record's part of the group audit entry is bounded by the engine", () => {
+  const raw = (ids: readonly string[], values: Record<string, string | null>) => ({
+    action: "test-records.set-raw",
+    selection: { kind: "ids", ids },
+    params: { values },
+  });
+
+  it("DAT-03@PoC FR 11: a plan with a value of 1001 characters or five fields is skipped as «невалідний» (audit_size), nothing is written", async () => {
+    const space = await newSpace();
+    const [a, b, c] = seed(space, 3);
+    const preview = await call(
+      space,
+      "POST",
+      "/v1/bulk-actions/preview",
+      raw([a!], { label: "я".repeat(1001) }),
+    );
+    expect(preview.json()).toMatchObject({ changes: 0, skipped: { invalid: 1 } });
+    expect(preview.json().examples).toEqual([{ id: a, reason: "invalid", issue: "audit_size" }]);
+    const five = { label: "x", group: "g1", locked: null, a: "1", b: "2" };
+    const r = await start(space, raw([b!], five));
+    expect(r).toMatchObject({ status: "completed", changed: 0, skipped: { invalid: 1 } });
+    expect(label(space, b!)).toBe(null);
+    // The limits themselves pass: 1000 characters and four fields.
+    const ok = await start(space, raw([c!], { label: "я".repeat(1000), group: "g1", locked: null, a: "1" }));
+    expect(ok).toMatchObject({ changed: 1 });
+    await drain(space.householdId);
+    expect(await groupEntries(space, ok.id)).toHaveLength(1);
+    expect(await jobsOf(space.householdId, "dead")).toBe(0);
+  });
+
+  it("DAT-03@PoC FR 11: a record whose previous value is too long for the entry is skipped too, so the undo's entry fits as well", async () => {
+    const space = await newSpace();
+    const [id] = seed(space, 1, { label: "ї".repeat(1500) });
+    const r = await start(space, byIds([id!], "Коротка"));
+    expect(r).toMatchObject({ changed: 0, skipped: { invalid: 1 } });
+    expect(label(space, id!)).toBe("ї".repeat(1500));
+  });
+});
+
+describe("DAT-03@PoC FR 6 (#272 item 3): idempotency keys of a bulk action belong to the account", () => {
+  const withKey = (space: Space, userId: string, key: string, body: unknown) =>
+    app.inject({
+      method: "POST",
+      url: "/v1/bulk-actions",
+      headers: {
+        origin: WEB,
+        "idempotency-key": key,
+        "content-type": "application/json",
+        ...principalHeader({ userId, householdId: space.householdId }),
+      },
+      payload: JSON.stringify(body),
+    });
+
+  it("DAT-03@PoC FR 6: another account of the space repeating the author's key and body gets no report of the author's action", async () => {
+    const space = await newSpace();
+    const body = byIds(seed(space, 2));
+    const key = randomUUID();
+    const first = await withKey(space, space.accountId, key, body);
+    expect(first.statusCode, first.body).toBe(201);
+    const other = await withKey(space, randomUUID(), key, body);
+    expect(other.statusCode, other.body).toBe(201);
+    expect(other.headers["idempotent-replayed"]).toBeUndefined();
+    expect(other.json().id).not.toBe(first.json().id);
+    // The author's own repeat is still a replay of the author's report.
+    const again = await withKey(space, space.accountId, key, body);
+    expect(again.headers["idempotent-replayed"]).toBe("true");
+    expect(again.json().id).toBe(first.json().id);
+    // The key is stored as a digest: it is not in the table in the clear.
+    const stored = await db.owner.query(
+      `SELECT key FROM bulk_actions.idempotency_keys WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(stored.rows.map((r) => r.key)).not.toContain(key);
+  });
+});
+
+describe("DAT-03@PoC FR 11 (#272 item 5): the undo's entry never comes before the run's", () => {
+  it("DAT-03@PoC FR 11: the run's audit job is dead when the undo's job runs — the run's entry is written first, the undo's second", async () => {
+    const space = await newSpace();
+    const ids = seed(space, 3);
+    const r = await start(space, byIds(ids));
+    await db.owner.query(
+      `UPDATE bulk_actions.jobs SET state = 'dead', attempts = 8, finished_at = now()
+        WHERE household_id = $1 AND name = 'bulk-actions.audit' AND dedupe_key LIKE '%:run:%'`,
+      [space.householdId],
+    );
+    await call(space, "POST", `/v1/bulk-actions/${r.id}/undo`);
+    await drain(space.householdId);
+    const entries = await groupEntries(space, r.id);
+    expect(entries.map((e) => e.changes[0]!.field)).toEqual(["action", "undo"]);
+    expect(entries[0]!.changes.slice(1).map((c) => c.record)).toEqual(ids);
+    // The recovered run job appends nothing more.
+    await db.owner.query(
+      `UPDATE bulk_actions.jobs SET state = 'queued', attempts = 0, finished_at = NULL WHERE household_id = $1 AND state = 'dead'`,
+      [space.householdId],
+    );
+    await drain(space.householdId);
+    expect(await groupEntries(space, r.id)).toHaveLength(2);
   });
 });

@@ -34,6 +34,11 @@ export interface IdempotencyStore {
   abandon(householdId: string, key: string): Promise<void>;
 }
 
+/** The key of a route whose keys belong to one account: SHA-256 (hex, 64 characters) of the account and the key. */
+export function accountScopedKey(accountId: string, key: string): string {
+  return createHash("sha256").update(`${accountId}\n${key}`).digest("hex");
+}
+
 /** JSON with object keys sorted, so the same request in another key order has the same hash. */
 export function canonicalJson(value: unknown): string {
   if (value === undefined) return "null";

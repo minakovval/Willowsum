@@ -131,6 +131,12 @@ export interface RouteDefinition<
   /** A create request: accepts an `Idempotency-Key` header (ARC-07 FR 4). Only POST. */
   readonly create?: boolean;
   /**
+   * Whose keys a create request shares (#272 item 3): `space` (the default) — every account of the space; `account` —
+   * only the caller's own, so another account of the space repeating a key and a body gets no stored response of the
+   * first (the key is stored as a digest of the account and the key, never in the clear).
+   */
+  readonly idempotencyScope?: "space" | "account";
+  /**
    * What of a create request its stored idempotency hash covers, when the body carries a value that is kept sealed
    * (ARC-06 FR 2): the hash is unsalted SHA-256 in a clear column, so a low-entropy sealed value in it could be
    * recovered by trying candidates. The route returns the input with such values reduced to what is clear anyway.

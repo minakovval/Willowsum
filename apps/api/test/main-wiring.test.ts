@@ -6,7 +6,7 @@ import {
 import { memoryFlagStore } from "../src/modules/feature-flags/application/memory-store.test-helper.ts";
 import { FLAGS_DB_TIMEOUTS } from "../src/modules/feature-flags/index.ts";
 import { realModules } from "./real-modules.ts";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { DEFAULT_CONCURRENCY } from "../src/platform/queue/index.ts";
 import { contextPoolOptions, modulePoolOptions, modulePoolSize, readinessCheck } from "../src/wiring.ts";
 
@@ -95,5 +95,53 @@ describe("ARC-04: the worker's module pools hold a connection for every job it r
   it("main.ts passes the role's pool size to ModuleDatabases", () => {
     const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
     expect(main).toMatch(/poolSize: modulePoolSize\(config\.role\)/);
+  });
+});
+
+/**
+ * BUD-01@PoC FR 12 (#277 item 2): a custom category is deleted only while empty, which the categories route asks of
+ * every module that keeps category ids (`usage`). `usage: []` type-checks, so the wiring in main.ts is checked here:
+ * every module with a `category_id` column in its migrations (other than categories) must be in the list.
+ */
+function modulesKeepingCategoryIds(): string[] {
+  const root = new URL("../src/modules/", import.meta.url);
+  return readdirSync(root)
+    .filter((name) => name !== "categories")
+    .filter((name) => {
+      const dir = new URL(`${name}/adapters/db/migrations/`, root);
+      return (
+        existsSync(dir) &&
+        readdirSync(dir).some(
+          (f) => f.endsWith(".sql") && /\bcategory_id\b/.test(readFileSync(new URL(f, dir), "utf8")),
+        )
+      );
+    });
+}
+
+/** The modules that keep category ids and are missing from the `usage` list of the source given. */
+function categoryUsageGaps(mainSource: string, modules: readonly string[]): string[] {
+  const list = /usage:\s*\[([^\]]*)\]/.exec(mainSource)?.[1] ?? "";
+  return modules.filter((m) => !list.includes(`databases.for("${m}")`));
+}
+
+describe("BUD-01@PoC FR 12 (#277 item 2): main.ts wires the category usage of every module that keeps category ids", () => {
+  const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+
+  it("BUD-01@PoC FR 12: the guard sees transactions as a module with category ids", () => {
+    expect(modulesKeepingCategoryIds()).toContain("transactions");
+  });
+
+  it("BUD-01@PoC FR 12: an empty `usage: []` or a list without such a module is a gap", () => {
+    expect(
+      categoryUsageGaps("categories: createCategoriesServices({ usage: [] })", ["transactions"]),
+    ).toEqual(["transactions"]);
+    expect(categoryUsageGaps('usage: [createOtherUsage(databases.for("budget"))]', ["transactions"])).toEqual(
+      ["transactions"],
+    );
+  });
+
+  it("BUD-01@PoC FR 12: the `usage` list in main.ts holds every module with a category_id column", () => {
+    expect(/usage:\s*\[\s*\S/.test(main)).toBe(true);
+    expect(categoryUsageGaps(main, modulesKeepingCategoryIds())).toEqual([]);
   });
 });
