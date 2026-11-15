@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-// Створено: 2026-11-14 · Оновлено: 2026-11-14
+// Створено: 2026-11-14 · Оновлено: 2026-11-15
 //
 // Token and time accounting for the issue «Облік токенів» (#180) — owner, 2026-11-14 (#178, comment 6873950124).
 //
 //   node tools/token-report/index.mjs pr --pr <n> --type <тип> --rounds <text> --run role=…,log=…,ms=…,tokens=… …
 //        (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]   → the ready row of the table «PR»
+//        + one line per model (calls, cache read, cache creation, input, output); the note gets «моделі: …»
 //   node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO>] [--until <ISO>]   → the lead's sums
 //
 // Run it right after the merge: agent logs (`tasks/<id>.output`) vanish with the container. A log without any
