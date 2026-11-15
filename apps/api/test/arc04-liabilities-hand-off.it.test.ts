@@ -282,7 +282,7 @@ describe("ARC-04@PoC FR 2: `liabilities.register` writes its audit entry after t
         { field: "monthlyPayment", before: null, after: "650", masked: false },
       ]),
     );
-    expect(entry!.actor).toEqual({ kind: "user", id: space.accountId });
+    expect(entry).toMatchObject({ actorKind: "user", actorId: space.accountId, channel: "web" });
   });
 
   it("ARC-04@PoC FR 2: the job carries ids, codes and amounts only", async () => {
