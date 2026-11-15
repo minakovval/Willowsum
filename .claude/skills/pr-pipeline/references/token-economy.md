@@ -15,7 +15,7 @@ Owner request 2026-11-12; rules decided by the lead.
      root-cause searches of flaky tests and the security review of the highest-risk PRs (sign-in, encryption,
      data isolation of the household/space). Other security reviews are on the main model, as is everything else
      (architecture rows, vault encryption, statement import, requirement sweeps, follow-ups, docs, sync
-     confirmations). **At most one Fable task at a time.** **Mutation testing of critical modules is mandatory on any
+     confirmations). **At most one Fable task at a time, and no Fable task while 2 authors run in parallel** (owner, 2026-11-15, #178, comment 6896768536). **Mutation testing of critical modules is mandatory on any
      model.** A security review already started on Fable (#266) is finished on Fable. Fable draws on the same
      100 USD subscription limit and spends it faster (about ×2 price per token, longer turns); its briefs are
      short and state the goal. Compare Fable rows with similar PRs in #180 by the per-model split (see «Token
@@ -60,7 +60,7 @@ Owner request 2026-11-12; rules decided by the lead.
 
 ## Token accounting
 
-Mandatory (owner, 2026-11-13/14; issue «Облік токенів», #180). The lead keeps the tables in the body of #180: read
+Mandatory (owner, 2026-11-13/14; issue «Облік токенів», #180). The lead keeps the tables, including every PR and session row, in the **body** of #180, never as comments (owner, 2026-11-15, #178, comment 6896768536): read
 the current body right before each edit (`gh api repos/{owner}/{repo}/issues/180 --jq .body > <file>`), append
 the new row to the end of its table in that file, keeping everything else as it is, and write it back with
 `gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@<file>` (`-F`, not `-f`: `-f` sends the literal text

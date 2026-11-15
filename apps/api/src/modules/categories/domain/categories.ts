@@ -99,3 +99,19 @@ export function stateAfterMerge(system: boolean): CategoryState {
 export function hasEssential(kind: CategoryKind): boolean {
   return kind === "expense";
 }
+
+export type DeleteProblem = "system" | "not_empty";
+
+/**
+ * FR 12: only a custom category is deleted, and only while it is empty — no transaction or split part has it, no
+ * category rule, recurring payment (lead decision, #260: like rules and limits, so nothing is lost), budget limit or
+ * «План» cell of any month refers to it, and no category was merged into it (its records went there, FR 8).
+ * System categories are never deleted (FR 3): hidden only.
+ */
+export function deleteProblem(
+  category: { readonly systemKey: string | null },
+  used: boolean,
+): DeleteProblem | null {
+  if (category.systemKey !== null) return "system";
+  return used ? "not_empty" : null;
+}

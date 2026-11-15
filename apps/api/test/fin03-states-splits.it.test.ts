@@ -199,7 +199,12 @@ beforeAll(async () => {
             candidates: createDuplicateCandidates(db.databases.for("transactions")),
           }),
         }),
-        categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => NOW },
+          newId: randomUUID,
+          usage: [],
+        }),
         allowedOrigins: new Set([WEB]),
       }),
   });

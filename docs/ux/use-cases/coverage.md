@@ -151,7 +151,7 @@ JRN-00 — вступ до розділу JRN (як читати карти до
 
 | ID | Назва | Реліз | Сценарії | Тип |
 | --- | --- | --- | --- | --- |
-| BUD-01 | Категорії витрат і доходів | MVP | UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-78, UC-BUD-112 | сценарій |
+| BUD-01 | Категорії витрат і доходів | MVP | UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-78, UC-BUD-112, UC-BUD-122 | сценарій |
 | BUD-02 | Бюджет періоду | MVP | UC-BUD-07, UC-BUD-08, UC-BUD-09, UC-BUD-10, UC-BUD-11, UC-BUD-12, UC-BUD-13, UC-BUD-21, UC-BUD-46, UC-BUD-87, UC-BUD-113, UC-BUD-114, UC-BUD-120 | сценарій |
 | BUD-03 | «Можна витратити» | MVP | UC-BUD-14, UC-BUD-15, UC-BUD-16, UC-BUD-17, UC-BUD-18, UC-BUD-27, UC-BUD-51, UC-BUD-98, UC-BUD-99, UC-BUD-103, UC-BUD-112, UC-BUD-117, UC-FCS-05, UC-FCS-06 | сценарій |
 | BUD-04 | «Чи можу я собі дозволити?» | MVP | UC-BUD-19, UC-BUD-20, UC-BUD-21, UC-BUD-22, UC-BUD-33 | сценарій |

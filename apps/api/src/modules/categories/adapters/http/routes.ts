@@ -5,6 +5,8 @@ import { defineRoute, type ProtectedContext } from "../../../../platform/http/ro
 import {
   createCategory,
   createGroup,
+  deletableIds,
+  deleteCategory,
   ensureTree,
   mergeCategory,
   readTree,
@@ -19,9 +21,9 @@ import { categoriesTx } from "../db/store.ts";
 import { categoriesServices } from "./services.ts";
 
 /**
- * The category tree of a space (BUD-01@PoC FR 1–3, FR 8, FR 10, FR 11; wave 2 row 19): read the tree, add groups and
- * categories, rename, hide or show, icon and colour, «обов'язкова», merge. No delete (FR 3; deleting a custom
- * category is an open owner question). The space is the session's (П-5): a category or group of another space is
+ * The category tree of a space (BUD-01@PoC FR 1–3, FR 8, FR 10–12; wave 2 row 19): read the tree, add groups and
+ * categories, rename, hide or show, icon and colour, «обов'язкова», merge, delete an empty custom category (FR 12;
+ * system categories never, FR 3). The space is the session's (П-5): a category or group of another space is
  * «not found». A scoped member: «бюджет і цілі» are closed by the visibility policy's default (00-general «Область
  * доступу») — not found on reads, and changes need `household.data.write`, which a scoped member never has. Behind
  * the release flag `categories.tree` (ships off) under the feature key of the same name; no plan limit.
@@ -47,6 +49,11 @@ const categorySchema = z.object({
   essential: z.boolean().nullable(),
   /** FR 3: out of the budget plan; its transactions count in «Інше». */
   hidden: z.boolean(),
+  /**
+   * FR 12: the menu offers «Видалити» — a custom category no transaction, split part, rule, recurring payment, limit
+   * or «План» cell uses; otherwise «Приховати» and «Об'єднати з іншою…» with the explanation.
+   */
+  deletable: z.boolean(),
 });
 
 const groupSchema = z.object({
@@ -59,7 +66,7 @@ const groupSchema = z.object({
   categories: z.array(categorySchema),
 });
 
-function presentCategory(c: StoredCategory): z.input<typeof categorySchema> {
+function presentCategory(c: StoredCategory, deletable: ReadonlySet<string>): z.input<typeof categorySchema> {
   return {
     id: c.id,
     groupId: c.groupId,
@@ -72,10 +79,15 @@ function presentCategory(c: StoredCategory): z.input<typeof categorySchema> {
     iconTone: iconTone(c.color),
     essential: c.essential,
     hidden: c.state === "hidden",
+    deletable: deletable.has(c.id),
   };
 }
 
-function presentGroup(g: StoredGroup, categories: readonly StoredCategory[]): z.input<typeof groupSchema> {
+function presentGroup(
+  g: StoredGroup,
+  categories: readonly StoredCategory[],
+  deletable: ReadonlySet<string>,
+): z.input<typeof groupSchema> {
   return {
     id: g.id,
     systemKey: g.systemKey,
@@ -83,7 +95,7 @@ function presentGroup(g: StoredGroup, categories: readonly StoredCategory[]): z.
     name: g.name,
     renamed: g.renamed,
     tone: g.tone,
-    categories: categories.map(presentCategory),
+    categories: categories.map((c) => presentCategory(c, deletable)),
   };
 }
 
@@ -101,10 +113,20 @@ function value<T>(result: Result<T>): T {
       throw new ApiProblem("CATEGORY_KINDS_DIFFER");
     case "service-fixed":
       throw new ApiProblem("CATEGORY_SERVICE_FIXED");
+    case "system-fixed":
+      throw new ApiProblem("CATEGORY_SYSTEM_FIXED");
+    case "not-empty":
+      throw new ApiProblem("CATEGORY_NOT_EMPTY");
     case "not-found":
       throw new ApiProblem("NOT_FOUND");
   }
 }
+
+type Usage = { readonly usage: ReturnType<typeof categoriesServices>["usage"] };
+
+/** FR 12: the categories of `rows` the menu offers «Видалити» for. */
+const deletable = (q: HouseholdQueryRunner, s: Usage, householdId: string, rows: readonly StoredCategory[]) =>
+  deletableIds(s.usage, categoriesTx(q), householdId, rows);
 
 const UNIQUE_NAMES = new Set(["categories_name", "category_groups_name"]);
 
@@ -114,12 +136,15 @@ const UNIQUE_NAMES = new Set(["categories_name", "category_groups_name"]);
  */
 async function inTree<T>(
   ctx: ProtectedContext,
-  work: (q: HouseholdQueryRunner, deps: ReturnType<typeof categoriesServices>["deps"]) => Promise<T>,
+  work: (
+    q: HouseholdQueryRunner,
+    services: ReturnType<typeof categoriesServices>["deps"] & Usage,
+  ) => Promise<T>,
 ): Promise<T> {
-  const { deps } = categoriesServices(ctx);
+  const { deps, usage } = categoriesServices(ctx);
   await ctx.inHousehold((q) => ensureTree(deps, categoriesTx(q), ctx.principal.householdId));
   try {
-    return await ctx.inHousehold((q) => work(q, deps));
+    return await ctx.inHousehold((q) => work(q, { ...deps, usage }));
   } catch (error) {
     const pg = error as { code?: string; constraint?: string };
     if (pg.code === "23505" && UNIQUE_NAMES.has(pg.constraint ?? ""))
@@ -158,8 +183,17 @@ export const listCategoriesRoute = defineRoute({
   },
   handler: async (_input, ctx) => {
     refuseScoped(ctx);
-    const tree = await inTree(ctx, (q) => readTree(categoriesTx(q), ctx.principal.householdId));
-    return { groups: tree.map(({ group, categories }) => presentGroup(group, categories)) };
+    const { tree, free } = await inTree(ctx, async (q, s) => {
+      const tree = await readTree(categoriesTx(q), ctx.principal.householdId);
+      const free = await deletable(
+        q,
+        s,
+        ctx.principal.householdId,
+        tree.flatMap((t) => t.categories),
+      );
+      return { tree, free };
+    });
+    return { groups: tree.map(({ group, categories }) => presentGroup(group, categories, free)) };
   },
 });
 
@@ -174,11 +208,12 @@ export const getCategoryRoute = defineRoute({
   response: { status: 200, description: "The category", schema: categorySchema },
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
-    const row = await inTree(ctx, (q) =>
-      categoriesTx(q).category(ctx.principal.householdId, params.categoryId),
-    );
-    if (!row || row.state === "retired") throw new ApiProblem("NOT_FOUND");
-    return presentCategory(row);
+    const { row, free } = await inTree(ctx, async (q, s) => {
+      const row = await categoriesTx(q).category(ctx.principal.householdId, params.categoryId);
+      if (!row || row.state === "retired") throw new ApiProblem("NOT_FOUND");
+      return { row, free: await deletable(q, s, ctx.principal.householdId, [row]) };
+    });
+    return presentCategory(row, free);
   },
 });
 
@@ -198,7 +233,7 @@ export const createGroupRoute = defineRoute({
     const group = await inTree(ctx, async (q, deps) =>
       value(await createGroup(deps, categoriesTx(q), caller(ctx), body)),
     );
-    return presentGroup(group, []);
+    return presentGroup(group, [], new Set());
   },
 });
 
@@ -215,13 +250,18 @@ export const renameGroupRoute = defineRoute({
   response: { status: 200, description: "The group with its categories", schema: groupSchema },
   handler: async ({ params, body }, ctx) => {
     refuseScoped(ctx);
-    const { group, categories } = await inTree(ctx, async (q, deps) => {
+    const { group, categories, free } = await inTree(ctx, async (q, deps) => {
       const tx = categoriesTx(q);
       const renamed = value(await renameGroup(deps, tx, caller(ctx), params.groupId, body));
       const all = await tx.categories(ctx.principal.householdId);
-      return { group: renamed, categories: all.filter((c) => c.groupId === renamed.id) };
+      const categories = all.filter((c) => c.groupId === renamed.id);
+      return {
+        group: renamed,
+        categories,
+        free: await deletable(q, deps, ctx.principal.householdId, categories),
+      };
     });
-    return presentGroup(group, categories);
+    return presentGroup(group, categories, free);
   },
 });
 
@@ -250,12 +290,13 @@ export const createCategoryRoute = defineRoute({
       .strict(),
   },
   response: { status: 201, description: "The new category", schema: categorySchema },
-  handler: async ({ body }, ctx) =>
-    presentCategory(
-      await inTree(ctx, async (q, deps) =>
-        value(await createCategory(deps, categoriesTx(q), caller(ctx), body)),
-      ),
-    ),
+  handler: async ({ body }, ctx) => {
+    const created = await inTree(ctx, async (q, deps) =>
+      value(await createCategory(deps, categoriesTx(q), caller(ctx), body)),
+    );
+    // FR 12: a new custom category is empty — nothing can refer to an id just made.
+    return presentCategory(created, new Set([created.id]));
+  },
 });
 
 export const updateCategoryRoute = defineRoute({
@@ -283,11 +324,11 @@ export const updateCategoryRoute = defineRoute({
   response: { status: 200, description: "The category after the change", schema: categorySchema },
   handler: async ({ params, body }, ctx) => {
     refuseScoped(ctx);
-    return presentCategory(
-      await inTree(ctx, async (q, deps) =>
-        value(await updateCategory(deps, categoriesTx(q), caller(ctx), params.categoryId, body)),
-      ),
-    );
+    const { row, free } = await inTree(ctx, async (q, deps) => {
+      const row = value(await updateCategory(deps, categoriesTx(q), caller(ctx), params.categoryId, body));
+      return { row, free: await deletable(q, deps, ctx.principal.householdId, [row]) };
+    });
+    return presentCategory(row, free);
   },
 });
 
@@ -317,12 +358,37 @@ export const mergeCategoryRoute = defineRoute({
   },
 });
 
+export const deleteCategoryRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/categories/{categoryId}",
+  operationId: "deleteCategory",
+  summary:
+    "«Видалити» an empty custom category: it leaves the tree and its name is free again (FR 12); in use or system — refused",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["CATEGORY_NOT_EMPTY", "CATEGORY_SYSTEM_FIXED"],
+  request: { params: categoryParams },
+  response: {
+    status: 200,
+    description: "Deleted; the action is in the space's audit log",
+    schema: z.object({ deleted: z.literal(true) }),
+  },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    await inTree(ctx, async (q, s) =>
+      value(await deleteCategory(s, s.usage, categoriesTx(q), caller(ctx), params.categoryId)),
+    );
+    return { deleted: true as const };
+  },
+});
+
 export const categoriesRoutes = [
   listCategoriesRoute,
   getCategoryRoute,
   createCategoryRoute,
   updateCategoryRoute,
   mergeCategoryRoute,
+  deleteCategoryRoute,
   createGroupRoute,
   renameGroupRoute,
 ];

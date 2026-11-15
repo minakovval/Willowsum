@@ -534,3 +534,20 @@ export async function duplicateCandidatesOf(
   );
   return rows.map(duplicateSides);
 }
+
+/**
+ * BUD-01@PoC FR 12: of `ids`, the categories a split part of the space has — of any transaction, hidden or not (a
+ * part keeps its category until the split is removed). Read only.
+ */
+export async function categoriesInParts(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (ids.length === 0) return new Set();
+  const { rows } = await q.query<{ id: string }>(
+    `SELECT DISTINCT category_id AS id FROM transaction_parts WHERE household_id = $1 AND category_id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  return new Set(rows.map((r) => r.id));
+}
