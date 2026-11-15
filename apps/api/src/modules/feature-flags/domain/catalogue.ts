@@ -134,6 +134,13 @@ export const FLAGS = {
     description:
       "Масові дії (DAT-03@PoC a): підсумок, до 500 записів, фонове виконання, «Відмінити» 24 год; маршрути /v1/bulk-actions",
   },
+  "goals.savings": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Цілі накопичення (BUD-05@PoC a): ціль з однією частиною, «Внести», потрібний щомісячний внесок, прогрес, темп; маршрути /v1/goals",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

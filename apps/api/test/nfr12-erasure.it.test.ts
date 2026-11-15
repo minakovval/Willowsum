@@ -108,6 +108,7 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
       "transactions.records",
       "categories.records",
       "categorization.records",
+      "goals.records",
       "accounts.records",
       "liabilities.records",
     ])
