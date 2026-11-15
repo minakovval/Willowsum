@@ -671,7 +671,7 @@ describe("BUD-05@PoC «Кожна зміна, внесок … пишуться 
     const g = await goal(space, travel());
     await call(space, "POST", `/v1/goals/${g.id}/contributions`, { amount: eur("10.00") });
     const erased = await createGoalsErasure(db.databases.for("goals")).eraseHousehold(space.householdId);
-    expect(erased).toEqual({ goals: 1, contributions: 1, jobs: 2 });
+    expect(erased).toEqual({ goals: 1, contributions: 1, spends: 0, jobs: 2 });
     expect(await n("goals.jobs WHERE household_id = $1", space.householdId)).toBe(0);
   });
 });
