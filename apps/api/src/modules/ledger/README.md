@@ -1,6 +1,6 @@
 # Модуль ledger
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14 (FIN-01: «Початковий залишок»; «Валютна різниця» у звітах і аудит у викликачах, #201; FIN-12: записи джерела, що діють, — `liveEntries`; FIN-12 b: `hasLiveEntries`)
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15 (ARC-04: `openAccount` з ідентифікатором власника, ADR-0015; FIN-01: «Початковий залишок»; «Валютна різниця» у звітах і аудит у викликачах, #201; FIN-12: записи джерела, що діють, — `liveEntries`; FIN-12 b: `hasLiveEntries`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -32,8 +32,10 @@ FIN-04@PoC AC5, AC7 і п. 11 («Оновити залишок» і видале
   `entryRecorded`.
 - `entryRecorded` (`events.ts`), тип `EntryRecorded` — подія «проводку записано» (див. «Події»).
 - `createLedger(db)` → `Ledger`, де `db` — `ModuleDatabases.for("ledger")`; кожен виклик прив'язаний до одного простору:
-  - `openAccount(householdId, owner: { module, id }, { type, currency })` → `LedgerAccount` — рахунок журналу для
-    запису модуля-власника; ідемпотентний; інший тип чи валюта — `ACCOUNT_CONFLICT`.
+  - `openAccount(householdId, owner: { module, id }, { type, currency, id? })` → `LedgerAccount` — рахунок журналу для
+    запису модуля-власника; ідемпотентний; інший тип чи валюта — `ACCOUNT_CONFLICT`. `id` — UUID, який власник вибрав і
+    зберіг раніше, щоб відкрити рахунок після коміту своєї зміни (ARC-04, ADR-0015); рахунок власника під іншим
+    ідентифікатором — `ACCOUNT_CONFLICT`.
   - `post(householdId, { source, idempotencyKey, operationDate, event })` → `Entry` — збалансований набір проводок
     події за правилами (`EVENT_TYPES`: `transaction`, `transfer`, `opening-balance`, `balance-adjustment`, `asset-purchase`,
     `asset-revaluation`, `asset-sale`, `mortgage-payment`, `rental-income`) в одній транзакції разом із подією

@@ -32,6 +32,14 @@ export const auditEntryInput = z
           .strict(),
       )
       .max(200),
+    /**
+     * ARC-04 FR 3: the entry is appended once per key in the space — a hand-off that runs again (a job's retry)
+     * appends nothing more. A code (`<module>.<what>:<id>`), never free text.
+     */
+    key: z
+      .string()
+      .regex(/^[A-Za-z0-9:._-]{1,200}$/)
+      .optional(),
   })
   .strict();
 
@@ -41,10 +49,12 @@ export type AuditEntryInput = z.infer<typeof auditEntryInput>;
  * An entry of the platform log: a change that belongs to no household (feature flags, kill switches; staff
  * actions later). Made by staff or the system, never by a household's user.
  */
-export const platformEntryInput = auditEntryInput.refine((e) => e.actor.kind !== "user", {
-  message: "platform changes are made by staff or the system",
-  path: ["actor"],
-});
+export const platformEntryInput = auditEntryInput
+  .refine((e) => e.actor.kind !== "user", {
+    message: "platform changes are made by staff or the system",
+    path: ["actor"],
+  })
+  .refine((e) => e.key === undefined, { message: "the platform log has no keys", path: ["key"] });
 
 export type PlatformEntryInput = z.infer<typeof platformEntryInput>;
 export type AuditChange = AuditEntryInput["changes"][number];

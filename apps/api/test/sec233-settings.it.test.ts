@@ -412,7 +412,9 @@ describe("sec233 audit and concurrency", () => {
     expect(await stored(space.householdId)).toEqual(before);
   });
 
-  it("sec233: an audit outage in the middle of «Кредитна картка» → «Кредит» leaves the liability changed with its own audit entry; the same request again finishes the change", async () => {
+  // ARC-04 (#238 item 1): the liability follows the account only after the accounts transaction commits, so an audit
+  // outage that rolls the change back leaves the liability as it was (before, it was changed already).
+  it("sec233: an audit outage in the middle of «Кредитна картка» → «Кредит» leaves the account and its liability as they were; the same request again makes the change", async () => {
     const space = await newSpace();
     const card = await createAccount(space, {
       kind: "credit-card",
@@ -431,7 +433,7 @@ describe("sec233 audit and concurrency", () => {
     }
     const mid = await stored(space.householdId);
     expect(mid.accounts[0]).toEqual(expect.objectContaining({ kind: "credit-card" }));
-    expect(mid.liabilities[0]).toEqual(expect.objectContaining({ kind: "loan" }));
+    expect(mid.liabilities[0]).toEqual(expect.objectContaining({ kind: "credit-card" }));
     // The account still answers (no 500) in between.
     expect((await call(space, "GET", `/v1/accounts/${card.id}`)).statusCode).toBe(200);
     expect((await call(space, "GET", "/v1/accounts")).statusCode).toBe(200);
@@ -463,7 +465,18 @@ describe("sec233 audit and concurrency", () => {
     const changedA = (
       await audit.entriesFor(space.householdId, { type: "accounts.account", id: card.id })
     ).filter((e) => e.action === "update" && e.changes.some((c) => c.field === "kind"));
-    expect(changedA).toHaveLength(changedL.length);
+    // ARC-04: each kind change's hand-off gives the liability the account's kind as it is then, with the account's row
+    // locked, so a change overtaken by a later one before its hand-off ran moves the liability no more (no entry).
+    expect(changedL.length).toBeLessThanOrEqual(changedA.length);
+    // The `<=` also holds with no entry at all, so the chain is checked too: when the card ended as a loan, at least one
+    // liability update entry exists and one of them moved its kind to the final kind (review 5908367712, follow-up 1).
+    const finalKind = (end.accounts[0] as { kind: string }).kind;
+    if (finalKind !== "credit-card") {
+      expect(changedL.length).toBeGreaterThanOrEqual(1);
+      expect(changedL.some((e) => e.changes.some((c) => c.field === "kind" && c.after === finalKind))).toBe(
+        true,
+      );
+    }
     expect(results.filter((r, i) => i !== 7 && r.statusCode === 200).length).toBeGreaterThanOrEqual(
       changedA.length,
     );

@@ -1,7 +1,8 @@
 // Synthetic accounts (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
-// Tables load in name order (account_owners, accounts, idempotency_keys, subaccounts) in one transaction; the keys to
-// `accounts` are checked at commit. Row n of every table belongs to account n, so each account has one subaccount and
-// one owner with 100 %. Numbers are only last-4 codes; nothing is sealed.
+// Tables load in name order (account_owners, accounts, idempotency_keys, jobs, outbox_events, subaccounts) in one
+// transaction; the keys to `accounts` are checked at commit. Row n of every table belongs to account n, so each account
+// has one subaccount and one owner with 100 %, and its hand-off job is done (ARC-04). Numbers are only last-4 codes;
+// nothing is sealed. The module publishes no events: outbox_events gets one dispatched row for the isolation check.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -65,6 +66,44 @@ export const synthetic = [
           response_status: null,
           response_body: null,
           expires_at: "2026-12-31T00:00:00Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "accounts.jobs",
+    perHousehold: 3,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "job", i),
+          name: "accounts.hand-off",
+          dedupe_key: `credit-kind:${key(household.id, "account", i)}:${key(household.id, "change", i)}`,
+          payload: JSON.stringify({
+            kind: "credit-kind",
+            accountId: key(household.id, "account", i),
+            actorAccountId: key(household.id, "actor", i),
+          }),
+          heavy: "false",
+          state: "done",
+          attempts: "1",
+          finished_at: "2026-06-30T10:00:02Z",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "accounts.outbox_events",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "event", i),
+          event_name: "accounts.synthetic-event",
+          event_version: "1",
+          payload: JSON.stringify({ accountId: key(household.id, "account", i) }),
+          traceparent: null,
+          dispatched_at: "2026-06-30T10:00:01Z",
         };
     },
   }),

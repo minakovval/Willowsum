@@ -4,11 +4,17 @@
  * module (feature-flags) to the platform.
  */
 import type pg from "pg";
-import type { AuditLog } from "./modules/audit/index.ts";
+import { createAccountsHandOffRecovery, createAccountsWorkerQueue } from "./modules/accounts/index.ts";
+import { createAuditLog, type AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
-import { createLedgerIntegrityCheck, type LedgerIntegrityAlerts } from "./modules/ledger/index.ts";
+import {
+  createLedger,
+  createLedgerIntegrityCheck,
+  type LedgerIntegrityAlerts,
+} from "./modules/ledger/index.ts";
+import { createLiabilities } from "./modules/liabilities/index.ts";
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
@@ -109,9 +115,21 @@ export function schedulerDailyTasks(deps: {
     undefined,
     deps.alertMail ? { alertMail: deps.alertMail } : {},
   );
+  const handOffRecovery = createAccountsHandOffRecovery(deps.databases.for("accounts"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
+    // ARC-04 FR 2–4 (ADR-0015): a hand-off the worker gave up on goes back to the accounts queue — before the
+    // retention cleanup below, which would otherwise delete it after 30 days with the only copy of what it carries.
+    {
+      name: "accounts.hand-off-recovery",
+      run: async () => {
+        const requeued = await handOffRecovery.run();
+        if (requeued > 0) logEvent("accounts.hand_off_requeued", "warn", { "ws.module": "accounts" });
+      },
+    },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
     // queue's working copies go; the changes they report stay in the modules' own tables.
     {
@@ -145,17 +163,25 @@ export function schedulerDailyTasks(deps: {
  * The worker role's queues (ARC-04): each module that publishes events or runs jobs adds its store
  * (`postgresJobStore(databases.for(<module>))`) and handlers here, and each consumer of an event its subscription.
  * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); no
- * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014).
+ * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014). `accounts`
+ * runs its hand-off jobs (ARC-04 FR 2, #210): the ledger accounts and opening balances, the liability and the audit
+ * entries of a create or a kind change, after the accounts transaction committed.
  */
 export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
 } {
+  const audit = createAuditLog(databases.for("audit"));
   return {
-    // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
-    // subscribe in the parts that bring them.
     queues: [
       { store: postgresJobStore(databases.for("ledger")), handlers: [] },
+      createAccountsWorkerQueue(databases.for("accounts"), {
+        ledger: createLedger(databases.for("ledger")),
+        liabilities: createLiabilities(databases.for("liabilities"), audit),
+        audit,
+      }),
+      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
+      // subscribe in the parts that bring them.
       { store: postgresJobStore(databases.for("categories")), handlers: [] },
     ],
     subscriptions: [],

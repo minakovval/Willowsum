@@ -1,4 +1,4 @@
-import type { Money } from "@willowsum/domain-kernel";
+import { Money } from "@willowsum/domain-kernel";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Ledger } from "../../ledger/index.ts";
 import {
@@ -9,6 +9,8 @@ import {
   type Liability,
 } from "../../liabilities/index.ts";
 import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
+import { AUDIT_MASK } from "../../audit/index.ts";
+import type { AuditValue, HandOff, HandOffAudit, HandOffSubaccount } from "./hand-off.ts";
 import {
   checkNewAccount,
   depositAccrual,
@@ -36,14 +38,15 @@ import {
  * 1. the form is checked (`checkNewAccount`; a loan's and a card's terms by `liabilities`) and the duplicate rule
  *    applied (same institution, number or IBAN and currency) — nothing is written for an invalid form or a duplicate;
  * 2. the full number is sealed with the space's key (ARC-06 FR 2), only its last 4 characters stay in the clear;
- * 3. the account, a subaccount per currency with its ledger account, and the Owner with 100 % from the opening date;
- * 4. per currency one ledger event «Початковий залишок» on its date (none for a zero balance — nothing moves);
- * 5. a loan or a credit card: its liability with the terms (`liabilities`);
- * 6. the audit entry (П-10), last, before the accounts transaction commits.
+ * 3. the account, a subaccount per currency with the id of its ledger account, and the Owner with 100 % from the
+ *    opening date;
+ * 4. the hand-off job (ARC-04 FR 2, hand-off.ts), in the same transaction: per currency the ledger account and one
+ *    ledger event «Початковий залишок» on its date (none for a zero balance — nothing moves); a loan or a credit card:
+ *    its liability with the terms (`liabilities`); the audit entry (П-10).
  *
- * Steps 4–6 are other modules' transactions, committed before this one (as in household's rename): a failure rolls
- * this one back but may leave a ledger account, an entry or a liability that no account points to; they carry the
- * ids of this attempt only and are never shown. Atomic hand-over comes with events (ARC-04).
+ * The hand-off runs only after this transaction commits (the route right away, the worker if that fails): a failure
+ * anywhere before the commit leaves nothing in another module, and nothing here waits on another module's pool
+ * while it holds the accounts connection, except the space's key for a full number (household).
  */
 
 /** The sealed field of an account's number in the space's key scheme (household `SpaceKeys`). */
@@ -111,6 +114,11 @@ export interface AccountsTx {
   insertAccount(householdId: string, account: StoredAccount): Promise<void>;
   insertSubaccount(householdId: string, subaccount: StoredSubaccount): Promise<void>;
   insertOwner(householdId: string, accountId: string, owner: StoredOwner): Promise<void>;
+  /**
+   * ARC-04 FR 2: the hand-off of this change to the other modules, enqueued in this transaction (the accounts queue,
+   * job `accounts.hand-off`); `changeId` makes each kind change its own job.
+   */
+  enqueueHandOff(householdId: string, handOff: HandOff, changeId: string): Promise<void>;
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;
   subaccounts(householdId: string, accountId: string): Promise<StoredSubaccount[]>;
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;
@@ -156,14 +164,7 @@ export interface NumberSeal {
 }
 
 /** The space's audit log (П-10): who created which account, the number masked. */
-export interface AccountAudit {
-  accountCreated(
-    householdId: string,
-    actorAccountId: string,
-    account: StoredAccount,
-    subaccounts: readonly { readonly currency: string; readonly balance: Money; readonly date: string }[],
-    owner: StoredOwner,
-  ): Promise<void>;
+export interface AccountAudit extends HandOffAudit {
   /** Closed or reopened (FIN-12 FR 7–9): the status and date before and after, and how a balance was settled. */
   statusChanged(
     householdId: string,
@@ -261,8 +262,21 @@ export interface Duplicate {
   readonly maskedNumber: string;
 }
 
+/** What was written, for the answer when the hand-off has not finished yet (the ledger shows no balance then). */
+export interface CreatedAccount {
+  readonly account: StoredAccount;
+  readonly subaccounts: readonly StoredSubaccount[];
+  readonly owner: StoredOwner;
+}
+
 export type CreateResult =
-  | { readonly kind: "created"; readonly accountId: string }
+  | {
+      readonly kind: "created";
+      readonly accountId: string;
+      /** Run it once the transaction has committed (ARC-04 FR 2); the worker runs it too. */
+      readonly handOff: HandOff;
+      readonly created: CreatedAccount;
+    }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   | { readonly kind: "duplicate"; readonly duplicate: Duplicate };
 
@@ -353,34 +367,31 @@ export async function createAccount(
   };
   await tx.insertAccount(householdId, account);
 
-  const type = ledgerTypeOf(draft.kind);
+  const ledgerType = ledgerTypeOf(draft.kind);
+  const subaccounts: StoredSubaccount[] = [];
+  const handOffSubaccounts: HandOffSubaccount[] = [];
   for (const [position, opening] of draft.currencies.entries()) {
-    const id = deps.newId();
-    const currency = opening.balance.currency;
-    const ledgerAccount = await deps.ledger.openAccount(
-      householdId,
-      { module: "accounts", id },
-      { type, currency },
-    );
-    await tx.insertSubaccount(householdId, {
-      id,
+    const subaccount: StoredSubaccount = {
+      id: deps.newId(),
       accountId: account.id,
-      currency,
+      currency: opening.balance.currency,
       position,
-      ledgerAccountId: ledgerAccount.id,
+      // The ledger account is opened by the hand-off under this id, after the commit (ARC-04).
+      ledgerAccountId: deps.newId(),
       balanceDate: opening.date,
+    };
+    await tx.insertSubaccount(householdId, subaccount);
+    subaccounts.push(subaccount);
+    handOffSubaccounts.push({
+      subaccountId: subaccount.id,
+      ledgerAccountId: subaccount.ledgerAccountId,
+      ledgerType,
+      currency: subaccount.currency,
+      opening: opening.balance.isZero()
+        ? null
+        : openingEventAmount(draft.kind, opening.balance).toDecimalString(),
+      date: opening.date,
     });
-    if (!opening.balance.isZero())
-      await deps.ledger.post(householdId, {
-        source: { module: "accounts", id },
-        idempotencyKey: `accounts.opening:${id}`,
-        operationDate: opening.date,
-        event: {
-          type: "opening-balance",
-          account: ledgerAccount.id,
-          amount: openingEventAmount(draft.kind, opening.balance),
-        },
-      });
   }
 
   const owner: StoredOwner = {
@@ -391,23 +402,21 @@ export async function createAccount(
   };
   await tx.insertOwner(householdId, account.id, owner);
 
-  if (draft.liability) {
-    const registered = await deps.liabilities.register(householdId, {
-      actorAccountId: caller.accountId,
-      accountId: account.id,
-      terms: draft.liability,
-    });
-    if (registered.kind !== "registered") throw new Error("liability terms refused after they were checked");
-  }
-
-  await deps.audit.accountCreated(
-    householdId,
-    caller.accountId,
-    account,
-    draft.currencies.map((c) => ({ currency: c.balance.currency, balance: c.balance, date: c.date })),
-    owner,
-  );
-  return { kind: "created", accountId: account.id };
+  const handOff: HandOff = {
+    kind: "account-created",
+    accountId: account.id,
+    actorAccountId: caller.accountId,
+    subaccounts: handOffSubaccounts,
+    liability: draft.liability ?? null,
+    audit: accountCreatedValues(
+      account,
+      draft.currencies.map((c) => ({ currency: c.balance.currency, balance: c.balance, date: c.date })),
+      owner,
+      maskedNumber,
+    ),
+  };
+  await tx.enqueueHandOff(householdId, handOff, account.id);
+  return { kind: "created", accountId: account.id, handOff, created: { account, subaccounts, owner } };
 }
 
 /** An account as the API answers it: the number only by its last 4 characters (FIN-01 AC7). */
@@ -460,7 +469,11 @@ export interface AccountView {
 
 /** The account with its balances today; null when the caller's space has no such account (another space's too). */
 export async function accountView(
-  deps: Pick<AccountsDeps, "ledger" | "liabilities" | "today">,
+  deps: {
+    readonly ledger: Pick<AccountsDeps["ledger"], "balanceAt" | "liveEntries">;
+    readonly liabilities: Pick<AccountsDeps["liabilities"], "forAccount">;
+    readonly today: AccountsDeps["today"];
+  },
   tx: Pick<AccountsTx, "account" | "subaccounts" | "owners">,
   householdId: string,
   accountId: string,
@@ -548,4 +561,76 @@ export async function accountView(
           }
         : null,
   };
+}
+
+/**
+ * The new account as it was written, for the create's answer when its hand-off has not finished (ARC-04): without the
+ * ledger or liabilities, so it cannot fail — the balances are those of a ledger that has nothing yet (0), and the
+ * terms come once the hand-off has registered them. The worker finishes the hand-off; a read then shows them.
+ */
+export async function createdAccountView(
+  deps: Pick<AccountsDeps, "today">,
+  householdId: string,
+  created: CreatedAccount,
+): Promise<AccountView> {
+  const currencyOf = new Map(created.subaccounts.map((s) => [s.ledgerAccountId, s.currency]));
+  const view = await accountView(
+    {
+      today: deps.today,
+      ledger: {
+        balanceAt: async (_householdId, ledgerAccountId) => Money.zero(currencyOf.get(ledgerAccountId)!),
+        liveEntries: async () => [],
+      },
+      liabilities: { forAccount: async () => null },
+    },
+    {
+      account: async () => created.account,
+      subaccounts: async () => [...created.subaccounts],
+      owners: async () => [created.owner],
+    },
+    householdId,
+    created.account.id,
+  );
+  return view!;
+}
+
+/**
+ * The account's entry in the space's log (FIN-01 FR 17, П-10): every field with its new value. The full number is
+ * never in it (only whether one is sealed), the last 4 characters as «••1234» (FIN-01 AC7); the sealed flag and the
+ * note are sensitive and masked here already, so the hand-off's payload carries neither.
+ */
+export function accountCreatedValues(
+  account: StoredAccount,
+  currencies: readonly { readonly currency: string; readonly balance: Money; readonly date: string }[],
+  owner: StoredOwner,
+  masked: (last4: string) => string,
+): AuditValue[] {
+  const value = (field: string, after: string | null, sensitive = false): AuditValue => ({
+    field,
+    after: sensitive && after !== null ? AUDIT_MASK : after,
+    sensitive,
+  });
+  return [
+    value("kind", account.kind),
+    value("name", account.name),
+    value("institutionName", account.institutionName),
+    value("institutionCountry", account.institutionCountry),
+    value("number", account.numberSealed === null ? null : "sealed", true),
+    value("numberLast4", account.numberLast4 === null ? null : masked(account.numberLast4)),
+    value("note", account.note, true),
+    value("annualRate", account.annualRate),
+    value("depositOpenedOn", account.depositOpenedOn),
+    value("depositMaturesOn", account.depositMaturesOn),
+    value("openedOn", account.openedOn),
+    value("status", account.status),
+    value("source", account.source),
+    ...currencies.flatMap((c, i) => [
+      value(`currencies.${i}.currency`, c.currency),
+      value(`currencies.${i}.openingBalance`, c.balance.toDecimalString()),
+      value(`currencies.${i}.balanceDate`, c.date),
+    ]),
+    value("owners.0.ownerAccountId", owner.ownerAccountId),
+    value("owners.0.share", owner.share),
+    value("owners.0.validFrom", owner.validFrom),
+  ];
 }

@@ -2,14 +2,17 @@ import type { Money } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
-import { defineRoute } from "../../../../platform/http/route.ts";
+import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
   accountsPage,
   accountsSummary,
   accountView,
+  applyHandOff,
   closeAccount,
   closingPreview,
   createAccount,
+  createdAccountView,
   deleteAdjustment,
   findDuplicate,
   reopenAccount,
@@ -22,6 +25,7 @@ import {
   type AccountView,
   type ConvertedAmount,
   type ReportedSum,
+  type HandOff,
 } from "../../application/index.ts";
 import {
   ACCOUNT_KINDS,
@@ -37,6 +41,7 @@ import {
   type FieldIssue,
 } from "../../domain/index.ts";
 import { accountsListTx, accountsTx } from "../db/store.ts";
+import { accountKinds } from "../queue/hand-off.ts";
 import { accountsServices } from "./services.ts";
 
 /**
@@ -171,6 +176,33 @@ function present(v: AccountView): z.input<typeof accountSchema> {
   };
 }
 
+/**
+ * ARC-04 FR 2: the hand-off of a committed change, right away — outside any accounts transaction (each step in its
+ * module's own one). A failure is no failure of the request: the change is made and its job is in the accounts queue,
+ * so the worker finishes the hand-off. Logged as `accounts.hand_off_deferred` (WARN, the error class only).
+ */
+async function handOffNow(
+  ctx: ProtectedContext,
+  deps: ReturnType<typeof accountsServices>["deps"],
+  handOff: HandOff,
+): Promise<boolean> {
+  try {
+    await applyHandOff(
+      deps,
+      accountKinds((work) => ctx.inHousehold(work)),
+      ctx.principal.householdId,
+      handOff,
+    );
+    return true;
+  } catch (error) {
+    logEvent("accounts.hand_off_deferred", "warn", {
+      "ws.module": MODULE,
+      "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+    });
+    return false;
+  }
+}
+
 /** Where the form is wrong: the field and an issue code, never the value sent. */
 function invalid(issues: readonly FieldIssue[]): ApiProblem {
   return new ApiProblem("VALIDATION_FAILED", {
@@ -233,15 +265,18 @@ export const createAccountRoute = defineRoute({
   handler: async ({ body }, ctx) => {
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    return ctx.inHousehold(async (q) => {
-      const tx = accountsTx(q);
-      const result = await createAccount(deps, tx, caller, body);
-      if (result.kind === "invalid") throw invalid(result.issues);
-      if (result.kind === "duplicate") throw new ApiProblem("ACCOUNT_DUPLICATE");
-      const view = await accountView(deps, tx, caller.householdId, result.accountId);
-      if (!view) throw new ApiProblem("INTERNAL");
-      return present(view);
-    });
+    const result = await ctx.inHousehold((q) => createAccount(deps, accountsTx(q), caller, body));
+    if (result.kind === "invalid") throw invalid(result.issues);
+    if (result.kind === "duplicate") throw new ApiProblem("ACCOUNT_DUPLICATE");
+    // The account exists from here: the answer must not fail, or a retry with the same Idempotency-Key would create
+    // a second one (the key is released when the handler throws).
+    if (await handOffNow(ctx, deps, result.handOff)) {
+      const view = await ctx
+        .inHousehold((q) => accountView(deps, accountsTx(q), caller.householdId, result.accountId))
+        .catch(() => null);
+      if (view) return present(view);
+    }
+    return present(await createdAccountView(deps, caller.householdId, result.created));
   },
 });
 
@@ -720,21 +755,23 @@ export const updateAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    return ctx.inHousehold(async (q) => {
-      const tx = accountsTx(q);
-      const result = await updateAccountSettings(deps, tx, caller, params.accountId, body);
-      switch (result.kind) {
-        case "updated":
-        case "unchanged":
-          return presentAccount(deps, tx, caller.householdId, params.accountId);
-        case "other-group":
-          throw new ApiProblem("ACCOUNT_KIND_OTHER_GROUP");
-        case "has-transactions":
-          throw new ApiProblem("ACCOUNT_HAS_TRANSACTIONS");
-        default:
-          throw refusal(result);
-      }
-    });
+    const result = await ctx.inHousehold((q) =>
+      updateAccountSettings(deps, accountsTx(q), caller, params.accountId, body),
+    );
+    switch (result.kind) {
+      case "updated":
+      case "unchanged":
+        break;
+      case "other-group":
+        throw new ApiProblem("ACCOUNT_KIND_OTHER_GROUP");
+      case "has-transactions":
+        throw new ApiProblem("ACCOUNT_HAS_TRANSACTIONS");
+      default:
+        throw refusal(result);
+    }
+    // The liability's kind, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
+    if (result.kind === "updated" && result.handOff) await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
   },
 });
 

@@ -479,20 +479,36 @@ export async function hasLiveEntries(
   });
 }
 
-/** A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. */
+/**
+ * A ledger account for an owner module's record (ARC-11: made by the owner's event). Idempotent per owner. With `id`
+ * the account gets that id (a UUID the owner chose and stored first, so that its hand-off can open the account later,
+ * ARC-04); the owner's account under another id — `ACCOUNT_CONFLICT`.
+ */
 export async function openAccount(
   deps: JournalDeps,
   householdId: string,
   owner: EntrySource,
-  account: { readonly type: AccountType; readonly currency: string },
+  account: { readonly type: AccountType; readonly currency: string; readonly id?: string | undefined },
 ): Promise<LedgerAccount> {
   if (!ACCOUNT_TYPES.includes(account.type)) throw new LedgerError("INVALID_ACCOUNT", "Unknown account type");
   assertSource(owner);
+  if (account.id !== undefined) assertId(account.id, "INVALID_ACCOUNT");
   const currency = currencyCode(account.currency);
   return deps.store.inHousehold(householdId, async (tx) => {
-    const opened = await tx.ensureOwnedAccount(owner, { type: account.type, currency }, deps.newId());
-    if (opened.type !== account.type || opened.currency !== currency)
-      throw new LedgerError("ACCOUNT_CONFLICT", "The owner's ledger account has another type or currency");
+    const opened = await tx.ensureOwnedAccount(
+      owner,
+      { type: account.type, currency },
+      account.id ?? deps.newId(),
+    );
+    if (
+      opened.type !== account.type ||
+      opened.currency !== currency ||
+      (account.id !== undefined && opened.id !== account.id)
+    )
+      throw new LedgerError(
+        "ACCOUNT_CONFLICT",
+        "The owner's ledger account has another type, currency or id",
+      );
     return opened;
   });
 }

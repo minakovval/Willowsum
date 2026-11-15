@@ -27,7 +27,8 @@ export interface PlatformAuditEntry extends NewAuditRow {
 
 /** Port: append-only storage of one household's log, and of the platform log. */
 export interface AuditStore {
-  append(householdId: string, row: NewAuditRow): Promise<AuditEntry>;
+  /** With `key` (ARC-04 FR 3), the space's entry of that key if there is one — nothing is appended again. */
+  append(householdId: string, row: NewAuditRow, key?: string | null): Promise<AuditEntry>;
   forEntity(householdId: string, entityType: string, entityId: string): Promise<AuditEntry[]>;
   appendPlatform(row: NewAuditRow): Promise<PlatformAuditEntry>;
   platformForEntity(entityType: string, entityId: string): Promise<PlatformAuditEntry[]>;
@@ -53,7 +54,8 @@ export async function recordEntry(
   householdId: string,
   input: unknown,
 ): Promise<AuditEntry> {
-  return store.append(householdId, toRow(auditEntryInput.parse(input)));
+  const entry = auditEntryInput.parse(input);
+  return store.append(householdId, toRow(entry), entry.key ?? null);
 }
 
 /** Records one entry of the platform log (staff or system only), masking sensitive values first. */
