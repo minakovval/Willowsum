@@ -5,10 +5,17 @@ import type { AccountDirectory } from "../../../accounts/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
-import type { SplitDeps, TransactionAudit, TransactionsDeps } from "../../application/index.ts";
+import type {
+  SplitDeps,
+  TransactionAudit,
+  TransactionsDeps,
+  TransferDeps,
+} from "../../application/index.ts";
 
 /** The release flag of «Очікує» and hiding (FIN-03 b, wave 2 row 16a); the routes of hiding are behind it too. */
 export const STATES_FLAG = "transactions.states";
+/** The release flag and feature key of transfers between own accounts (FIN-03 b, wave 2 row 16b). */
+export const TRANSFERS_FLAG = "transactions.transfers";
 
 const BRAND = Symbol("willowsum-transactions-services");
 
@@ -22,6 +29,8 @@ export interface TransactionsServices {
   readonly deps: TransactionsDeps;
   /** «Розділити» (BUD-13 FR 6–8): the same ports and the space's category tree; null when it is not wired. */
   readonly splits: SplitDeps | null;
+  /** Transfers (FIN-03 FR 7, FR 27): the same ports and the official rates; null when the rates are not wired. */
+  readonly transfers: TransferDeps | null;
   readonly totals: ListTotals;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
@@ -39,6 +48,8 @@ export function createTransactionsServices(options: {
   readonly categories?: Pick<CategoryDirectory, "category">;
   /** The flag runtime (feature-flags), for `transactions.states` on the create and edit form; without it — off. */
   readonly flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> };
+  /** fx-rates' `rates`, for the rate a transfer in two currencies keeps (FR 8); without it transfers answer 500. */
+  readonly rates?: TransferDeps["rates"];
 }): TransactionsServices {
   const deps: TransactionsDeps = {
     accounts: options.accounts,
@@ -56,6 +67,7 @@ export function createTransactionsServices(options: {
     [BRAND]: true,
     deps,
     splits: options.categories ? { ...deps, categories: options.categories } : null,
+    transfers: options.rates ? { ...deps, rates: options.rates } : null,
     totals: options.totals,
     reportingCurrency: REPORTING_CURRENCY,
   };

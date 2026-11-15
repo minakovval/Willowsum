@@ -10,6 +10,8 @@ import {
   transactionAudit,
   transactionsRoutes,
   transactionsWorkerQueue,
+  transferCandidates,
+  type CandidateSide,
 } from "./adapters/index.ts";
 import type { HandOffDeps } from "./application/index.ts";
 
@@ -77,3 +79,25 @@ export interface TransactionsErasure {
 export function createTransactionsErasure(db: ModuleDatabase): TransactionsErasure {
   return { eraseHousehold: (householdId) => eraseHouseholdTransactions(db, householdId) };
 }
+
+/**
+ * The candidate pairs of transfers between own accounts (FIN-03@PoC FR 5) for module transfer-matching, which decides
+ * by its rule which are proposals: a debit and a credit on two accounts of the space within `windowDays`, both posted,
+ * shown, not split and in no transfer; in one currency the credit at most the debit and at least `sameCurrencyMinShare`
+ * of it. Newest first, at most `limit`. Read only.
+ */
+export interface TransferCandidates {
+  candidatePairs(
+    householdId: string,
+    query: { readonly windowDays: number; readonly sameCurrencyMinShare: string; readonly limit: number },
+  ): Promise<{ readonly outflow: CandidateSide; readonly inflow: CandidateSide }[]>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransferCandidates(db: ModuleDatabase): TransferCandidates {
+  return {
+    candidatePairs: (householdId, query) =>
+      db.inHousehold(householdId, (q) => transferCandidates(q, householdId, query)),
+  };
+}
+export type { CandidateSide };

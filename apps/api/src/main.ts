@@ -26,7 +26,8 @@ import {
 import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
-import { createTransactionsServices } from "./modules/transactions/index.ts";
+import { createTransactionsServices, createTransferCandidates } from "./modules/transactions/index.ts";
+import { createTransferMatchingServices } from "./modules/transfer-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
@@ -217,6 +218,15 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               flags,
+              // A transfer in two currencies keeps the official rate of its date (FIN-03 FR 8).
+              rates: (requests) =>
+                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+            }),
+            // FIN-03 FR 5, FR 6: proposals of transfers from the space's transactions at the official rates.
+            transferMatching: createTransferMatchingServices({
+              candidates: createTransferCandidates(databases.for("transactions")),
+              rates: (requests) =>
+                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use.
             categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),

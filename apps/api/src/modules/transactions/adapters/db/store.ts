@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { exchangeRate, Money } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import { filterValue } from "../../../../platform/http/list-query.ts";
 import { defineList } from "../../../../platform/lists/list-engine.ts";
@@ -9,6 +9,9 @@ import {
   type Split,
   type SplitMode,
   type TransactionStatus,
+  transferDate,
+  transferFee,
+  type TransferLink,
 } from "../../domain/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
@@ -28,8 +31,31 @@ interface Row {
   hidden: boolean;
   split_mode: SplitMode | null;
   split_needs_review: boolean;
+  transfer_id: string | null;
   version: number;
   created_at: Date;
+}
+
+interface TransferRow {
+  id: string;
+  outflow_id: string;
+  inflow_id: string;
+  rate: string | null;
+  rate_date: string | null;
+  rate_source: string | null;
+  inflow_amount: string;
+  inflow_currency: string;
+  inflow_date: string;
+  outflow_amount: string;
+  outflow_currency: string;
+  outflow_date: string;
+}
+
+/** A transfer as the API shows it on each side (FR 7, FR 8, edge case 1): the pair, its date and its fee. */
+export interface TransferView {
+  readonly link: TransferLink;
+  readonly date: string;
+  readonly fee: Money | null;
 }
 
 interface PartRow {
@@ -42,7 +68,51 @@ interface PartRow {
 
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
-  counterparty, description, status, source, hidden, split_mode, split_needs_review, version, created_at`;
+  counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, version, created_at`;
+
+/** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
+export async function transfersOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<Map<string, TransferView>> {
+  const byId = new Map<string, TransferView>();
+  if (ids.length === 0) return byId;
+  const { rows } = await q.query<TransferRow>(
+    `SELECT f.id, f.outflow_id, f.inflow_id, f.rate::text AS rate, f.rate_date::text AS rate_date, f.rate_source,
+            i.amount::text AS inflow_amount, i.currency AS inflow_currency, i.occurred_on::text AS inflow_date,
+            o.amount::text AS outflow_amount, o.currency AS outflow_currency, o.occurred_on::text AS outflow_date
+       FROM transfers f
+       JOIN transactions o ON o.household_id = f.household_id AND o.id = f.outflow_id
+       JOIN transactions i ON i.household_id = f.household_id AND i.id = f.inflow_id
+      WHERE f.household_id = $1 AND f.id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  for (const r of rows) {
+    const outflow = { amount: Money.of(r.outflow_amount, r.outflow_currency), date: r.outflow_date };
+    const inflow = { amount: Money.of(r.inflow_amount, r.inflow_currency), date: r.inflow_date };
+    byId.set(r.id, {
+      link: {
+        id: r.id,
+        outflowId: r.outflow_id,
+        inflowId: r.inflow_id,
+        rate:
+          r.rate === null
+            ? null
+            : exchangeRate({
+                base: r.inflow_currency,
+                quote: r.outflow_currency,
+                rate: r.rate,
+                date: r.rate_date!,
+                source: r.rate_source!,
+              }),
+      },
+      date: transferDate(outflow, inflow),
+      fee: transferFee(outflow, inflow),
+    });
+  }
+  return byId;
+}
 
 function splitOf(mode: SplitMode | null, needsReview: boolean, parts: readonly PartRow[]): Split | null {
   if (mode === null) return null;
@@ -88,7 +158,7 @@ export function listedSplit(
   );
 }
 
-function stored(r: Row, parts: readonly PartRow[]): StoredTransaction {
+function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null): StoredTransaction {
   return {
     id: r.id,
     accountId: r.account_id,
@@ -101,6 +171,7 @@ function stored(r: Row, parts: readonly PartRow[]): StoredTransaction {
     source: r.source,
     hidden: r.hidden,
     split: splitOf(r.split_mode, r.split_needs_review, parts),
+    transfer,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
     createdAt: r.created_at.toISOString(),
@@ -112,9 +183,14 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     const { rows } = await q.query<Row>(text, values);
     const row = rows[0];
     if (!row) return null;
+    const householdId = String(values[0]);
     const parts =
-      row.split_mode === null ? [] : ((await partsOf(q, String(values[0]), [row.id])).get(row.id) ?? []);
-    return stored(row, parts);
+      row.split_mode === null ? [] : ((await partsOf(q, householdId, [row.id])).get(row.id) ?? []);
+    const transfer =
+      row.transfer_id === null
+        ? null
+        : ((await transfersOf(q, householdId, [row.transfer_id])).get(row.transfer_id)?.link ?? null);
+    return stored(row, parts, transfer);
   };
   /** The parts of `t` replace the stored ones (none when it is not split). */
   const writeParts = async (householdId: string, t: { id: string; split: Split | null }) => {
@@ -177,7 +253,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
         `UPDATE transactions
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
-                split_needs_review = $14, updated_at = now()
+                split_needs_review = $14, transfer_id = $15, updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -194,11 +270,31 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.hidden,
           t.split?.mode ?? null,
           t.split?.needsReview ?? false,
+          t.transfer?.id ?? null,
         ],
       );
       return row!;
     },
+    async insertTransfer(householdId, link) {
+      await q.query(
+        `INSERT INTO transfers (household_id, id, outflow_id, inflow_id, rate, rate_date, rate_source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          householdId,
+          link.id,
+          link.outflowId,
+          link.inflowId,
+          link.rate?.rate.toString() ?? null,
+          link.rate?.date ?? null,
+          link.rate?.source ?? null,
+        ],
+      );
+    },
+    async removeTransfer(householdId, id) {
+      await q.query(`DELETE FROM transfers WHERE household_id = $1 AND id = $2`, [householdId, id]);
+    },
     async remove(householdId, id) {
+      // A side of a transfer is never deleted (the route refuses it), so no transfer points at the row.
       await q.query(`DELETE FROM transactions WHERE household_id = $1 AND id = $2`, [householdId, id]);
     },
     enqueueHandOff: (householdId, handOff) => enqueueHandOff({ ...q, householdId }, handOff),
@@ -209,7 +305,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
  * The list «Транзакції» on the universal list engine (DAT-01@PoC; FIN-03 FR 13, FR 22): whitelisted filters and sorts,
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
- * («Розділені») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only). The filters of
+ * («Розділені»), `transfer` («Переказ») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only). The filters of
  * tags, categories and merchants come with the parts that bring them (BUD-01, BUD-13).
  */
 export const transactionsList = defineList({
@@ -227,6 +323,7 @@ export const transactionsList = defineList({
     hidden: "hidden",
     splitMode: "split_mode",
     splitNeedsReview: "split_needs_review",
+    transferId: "transfer_id",
     createdAt: "created_at",
   },
   tieBreaker: "id",
@@ -254,6 +351,8 @@ export const transactionsList = defineList({
     split: { column: "is_split", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Стан: приховані» — `hidden.eq:true`. */
     hidden: { column: "hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
+    /** «Стан: переказ» (FR 22) — `transfer.eq:true`; budgets and reports leave transfers out with `false` (FR 7). */
+    transfer: { column: "is_transfer", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
   },
   // «Дата і час» (FR 13, AC13): the date, then within a day the time it was recorded (`recordedAt`, see the route).
   sorts: { date: "occurred_on", recordedAt: "created_at", amount: "amount", counterparty: "counterparty" },
@@ -265,3 +364,64 @@ export const transactionsList = defineList({
     bySign: true,
   },
 });
+
+/** One side of a candidate pair (FIN-03 FR 5), as module transfer-matching receives it. */
+export interface CandidateSide {
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+/**
+ * The candidate pairs of a space for module transfer-matching (FIN-03 FR 5): a debit and a credit on two accounts within
+ * `windowDays`, both posted, shown, not split and in no transfer; in one currency the credit at most the debit and at
+ * least `sameCurrencyMinShare` of it (the rule of transfer-matching decides the rest, in two currencies by the rate).
+ * Newest first; at most `limit` pairs.
+ */
+export async function transferCandidates(
+  q: ModuleQueryRunner,
+  householdId: string,
+  query: { readonly windowDays: number; readonly sameCurrencyMinShare: string; readonly limit: number },
+): Promise<{ readonly outflow: CandidateSide; readonly inflow: CandidateSide }[]> {
+  const { rows } = await q.query<{
+    o_id: string;
+    o_account: string;
+    o_amount: string;
+    o_currency: string;
+    o_date: string;
+    i_id: string;
+    i_account: string;
+    i_amount: string;
+    i_currency: string;
+    i_date: string;
+  }>(
+    `SELECT o.id AS o_id, o.account_id AS o_account, o.amount::text AS o_amount, o.currency AS o_currency,
+            o.occurred_on::text AS o_date, i.id AS i_id, i.account_id AS i_account, i.amount::text AS i_amount,
+            i.currency AS i_currency, i.occurred_on::text AS i_date
+       FROM transactions o
+       JOIN transactions i ON i.household_id = o.household_id
+      WHERE o.household_id = $1 AND o.amount < 0 AND i.amount > 0 AND i.account_id <> o.account_id
+        AND o.status = 'posted' AND i.status = 'posted' AND NOT o.hidden AND NOT i.hidden
+        AND o.split_mode IS NULL AND i.split_mode IS NULL AND o.transfer_id IS NULL AND i.transfer_id IS NULL
+        AND i.occurred_on BETWEEN o.occurred_on - $2::int AND o.occurred_on + $2::int
+        AND (i.currency <> o.currency OR (i.amount <= -o.amount AND i.amount >= -o.amount * $3::numeric))
+      ORDER BY least(o.occurred_on, i.occurred_on) DESC, o.id, i.id
+      LIMIT $4`,
+    [householdId, query.windowDays, query.sameCurrencyMinShare, query.limit],
+  );
+  return rows.map((r) => ({
+    outflow: {
+      transactionId: r.o_id,
+      accountId: r.o_account,
+      amount: Money.of(r.o_amount, r.o_currency),
+      date: r.o_date,
+    },
+    inflow: {
+      transactionId: r.i_id,
+      accountId: r.i_account,
+      amount: Money.of(r.i_amount, r.i_currency),
+      date: r.i_date,
+    },
+  }));
+}
