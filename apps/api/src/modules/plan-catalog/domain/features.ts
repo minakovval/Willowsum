@@ -14,6 +14,8 @@ export const FEATURES = {
     "Профіль (ім'я, email лише для читання) і зміна пароля зі step-up поточним паролем (ACC-05@PoC)",
   "transactions.manual":
     "Ручні транзакції: створення, зміна і видалення через журнал, список транзакцій з підсумками (FIN-03@PoC)",
+  "categories.tree":
+    "Дерево категорій: системні групи й категорії, власні групи й категорії, перейменування, приховування, об'єднання, «обов'язкова» (BUD-01@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

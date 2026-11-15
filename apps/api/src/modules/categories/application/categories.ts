@@ -1,0 +1,461 @@
+import {
+  categoryColor,
+  categoryIcon,
+  categoryName,
+  customGroupTone,
+  hasEssential,
+  mergeProblem,
+  stateAfterMerge,
+  SYSTEM_TREE,
+  type CategoryKind,
+  type CategoryState,
+  type MergeProblem,
+} from "../domain/index.ts";
+
+/**
+ * The category tree of a space (BUD-01@PoC FR 1–3, FR 8, FR 10, FR 11; wave 2 row 19): the system tree written into
+ * the space on first use, custom groups and categories, rename, hide, «обов'язкова», icon and colour, merge.
+ *
+ * Order of one change, in this module's transaction with the rows locked: checks → the rows (a unique index backs
+ * «Така назва вже існує» against a concurrent writer) → for a merge the event `categories.merged` in the module's
+ * outbox (ARC-04, same transaction) → the audit entry (П-10; the audit module's own transaction, committed first) →
+ * commit. A failure after the audit entry leaves an entry of a change the tree does not show — the residual risk of
+ * every module until the audit hand-off moves to events (ARC-04).
+ */
+
+export interface StoredGroup {
+  readonly id: string;
+  readonly systemKey: string | null;
+  readonly kind: CategoryKind;
+  readonly name: string;
+  readonly renamed: boolean;
+  readonly tone: string;
+  readonly position: number;
+  readonly version: number;
+}
+
+export interface StoredCategory {
+  readonly id: string;
+  readonly groupId: string;
+  readonly kind: CategoryKind;
+  readonly systemKey: string | null;
+  readonly name: string;
+  readonly renamed: boolean;
+  readonly icon: string;
+  readonly color: string;
+  readonly essential: boolean | null;
+  readonly state: CategoryState;
+  readonly mergedInto: string | null;
+  readonly position: number;
+  readonly version: number;
+}
+
+export interface MergedEvent {
+  readonly sourceId: string;
+  readonly targetId: string;
+  readonly kind: "expense" | "income";
+  readonly mergedAt: string;
+}
+
+export interface CategoriesTx {
+  systemGroupCount(householdId: string): Promise<number>;
+  /** Inserts what is missing of the system tree; a row already there is kept. Returns the categories added. */
+  seed(
+    householdId: string,
+    groups: readonly StoredGroup[],
+    categories: readonly StoredCategory[],
+  ): Promise<number>;
+  /** System groups by key (after a seed, with this space's ids). */
+  groups(householdId: string): Promise<StoredGroup[]>;
+  /** Every category but those out of use. */
+  categories(householdId: string): Promise<StoredCategory[]>;
+  group(householdId: string, id: string, lock?: boolean): Promise<StoredGroup | null>;
+  category(householdId: string, id: string, lock?: boolean): Promise<StoredCategory | null>;
+  bySystemKey(householdId: string, key: string): Promise<StoredCategory | null>;
+  /** Is the name used by a category in use (or by a group, `groups`), other than `exceptId`? Without case. */
+  nameTaken(
+    householdId: string,
+    name: string,
+    table: "categories" | "groups",
+    exceptId?: string,
+  ): Promise<boolean>;
+  customGroupCount(householdId: string, kind: CategoryKind): Promise<number>;
+  nextPosition(householdId: string, table: "categories" | "groups", groupId?: string): Promise<number>;
+  insertGroup(householdId: string, group: StoredGroup): Promise<StoredGroup>;
+  updateGroup(householdId: string, group: StoredGroup): Promise<StoredGroup>;
+  insertCategory(householdId: string, category: StoredCategory): Promise<StoredCategory>;
+  updateCategory(householdId: string, category: StoredCategory): Promise<StoredCategory>;
+  /** Categories merged before into `from` now point to `to` (FR 8: one hop to the category in use). */
+  repointMerged(householdId: string, from: string, to: string): Promise<void>;
+  publishMerged(event: MergedEvent): Promise<void>;
+}
+
+export type AuditedEntity = "categories.tree" | "categories.group" | "categories.category";
+export type AuditValues = Readonly<Record<string, string | null>>;
+
+/** The space's audit log (П-10, BUD-01 «Права доступу»): who, when, the fields before and after. */
+export interface CategoriesAudit {
+  changed(
+    householdId: string,
+    actor: { readonly accountId: string } | "system",
+    entity: { readonly type: AuditedEntity; readonly id: string },
+    action: "create" | "update",
+    before: AuditValues | null,
+    after: AuditValues,
+  ): Promise<void>;
+}
+
+export interface CategoriesDeps {
+  readonly audit: CategoriesAudit;
+  readonly newId: () => string;
+  readonly now: () => number;
+}
+
+export interface Caller {
+  readonly householdId: string;
+  /** The member's account (identity); in this release always the space's Owner. */
+  readonly accountId: string;
+}
+
+export type FieldIssue = {
+  readonly field: string;
+  readonly issue: "invalid" | "not_found" | "service" | "not_expense" | "same" | "hidden";
+};
+
+export type Result<T> =
+  | { readonly kind: "ok"; readonly value: T }
+  | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
+  /** «Така назва вже існує» (FR 2). */
+  | { readonly kind: "name-taken" }
+  /** «Категорії різних типів не можна об'єднати» (FR 8). */
+  | { readonly kind: "kinds-differ" }
+  /** «Переказ» and «Коригування» are never hidden or merged (FR 3). */
+  | { readonly kind: "service-fixed" }
+  | { readonly kind: "not-found" };
+
+const ok = <T>(value: T): Result<T> => ({ kind: "ok", value });
+const invalid = (field: string, issue: FieldIssue["issue"]): Result<never> => ({
+  kind: "invalid",
+  issues: [{ field, issue }],
+});
+
+const CUSTOM_ICON = "shapes";
+/** Custom groups come after the system groups of income and expenses, the service group last. */
+const SERVICE_POSITION = 10_000;
+const FIRST_CUSTOM_POSITION = 100;
+
+const groupValues = (g: StoredGroup): AuditValues => ({ name: g.name, kind: g.kind, tone: g.tone });
+const categoryValues = (c: StoredCategory): AuditValues => ({
+  name: c.name,
+  groupId: c.groupId,
+  icon: c.icon,
+  color: c.color,
+  essential: c.essential === null ? null : String(c.essential),
+  state: c.state,
+  mergedInto: c.mergedInto,
+});
+
+/**
+ * FR 1: the system tree of the space, written the first time it is needed (any route, the directory). Idempotent:
+ * a second writer at the same time adds nothing (the unique keys of the system keys). A key added to the catalogue
+ * later is added to the space then. One audit entry of the system for the tree written.
+ */
+export async function ensureTree(deps: CategoriesDeps, tx: CategoriesTx, householdId: string): Promise<void> {
+  if ((await tx.systemGroupCount(householdId)) === SYSTEM_TREE.length) {
+    const count = (await tx.categories(householdId)).filter((c) => c.systemKey !== null).length;
+    if (count >= SYSTEM_TREE.reduce((n, g) => n + g.categories.length, 0)) return;
+  }
+  const groups = SYSTEM_TREE.map((g, i): StoredGroup => ({
+    id: deps.newId(),
+    systemKey: g.key,
+    kind: g.kind,
+    name: g.name,
+    renamed: false,
+    tone: g.tone,
+    position: g.kind === "service" ? SERVICE_POSITION : i,
+    version: 1,
+  }));
+  await tx.seed(householdId, groups, []);
+  const ids = new Map((await tx.groups(householdId)).map((g) => [g.systemKey, g.id]));
+  const categories = SYSTEM_TREE.flatMap((g) =>
+    g.categories.map((c, i): StoredCategory => ({
+      id: deps.newId(),
+      groupId: ids.get(g.key)!,
+      kind: g.kind,
+      systemKey: c.key,
+      name: c.name,
+      renamed: false,
+      icon: c.icon,
+      color: c.color,
+      essential: hasEssential(g.kind) ? c.essential === true : null,
+      state: "active",
+      mergedInto: null,
+      position: i,
+      version: 1,
+    })),
+  );
+  const added = await tx.seed(householdId, [], categories);
+  if (added > 0)
+    await deps.audit.changed(
+      householdId,
+      "system",
+      { type: "categories.tree", id: householdId },
+      "create",
+      null,
+      {
+        systemCategories: String(added),
+      },
+    );
+}
+
+/** The tree as the settings show it (FR 1, FR 3): groups in order, each with its categories in use (hidden too). */
+export async function readTree(
+  tx: CategoriesTx,
+  householdId: string,
+): Promise<{ readonly group: StoredGroup; readonly categories: StoredCategory[] }[]> {
+  const [groups, categories] = await Promise.all([tx.groups(householdId), tx.categories(householdId)]);
+  return groups.map((group) => ({ group, categories: categories.filter((c) => c.groupId === group.id) }));
+}
+
+function checkName(text: string): string | Result<never> {
+  return categoryName(text) ?? invalid("name", "invalid");
+}
+
+/** FR 2: a custom group of type «дохід» or «витрата». */
+export async function createGroup(
+  deps: CategoriesDeps,
+  tx: CategoriesTx,
+  caller: Caller,
+  input: { readonly name: string; readonly kind: "expense" | "income" },
+): Promise<Result<StoredGroup>> {
+  const name = checkName(input.name);
+  if (typeof name !== "string") return name;
+  if (await tx.nameTaken(caller.householdId, name, "groups")) return { kind: "name-taken" };
+  const position = Math.max(FIRST_CUSTOM_POSITION, await tx.nextPosition(caller.householdId, "groups"));
+  const group = await tx.insertGroup(caller.householdId, {
+    id: deps.newId(),
+    systemKey: null,
+    kind: input.kind,
+    name,
+    renamed: false,
+    tone: customGroupTone(input.kind, await tx.customGroupCount(caller.householdId, input.kind)),
+    position,
+    version: 1,
+  });
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.group", id: group.id },
+    "create",
+    null,
+    groupValues(group),
+  );
+  return ok(group);
+}
+
+/** FR 2, FR 3: rename a group; a renamed system group shows its new name. */
+export async function renameGroup(
+  deps: CategoriesDeps,
+  tx: CategoriesTx,
+  caller: Caller,
+  groupId: string,
+  input: { readonly name: string },
+): Promise<Result<StoredGroup>> {
+  const before = await tx.group(caller.householdId, groupId, true);
+  if (!before) return { kind: "not-found" };
+  const name = checkName(input.name);
+  if (typeof name !== "string") return name;
+  if (name === before.name) return ok(before);
+  if (await tx.nameTaken(caller.householdId, name, "groups", groupId)) return { kind: "name-taken" };
+  const standard = SYSTEM_TREE.find((g) => g.key === before.systemKey)?.name;
+  const after = await tx.updateGroup(caller.householdId, {
+    ...before,
+    name,
+    renamed: standard !== undefined && standard !== name,
+    version: before.version + 1,
+  });
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.group", id: groupId },
+    "update",
+    groupValues(before),
+    groupValues(after),
+  );
+  return ok(after);
+}
+
+export interface CategoryInput {
+  readonly groupId: string;
+  readonly name: string;
+  readonly icon?: string | undefined;
+  readonly color?: string | undefined;
+  readonly essential?: boolean | undefined;
+}
+
+/** FR 2: a custom category in a group of income or expenses (never in the service group). */
+export async function createCategory(
+  deps: CategoriesDeps,
+  tx: CategoriesTx,
+  caller: Caller,
+  input: CategoryInput,
+): Promise<Result<StoredCategory>> {
+  const group = await tx.group(caller.householdId, input.groupId);
+  if (!group) return invalid("groupId", "not_found");
+  if (group.kind === "service") return invalid("groupId", "service");
+  const name = checkName(input.name);
+  if (typeof name !== "string") return name;
+  const icon = input.icon === undefined ? CUSTOM_ICON : categoryIcon(input.icon);
+  if (icon === undefined) return invalid("icon", "invalid");
+  const color = input.color === undefined ? group.tone : categoryColor(input.color);
+  if (color === undefined) return invalid("color", "invalid");
+  if (input.essential !== undefined && !hasEssential(group.kind)) return invalid("essential", "not_expense");
+  if (await tx.nameTaken(caller.householdId, name, "categories")) return { kind: "name-taken" };
+  const category = await tx.insertCategory(caller.householdId, {
+    id: deps.newId(),
+    groupId: group.id,
+    kind: group.kind,
+    systemKey: null,
+    name,
+    renamed: false,
+    icon,
+    color,
+    // FR 11: off for every custom category unless set.
+    essential: hasEssential(group.kind) ? (input.essential ?? false) : null,
+    state: "active",
+    mergedInto: null,
+    position: await tx.nextPosition(caller.householdId, "categories", group.id),
+    version: 1,
+  });
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.category", id: category.id },
+    "create",
+    null,
+    categoryValues(category),
+  );
+  return ok(category);
+}
+
+export interface CategoryChange {
+  readonly name?: string | undefined;
+  readonly hidden?: boolean | undefined;
+  readonly icon?: string | undefined;
+  readonly color?: string | undefined;
+  readonly essential?: boolean | undefined;
+}
+
+/** FR 2, FR 3, FR 10, FR 11: rename, hide or show, icon and colour, «обов'язкова». An unchanged save writes nothing. */
+export async function updateCategory(
+  deps: CategoriesDeps,
+  tx: CategoriesTx,
+  caller: Caller,
+  categoryId: string,
+  change: CategoryChange,
+): Promise<Result<StoredCategory>> {
+  const before = await tx.category(caller.householdId, categoryId, true);
+  if (!before || before.state === "retired") return { kind: "not-found" };
+  let next: StoredCategory = before;
+  if (change.name !== undefined) {
+    const name = checkName(change.name);
+    if (typeof name !== "string") return name;
+    const standard = SYSTEM_TREE.flatMap((g) => g.categories).find((c) => c.key === before.systemKey)?.name;
+    next = { ...next, name, renamed: standard !== undefined && standard !== name };
+  }
+  if (change.icon !== undefined) {
+    const icon = categoryIcon(change.icon);
+    if (icon === undefined) return invalid("icon", "invalid");
+    next = { ...next, icon };
+  }
+  if (change.color !== undefined) {
+    const color = categoryColor(change.color);
+    if (color === undefined) return invalid("color", "invalid");
+    next = { ...next, color };
+  }
+  if (change.essential !== undefined) {
+    if (!hasEssential(before.kind)) return invalid("essential", "not_expense");
+    next = { ...next, essential: change.essential };
+  }
+  if (change.hidden !== undefined) {
+    if (before.kind === "service" && change.hidden) return { kind: "service-fixed" };
+    const state: CategoryState = change.hidden ? "hidden" : "active";
+    // Shown again (edge case 5), a merged system category is a category in use: new transactions may go to it.
+    if (state !== before.state)
+      next = { ...next, state, mergedInto: state === "active" ? null : next.mergedInto };
+  }
+  const changed = (Object.keys(categoryValues(before)) as (keyof AuditValues)[]).some(
+    (k) => categoryValues(before)[k] !== categoryValues(next)[k],
+  );
+  if (!changed) return ok(before);
+  if (
+    next.name !== before.name &&
+    (await tx.nameTaken(caller.householdId, next.name, "categories", categoryId))
+  )
+    return { kind: "name-taken" };
+  const after = await tx.updateCategory(caller.householdId, { ...next, version: before.version + 1 });
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.category", id: categoryId },
+    "update",
+    categoryValues(before),
+    categoryValues(after),
+  );
+  return ok(after);
+}
+
+const MERGE_RESULT: Record<MergeProblem, Result<never>> = {
+  same: invalid("targetId", "same"),
+  target_hidden: invalid("targetId", "hidden"),
+  service: { kind: "service-fixed" },
+  kinds_differ: { kind: "kinds-differ" },
+};
+
+/**
+ * FR 8: merge a category into another of the same type. The source is hidden (a system category, edge case 5) or
+ * taken out of use (a custom one); categories merged into it before now point to the target. The event
+ * `categories.merged` (same transaction) tells the modules holding transactions, split parts, rules, recurring
+ * payments and limits to move them to the target; the periods are recounted from their projections.
+ */
+export async function mergeCategory(
+  deps: CategoriesDeps,
+  tx: CategoriesTx,
+  caller: Caller,
+  sourceId: string,
+  input: { readonly targetId: string },
+): Promise<Result<{ readonly source: StoredCategory; readonly target: StoredCategory }>> {
+  // Both rows locked in one order, so two merges of the same pair never wait on each other.
+  const [first, second] = [sourceId, input.targetId].sort();
+  const locked = new Map<string, StoredCategory | null>();
+  for (const id of new Set([first!, second!]))
+    locked.set(id, await tx.category(caller.householdId, id, true));
+  const source = locked.get(sourceId);
+  if (!source || source.state === "retired") return { kind: "not-found" };
+  const target = locked.get(input.targetId);
+  if (!target || target.state === "retired") return invalid("targetId", "not_found");
+  const problem = mergeProblem(source, target);
+  if (problem !== null) return MERGE_RESULT[problem];
+  await tx.repointMerged(caller.householdId, source.id, target.id);
+  const after = await tx.updateCategory(caller.householdId, {
+    ...source,
+    state: stateAfterMerge(source.systemKey !== null),
+    mergedInto: target.id,
+    version: source.version + 1,
+  });
+  await tx.publishMerged({
+    sourceId: source.id,
+    targetId: target.id,
+    kind: source.kind as "expense" | "income",
+    mergedAt: new Date(deps.now()).toISOString(),
+  });
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.category", id: source.id },
+    "update",
+    categoryValues(source),
+    categoryValues(after),
+  );
+  return ok({ source: after, target });
+}

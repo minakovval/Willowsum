@@ -22,6 +22,7 @@ import {
  * budget). Every name is synthetic; the session is the test's principal header.
  */
 const WEB = "http://localhost:5173";
+const NOW = Date.parse("2026-10-17T10:00:00Z");
 
 let db: RealModulesDatabase;
 let spaces: HouseholdSpaces;
@@ -158,7 +159,7 @@ beforeAll(async () => {
         entitlements: "all-enabled",
         flags: { ...base, isEnabled: async (_householdId, flag) => !off.has(flag) },
         authenticate: testAuthenticate,
-        categories: createCategoriesServices({ audit, newId: randomUUID }),
+        categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -404,6 +405,7 @@ describe("BUD-01@PoC FR 8: merging categories", () => {
       sourceId: coffee.id,
       targetId: cafes.id,
       kind: "expense",
+      mergedAt: "2026-10-17T10:00:00.000Z",
     });
     expect(await directory.category(space.householdId, coffee.id)).toMatchObject({
       state: "retired",

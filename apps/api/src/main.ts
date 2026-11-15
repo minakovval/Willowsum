@@ -10,6 +10,7 @@ import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
 import { createAccountDirectory, createAccountsServices } from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
+import { createCategoriesServices } from "./modules/categories/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import {
   createFxRates,
@@ -210,6 +211,8 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
             }),
+            // BUD-01: the category tree of the space; the system tree is written on first use.
+            categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),
             deployed: config.deployed,
           }),
       }
