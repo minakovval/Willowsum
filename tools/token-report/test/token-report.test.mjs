@@ -1,4 +1,4 @@
-// Створено: 2026-11-14 · Оновлено: 2026-11-14
+// Створено: 2026-11-14 · Оновлено: 2026-11-15
 // Token and time accounting for the issue «Облік токенів» (#180): owner, 2026-11-14, #178 comments 6873950124 (5),
 // 6873807074 and 6866721229. Synthetic fixtures only; no network (`--branch` is tested with a fake `gh`).
 // Run: node --test tools/token-report
@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { ciMinutes, formatRow, main, parseRun, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, collectUsage, ciMinutes, formatRow, main, parseRun, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -149,13 +149,14 @@ describe("CLI", () => {
     "--run",
     `role=review,log=${fx("review.jsonl")},ms=180000,tokens=154132`,
   ];
+  // The existing columns are unchanged; the note gains the per-model split (the fixtures carry no model).
   const row =
-    "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431, виправлення 105 870, рецензія 154 132 |";
+    "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431, виправлення 105 870, рецензія 154 132; моделі: unknown 8,0 млн cache read |";
 
   it("pr: prints the ready row from agent logs and a runs file", () => {
     const r = run([...pr, "--ci-runs", fx("runs.json")]);
     assert.equal(r.code, 0, r.err);
-    assert.equal(r.out, row);
+    assert.equal(r.out.split("\n")[0], row);
   });
 
   it("pr: a message.id that appears in two logs (a resumed agent's log passed twice) counts once", () => {
@@ -178,7 +179,7 @@ describe("CLI", () => {
     });
     assert.equal(r.code, 0, r.err);
     assert.deepEqual(asked, ["api", "repos/{owner}/{repo}/actions/runs?branch=claude%2Fx&per_page=100"]);
-    assert.equal(r.out, row);
+    assert.equal(r.out.split("\n")[0], row);
   });
 
   it("pr: exits non-zero with a clear message, and prints no row, when a log has no usage", () => {
@@ -243,5 +244,82 @@ describe("CLI", () => {
     assert.match(out, /cache read 0,6 млн/);
     assert.match(out, /output 1 100/);
     assert.match(out, /1 sidechain/);
+  });
+});
+
+describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => {
+  const rec = (id, model, cacheRead, output, extra = {}) =>
+    JSON.stringify({
+      type: "assistant",
+      message: {
+        id,
+        ...(model ? { model } : {}),
+        usage: { input_tokens: 1, cache_creation_input_tokens: 10, cache_read_input_tokens: cacheRead, output_tokens: output },
+      },
+      ...extra,
+    });
+  const byModel = (text) => {
+    const seen = new Map();
+    collectUsage(text, { path: "x", seen });
+    return addUpByModel(seen);
+  };
+
+  it("two models in one log are summed separately, largest cache read first", () => {
+    const m = byModel(
+      [
+        rec("a", "claude-opus-5-5", 4_000_000, 100),
+        rec("b", "claude-fable-5-2", 1_200_000, 50),
+        rec("c", "claude-opus-5-5", 100_000, 7),
+      ].join("\n"),
+    );
+    assert.deepEqual([...m.keys()], ["claude-opus-5-5", "claude-fable-5-2"]);
+    assert.deepEqual(m.get("claude-opus-5-5"), { messages: 2, input: 2, cacheCreation: 20, cacheRead: 4_100_000, output: 107 });
+    assert.equal(m.get("claude-fable-5-2").cacheRead, 1_200_000);
+  });
+
+  it("a record without message.model counts as `unknown`", () => {
+    const m = byModel([rec("a", "claude-opus-5-5", 10, 1), rec("b", undefined, 20, 2)].join("\n"));
+    assert.deepEqual(m.get("unknown"), { messages: 1, input: 1, cacheCreation: 10, cacheRead: 20, output: 2 });
+  });
+
+  it("a duplicate message.id counts once, with the model of the record (a later record without model keeps it)", () => {
+    const m = byModel(
+      [rec("a", "claude-fable-5-2", 100, 1), rec("a", undefined, 100, 9), rec("a", "claude-fable-5-2", 100, 9)].join("\n"),
+    );
+    assert.equal(m.size, 1);
+    assert.deepEqual(m.get("claude-fable-5-2"), { messages: 1, input: 1, cacheCreation: 10, cacheRead: 100, output: 9 });
+  });
+
+  it("pr: prints the row, then one line per model; the note names the families; the row columns stay the same", () => {
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const log = `${dir}/a.output`;
+    fs.writeFileSync(
+      log,
+      [rec("a", "claude-opus-5-5", 4_100_000, 100), rec("b", "claude-fable-5-2", 1_200_000, 50), rec("b", "claude-fable-5-2", 1_200_000, 60)].join("\n"),
+    );
+    const r = run(
+      ["pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${log},ms=60000,tokens=5`, "--ci-runs", fx("runs.json")],
+    );
+    assert.equal(r.code, 0, r.err);
+    const [row, ...lines] = r.out.split("\n");
+    assert.equal(row, "| #7 | код | 1 | 5 | 5,3 | 0 | 1,0 | 0,0 | 10 | автор 5; моделі: opus 4,1 млн / fable 1,2 млн cache read |");
+    assert.equal(lines.length, 2);
+    assert.match(lines[0], /^ {2}модель claude-opus-5-5: 1 model calls, cache read 4 100 000, cache creation 10, input 1, output 100$/);
+    assert.match(lines[1], /модель claude-fable-5-2: 1 model calls, cache read 1 200 000, .*output 60$/);
+  });
+
+  it("session: the total, then one line per model; a log with no usage still fails", () => {
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const file = `${dir}/s.jsonl`;
+    fs.writeFileSync(file, [rec("a", "claude-opus-5-5", 10, 1), rec("b", "claude-fable-5-2", 20, 2)].join("\n"));
+    const r = run(["session", file]);
+    assert.equal(r.code, 0, r.err);
+    const lines = r.out.split("\n");
+    assert.match(lines[0], /^messages 2 /);
+    assert.equal(lines.length, 3);
+    assert.match(lines[1], /модель claude-fable-5-2/);
+    const bad = run(["session", fx("no-usage.jsonl")]);
+    assert.equal(bad.code, 1);
+    assert.equal(bad.out, "");
   });
 });

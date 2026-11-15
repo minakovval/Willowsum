@@ -72,6 +72,9 @@ What the numbers mean (#178, comments 6873807074 and 6866721229):
   #180 only for comparison. The real spend is the sum of `usage` (`cache_read_input_tokens`,
   `cache_creation_input_tokens`, `input_tokens`, `output_tokens`) of every model call in the agent's log
   `tasks/<agentId>.output`, each `message.id` once — 30–90 times more (the lead's estimate, [#180 «Токени агентів»](https://github.com/minakovval/Willowsum/issues/180); not measured in #178).
+- Spend per model (owner, 2026-11-15, #178, comment 6894721169): every assistant record carries `message.model`
+  (e.g. `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-2`); the script sums `usage` per model, each
+  `message.id` once. A record without a model counts as `unknown`.
 - A resumed agent's notice shows only its last run: sum `duration_ms` (and `subagent_tokens`) of every run.
 - `get_session` → `usage` is returned again and now includes the agents; it may be absent at session start
   (owner, 2026-11-14, #178). The lead's own share is `tools/token-report session` on its transcript
@@ -86,6 +89,10 @@ node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|п�
   --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
 node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
 ```
+Per-model split: after the row, `pr` prints one line per model (model, model calls, cache read, cache creation,
+input, output), and the row's «Примітка» gets `моделі: opus 4,1 млн / fable 1,2 млн cache read`; the row columns are
+unchanged. `session` prints the same lines after the total. From now on the #180 PR rows note the per-model split
+(owner, 2026-11-15, #178). Paste only the row line into #180.
 Roles: `author` and `fix` add to «Час автора», `review`, `security` and `confirm` to «Час рецензій». It prints the
 row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Агенти: cache read, млн | Агенти: output, тис. |
 Час автора, хв | Час рецензій, хв | CI, хв | Примітка); `--note` adds to the note. CI minutes are the sum of

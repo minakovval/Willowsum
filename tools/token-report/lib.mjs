@@ -1,9 +1,12 @@
-// Створено: 2026-11-14 · Оновлено: 2026-11-14
+// Створено: 2026-11-14 · Оновлено: 2026-11-15
 // Token and time accounting for the issue «Облік токенів» (#180); owner, 2026-11-14 (#178, comment 6873950124, item 5).
+// Per-model split added (owner, 2026-11-15, #178, comment 6894721169).
 // Pure functions plus `main` with injected I/O, so the tests need no network. Zero dependencies, Node 22.
 import fs from "node:fs";
 
 export class UsageError extends Error {}
+
+export const UNKNOWN_MODEL = "unknown";
 
 /** Roles of an agent run → the #180 time column they add to. */
 const ROLES = {
@@ -23,7 +26,8 @@ const FIELDS = [
 
 /**
  * Collects the `message.usage` of every model call in a JSONL agent log or session transcript into `seen`
- * (message.id → usage; a later record of the same id replaces the earlier one: streamed records repeat it).
+ * (message.id → { usage, model }; a later record of the same id replaces the earlier one: streamed records repeat it;
+ * a record without `message.model` counts as `unknown`).
  * Throws UsageError on a line that is not JSON and on a log with no usage at all.
  * @returns {{ records: number, sidechainSkipped: number }}
  */
@@ -55,7 +59,8 @@ export function collectUsage(text, { path, seen, skipSidechain = false, since, u
     const at = rec.timestamp ? Date.parse(rec.timestamp) : NaN;
     if ((since || until) && !(at >= from && at < to)) continue;
     const id = rec.message.id ?? `${path}#${anonymous++}`;
-    seen.set(id, usage);
+    const model = rec.message.model || seen.get(id)?.model || UNKNOWN_MODEL;
+    seen.set(id, { usage, model });
   }
   if (records === 0) {
     throw new UsageError(
@@ -69,14 +74,48 @@ export function collectUsage(text, { path, seen, skipSidechain = false, since, u
 /** Sums the four usage fields of the collected messages. */
 export function addUp(seen) {
   const acc = { messages: seen.size, input: 0, cacheCreation: 0, cacheRead: 0, output: 0 };
-  for (const usage of seen.values()) {
-    for (const [key, field] of FIELDS) {
-      const n = usage[field] ?? 0;
-      if (!Number.isFinite(n)) throw new UsageError(`usage.${field} is not a number: ${JSON.stringify(n)}`);
-      acc[key] += n;
-    }
-  }
+  for (const { usage } of seen.values()) addUsage(acc, usage);
   return acc;
+}
+
+function addUsage(acc, usage) {
+  for (const [key, field] of FIELDS) {
+    const n = usage[field] ?? 0;
+    if (!Number.isFinite(n)) throw new UsageError(`usage.${field} is not a number: ${JSON.stringify(n)}`);
+    acc[key] += n;
+  }
+}
+
+/** The same sums per `message.model` (each message.id once): a Map model → sums, largest cache read first. */
+export function addUpByModel(seen) {
+  const byModel = new Map();
+  for (const { usage, model } of seen.values()) {
+    if (!byModel.has(model)) byModel.set(model, { messages: 0, input: 0, cacheCreation: 0, cacheRead: 0, output: 0 });
+    const acc = byModel.get(model);
+    acc.messages++;
+    addUsage(acc, usage);
+  }
+  return new Map([...byModel].sort((a, b) => b[1].cacheRead - a[1].cacheRead));
+}
+
+/** `claude-opus-5-5` → `opus`, `claude-fable-5-2` → `fable`; anything else as it is. */
+export const modelFamily = (model) => /^claude-([a-z]+)-/.exec(model)?.[1] ?? model;
+
+/** One line per model, printed after the row or the total. */
+export function modelLines(byModel) {
+  return [...byModel].map(
+    ([model, u]) =>
+      `  модель ${model}: ${grouped(u.messages)} model calls, cache read ${grouped(u.cacheRead)}, cache creation ` +
+      `${grouped(u.cacheCreation)}, input ${grouped(u.input)}, output ${grouped(u.output)}`,
+  );
+}
+
+/** «моделі: opus 4,1 млн / fable 1,2 млн cache read» — the note of the row; families merged. */
+export function modelNote(byModel) {
+  const fam = new Map();
+  for (const [model, u] of byModel) fam.set(modelFamily(model), (fam.get(modelFamily(model)) ?? 0) + u.cacheRead);
+  const list = [...fam].sort((a, b) => b[1] - a[1]).map(([f, n]) => `${f} ${oneDecimal(n / 1e6)} млн`);
+  return `моделі: ${list.join(" / ")} cache read`;
 }
 
 /** One log or transcript: its usage sums (each message.id once). */
@@ -210,12 +249,15 @@ export function main(argv, io) {
     if (mode === "session") {
       const file = opts.positional[0];
       if (!file) throw new UsageError(USAGE);
-      const u = sumUsage(readFile(file), {
+      const seen = new Map();
+      const { sidechainSkipped } = collectUsage(readFile(file), {
         path: file,
+        seen,
         skipSidechain: true,
         since: opts.since,
         until: opts.until,
       });
+      const u = { ...addUp(seen), sidechainSkipped };
       if (u.messages === 0 && (opts.since || opts.until)) {
         io.stderr("warning: no messages in the window --since/--until — the sums below are zero");
       }
@@ -224,6 +266,7 @@ export function main(argv, io) {
           `cache read ${oneDecimal(u.cacheRead / 1e6)} млн (${grouped(u.cacheRead)}) · output ${grouped(u.output)} · ` +
           `${u.sidechainSkipped} sidechain records skipped`,
       );
+      for (const line of modelLines(addUpByModel(seen))) io.stdout(line);
       return 0;
     }
     if (mode !== "pr") throw new UsageError(USAGE);
@@ -259,6 +302,7 @@ export function main(argv, io) {
     const ci = ciMinutes(parsed);
     if (ci.unfinished > 0) io.stderr(`warning: ${ci.unfinished} of ${ci.runs} runs are not completed yet`);
     const usage = addUp(seen);
+    const byModel = addUpByModel(seen);
     io.stderr(
       `agents: ${usage.messages} model calls, cache read ${grouped(usage.cacheRead)}, cache creation ` +
         `${grouped(usage.cacheCreation)}, input ${grouped(usage.input)}, output ${grouped(usage.output)}; CI ${ci.runs} runs`,
@@ -271,9 +315,10 @@ export function main(argv, io) {
         runs,
         usage,
         ci: ci.minutes,
-        note: opts.note,
+        note: [opts.note, modelNote(byModel)].filter(Boolean).join("; "),
       }),
     );
+    for (const line of modelLines(byModel)) io.stdout(line);
     return 0;
   } catch (e) {
     if (!(e instanceof UsageError)) throw e;
