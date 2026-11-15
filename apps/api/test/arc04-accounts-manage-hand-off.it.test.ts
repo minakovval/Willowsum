@@ -312,6 +312,38 @@ describe("ARC-04@PoC FR 2: closing an account hands its transfer and audit entri
     expect(await pendingJobs(space.householdId)).toBe(0);
   });
 
+  it("ARC-04@PoC FR 3: «Оновити залишок» of the receiving account before a closing's transfer into it was handed over leaves the balance entered", async () => {
+    const space = await newSpace();
+    const from = await account(space, "Поточний", "430.00");
+    const to = await account(space, "Ощадний", "100.00");
+    const body = { closedOn: TODAY, settlement: { kind: "transfer", toAccountId: to } };
+    vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
+    expect((await call(space, "POST", `/v1/accounts/${from}/close`, body)).statusCode).toBe(200);
+    vi.restoreAllMocks();
+    // The transfer into this account goes in before the adjustment is planned: 530 → 500.
+    const res = await call(space, "POST", `/v1/accounts/${to}/balance`, { balance: eur("500.00") });
+    expect(res.statusCode).toBe(200);
+    await runWorker(space.householdId);
+    await runWorker(space.householdId);
+    expect(await entriesOf(space.householdId, "transfer")).toBe(1);
+    expect(await balance(space, to)).toBe("500");
+  });
+
+  it("ARC-04@PoC FR 3: the receiving account of a closing's transfer not handed over yet cannot be closed as if its balance were zero", async () => {
+    const space = await newSpace();
+    const from = await account(space, "Поточний", "430.00");
+    const to = await account(space, "Ощадний", "0.00");
+    vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
+    const body = { closedOn: TODAY, settlement: { kind: "transfer", toAccountId: to } };
+    expect((await call(space, "POST", `/v1/accounts/${from}/close`, body)).statusCode).toBe(200);
+    vi.restoreAllMocks();
+    // FIN-12 FR 7: its balance is 430 once the transfer is in, so closing without a settlement is refused.
+    expect((await call(space, "POST", `/v1/accounts/${to}/close`, { closedOn: TODAY })).statusCode).toBe(409);
+    await runWorker(space.householdId);
+    expect((await call(space, "GET", `/v1/accounts/${to}`)).json().status).toBe("active");
+    expect(await balance(space, to)).toBe("430");
+  });
+
   it("ARC-04@PoC FR 2: «Відкрити знову» with the audit log away is made, and its audit entry is written once by the worker", async () => {
     const space = await newSpace();
     const id = await account(space, "Поточний", "0.00");

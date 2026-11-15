@@ -120,8 +120,8 @@ export interface AccountsTx {
    */
   enqueueHandOff(householdId: string, handOff: HandOff, changeId: string): Promise<void>;
   /**
-   * The account's managing hand-offs not done yet (ARC-04, #252 item 3), oldest first: their journal moves are finished
-   * before a later change of the account's money is planned.
+   * The managing hand-offs not done yet of the account and of the transfers into it or out of it (ARC-04, #252
+   * item 3), oldest first: their journal moves are finished before a later change of the account's money is planned.
    */
   pendingManaged(householdId: string, accountId: string): Promise<ManagedHandOff[]>;
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;

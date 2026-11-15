@@ -160,11 +160,15 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
     enqueueHandOff: (householdId, handOff, changeId) =>
       enqueueHandOff({ ...q, householdId }, handOff, changeId),
     async pendingManaged(householdId, accountId) {
-      // Every state but done: queued (also one the route has run already, #252 item 9), running, dead.
+      // Every state but done: queued (also one the route has run already, #252 item 9), running, dead. Also the
+      // closings of other accounts whose balance is on its way to this one (a transfer not handed over yet), so this
+      // account's balance is never planned — nor the account closed — without it.
       const { rows } = await q.query<{ payload: unknown }>(
         `SELECT payload FROM jobs
           WHERE household_id = $1 AND name = $2 AND state <> 'done'
-            AND payload->>'kind' = 'managed' AND payload->>'accountId' = $3
+            AND payload->>'kind' = 'managed'
+            AND (payload->>'accountId' = $3
+              OR payload->'moves' @> jsonb_build_array(jsonb_build_object('op', 'transfer', 'toAccountId', $3::text)))
           ORDER BY created_at, id`,
         [householdId, HAND_OFF_JOB.name, accountId],
       );
