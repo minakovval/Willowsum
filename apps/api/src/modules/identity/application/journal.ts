@@ -5,7 +5,8 @@ import type { EndedSession, IdentityStore, IdentityTx, SignInJournal } from "./p
  * Every session end goes to the sign-in journal (ACC-04@PoC business rules; NFR-15@PoC FR 29), whichever use case
  * ends it: the store of a request records each session its transaction ends and, once the transaction has committed,
  * writes one entry per session (with the request's address and device). A transaction that rolls back, or is run
- * again, writes nothing for its earlier attempt. A session already ended is not ended again, so it is written once.
+ * again, writes nothing for its earlier attempt. The entries are written one by one, each tried even when an earlier one
+ * failed (the first failure is raised at the end); making them part of the transaction needs the hand-off of ARC-04 (#225). A session already ended is not ended again, so it is written once.
  */
 export function journaledStore(store: IdentityStore, journal: SignInJournal): IdentityStore {
   return {
@@ -15,13 +16,21 @@ export function journaledStore(store: IdentityStore, journal: SignInJournal): Id
         ended = [];
         return work(recording(tx, ended));
       });
+      // Each entry is tried: one that fails does not lose the others (the sessions are ended already); the first
+      // failure is raised after all were tried (#225).
+      let failure: { readonly error: unknown } | null = null;
       for (const session of ended)
-        await journal.record({
-          kind: "session-ended",
-          accountId: session.accountId,
-          sessionId: session.id,
-          reason: session.reason,
-        });
+        try {
+          await journal.record({
+            kind: "session-ended",
+            accountId: session.accountId,
+            sessionId: session.id,
+            reason: session.reason,
+          });
+        } catch (error) {
+          failure ??= { error };
+        }
+      if (failure) throw failure.error;
       return result;
     },
   };
