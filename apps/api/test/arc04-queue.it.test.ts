@@ -163,6 +163,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(bulkActionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off of a transaction's category and «Категорію об'єднано» (BUD-01 b, ADR-0015).
+    const categorizationSql = readFileSync(
+      `${apiDir}/src/modules/categorization/adapters/db/migrations/0002_queue.sql`,
+      "utf8",
+    );
+    expect(categorizationSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     // The audit hand-off jobs of goals (BUD-05, ARC-04 FR 2, ADR-0015).
     const goalsSql = readFileSync(
       `${apiDir}/src/modules/goals/adapters/db/migrations/0003_queue.sql`,
@@ -179,6 +185,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "accounts",
         "bulk_actions",
         "categories",
+        "categorization",
         "goals",
         "ledger",
         "liabilities",

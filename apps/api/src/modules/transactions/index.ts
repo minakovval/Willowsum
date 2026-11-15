@@ -5,13 +5,16 @@ import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
+import { ApiProblem } from "../../platform/http/problem.ts";
 import {
   categoriesInParts,
+  categorizableFacts,
   subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
   transactionAudit,
+  transactionsList,
   transactionsRoutes,
   transactionsWorkerQueue,
   transferCandidates,
@@ -138,6 +141,51 @@ export function createTransactionCategoryUsage(db: ModuleDatabase): CategoryUsag
   return {
     module: "transactions",
     used: (householdId, ids) => db.inHousehold(householdId, (q) => categoriesInParts(q, householdId, ids)),
+  };
+}
+
+/**
+ * The transactions module as module categorization reads it (BUD-01@PoC b; DAT-03@PoC FR 1, FR 2 — the target
+ * «транзакції» of «Змінити категорію»; #272 item 1). Read only; every call is bound to one space.
+ */
+export interface TransactionLookup {
+  /** The facts of each existing transaction of `ids` (hidden ones too); the others are absent. */
+  facts(
+    householdId: string,
+    ids: readonly string[],
+  ): Promise<
+    ReadonlyMap<string, { readonly transfer: boolean; readonly split: boolean; readonly merged: boolean }>
+  >;
+  /**
+   * «Вибрати всі M за фільтром» (DAT-03 FR 1): the transactions the list «Транзакції» shows for `filter` (its syntax and
+   * whitelist; shown ones only unless the filter asks for hidden ones), without `excluded`, in the list's default order
+   * — at most `limit` — and how many match. An unknown or malformed filter is `invalid`.
+   */
+  select(
+    householdId: string,
+    filter: readonly string[],
+    excluded: readonly string[],
+    limit: number,
+  ): Promise<{ readonly ids: readonly string[]; readonly count: number } | { readonly invalid: true }>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransactionLookup(db: ModuleDatabase): TransactionLookup {
+  return {
+    facts: (householdId, ids) => db.inHousehold(householdId, (q) => categorizableFacts(q, householdId, ids)),
+    async select(householdId, filter, excluded, limit) {
+      const filters = filter.some((f) => f.startsWith("hidden."))
+        ? [...filter]
+        : [...filter, "hidden.eq:false"];
+      try {
+        return await db.inHousehold(householdId, (q) =>
+          transactionsList.ids(q, { filter: filters, sort: "-date" }, { excluded, limit }),
+        );
+      } catch (error) {
+        if (error instanceof ApiProblem && error.code === "VALIDATION_FAILED") return { invalid: true };
+        throw error;
+      }
+    },
   };
 }
 
