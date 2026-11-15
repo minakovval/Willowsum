@@ -82,7 +82,12 @@ export async function updateAccountSettings(
           kind: change.to,
         });
         if (changed.kind === "not-found") throw new Error("a credit account without its liability");
-        after = { ...after, kind: change.to };
+        // «Строк дії» is a card's (FR 4): a loan has none; the audit entry keeps the value dropped.
+        after = {
+          ...after,
+          kind: change.to,
+          cardExpiry: change.to === "credit-card" ? account.cardExpiry : null,
+        };
         break;
       }
       case "cash":
@@ -110,4 +115,5 @@ export const SETTINGS_FIELDS = [
   "annualRate",
   "depositOpenedOn",
   "depositMaturesOn",
+  "cardExpiry",
 ] as const satisfies readonly (keyof StoredAccount)[];

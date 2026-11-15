@@ -13,6 +13,7 @@ import {
   deleteAdjustment,
   findDuplicate,
   reopenAccount,
+  updateAccountDetails,
   updateAccountSettings,
   updateBalance,
   type AccountListItem,
@@ -126,6 +127,8 @@ const accountSchema = z.object({
       debt: moneySchema,
       /** The credit limit minus the debt (FIN-01 FR 16); null without a limit. */
       available: moneySchema.nullable(),
+      /** «Строк дії» (FIN-12 FR 4): YYYY-MM, or null. */
+      cardExpiry: z.string().nullable(),
     })
     .nullable(),
   loan: z
@@ -735,6 +738,55 @@ export const updateAccountRoute = defineRoute({
   },
 });
 
+export const updateAccountDetailsRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/accounts/{accountId}/details",
+  operationId: "updateAccountDetails",
+  summary:
+    "«Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate (FIN-12 FR 4)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 8 * 1024,
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_DUPLICATE"],
+  request: {
+    params: accountParams,
+    // A field left out is not changed, null clears it. A card's limit and a loan's terms are not here (400).
+    body: z
+      .object({
+        /** «Банк або установа»: name and country. */
+        institution: optional(institutionInput),
+        /** The last 4 characters, or a full IBAN or account number (sealed with the space's key, never answered). */
+        number: optional(z.string().max(64)),
+        /** «Нотатка»: up to 1 000 characters. */
+        note: optional(z.string().max(NOTE_MAX * 4)),
+        /** «Кредитна картка»: «Строк дії», YYYY-MM. */
+        cardExpiry: optional(z.string().max(7).meta({ description: "YYYY-MM" })),
+        /** «Ощадний», «Депозит»: percent per year, 0–100, two decimals. */
+        annualRate: optional(z.string().max(10)),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account after the change", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    return ctx.inHousehold(async (q) => {
+      const tx = accountsTx(q);
+      const result = await updateAccountDetails(deps, tx, caller, params.accountId, body);
+      switch (result.kind) {
+        case "updated":
+        case "unchanged":
+          return presentAccount(deps, tx, caller.householdId, params.accountId);
+        case "duplicate":
+          throw new ApiProblem("ACCOUNT_DUPLICATE");
+        default:
+          throw refusal(result);
+      }
+    });
+  },
+});
+
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
@@ -747,4 +799,5 @@ export const accountsRoutes = [
   updateAccountBalanceRoute,
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
+  updateAccountDetailsRoute,
 ];

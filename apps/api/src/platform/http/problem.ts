@@ -73,8 +73,9 @@ export const PROBLEMS = {
    */
   VERSION_CONFLICT: { status: 409, title: "The record was changed by someone else; reload it and try again" },
   /**
-   * «Такий рахунок уже є» (FIN-01@PoC FR 25): an account of the same institution, number or IBAN and currency is in the
-   * space already; nothing was created. Which one, the create form learns from the duplicate check.
+   * «Такий рахунок уже є» (FIN-01@PoC FR 25; FIN-12@PoC FR 11): an account of the same institution, number or IBAN and
+   * currency is in the space already; nothing was created or changed («Реквізити»). Which one, the create form learns
+   * from the duplicate check.
    */
   ACCOUNT_DUPLICATE: {
     status: 409,

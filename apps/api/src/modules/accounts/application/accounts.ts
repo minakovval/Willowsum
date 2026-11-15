@@ -62,6 +62,8 @@ export interface StoredAccount {
   readonly annualRate: string | null;
   readonly depositOpenedOn: string | null;
   readonly depositMaturesOn: string | null;
+  /** «Строк дії» of a credit card (FIN-12 FR 4): YYYY-MM; null for every other kind. */
+  readonly cardExpiry: string | null;
   readonly openedOn: string;
   readonly status: "active" | "closed";
   /** The date of «Закритий» (FIN-01 FR 15, FR 22); closing comes with FIN-12 (wave 2 row 13). */
@@ -119,7 +121,23 @@ export interface AccountsTx {
     householdId: string,
     account: Pick<
       StoredAccount,
-      "id" | "name" | "kind" | "annualRate" | "depositOpenedOn" | "depositMaturesOn"
+      "id" | "name" | "kind" | "annualRate" | "depositOpenedOn" | "depositMaturesOn" | "cardExpiry"
+    >,
+  ): Promise<void>;
+  /** «Реквізити» (FIN-12 FR 4): the institution, the number (last 4 and sealed), the note, the card's expiry, the rate. */
+  updateDetails(
+    householdId: string,
+    account: Pick<
+      StoredAccount,
+      | "id"
+      | "institutionName"
+      | "institutionCountry"
+      | "institutionKey"
+      | "numberLast4"
+      | "numberSealed"
+      | "note"
+      | "cardExpiry"
+      | "annualRate"
     >,
   ): Promise<void>;
   /** «Закритий» with its date, or active again (FIN-12 FR 7–9). */
@@ -161,7 +179,10 @@ export interface AccountAudit {
         | null;
     },
   ): Promise<void>;
-  /** «Основне» changed (FIN-12 FR 6): every changed field with its value before and after. */
+  /**
+   * «Основне» or «Реквізити» changed (FIN-12 FR 4, FR 6): every changed field with its value before and after; a
+   * `sensitive` one (the sealed number, the note) is masked by the log itself (NFR-01 FR 6).
+   */
   settingsChanged(
     householdId: string,
     actorAccountId: string,
@@ -170,6 +191,7 @@ export interface AccountAudit {
       readonly field: string;
       readonly before: string | null;
       readonly after: string | null;
+      readonly sensitive?: boolean;
     }[],
   ): Promise<void>;
   /**
@@ -267,10 +289,13 @@ export async function findDuplicate(
     readonly institutionKey: string;
     readonly number: AccountNumber | null;
     readonly currencies: readonly string[];
+    /** The account being changed (FIN-12 FR 4): it is no duplicate of itself. */
+    readonly exceptAccountId?: string;
   },
 ): Promise<Duplicate | null> {
   if (!probe.number) return null;
   for (const c of await tx.duplicateCandidates(householdId, probe.institutionKey, probe.number.last4)) {
+    if (c.id === probe.exceptAccountId) continue;
     if (!c.currencies.some((currency) => probe.currencies.includes(currency))) continue;
     const full =
       probe.number.full !== null && c.numberSealed !== null
@@ -320,6 +345,7 @@ export async function createAccount(
     annualRate: draft.annualRate,
     depositOpenedOn: draft.depositOpenedOn,
     depositMaturesOn: draft.depositMaturesOn,
+    cardExpiry: null,
     openedOn: draft.openedOn,
     status: "active",
     closedOn: null,
@@ -420,6 +446,8 @@ export interface AccountView {
     readonly gracePeriodDays: number | null;
     readonly debt: Money;
     readonly available: Money | null;
+    /** «Строк дії» (FIN-12 FR 4): YYYY-MM, or null. */
+    readonly cardExpiry: string | null;
   } | null;
   readonly loan: {
     readonly annualRate: string | null;
@@ -507,6 +535,7 @@ export async function accountView(
             gracePeriodDays: liability?.gracePeriodDays ?? null,
             debt,
             available: liability?.creditLimit ? availableCredit(liability.creditLimit, debt) : null,
+            cardExpiry: account.cardExpiry,
           }
         : null,
     loan:
