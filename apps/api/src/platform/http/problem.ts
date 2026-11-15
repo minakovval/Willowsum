@@ -169,6 +169,15 @@ export const PROBLEMS = {
     title: "The transaction is merged with a duplicate; unmerge it first",
   },
   /**
+   * FIN-03@PoC FR 34 (owner, 2026-11-15, #281 item 4): duplicates are merged into the transaction («Об'єднано»), so its
+   * amount and account change only after «Роз'єднати» (DELETE …/merge on it gives every duplicate back); its date and
+   * texts change as usual; nothing was written.
+   */
+  TRANSACTION_HAS_DUPLICATES: {
+    status: 409,
+    title: "Duplicates are merged into this transaction; unmerge them to change its amount or account",
+  },
+  /**
    * BUD-01@PoC FR 6, FIN-03@PoC FR 23: a split transaction has the categories of its parts; its own category changes
    * only once the split is removed; nothing was written.
    */
