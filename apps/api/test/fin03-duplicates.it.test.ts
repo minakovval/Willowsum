@@ -738,3 +738,20 @@ describe("ARC-04@PoC FR 2–4: a merge's journal follows the commit, from the wo
     expect(await balance(space, a)).toBe("970");
   });
 });
+
+describe("pr278-confirm: «Роз'єднати» checks the duplicate's own account", () => {
+  it("FIN-03@PoC «Права доступу»: the one that stays moved to another account, the duplicate's account closed — «Роз'єднати» is refused (409), nothing posted", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "0.00");
+    const b = await createAccount(space, "1000.00");
+    const first = await add(space, a, "-30.00", "2026-10-10");
+    const second = await add(space, a, "-30.00", "2026-10-11");
+    expect((await merge(space, first.id, second.id)).statusCode).toBe(200);
+    const moved = await call(space, "PATCH", `/v1/transactions/${first.id}`, { accountId: b });
+    expect(moved.statusCode, moved.body).toBe(200);
+    const closed = await call(space, "POST", `/v1/accounts/${a}/close`, { closedOn: TODAY });
+    expect(closed.statusCode, closed.body).toBe(200);
+    expect((await unmerge(space, second.id)).statusCode).toBe(409);
+    expect((await get(space, second.id)).mergedInto).toBe(first.id);
+  });
+});
