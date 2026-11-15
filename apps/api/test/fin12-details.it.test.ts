@@ -439,6 +439,7 @@ describe("FIN-12@PoC: who may change «Реквізити»", () => {
       expect(res.body).not.toMatch(/431|1234|Нотатка/);
     }
     const off = await callOn(flagOff, space, "PATCH", `/v1/accounts/${id}/details`, { note: "Вимкнено" });
+    console.log("FLAGOFF", off.statusCode, off.body);
     expect(off.statusCode).toBeGreaterThanOrEqual(400);
     expect(await view(space, id)).toEqual(
       expect.objectContaining({ note: "Нотатка editor", number: { last4: "1234", masked: "••1234" } }),
