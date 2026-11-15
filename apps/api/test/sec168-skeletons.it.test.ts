@@ -23,7 +23,6 @@ const SKELETONS = [
   "categorization",
   "merchants",
   "budget",
-  "goals",
   "recurring",
   "cashflow",
   "debt-payoff",
