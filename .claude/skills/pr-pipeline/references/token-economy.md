@@ -2,7 +2,8 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
+session starts or finishes.
 
 Owner request 2026-11-12. Each item carries its source: most are owner decisions, «lead» marks the lead's own.
 
@@ -96,9 +97,11 @@ row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Аген
 that is not JSON, or a runs page shorter than `total_count` fails the run (exit 1) instead of counting zero:
 then record the row by hand with «журнал втрачено» in the note.
 
-1. **Session.** At start, post the snapshot as a comment on #180 (session name, time, the `session` sum of the
-   transcript so far); before finishing, add the session's row to the table «Сесії»: period and the difference
-   (end minus start). The snapshot and this row are the `session` sum of the lead's own transcript, so the lead
+1. **Segment** (owner, 2026-11-15, #178): the unit is the segment between compactions, row label «ведучий N»
+   (one lead number; the numbering continues across compactions). At its start — a new session or a compaction —
+   post the snapshot as a comment on #180 (lead name, time, the `session` sum of the transcript so far); at its end
+   — the next compaction or the end of the session — add its row to the table «Сесії»: period (compaction to
+   compaction) and the difference (end minus start; `session --since <start>` gives it from one transcript). The snapshot and this row are the `session` sum of the lead's own transcript, so the lead
    alone; the agents are the sum of the PR rows (`get_session` → `usage`, above, includes both).
 2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), append the script's row to
    the table «PR» (the existing rows stay): every author, fix, reviewer and confirmation run of that PR
@@ -109,7 +112,7 @@ then record the row by hand with «журнал втрачено» in the note.
 
 ## Session retrospective
 
-At the end of every lead session (owner, 2026-11-14, #178): a comment on #180 in four parts — conclusions;
-productivity (tokens, time, the lead's share, the costliest PRs); improvement proposals, each with its risks,
-downsides and mitigations; risks. Tell it to the owner briefly in chat. Its process proposals go to «Черга змін
+At the end of every lead segment — each compaction and the end of a session (owner, 2026-11-14/15, #178): a
+comment on #180 in four parts — conclusions; productivity (tokens, time, the lead's share, the costliest PRs);
+improvement proposals, each with its risks, downsides and mitigations; risks. Tell it to the owner briefly in chat. Its process proposals go to «Черга змін
 процесу» (#178). Example: [#180, retrospective of «ведучий 3»](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
