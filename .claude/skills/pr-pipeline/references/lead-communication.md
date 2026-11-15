@@ -1,32 +1,24 @@
 # Lead communication and process-change queue
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Owner rules, 2026-11-13 (chat to the lead); retrospective and proposal risks added (owner, 2026-11-14, #178). Read when you write to the owner or when you find a process change.
+Read when you write to the owner or when you find a process change.
 
 ## Writing to the owner
 
-1. Ukrainian only, in every message, including a one-line status note.
-2. No reports of agent steps (agent spawned, review started, commit pushed and so on). Only what matters for the
-   product (owner, 2026-11-13, #178): on a service notification (CI, PR subscription events, an agent's
-   interim state, «waiting for a commit») write nothing at all to the owner, not even one line. The same for
-   your own housekeeping (owner, 2026-11-14: «мені не треба писати такі повідомлення, лише важливе»):
-   subscribing to or unsubscribing from a PR, waiting for agents' reports, starting an agent. Forbidden example:
-   «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.»
-3. Write only when: something is merged (PR link, one line; what is next); an owner decision is needed; there is a problem (a blocker, red CI that
-   is not the PR's fault, a security issue, nothing merged for 2 hours); at the end of a session, the retrospective, the handover confirmation and the start message (item 6, SKILL.md «New lead session»). Batch the questions (SKILL.md §2). Full
-   rule, including platform reminders about silence: SKILL.md «Мовчання в чаті» (owner, 2026-11-14).
-4. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
+1. Ukrainian only, in every message, including a one-line status note (owner, 2026-11-13).
+2. When to write and when to stay silent (service notifications, your own housekeeping, platform reminders):
+   SKILL.md «Мовчання в чаті». Batch the questions: SKILL.md §2.
+3. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
    layout and the like. You decide, and record the decision in the decision log. Owner questions are only about
-   product, scope, legal, money, access and infrastructure (AGENTS.md «Ambiguity»).
-5. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process
+   product, scope, legal, money, access and infrastructure (AGENTS.md «Ambiguity»; owner, 2026-11-13).
+4. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process
    or a decision — comes at once with «ризики / мінуси / як пом'якшити» (owner, 2026-11-14, #178).
-6. At the end of every lead session: the retrospective as a comment on #180 and, briefly, to the owner in chat
-   ([token economy](token-economy.md), «Session retrospective»).
+5. At the end of every lead session, the retrospective: [token economy](token-economy.md), «Session retrospective».
 
 ## Batching process changes
 
-A small process or rule change that does not block work goes into a queue: one GitHub issue titled «Черга змін процесу»,
-opened and kept by the lead («Lead state» only links to it). The queue ships together with the next process PR or the follow-up sweep (row `R`), not as a separate PR
-each. A separate PR is only for a change that blocks work or affects security, or that the owner asks for
-explicitly.
+A small process or rule change that does not block work goes into a queue (owner, 2026-11-13): one GitHub issue
+titled «Черга змін процесу», opened and kept by the lead («Lead state» only links to it). The queue ships together
+with the next process PR or the follow-up sweep (row `R`), not as a separate PR each. A separate PR is only for a
+change that blocks work or affects security, or that the owner asks for explicitly.
