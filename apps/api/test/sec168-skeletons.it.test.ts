@@ -22,7 +22,6 @@ import { createTestDatabase } from "./db.ts";
 const SKELETONS = [
   "merchants",
   "budget",
-  "goals",
   "recurring",
   "cashflow",
   "debt-payoff",

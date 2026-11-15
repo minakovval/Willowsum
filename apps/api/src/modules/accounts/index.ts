@@ -1,4 +1,5 @@
 // Public interface of the accounts module (ARC-01 FR 2). Other modules import only this file.
+import type { AccountKind } from "./domain/index.ts";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { Money } from "@willowsum/domain-kernel";
@@ -135,6 +136,8 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
  */
 export interface PostingAccount {
   readonly accountId: string;
+  /** Its kind: a cash account («Готівкові») or a credit one (FIN-01 FR 14) — e.g. a goal's account is a cash one. */
+  readonly kind: AccountKind;
   readonly status: "active" | "closed";
   readonly subaccounts: readonly {
     readonly subaccountId: string;
@@ -158,6 +161,7 @@ export function createAccountDirectory(db: ModuleDatabase): AccountDirectory {
         const subaccounts = await tx.subaccounts(householdId, accountId);
         return {
           accountId: account.id,
+          kind: account.kind,
           status: account.status,
           subaccounts: subaccounts.map((s) => ({
             subaccountId: s.id,

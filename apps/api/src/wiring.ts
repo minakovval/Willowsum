@@ -31,6 +31,7 @@ import {
   createLedgerIntegrityCheck,
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
+import { createGoalsHandOffRecovery, createGoalsWorkerQueue } from "./modules/goals/index.ts";
 import {
   createLiabilities,
   createLiabilitiesHandOffRecovery,
@@ -184,6 +185,7 @@ export function schedulerDailyTasks(deps: {
   const liabilitiesRecovery = createLiabilitiesHandOffRecovery(deps.databases.for("liabilities"), () =>
     deps.spaces.spaceIds(),
   );
+  const goalsRecovery = createGoalsHandOffRecovery(deps.databases.for("goals"), () => deps.spaces.spaceIds());
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -228,6 +230,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await liabilitiesRecovery.run();
         if (requeued > 0) logEvent("liabilities.hand_off_requeued", "warn", { "ws.module": "liabilities" });
+      },
+    },
+    // The same for the goals queue (ARC-04, ADR-0015, #249): a goal's or a contribution's audit entry.
+    {
+      name: "goals.hand-off-recovery",
+      run: async () => {
+        const requeued = await goalsRecovery.run();
+        if (requeued > 0) logEvent("goals.hand_off_requeued", "warn", { "ws.module": "goals" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -300,6 +310,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       // DAT-03: the parts of background bulk actions, undos and their group audit entries (ARC-04).
       createBulkActionsWorkerQueue(databases.for("bulk-actions"), bulkActionsServicesFor(audit, databases)),
       createLiabilitiesWorkerQueue(databases.for("liabilities"), audit),
+      // BUD-05: the audit entries of goals and contributions, after the goals transaction committed (ADR-0015).
+      createGoalsWorkerQueue(databases.for("goals"), audit),
     ],
     subscriptions: [...categorizationSubscriptions],
   };
