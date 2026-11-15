@@ -280,6 +280,14 @@ describe("ACC-08@PoC FR 4: a space always has exactly one Owner; no transfer of 
       (r) => !isPublic(r.access) && "permission" in r.access && r.access.permission === "household.transfer",
     );
     expect(transfer).toEqual([]);
-    expect(apiRoutes.map((r) => r.path).filter((p) => /owner|transfer/i.test(p))).toEqual([]);
+    // Transfers of money between own accounts (FIN-03 FR 7, FR 27; FIN-03 b, row 16b) are no transfer of ownership:
+    // exactly these paths are let through, and they need household.data.read / write, never household.transfer.
+    const moneyTransfers = new Set(["/v1/transactions/{transactionId}/transfer", "/v1/transfer-proposals"]);
+    const named = apiRoutes.filter((r) => /owner|transfer/i.test(r.path));
+    expect(named.filter((r) => !moneyTransfers.has(r.path)).map((r) => r.path)).toEqual([]);
+    for (const r of named)
+      expect(["household.data.read", "household.data.write"]).toContain(
+        !isPublic(r.access) && "permission" in r.access ? r.access.permission : null,
+      );
   });
 });

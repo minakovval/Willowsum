@@ -57,6 +57,8 @@ export const synthetic = [
   defineSyntheticTable({
     table: "transactions.transfers",
     perHousehold: 1,
+    // Its rows point at transactions 1 and 0; another would point at rows the isolation check does not load.
+    maxPerHousehold: 1,
     *rows({ household, count }) {
       for (let i = 0; i < count; i++)
         yield {
