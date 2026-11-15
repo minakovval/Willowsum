@@ -205,7 +205,7 @@ export interface AccountsDeps {
     | "latestOperationDate"
     | "hasLiveEntries"
   >;
-  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind">;
+  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind" | "changeTerms">;
   readonly seal: NumberSeal;
   readonly audit: AccountAudit;
   readonly newId: () => string;

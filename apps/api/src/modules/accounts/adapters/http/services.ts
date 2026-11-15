@@ -21,7 +21,7 @@ export interface AccountsServices {
 
 export function createAccountsServices(options: {
   readonly ledger: AccountsDeps["ledger"];
-  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind">;
+  readonly liabilities: Pick<Liabilities, "register" | "forAccount" | "changeKind" | "changeTerms">;
   readonly keys: NumberSeal;
   /** fx-rates' `createFxReporting` on the same clock: «Гроші разом» and the list in the profile currency. */
   readonly fx: Pick<FxReporting, "total">;

@@ -2,15 +2,21 @@
 // @willowsum/domain-kernel, zod, decimal.js.
 export {
   availableCredit,
+  CHANGEABLE_TERMS,
   checkTerms,
+  checkTermsChange,
   GRACE_PERIOD_MAX_DAYS,
   LIABILITY_KINDS,
   parseAnnualRate,
   parseTypedAmount,
+  sameTerms,
   termsAsKind,
   termsMissing,
+  termsOn,
   type LiabilityKind,
   type LiabilityTerms,
   type LiabilityTermsInput,
+  type TermsChangeInput,
   type TermsIssue,
+  type TermsPeriod,
 } from "./liabilities.ts";

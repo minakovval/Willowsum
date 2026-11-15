@@ -16,6 +16,7 @@ import {
 } from "./accounts.ts";
 import type { HandOff } from "./hand-off.ts";
 import { settingsHandOff } from "./settings.ts";
+import { CHANGEABLE_TERMS, checkTermsChange, type TermsChangeInput } from "../../liabilities/index.ts";
 
 /**
  * «Рахунок → Налаштування» → «Реквізити» (FIN-12@PoC FR 4, AC9; NFR-01@PoC FR 6; wave 2 row 14). In the accounts
@@ -32,11 +33,18 @@ import { settingsHandOff } from "./settings.ts";
  *
  * The full number is never answered, logged or written to the audit log: it exists in the clear only in this request
  * and, opened for the comparison, in this process.
+ *
+ * A loan's rate and monthly payment and a card's credit limit are the liability's terms (`liabilities`, FIN-12 AC10,
+ * #244 item 7): they are checked here against the terms in effect (`checkTermsChange`), so a refusal writes nothing,
+ * and returned as `terms` for the caller to hand to `liabilities.changeTerms` once this transaction has committed.
  */
 
+/** The liability's terms to change after the commit (null — none sent). */
+type TermsToChange = TermsChangeInput | null;
+
 export type DetailsResult =
-  | { readonly kind: "updated"; readonly handOff: HandOff }
-  | { readonly kind: "unchanged" }
+  | { readonly kind: "updated"; readonly handOff: HandOff; readonly terms: TermsToChange }
+  | { readonly kind: "unchanged"; readonly terms: TermsToChange }
   | { readonly kind: "not-found" }
   | { readonly kind: "closed" }
   | { readonly kind: "duplicate"; readonly duplicate: Duplicate }
@@ -54,20 +62,72 @@ type Details = Pick<
   | "annualRate"
 >;
 
+/** What «Реквізити» sends: the account's own fields and the liability's terms. */
+export type DetailsRequest = DetailsInput & {
+  readonly monthlyPayment?: string | null | undefined;
+  readonly creditLimit?: string | null | undefined;
+};
+
+const TERMS_FIELDS = ["annualRate", "monthlyPayment", "creditLimit"] as const;
+
+/**
+ * The request split by the account's kind: the terms a loan or a card changes in `liabilities`, the rest the account's
+ * own (a loan's rate is a term; a savings account's rate is its own). A term field of another kind is `not_allowed`.
+ */
+function splitTerms(
+  kind: StoredAccount["kind"],
+  input: DetailsRequest,
+): { readonly own: DetailsInput; readonly terms: TermsChangeInput; readonly issues: FieldIssue[] } {
+  const termFields: readonly string[] =
+    kind === "loan" || kind === "credit-card" ? CHANGEABLE_TERMS[kind] : [];
+  const own: Record<string, unknown> = {};
+  const terms: Record<string, string | null> = {};
+  const issues: FieldIssue[] = [];
+  for (const [field, value] of Object.entries(input)) {
+    if (value === undefined) continue;
+    if (termFields.includes(field)) terms[field] = value as string | null;
+    else if (field === "monthlyPayment" || field === "creditLimit")
+      issues.push({ field, issue: "not_allowed" });
+    else own[field] = value;
+  }
+  return { own: own as DetailsInput, terms: terms as TermsChangeInput, issues };
+}
+
 export async function updateAccountDetails(
-  deps: Pick<AccountsDeps, "seal" | "newId">,
+  deps: Pick<AccountsDeps, "seal" | "newId"> & {
+    readonly liabilities: Pick<AccountsDeps["liabilities"], "forAccount">;
+  },
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
-  input: DetailsInput,
+  input: DetailsRequest,
 ): Promise<DetailsResult> {
   const { householdId } = caller;
   const account = await tx.lockAccount(householdId, accountId);
   if (!account) return { kind: "not-found" };
   // «Закритий» is read-only except the display flags (FR 8).
   if (account.status === "closed") return { kind: "closed" };
-  const checked = checkDetails(account.kind, input);
-  if ("issues" in checked) return { kind: "invalid", issues: checked.issues };
+  const split = splitTerms(account.kind, input);
+  const checked = checkDetails(account.kind, split.own);
+  const issues = [...split.issues, ...("issues" in checked ? checked.issues : [])];
+  let terms: TermsToChange = null;
+  if (TERMS_FIELDS.some((f) => split.terms[f] !== undefined)) {
+    // Until the account's hand-off has registered its liability (ARC-04) there are no terms to change yet.
+    const liability = await deps.liabilities.forAccount(householdId, accountId);
+    if (liability === null)
+      issues.push(
+        ...TERMS_FIELDS.filter((f) => split.terms[f] !== undefined).map((field) => ({
+          field,
+          issue: "unavailable",
+        })),
+      );
+    else {
+      const termsChecked = checkTermsChange(liability, split.terms);
+      if ("issues" in termsChecked) issues.push(...termsChecked.issues);
+      else terms = split.terms;
+    }
+  }
+  if (issues.length > 0 || "issues" in checked) return { kind: "invalid", issues };
   const change = checked.change;
 
   const after: { -readonly [K in keyof Details]: Details[K] } = {
@@ -154,8 +214,8 @@ export async function updateAccountDetails(
     { field: "note", before: account.note, after: after.note, sensitive: true },
     { field: "annualRate", before: account.annualRate, after: after.annualRate, sensitive: false },
   ].filter((c) => c.field === "number" || c.before !== c.after);
-  if (changes.length === 0) return { kind: "unchanged" };
+  if (changes.length === 0) return { kind: "unchanged", terms };
 
   await tx.updateDetails(householdId, { id: accountId, ...after });
-  return { kind: "updated", handOff: await settingsHandOff(deps, tx, caller, accountId, changes) };
+  return { kind: "updated", handOff: await settingsHandOff(deps, tx, caller, accountId, changes), terms };
 }

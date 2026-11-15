@@ -293,7 +293,9 @@ describe("FIN-12@PoC FR 4: the fields of «Реквізити» by kind", () => 
     for (const [account, body, field] of [
       [current, { cardExpiry: "2028-04", note: "Не запишеться" }, "cardExpiry"],
       [current, { annualRate: "1" }, "annualRate"],
-      [loan, { annualRate: "8.5" }, "annualRate"],
+      // A loan's and a card's terms are the liability's (fin12-terms.it.test.ts): not for another kind.
+      [current, { monthlyPayment: "1.00" }, "monthlyPayment"],
+      [loan, { creditLimit: "100.00" }, "creditLimit"],
     ] as const) {
       const refused = await details(space, account, body);
       expect([field, refused.statusCode]).toEqual([field, 400]);
@@ -302,8 +304,7 @@ describe("FIN-12@PoC FR 4: the fields of «Реквізити» by kind", () => 
     expect((await view(space, current)).note).toBeNull();
     expect((await view(space, loan)).loan.annualRate).toBe("9.9");
     expect(await updates(space.householdId, current)).toEqual([]);
-    // Unknown fields (the limit, owners) are not part of this request: 400, not ignored.
-    expect((await details(space, loan, { monthlyPayment: "1.00" })).statusCode).toBe(400);
+    // Unknown fields (owners) are not part of this request: 400, not ignored.
     expect((await details(space, current, { owners: [] })).statusCode).toBe(400);
   });
 

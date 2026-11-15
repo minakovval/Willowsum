@@ -119,7 +119,7 @@ export type paths = {
         delete?: never;
         options?: never;
         head?: never;
-        /** «Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate (FIN-12 FR 4) */
+        /** «Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate; a loan's rate and payment and a card's limit from today (FIN-12 FR 4, AC10) */
         patch: operations["updateAccountDetails"];
         trace?: never;
     };
@@ -2353,11 +2353,13 @@ export interface operations {
                 "application/json": {
                     annualRate?: string | null;
                     cardExpiry?: string | null;
+                    creditLimit?: string | null;
                     institution?: {
                         /** @description ISO 3166-1 alpha-2 */
                         country: string;
                         name: string;
                     } | null;
+                    monthlyPayment?: string | null;
                     note?: string | null;
                     number?: string | null;
                 };

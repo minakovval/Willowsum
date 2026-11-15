@@ -4743,7 +4743,7 @@
     "/v1/accounts/{accountId}/details": {
       "patch": {
         "operationId": "updateAccountDetails",
-        "summary": "«Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate (FIN-12 FR 4)",
+        "summary": "«Налаштування» → «Реквізити»: institution, IBAN or number (sealed, shown masked), note, card expiry, rate; a loan's rate and payment and a card's limit from today (FIN-12 FR 4, AC10)",
         "tags": [
           "accounts"
         ],
@@ -4838,6 +4838,30 @@
                       {
                         "type": "string",
                         "maxLength": 10
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "monthlyPayment": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 48,
+                        "description": "A plain decimal, e.g. 1200.50; at most the currency's minor units"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "creditLimit": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 48,
+                        "description": "A plain decimal, e.g. 1200.50; at most the currency's minor units"
                       },
                       {
                         "type": "null"
