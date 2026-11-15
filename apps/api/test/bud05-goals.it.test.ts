@@ -193,7 +193,7 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
       canContribute: true,
       contributions: [],
     });
-    // BUD-03 later takes the required contribution into «Можна витратити» (FR 5); the card shows it already.
+    // «Можна витратити» takes the required contribution later (its own requirement); the card shows it already.
     const list = await call(space, "GET", "/v1/goals");
     expect(list.json().goals).toHaveLength(1);
     expect(await goalAudit(space.householdId, "goals.goal", "create")).toBe(1);
@@ -230,7 +230,7 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     expect(moved.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("1") });
   });
 
-  it("BUD-05@PoC FR 2: «Окремий рахунок цілі» — collected is the account's balance; one such goal per account and no envelope beside it", async () => {
+  it("BUD-05@PoC FR 2 (server part): «Окремий рахунок цілі» — collected is the account's balance; one such goal per account and no envelope beside it", async () => {
     const space = await newSpace();
     const reserve = await account(space, "2500.00");
     const g = await goal(space, {
@@ -326,7 +326,15 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     expect(await n("goals.goals WHERE household_id = $1", space.householdId)).toBe(1);
   });
 
-  it("BUD-05@PoC AC10 (server part): «Новий диван» 1 500,00 € from step 1 alone — one part «Без рахунку — лише позначки», start 0, the space's", async () => {
+  it("BUD-05@PoC FR 14: a goal has no pause — there is no «Поставити на паузу» or «Відновити» to call", async () => {
+    const space = await newSpace();
+    const g = await goal(space, travel());
+    for (const action of ["pause", "resume"])
+      expect((await call(space, "POST", `/v1/goals/${g.id}/${action}`, {})).statusCode).toBe(404);
+    expect(g).not.toHaveProperty("paused");
+  });
+
+  it("BUD-05@PoC AC10 (server part), FR 11: «Новий диван» 1 500,00 € from step 1 alone — one part «Без рахунку — лише позначки», start 0, the space's", async () => {
     const space = await newSpace();
     const g = await goal(space, { template: "purchase", name: "Новий диван", target: eur("1500.00") });
     expect(g).toMatchObject({
@@ -394,7 +402,7 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     expect(await goalAudit(space.householdId, "goals.contribution", "create")).toBe(1);
   });
 
-  it("BUD-05@PoC FR 2: «Змінити ціль» — the fields sent change, audited as before and after; the currency stays; a past date may stay", async () => {
+  it("BUD-05@PoC FR 2 (server part): «Змінити ціль» — the fields sent change, audited as before and after; the currency stays; a past date may stay", async () => {
     const space = await newSpace();
     now = at("2026-09-01");
     const g = await goal(space, travel({ targetDate: "2026-10-01" }));

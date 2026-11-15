@@ -48,7 +48,7 @@ describe("BUD-05@PoC: required monthly contribution, progress, pace", () => {
     expect(p.overdue).toBe(false);
   });
 
-  it("BUD-05@PoC EC3: a date that has passed before the target was reached is «overdue»: offer to extend it, change the amount or close", () => {
+  it("BUD-05@PoC FR 12, EC3: a date that has passed before the target was reached is «overdue»: offer to extend it, change the amount or close", () => {
     const base = {
       target: eur("4000"),
       collected: eur("1000"),
@@ -116,7 +116,7 @@ describe("BUD-05@PoC: the goal's fields", () => {
     target: { amount: "4000.00", currency: "EUR" },
   };
 
-  it("BUD-05@PoC FR 2: without step 2 the goal has one part «Без рахунку — лише позначки» with the start amount 0", () => {
+  it("BUD-05@PoC FR 2 (server part): without step 2 the goal has one part «Без рахунку — лише позначки» with the start amount 0", () => {
     const r = checkGoal(travel, TODAY);
     expect(r.kind).toBe("ok");
     if (r.kind !== "ok") return;
@@ -127,7 +127,7 @@ describe("BUD-05@PoC: the goal's fields", () => {
     expect(r.fields.emergencyMonths).toBeNull();
   });
 
-  it("BUD-05@PoC FR 2: «Рахунок» is required for an own account and an envelope and absent for marks; an own account has no start amount", () => {
+  it("BUD-05@PoC FR 2 (server part): «Рахунок» is required for an own account and an envelope and absent for marks; an own account has no start amount", () => {
     const issues = (input: Parameters<typeof checkGoal>[0]) => {
       const r = checkGoal(input, TODAY);
       return r.kind === "invalid" ? r.issues : [];
@@ -156,7 +156,7 @@ describe("BUD-05@PoC: the goal's fields", () => {
     expect(checkGoal({ ...travel, targetDate: "2026-10-16" }, TODAY, "2026-10-16").kind).toBe("ok");
   });
 
-  it("BUD-05@PoC FR 10 (server part): «Подушка безпеки» keeps «Скільки місяців витрат», 3 by default; other templates have none", () => {
+  it("BUD-05@PoC: «Подушка безпеки» keeps «Скільки місяців витрат», 3 by default; other templates have none", () => {
     const r = checkGoal({ ...travel, template: "emergency" }, TODAY);
     expect(r.kind === "ok" && r.fields.emergencyMonths).toBe(3);
     expect(checkGoal({ ...travel, template: "emergency", emergencyMonths: 0 }, TODAY).kind).toBe("invalid");
