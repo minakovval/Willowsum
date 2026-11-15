@@ -177,7 +177,8 @@ export async function ensureTree(deps: CategoriesDeps, tx: CategoriesTx, househo
   }));
   await tx.seed(householdId, groups, []);
   const ids = new Map((await tx.groups(householdId)).map((g) => [g.systemKey, g.id]));
-  const categories = SYSTEM_TREE.flatMap((g) =>
+  // A system group missing in the space (a custom group took its name before a later release added it) brings none.
+  const categories = SYSTEM_TREE.filter((g) => ids.has(g.key)).flatMap((g) =>
     g.categories.map((c, i): StoredCategory => ({
       id: deps.newId(),
       groupId: ids.get(g.key)!,

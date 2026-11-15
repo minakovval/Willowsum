@@ -35,364 +35,106 @@ export interface SystemGroup {
   readonly categories: readonly SystemCategory[];
 }
 
-export const SYSTEM_TREE: readonly SystemGroup[] = [
-  {
-    key: "housing",
-    name: "Житло",
-    kind: "expense",
-    tone: "#5872D2",
-    categories: [
-      {
-        key: "rent",
-        name: "Оренда",
-        hint: "оренда житла",
-        color: "#144097",
-        icon: "key-round",
-        essential: true,
-      },
-      {
-        key: "utilities",
-        name: "Комунальні",
-        hint: "електрика, газ, вода, опалення, утримання будинку",
-        color: "#494BAB",
-        icon: "zap",
-        essential: true,
-      },
-      {
-        key: "repairs",
-        name: "Ремонт",
-        hint: "ремонт і обслуговування житла, майстри",
-        color: "#6D74D8",
-        icon: "hammer",
-      },
-      { key: "home", name: "Дім", hint: "меблі, техніка, текстиль, декор", color: "#3968C2", icon: "sofa" },
-      {
-        key: "household-supplies",
-        name: "Побутова хімія",
-        hint: "засоби для прибирання, дрібні господарські товари",
-        color: "#5F92EF",
-        icon: "spray-can",
-      },
-      {
-        key: "garden",
-        name: "Сад",
-        hint: "рослини, інструменти, догляд за ділянкою",
-        color: "#959FFE",
-        icon: "sprout",
-      },
-      { key: "home-insurance", name: "Страхування житла", color: "#9BBEFD", icon: "shield" },
-    ],
-  },
-  {
-    key: "food",
-    name: "Харчування",
-    kind: "expense",
-    tone: "#0E9161",
-    categories: [
-      {
-        key: "groceries",
-        name: "Продукти",
-        hint: "супермаркети, ринки",
-        color: "#045D2F",
-        icon: "shopping-cart",
-        essential: true,
-      },
-      {
-        key: "cafes",
-        name: "Кафе і ресторани",
-        hint: "кафе, ресторани, кава, бари",
-        color: "#099673",
-        icon: "coffee",
-      },
-      { key: "food-delivery", name: "Доставка їжі", color: "#73CF90", icon: "bike" },
-    ],
-  },
-  {
-    key: "transport",
-    name: "Транспорт і авто",
-    kind: "expense",
-    tone: "#9C7305",
-    categories: [
-      {
-        key: "transport",
-        name: "Транспорт",
-        hint: "громадський транспорт, таксі, каршеринг, оренда самокатів",
-        color: "#796000",
-        icon: "bus",
-      },
-      {
-        key: "fuel",
-        name: "Пальне",
-        hint: "пальне і заряджання електромобіля",
-        color: "#614004",
-        icon: "fuel",
-      },
-      {
-        key: "car-service",
-        name: "Сервіс авто",
-        hint: "техобслуговування, ремонт, шини, мийка",
-        color: "#A9751A",
-        icon: "wrench",
-      },
-      { key: "car-insurance", name: "Страхування авто", color: "#B99B3C", icon: "car-front" },
-      {
-        key: "parking-roads",
-        name: "Паркування і дороги",
-        hint: "паркування, платні дороги, віньєтки",
-        color: "#EAB361",
-        icon: "milestone",
-      },
-    ],
-  },
-  {
-    key: "connectivity",
-    name: "Зв'язок і підписки",
-    kind: "expense",
-    tone: "#097FCD",
-    categories: [
-      {
-        key: "mobile",
-        name: "Зв'язок",
-        hint: "мобільний зв'язок",
-        color: "#02537A",
-        icon: "smartphone",
-        essential: true,
-      },
-      { key: "internet", name: "Інтернет", hint: "домашній інтернет і ТБ", color: "#3A81D7", icon: "wifi" },
-      {
-        key: "subscriptions",
-        name: "Підписки",
-        hint: "стримінг, програми, хмарні сервіси, членства",
-        color: "#62C2FF",
-        icon: "repeat",
-      },
-    ],
-  },
-  {
-    key: "health",
-    name: "Здоров'я і догляд",
-    kind: "expense",
-    tone: "#C35047",
-    categories: [
-      {
-        key: "healthcare",
-        name: "Здоров'я",
-        hint: "лікарі, аналізи, стоматологія",
-        color: "#861025",
-        icon: "stethoscope",
-        essential: true,
-      },
-      { key: "pharmacy", name: "Аптека", hint: "ліки, медичні товари", color: "#A73A1E", icon: "pill" },
-      { key: "health-insurance", name: "Страхування здоров'я", color: "#FE9FA0", icon: "shield-plus" },
-      { key: "sport", name: "Спорт", hint: "абонементи, спорядження", color: "#CA545B", icon: "dumbbell" },
-      {
-        key: "beauty",
-        name: "Краса і догляд",
-        hint: "перукарня, косметика, засоби гігієни",
-        color: "#EC785B",
-        icon: "scissors",
-      },
-    ],
-  },
-  {
-    key: "family-life",
-    name: "Родина",
-    kind: "expense",
-    tone: "#9B5BB6",
-    categories: [
-      {
-        key: "education",
-        name: "Освіта",
-        hint: "школа, курси, гуртки, підручники",
-        color: "#843A8D",
-        icon: "graduation-cap",
-        essential: true,
-      },
-      {
-        key: "children",
-        name: "Діти",
-        hint: "іграшки, кишенькові, догляд за дітьми",
-        color: "#5D2985",
-        icon: "baby",
-      },
-      { key: "clothing", name: "Одяг", hint: "одяг і взуття", color: "#8C59B8", icon: "shirt" },
-      { key: "pets", name: "Домашні тварини", hint: "корм, ветеринар", color: "#BD89ED", icon: "paw-print" },
-      { key: "gifts", name: "Подарунки", hint: "подарунки іншим", color: "#B76AC0", icon: "gift" },
-      {
-        key: "charity",
-        name: "Благодійність",
-        hint: "донати і пожертви",
-        color: "#EB9BF5",
-        icon: "hand-heart",
-      },
-    ],
-  },
-  {
-    key: "leisure",
-    name: "Відпочинок",
-    kind: "expense",
-    tone: "#0F899B",
-    categories: [
-      {
-        key: "entertainment",
-        name: "Розваги",
-        hint: "кіно, концерти, події, ігри",
-        color: "#268EA8",
-        icon: "ticket",
-      },
-      {
-        key: "travel",
-        name: "Подорожі",
-        hint: "квитки, житло в поїздках, екскурсії",
-        color: "#05585E",
-        icon: "plane",
-      },
-      {
-        key: "hobbies",
-        name: "Хобі",
-        hint: "книги, матеріали і заняття для хобі",
-        color: "#60CAD3",
-        icon: "palette",
-      },
-    ],
-  },
-  {
-    key: "finance",
-    name: "Фінанси і податки",
-    kind: "expense",
-    tone: "#678800",
-    categories: [
-      {
-        key: "taxes",
-        name: "Податки",
-        hint: "податки і збори, крім податку з зарплати, утриманого роботодавцем",
-        color: "#3E6C03",
-        icon: "receipt",
-      },
-      {
-        key: "bank-fees",
-        name: "Комісії банку",
-        hint: "комісії і плата за обслуговування рахунків",
-        color: "#707D0B",
-        icon: "landmark",
-      },
-      {
-        key: "loan-interest",
-        name: "Відсотки за кредитами",
-        hint: "відсотки за кредитами і кредитними картками; тіло кредиту — не категорія, а погашення зобов'язання",
-        color: "#454D04",
-        icon: "percent",
-      },
-      { key: "life-insurance", name: "Страхування життя", color: "#689E38", icon: "heart-handshake" },
-      { key: "fines", name: "Штрафи", color: "#9FB034", icon: "gavel" },
-      {
-        key: "other-expenses",
-        name: "Інші витрати",
-        hint: "витрати, що не підходять до жодної категорії",
-        color: "#98D16C",
-        icon: "circle-ellipsis",
-      },
-    ],
-  },
-  {
-    key: "work-income",
-    name: "Дохід від роботи",
-    kind: "income",
-    tone: "#BA4E84",
-    categories: [
-      { key: "salary", name: "Зарплата", hint: "зарплата на руки", color: "#7A165C", icon: "wallet" },
-      {
-        key: "bonuses",
-        name: "Премії",
-        hint: "премії, бонуси, тринадцята зарплата",
-        color: "#AE3E6A",
-        icon: "award",
-      },
-      {
-        key: "business",
-        name: "Підприємництво",
-        hint: "дохід ФОП або власного бізнесу",
-        color: "#D26AAB",
-        icon: "store",
-      },
-      {
-        key: "freelance",
-        name: "Фриланс",
-        hint: "разові гонорари і підробітки",
-        color: "#FE9BBB",
-        icon: "laptop",
-      },
-    ],
-  },
-  {
-    key: "other-income",
-    name: "Інші доходи",
-    kind: "income",
-    tone: "#BE590F",
-    categories: [
-      {
-        key: "rental-income",
-        name: "Дохід від оренди",
-        hint: "оренда власного майна",
-        color: "#874706",
-        icon: "building",
-      },
-      {
-        key: "dividends-interest",
-        name: "Дивіденди і відсотки",
-        hint: "дивіденди, відсотки за депозитами, купони",
-        color: "#7B2901",
-        icon: "trending-up",
-      },
-      { key: "cashback", name: "Кешбек", color: "#B14718", icon: "badge-percent" },
-      { key: "gifts-received", name: "Подарунки отримані", color: "#DF7045", icon: "package-open" },
-      {
-        key: "social-benefits",
-        name: "Соціальні виплати",
-        hint: "пенсії, допомоги, стипендії",
-        color: "#BE660B",
-        icon: "hand-coins",
-      },
-      {
-        key: "asset-sales",
-        name: "Продаж майна",
-        hint: "продаж речей і майна",
-        color: "#EE8D3C",
-        icon: "tag",
-      },
-      {
-        key: "other-income",
-        name: "Інші надходження",
-        hint: "доходи, що не підходять до жодної категорії",
-        color: "#FEA382",
-        icon: "circle-plus",
-      },
-    ],
-  },
-  {
-    key: "service",
-    name: "Службові",
-    kind: "service",
-    // No tone of the palette: the service categories are neither income nor expense (FR 1); the grey of «Коригування».
-    tone: "#9AA3AF",
-    categories: [
-      {
-        key: "transfer",
-        name: "Переказ",
-        hint: "перекази між власними рахунками, погашення кредитної картки, внески в цілі",
-        color: "#9DB2C8",
-        icon: "arrow-left-right",
-      },
-      {
-        key: "adjustment",
-        name: "Коригування",
-        hint: "зміни залишку після звірки або ручного виправлення",
-        color: "#9AA3AF",
-        icon: "scale",
-      },
-    ],
-  },
-];
+/**
+ * The tree as the requirement lists it (FR 1 order; colours of the FR 10 table). A group line: key | type | tone |
+ * name. A category line, indented: key | name | colour | icon | essential or - | hint (optional). The service group
+ * has no tone of the palette: the grey of «Коригування».
+ */
+const TREE = `
+housing | expense | #5872D2 | Житло
+  rent | Оренда | #144097 | key-round | essential | оренда житла
+  utilities | Комунальні | #494BAB | zap | essential | електрика, газ, вода, опалення, утримання будинку
+  repairs | Ремонт | #6D74D8 | hammer | - | ремонт і обслуговування житла, майстри
+  home | Дім | #3968C2 | sofa | - | меблі, техніка, текстиль, декор
+  household-supplies | Побутова хімія | #5F92EF | spray-can | - | засоби для прибирання, дрібні господарські товари
+  garden | Сад | #959FFE | sprout | - | рослини, інструменти, догляд за ділянкою
+  home-insurance | Страхування житла | #9BBEFD | shield | -
+food | expense | #0E9161 | Харчування
+  groceries | Продукти | #045D2F | shopping-cart | essential | супермаркети, ринки
+  cafes | Кафе і ресторани | #099673 | coffee | - | кафе, ресторани, кава, бари
+  food-delivery | Доставка їжі | #73CF90 | bike | -
+transport | expense | #9C7305 | Транспорт і авто
+  transport | Транспорт | #796000 | bus | - | громадський транспорт, таксі, каршеринг, оренда самокатів
+  fuel | Пальне | #614004 | fuel | - | пальне і заряджання електромобіля
+  car-service | Сервіс авто | #A9751A | wrench | - | техобслуговування, ремонт, шини, мийка
+  car-insurance | Страхування авто | #B99B3C | car-front | -
+  parking-roads | Паркування і дороги | #EAB361 | milestone | - | паркування, платні дороги, віньєтки
+connectivity | expense | #097FCD | Зв'язок і підписки
+  mobile | Зв'язок | #02537A | smartphone | essential | мобільний зв'язок
+  internet | Інтернет | #3A81D7 | wifi | - | домашній інтернет і ТБ
+  subscriptions | Підписки | #62C2FF | repeat | - | стримінг, програми, хмарні сервіси, членства
+health | expense | #C35047 | Здоров'я і догляд
+  healthcare | Здоров'я | #861025 | stethoscope | essential | лікарі, аналізи, стоматологія
+  pharmacy | Аптека | #A73A1E | pill | - | ліки, медичні товари
+  health-insurance | Страхування здоров'я | #FE9FA0 | shield-plus | -
+  sport | Спорт | #CA545B | dumbbell | - | абонементи, спорядження
+  beauty | Краса і догляд | #EC785B | scissors | - | перукарня, косметика, засоби гігієни
+family-life | expense | #9B5BB6 | Родина
+  education | Освіта | #843A8D | graduation-cap | essential | школа, курси, гуртки, підручники
+  children | Діти | #5D2985 | baby | - | іграшки, кишенькові, догляд за дітьми
+  clothing | Одяг | #8C59B8 | shirt | - | одяг і взуття
+  pets | Домашні тварини | #BD89ED | paw-print | - | корм, ветеринар
+  gifts | Подарунки | #B76AC0 | gift | - | подарунки іншим
+  charity | Благодійність | #EB9BF5 | hand-heart | - | донати і пожертви
+leisure | expense | #0F899B | Відпочинок
+  entertainment | Розваги | #268EA8 | ticket | - | кіно, концерти, події, ігри
+  travel | Подорожі | #05585E | plane | - | квитки, житло в поїздках, екскурсії
+  hobbies | Хобі | #60CAD3 | palette | - | книги, матеріали і заняття для хобі
+finance | expense | #678800 | Фінанси і податки
+  taxes | Податки | #3E6C03 | receipt | - | податки і збори, крім податку з зарплати, утриманого роботодавцем
+  bank-fees | Комісії банку | #707D0B | landmark | - | комісії і плата за обслуговування рахунків
+  loan-interest | Відсотки за кредитами | #454D04 | percent | - | відсотки за кредитами і кредитними картками; тіло кредиту — не категорія, а погашення зобов'язання
+  life-insurance | Страхування життя | #689E38 | heart-handshake | -
+  fines | Штрафи | #9FB034 | gavel | -
+  other-expenses | Інші витрати | #98D16C | circle-ellipsis | - | витрати, що не підходять до жодної категорії
+work-income | income | #BA4E84 | Дохід від роботи
+  salary | Зарплата | #7A165C | wallet | - | зарплата на руки
+  bonuses | Премії | #AE3E6A | award | - | премії, бонуси, тринадцята зарплата
+  business | Підприємництво | #D26AAB | store | - | дохід ФОП або власного бізнесу
+  freelance | Фриланс | #FE9BBB | laptop | - | разові гонорари і підробітки
+other-income | income | #BE590F | Інші доходи
+  rental-income | Дохід від оренди | #874706 | building | - | оренда власного майна
+  dividends-interest | Дивіденди і відсотки | #7B2901 | trending-up | - | дивіденди, відсотки за депозитами, купони
+  cashback | Кешбек | #B14718 | badge-percent | -
+  gifts-received | Подарунки отримані | #DF7045 | package-open | -
+  social-benefits | Соціальні виплати | #BE660B | hand-coins | - | пенсії, допомоги, стипендії
+  asset-sales | Продаж майна | #EE8D3C | tag | - | продаж речей і майна
+  other-income | Інші надходження | #FEA382 | circle-plus | - | доходи, що не підходять до жодної категорії
+service | service | #9AA3AF | Службові
+  transfer | Переказ | #9DB2C8 | arrow-left-right | - | перекази між власними рахунками, погашення кредитної картки, внески в цілі
+  adjustment | Коригування | #9AA3AF | scale | - | зміни залишку після звірки або ручного виправлення
+`;
+
+function parse(table: string): SystemGroup[] {
+  const groups: { -readonly [K in keyof SystemGroup]: SystemGroup[K] }[] = [];
+  for (const line of table.split("\n").filter((l) => l.trim() !== "")) {
+    const cells = line.split(" | ").map((c) => c.trim());
+    if (!line.startsWith(" ")) {
+      const [key, kind, tone, name] = cells as [string, CategoryKind, string, string];
+      groups.push({ key, kind, tone, name, categories: [] });
+      continue;
+    }
+    const [key, name, color, icon, essential, hint] = cells as [
+      string,
+      string,
+      string,
+      string,
+      string,
+      string?,
+    ];
+    (groups.at(-1)!.categories as SystemCategory[]).push({
+      key,
+      name,
+      color,
+      icon,
+      ...(essential === "essential" ? { essential: true as const } : {}),
+      ...(hint !== undefined ? { hint } : {}),
+    });
+  }
+  return groups;
+}
+
+export const SYSTEM_TREE: readonly SystemGroup[] = parse(TREE);
 
 /** The keys of «Переказ» and «Коригування» (FR 1, FR 3): never hidden, never merged. */
 export const SERVICE_CATEGORY_KEYS = ["transfer", "adjustment"] as const;
