@@ -40,6 +40,7 @@
         "audit",
         "bulk-actions",
         "categories",
+        "goals",
         "household",
         "identity",
         "ledger",
@@ -73,7 +74,7 @@
     },
     "goals": {
       "layer": "process",
-      "dependsOn": []
+      "dependsOn": ["accounts", "audit", "ledger"]
     },
     "household": {
       "layer": "platform",

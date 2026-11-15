@@ -12,6 +12,7 @@ import { createAccountDirectory, createAccountsServices } from "./modules/accoun
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { createGoalsServices } from "./modules/goals/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -257,6 +258,14 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
               usage: [createTransactionCategoryUsage(databases.for("transactions"))],
+            }),
+            // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts).
+            goals: createGoalsServices({
+              accounts: createAccountDirectory(databases.for("accounts")),
+              ledger: createLedger(databases.for("ledger")),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
             }),
             deployed: config.deployed,
           }),

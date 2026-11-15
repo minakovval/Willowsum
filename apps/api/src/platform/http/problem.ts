@@ -128,6 +128,18 @@ export const PROBLEMS = {
     status: 409,
     title: "A category with transactions, rules or limits cannot be deleted — hide or merge it",
   },
+  /** BUD-05@PoC FR 2: the account is another goal's own account, or has envelopes beside one; nothing was written. */
+  GOAL_ACCOUNT_TAKEN: {
+    status: 409,
+    title: "The account is another goal's own account, or has envelopes",
+  },
+  /** «Сума конвертів перевищує залишок рахунку на N €» (BUD-05@PoC FR 3, AC4): `excess` is N; nothing was written. */
+  GOAL_ENVELOPES_OVER_BALANCE: { status: 409, title: "The envelopes of the account exceed its balance" },
+  /**
+   * BUD-05@PoC FR 6, AC15: a goal on its own account has no «Внести» — its contributions are transfers to the account;
+   * nothing was written.
+   */
+  GOAL_OWN_ACCOUNT: { status: 409, title: "Add a transfer to the goal's account instead" },
   /**
    * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
    * written.
@@ -233,6 +245,11 @@ export const ProblemSchema = z
       .min(0)
       .optional()
       .meta({ description: "LIMIT_REACHED: the limit that was reached" }),
+    /** For GOAL_ENVELOPES_OVER_BALANCE: by how much the envelopes would exceed the balance (BUD-05@PoC AC4). */
+    excess: z.object({ amount: z.string(), currency: z.string() }).optional().meta({
+      description:
+        "GOAL_ENVELOPES_OVER_BALANCE: by how much the envelopes would exceed the account's balance",
+    }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(
@@ -281,7 +298,7 @@ export class ApiProblem extends Error {
 
 /** The extension members a problem may carry (declared in ProblemSchema). */
 export type ProblemExtensions = Partial<
-  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason">
+  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason" | "excess">
 >;
 
 export function problemBody(
@@ -312,6 +329,7 @@ export function problemBody(
     ...(options.extensions?.sessionEndReason !== undefined
       ? { sessionEndReason: options.extensions.sessionEndReason }
       : {}),
+    ...(options.extensions?.excess !== undefined ? { excess: { ...options.extensions.excess } } : {}),
   };
 }
 

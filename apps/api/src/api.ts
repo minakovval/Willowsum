@@ -8,6 +8,7 @@ import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.t
 import type { AccountsServices } from "./modules/accounts/index.ts";
 import type { BulkActionsServices } from "./modules/bulk-actions/index.ts";
 import type { CategoriesServices } from "./modules/categories/index.ts";
+import type { GoalsServices } from "./modules/goals/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import type { TransactionsServices } from "./modules/transactions/index.ts";
@@ -59,6 +60,8 @@ export interface ApiWiring {
   readonly transactions?: TransactionsServices;
   /** The categories module's ports (BUD-01: the audit log, clock). Omitted: its routes answer 500. */
   readonly categories?: CategoriesServices;
+  /** The goals module's ports (BUD-05: the accounts directory and the journal for balances, audit log, clock). */
+  readonly goals?: GoalsServices;
   /**
    * The bulk-actions module's ports (DAT-03: the targets and actions of the selection panels, the audit log, clock).
    * Omitted: its routes answer 500.
@@ -113,7 +116,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                     ? wiring.transferMatching
                     : module === "duplicate-matching"
                       ? wiring.duplicateMatching
-                      : undefined,
+                      : module === "goals"
+                        ? wiring.goals
+                        : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
