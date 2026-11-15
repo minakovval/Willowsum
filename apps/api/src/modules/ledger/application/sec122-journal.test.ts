@@ -21,6 +21,7 @@ describe("sec122 ARC-11: a lost race on the idempotency key returns the winner's
       reversesEntryId: null,
       postings: [],
       conversions: [],
+      legs: [],
     };
     let byKey = 0;
     let postingsWritten = 0;

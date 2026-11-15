@@ -7,6 +7,15 @@ import {
 } from "@willowsum/domain-kernel";
 import { LedgerError, type AccountRef, type Posting } from "./postings.ts";
 
+/** One leg of an event (IMP-02@PoC FR 5): an amount of a currency or an asset's unit on an account. */
+export interface EventLeg {
+  readonly account: string;
+  readonly amount: Money;
+}
+
+/** At most this many legs in one event (the fee leg not counted). */
+export const MAX_LEGS = 100;
+
 /**
  * The posting rules (FIN-04@PoC FR 3, FR 4; ARC-11 «Правила проводок»): event type → postings, as pure functions.
  * Each entry stores the version it was made by; a change of the rules is a new version and applies to new entries
@@ -85,6 +94,17 @@ export type LedgerEvent =
       readonly sent: Money;
       readonly received: Money;
       readonly rate: ExchangeRate;
+    }
+  /**
+   * An operation with one or more legs and a separate fee leg (IMP-02@PoC FR 5, AC11): each leg's amount, signed
+   * (positive into the account, negative out of it), against «Зовнішні кошти»; `fee` — the fee charged (positive),
+   * taken from its account against «Зовнішні кошти». Every leg and the fee in one currency or unit, the entry's; an
+   * operation whose legs are in several currencies needs their dated rates and is refused here (`INVALID_EVENT`).
+   */
+  | {
+      readonly type: "legs";
+      readonly legs: readonly EventLeg[];
+      readonly fee?: EventLeg | null;
     };
 
 export type LedgerEventType = LedgerEvent["type"];
@@ -142,6 +162,29 @@ const RULES: { readonly [T in LedgerEventType]: (event: Extract<LedgerEvent, { t
   "fx-transfer": (e) => {
     const { entryAmount, amount } = crossCurrency(e);
     return [...signed(FX, acc(e.from), entryAmount), ...signed(acc(e.to), FX, amount)];
+  },
+  // One posting per leg and one for the fee, each marked with its leg, so the entry keeps the event's legs.
+  legs: (e) => {
+    const legs = Array.isArray(e.legs) ? e.legs : [];
+    if (legs.length === 0 || legs.length > MAX_LEGS)
+      throw new LedgerError("INVALID_EVENT", `An event has 1–${MAX_LEGS} legs`);
+    const fee = e.fee ?? null;
+    const currency = legs[0]!.amount.currency;
+    if ([...legs, ...(fee ? [fee] : [])].some((l) => l.amount.currency !== currency))
+      throw new LedgerError(
+        "INVALID_EVENT",
+        "Every leg and the fee of an event are in one currency; legs in several need their dated rates",
+      );
+    const postings: Posting[] = legs.map((l) => {
+      if (l.amount.isZero()) throw new LedgerError("INVALID_EVENT", "A leg moves an amount");
+      return { ...signed(acc(l.account), EXTERNAL, l.amount)[0]!, leg: "main" };
+    });
+    if (fee) {
+      if (fee.amount.isZero() || fee.amount.isNegative())
+        throw new LedgerError("INVALID_EVENT", "A fee is a positive amount charged");
+      postings.push({ debit: EXTERNAL, credit: acc(fee.account), amount: fee.amount, leg: "fee" });
+    }
+    return postings;
   },
 };
 

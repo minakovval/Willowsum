@@ -559,3 +559,20 @@ export async function categoriesInParts(
   );
   return new Set(rows.map((r) => r.id));
 }
+
+/**
+ * IMP-02@PoC FR 15: of `ids`, the subaccounts a transaction of the space is on — any status, hidden or not, posted to
+ * the journal or not yet. Read only.
+ */
+export async function subaccountsInUse(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (ids.length === 0) return new Set();
+  const { rows } = await q.query<{ id: string }>(
+    `SELECT DISTINCT subaccount_id AS id FROM transactions WHERE household_id = $1 AND subaccount_id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  return new Set(rows.map((r) => r.id));
+}

@@ -55,3 +55,10 @@ export {
   type DetailsChange,
   type DetailsInput,
 } from "./details.ts";
+export {
+  checkAddedCurrency,
+  freePosition,
+  removalIssue,
+  type AddedCurrencyInput,
+  type RemovalIssue,
+} from "./wallets.ts";

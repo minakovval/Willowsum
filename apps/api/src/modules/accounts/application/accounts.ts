@@ -113,6 +113,8 @@ export interface AccountsTx {
   ): Promise<DuplicateCandidate[]>;
   insertAccount(householdId: string, account: StoredAccount): Promise<void>;
   insertSubaccount(householdId: string, subaccount: StoredSubaccount): Promise<void>;
+  /** A currency removed from its account (IMP-02 FR 15): its subaccount row; the ledger keeps its account. */
+  deleteSubaccount(householdId: string, subaccountId: string): Promise<void>;
   insertOwner(householdId: string, accountId: string, owner: StoredOwner): Promise<void>;
   /**
    * ARC-04 FR 2: the hand-off of this change to the other modules, enqueued in this transaction (the accounts queue,
@@ -124,6 +126,11 @@ export interface AccountsTx {
    * item 3), oldest first: their journal moves are finished before a later change of the account's money is planned.
    */
   pendingManaged(householdId: string, accountId: string): Promise<ManagedHandOff[]>;
+  /**
+   * The subaccounts whose ledger accounts and opening balances the account's hand-offs not done yet open (its create,
+   * an added currency), per hand-off, oldest first: a removal of a currency finishes its wallet's first.
+   */
+  pendingOpenings(householdId: string, accountId: string): Promise<(readonly HandOffSubaccount[])[]>;
   account(householdId: string, accountId: string): Promise<StoredAccount | null>;
   subaccounts(householdId: string, accountId: string): Promise<StoredSubaccount[]>;
   owners(householdId: string, accountId: string): Promise<StoredOwner[]>;
@@ -174,6 +181,18 @@ export interface NumberSeal {
  */
 export type AccountAudit = HandOffAudit;
 
+/**
+ * IMP-02@PoC FR 15, AC14: «валюту з транзакціями прибрати не можна» is a question to every module that keeps
+ * subaccount ids — `transactions` (its rows, «Очікує» included, and a posted one its hand-off has not brought to the
+ * journal yet). Each answers which of `ids` its records of the space use. A module that starts to keep subaccount ids
+ * adds its own to the API's wiring (src/main.ts) in the same PR.
+ */
+export interface WalletUsage {
+  /** The answering module, for the reader of the wiring. */
+  readonly module: string;
+  used(householdId: string, subaccountIds: readonly string[]): Promise<ReadonlySet<string>>;
+}
+
 export interface AccountsDeps {
   readonly ledger: Pick<
     Ledger,
@@ -196,6 +215,8 @@ export interface AccountsDeps {
   readonly reportingCurrency: string;
   /** Today's date (YYYY-MM-DD) for balances and a deposit's accrual; from the clock, never read here. */
   readonly today: () => string;
+  /** The modules that keep subaccount ids (IMP-02 FR 15): a wallet one of them uses is not removed. */
+  readonly walletUsage: readonly WalletUsage[];
 }
 
 export interface Caller {

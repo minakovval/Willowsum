@@ -50,6 +50,7 @@ export type HandOff =
       readonly actorAccountId: string;
     }
   | ManagedHandOff
+  | CurrencyHandOff
   | {
       /** «Основне» or «Реквізити» (FIN-12 FR 4, FR 6): the audit entry of the fields changed. */
       readonly kind: "settings-changed";
@@ -59,6 +60,21 @@ export type HandOff =
       /** Before and after; every sensitive value (the sealed flag, the note) is already masked. */
       readonly changes: readonly AuditChange[];
     };
+
+/**
+ * A currency added to an account or removed from it (IMP-02 FR 15; currencies.ts): an added one's ledger account and
+ * «Початковий залишок», or the reversal of a removed one's opening balance; then the audit entry of the change.
+ */
+export interface CurrencyHandOff {
+  readonly kind: "currency-changed";
+  readonly accountId: string;
+  readonly actorAccountId: string;
+  readonly changeId: string;
+  readonly added: HandOffSubaccount | null;
+  readonly removed: { readonly subaccountId: string; readonly openingEntryId: string | null } | null;
+  /** Before and after of the currency, its opening balance and date. */
+  readonly changes: readonly AuditChange[];
+}
 
 /** Who an audit entry of managing names: the user, or the system for a statement's recount (FIN-12 FR 15). */
 export type ManageActor = { readonly kind: "user"; readonly id: string } | { readonly kind: "system" };
@@ -357,6 +373,41 @@ async function applyManaged(
   }
 }
 
+/**
+ * A subaccount's ledger account (by its owner and the id stored in the subaccount) and its «Початковий залишок» (by its
+ * key; none for a zero balance). Idempotent: a create's or an added currency's hand-off, or a removal finishing it first.
+ */
+export async function openSubaccount(
+  ledger: Pick<Ledger, "openAccount" | "post">,
+  householdId: string,
+  s: HandOffSubaccount,
+): Promise<void> {
+  const source = { module: "accounts", id: s.subaccountId };
+  await ledger.openAccount(householdId, source, {
+    type: s.ledgerType,
+    currency: s.currency,
+    id: s.ledgerAccountId,
+  });
+  if (s.opening !== null)
+    await ledger.post(householdId, {
+      source,
+      idempotencyKey: `accounts.opening:${s.subaccountId}`,
+      operationDate: s.date,
+      event: {
+        type: "opening-balance",
+        account: s.ledgerAccountId,
+        amount: Money.of(s.opening, s.currency),
+      },
+    });
+}
+
+/** The subaccounts whose ledger accounts and opening balances a hand-off opens (a create's, an added currency's). */
+export function openedSubaccounts(handOff: HandOff): readonly HandOffSubaccount[] {
+  if (handOff.kind === "account-created") return handOff.subaccounts;
+  if (handOff.kind === "currency-changed" && handOff.added) return [handOff.added];
+  return [];
+}
+
 /** Runs a hand-off; every step can run again (see above). Throws if a step fails, so the job is retried. */
 export async function applyHandOff(
   deps: HandOffDeps,
@@ -365,6 +416,22 @@ export async function applyHandOff(
   handOff: HandOff,
 ): Promise<void> {
   if (handOff.kind === "managed") return applyManaged(deps, accounts, householdId, handOff);
+  if (handOff.kind === "currency-changed") {
+    if (handOff.added) await openSubaccount(deps.ledger, householdId, handOff.added);
+    if (handOff.removed?.openingEntryId)
+      await deps.ledger.reverse(
+        householdId,
+        handOff.removed.openingEntryId,
+        `accounts.currency-removed:${handOff.removed.subaccountId}`,
+      );
+    return deps.audit.settingsChanged(
+      householdId,
+      handOff.actorAccountId,
+      handOff.accountId,
+      handOff.changes,
+      `accounts.settings:${handOff.changeId}`,
+    );
+  }
   if (handOff.kind === "settings-changed")
     return deps.audit.settingsChanged(
       householdId,
@@ -390,25 +457,7 @@ export async function applyHandOff(
     });
     return;
   }
-  for (const s of handOff.subaccounts) {
-    const source = { module: "accounts", id: s.subaccountId };
-    await deps.ledger.openAccount(householdId, source, {
-      type: s.ledgerType,
-      currency: s.currency,
-      id: s.ledgerAccountId,
-    });
-    if (s.opening !== null)
-      await deps.ledger.post(householdId, {
-        source,
-        idempotencyKey: `accounts.opening:${s.subaccountId}`,
-        operationDate: s.date,
-        event: {
-          type: "opening-balance",
-          account: s.ledgerAccountId,
-          amount: Money.of(s.opening, s.currency),
-        },
-      });
-  }
+  for (const s of handOff.subaccounts) await openSubaccount(deps.ledger, householdId, s);
   if (handOff.liability) {
     const registered = await deps.liabilities.register(householdId, {
       actorAccountId: handOff.actorAccountId,

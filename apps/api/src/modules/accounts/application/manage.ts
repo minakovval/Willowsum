@@ -108,7 +108,7 @@ async function handOver(
  * Finishes the journal moves of the account's managing changes not handed over yet (their row is locked by the
  * caller): a change planned next reads the balance they left, so it never moves the same money again.
  */
-async function finishPending(
+export async function finishPending(
   deps: Pick<AccountsDeps, "ledger">,
   tx: AccountsTx,
   householdId: string,
