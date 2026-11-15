@@ -48,12 +48,15 @@ export {
   conversionDifference,
   EVENT_TYPES,
   LedgerError,
+  MAX_LEGS,
+  POSTING_LEGS,
   RULES_VERSION,
   SERVICE_ACCOUNTS,
 } from "./domain/index.ts";
 export type {
   AccountType,
   EntryConversion,
+  EventLeg,
   LedgerEvent,
   LedgerEventType,
   ServiceAccount,
@@ -62,6 +65,7 @@ export { INTEGRITY_CHECKS } from "./application/index.ts";
 export { entryRecorded, type EntryRecorded } from "./events.ts";
 export type {
   Entry,
+  EntryLeg,
   EntrySource,
   IntegrityAlertEvent,
   IntegrityCheck,

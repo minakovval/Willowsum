@@ -5,6 +5,7 @@ export {
   assertBalanced,
   LedgerError,
   MAX_POSTINGS,
+  POSTING_LEGS,
   naturalBalance,
   refKey,
   reversalOf,
@@ -12,15 +13,18 @@ export {
   type AccountRef,
   type AccountType,
   type Posting,
+  type PostingLeg,
   type ServiceAccount,
 } from "./postings.ts";
 export {
   conversionDifference,
   conversionsFor,
   EVENT_TYPES,
+  MAX_LEGS,
   postingsFor,
   RULES_VERSION,
   type EntryConversion,
+  type EventLeg,
   type LedgerEvent,
   type LedgerEventType,
 } from "./rules.ts";
