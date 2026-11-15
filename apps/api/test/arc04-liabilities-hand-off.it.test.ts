@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -209,6 +210,8 @@ afterAll(async () => {
 });
 
 afterEach(() => vi.restoreAllMocks());
+
+const telemetry = testTelemetryForFile();
 
 describe("ARC-04@PoC FR 2: `liabilities.register` writes its audit entry after the liability's commit", () => {
   it("ARC-04@PoC FR 2: the audit entry of a registered liability is written once the liability is committed", async () => {
@@ -442,6 +445,13 @@ describe("ARC-04@PoC FR 4: the liabilities queue — dead jobs, daily recovery, 
       names.indexOf("queue.retention-cleanup"),
     );
     await tasks.find((t) => t.name === "liabilities.hand-off-recovery")!.run();
+    // #270 item 4: the recovery reports the dead job it put back with the WARN event, and nothing else in it.
+    expect(
+      telemetry.memory
+        .logRecords()
+        .filter((r) => r.body === "liabilities.hand_off_requeued")
+        .map((r) => [r.severityText, r.attributes]),
+    ).toEqual([["WARN", { "ws.module": "liabilities" }]]);
     expect(await liabilityJobs(space.householdId, "queued")).toBe(1);
     await runWorker(space.householdId);
     expect(await liabilityJobs(space.householdId, "done")).toBe(1);
