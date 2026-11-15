@@ -56,6 +56,18 @@ describe("sec264: the transactions store's own household filter (without the row
       const first = row(id);
       await tx.insert(theirs, first);
       await tx.insert(theirs, { ...row(copy), accountId: first.accountId, subaccountId: first.subaccountId });
+      // A duplicate of theirs merged into `id`, so `duplicatesOf` has a row to leak (#297 security review, M11).
+      const merged = randomUUID();
+      await tx.insert(theirs, {
+        ...row(merged),
+        accountId: first.accountId,
+        subaccountId: first.subaccountId,
+      });
+      await db.owner.query(
+        `UPDATE transactions.transactions SET hidden = true, merged_into = $2 WHERE household_id = $1 AND id = $3`,
+        [theirs, id, merged],
+      );
+      expect(await tx.duplicatesOf(theirs, id)).toEqual([merged]);
       // My space asks for their ids.
       expect(await tx.find(mine, id)).toBeNull();
       expect(await tx.lock(mine, id)).toBeNull();

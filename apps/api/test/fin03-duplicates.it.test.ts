@@ -755,3 +755,24 @@ describe("pr278-confirm: «Роз'єднати» checks the duplicate's own acco
     expect((await get(space, second.id)).mergedInto).toBe(first.id);
   });
 });
+
+describe("FIN-03@PoC FR 12, FR 17: «Не дубль» never leaves a hidden copy out of the balance", () => {
+  it("FIN-03@PoC FR 17: one copy hidden (100 − 30 = 70) — «Не дубль» on the pair is refused (400), the balance stays 70; shown again, «Не дубль» → 40", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, "100.00");
+    const first = await add(space, a, "-30.00", "2026-10-10");
+    const second = await add(space, a, "-30.00", "2026-10-12");
+    expect((await hide(space, second.id)).statusCode).toBe(200);
+    for (const [id, other] of [
+      [first.id, second.id],
+      [second.id, first.id],
+    ] as const) {
+      const res = await notDuplicate(space, id, other);
+      expect(res.statusCode, res.body).toBe(400);
+    }
+    expect(await balance(space, a)).toBe("70");
+    expect((await call(space, "POST", `/v1/transactions/${second.id}/show`)).statusCode).toBe(200);
+    expect((await notDuplicate(space, first.id, second.id)).statusCode).toBe(200);
+    expect(await balance(space, a)).toBe("40");
+  });
+});

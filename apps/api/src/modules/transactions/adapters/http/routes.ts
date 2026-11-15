@@ -673,7 +673,7 @@ const visibilityRoute = (hidden: boolean) =>
     path: `/v1/transactions/{transactionId}/${hidden ? "hide" : "show"}`,
     operationId: hidden ? "hideTransaction" : "showTransaction",
     summary: hidden
-      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18)"
+      ? "«Приховати транзакцію»: out of the list, the budget and the reports; a manual copy leaves the balance (its journal entry is reversed), «Показати» posts it again (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18)"
       : "A hidden transaction is shown again (FIN-03 FR 16); a merged duplicate only by «Роз'єднати»",
     access: { permission: "household.data.write", feature: STATES_FLAG },
     problems: hidden
