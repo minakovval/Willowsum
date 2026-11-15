@@ -220,7 +220,12 @@ beforeAll(async () => {
           candidates: createTransferCandidates(db.databases.for("transactions")),
           rates: (requests) => fx.rates(requests),
         }),
-        categories: createCategoriesServices({ audit, clock: { now: () => NOW }, newId: randomUUID }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => NOW },
+          newId: randomUUID,
+          usage: [],
+        }),
         allowedOrigins: new Set([WEB]),
       }),
   });

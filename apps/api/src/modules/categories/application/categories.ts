@@ -3,6 +3,7 @@ import {
   categoryIcon,
   categoryName,
   customGroupTone,
+  deleteProblem,
   hasEssential,
   mergeProblem,
   stateAfterMerge,
@@ -93,6 +94,22 @@ export interface CategoriesTx {
     to: string,
   ): Promise<{ readonly before: StoredCategory; readonly after: StoredCategory }[]>;
   publishMerged(event: MergedEvent): Promise<void>;
+  /** FR 12: of `ids`, those another category was merged into (its records went there, FR 8). */
+  mergeTargets(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
+  /** FR 12: the row of a custom category is removed; its name is free again. */
+  deleteCategory(householdId: string, id: string): Promise<void>;
+}
+
+/**
+ * FR 12: «порожня» is a question to every module that keeps category ids — `transactions` (split parts),
+ * `categorization` (the transaction's category, rules), `budget` (limits, «План» cells), `recurring` (recurring
+ * payments; lead decision, #260). Each answers which of `ids` its records of the space use. A module that starts to
+ * keep category ids adds its own to the API's wiring (src/main.ts) in the same PR.
+ */
+export interface CategoryUsage {
+  /** The answering module, for the reader of the wiring. */
+  readonly module: string;
+  used(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
 export type AuditedEntity = "categories.tree" | "categories.group" | "categories.category";
@@ -104,9 +121,9 @@ export interface CategoriesAudit {
     householdId: string,
     actor: { readonly accountId: string } | "system",
     entity: { readonly type: AuditedEntity; readonly id: string },
-    action: "create" | "update",
+    action: "create" | "update" | "delete",
     before: AuditValues | null,
-    after: AuditValues,
+    after: AuditValues | null,
   ): Promise<void>;
 }
 
@@ -136,6 +153,10 @@ export type Result<T> =
   | { readonly kind: "kinds-differ" }
   /** «Переказ» and «Коригування» are never hidden or merged (FR 3). */
   | { readonly kind: "service-fixed" }
+  /** FR 12, FR 3: a system category is never deleted, only hidden. */
+  | { readonly kind: "system-fixed" }
+  /** «Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її» (FR 12). */
+  | { readonly kind: "not-empty" }
   | { readonly kind: "not-found" };
 
 const ok = <T>(value: T): Result<T> => ({ kind: "ok", value });
@@ -474,4 +495,67 @@ export async function mergeCategory(
       categoryValues(r.after),
     );
   return ok({ source: after, target });
+}
+
+/**
+ * FR 12: of the given categories, those in use — by a record of another module (`usage`) or as the target of a merge.
+ * A system category is never deletable whatever this says.
+ */
+export async function categoriesInUse(
+  usage: readonly CategoryUsage[],
+  tx: CategoriesTx,
+  householdId: string,
+  ids: readonly string[],
+): Promise<ReadonlySet<string>> {
+  if (ids.length === 0) return new Set();
+  const answers = await Promise.all([
+    tx.mergeTargets(householdId, ids),
+    ...usage.map((u) => u.used(householdId, ids)),
+  ]);
+  return new Set(answers.flatMap((a) => [...a]));
+}
+
+/** FR 12: which of `categories` the menu offers «Видалити» for — custom, in the tree and empty. */
+export async function deletableIds(
+  usage: readonly CategoryUsage[],
+  tx: CategoriesTx,
+  householdId: string,
+  categories: readonly StoredCategory[],
+): Promise<ReadonlySet<string>> {
+  const custom = categories.filter((c) => c.systemKey === null && c.state !== "retired").map((c) => c.id);
+  const used = await categoriesInUse(usage, tx, householdId, custom);
+  return new Set(custom.filter((id) => !used.has(id)));
+}
+
+/**
+ * FR 12: delete a custom category while it is empty (AC18); one in use is refused and nothing changes (AC19); a
+ * system one never (FR 3). The row stays locked while the modules are asked, so a merge into it waits and then finds
+ * it gone. One audit entry `delete` with the fields before. A record another module saves with the category after
+ * its check and before this commit is the residual race of a check across modules (README «Порядок однієї зміни»).
+ */
+export async function deleteCategory(
+  deps: CategoriesDeps,
+  usage: readonly CategoryUsage[],
+  tx: CategoriesTx,
+  caller: Caller,
+  categoryId: string,
+): Promise<Result<StoredCategory>> {
+  const before = await tx.category(caller.householdId, categoryId, true);
+  if (!before || before.state === "retired") return { kind: "not-found" };
+  const used =
+    before.systemKey === null &&
+    (await categoriesInUse(usage, tx, caller.householdId, [before.id])).has(before.id);
+  const problem = deleteProblem(before, used);
+  if (problem === "system") return { kind: "system-fixed" };
+  if (problem === "not_empty") return { kind: "not-empty" };
+  await tx.deleteCategory(caller.householdId, before.id);
+  await deps.audit.changed(
+    caller.householdId,
+    caller,
+    { type: "categories.category", id: before.id },
+    "delete",
+    categoryValues(before),
+    null,
+  );
+  return ok(before);
 }

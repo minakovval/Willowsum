@@ -7857,6 +7857,9 @@
                                 },
                                 "hidden": {
                                   "type": "boolean"
+                                },
+                                "deletable": {
+                                  "type": "boolean"
                                 }
                               },
                               "required": [
@@ -7870,7 +7873,8 @@
                                 "color",
                                 "iconTone",
                                 "essential",
-                                "hidden"
+                                "hidden",
+                                "deletable"
                               ],
                               "additionalProperties": false
                             }
@@ -8123,6 +8127,9 @@
                     },
                     "hidden": {
                       "type": "boolean"
+                    },
+                    "deletable": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -8136,7 +8143,8 @@
                     "color",
                     "iconTone",
                     "essential",
-                    "hidden"
+                    "hidden",
+                    "deletable"
                   ],
                   "additionalProperties": false
                 }
@@ -8246,6 +8254,153 @@
       }
     },
     "/v1/categories/{categoryId}": {
+      "delete": {
+        "operationId": "deleteCategory",
+        "summary": "«Видалити» an empty custom category: it leaves the tree and its name is free again (FR 12); in use or system — refused",
+        "tags": [
+          "categories"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "categories.tree",
+          "flags": [
+            "categories.tree"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "categoryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted; the action is in the space's audit log",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "deleted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "deleted"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A category with transactions, rules or limits cannot be deleted — hide or merge it (CATEGORY_NOT_EMPTY); A system category cannot be deleted; it can be hidden (CATEGORY_SYSTEM_FIXED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "get": {
         "operationId": "getCategory",
         "summary": "One category of the space; another space's or one out of use is not found",
@@ -8331,6 +8486,9 @@
                     },
                     "hidden": {
                       "type": "boolean"
+                    },
+                    "deletable": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -8344,7 +8502,8 @@
                     "color",
                     "iconTone",
                     "essential",
-                    "hidden"
+                    "hidden",
+                    "deletable"
                   ],
                   "additionalProperties": false
                 }
@@ -8558,6 +8717,9 @@
                     },
                     "hidden": {
                       "type": "boolean"
+                    },
+                    "deletable": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
@@ -8571,7 +8733,8 @@
                     "color",
                     "iconTone",
                     "essential",
-                    "hidden"
+                    "hidden",
+                    "deletable"
                   ],
                   "additionalProperties": false
                 }
@@ -9025,6 +9188,9 @@
                           },
                           "hidden": {
                             "type": "boolean"
+                          },
+                          "deletable": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -9038,7 +9204,8 @@
                           "color",
                           "iconTone",
                           "essential",
-                          "hidden"
+                          "hidden",
+                          "deletable"
                         ],
                         "additionalProperties": false
                       }
@@ -9299,6 +9466,9 @@
                           },
                           "hidden": {
                             "type": "boolean"
+                          },
+                          "deletable": {
+                            "type": "boolean"
                           }
                         },
                         "required": [
@@ -9312,7 +9482,8 @@
                           "color",
                           "iconTone",
                           "essential",
-                          "hidden"
+                          "hidden",
+                          "deletable"
                         ],
                         "additionalProperties": false
                       }
@@ -17480,6 +17651,8 @@
               "CATEGORY_NAME_TAKEN",
               "CATEGORY_KINDS_DIFFER",
               "CATEGORY_SERVICE_FIXED",
+              "CATEGORY_SYSTEM_FIXED",
+              "CATEGORY_NOT_EMPTY",
               "BULK_ACTION_RUNNING",
               "BULK_UNDO_UNAVAILABLE",
               "BULK_ACTION_NOT_INTERRUPTED",

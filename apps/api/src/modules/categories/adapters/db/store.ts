@@ -230,5 +230,19 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
     async publishMerged(event) {
       await publishEvent(q, categoryMerged, event);
     },
+    async mergeTargets(householdId, ids) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT DISTINCT merged_into AS id FROM categories
+          WHERE household_id = $1 AND merged_into = ANY($2::uuid[])`,
+        [householdId, ids],
+      );
+      return new Set(rows.map((r) => r.id));
+    },
+    async deleteCategory(householdId, id) {
+      await q.query(`DELETE FROM categories WHERE household_id = $1 AND id = $2 AND system_key IS NULL`, [
+        householdId,
+        id,
+      ]);
+    },
   };
 }

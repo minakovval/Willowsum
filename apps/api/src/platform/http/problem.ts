@@ -110,6 +110,17 @@ export const PROBLEMS = {
   CATEGORY_KINDS_DIFFER: { status: 409, title: "Categories of different types cannot be merged" },
   /** BUD-01@PoC FR 3: «Переказ» and «Коригування» are never hidden or merged; nothing was written. */
   CATEGORY_SERVICE_FIXED: { status: 409, title: "A service category cannot be hidden or merged" },
+  /** BUD-01@PoC FR 12, FR 3: a system category is never deleted, only hidden; nothing was written. */
+  CATEGORY_SYSTEM_FIXED: { status: 409, title: "A system category cannot be deleted; it can be hidden" },
+  /**
+   * «Категорію з транзакціями, правилами або лімітами не можна видалити — приховайте або об'єднайте її» (BUD-01@PoC
+   * FR 12, AC19): a transaction, split part, rule, recurring payment, limit or «План» cell uses the category, or
+   * another was merged into it; nothing was written.
+   */
+  CATEGORY_NOT_EMPTY: {
+    status: 409,
+    title: "A category with transactions, rules or limits cannot be deleted — hide or merge it",
+  },
   /**
    * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
    * written.
