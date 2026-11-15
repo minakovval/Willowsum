@@ -1,8 +1,7 @@
 import { Money } from "@willowsum/domain-kernel";
-import { AUDIT_MASK } from "../../audit/index.ts";
-import type { LiabilityTermsInput } from "../../liabilities/index.ts";
+import type { Ledger } from "../../ledger/index.ts";
+import type { Liabilities, LiabilityTermsInput } from "../../liabilities/index.ts";
 import type { AccountKind } from "../domain/index.ts";
-import type { AccountsDeps, StoredAccount, StoredOwner } from "./accounts.ts";
 
 /**
  * The hand-off of an accounts change to the modules it calls (ARC-04 FR 2, FR 3; issue #210, #238 item 1). Each
@@ -10,8 +9,9 @@ import type { AccountsDeps, StoredAccount, StoredOwner } from "./accounts.ts";
  * its rows and the hand-off job together (`AccountsTx.enqueueHandOff`), and the other modules' writes follow only once
  * it has committed:
  *
- * - right away, by the request that made the change (outside any accounts transaction, so no accounts connection is
- *   held while their pools are waited on — #210 item 3);
+ * - right away, by the request that made the change, outside its accounts transaction (so a create holds no accounts
+ *   connection while their pools are waited on — #210 item 3; a kind change holds one, with the account's row locked,
+ *   only while the liability takes the kind);
  * - and by the worker from the accounts queue (job `accounts.hand-off`), so a failure right away, or a process that
  *   ended, is finished later. Until then the account exists without its ledger entries, liability or audit entry —
  *   never the other way round.
@@ -59,12 +59,37 @@ export interface AuditValue {
   readonly sensitive: boolean;
 }
 
-/** What the hand-off needs of the accounts module itself: the account's kind now, or null if it is gone. */
+/** What the hand-off needs of the accounts module itself. */
 export interface AccountKinds {
-  kindOf(householdId: string, accountId: string): Promise<AccountKind | null>;
+  /**
+   * Runs `work` with the account's kind (null if there is no such account) while the account's row is locked in an
+   * accounts transaction, so no change of its kind commits in between.
+   */
+  whileLocked<T>(
+    householdId: string,
+    accountId: string,
+    work: (kind: AccountKind | null) => Promise<T>,
+  ): Promise<T>;
 }
 
-export type HandOffDeps = Pick<AccountsDeps, "ledger" | "liabilities" | "audit">;
+/** The other modules' ports the hand-off calls (the routes' and the worker's, src/wiring.ts). */
+export interface HandOffDeps {
+  readonly ledger: Pick<Ledger, "openAccount" | "post">;
+  readonly liabilities: Pick<Liabilities, "register" | "changeKind">;
+  readonly audit: HandOffAudit;
+}
+
+/** The space's audit log as the hand-off writes it (`AccountAudit` in accounts.ts). */
+export interface HandOffAudit {
+  /** «Новий рахунок» (FIN-01 FR 17): written once per `key` (ARC-04 FR 3). */
+  accountCreated(
+    householdId: string,
+    actorAccountId: string,
+    accountId: string,
+    values: readonly AuditValue[],
+    key: string,
+  ): Promise<void>;
+}
 
 /** The job's key: one hand-off per account created; one per kind change (`changeId` new for each). */
 export function handOffKey(handOff: HandOff, changeId: string): string {
@@ -81,16 +106,20 @@ export async function applyHandOff(
   handOff: HandOff,
 ): Promise<void> {
   if (handOff.kind === "credit-kind") {
-    const kind = await accounts.kindOf(householdId, handOff.accountId);
-    // Only a credit account has a liability; within the credit group its kind is a loan or a credit card.
-    if (kind !== "loan" && kind !== "credit-card") return;
-    const changed = await deps.liabilities.changeKind(householdId, {
-      actorAccountId: handOff.actorAccountId,
-      accountId: handOff.accountId,
-      kind,
+    // The account's row stays locked until the liability has its kind: two kind changes and their hand-offs cannot
+    // interleave (the later change waits, and its own hand-off runs after this one).
+    await accounts.whileLocked(householdId, handOff.accountId, async (kind) => {
+      // Only a credit account has a liability; within the credit group its kind is a loan or a credit card.
+      if (kind !== "loan" && kind !== "credit-card") return;
+      const changed = await deps.liabilities.changeKind(householdId, {
+        actorAccountId: handOff.actorAccountId,
+        accountId: handOff.accountId,
+        kind,
+      });
+      // The account's own create has not handed its liability over yet: retried after it.
+      if (changed.kind === "not-found")
+        throw new Error("the credit account's liability is not registered yet");
     });
-    // The account's own create has not handed its liability over yet: retried after it.
-    if (changed.kind === "not-found") throw new Error("the credit account's liability is not registered yet");
     return;
   }
   for (const s of handOff.subaccounts) {
@@ -127,45 +156,4 @@ export async function applyHandOff(
     handOff.audit,
     `accounts.account-created:${handOff.accountId}`,
   );
-}
-
-/**
- * The account's entry in the space's log (FIN-01 FR 17, П-10): every field with its new value. The full number is
- * never in it (only whether one is sealed), the last 4 characters as «••1234» (FIN-01 AC7); the sealed flag and the
- * note are sensitive and masked here already, so the hand-off's payload carries neither.
- */
-export function accountCreatedValues(
-  account: StoredAccount,
-  currencies: readonly { readonly currency: string; readonly balance: Money; readonly date: string }[],
-  owner: StoredOwner,
-  masked: (last4: string) => string,
-): AuditValue[] {
-  const value = (field: string, after: string | null, sensitive = false): AuditValue => ({
-    field,
-    after: sensitive && after !== null ? AUDIT_MASK : after,
-    sensitive,
-  });
-  return [
-    value("kind", account.kind),
-    value("name", account.name),
-    value("institutionName", account.institutionName),
-    value("institutionCountry", account.institutionCountry),
-    value("number", account.numberSealed === null ? null : "sealed", true),
-    value("numberLast4", account.numberLast4 === null ? null : masked(account.numberLast4)),
-    value("note", account.note, true),
-    value("annualRate", account.annualRate),
-    value("depositOpenedOn", account.depositOpenedOn),
-    value("depositMaturesOn", account.depositMaturesOn),
-    value("openedOn", account.openedOn),
-    value("status", account.status),
-    value("source", account.source),
-    ...currencies.flatMap((c, i) => [
-      value(`currencies.${i}.currency`, c.currency),
-      value(`currencies.${i}.openingBalance`, c.balance.toDecimalString()),
-      value(`currencies.${i}.balanceDate`, c.date),
-    ]),
-    value("owners.0.ownerAccountId", owner.ownerAccountId),
-    value("owners.0.share", owner.share),
-    value("owners.0.validFrom", owner.validFrom),
-  ];
 }

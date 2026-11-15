@@ -4,15 +4,18 @@ import { applyHandOff, type AccountKinds, type HandOffDeps } from "../../applica
 import { accountsTx } from "../db/store.ts";
 import { HAND_OFF_JOB } from "./job.ts";
 
-/** The account's kind read in an accounts transaction (the worker's, or one of its own right after the commit). */
+/**
+ * The account's kind with its row locked, in an accounts transaction: the worker's own (the job's), or — right after
+ * the commit — a new one of the route's.
+ */
 export function accountKinds(
-  read: <T>(work: (q: HouseholdQueryRunner) => Promise<T>) => Promise<T>,
+  inTransaction: <T>(work: (q: HouseholdQueryRunner) => Promise<T>) => Promise<T>,
 ): AccountKinds {
   return {
-    kindOf: (householdId, accountId) =>
-      read(async (q) => {
-        const account = await accountsTx(q).account(householdId, accountId);
-        return account?.kind ?? null;
+    whileLocked: (householdId, accountId, work) =>
+      inTransaction(async (q) => {
+        const account = await accountsTx(q).lockAccount(householdId, accountId);
+        return work(account?.kind ?? null);
       }),
   };
 }

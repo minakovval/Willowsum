@@ -9,7 +9,8 @@ import {
   type Liability,
 } from "../../liabilities/index.ts";
 import { liveAdjustment, type AdjustmentView } from "./adjustments.ts";
-import { accountCreatedValues, type AuditValue, type HandOff, type HandOffSubaccount } from "./hand-off.ts";
+import { AUDIT_MASK } from "../../audit/index.ts";
+import type { AuditValue, HandOff, HandOffAudit, HandOffSubaccount } from "./hand-off.ts";
 import {
   checkNewAccount,
   depositAccrual,
@@ -163,15 +164,7 @@ export interface NumberSeal {
 }
 
 /** The space's audit log (П-10): who created which account, the number masked. */
-export interface AccountAudit {
-  /** «Новий рахунок» (FIN-01 FR 17), from its hand-off: written once per `key` (ARC-04 FR 3). */
-  accountCreated(
-    householdId: string,
-    actorAccountId: string,
-    accountId: string,
-    values: readonly AuditValue[],
-    key: string,
-  ): Promise<void>;
+export interface AccountAudit extends HandOffAudit {
   /** Closed or reopened (FIN-12 FR 7–9): the status and date before and after, and how a balance was settled. */
   statusChanged(
     householdId: string,
@@ -599,4 +592,45 @@ export async function createdAccountView(
     created.account.id,
   );
   return view!;
+}
+
+/**
+ * The account's entry in the space's log (FIN-01 FR 17, П-10): every field with its new value. The full number is
+ * never in it (only whether one is sealed), the last 4 characters as «••1234» (FIN-01 AC7); the sealed flag and the
+ * note are sensitive and masked here already, so the hand-off's payload carries neither.
+ */
+export function accountCreatedValues(
+  account: StoredAccount,
+  currencies: readonly { readonly currency: string; readonly balance: Money; readonly date: string }[],
+  owner: StoredOwner,
+  masked: (last4: string) => string,
+): AuditValue[] {
+  const value = (field: string, after: string | null, sensitive = false): AuditValue => ({
+    field,
+    after: sensitive && after !== null ? AUDIT_MASK : after,
+    sensitive,
+  });
+  return [
+    value("kind", account.kind),
+    value("name", account.name),
+    value("institutionName", account.institutionName),
+    value("institutionCountry", account.institutionCountry),
+    value("number", account.numberSealed === null ? null : "sealed", true),
+    value("numberLast4", account.numberLast4 === null ? null : masked(account.numberLast4)),
+    value("note", account.note, true),
+    value("annualRate", account.annualRate),
+    value("depositOpenedOn", account.depositOpenedOn),
+    value("depositMaturesOn", account.depositMaturesOn),
+    value("openedOn", account.openedOn),
+    value("status", account.status),
+    value("source", account.source),
+    ...currencies.flatMap((c, i) => [
+      value(`currencies.${i}.currency`, c.currency),
+      value(`currencies.${i}.openingBalance`, c.balance.toDecimalString()),
+      value(`currencies.${i}.balanceDate`, c.date),
+    ]),
+    value("owners.0.ownerAccountId", owner.ownerAccountId),
+    value("owners.0.share", owner.share),
+    value("owners.0.validFrom", owner.validFrom),
+  ];
 }

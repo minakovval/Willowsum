@@ -13,6 +13,7 @@ export {
   type Caller,
   type CreateResult,
   type CreatedAccount,
+  accountCreatedValues,
   type Duplicate,
   type DuplicateCandidate,
   type NumberSeal,
@@ -52,12 +53,12 @@ export {
 } from "./settings.ts";
 export { updateAccountDetails, type DetailsResult } from "./details.ts";
 export {
-  accountCreatedValues,
   applyHandOff,
   handOffKey,
   type AccountKinds,
   type AuditValue,
   type HandOff,
+  type HandOffAudit,
   type HandOffDeps,
   type HandOffSubaccount,
 } from "./hand-off.ts";
