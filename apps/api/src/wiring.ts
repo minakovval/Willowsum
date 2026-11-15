@@ -18,7 +18,11 @@ import {
   createLedgerIntegrityCheck,
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
-import { createLiabilities } from "./modules/liabilities/index.ts";
+import {
+  createLiabilities,
+  createLiabilitiesHandOffRecovery,
+  createLiabilitiesWorkerQueue,
+} from "./modules/liabilities/index.ts";
 import {
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
@@ -129,6 +133,9 @@ export function schedulerDailyTasks(deps: {
   const transactionsRecovery = createTransactionsHandOffRecovery(deps.databases.for("transactions"), () =>
     deps.spaces.spaceIds(),
   );
+  const liabilitiesRecovery = createLiabilitiesHandOffRecovery(deps.databases.for("liabilities"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -147,6 +154,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await transactionsRecovery.run();
         if (requeued > 0) logEvent("transactions.hand_off_requeued", "warn", { "ws.module": "transactions" });
+      },
+    },
+    // The same for the liabilities queue (ARC-04, ADR-0015): a liability's audit entry.
+    {
+      name: "liabilities.hand-off-recovery",
+      run: async () => {
+        const requeued = await liabilitiesRecovery.run();
+        if (requeued > 0) logEvent("liabilities.hand_off_requeued", "warn", { "ws.module": "liabilities" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -185,7 +200,8 @@ export function schedulerDailyTasks(deps: {
  * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014). `accounts`
  * runs its hand-off jobs (ARC-04 FR 2, #210): the ledger accounts and opening balances, the liability and the audit
  * entries of a create or a kind change, after the accounts transaction committed. `transactions` runs its hand-off jobs
- * the same way (ADR-0015): a transaction's journal event made to match its row, and its audit entry.
+ * the same way (ADR-0015): a transaction's journal event made to match its row, and its audit entry. `liabilities` runs
+ * the audit entries of a registered liability and of a kind change, after the liabilities transaction committed.
  */
 export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly queues: readonly WorkerQueue[];
@@ -209,6 +225,7 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         ledger,
         audit,
       }),
+      createLiabilitiesWorkerQueue(databases.for("liabilities"), audit),
     ],
     subscriptions: [],
   };

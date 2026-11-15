@@ -267,7 +267,11 @@ export async function closeAccount(
   return { kind: "account-closed", handOff };
 }
 
-/** «Відкрити знову» (FIN-12 FR 9): a closed account is active again; its history is as it was. */
+/**
+ * «Відкрити знову» (FIN-12 FR 9): a closed account is active again; its history is as it was. On purpose it does not
+ * finish the journal moves of earlier changes not handed over yet (`finishPending`, #263 item 5): it moves no money and
+ * reads no balance, so nothing is planned on a journal that lacks them; the next change of its money finishes them first.
+ */
 export async function reopenAccount(
   deps: Pick<AccountsDeps, "newId">,
   tx: AccountsTx,
