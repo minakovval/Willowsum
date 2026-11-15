@@ -18,7 +18,7 @@ import { createTransactionsServices } from "../src/modules/transactions/index.ts
 /**
  * FIN-03@PoC b) (wave 2 row 16a), through the real API on a real PostgreSQL: «Очікує» (no journal event until posted),
  * hidden transactions (out of the list, the budget and the reports, the balance unchanged) and «Розділити» (BUD-01@PoC
- * FR 6, BUD-13@PoC FR 6–8: the budget's view only — no new transaction, the journal unchanged). Every name and amount is
+ * FR 6, BUD-13@PoC FR 6, FR 8: the budget's view only — no new transaction, the journal unchanged). Every name and amount is
  * synthetic; the session is the test's principal header; the clock is fixed.
  */
 const WEB = "http://localhost:5173";
@@ -263,7 +263,7 @@ describe("FIN-03@PoC FR 4, FR 24: «Очікує» changes the balance only once
   });
 });
 
-describe("FIN-03@PoC FR 16–18: «Приховати транзакцію» keeps the journal event but takes it out of the list and its totals", () => {
+describe("FIN-03@PoC FR 16, FR 17: «Приховати транзакцію» keeps the journal event but takes it out of the list and its totals", () => {
   it("FIN-03@PoC FR 17: a hidden transaction keeps its posting (the balance), is not listed or totalled, and is found by «Стан: приховані»", async () => {
     const space = await newSpace();
     const account = await createAccount(space, "1000.00");
@@ -364,7 +364,7 @@ describe("FIN-03@PoC FR 22, FR 23: «Стан» filters and the split in the lis
   });
 });
 
-describe("BUD-13@PoC FR 6–8 / BUD-01@PoC FR 6: «Розділити» is the budget's view only", () => {
+describe("BUD-13@PoC FR 6, FR 8 / BUD-01@PoC FR 6: «Розділити» is the budget's view only", () => {
   it("BUD-13@PoC AC2: −1 200,00 € on 6 months from March — no new transaction, six shares of −200,00 €, the balance and the journal unchanged", async () => {
     const space = await newSpace();
     const account = await createAccount(space, "5000.00");
@@ -562,6 +562,28 @@ describe("FIN-03@PoC «Права доступу» / BUD-13@PoC AC7: splitting a
       hidden: false,
       split: null,
     });
+  });
+
+  it("FIN-03@PoC «Права доступу»: the parts of a split are bound to the space by the row policy alone (no household filter in SQL)", async () => {
+    const a = await newSpace();
+    const b = await newSpace();
+    const account = await createAccount(a, "100.00");
+    const c = await pick(a);
+    const t = await add(a, tx(account, "-10.00"));
+    await call(a, "POST", `/v1/transactions/${t.id}/split`, {
+      mode: "months",
+      startMonth: "2026-10",
+      months: 2,
+      categoryId: c.home,
+    });
+    const count = (householdId: string) =>
+      db.databases
+        .for("transactions")
+        .inHousehold(
+          householdId,
+          async (q) => (await q.query(`SELECT count(*)::int AS n FROM transaction_parts`)).rows[0]!.n,
+        );
+    expect([await count(a.householdId), await count(b.householdId)]).toEqual([2, 0]);
   });
 
   it.each(["owner", "admin", "editor"])(

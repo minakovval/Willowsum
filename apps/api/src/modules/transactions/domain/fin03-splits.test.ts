@@ -9,7 +9,7 @@ import {
   type Split,
 } from "./splits.ts";
 
-/** FIN-03@PoC b) (wave 2 row 16a): the rules of «Розділити» (BUD-01@PoC FR 6, BUD-13@PoC FR 6–8), without I/O. */
+/** FIN-03@PoC b) (wave 2 row 16a): the rules of «Розділити» (BUD-01@PoC FR 6, BUD-13@PoC FR 6, FR 8), without I/O. */
 const eur = (amount: string) => Money.of(amount, "EUR");
 const amounts = (shares: readonly Money[] | null) => shares?.map((s) => s.toDecimalString());
 const FOOD = "11111111-1111-4111-8111-111111111111";
