@@ -1,4 +1,3 @@
-// below applied, change both to a plain it. Every other test passes on the head as it is.
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
