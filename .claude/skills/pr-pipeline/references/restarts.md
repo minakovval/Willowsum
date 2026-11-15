@@ -99,16 +99,17 @@ before new pipeline tasks; it costs ≈ 100–150 k tokens of context, so the re
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
 
 **Handover confirmation** (owner, 2026-11-13/14): every handover between lead sessions is confirmed to the owner in
-chat in full (after an automatic restart, always also as a comment on #179), item by item — the finishing lead for
+chat in full (and always as the table on #179, «Handover template» below), item by item — the finishing lead for
 what it hands over, the new lead for what it took over. For each item: what was done with it and where it is
 recorded (skill or instruction file, PR or issue, with a link). An item not acted on is marked «не виконано» with
 the reason. A shortened summary does not count.
 
 **Handover template** (owner, 2026-11-15, #178,
 [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): the confirmation
-is always the table below on #179 — at every handover, after a compaction too — with the fixed items in this order;
-the finishing lead fills «Передано» (at a compaction: in «Lead state» before it, from the 350 k stop), the new lead
-fills «Прийнято». An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries
+is always the table below on #179 — at every handover — with the fixed items in this order; the finishing lead fills
+«Передано», the new lead fills «Прийнято». Рішення ведучого (2026-11-15; власник не схвалював; #287): the table is
+kept at a compaction too (lead N → N+1 in one session), its «Передано» being «Lead state» kept current from the
+350 k stop; because a compaction changes the lead number like any handover. An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries
 «перенесено N разів»: the number of handovers it has passed without being done, one more than in the previous table.
 Before the handover, every file in the scratchpad `keep/` goes to a branch or an issue (linked in item 7); nothing is
 handed over in the scratchpad alone. Test database names are not handed over: they do not survive a new container.

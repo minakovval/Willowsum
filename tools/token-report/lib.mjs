@@ -251,8 +251,9 @@ export function appendRow(body, row, { table = "pr" } = {}) {
   if (rowCells.length !== width) {
     throw new UsageError(`the row has ${rowCells.length} cells, the table ${t.name} has ${width}`);
   }
+  const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
   for (let i = header + 2; i <= last; i++) {
-    if (tableCells(lines[i])[0] === rowCells[0]) {
+    if (key(tableCells(lines[i])[0]) === key(rowCells[0])) {
       throw new UsageError(`the table ${t.name} already has a row «${rowCells[0]}» (line ${i + 1})`);
     }
   }

@@ -362,6 +362,18 @@ describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 
     assert.throws(() => appendRow(body, prRow.replace("#195", "#101")), /already has a row «#101»/);
   });
 
+  it("treats a linked first cell «[#101](url)» as the same row as «#101»", () => {
+    assert.throws(() => appendRow(body, prRow.replace("#195", "[#101](https://example.com/pull/101)")), /already has a row/);
+  });
+
+  it("appends to a CRLF body and keeps an escaped \\| in a note", () => {
+    const crlf = body.replace(/\n/g, "\r\n");
+    const row = prRow.replace("#195", "#196").replace(/ \|$/, "") + " \\| x |";
+    const out = appendRow(crlf, row);
+    assert.ok(out.includes(`${row}\r\n`));
+    assert.equal(out.split("\n").length, crlf.split("\n").length + 1);
+  });
+
   it("refuses a body without the table", () => {
     assert.throws(() => appendRow("## Сесії\n\nтекст\n", sessionRow, { table: "sessions" }), /no header and separator/);
     assert.throws(() => appendRow("текст\n", prRow), /no section of the table «PR»/);
