@@ -28,18 +28,44 @@ export interface StoredContribution {
   readonly date: string;
 }
 
+/**
+ * «Витратити» (FR 8): an outgoing transaction written off from a goal (migrations/0004_spends_and_close.sql) — what it
+ * took from its account, in the goal's currency, on its date; `entryId` — its journal event in effect when spent.
+ */
+export interface StoredSpend {
+  readonly id: string;
+  readonly goalId: string;
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly entryId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
 /** The goals schema inside one transaction of the module (adapters/db/store.ts). */
 export interface GoalsTx {
+  /** The open goals (a closed one leaves the list, FR 9). */
   goals(householdId: string): Promise<StoredGoal[]>;
-  /** One goal; `lock` — under a row lock until the commit. */
+  /** One open goal; `lock` — under a row lock until the commit. */
   goal(householdId: string, id: string, lock?: boolean): Promise<StoredGoal | null>;
   insertGoal(householdId: string, goal: StoredGoal): Promise<void>;
   /** Writes the fields and bumps the version. */
   updateGoal(householdId: string, goal: StoredGoal): Promise<StoredGoal>;
-  /** Deletes the goal with its contributions (edge case 4: the envelope is freed). */
+  /** Deletes the goal with its contributions and spends (edge case 4: the envelope is freed). */
   deleteGoal(householdId: string, id: string): Promise<void>;
+  /** «Закрити ціль» (FR 9): the goal leaves the list and the card from now on. */
+  closeGoal(householdId: string, id: string, closedOn: string): Promise<void>;
   contributions(householdId: string, goalIds: readonly string[]): Promise<StoredContribution[]>;
   insertContribution(householdId: string, contribution: StoredContribution): Promise<void>;
+  /** The goals' spends, newest first. */
+  spends(householdId: string, goalIds: readonly string[]): Promise<StoredSpend[]>;
+  /** The spends of these transactions, of any goal (a closed one's too). */
+  spendsOfTransactions(householdId: string, transactionIds: readonly string[]): Promise<StoredSpend[]>;
+  insertSpend(householdId: string, spend: StoredSpend): Promise<void>;
+  /** Deletes the goal's spend and returns it; null when there is none. */
+  deleteSpend(householdId: string, goalId: string, id: string): Promise<StoredSpend | null>;
+  /** Deletes the spends made on these journal events and returns them (AC5). */
+  deleteSpendsOfEntries(householdId: string, entryIds: readonly string[]): Promise<StoredSpend[]>;
   /** Serialises the changes of one account's envelopes and own goal until the commit (FR 2, FR 3). */
   lockAccount(householdId: string, accountId: string): Promise<void>;
   /** The other goals with a part on the account (`exceptGoalId` left out). */
@@ -61,11 +87,37 @@ export interface AccountBalances {
   ): Promise<Money | "not-found" | "closed" | "currency">;
 }
 
+/**
+ * The space's transactions as «Витратити» reads them (FR 8; modules `transactions`, `accounts` and `ledger`): an
+ * outgoing transaction's outflow from an account in a currency, by its journal event in effect — or why there is none.
+ * `not-found` — no such transaction in the space, or no such account; `transfer` — a side of a transfer between own
+ * accounts; `not-posted` — no journal event in effect («Очікує», merged into another); `not-outflow` — the event takes
+ * nothing from that account in that currency.
+ */
+export interface SpendableTransactions {
+  outflow(
+    householdId: string,
+    transactionId: string,
+    accountId: string,
+    currency: string,
+  ): Promise<
+    | { readonly entryId: string; readonly amount: Money; readonly date: string }
+    | "not-found"
+    | "transfer"
+    | "not-posted"
+    | "not-outflow"
+  >;
+  /** Whether the transaction's journal event is still in effect (neither reversed nor corrected). */
+  inEffect(householdId: string, transactionId: string, entryId: string): Promise<boolean>;
+}
+
 export interface GoalsDeps {
   readonly newId: () => string;
   /** «Сьогодні» — the Kyiv date. */
   readonly today: () => string;
   readonly balances: AccountBalances;
+  /** «Витратити» (FR 8); null when not wired — the route answers 500. */
+  readonly transactions: SpendableTransactions | null;
 }
 
 export interface Caller {
@@ -83,17 +135,19 @@ export type Result<T> =
   | { readonly kind: "envelopes-over-balance"; readonly excess: Money }
   /** FR 6: an own account's goal has no «Внести»: its contributions are transfers to the account. */
   | { readonly kind: "own-account" }
+  /** FR 8: the transactions chosen take more than the goal holds (lead decision). */
+  | { readonly kind: "spend-over-collected"; readonly excess: Money }
   /** The goal changed between the read of its account's balance and the write; nothing written. */
   | { readonly kind: "conflict"; readonly version: number };
 
 /** A change and its audit hand-off, written in one goals transaction (ARC-04 FR 2; ADR-0015). */
 export interface Handed<R> {
   readonly result: R;
-  readonly handOff: GoalHandOff | null;
+  readonly handOffs: readonly GoalHandOff[];
 }
 
 export const GOAL_HAND_OFF_ACTIONS = ["create", "update", "delete"] as const;
-export const GOAL_AUDIT_ENTITIES = ["goals.goal", "goals.contribution"] as const;
+export const GOAL_AUDIT_ENTITIES = ["goals.goal", "goals.contribution", "goals.spend"] as const;
 
 /**
  * The hand-off of a goals change to the audit log (BUD-05 «Кожна зміна, внесок, списання і видалення пишуться в журнал
@@ -104,7 +158,8 @@ export const GOAL_AUDIT_ENTITIES = ["goals.goal", "goals.contribution"] as const
 export interface GoalHandOff {
   readonly entity: (typeof GOAL_AUDIT_ENTITIES)[number];
   readonly entityId: string;
-  readonly actorAccountId: string;
+  /** Null — the system (a spend cancelled because its transaction changed, AC5). */
+  readonly actorAccountId: string | null;
   readonly action: (typeof GOAL_HAND_OFF_ACTIONS)[number];
   /** New for each change: the key of its job and of its audit entry. */
   readonly changeId: string;
@@ -144,7 +199,7 @@ function changesOf(before: GoalFields | null, after: GoalFields | null) {
 
 function handOff(
   deps: Pick<GoalsDeps, "newId">,
-  caller: Caller,
+  caller: { readonly accountId: string | null },
   entity: GoalHandOff["entity"],
   entityId: string,
   action: GoalHandOff["action"],
@@ -171,11 +226,23 @@ export async function partBalance(
   return { kind: "ok", value: balance };
 }
 
-const reservedBy = (g: StoredGoal, contributions: readonly StoredContribution[]) =>
+/** What a goal of marks or an envelope holds: its start, its contributions, less its spends (FR 8). */
+export const reservedBy = (
+  g: StoredGoal,
+  contributions: readonly StoredContribution[],
+  spends: readonly StoredSpend[],
+) =>
   sumMoney(
     contributions.filter((c) => c.goalId === g.id).map((c) => c.amount),
     g.target.currency,
-  ).plus(g.startAmount);
+  )
+    .plus(g.startAmount)
+    .minus(
+      sumMoney(
+        spends.filter((s) => s.goalId === g.id).map((s) => s.amount),
+        g.target.currency,
+      ),
+    );
 
 /**
  * Under the account's lock: FR 2 — one own goal per account, and its balance is wholly the goal's, so no envelope sits
@@ -205,11 +272,10 @@ async function checkAccount(
     return { kind: "account-taken" };
   if (goal.partKind === "account") return { kind: "ok", value: null };
   const envelopes = others.filter((o) => o.partKind === "envelope" && o.target.currency === goal.currency);
-  const theirs = await tx.contributions(
-    householdId,
-    envelopes.map((o) => o.id),
-  );
-  const total = envelopes.reduce((sum, o) => sum.plus(reservedBy(o, theirs)), reserved);
+  const ids = envelopes.map((o) => o.id);
+  const theirs = await tx.contributions(householdId, ids);
+  const spent = await tx.spends(householdId, ids);
+  const total = envelopes.reduce((sum, o) => sum.plus(reservedBy(o, theirs, spent)), reserved);
   const excess = envelopeExcess(balance, total);
   const growth = before === null ? null : reserved.minus(before);
   const reservesMore = growth === null || !(growth.isNegative() || growth.isZero());
@@ -232,11 +298,11 @@ export async function createGoal(
     goal.startAmount,
     balance,
   );
-  if (checked.kind !== "ok") return { result: checked, handOff: null };
+  if (checked.kind !== "ok") return { result: checked, handOffs: [] };
   await tx.insertGoal(caller.householdId, goal);
   const h = handOff(deps, caller, "goals.goal", goal.id, "create", changesOf(null, goal));
   await tx.enqueueHandOff(h);
-  return { result: { kind: "ok", value: goal }, handOff: h };
+  return { result: { kind: "ok", value: goal }, handOffs: [h] };
 }
 
 /**
@@ -292,31 +358,35 @@ export async function updateGoal(
   balance: Money | null,
 ): Promise<Handed<Result<StoredGoal>>> {
   const stored = await tx.goal(caller.householdId, id, true);
-  if (!stored) return { result: { kind: "not-found" }, handOff: null };
+  if (!stored) return { result: { kind: "not-found" }, handOffs: [] };
   if (stored.version !== version)
-    return { result: { kind: "conflict", version: stored.version }, handOff: null };
+    return { result: { kind: "conflict", version: stored.version }, handOffs: [] };
   const next: StoredGoal = { ...stored, ...fields };
   const changes = changesOf(stored, next);
-  if (changes.length === 0) return { result: { kind: "ok", value: stored }, handOff: null };
+  if (changes.length === 0) return { result: { kind: "ok", value: stored }, handOffs: [] };
   const own = await tx.contributions(caller.householdId, [id]);
+  const spent = await tx.spends(caller.householdId, [id]);
   const sameEnvelope =
     stored.partKind === "envelope" && next.partKind === "envelope" && stored.accountId === next.accountId;
   const checked = await checkAccount(
     tx,
     caller.householdId,
     { ...next, currency: next.target.currency },
-    reservedBy(next, own),
+    reservedBy(next, own, spent),
     balance,
-    sameEnvelope ? reservedBy(stored, own) : null,
+    sameEnvelope ? reservedBy(stored, own, spent) : null,
   );
-  if (checked.kind !== "ok") return { result: checked, handOff: null };
+  if (checked.kind !== "ok") return { result: checked, handOffs: [] };
   const updated = await tx.updateGoal(caller.householdId, next);
   const h = handOff(deps, caller, "goals.goal", id, "update", changes);
   await tx.enqueueHandOff(h);
-  return { result: { kind: "ok", value: updated }, handOff: h };
+  return { result: { kind: "ok", value: updated }, handOffs: [h] };
 }
 
-/** «Видалити» (FR 13, edge case 4): the envelope is freed; the history stays in the audit log. */
+/**
+ * «Видалити» (FR 13, edge case 4): the envelope is freed; the history stays in the audit log. Its spends go with it —
+ * their transactions are ordinary expenses again (lead decision) — each with its own entry.
+ */
 export async function deleteGoal(
   deps: GoalsDeps,
   tx: GoalsTx,
@@ -324,11 +394,195 @@ export async function deleteGoal(
   id: string,
 ): Promise<Handed<Result<null>>> {
   const stored = await tx.goal(caller.householdId, id, true);
-  if (!stored) return { result: { kind: "not-found" }, handOff: null };
+  if (!stored) return { result: { kind: "not-found" }, handOffs: [] };
+  const spends = await tx.spends(caller.householdId, [id]);
   await tx.deleteGoal(caller.householdId, id);
-  const h = handOff(deps, caller, "goals.goal", id, "delete", changesOf(stored, null));
+  const handOffs = [
+    handOff(deps, caller, "goals.goal", id, "delete", changesOf(stored, null)),
+    ...spends.map((s) => spendHandOff(deps, caller, s, "delete", "goal-deleted")),
+  ];
+  for (const h of handOffs) await tx.enqueueHandOff(h);
+  return { result: { kind: "ok", value: null }, handOffs };
+}
+
+/**
+ * «Закрити ціль» (FR 9; FR 12 for a goal past its date; FR 13 «Закрити без витрати»): also when the target is not
+ * collected. The goal leaves the list (no archive in this release), reserves nothing on its account any more, and its
+ * spends stay in effect; the history stays in the audit log (an update of `closedOn`).
+ */
+export async function closeGoal(
+  deps: GoalsDeps,
+  tx: GoalsTx,
+  caller: Caller,
+  id: string,
+): Promise<Handed<Result<null>>> {
+  const stored = await tx.goal(caller.householdId, id, true);
+  if (!stored) return { result: { kind: "not-found" }, handOffs: [] };
+  const today = deps.today();
+  await tx.closeGoal(caller.householdId, id, today);
+  const h = handOff(deps, caller, "goals.goal", id, "update", [
+    { field: "closedOn", before: null, after: today },
+  ]);
   await tx.enqueueHandOff(h);
-  return { result: { kind: "ok", value: null }, handOff: h };
+  return { result: { kind: "ok", value: null }, handOffs: [h] };
+}
+
+/** Why a spend was cancelled: «Скасувати витрату», its transaction changed or deleted (AC5), its goal deleted. */
+export type SpendCancelReason = "manual" | "transaction-changed" | "goal-deleted";
+
+function spendHandOff(
+  deps: Pick<GoalsDeps, "newId">,
+  caller: { readonly accountId: string | null },
+  s: StoredSpend,
+  action: "create" | "delete",
+  reason?: SpendCancelReason,
+): GoalHandOff {
+  const values: Record<string, string> = {
+    goalId: s.goalId,
+    transactionId: s.transactionId,
+    accountId: s.accountId,
+    amount: s.amount.toDecimalString(),
+    currency: s.amount.currency,
+    date: s.date,
+  };
+  const changes = Object.entries(values).map(([field, v]) =>
+    action === "create" ? { field, before: null, after: v } : { field, before: v, after: null },
+  );
+  if (reason) changes.push({ field: "reason", before: null, after: reason });
+  return handOff(deps, caller, "goals.spend", s.id, action, changes);
+}
+
+/** A transaction chosen in «Витратити», as resolved before the goals transaction. */
+export interface SpendCandidate {
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly entryId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+/** The most transactions one «Витратити» writes off. */
+export const SPEND_MAX = 50;
+
+/**
+ * FR 8: each chosen transaction is an outflow of the goal's currency — from the part's account, or from any account of
+ * the space for a goal of marks only — by its journal event in effect. Read before the goals transaction (the pools of
+ * `transactions`, `accounts` and `ledger`).
+ */
+export async function resolveSpend(
+  spendable: SpendableTransactions,
+  householdId: string,
+  goal: StoredGoal,
+  chosen: readonly { readonly transactionId: string; readonly accountId: string }[],
+): Promise<Result<SpendCandidate[]>> {
+  const issues: GoalIssue[] = [];
+  const candidates: SpendCandidate[] = [];
+  const seen = new Set<string>();
+  for (const [i, c] of chosen.entries()) {
+    const field = `transactions.${i}`;
+    if (seen.has(c.transactionId)) {
+      issues.push({ field, issue: "duplicate" });
+      continue;
+    }
+    seen.add(c.transactionId);
+    if (goal.partKind !== "marks" && c.accountId !== goal.accountId) {
+      issues.push({ field, issue: "not_goal_account" });
+      continue;
+    }
+    const out = await spendable.outflow(householdId, c.transactionId, c.accountId, goal.target.currency);
+    if (typeof out === "string") issues.push({ field, issue: out.replace("-", "_") });
+    else candidates.push({ ...c, ...out });
+  }
+  return issues.length > 0 ? { kind: "invalid", issues } : { kind: "ok", value: candidates };
+}
+
+/**
+ * «Витратити» (FR 8, AC2): the chosen transactions are written off from the goal — they no longer lower «Можна
+ * витратити» and show «з цілі». A transaction is spent once, from one goal. A goal of marks or an envelope gives at
+ * most what it holds (lead decision); an own account's balance is what it holds, and the spend already took from it.
+ */
+export async function spendFromGoal(
+  deps: GoalsDeps,
+  tx: GoalsTx,
+  caller: Caller,
+  id: string,
+  version: number,
+  candidates: readonly SpendCandidate[],
+): Promise<Handed<Result<StoredSpend[]>>> {
+  const goal = await tx.goal(caller.householdId, id, true);
+  if (!goal) return { result: { kind: "not-found" }, handOffs: [] };
+  if (goal.version !== version) return { result: { kind: "conflict", version: goal.version }, handOffs: [] };
+  const taken = new Set(
+    (
+      await tx.spendsOfTransactions(
+        caller.householdId,
+        candidates.map((c) => c.transactionId),
+      )
+    ).map((s) => s.transactionId),
+  );
+  const issues = candidates.flatMap((c, i) =>
+    taken.has(c.transactionId) ? [{ field: `transactions.${i}`, issue: "spent" }] : [],
+  );
+  if (issues.length > 0) return { result: { kind: "invalid", issues }, handOffs: [] };
+  const total = sumMoney(
+    candidates.map((c) => c.amount),
+    goal.target.currency,
+  );
+  if (goal.partKind !== "account") {
+    const held = reservedBy(
+      goal,
+      await tx.contributions(caller.householdId, [id]),
+      await tx.spends(caller.householdId, [id]),
+    );
+    const excess = total.minus(held);
+    if (!excess.isNegative() && !excess.isZero())
+      return { result: { kind: "spend-over-collected", excess }, handOffs: [] };
+  }
+  const spends = candidates.map((c): StoredSpend => ({ ...c, id: deps.newId(), goalId: id }));
+  const handOffs: GoalHandOff[] = [];
+  for (const s of spends) {
+    await tx.insertSpend(caller.householdId, s);
+    handOffs.push(spendHandOff(deps, caller, s, "create"));
+  }
+  for (const h of handOffs) await tx.enqueueHandOff(h);
+  return { result: { kind: "ok", value: spends }, handOffs };
+}
+
+/** «Скасувати витрату» (FR 8, AC5): the spend is cancelled, the transaction stays as it is; its amount goes back. */
+export async function cancelSpend(
+  deps: GoalsDeps,
+  tx: GoalsTx,
+  caller: Caller,
+  goalId: string,
+  spendId: string,
+): Promise<Handed<Result<null>>> {
+  const goal = await tx.goal(caller.householdId, goalId, true);
+  if (!goal) return { result: { kind: "not-found" }, handOffs: [] };
+  const spend = await tx.deleteSpend(caller.householdId, goalId, spendId);
+  if (!spend) return { result: { kind: "not-found" }, handOffs: [] };
+  const h = spendHandOff(deps, caller, spend, "delete", "manual");
+  await tx.enqueueHandOff(h);
+  return { result: { kind: "ok", value: null }, handOffs: [h] };
+}
+
+/**
+ * AC5, edge case 5: the journal reversed these events — their transactions were changed or deleted by hand or by a
+ * repeated import — so the spends made on them are cancelled by the system and their amounts go back to the goals.
+ * Idempotent: a spend already cancelled is not there.
+ */
+export async function cancelSpendsOfEntries(
+  deps: Pick<GoalsDeps, "newId">,
+  tx: GoalsTx,
+  householdId: string,
+  entryIds: readonly string[],
+): Promise<GoalHandOff[]> {
+  if (entryIds.length === 0) return [];
+  const cancelled = await tx.deleteSpendsOfEntries(householdId, entryIds);
+  const handOffs = cancelled.map((s) =>
+    spendHandOff(deps, { accountId: null }, s, "delete", "transaction-changed"),
+  );
+  for (const h of handOffs) await tx.enqueueHandOff(h);
+  return handOffs;
 }
 
 /** «Внести» (FR 6): a manual mark; over the target too. An envelope's mark reserves more of its account (FR 3). */
@@ -342,24 +596,25 @@ export async function contribute(
   balance: Money | null,
 ): Promise<Handed<Result<StoredContribution>>> {
   const goal = await tx.goal(caller.householdId, id, true);
-  if (!goal) return { result: { kind: "not-found" }, handOff: null };
-  if (goal.version !== version) return { result: { kind: "conflict", version: goal.version }, handOff: null };
-  if (goal.partKind === "account") return { result: { kind: "own-account" }, handOff: null };
+  if (!goal) return { result: { kind: "not-found" }, handOffs: [] };
+  if (goal.version !== version) return { result: { kind: "conflict", version: goal.version }, handOffs: [] };
+  if (goal.partKind === "account") return { result: { kind: "own-account" }, handOffs: [] };
   const checked = checkContribution(
     input,
     { currency: goal.target.currency, createdOn: goal.createdOn },
     deps.today(),
   );
-  if (checked.kind === "invalid") return { result: checked, handOff: null };
+  if (checked.kind === "invalid") return { result: checked, handOffs: [] };
   const own = await tx.contributions(caller.householdId, [id]);
+  const spent = await tx.spends(caller.householdId, [id]);
   const fits = await checkAccount(
     tx,
     caller.householdId,
     { ...goal, currency: goal.target.currency },
-    reservedBy(goal, own).plus(checked.amount),
+    reservedBy(goal, own, spent).plus(checked.amount),
     balance,
   );
-  if (fits.kind !== "ok") return { result: fits, handOff: null };
+  if (fits.kind !== "ok") return { result: fits, handOffs: [] };
   const contribution: StoredContribution = {
     id: deps.newId(),
     goalId: id,
@@ -374,7 +629,7 @@ export async function contribute(
     { field: "date", before: null, after: checked.date },
   ]);
   await tx.enqueueHandOff(h);
-  return { result: { kind: "ok", value: contribution }, handOff: h };
+  return { result: { kind: "ok", value: contribution }, handOffs: [h] };
 }
 
 /** A goal as the list and the card show it (FR 4–7, FR 12, FR 13). */
@@ -387,6 +642,8 @@ export interface GoalView {
   readonly contributedThisMonth: Money;
   /** History, newest first; none for an own account (its contributions are its balance's growth). */
   readonly contributions: readonly StoredContribution[];
+  /** «Витратити» (FR 8): the transactions written off from the goal, newest first. */
+  readonly spends: readonly StoredSpend[];
 }
 
 /** Every goal of the space with what it shows; the balances of the parts' accounts are read on `today`. */
@@ -395,6 +652,7 @@ export async function viewGoals(
   householdId: string,
   goals: readonly StoredGoal[],
   contributions: readonly StoredContribution[],
+  spends: readonly StoredSpend[],
 ): Promise<GoalView[]> {
   const today = deps.today();
   const monthStart = `${today.slice(0, 7)}-01`;
@@ -408,7 +666,7 @@ export async function viewGoals(
       const key = `${g.accountId}/${g.target.currency}`;
       reserved.set(
         key,
-        (reserved.get(key) ?? Money.zero(g.target.currency)).plus(reservedBy(g, contributions)),
+        (reserved.get(key) ?? Money.zero(g.target.currency)).plus(reservedBy(g, contributions, spends)),
       );
     }
   const views: GoalView[] = [];
@@ -416,18 +674,25 @@ export async function viewGoals(
     const currency = g.target.currency;
     // Newest first, as the store reads them.
     const own = contributions.filter((c) => c.goalId === g.id);
+    const spent = spends.filter((s) => s.goalId === g.id);
+    const spentSince = (date: string) =>
+      sumMoney(
+        spent.filter((s) => s.date >= date).map((s) => s.amount),
+        currency,
+      );
     const windowStart = paceWindowStart(g.createdOn, today);
     let collected: Money;
     let cameIn: Money;
     let thisMonth: Money;
     let freeBalance: Money | null = null;
     if (g.partKind === "account") {
+      // The spends already took from the balance (collected); a spend is no negative contribution (lead decision).
       collected = await balance(g, today);
-      cameIn = collected.minus(await balance(g, addDays(windowStart, -1)));
-      thisMonth = collected.minus(await balance(g, addDays(monthStart, -1)));
+      cameIn = collected.minus(await balance(g, addDays(windowStart, -1))).plus(spentSince(windowStart));
+      thisMonth = collected.minus(await balance(g, addDays(monthStart, -1))).plus(spentSince(monthStart));
       if (thisMonth.isNegative()) thisMonth = Money.zero(currency);
     } else {
-      collected = reservedBy(g, contributions);
+      collected = reservedBy(g, contributions, spends);
       cameIn = sumMoney(
         own.filter((c) => c.date >= windowStart).map((c) => c.amount),
         currency,
@@ -452,6 +717,7 @@ export async function viewGoals(
       freeBalance,
       contributedThisMonth: thisMonth,
       contributions: g.partKind === "account" ? [] : own,
+      spends: spent,
     });
   }
   return views;

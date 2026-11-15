@@ -223,8 +223,8 @@ async function handed<T>(
   for (let i = 0; i < 3; i++) {
     const stored = await ctx.inHousehold((q) => goalsTx(q).goal(ctx.principal.householdId, id));
     if (!stored) throw new ApiProblem("NOT_FOUND");
-    const { result, handOff } = await attempt(stored);
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    const { result, handOffs } = await attempt(stored);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     try {
       return value(result);
     } catch (error) {
@@ -290,10 +290,10 @@ export const createGoalRoute = defineRoute({
     const balance = value(
       await partBalance(deps, ctx.principal.householdId, { ...fields, currency: fields.target.currency }),
     );
-    const { result, handOff } = await ctx.inHousehold((q) =>
+    const { result, handOffs } = await ctx.inHousehold((q) =>
       createGoal(deps, goalsTx(q), caller(ctx), fields, balance),
     );
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     return view(ctx, value(result).id);
   },
 });
@@ -316,13 +316,13 @@ export const updateGoalRoute = defineRoute({
       ctx,
       async (stored) => {
         const merged = mergeGoal(stored, body, deps.today());
-        if (merged.kind === "invalid") return { result: merged, handOff: null };
+        if (merged.kind === "invalid") return { result: merged, handOffs: [] };
         const fields = merged.fields;
         const balance = await partBalance(deps, ctx.principal.householdId, {
           ...fields,
           currency: fields.target.currency,
         });
-        if (balance.kind !== "ok") return { result: balance, handOff: null };
+        if (balance.kind !== "ok") return { result: balance, handOffs: [] };
         return ctx.inHousehold((q) =>
           updateGoal(deps, goalsTx(q), caller(ctx), stored.id, stored.version, fields, balance.value),
         );
@@ -346,10 +346,10 @@ export const deleteGoalRoute = defineRoute({
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     const { deps, audit } = goalsServices(ctx);
-    const { result, handOff } = await ctx.inHousehold((q) =>
+    const { result, handOffs } = await ctx.inHousehold((q) =>
       deleteGoal(deps, goalsTx(q), caller(ctx), params.goalId),
     );
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     value(result);
     return { deleted: true as const };
   },
@@ -391,7 +391,7 @@ export const contributeRoute = defineRoute({
                 currency: stored.target.currency,
               })
             : ({ kind: "ok", value: null } as const);
-        if (balance.kind !== "ok") return { result: balance, handOff: null };
+        if (balance.kind !== "ok") return { result: balance, handOffs: [] };
         return ctx.inHousehold((q) =>
           contribute(deps, goalsTx(q), caller(ctx), stored.id, stored.version, body, balance.value),
         );
