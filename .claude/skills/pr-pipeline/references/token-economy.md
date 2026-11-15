@@ -38,8 +38,7 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 6. Small PRs and how to split them: AGENTS.md step 5, SKILL.md step 1.
 7. Resume an implementing agent at most 2 times (owner, 2026-11-13, #178). A third round of fixes goes to a
    fresh agent with a short brief: the diff, the findings, the patch. Every resume re-reads the agent's whole
-   context: in lead session 1 the most expensive tasks were authors resumed many times (110, 70, 68 and 61
-   million input tokens; #180, retrospective).
+   context (#180, lead session 1).
 8. **Workflow experiment** (owner, 2026-11-14, #178): 2 more trial runs of a Workflow «супровідник», each taking
    one PR without `sensitive` (rows `R`) from implementation to ready-to-merge; the runs may go in parallel.
    Compare their tokens (agents) and the number of lead turns with #180 (the first run and the rows of similar

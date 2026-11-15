@@ -16,9 +16,8 @@ commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task>
 and brief the next agent from it (owner, 2026-11-14, #178, #197).
 
 **350 k stop** (owner, 2026-11-14, #178): from ~350 k tokens of context the lead takes no new tasks and only brings
-the current PRs to merge. Reason: in lead 4 the 400 k limit fired with 3–4 PRs in work and finishing them took the
-context to ≈ 480 k. Risks and mitigation: 1–2 PRs fewer per session and more frequent handovers; the lead starts
-the next session itself, a start costs ≈ 100–150 k tokens.
+the current PRs to merge. Risks and mitigation: 1–2 PRs fewer per session and more frequent handovers; the lead
+starts the next session itself, a start costs ≈ 100–150 k tokens.
 
 **New lead session** (owner, 2026-11-13/14): when the context reaches ~400 k tokens (`get_session` →
 `external_metadata.context_usage.used_tokens`), after a compaction or after 8–10 merged PRs, whichever comes first,
@@ -79,8 +78,7 @@ context, so the review session merges 1–2 PRs fewer:
 2. **Current instructions.** AGENTS.md, `pr-pipeline` and its `references/`, the other skills, `.claude/references/`:
    contradictions, duplication, outdated or unneeded text, what can be simplified or shortened.
 3. **Handovers of the last 5 sessions.** Errors in «Lead state» (#179), start messages and handover confirmations:
-   what was lost or inaccurate, what the new session had to rebuild (e.g. session 7: lead 6's file
-   `keep/sec241-tests.mjs` was lost with its container).
+   what was lost or inaccurate, what the new session had to rebuild.
 4. **Result.** A report to the owner as a comment on #180: conclusions and proposals, each with its risks, downsides
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
 

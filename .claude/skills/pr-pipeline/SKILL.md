@@ -62,7 +62,7 @@ answer them with a status message. Risk: the owner sees less live progress — m
    author's checks before push (`implement-requirement` §4) (owner, 2026-11-15, #178).
    The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
    may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique to the PR and
-   role (`pr153-review/`; owner, 2026-11-13): a generic `body.md` was overwritten by another agent twice.
+   role (`pr153-review/`; owner, 2026-11-13), never a generic `body.md`.
 3. **PR opened** → do not subscribe while an agent (author, reviewer, fix) works on it: act on the agent's
    report; subscribe only when the PR waits for merge (step 6) (owner, 2026-11-14, #178). First open the issues
    for any dependent slice the implementer listed and link them in the PR body (PRC-02). Then in parallel, each
@@ -115,12 +115,10 @@ answer them with a status message. Risk: the owner sees less live progress — m
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
-**Lead sessions** — [restarts](references/restarts.md) (read when a session starts or finishes, when the context
-nears ~350 k tokens, `get_session` → `external_metadata.context_usage.used_tokens`, after a compaction or after
-8–10 merged PRs): the 350 k stop, the new lead session and «Lead state» (#179), session names and start steps,
-the automatic restart and its limit, the start message, the process review every 3rd session, the handover
-confirmation and owner decisions in documents. The session retrospective:
-[token economy](references/token-economy.md), «Session retrospective».
+**Lead sessions** — [restarts](references/restarts.md) (read when a session starts or finishes, at ~350 k tokens
+of context, after a compaction or after 8–10 merged PRs): the 350 k stop, «Lead state» (#179), start steps, the
+automatic restart and its limit, the start message, the process review every 3rd session, the handover
+confirmation. The retrospective: [token economy](references/token-economy.md), «Session retrospective».
 
 ## 2. Owner
 
@@ -145,9 +143,8 @@ confirmation and owner decisions in documents. The session retrospective:
   skill or document it shapes, as one entry of this form (owner, 2026-11-13):
   `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.`
   (examples: `docs/decisions/state-2026-11-05.md`). Change it to an owner line only when the owner answers.
-- **GitHub errors** (owner, 2026-11-13): retry with backoff and check before reposting —
-  [retry rules](../../references/github-errors.md) (read when a call fails with 502, 503 or «token store
-  unavailable»). Brief the agents you start to do the same (their skills say so).
+- **GitHub errors** (owner, 2026-11-13): [retry rules](../../references/github-errors.md) (read when a call fails
+  with 502, 503 or «token store unavailable»). Brief the agents you start to do the same (their skills say so).
 
 ## 3. Parallel branches
 
@@ -160,9 +157,7 @@ processes it started, by PID (the skills that start servers or databases say how
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
 tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, each on its own
-database under the cluster lock, never on a hand-made database (owner, 2026-11-15, #178, #226): a 20 000-row probe
-on a hand-made database exhausted the cluster's shared lock table (`out of shared memory`) and another agent's
-test failed.
+database under the cluster lock, never on a hand-made database (owner, 2026-11-15, #178, #226).
 
 ## 4. Restarts and token economy
 
