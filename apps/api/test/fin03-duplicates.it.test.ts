@@ -217,9 +217,7 @@ beforeAll(async () => {
           }),
           flags: { isEnabled },
           rates: (requests) => fx.rates(requests),
-          duplicates: createDuplicateCheck({
-            candidates: createDuplicateCandidates(db.databases.for("transactions")),
-          }),
+          duplicates: createDuplicateCheck(),
         }),
         duplicateMatching: createDuplicateMatchingServices({
           candidates: createDuplicateCandidates(db.databases.for("transactions")),
@@ -512,6 +510,16 @@ describe("FIN-03@PoC FR 18: hiding is for duplicates only; a transfer is never h
     // The other copy is the one left: hiding it too would take the operation out of the budget.
     expect((await hide(space, first.id)).json().code).toBe("TRANSACTION_NOT_HIDEABLE");
     expect(await balance(space, a)).toBe("933");
+  });
+
+  it("FIN-03@PoC FR 18: both copies hidden at once — exactly one is hidden, the other refused", async () => {
+    for (let round = 0; round < 5; round++) {
+      const { space, first, second } = await twice();
+      const both = await Promise.all([hide(space, first.id), hide(space, second.id)]);
+      expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+      const hidden = [await get(space, first.id), await get(space, second.id)].filter((t) => t.hidden);
+      expect(hidden).toHaveLength(1);
+    }
   });
 
   it("FIN-03@PoC FR 18: a pair called «Не дубль» is no duplicate, so neither is hidden", async () => {

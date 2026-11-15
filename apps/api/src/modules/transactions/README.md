@@ -112,8 +112,9 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   - Злитий дубль: `PATCH`, `DELETE`, `show`, `hide`, `split` — 409 `TRANSACTION_MERGED`; та, у яку злито, — `DELETE`
     409 `TRANSACTION_MERGED` (спершу «Роз'єднати»), решта змінюється. Кожна транзакція має `mergedInto` (у яку злито
     або null) і `mergedDuplicates` (злиті в неї — «Об'єднано»).
-  - `POST …/hide` (п. 18): лише «Можливий дубль» зараз за правилом `duplicate-matching` (`DuplicateCheck`), інакше
-    409 `TRANSACTION_NOT_HIDEABLE`; технічних записів у цьому випуску немає (з підключеннями банків).
+  - `POST …/hide` (п. 18): лише «Можливий дубль» зараз за правилом `duplicate-matching` (`DuplicateCheck`: вікно і
+    рішення; пошук — у транзакції зміни під блокуванням приховування рахунку, тож з двох копій приховується лише одна),
+    інакше 409 `TRANSACTION_NOT_HIDEABLE`; технічних записів у цьому випуску немає (з підключеннями банків).
   Учасник з областю: «Транзакції» закриті політикою видимості за замовчуванням — читання 404, зміни 403 (дозвіл
   `household.data.write`).
 - `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags?, rates?, duplicates? })` →
@@ -134,8 +135,8 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
-- `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` і
-  `candidatesOf(householdId, transactionId, { windowDays })` — пари можливих дублів для `duplicate-matching`: показані,
+- `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
+  можливих дублів для `duplicate-matching`: показані,
   на одному рахунку, та сама сума й валюта, у межах `windowDays`, не сторони переказу, не «Не дубль»; `first` — раніша
   (лише читання; правило вирішує той модуль).
 - `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.

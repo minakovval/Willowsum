@@ -4,7 +4,6 @@ export { requeueDeadHandOffs, transactionRows, transactionsWorkerQueue } from ".
 export { HAND_OFF_JOB } from "./queue/job.ts";
 export {
   duplicateCandidates,
-  duplicateCandidatesOf,
   categoriesInParts,
   transactionsList,
   transactionsTx,

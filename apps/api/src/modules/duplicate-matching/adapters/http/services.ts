@@ -1,6 +1,7 @@
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
-import { isDuplicateNow, type DuplicateDeps } from "../../application/index.ts";
+import type { DuplicateDeps } from "../../application/index.ts";
+import { isPossibleDuplicate, MATCH_WINDOW_DAYS, type DuplicatePair } from "../../domain/index.ts";
 
 const BRAND = Symbol("willowsum-duplicate-matching-services");
 
@@ -18,14 +19,17 @@ export function createDuplicateMatchingServices(deps: DuplicateDeps): DuplicateM
 }
 
 /**
- * The check the transactions module asks before «Приховати транзакцію» (FIN-03 FR 18; its `DuplicateCheck`, wired in
- * src/main.ts): whether the transaction is a «Можливий дубль» now.
+ * The rule the transactions module applies before «Приховати транзакцію» (FIN-03 FR 18; its `DuplicateCheck`, wired in
+ * src/main.ts), pure: the window of its search, and whether any pair it found is a «Можливий дубль» now. The search runs
+ * in the transactions transaction of the change, under its lock.
  */
-export function createDuplicateCheck(deps: DuplicateDeps): {
-  isPossibleDuplicate(householdId: string, transactionId: string): Promise<boolean>;
+export function createDuplicateCheck(): {
+  readonly windowDays: number;
+  isPossibleDuplicate(pairs: readonly DuplicatePair[]): boolean;
 } {
   return {
-    isPossibleDuplicate: (householdId, transactionId) => isDuplicateNow(deps, householdId, transactionId),
+    windowDays: MATCH_WINDOW_DAYS,
+    isPossibleDuplicate: (pairs) => pairs.some((p) => isPossibleDuplicate(p.first, p.second)),
   };
 }
 

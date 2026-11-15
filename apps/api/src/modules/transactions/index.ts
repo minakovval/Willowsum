@@ -14,7 +14,6 @@ import {
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
-  duplicateCandidatesOf,
   type CandidateSide,
   type DuplicateSide,
 } from "./adapters/index.ts";
@@ -110,18 +109,12 @@ export type { CandidateSide };
 /**
  * The possible duplicates (FIN-03@PoC FR 12) for module duplicate-matching, which decides by its rule: two shown
  * transactions on one account with the same amount and currency within `windowDays`, neither a side of a transfer nor
- * merged, the pair not «Не дубль». `first` is the earlier. Newest first, at most `limit`; `candidatesOf` — those one
- * transaction is a side of. Read only.
+ * merged, the pair not «Не дубль». `first` is the earlier. Newest first, at most `limit`. Read only.
  */
 export interface DuplicateCandidates {
   candidatePairs(
     householdId: string,
     query: { readonly windowDays: number; readonly limit: number },
-  ): Promise<{ readonly first: DuplicateSide; readonly second: DuplicateSide }[]>;
-  candidatesOf(
-    householdId: string,
-    transactionId: string,
-    query: { readonly windowDays: number },
   ): Promise<{ readonly first: DuplicateSide; readonly second: DuplicateSide }[]>;
 }
 
@@ -130,12 +123,10 @@ export function createDuplicateCandidates(db: ModuleDatabase): DuplicateCandidat
   return {
     candidatePairs: (householdId, query) =>
       db.inHousehold(householdId, (q) => duplicateCandidates(q, householdId, query)),
-    candidatesOf: (householdId, transactionId, query) =>
-      db.inHousehold(householdId, (q) => duplicateCandidatesOf(q, householdId, transactionId, query)),
   };
 }
 export type { DuplicateSide };
-export type { DuplicateCheck } from "./application/index.ts";
+export type { DuplicateCheck, DuplicatePairSides } from "./application/index.ts";
 
 /**
  * BUD-01@PoC FR 12: the categories the space's split parts use, for module categories («порожня» категорія). Read

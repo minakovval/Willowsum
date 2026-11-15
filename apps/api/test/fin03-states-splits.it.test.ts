@@ -13,7 +13,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
-import { createDuplicateCandidates, createTransactionsServices } from "../src/modules/transactions/index.ts";
+import { createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 
 /**
@@ -195,9 +195,7 @@ beforeAll(async () => {
           }),
           flags: { isEnabled },
           // FR 18: only a duplicate is hidden — the tests that hide enter the transaction twice (FIN-03 b, row 16c).
-          duplicates: createDuplicateCheck({
-            candidates: createDuplicateCandidates(db.databases.for("transactions")),
-          }),
+          duplicates: createDuplicateCheck(),
         }),
         categories: createCategoriesServices({
           audit,

@@ -41,6 +41,17 @@ export interface TransactionsTx {
   duplicatesOf(householdId: string, id: string): Promise<string[]>;
   /** «Не дубль» (FR 12): the pair stored in the order of its ids; false — it was stored already. */
   insertDismissal(householdId: string, firstId: string, secondId: string): Promise<boolean>;
+  /**
+   * FR 18: the possible duplicates `id` is a side of now, by the search of `DuplicateCandidates` within `windowDays`;
+   * first takes the space's lock of hiding on the account until the transaction ends, so two copies are never hidden
+   * at once.
+   */
+  duplicatesForHiding(
+    householdId: string,
+    id: string,
+    accountId: string,
+    windowDays: number,
+  ): Promise<readonly DuplicatePairSides[]>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
 }
@@ -61,9 +72,24 @@ export interface TransactionsDeps extends HandOffDeps {
   readonly duplicates: DuplicateCheck | null;
 }
 
-/** Module duplicate-matching's check (wired in src/main.ts); read only. */
+/** One side of a possible duplicate as the search finds it (FIN-03 FR 12). */
+export interface DuplicateSideFound {
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+export interface DuplicatePairSides {
+  readonly first: DuplicateSideFound;
+  readonly second: DuplicateSideFound;
+}
+
+/** Module duplicate-matching's rule (wired in src/main.ts), pure: the window of the search and the decision. */
 export interface DuplicateCheck {
-  isPossibleDuplicate(householdId: string, transactionId: string): Promise<boolean>;
+  readonly windowDays: number;
+  /** Whether any of the pairs the search found is a «Можливий дубль». */
+  isPossibleDuplicate(pairs: readonly DuplicatePairSides[]): boolean;
 }
 
 export interface Caller {
@@ -329,8 +355,9 @@ export async function deleteTransaction(
 /**
  * «Приховати транзакцію» and showing it again (FIN-03 FR 16–18, FR 27): out of the list (unless asked for), the budget
  * and the reports; the journal event stays, so the balance does not change. Hiding twice changes nothing. FR 18: only a
- * duplicate is hidden — a «Можливий дубль» now (`isDuplicate`, read by the route before this transaction); technical
- * records come with bank connections, none is in this release. A transfer between own accounts is never hidden.
+ * duplicate is hidden — a «Можливий дубль» now by module duplicate-matching's rule, read under the account's lock of
+ * hiding (so of two copies only one is ever hidden); technical records come with bank connections, none is in this
+ * release. A transfer between own accounts is never hidden. Without the rule wired, hiding throws (500).
  */
 export async function setHidden(
   deps: TransactionsDeps,
@@ -338,12 +365,16 @@ export async function setHidden(
   caller: Caller,
   id: string,
   hidden: boolean,
-  isDuplicate: boolean,
 ): Promise<TransactionResult> {
-  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", (current) => {
+  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", async (current) => {
     if (current.hidden === hidden) return null;
     if (hidden && current.transfer) return "in-transfer";
-    if (hidden && !isDuplicate) return "not-hideable";
+    if (hidden) {
+      const rule = deps.duplicates;
+      if (rule === null) throw new Error("the duplicate rule is not wired");
+      const pairs = await tx.duplicatesForHiding(caller.householdId, id, current.accountId, rule.windowDays);
+      if (!rule.isPossibleDuplicate(pairs)) return "not-hideable";
+    }
     return { ...current, hidden };
   });
 }
@@ -360,7 +391,13 @@ export async function changeRow(
   action: TransactionHandOff["action"],
   next: (
     current: StoredTransaction,
-  ) => StoredTransaction | FieldIssue[] | "in-transfer" | "not-hideable" | null,
+  ) =>
+    | StoredTransaction
+    | FieldIssue[]
+    | "in-transfer"
+    | "not-hideable"
+    | null
+    | Promise<StoredTransaction | "in-transfer" | "not-hideable" | null>,
 ): Promise<TransactionResult> {
   const current = await tx.lock(caller.householdId, id);
   if (!current) return { kind: "not-found" };
@@ -368,7 +405,7 @@ export async function changeRow(
   if (current.mergedInto !== null) return { kind: "merged" };
   const holder = await deps.accounts.postingAccount(caller.householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
-  const changed = next(current);
+  const changed = await next(current);
   if (changed === "in-transfer") return { kind: "in-transfer" };
   if (changed === "not-hideable") return { kind: "not-hideable" };
   if (Array.isArray(changed)) return { kind: "invalid", issues: changed };

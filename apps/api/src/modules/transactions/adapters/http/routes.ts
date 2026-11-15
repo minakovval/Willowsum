@@ -685,12 +685,8 @@ const visibilityRoute = (hidden: boolean) =>
       refuseScoped(ctx);
       const { deps } = transactionsServices(ctx);
       if (hidden && deps.duplicates === null) throw new ApiProblem("INTERNAL");
-      // FR 18: read before the change, by module duplicate-matching's rule (another space's id: false, then not found).
-      const isDuplicate =
-        hidden &&
-        (await deps.duplicates!.isPossibleDuplicate(ctx.principal.householdId, params.transactionId));
       const result = await ctx.inHousehold((q) =>
-        setHidden(deps, transactionsTx(q), caller(ctx), params.transactionId, hidden, isDuplicate),
+        setHidden(deps, transactionsTx(q), caller(ctx), params.transactionId, hidden),
       );
       outcome(result);
       if (result.kind !== "ok") throw new ApiProblem("INTERNAL");

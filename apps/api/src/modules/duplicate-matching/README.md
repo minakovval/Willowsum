@@ -33,8 +33,8 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   (пошук переглянув свої `CANDIDATES_MAX` = 500 пар).
 - `createDuplicateMatchingServices({ candidates })` → `DuplicateMatchingServices` (`src/api.ts` → `ctx.services`; `main.ts`):
   `createDuplicateCandidates` модуля transactions.
-- `createDuplicateCheck({ candidates })` → `DuplicateCheck` модуля transactions (`isPossibleDuplicate(householdId,
-  transactionId)`): чи транзакція зараз «Можливий дубль» (FIN-03 п. 18).
+- `createDuplicateCheck()` → `DuplicateCheck` модуля transactions (`windowDays` і `isPossibleDuplicate(pairs)`): правило,
+  за яким модуль transactions у транзакції зміни вирішує, чи транзакція зараз «Можливий дубль» (FIN-03 п. 18).
 - `isPossibleDuplicate(a, b)`, `decideIncoming(incoming, existing)` → `merge` / `possible-duplicate` / `new`,
   `MATCH_WINDOW_DAYS` (3); типи `DuplicateSide`, `ExistingTransaction`, `IncomingDecision` (`domain/matching.ts`).
 

@@ -17,11 +17,6 @@ export interface DuplicateDeps {
       householdId: string,
       query: { readonly windowDays: number; readonly limit: number },
     ): Promise<readonly DuplicatePair[]>;
-    candidatesOf(
-      householdId: string,
-      transactionId: string,
-      query: { readonly windowDays: number },
-    ): Promise<readonly DuplicatePair[]>;
   };
 }
 
@@ -35,14 +30,4 @@ export async function listDuplicates(
   });
   const pairs = found.slice(0, CANDIDATES_MAX).filter((p) => isPossibleDuplicate(p.first, p.second));
   return { pairs, more: found.length > CANDIDATES_MAX };
-}
-
-/** FR 18: whether the transaction is a «Можливий дубль» now — the only kind of transaction that may be hidden. */
-export async function isDuplicateNow(
-  deps: DuplicateDeps,
-  householdId: string,
-  transactionId: string,
-): Promise<boolean> {
-  const pairs = await deps.candidates.candidatesOf(householdId, transactionId, candidateQuery);
-  return pairs.some((p) => isPossibleDuplicate(p.first, p.second));
 }

@@ -231,9 +231,7 @@ const server = buildServer({
                   requests,
                 ),
               // FIN-03 FR 18: only a «Можливий дубль» is hidden, by duplicate-matching's rule.
-              duplicates: createDuplicateCheck({
-                candidates: createDuplicateCandidates(databases.for("transactions")),
-              }),
+              duplicates: createDuplicateCheck(),
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({

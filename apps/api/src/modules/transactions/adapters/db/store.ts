@@ -312,6 +312,14 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       );
       return (rowCount ?? 0) > 0;
     },
+    async duplicatesForHiding(householdId, id, accountId, windowDays) {
+      // One hiding per account at a time: the other copy, hidden meanwhile, is seen once that one has committed.
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('transactions.hide:' || $1 || ':' || $2, 0))`,
+        [householdId, accountId],
+      );
+      return duplicateCandidatesOf(q, householdId, id, { windowDays });
+    },
     async remove(householdId, id) {
       // A side of a transfer is never deleted (the route refuses it), so no transfer points at the row.
       await q.query(`DELETE FROM transactions WHERE household_id = $1 AND id = $2`, [householdId, id]);
