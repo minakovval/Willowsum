@@ -15,6 +15,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
+import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 import { createTransactionsServices, createTransferCandidates } from "../src/modules/transactions/index.ts";
 import { createTransferMatchingServices } from "../src/modules/transfer-matching/index.ts";
 
@@ -185,6 +186,7 @@ beforeAll(async () => {
           newId: randomUUID,
         }),
         transactions: createTransactionsServices({
+          duplicates: createDuplicateCheck(),
           accounts: createAccountDirectory(db.databases.for("accounts")),
           ledger,
           totals: createListTotals({ rates: officialDatedRates(fx), now: () => NOW }),
@@ -314,6 +316,19 @@ describe("PR #269 security probes", () => {
     ]);
     expect([await balance(space, a), await balance(space, b)]).toEqual(["500", "498"]);
     expect(await externalFlow(space.householdId)).toEqual({ EUR: "2.000000000000000000" });
+  });
+
+  it("SEC-269 FR 18 / FR 9: the outflow is not hidden, the inflow not split, its account not changed and the outflow not deleted", async () => {
+    const { space, out, into } = await ac2();
+    const c = await createAccount(space, "0.00");
+    await mark(space, out.id, into.id);
+    const hide = await call(space, "POST", `/v1/transactions/${out.id}/hide`);
+    expect([hide.statusCode, hide.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
+    const del = await call(space, "DELETE", `/v1/transactions/${out.id}`);
+    expect([del.statusCode, del.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
+    const move = await call(space, "PATCH", `/v1/transactions/${into.id}`, { accountId: c });
+    expect([move.statusCode, move.json().code]).toEqual([409, "TRANSACTION_IN_TRANSFER"]);
+    expect((await get(space, out.id)).hidden).toBe(false);
   });
 
   it("SEC-269 isolation: a scoped member gets 404 on proposals with no count, ids or amounts; a scoped write is refused before any lookup", async () => {
