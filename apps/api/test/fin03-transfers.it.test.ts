@@ -208,7 +208,11 @@ beforeAll(async () => {
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
-          categories: createCategoryDirectory({ db: db.databases.for("categories"), audit, newId: randomUUID }),
+          categories: createCategoryDirectory({
+            db: db.databases.for("categories"),
+            audit,
+            newId: randomUUID,
+          }),
           flags: { isEnabled },
           rates: (requests) => fx.rates(requests),
         }),
@@ -320,7 +324,11 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
     const { space, a, b, out, into } = await ac2();
     const res = await mark(space, out.id, into.id);
     expect(res.statusCode, res.body).toBe(200);
-    const transfer = { id: res.json().transfer.id, date: "2026-10-13", fee: { amount: "-2", currency: "EUR" } };
+    const transfer = {
+      id: res.json().transfer.id,
+      date: "2026-10-13",
+      fee: { amount: "-2", currency: "EUR" },
+    };
     expect(res.json().transfer).toEqual({ ...transfer, side: "outflow", counterpartId: into.id, rate: null });
     expect((await get(space, into.id)).transfer).toEqual({
       ...transfer,
@@ -473,9 +481,9 @@ describe("FIN-03@PoC FR 18: a transfer between own accounts is never hidden or s
     const hide = await call(space, "POST", `/v1/transactions/${into.id}/hide`);
     expect(hide.statusCode).toBe(409);
     expect(hide.json().code).toBe("TRANSACTION_IN_TRANSFER");
-    const categories = (await call(space, "GET", "/v1/categories")).json().groups.flatMap(
-      (g: { categories: { id: string; kind: string }[] }) => g.categories,
-    );
+    const categories = (await call(space, "GET", "/v1/categories"))
+      .json()
+      .groups.flatMap((g: { categories: { id: string; kind: string }[] }) => g.categories);
     const food = categories.find((c: { kind: string }) => c.kind === "expense").id;
     const split = await call(space, "POST", `/v1/transactions/${out.id}/split`, {
       mode: "months",
@@ -499,13 +507,19 @@ describe("FIN-03@PoC FR 18: a transfer between own accounts is never hidden or s
   it("FIN-03@PoC FR 9: a side's account, amount, date and state change, and it is deleted, only once the mark is removed; its texts change", async () => {
     const { space, a, out, into } = await ac2();
     await mark(space, out.id, into.id);
-    for (const change of [{ amount: { amount: "-501.00", currency: "EUR" } }, { date: "2026-10-14" }, { status: "pending" }]) {
+    for (const change of [
+      { amount: { amount: "-501.00", currency: "EUR" } },
+      { date: "2026-10-14" },
+      { status: "pending" },
+    ]) {
       const res = await call(space, "PATCH", `/v1/transactions/${out.id}`, change);
       expect(res.statusCode, JSON.stringify(change)).toBe(409);
       expect(res.json().code).toBe("TRANSACTION_IN_TRANSFER");
     }
     expect((await call(space, "DELETE", `/v1/transactions/${into.id}`)).statusCode).toBe(409);
-    const text = await call(space, "PATCH", `/v1/transactions/${out.id}`, { description: "Синтетичне поповнення" });
+    const text = await call(space, "PATCH", `/v1/transactions/${out.id}`, {
+      description: "Синтетичне поповнення",
+    });
     expect(text.statusCode, text.body).toBe(200);
     expect(text.json().transfer).toMatchObject({ counterpartId: into.id });
     expect(await balance(space, a)).toBe("500");
@@ -520,7 +534,9 @@ describe("FIN-03@PoC «Права доступу»: transfers are the space's ow
     const cross = await mark(mine.space, mine.out.id, theirs.into.id);
     expect(cross.statusCode).toBe(400);
     expect(cross.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "not_found" }]);
-    expect((await call(mine.space, "DELETE", `/v1/transactions/${theirs.out.id}/transfer`)).statusCode).toBe(404);
+    expect((await call(mine.space, "DELETE", `/v1/transactions/${theirs.out.id}/transfer`)).statusCode).toBe(
+      404,
+    );
     const found = await proposals(mine.space);
     expect(found.items.map((p) => p.outflow.transactionId)).toEqual([mine.out.id]);
     expect((await get(theirs.space, theirs.out.id)).transfer).toBeNull();
@@ -531,8 +547,11 @@ describe("FIN-03@PoC «Права доступу»: transfers are the space's ow
     const theirs = await ac2();
     const txDb = db.databases.for("transactions");
     // The module's own role in the other space's context, asked without any filter: none of this space's rows.
-    const seen = await txDb.inHousehold(theirs.space.householdId, async (q) =>
-      (await q.query<{ id: string }>(`SELECT id FROM transfers UNION ALL SELECT id FROM transactions`)).rows,
+    const seen = await txDb.inHousehold(
+      theirs.space.householdId,
+      async (q) =>
+        (await q.query<{ id: string }>(`SELECT id FROM transfers UNION ALL SELECT id FROM transactions`))
+          .rows,
     );
     expect(seen.map((r) => r.id)).not.toContain(mine.out.id);
     const pairs = await createTransferCandidates(txDb).candidatePairs(mine.space.householdId, {
@@ -543,28 +562,38 @@ describe("FIN-03@PoC «Права доступу»: transfers are the space's ow
     expect(pairs.map((p) => p.outflow.transactionId)).toEqual([mine.out.id]);
   });
 
-  it.each(["owner", "admin", "editor"])("FIN-03@PoC «Права доступу»: a %s sees proposals, marks and removes a transfer", async (role) => {
-    const { space, out, into } = await ac2();
-    expect((await proposals(space, { role })).count).toBe(1);
-    expect((await mark(space, out.id, into.id, { role })).statusCode).toBe(200);
-    expect((await call(space, "DELETE", `/v1/transactions/${out.id}/transfer`, undefined, { role })).statusCode).toBe(200);
-  });
+  it.each(["owner", "admin", "editor"])(
+    "FIN-03@PoC «Права доступу»: a %s sees proposals, marks and removes a transfer",
+    async (role) => {
+      const { space, out, into } = await ac2();
+      expect((await proposals(space, { role })).count).toBe(1);
+      expect((await mark(space, out.id, into.id, { role })).statusCode).toBe(200);
+      expect(
+        (await call(space, "DELETE", `/v1/transactions/${out.id}/transfer`, undefined, { role })).statusCode,
+      ).toBe(200);
+    },
+  );
 
   it.each([
     ["viewer", {}],
     ["advisor", {}],
     ["editor", { scoped: true }],
-  ] as const)("FIN-03@PoC «Права доступу»: a %s %o may not mark or remove a transfer (403); nothing written", async (role, extra) => {
-    const { space, out, into } = await ac2();
-    const who = { role, ...extra };
-    expect((await mark(space, out.id, into.id, who)).statusCode).toBe(403);
-    await mark(space, out.id, into.id);
-    expect((await call(space, "DELETE", `/v1/transactions/${out.id}/transfer`, undefined, who)).statusCode).toBe(403);
-    expect((await get(space, out.id)).transfer).not.toBeNull();
-    // A scoped member does not even see the space's proposals (the visibility policy's default).
-    if ("scoped" in extra)
-      expect((await call(space, "GET", "/v1/transfer-proposals", undefined, who)).statusCode).toBe(404);
-  });
+  ] as const)(
+    "FIN-03@PoC «Права доступу»: a %s %o may not mark or remove a transfer (403); nothing written",
+    async (role, extra) => {
+      const { space, out, into } = await ac2();
+      const who = { role, ...extra };
+      expect((await mark(space, out.id, into.id, who)).statusCode).toBe(403);
+      await mark(space, out.id, into.id);
+      expect(
+        (await call(space, "DELETE", `/v1/transactions/${out.id}/transfer`, undefined, who)).statusCode,
+      ).toBe(403);
+      expect((await get(space, out.id)).transfer).not.toBeNull();
+      // A scoped member does not even see the space's proposals (the visibility policy's default).
+      if ("scoped" in extra)
+        expect((await call(space, "GET", "/v1/transfer-proposals", undefined, who)).statusCode).toBe(404);
+    },
+  );
 
   it("FIN-03@PoC «Права доступу»: on a closed account a transfer is not marked (409)", async () => {
     const space = await newSpace();

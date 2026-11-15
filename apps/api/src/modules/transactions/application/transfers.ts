@@ -1,10 +1,5 @@
 import type { ExchangeRate } from "@willowsum/domain-kernel";
-import {
-  orderPair,
-  transferRateRequest,
-  type FieldIssue,
-  type TransferLink,
-} from "../domain/index.ts";
+import { orderPair, transferRateRequest, type FieldIssue, type TransferLink } from "../domain/index.ts";
 import { transactionAuditValues, type TransactionHandOff } from "./hand-off.ts";
 import type { Caller, TransactionsDeps, TransactionsTx } from "./transactions.ts";
 import type { StoredTransaction } from "./stored.ts";

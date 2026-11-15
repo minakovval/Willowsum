@@ -185,7 +185,10 @@ function present(t: StoredTransaction, view?: TransferView): z.input<typeof tran
 }
 
 /** The transaction as the API shows it: with its transfer read in the space's transactions (FR 7). */
-async function shown(ctx: ProtectedContext, t: StoredTransaction): Promise<z.input<typeof transactionSchema>> {
+async function shown(
+  ctx: ProtectedContext,
+  t: StoredTransaction,
+): Promise<z.input<typeof transactionSchema>> {
   if (!t.transfer) return present(t);
   const id = t.transfer.id;
   const views = await ctx.inHousehold((q) => transfersOf(q, ctx.principal.householdId, [id]));
@@ -201,9 +204,7 @@ function invalid(issues: readonly FieldIssue[]): ApiProblem {
 
 function outcome(
   result:
-    | TransactionResult
-    | TransferResult
-    | { readonly kind: "ok" | "closed" | "in-transfer" | "not-found" },
+    TransactionResult | TransferResult | { readonly kind: "ok" | "closed" | "in-transfer" | "not-found" },
 ): void {
   switch (result.kind) {
     case "invalid":
@@ -235,7 +236,12 @@ async function handOffNow(
   try {
     // A transfer's two hand-offs in their order (application/transfers.ts); the worker finishes the rest on a failure.
     for (const h of Array.isArray(handOff) ? handOff : [handOff as TransactionHandOff])
-      await applyHandOff(deps, transactionRows((work) => ctx.inHousehold(work)), ctx.principal.householdId, h);
+      await applyHandOff(
+        deps,
+        transactionRows((work) => ctx.inHousehold(work)),
+        ctx.principal.householdId,
+        h,
+      );
   } catch (error) {
     logEvent("transactions.hand_off_deferred", "warn", {
       "ws.module": MODULE,
@@ -504,7 +510,9 @@ export const listTransactionsRoute = defineRoute({
         sort: dateAndTime(query.sort),
       });
       const split = page.items.filter((r) => r["splitMode"] !== null).map((r) => String(r["id"]));
-      const transferIds = page.items.filter((r) => r["transferId"] !== null).map((r) => String(r["transferId"]));
+      const transferIds = page.items
+        .filter((r) => r["transferId"] !== null)
+        .map((r) => String(r["transferId"]));
       return {
         page,
         parts: await partsOf(q, ctx.principal.householdId, split),
@@ -673,7 +681,11 @@ export const markTransferRoute = defineRoute({
       })
       .strict(),
   },
-  response: { status: 200, description: "The transaction, a side of the transfer", schema: transactionSchema },
+  response: {
+    status: 200,
+    description: "The transaction, a side of the transfer",
+    schema: transactionSchema,
+  },
   handler: async ({ params, body }, ctx) => {
     refuseScoped(ctx);
     const deps = transfersWiring(ctx);

@@ -35,7 +35,10 @@ export async function listProposals(
   deps: ProposalDeps,
   householdId: string,
 ): Promise<{ readonly proposals: readonly TransferProposal[]; readonly more: boolean }> {
-  const found = await deps.candidates.candidatePairs(householdId, { ...candidateQuery, limit: CANDIDATES_MAX + 1 });
+  const found = await deps.candidates.candidatePairs(householdId, {
+    ...candidateQuery,
+    limit: CANDIDATES_MAX + 1,
+  });
   const candidates = found.slice(0, CANDIDATES_MAX);
   const requests = candidates.map(rateRequestOf);
   const wanted = requests.filter((r) => r !== null);

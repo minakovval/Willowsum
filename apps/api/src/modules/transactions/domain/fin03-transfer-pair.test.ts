@@ -30,7 +30,9 @@ describe("FIN-03@PoC FR 27: «Позначити як переказ» pairs a d
   });
 
   it("FIN-03@PoC FR 27: one account, one direction or the transaction itself is no transfer", () => {
-    expect(orderPair(out, side(into.id, A, "498.00"))).toEqual([{ field: "counterpartId", issue: "same_account" }]);
+    expect(orderPair(out, side(into.id, A, "498.00"))).toEqual([
+      { field: "counterpartId", issue: "same_account" },
+    ]);
     expect(orderPair(out, side(into.id, B, "-498.00"))).toEqual([
       { field: "counterpartId", issue: "same_direction" },
     ]);

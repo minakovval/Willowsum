@@ -59,7 +59,10 @@ export function orderPair<T extends PairSide>(
   const [outflow, inflow] = transaction.amount.isNegative()
     ? [transaction, counterpart]
     : [counterpart, transaction];
-  if (outflow.amount.currency === inflow.amount.currency && inflow.amount.compare(outflow.amount.negated()) > 0)
+  if (
+    outflow.amount.currency === inflow.amount.currency &&
+    inflow.amount.compare(outflow.amount.negated()) > 0
+  )
     return [{ field: "counterpartId", issue: "amount_mismatch" }];
   return { outflow, inflow };
 }

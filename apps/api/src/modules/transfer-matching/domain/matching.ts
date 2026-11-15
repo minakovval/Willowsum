@@ -20,7 +20,7 @@ export const CROSS_CURRENCY_MAX_SHARE = new Decimal("0.03");
  */
 export const candidateQuery = {
   windowDays: MATCH_WINDOW_DAYS,
-  sameCurrencyMinShare: new Decimal(1).minus(FEE_MAX_SHARE).toString(),
+  sameCurrencyMinShare: new Decimal("1").minus(FEE_MAX_SHARE).toString(),
 } as const;
 
 export interface TransferSide {

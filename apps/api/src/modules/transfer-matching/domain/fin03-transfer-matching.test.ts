@@ -1,12 +1,6 @@
 import { exchangeRate, Money } from "@willowsum/domain-kernel";
 import { describe, expect, it } from "vitest";
-import {
-  candidateQuery,
-  proposalOf,
-  rateRequestOf,
-  transferDate,
-  type PairCandidate,
-} from "./matching.ts";
+import { candidateQuery, proposalOf, rateRequestOf, transferDate, type PairCandidate } from "./matching.ts";
 
 /** FIN-03@PoC b) (wave 2 row 16b): the rules that find a transfer between own accounts, without I/O. */
 const A = "11111111-1111-4111-8111-111111111111";
@@ -38,13 +32,17 @@ const eurUah = (rate: string, date = "2026-10-14") =>
 
 describe("FIN-03@PoC FR 5: a pair is a debit on one own account and a credit on another within 3 days", () => {
   it("FIN-03@PoC AC2: −500 EUR on A and +498 EUR on B two days later is a proposal with a fee of 2 EUR", () => {
-    const proposal = proposalOf(pair(["-500.00", "EUR", "2026-10-13"], ["498.00", "EUR", "2026-10-15"]), null);
+    const proposal = proposalOf(
+      pair(["-500.00", "EUR", "2026-10-13"], ["498.00", "EUR", "2026-10-15"]),
+      null,
+    );
     expect(proposal).toMatchObject({ kind: "same-currency", date: "2026-10-13" });
     expect(proposal?.kind === "same-currency" && proposal.fee.toDecimalString()).toBe("-2");
   });
 
   it("FIN-03@PoC FR 5: in one currency the difference is 0 to 2 % — equal amounts match, 2 % matches, more or a larger credit do not", () => {
-    const at = (into: string) => proposalOf(pair(["-500.00", "EUR", "2026-10-13"], [into, "EUR", "2026-10-13"]), null);
+    const at = (into: string) =>
+      proposalOf(pair(["-500.00", "EUR", "2026-10-13"], [into, "EUR", "2026-10-13"]), null);
     const equal = at("500.00");
     expect(equal).toMatchObject({ kind: "same-currency" });
     expect(equal?.kind === "same-currency" && equal.fee.isZero()).toBe(true);
@@ -54,15 +52,25 @@ describe("FIN-03@PoC FR 5: a pair is a debit on one own account and a credit on 
   });
 
   it("FIN-03@PoC FR 5: more than 3 days apart is no pair, in either order", () => {
-    expect(proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-13"]), null)).not.toBeNull();
-    expect(proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-14"]), null)).toBeNull();
-    expect(proposalOf(pair(["-100.00", "EUR", "2026-10-14"], ["100.00", "EUR", "2026-10-10"]), null)).toBeNull();
+    expect(
+      proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-13"]), null),
+    ).not.toBeNull();
+    expect(
+      proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-14"]), null),
+    ).toBeNull();
+    expect(
+      proposalOf(pair(["-100.00", "EUR", "2026-10-14"], ["100.00", "EUR", "2026-10-10"]), null),
+    ).toBeNull();
     // Across a month end the days are calendar days.
-    expect(proposalOf(pair(["-100.00", "EUR", "2026-09-29"], ["100.00", "EUR", "2026-10-02"]), null)).not.toBeNull();
+    expect(
+      proposalOf(pair(["-100.00", "EUR", "2026-09-29"], ["100.00", "EUR", "2026-10-02"]), null),
+    ).not.toBeNull();
   });
 
   it("FIN-03@PoC FR 5: both sides on one account are no transfer between accounts", () => {
-    expect(proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-10"], [A, A]), null)).toBeNull();
+    expect(
+      proposalOf(pair(["-100.00", "EUR", "2026-10-10"], ["100.00", "EUR", "2026-10-10"], [A, A]), null),
+    ).toBeNull();
   });
 
   it("FIN-03@PoC AC4: −1 000 EUR and +42 900 UAH a day later at 43,50 UAH per EUR is a currency transfer — 1,38 % is within 3 %", () => {
@@ -91,8 +99,12 @@ describe("FIN-03@PoC FR 5: a pair is a debit on one own account and a credit on 
 
 describe("FIN-03@PoC edge case 1: a transfer whose sides have different dates is dated by the earlier side", () => {
   it("FIN-03@PoC EC1: the date of the transfer is the earlier date, whichever side it is", () => {
-    expect(transferDate(pair(["-1.00", "EUR", "2026-10-15"], ["1.00", "EUR", "2026-10-13"]))).toBe("2026-10-13");
-    expect(transferDate(pair(["-1.00", "EUR", "2026-10-12"], ["1.00", "EUR", "2026-10-13"]))).toBe("2026-10-12");
+    expect(transferDate(pair(["-1.00", "EUR", "2026-10-15"], ["1.00", "EUR", "2026-10-13"]))).toBe(
+      "2026-10-13",
+    );
+    expect(transferDate(pair(["-1.00", "EUR", "2026-10-12"], ["1.00", "EUR", "2026-10-13"]))).toBe(
+      "2026-10-12",
+    );
   });
 });
 

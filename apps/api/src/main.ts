@@ -220,13 +220,17 @@ const server = buildServer({
               flags,
               // A transfer in two currencies keeps the official rate of its date (FIN-03 FR 8).
               rates: (requests) =>
-                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(
+                  requests,
+                ),
             }),
             // FIN-03 FR 5, FR 6: proposals of transfers from the space's transactions at the official rates.
             transferMatching: createTransferMatchingServices({
               candidates: createTransferCandidates(databases.for("transactions")),
               rates: (requests) =>
-                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(requests),
+                createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(
+                  requests,
+                ),
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use.
             categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),

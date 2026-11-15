@@ -5,12 +5,7 @@ import type { AccountDirectory } from "../../../accounts/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
-import type {
-  SplitDeps,
-  TransactionAudit,
-  TransactionsDeps,
-  TransferDeps,
-} from "../../application/index.ts";
+import type { SplitDeps, TransactionAudit, TransactionsDeps, TransferDeps } from "../../application/index.ts";
 
 /** The release flag of «Очікує» and hiding (FIN-03 b, wave 2 row 16a); the routes of hiding are behind it too. */
 export const STATES_FLAG = "transactions.states";

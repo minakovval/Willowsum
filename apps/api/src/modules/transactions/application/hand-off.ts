@@ -93,7 +93,10 @@ export interface TransactionRows {
   whileLocked<T>(
     householdId: string,
     transactionId: string,
-    work: (row: StoredTransaction | null, find: (id: string) => Promise<StoredTransaction | null>) => Promise<T>,
+    work: (
+      row: StoredTransaction | null,
+      find: (id: string) => Promise<StoredTransaction | null>,
+    ) => Promise<T>,
   ): Promise<T>;
 }
 
@@ -201,14 +204,19 @@ async function desiredJournal(
   find: (id: string) => Promise<StoredTransaction | null>,
 ): Promise<{
   readonly own: OwnEvent | null;
-  readonly transfer: { readonly link: TransferLink; readonly input: PostInput["event"]; readonly date: string } | null;
+  readonly transfer: {
+    readonly link: TransferLink;
+    readonly input: PostInput["event"];
+    readonly date: string;
+  } | null;
 }> {
   if (row === null || row.status === "pending") return { own: null, transfer: null };
   if (row.transfer === null) return { own: { amount: row.amount, date: row.date }, transfer: null };
   if (row.transfer.inflowId === row.id) return { own: null, transfer: null };
   const inflow = await find(row.transfer.inflowId);
   // The pair is written in one transaction with both rows, so the other side is there; should it not be, retried.
-  if (!inflow || inflow.transfer?.id !== row.transfer.id) throw new Error("the transfer's inflow is not in its pair");
+  if (!inflow || inflow.transfer?.id !== row.transfer.id)
+    throw new Error("the transfer's inflow is not in its pair");
   const date = transferDate(row, inflow);
   const fee = transferFee(row, inflow);
   const from = await ledgerAccountOf(deps, householdId, row);
