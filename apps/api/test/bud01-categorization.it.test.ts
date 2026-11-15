@@ -426,6 +426,33 @@ describe("BUD-01@PoC FR 8, FR 12: the category tree and the transactions' catego
     expect((await rows(space.householdId)).map((r) => r.version)).toEqual([2, 2]);
   });
 
+  it("BUD-01@PoC FR 8: «Кава» into «Чай», then «Чай» into «Кафе і ресторани»; the first merge's job runs after the second's — the transactions end in «Кафе і ресторани», not in the merged-away «Чай»", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const coffee = await addCategory(space, "Синтетична кава");
+    const tea = await addCategory(space, "Синтетичний чай");
+    const cafes = await category(space, "Кафе і ресторани");
+    const t = await purchase(space, account, "Синтетична кав'ярня");
+    expect((await setCategory(space, t, coffee.id)).statusCode).toBe(200);
+    const first = await call(space, "POST", `/v1/categories/${coffee.id}/merge`, { targetId: tea.id });
+    expect(first.statusCode, first.body).toBe(200);
+    // The first event reaches categorization late (a retried job, or a dead one put back by the daily recovery).
+    await db.owner.query(
+      `UPDATE categories.outbox_events SET dispatched_at = now() WHERE household_id = $1 AND dispatched_at IS NULL`,
+      [space.householdId],
+    );
+    const second = await call(space, "POST", `/v1/categories/${tea.id}/merge`, { targetId: cafes.id });
+    expect(second.statusCode, second.body).toBe(200);
+    await runWorker(space.householdId);
+    await db.owner.query(
+      `UPDATE categories.outbox_events SET dispatched_at = NULL
+        WHERE household_id = $1 AND payload->>'sourceId' = $2`,
+      [space.householdId, coffee.id],
+    );
+    await runWorker(space.householdId);
+    expect(await categoryOf(space, t)).toEqual({ transactionId: t, categoryId: cafes.id, source: "manual" });
+  });
+
   it("BUD-01@PoC FR 12: a custom category that a transaction has is not empty; moved away or the transaction deleted, it is empty again", async () => {
     const space = await newSpace();
     const account = await createAccount(space);

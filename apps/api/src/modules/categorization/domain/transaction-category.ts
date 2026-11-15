@@ -75,6 +75,8 @@ export function refusal(facts: CategorizableFacts): CategorizableIssue | null {
 export interface CategoryFacts {
   readonly kind: "expense" | "income" | "service";
   readonly state: "active" | "hidden" | "retired";
+  /** FR 8: the category in use its records went to; null (or absent) unless merged. */
+  readonly mergedInto?: string | null;
 }
 
 /**

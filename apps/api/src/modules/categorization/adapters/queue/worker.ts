@@ -5,7 +5,12 @@ import {
   requeueDeadJobs,
   type WorkerQueue,
 } from "../../../../platform/queue/index.ts";
-import { applyHandOff, applyMerge, type CategoryAudit } from "../../application/index.ts";
+import {
+  applyHandOff,
+  applyMerge,
+  type CategoryAudit,
+  type CategoryFactsPort,
+} from "../../application/index.ts";
 import { categorizationTx } from "../db/store.ts";
 import { CATEGORY_MERGED_JOB, HAND_OFF_JOB } from "./job.ts";
 
@@ -13,7 +18,11 @@ import { CATEGORY_MERGED_JOB, HAND_OFF_JOB } from "./job.ts";
  * The worker's categorization queue (src/wiring.ts): the store in the categorization schema, the hand-off's handler
  * (the audit entry through the audit log's public interface, ADR-0015, holding the job's row lock) and the merge's.
  */
-export function categorizationWorkerQueue(db: ModuleDatabase, audit: CategoryAudit): WorkerQueue {
+export function categorizationWorkerQueue(
+  db: ModuleDatabase,
+  audit: CategoryAudit,
+  categories: CategoryFactsPort,
+): WorkerQueue {
   return {
     store: postgresJobStore(db),
     handlers: [
@@ -33,7 +42,7 @@ export function categorizationWorkerQueue(db: ModuleDatabase, audit: CategoryAud
       defineJobHandler({
         job: CATEGORY_MERGED_JOB,
         run: async (job, q) => {
-          await applyMerge(categorizationTx(q), job.householdId, job.payload);
+          await applyMerge(categorizationTx(q), categories, job.householdId, job.payload);
         },
       }),
     ],

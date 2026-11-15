@@ -287,7 +287,11 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       // recurring subscribe in the parts that bring them.
       { store: postgresJobStore(databases.for("categories")), handlers: [] },
       // BUD-01 b: the audit entries of a transaction's category and the merges of categories (ADR-0015).
-      createCategorizationWorkerQueue(databases.for("categorization"), audit),
+      createCategorizationWorkerQueue(
+        databases.for("categorization"),
+        audit,
+        createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
+      ),
       createTransactionsWorkerQueue(databases.for("transactions"), {
         accounts: createAccountDirectory(databases.for("accounts")),
         ledger,

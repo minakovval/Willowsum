@@ -163,14 +163,18 @@ export async function categoryOf(
 
 /**
  * FR 8 («Категорію об'єднано»): the transactions of the merged category take the target, keeping their source. Run by
- * the job of the event; running it again moves nothing more.
+ * the job of the event; running it again moves nothing more. The target is where the source points now: a later merge
+ * of the target re-points the source (module categories), and this job may run after that merge's own job (a retry,
+ * a dead job put back by the daily recovery), which then moved nothing of the source.
  */
-export function applyMerge(
+export async function applyMerge(
   tx: CategorizationTx,
+  categories: CategoryFactsPort,
   householdId: string,
   event: { readonly sourceId: string; readonly targetId: string },
 ): Promise<number> {
-  return tx.move(householdId, event.sourceId, event.targetId);
+  const source = await categories.category(householdId, event.sourceId);
+  return tx.move(householdId, event.sourceId, source?.mergedInto ?? event.targetId);
 }
 
 /**

@@ -75,8 +75,9 @@ export function createCategoryBulkActions(deps: {
 export function createCategorizationWorkerQueue(
   db: ModuleDatabase,
   audit: Pick<AuditLog, "record">,
+  categories: Pick<CategoryDirectory, "category">,
 ): WorkerQueue {
-  return categorizationWorkerQueue(db, categorizationAudit(audit));
+  return categorizationWorkerQueue(db, categorizationAudit(audit), categories);
 }
 
 /** BUD-01 FR 8: module categories' «Категорію об'єднано» becomes a categorization job (src/wiring.ts). */

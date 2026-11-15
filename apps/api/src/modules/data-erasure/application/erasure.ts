@@ -111,12 +111,14 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // Transactions (FIN-03), accounts and liabilities (FIN-01), then the journal they posted to.
     await deps.platformAudit.spaceStep(householdId, "transactions.records");
     await deps.transactions.eraseHousehold(householdId);
-    // The categories of the transactions (BUD-01 b), then the tree they refer to.
-    await deps.platformAudit.spaceStep(householdId, "categorization.records");
-    await deps.categorization.eraseHousehold(householdId);
     // The category tree (BUD-01): after the transactions that will refer to it.
     await deps.platformAudit.spaceStep(householdId, "categories.records");
     await deps.categories.eraseHousehold(householdId);
+    // The categories of the transactions (BUD-01 b): after module categories, whose outbox («categories.merged») feeds
+    // the categorization queue — a publisher before its consumer, so a worker pass between the steps hands no event
+    // into a queue already erased.
+    await deps.platformAudit.spaceStep(householdId, "categorization.records");
+    await deps.categorization.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "accounts.records");
     await deps.accounts.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "liabilities.records");

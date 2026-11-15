@@ -24,9 +24,9 @@ NFR-12@PoC п. 3 (запит, видалення протягом 30 днів, �
     платформи (`data-erasure.request`, `dueAt`). Простір з іншим учасником — `SPACE_SHARED`, нічого не записано; повторний
     запит для того самого акаунта повертає наявний.
   - `run(requestId)` — простори беруться в момент виконання (записані в запиті плюс поточні простори акаунта); акаунт
-    (identity), далі для кожного простору: масові дії (bulk-actions), транзакції (transactions), дерево категорій (categories), рахунки (accounts) і зобов'язання (liabilities), журнал проводок (ledger), журнал аудиту простору (audit), останнім ключ разом
+    (identity), далі для кожного простору: масові дії (bulk-actions), транзакції (transactions), дерево категорій (categories), категорії транзакцій (categorization; після categories — споживача її подій), рахунки (accounts) і зобов'язання (liabilities), журнал проводок (ledger), журнал аудиту простору (audit), останнім ключ разом
     із записом простору (household) і ще раз журнал аудиту простору (запис щоденної задачі ключів між кроками). Перед
-    кожним видаленням — запис у журналі платформи (`bulk-actions.records`, `transactions.records`, `categorization.records`, `categories.records`, `accounts.records`, `liabilities.records`, `ledger.journal`, `audit.log`, акаунт, ключ). Завершення з усіма
+    кожним видаленням — запис у журналі платформи (`bulk-actions.records`, `transactions.records`, `categories.records`, `categorization.records`, `accounts.records`, `liabilities.records`, `ledger.journal`, `audit.log`, акаунт, ключ). Завершення з усіма
     просторами — у журнал видалень і журнал платформи. Ідемпотентний.
   - `reapply()` — після відновлення повторює кожен завершений запит; повертає кількість.
   - `status()` — кожен запит: стан, строк, днів лишилося, прострочення.
