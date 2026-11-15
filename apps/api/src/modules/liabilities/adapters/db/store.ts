@@ -2,11 +2,13 @@ import { Decimal, Money } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { LiabilitiesTx, Liability } from "../../application/index.ts";
 import { termsMissing, type LiabilityKind } from "../../domain/index.ts";
+import { enqueueHandOff } from "../queue/job.ts";
 
 /**
  * The liabilities schema through the module's own role (migrations/0001_liabilities.sql, 0002). `terms_pending` marks a
  * loan that may miss its rate or payment after «Кредитна картка» → «Кредит» (FIN-12@PoC AC12); only `update` sets it,
- * so a new loan stays under the stored rule «a loan has its rate and monthly payment».
+ * so a new loan stays under the stored rule «a loan has its rate and monthly payment». `enqueueHandOff` writes the audit
+ * entry's job in the same transaction (migrations/0003_queue.sql; ARC-04 FR 2).
  */
 
 interface Row {
@@ -87,6 +89,7 @@ export function liabilitiesTx(q: ModuleQueryRunner): LiabilitiesTx {
         ],
       );
     },
+    enqueueHandOff: (householdId, handOff) => enqueueHandOff({ ...q, householdId }, handOff),
     async byAccount(householdId, accountId) {
       const { rows } = await q.query<Row>(
         `SELECT ${COLUMNS} FROM liabilities WHERE household_id = $1 AND account_id = $2`,

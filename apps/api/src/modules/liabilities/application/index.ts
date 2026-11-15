@@ -4,8 +4,17 @@ export {
   changeLiabilityKind,
   registerLiability,
   type ChangeKindResult,
+  type Handed,
   type LiabilitiesTx,
   type Liability,
-  type LiabilityAudit,
   type RegisterResult,
 } from "./liabilities.ts";
+export {
+  applyHandOff,
+  auditKey,
+  handOffKey,
+  LIABILITY_HAND_OFF_ACTIONS,
+  type LiabilityAudit,
+  type LiabilityAuditChange,
+  type LiabilityHandOff,
+} from "./hand-off.ts";

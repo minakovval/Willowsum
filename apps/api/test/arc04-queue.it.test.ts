@@ -145,6 +145,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(transactionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off jobs of liabilities (ARC-04 FR 2, ADR-0015).
+    const liabilitiesSql = readFileSync(
+      `${apiDir}/src/modules/liabilities/adapters/db/migrations/0003_queue.sql`,
+      "utf8",
+    );
+    expect(liabilitiesSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     // categories publishes `categories.merged` (BUD-01 FR 8): the same migration verbatim.
     const categoriesSql = readFileSync(
       `${apiDir}/src/modules/categories/adapters/db/migrations/0003_outbox.sql`,
@@ -168,6 +174,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "bulk_actions",
         "categories",
         "ledger",
+        "liabilities",
         "queue_consumer",
         "queue_producer",
         "transactions",

@@ -1,26 +1,25 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
 
-Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178); the Fable model added and narrowed (owner, 2026-11-14, #178). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
+Moved out of `pr-pipeline` SKILL.md (owner, 2026-11-13); token accounting and agent resume limit added (owner, 2026-11-13, #178, #180); real agent spend, time accounting, the script `tools/token-report` and the fix model rule added (owner, 2026-11-14, #178); `get_session` usage, the rate limit and the session retrospective added (owner, 2026-11-14, #178); the Fable model added and narrowed (owner, 2026-11-14, #178); Fable scope narrowed again and the per-model split added (owner, 2026-11-15, #178, comment 6894721169). Read when you choose a model for an agent or write a brief, after every merge, and when a lead session starts or finishes.
 
 Owner request 2026-11-12; rules decided by the lead.
 
 1. Pick the agent's model by risk:
-   - the strongest model for implementing sensitive features and for security reviews of critical modules
-     (isolation, money, auth, encryption);
-   - **Fable** (owner, 2026-11-14, #178, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128):
-     «так, давай на fable»; narrowed by the owner the same day, chat of lead 4: «так, 1–4 так, …»,
+   - the strongest model for implementing sensitive features; security reviews of critical modules (isolation,
+     money, auth, encryption) on the main model, except the highest-risk PRs (see Fable);
+   - **Fable** (owner, 2026-11-15, #178, [comment 6894721169](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6894721169):
+     «1. і додати аудит зріз по моделям»; earlier: 2026-11-14, [comment 6880282128](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6880282128),
      [comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)): **only**
-     security reviews of critical PRs (money, access, sign-in, encryption) and root-cause searches (e.g. flaky
-     tests); everything else (architecture rows, vault encryption, statement import, requirement sweeps
-     `C0`/`D0`/`F0`, follow-ups, docs, sync confirmations) is on the main model. **At most one Fable task at a
-     time** (owner decision, 2026-11-14, same comment; lead 4 retrospective,
-     [#180](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6883180207): two parallel Fable tasks
-     with the other agents exhausted the 5-hour limit). It draws on the owner's 100 USD subscription, the same
-     limit as the main model, and spends it faster. After 3–4 Fable tasks, compare their #180 rows with similar
-     PRs on the main model and report to the owner before widening its use. Risks: about ×2 price per token;
-     longer turns; Fable briefs are short and state the goal, not step-by-step instructions;
+     root-cause searches of flaky tests and the security review of the highest-risk PRs (sign-in, encryption,
+     data isolation of the household/space). Other security reviews are on the main model, as is everything else
+     (architecture rows, vault encryption, statement import, requirement sweeps, follow-ups, docs, sync
+     confirmations). **At most one Fable task at a time.** **Mutation testing of critical modules is mandatory on any
+     model.** A security review already started on Fable (#266) is finished on Fable. Fable draws on the same
+     100 USD subscription limit and spends it faster (about ×2 price per token, longer turns); its briefs are
+     short and state the goal. Compare Fable rows with similar PRs in #180 by the per-model split (see «Token
+     accounting»);
    - reviews (owner, 2026-11-13): a `review-pr` of a PR that changes **only docs and requirement text** may use
      a lighter, cheaper model (the Agent tool's model option). Docs-only means every changed file is one that
      `isDocsOnly` in `tools/pr-rules/lib/ci-paths.mjs` accepts (the job `changes` skips all heavy jobs: `docs/`,
@@ -73,6 +72,9 @@ What the numbers mean (#178, comments 6873807074 and 6866721229):
   #180 only for comparison. The real spend is the sum of `usage` (`cache_read_input_tokens`,
   `cache_creation_input_tokens`, `input_tokens`, `output_tokens`) of every model call in the agent's log
   `tasks/<agentId>.output`, each `message.id` once — 30–90 times more (the lead's estimate, [#180 «Токени агентів»](https://github.com/minakovval/Willowsum/issues/180); not measured in #178).
+- Spend per model (owner, 2026-11-15, #178, comment 6894721169): every assistant record carries `message.model`
+  (e.g. `claude-sonnet-5-5`, `claude-opus-5-5`, `claude-fable-5-2`); the script sums `usage` per model, each
+  `message.id` once. A record without a model counts as `unknown`.
 - A resumed agent's notice shows only its last run: sum `duration_ms` (and `subagent_tokens`) of every run.
 - `get_session` → `usage` is returned again and now includes the agents; it may be absent at session start
   (owner, 2026-11-14, #178). The lead's own share is `tools/token-report session` on its transcript
@@ -87,6 +89,10 @@ node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|п�
   --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
 node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
 ```
+Per-model split: after the row, `pr` prints one line per model (model, model calls, cache read, cache creation,
+input, output), and the row's «Примітка» gets `моделі: opus 4,1 млн / fable 1,2 млн cache read`; the row columns are
+unchanged. `session` prints the same lines after the total. From now on the #180 PR rows note the per-model split
+(owner, 2026-11-15, #178). Paste only the row line into #180.
 Roles: `author` and `fix` add to «Час автора», `review`, `security` and `confirm` to «Час рецензій». It prints the
 row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Агенти: cache read, млн | Агенти: output, тис. |
 Час автора, хв | Час рецензій, хв | CI, хв | Примітка); `--note` adds to the note. CI minutes are the sum of
