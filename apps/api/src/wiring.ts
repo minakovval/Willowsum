@@ -180,6 +180,9 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         liabilities: createLiabilities(databases.for("liabilities"), audit),
         audit,
       }),
+      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
+      // subscribe in the parts that bring them.
+      { store: postgresJobStore(databases.for("categories")), handlers: [] },
     ],
     subscriptions: [],
   };

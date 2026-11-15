@@ -104,6 +104,12 @@ export const PROBLEMS = {
    * FIN-12@PoC FR 5, AC11: «Кредит» ↔ «Кредитна картка» only for an account without transactions; nothing was written.
    */
   ACCOUNT_HAS_TRANSACTIONS: { status: 409, title: "The account has transactions; its kind cannot change" },
+  /** «Така назва вже існує» (BUD-01@PoC FR 2): a category or group of the space has the name (any case); nothing written. */
+  CATEGORY_NAME_TAKEN: { status: 409, title: "A category with this name already exists" },
+  /** «Категорії різних типів не можна об'єднати» (BUD-01@PoC FR 8, AC6); nothing was written. */
+  CATEGORY_KINDS_DIFFER: { status: 409, title: "Categories of different types cannot be merged" },
+  /** BUD-01@PoC FR 3: «Переказ» and «Коригування» are never hidden or merged; nothing was written. */
+  CATEGORY_SERVICE_FIXED: { status: 409, title: "A service category cannot be hidden or merged" },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**

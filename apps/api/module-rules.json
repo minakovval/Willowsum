@@ -27,7 +27,7 @@
     },
     "categories": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit"]
     },
     "categorization": {
       "layer": "subject",
@@ -35,7 +35,16 @@
     },
     "data-erasure": {
       "layer": "process",
-      "dependsOn": ["accounts", "audit", "household", "identity", "ledger", "liabilities", "transactions"]
+      "dependsOn": [
+        "accounts",
+        "audit",
+        "categories",
+        "household",
+        "identity",
+        "ledger",
+        "liabilities",
+        "transactions"
+      ]
     },
     "debt-payoff": {
       "layer": "process",

@@ -3,6 +3,7 @@ import { Money } from "@willowsum/domain-kernel";
 import { createAuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
+import { createCategoryDirectory } from "../src/modules/categories/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { withErasureDatabases } from "../src/platform/db/erasure-db.ts";
@@ -87,6 +88,20 @@ export async function personWithSpace(db: RealModulesDatabase, label: string) {
       `INSERT INTO idempotency_keys (household_id, key, request_hash, expires_at)
        VALUES ($1, $2, repeat('0', 64), now() + interval '1 day')`,
       [householdId, randomUUID()],
+    );
+  });
+  // BUD-01: the space's category tree (written on first use) and a merge event in the module's outbox.
+  const categories = createCategoryDirectory({
+    db: db.databases.for("categories"),
+    audit: createAuditLog(db.databases.for("audit")),
+    newId: randomUUID,
+  });
+  const transfer = await categories.serviceCategory(householdId, "transfer");
+  await db.databases.for("categories").inHousehold(householdId, async (q) => {
+    await q.query(
+      `INSERT INTO outbox_events (household_id, event_name, event_version, payload)
+       VALUES ($1, 'categories.merged', 1, jsonb_build_object('sourceId', $2::text, 'targetId', $2::text))`,
+      [householdId, transfer!.id],
     );
   });
   await createLiabilities(
