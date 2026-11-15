@@ -156,6 +156,14 @@ export const PROBLEMS = {
     status: 409,
     title: "The transaction is merged with a duplicate; unmerge it first",
   },
+  /**
+   * BUD-01@PoC FR 6, FIN-03@PoC FR 23: a split transaction has the categories of its parts; its own category changes
+   * only once the split is removed; nothing was written.
+   */
+  TRANSACTION_SPLIT: {
+    status: 409,
+    title: "The transaction is split; change the categories of its parts",
+  },
   /** FIN-03@PoC FR 18: hiding is for duplicates and technical records only; nothing was written. */
   TRANSACTION_NOT_HIDEABLE: {
     status: 409,

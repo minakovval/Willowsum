@@ -26,6 +26,7 @@ export interface ErasureDeps {
   readonly transactions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly bulkActions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly categories: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly audit: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -39,6 +40,7 @@ export interface ErasureDeps {
       step:
         | "bulk-actions.records"
         | "transactions.records"
+        | "categorization.records"
         | "categories.records"
         | "accounts.records"
         | "liabilities.records"
@@ -112,6 +114,11 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // The category tree (BUD-01): after the transactions that will refer to it.
     await deps.platformAudit.spaceStep(householdId, "categories.records");
     await deps.categories.eraseHousehold(householdId);
+    // The categories of the transactions (BUD-01 b): after module categories, whose outbox («categories.merged») feeds
+    // the categorization queue — a publisher before its consumer, so a worker pass between the steps hands no event
+    // into a queue already erased.
+    await deps.platformAudit.spaceStep(householdId, "categorization.records");
+    await deps.categorization.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "accounts.records");
     await deps.accounts.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "liabilities.records");

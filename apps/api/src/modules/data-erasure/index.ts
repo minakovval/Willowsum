@@ -7,6 +7,7 @@ import { createAccountsErasure } from "../accounts/index.ts";
 import { createTransactionsErasure } from "../transactions/index.ts";
 import { createBulkActionsErasure } from "../bulk-actions/index.ts";
 import { createCategoriesErasure } from "../categories/index.ts";
+import { createCategorizationErasure } from "../categorization/index.ts";
 import { createAuditErasure, createAuditLog } from "../audit/index.ts";
 import { createSpaceErasure } from "../household/index.ts";
 import { createIdentityErasure } from "../identity/index.ts";
@@ -44,7 +45,7 @@ export interface DataErasure {
 }
 
 export interface DataErasureOptions {
-  /** The module pools (identity, household, bulk-actions, transactions, categories, accounts, liabilities, audit — the platform log). */
+  /** The module pools (identity, household, bulk-actions, transactions, categorization, categories, accounts, liabilities, audit — the platform log). */
   readonly databases: Pick<ModuleDatabases, "for">;
   /** The erasure pools of audit and ledger (`withErasureDatabases`, platform/db/erasure-db.ts). */
   readonly erasureDatabases: Pick<ModuleDatabases, "for">;
@@ -70,6 +71,7 @@ export function createDataErasure(options: DataErasureOptions): DataErasure {
     transactions: createTransactionsErasure(options.databases.for("transactions")),
     bulkActions: createBulkActionsErasure(options.databases.for("bulk-actions")),
     categories: createCategoriesErasure(options.databases.for("categories")),
+    categorization: createCategorizationErasure(options.databases.for("categorization")),
     accounts: createAccountsErasure(options.databases.for("accounts")),
     liabilities: createLiabilitiesErasure(options.databases.for("liabilities")),
     ledger: createLedgerErasure(options.erasureDatabases.for("ledger")),

@@ -16,6 +16,13 @@ import {
   createBulkActionsWorkerQueue,
   type BulkActionsServices,
 } from "./modules/bulk-actions/index.ts";
+import {
+  categorizationSubscriptions,
+  createCategorizationRecovery,
+  createCategorizationWorkerQueue,
+  createCategoryBulkActions,
+} from "./modules/categorization/index.ts";
+import { createCategoryDirectory } from "./modules/categories/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
 import { createIdentityMaintenance } from "./modules/identity/index.ts";
@@ -30,6 +37,7 @@ import {
   createLiabilitiesWorkerQueue,
 } from "./modules/liabilities/index.ts";
 import {
+  createTransactionLookup,
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
 } from "./modules/transactions/index.ts";
@@ -50,15 +58,28 @@ import { randomUUID } from "node:crypto";
 
 /**
  * The bulk actions of the selection panels (DAT-03@PoC FR 2), the same for the API (main.ts) and the worker: each
- * entity's target and each action come from the module that owns the records, through its public interface. None is
- * on `main` yet: «Змінити категорію» and «Підтвердити категорії» come with the transaction's category (BUD-01 b,
- * BUD-12 a; wave 2 rows 20, 24), «Додати теги» with the tags (BUD-13 a, row 21) — until then every action is unknown.
+ * entity's target and each action come from the module that owns the fields, through its public interface.
+ * «Змінити категорію» — categorization (BUD-01 b, wave 2 row 20; #272 item 1) on the target «transactions» (module
+ * transactions' lookup). «Додати теги» (BUD-13 a, row 21) and «Підтвердити категорії» (BUD-12 a, row 24) come with
+ * their fields; until then they are unknown actions.
  */
 export function bulkActionsServicesFor(
   audit: Pick<AuditLog, "record">,
+  databases: Pick<ModuleDatabases, "for">,
   clock: { now(): number } = systemClock,
 ): BulkActionsServices {
-  return createBulkActionsServices({ targets: [], actions: [], audit, clock, newId: randomUUID });
+  const categories = createCategoryBulkActions({
+    db: databases.for("categorization"),
+    transactions: createTransactionLookup(databases.for("transactions")),
+    categories: createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
+  });
+  return createBulkActionsServices({
+    targets: [...categories.targets],
+    actions: [...categories.actions],
+    audit,
+    clock,
+    newId: randomUUID,
+  });
 }
 
 /**
@@ -157,6 +178,9 @@ export function schedulerDailyTasks(deps: {
   const bulkActionsRecovery = createBulkActionsRecovery(deps.databases.for("bulk-actions"), () =>
     deps.spaces.spaceIds(),
   );
+  const categorizationRecovery = createCategorizationRecovery(deps.databases.for("categorization"), () =>
+    deps.spaces.spaceIds(),
+  );
   const liabilitiesRecovery = createLiabilitiesHandOffRecovery(deps.databases.for("liabilities"), () =>
     deps.spaces.spaceIds(),
   );
@@ -187,6 +211,15 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await bulkActionsRecovery.run();
         if (requeued > 0) logEvent("bulk_actions.jobs_requeued", "warn", { "ws.module": "bulk-actions" });
+      },
+    },
+    // The same for the categorization queue (ARC-04, ADR-0015; #249): the audit entry of a transaction's category and
+    // «Категорію об'єднано» (BUD-01 FR 8).
+    {
+      name: "categorization.recovery",
+      run: async () => {
+        const requeued = await categorizationRecovery.run();
+        if (requeued > 0) logEvent("categorization.jobs_requeued", "warn", { "ws.module": "categorization" });
       },
     },
     // The same for the liabilities queue (ARC-04, ADR-0015): a liability's audit entry.
@@ -250,18 +283,24 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         liabilities: createLiabilities(databases.for("liabilities"), audit),
         audit,
       }),
-      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
-      // subscribe in the parts that bring them.
+      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); categorization consumes it (below), budget and
+      // recurring subscribe in the parts that bring them.
       { store: postgresJobStore(databases.for("categories")), handlers: [] },
+      // BUD-01 b: the audit entries of a transaction's category and the merges of categories (ADR-0015).
+      createCategorizationWorkerQueue(
+        databases.for("categorization"),
+        audit,
+        createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
+      ),
       createTransactionsWorkerQueue(databases.for("transactions"), {
         accounts: createAccountDirectory(databases.for("accounts")),
         ledger,
         audit,
       }),
       // DAT-03: the parts of background bulk actions, undos and their group audit entries (ARC-04).
-      createBulkActionsWorkerQueue(databases.for("bulk-actions"), bulkActionsServicesFor(audit)),
+      createBulkActionsWorkerQueue(databases.for("bulk-actions"), bulkActionsServicesFor(audit, databases)),
       createLiabilitiesWorkerQueue(databases.for("liabilities"), audit),
     ],
-    subscriptions: [],
+    subscriptions: [...categorizationSubscriptions],
   };
 }

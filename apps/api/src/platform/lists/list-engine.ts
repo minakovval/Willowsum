@@ -115,6 +115,16 @@ export interface ListResult {
 export interface List {
   readonly query: ListQuery["query"] & typeof LIST_PAGE_QUERY;
   run(q: HouseholdQueryRunner, request: ListRequest): Promise<ListResult>;
+  /**
+   * «Вибрати всі M за фільтром» of a bulk action (DAT-03@PoC FR 1): the tie-breaker values of the matching records
+   * without `excluded`, in the list's order — at most `limit` — and how many match without them. The same filter, sort
+   * and permissions as `run`; an unknown or malformed filter is refused the same way (400).
+   */
+  ids(
+    q: HouseholdQueryRunner,
+    request: Pick<ListRequest, "filter" | "sort">,
+    options: { readonly excluded: readonly string[]; readonly limit: number },
+  ): Promise<{ readonly ids: readonly string[]; readonly count: number }>;
 }
 
 function invalid(path: "page" | "pageSize"): never {
@@ -264,6 +274,31 @@ export function defineList(spec: ListSpec): List {
         to: items.length === 0 ? 0 : offset + items.length,
         groups,
       };
+    },
+    async ids(q, request, options) {
+      if (!Number.isSafeInteger(options.limit) || options.limit < 0)
+        throw new Error("list: the limit of ids must be a whole number");
+      const compiled = listQuery.compile({ filter: request.filter, sort: request.sort }, 2);
+      if (!checked) {
+        const problem = await schemaProblem(q, spec);
+        if (problem !== null) throw new Error(`list: ${problem}`);
+        checked = true;
+      }
+      const excludedAt = compiled.params.length + 2;
+      const tie = quote(spec.tieBreaker);
+      const where = `${quote(HOUSEHOLD_COLUMN)} = $1::uuid AND (${compiled.where})
+        AND NOT (${tie}::text = ANY ($${excludedAt}::text[]))`;
+      const params = [q.householdId, ...compiled.params, [...options.excluded]];
+      const { rows: counted } = await q.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM ${table} WHERE ${where}`,
+        params,
+      );
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT ${tie}::text AS id FROM ${table} WHERE ${where}
+          ORDER BY ${compiled.orderBy}, ${tie} ASC LIMIT $${excludedAt + 1}::int`,
+        [...params, options.limit],
+      );
+      return { ids: rows.map((r) => r.id), count: counted[0]?.count ?? 0 };
     },
   };
 }

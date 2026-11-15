@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -133,6 +133,10 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   `transactions.hand_off_requeued` (WARN), якщо хоч одна повернулася.
 - `createTransactionCategoryUsage(db)` → `CategoryUsage` модуля categories (BUD-01@PoC п. 12): які з даних категорій
   мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
+- `createTransactionLookup(db)` → `TransactionLookup` для `categorization` (BUD-01 b; DAT-03 п. 1, 2; #272 п. 1), лише
+  читання: `facts(householdId, ids)` — чи є транзакція (приховані теж), чи вона сторона переказу, розділена, злитий
+  дубль; `select(householdId, filter, excluded, limit)` — «Вибрати всі M за фільтром» на рушії списку «Транзакції»
+  (`transactionsList.ids`; без фільтра `hidden` — лише показані; невідомий фільтр — `invalid`).
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
 - `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
