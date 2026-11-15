@@ -8,7 +8,7 @@
 - Залежить від: FIN-03@MVP
 - Дизайн: S-047, S-049, S-121, S-196
 - Спільні правила: П-5, П-6, П-10, П-12, П-17, NFR-01
-- Сценарії: UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-112, UC-BUD-88
+- Сценарії: UC-BUD-01, UC-BUD-02, UC-BUD-03, UC-BUD-04, UC-BUD-05, UC-BUD-06, UC-BUD-112, UC-BUD-122, UC-BUD-88
 - Модуль: categories, categorization
 - Перевіряється: apps/api/src/modules/categories/domain/bud01-categories.test.ts, apps/api/test/bud01-categories.it.test.ts, apps/api/src/modules/transactions/domain/fin03-splits.test.ts, apps/api/test/fin03-states-splits.it.test.ts
 
