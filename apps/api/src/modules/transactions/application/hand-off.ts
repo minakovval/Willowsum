@@ -2,7 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import { AUDIT_MASK } from "../../audit/index.ts";
 import type { Entry, Ledger } from "../../ledger/index.ts";
 import type { PostingAccount } from "../domain/index.ts";
-import type { StoredTransaction } from "./transactions.ts";
+import type { StoredTransaction } from "./stored.ts";
 
 /**
  * The hand-off of a transactions change to the journal and the audit log (ARC-04 FR 2, FR 3; ADR-0015; issue #240

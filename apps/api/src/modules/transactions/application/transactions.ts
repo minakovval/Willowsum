@@ -9,6 +9,7 @@ import {
   type PostingAccount,
 } from "../domain/index.ts";
 import { transactionAuditValues, type HandOffDeps, type TransactionHandOff } from "./hand-off.ts";
+import type { NewStoredTransaction, StoredTransaction } from "./stored.ts";
 
 /**
  * Transactions entered by hand (FIN-03@PoC FR 1–3, FR 16, FR 20, FR 29, edge case 2; wave 2 row 15): create, change
@@ -21,23 +22,7 @@ import { transactionAuditValues, type HandOffDeps, type TransactionHandOff } fro
  * away, the worker if that fails): a failure anywhere before the commit leaves nothing in another module.
  */
 
-export interface StoredTransaction {
-  readonly id: string;
-  readonly accountId: string;
-  readonly subaccountId: string;
-  /** Signed, in the account's currency. */
-  readonly amount: Money;
-  readonly date: string;
-  readonly counterparty: string | null;
-  readonly description: string | null;
-  readonly status: "posted";
-  readonly source: "manual";
-  readonly version: number;
-  /** ISO 8601 UTC; set by the database. */
-  readonly createdAt: string;
-}
-
-export type NewStoredTransaction = Omit<StoredTransaction, "createdAt">;
+export type { NewStoredTransaction, StoredTransaction } from "./stored.ts";
 
 export interface TransactionsTx {
   insert(householdId: string, row: NewStoredTransaction): Promise<StoredTransaction>;
