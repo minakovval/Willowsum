@@ -150,6 +150,22 @@ async function allAuditRows(): Promise<number> {
   return Number(rows[0]!.n);
 }
 
+/** The space's log the services write to: `failJournal` makes its next `record` calls fail (the journal's database is down). */
+let failJournal = 0;
+const flakyAudit = (): ReturnType<typeof createAuditLog> => {
+  const real = audit();
+  return {
+    ...real,
+    record: async (...args: Parameters<typeof real.record>) => {
+      if (failJournal > 0) {
+        failJournal--;
+        throw new Error("synthetic journal failure");
+      }
+      return real.record(...args);
+    },
+  };
+};
+
 const maintenance = () =>
   createIdentityMaintenance({
     db: db.databases.for("identity"),
@@ -164,7 +180,7 @@ beforeAll(async () => {
   const services = createIdentityServices({
     mail,
     captcha: syntheticCaptchaVerifier(),
-    audit: audit(),
+    audit: flakyAudit(),
     webOrigin: WEB,
     spaces,
     now: () => t,
@@ -433,6 +449,24 @@ describe("ACC-04@PoC: every session end is written with the IP address and the d
       expect.objectContaining({ event: "session-ended", reason: "step-up-locked", ip: "203.0.113.11" }),
       expect.objectContaining({ event: "sign-in-locked", reason: "step-up", ip: "203.0.113.11" }),
     ]);
+  });
+
+  it("a sign-in whose entry cannot be written fails with 500 and leaves no live session and no cookie (the journal is part of the sign-in)", async () => {
+    const email = await confirmedAccount("journal-down");
+    const id = await accountId(email);
+    const browser = new Browser(CHROME_WINDOWS, nextIp());
+    failJournal = 1;
+    const res = await browser.signIn(email);
+    failJournal = 0;
+    expect(res.statusCode).toBe(500);
+    expect(browser.cookie).toBeUndefined();
+    const { rows } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM identity.sessions WHERE account_id = $1 AND ended_at IS NULL`,
+      [id],
+    );
+    expect(rows[0]!.n).toBe(0);
+    // The next sign-in works once the journal is back.
+    expect((await browser.signIn(email)).json()).toEqual({ status: "signed-in" });
   });
 
   it("a session nobody came back to is ended by the daily task: written once, by the system, without an address", async () => {

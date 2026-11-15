@@ -655,7 +655,7 @@ describe("NFR-15@PoC FR 4: step-up is the current password right before the acti
 });
 
 describe("ACC-05@PoC FR 5, NFR-15@PoC AC5: one confirmation changes the password once, even for two requests at once", () => {
-  it("two parallel changes with one confirmation: exactly one 200 and one 403 STEP_UP_REQUIRED; the first password wins", async () => {
+  it("two parallel changes with one confirmation: exactly one 200 and one 403 STEP_UP_REQUIRED; whichever request won, its password is the one that signs in", async () => {
     const { email, browser } = await signedIn("sec204-parallel");
     const token = await stepUpToken(browser);
     const results = await Promise.all([
@@ -689,7 +689,7 @@ describe("ACC-05@PoC FR 1: the password route is behind the release flag identit
   });
 });
 
-describe("ACC-05@PoC FR 1, FR 4: the profile takes the name only; step-up while sign-in is locked elsewhere", () => {
+describe("ACC-05@PoC FR 1, FR 4: the profile takes the name only", () => {
   it("PATCH /v1/profile with locale, timeZone, passwordHash or email is a 400 and changes nothing", async () => {
     const { email, browser } = await signedIn("sec204-strict", { locale: "uk-UA", timeZone: "Europe/Kyiv" });
     for (const extra of [
@@ -709,8 +709,10 @@ describe("ACC-05@PoC FR 1, FR 4: the profile takes the name only; step-up while 
     });
     expect((await new Browser(FIREFOX_LINUX).signIn(email)).json()).toEqual({ status: "signed-in" });
   });
+});
 
-  it("a step-up while sign-in is locked by failures elsewhere: 429 with the time to wait, the session stays, no letter", async () => {
+describe("ACC-05@PoC FR 5: step-up while sign-in is locked elsewhere", () => {
+  it("ACC-05@PoC FR 5: a step-up while sign-in is locked by failures elsewhere: 429 with the time to wait, the session stays, no letter", async () => {
     const { email, browser } = await signedIn("sec204-locked");
     const elsewhere = new Browser(FIREFOX_LINUX);
     for (let i = 0; i < 5; i++) await elsewhere.signIn(email, WRONG);

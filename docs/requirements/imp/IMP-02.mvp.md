@@ -10,7 +10,7 @@
 - Спільні правила: П-10, ARC-11
 - Сценарії: UC-IMP-07, UC-IMP-08, UC-IMP-09, UC-IMP-11
 - Модуль: accounts, import-sessions, file-parsers
-- Перевіряється: apps/api/src/modules/ledger/domain/imp02-legs.test.ts, apps/api/src/modules/ledger/imp02-legs.it.test.ts, apps/api/src/modules/accounts/domain/imp02-wallets.test.ts, apps/api/test/imp02-currencies.it.test.ts, apps/api/test/sec284-wallet-usage.it.test.ts, apps/api/src/modules/ledger/domain/sec284-legs.test.ts
+- Перевіряється: apps/api/src/modules/ledger/domain/imp02-legs.test.ts, apps/api/src/modules/ledger/imp02-legs.it.test.ts, apps/api/src/modules/accounts/domain/imp02-wallets.test.ts, apps/api/test/imp02-currencies.it.test.ts, apps/api/test/sec284-wallet-usage.it.test.ts, apps/api/src/modules/ledger/domain/sec284-legs.test.ts, apps/api/test/sec292-wallet-usage-wiring.test.ts
 
 **Мета.** Як користувач мультивалютного рахунку (наприклад, картки з гаманцями в EUR, UAH і PLN), я хочу імпортувати виписки з кількома валютами, щоб кожна операція потрапила у правильний валютний гаманець із початковою сумою і курсом банку.
 

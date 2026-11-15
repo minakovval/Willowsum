@@ -499,3 +499,15 @@ describe("FIN-01@PoC «Права доступу»: only the session's space, an
     expect((await call(space, "GET", "/v1/accounts/summary")).statusCode).toBe(404);
   });
 });
+
+describe("#222 follow-up: «сьогодні» of the balances is the Kyiv date, the day of the NBU rate", () => {
+  it("#222: at 22:30 UTC (00:30 the next day in Kyiv) an account opened on the Kyiv date counts in «Гроші разом» today", async () => {
+    now = Date.parse("2026-11-02T22:30:00Z");
+    const space = await newSpace();
+    await create(space, cash("Щоденний", "100.00", "EUR", { balanceDate: "2026-11-03" }));
+    const total = (await summary(space)).moneyTogether;
+    expect(total.breakdown).toEqual([
+      expect.objectContaining({ currency: "EUR", amount: { amount: "100", currency: "EUR" } }),
+    ]);
+  });
+});

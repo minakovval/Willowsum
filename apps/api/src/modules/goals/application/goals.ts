@@ -239,6 +239,22 @@ export async function createGoal(
   return { result: { kind: "ok", value: goal }, handOff: h };
 }
 
+/**
+ * A patched part: without a `startAmount` the stored one stays while the part stays the same (same kind, and the same
+ * account of an envelope), never silently 0; a changed part starts from 0 (lead decision, #298).
+ */
+function mergedPart(stored: StoredGoal, part: GoalInput["part"]): NonNullable<GoalInput["part"]> {
+  const keep = {
+    kind: stored.partKind,
+    accountId: stored.accountId,
+    startAmount: stored.startAmount.toDecimalString(),
+  };
+  if (!part) return keep;
+  if (part.startAmount !== undefined) return part;
+  const same = part.kind === stored.partKind && (part.accountId ?? null) === stored.accountId;
+  return same ? { ...part, startAmount: keep.startAmount } : part;
+}
+
 /** «Змінити ціль» (FR 2): the merged fields checked as a new goal's; the currency stays (lead decision). */
 export function mergeGoal(
   stored: StoredGoal,
@@ -260,11 +276,7 @@ export function mergeGoal(
         : (patch.template ?? stored.template) === "emergency"
           ? stored.emergencyMonths
           : null,
-    part: patch.part ?? {
-      kind: stored.partKind,
-      accountId: stored.accountId,
-      startAmount: stored.startAmount.toDecimalString(),
-    },
+    part: mergedPart(stored, patch.part),
   };
   return checkGoal(input, today, stored.targetDate);
 }
