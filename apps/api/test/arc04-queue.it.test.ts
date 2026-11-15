@@ -139,6 +139,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(accountsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The hand-off jobs of transactions (ARC-04 FR 2, ADR-0015).
+    const transactionsSql = readFileSync(
+      `${apiDir}/src/modules/transactions/adapters/db/migrations/0003_queue.sql`,
+      "utf8",
+    );
+    expect(transactionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     // categories publishes `categories.merged` (BUD-01 FR 8): the same migration verbatim.
     const categoriesSql = readFileSync(
       `${apiDir}/src/modules/categories/adapters/db/migrations/0003_outbox.sql`,
@@ -151,8 +157,8 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
        WHERE c.relname IN ('jobs', 'outbox_events') AND c.relkind = 'r' ORDER BY 1, 2`,
     );
     expect(tables).toEqual(
-      ["accounts", "categories", "ledger", "queue_consumer", "queue_producer"].flatMap((schema) =>
-        ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),
+      ["accounts", "categories", "ledger", "queue_consumer", "queue_producer", "transactions"].flatMap(
+        (schema) => ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),
       ),
     );
     // Another space sees none of a space's jobs.

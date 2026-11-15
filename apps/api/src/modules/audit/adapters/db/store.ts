@@ -1,5 +1,11 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
-import type { AuditEntry, AuditStore, NewAuditRow, PlatformAuditEntry } from "../../application/index.ts";
+import {
+  AuditKeyConflict,
+  type AuditEntry,
+  type AuditStore,
+  type NewAuditRow,
+  type PlatformAuditEntry,
+} from "../../application/index.ts";
 
 interface Row {
   id: string;
@@ -50,7 +56,9 @@ export function databaseAuditStore(db: ModuleDatabase): AuditStore {
   return {
     append: (householdId, row, key = null) =>
       db.inHousehold(householdId, async (q) => {
-        // A key already in the space (migrations/0004_dedupe_key.sql): nothing is appended, the entry there is returned.
+        // A key already in the space (migrations/0004_dedupe_key.sql): nothing is appended. The entry there is returned
+        // when it is the same entity and action (a replay of the hand-off); another one under the key is a caller's
+        // bug that must not lose its entry silently (#252 item 2), so it fails.
         const { rows } = await q.query<Row>(
           `INSERT INTO entries (household_id, actor_kind, actor_id, channel, entity_type, entity_id, action, changes,
                                 dedupe_key)
@@ -74,7 +82,14 @@ export function databaseAuditStore(db: ModuleDatabase): AuditStore {
           `SELECT ${COLUMNS} FROM entries WHERE household_id = $1 AND dedupe_key = $2`,
           [q.householdId, key],
         );
-        return toEntry(existing.rows[0]!);
+        const found = toEntry(existing.rows[0]!);
+        if (
+          found.entityType !== row.entityType ||
+          found.entityId !== row.entityId ||
+          found.action !== row.action
+        )
+          throw new AuditKeyConflict();
+        return found;
       }),
     forEntity: (householdId, entityType, entityId) =>
       db.inHousehold(householdId, async (q) => {

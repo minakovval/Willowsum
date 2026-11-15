@@ -1,14 +1,18 @@
 import { Money } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import { defineRoute } from "../../../../platform/http/route.ts";
+import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AmountGroup } from "../../../../platform/lists/list-engine.ts";
 import type { ListTotal } from "../../../../platform/lists/list-total.ts";
 import {
+  applyHandOff,
   createTransaction,
   deleteTransaction,
   updateTransaction,
+  type HandOffDeps,
   type StoredTransaction,
+  type TransactionHandOff,
   type TransactionResult,
 } from "../../application/index.ts";
 import {
@@ -21,6 +25,7 @@ import {
   type FieldIssue,
 } from "../../domain/index.ts";
 import { transactionsList, transactionsTx } from "../db/store.ts";
+import { transactionRows } from "../queue/hand-off.ts";
 import { transactionsServices } from "./services.ts";
 
 /**
@@ -102,6 +107,34 @@ function outcome(result: TransactionResult | { readonly kind: "ok" }): void {
   }
 }
 
+/**
+ * ARC-04 FR 2: the hand-off of a committed change, right away — after the transactions transaction (the journal under
+ * the row's lock in a new one, the audit entry outside it). A failure is no failure of the request: the change is made
+ * and its job is in the transactions queue, so the worker finishes the hand-off (a create's Idempotency-Key must not be
+ * released, or a retry would create a second transaction). Logged as `transactions.hand_off_deferred` (WARN, the error
+ * class only).
+ */
+async function handOffNow(
+  ctx: ProtectedContext,
+  deps: HandOffDeps,
+  handOff: TransactionHandOff | null,
+): Promise<void> {
+  if (handOff === null) return;
+  try {
+    await applyHandOff(
+      deps,
+      transactionRows((work) => ctx.inHousehold(work)),
+      ctx.principal.householdId,
+      handOff,
+    );
+  } catch (error) {
+    logEvent("transactions.hand_off_deferred", "warn", {
+      "ws.module": MODULE,
+      "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+    });
+  }
+}
+
 /** Scoped members: «Транзакції» are closed by the visibility policy's default (00-general «Область доступу»). */
 function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
@@ -149,6 +182,7 @@ export const createTransactionRoute = defineRoute({
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOff);
     return present(result.transaction);
   },
 });
@@ -206,6 +240,7 @@ export const updateTransactionRoute = defineRoute({
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOff);
     return present(result.transaction);
   },
 });
@@ -232,6 +267,7 @@ export const deleteTransactionRoute = defineRoute({
       deleteTransaction(deps, transactionsTx(q), caller(ctx), params.transactionId),
     );
     outcome(result);
+    if (result.kind === "ok") await handOffNow(ctx, deps, result.handOff);
     return { deleted: true as const };
   },
 });

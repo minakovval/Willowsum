@@ -1,5 +1,4 @@
 import type { Money } from "@willowsum/domain-kernel";
-import type { Ledger } from "../../ledger/index.ts";
 import {
   checkDate,
   counterpartyText,
@@ -9,22 +8,18 @@ import {
   type FieldIssue,
   type PostingAccount,
 } from "../domain/index.ts";
+import { transactionAuditValues, type HandOffDeps, type TransactionHandOff } from "./hand-off.ts";
 
 /**
  * Transactions entered by hand (FIN-03@PoC FR 1–3, FR 16, FR 20, FR 29, edge case 2; wave 2 row 15): create, change
  * and delete, each through the journal. A transaction is one `transaction` event of the ledger (source `transactions`
  * / its id): created by `post`, changed by `correct` (a reversal and the new entry in one journal transaction), deleted
- * by `reverse`. The entry in effect is always read from the journal (`liveEntries`), never kept here, so a retry
- * after a failure between the journal and this module's commit corrects what the journal holds.
+ * by `reverse`.
  *
- * Order of one change, in this module's transaction with the row locked: checks → the row → the journal (its own
- * transaction, committed first) → the audit entry (П-10, also committed first) → commit. A failure before the journal
- * leaves nothing; a failure after it leaves the journal and the audit entry of a change the row does not show yet —
- * the same residual risk as the accounts module (#210), closed by the ARC-04 events later.
+ * Order of one change, in this module's transaction with the row locked: checks → the row → the hand-off job (ARC-04
+ * FR 2, hand-off.ts) → commit. The journal and the audit entry (П-10) follow only after the commit (the route right
+ * away, the worker if that fails): a failure anywhere before the commit leaves nothing in another module.
  */
-
-export const SOURCE_MODULE = "transactions";
-const EVENT = "transaction";
 
 export interface StoredTransaction {
   readonly id: string;
@@ -51,26 +46,13 @@ export interface TransactionsTx {
   lock(householdId: string, id: string): Promise<StoredTransaction | null>;
   update(householdId: string, row: NewStoredTransaction): Promise<StoredTransaction>;
   remove(householdId: string, id: string): Promise<void>;
+  /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
+  enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
 }
 
-/** The space's audit log (FR 20, П-10): every field before and after; texts masked by the log. */
-export interface TransactionAudit {
-  changed(
-    householdId: string,
-    actorAccountId: string,
-    action: "create" | "update" | "delete",
-    before: StoredTransaction | null,
-    after: StoredTransaction | null,
-  ): Promise<void>;
-}
-
-export interface TransactionsDeps {
+export interface TransactionsDeps extends HandOffDeps {
   /** The accounts module's public `AccountDirectory`: the account's state and its subaccounts with their journal accounts. */
-  readonly accounts: {
-    postingAccount(householdId: string, accountId: string): Promise<PostingAccount | null>;
-  };
-  readonly ledger: Pick<Ledger, "post" | "correct" | "reverse" | "liveEntries">;
-  readonly audit: TransactionAudit;
+  readonly accounts: HandOffDeps["accounts"];
   readonly newId: () => string;
   /** Today's date (YYYY-MM-DD) for «Дата» (FR 29); from the clock, never read here. */
   readonly today: () => string;
@@ -94,13 +76,36 @@ export interface TransactionInput {
 export type TransactionChange = { readonly [K in keyof TransactionInput]?: TransactionInput[K] | undefined };
 
 export type TransactionResult =
-  | { readonly kind: "ok"; readonly transaction: StoredTransaction }
+  | {
+      readonly kind: "ok";
+      readonly transaction: StoredTransaction;
+      /** Run it once the transaction has committed (ARC-04 FR 2); the worker runs it too. Null: nothing changed. */
+      readonly handOff: TransactionHandOff | null;
+    }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   /** The account is «Закритий»: read only (FIN-12 FR 8). */
   | { readonly kind: "closed" }
   | { readonly kind: "not-found" };
 
-const source = (id: string) => ({ module: SOURCE_MODULE, id });
+/** The hand-off of one change, with its audit values, enqueued in the caller's transaction. */
+async function handOff(
+  tx: TransactionsTx,
+  caller: Caller,
+  action: TransactionHandOff["action"],
+  before: StoredTransaction | null,
+  after: StoredTransaction | null,
+): Promise<TransactionHandOff> {
+  const row = (after ?? before)!;
+  const h: TransactionHandOff = {
+    transactionId: row.id,
+    actorAccountId: caller.accountId,
+    action,
+    version: row.version,
+    audit: transactionAuditValues(action, before, after),
+  };
+  await tx.enqueueHandOff(caller.householdId, h);
+  return h;
+}
 
 /** Optional texts: absent — `keep`; null or empty — none; else the text, or undefined when invalid. */
 function text(
@@ -186,14 +191,7 @@ export async function createTransaction(
     source: "manual",
     version: 1,
   });
-  await deps.ledger.post(caller.householdId, {
-    source: source(id),
-    idempotencyKey: `transactions.create:${id}`,
-    operationDate: checked.date,
-    event: { type: EVENT, account: checked.subaccount.ledgerAccountId, amount: checked.amount },
-  });
-  await deps.audit.changed(caller.householdId, caller.accountId, "create", null, row);
-  return { kind: "ok", transaction: row };
+  return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
 }
 
 /**
@@ -235,7 +233,7 @@ export async function updateTransaction(
     checked.date !== current.date;
   const textsChanged =
     checked.counterparty !== current.counterparty || checked.description !== current.description;
-  if (!moneyChanged && !textsChanged) return { kind: "ok", transaction: current };
+  if (!moneyChanged && !textsChanged) return { kind: "ok", transaction: current, handOff: null };
   const next = await tx.update(householdId, {
     id,
     accountId: checked.account.accountId,
@@ -248,29 +246,7 @@ export async function updateTransaction(
     source: current.source,
     version: current.version + 1,
   });
-  if (moneyChanged) {
-    const replacement = {
-      source: source(id),
-      operationDate: checked.date,
-      event: { type: EVENT, account: checked.subaccount.ledgerAccountId, amount: checked.amount },
-    } as const;
-    const live = await deps.ledger.liveEntries(householdId, source(id), EVENT);
-    const inEffect = live.at(-1);
-    // Each entry in effect is corrected at most once, so its id makes the key: a retry after a failure that left the
-    // journal ahead of this row corrects the entry the journal holds now.
-    if (inEffect)
-      await deps.ledger.correct(householdId, inEffect.id, {
-        ...replacement,
-        idempotencyKey: `transactions.edit:${inEffect.id}`,
-      });
-    else
-      await deps.ledger.post(householdId, {
-        ...replacement,
-        idempotencyKey: `transactions.repost:${id}:${next.version}`,
-      });
-  }
-  await deps.audit.changed(householdId, caller.accountId, "update", current, next);
-  return { kind: "ok", transaction: next };
+  return { kind: "ok", transaction: next, handOff: await handOff(tx, caller, "update", current, next) };
 }
 
 /** «Видалити» of a transaction entered by hand (FR 16, AC10): its postings are reversed, the row goes. */
@@ -279,15 +255,16 @@ export async function deleteTransaction(
   tx: TransactionsTx,
   caller: Caller,
   id: string,
-): Promise<{ readonly kind: "ok" } | { readonly kind: "closed" } | { readonly kind: "not-found" }> {
+): Promise<
+  | { readonly kind: "ok"; readonly handOff: TransactionHandOff }
+  | { readonly kind: "closed" }
+  | { readonly kind: "not-found" }
+> {
   const householdId = caller.householdId;
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   await tx.remove(householdId, id);
-  for (const entry of await deps.ledger.liveEntries(householdId, source(id), EVENT))
-    await deps.ledger.reverse(householdId, entry.id, `transactions.delete:${entry.id}`);
-  await deps.audit.changed(householdId, caller.accountId, "delete", current, null);
-  return { kind: "ok" };
+  return { kind: "ok", handOff: await handOff(tx, caller, "delete", current, null) };
 }

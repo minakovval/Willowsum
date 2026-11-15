@@ -4,7 +4,11 @@
  * module (feature-flags) to the platform.
  */
 import type pg from "pg";
-import { createAccountsHandOffRecovery, createAccountsWorkerQueue } from "./modules/accounts/index.ts";
+import {
+  createAccountDirectory,
+  createAccountsHandOffRecovery,
+  createAccountsWorkerQueue,
+} from "./modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "./modules/audit/index.ts";
 import { checkFlagsReady, FLAGS_DB_TIMEOUTS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdSpaces, SpaceKeys } from "./modules/household/index.ts";
@@ -15,6 +19,10 @@ import {
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
+import {
+  createTransactionsHandOffRecovery,
+  createTransactionsWorkerQueue,
+} from "./modules/transactions/index.ts";
 import type { Role } from "./platform/config/config.ts";
 import type { ModuleDatabases } from "./platform/db/module-db.ts";
 import type { DailyTask } from "./platform/process/daily.ts";
@@ -118,6 +126,9 @@ export function schedulerDailyTasks(deps: {
   const handOffRecovery = createAccountsHandOffRecovery(deps.databases.for("accounts"), () =>
     deps.spaces.spaceIds(),
   );
+  const transactionsRecovery = createTransactionsHandOffRecovery(deps.databases.for("transactions"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -128,6 +139,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await handOffRecovery.run();
         if (requeued > 0) logEvent("accounts.hand_off_requeued", "warn", { "ws.module": "accounts" });
+      },
+    },
+    // The same for the transactions queue (ARC-04, ADR-0015): a transaction's journal event and audit entry.
+    {
+      name: "transactions.hand-off-recovery",
+      run: async () => {
+        const requeued = await transactionsRecovery.run();
+        if (requeued > 0) logEvent("transactions.hand_off_requeued", "warn", { "ws.module": "transactions" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -165,24 +184,31 @@ export function schedulerDailyTasks(deps: {
  * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); no
  * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014). `accounts`
  * runs its hand-off jobs (ARC-04 FR 2, #210): the ledger accounts and opening balances, the liability and the audit
- * entries of a create or a kind change, after the accounts transaction committed.
+ * entries of a create or a kind change, after the accounts transaction committed. `transactions` runs its hand-off jobs
+ * the same way (ADR-0015): a transaction's journal event made to match its row, and its audit entry.
  */
 export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
 } {
   const audit = createAuditLog(databases.for("audit"));
+  const ledger = createLedger(databases.for("ledger"));
   return {
     queues: [
       { store: postgresJobStore(databases.for("ledger")), handlers: [] },
       createAccountsWorkerQueue(databases.for("accounts"), {
-        ledger: createLedger(databases.for("ledger")),
+        ledger,
         liabilities: createLiabilities(databases.for("liabilities"), audit),
         audit,
       }),
       // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); its consumers (categorization, budget, recurring)
       // subscribe in the parts that bring them.
       { store: postgresJobStore(databases.for("categories")), handlers: [] },
+      createTransactionsWorkerQueue(databases.for("transactions"), {
+        accounts: createAccountDirectory(databases.for("accounts")),
+        ledger,
+        audit,
+      }),
     ],
     subscriptions: [],
   };

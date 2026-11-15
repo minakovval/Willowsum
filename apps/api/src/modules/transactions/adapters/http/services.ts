@@ -4,7 +4,7 @@ import { kyivToday, type ListTotals } from "../../../../platform/lists/list-tota
 import type { AccountDirectory } from "../../../accounts/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
-import type { StoredTransaction, TransactionAudit, TransactionsDeps } from "../../application/index.ts";
+import type { TransactionAudit, TransactionsDeps } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-transactions-services");
 
@@ -54,41 +54,26 @@ export function transactionsServices(ctx: ProtectedContext): TransactionsService
   return services as TransactionsServices;
 }
 
-const FIELDS = ["accountId", "amount", "currency", "date", "counterparty", "description", "status"] as const;
-
-function valueOf(t: StoredTransaction | null, field: (typeof FIELDS)[number]): string | null {
-  if (t === null) return null;
-  switch (field) {
-    case "amount":
-      return t.amount.toDecimalString();
-    case "currency":
-      return t.amount.currency;
-    default:
-      return t[field];
-  }
-}
-
 /**
- * The transaction's entries in the space's own log (FIN-03 FR 20, П-10): every field before and after. The
- * counterparty and the description are free text that may name a person: masked by the log itself.
+ * The transaction's entries in the space's own log (FIN-03 FR 20, П-10), written by the hand-off (ARC-04) with its key:
+ * the values come from the hand-off with the counterparty and the description masked already (application/hand-off.ts
+ * `transactionAuditValues`); the log masks them again (`sensitive`). Also the worker's (src/wiring.ts).
  */
-function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAudit {
+export function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAudit {
   return {
-    async changed(householdId, actorAccountId, action, before, after) {
-      const id = (after ?? before)!.id;
+    async changed(householdId, actorAccountId, transactionId, action, values, key) {
       await audit.record(householdId, {
         actor: { kind: "user", id: actorAccountId },
         channel: "web",
-        entity: { type: "transactions.transaction", id },
+        entity: { type: "transactions.transaction", id: transactionId },
         action,
-        changes: FIELDS.filter((f) => action !== "update" || valueOf(before, f) !== valueOf(after, f)).map(
-          (field) => ({
-            field,
-            before: valueOf(before, field),
-            after: valueOf(after, field),
-            sensitive: field === "counterparty" || field === "description",
-          }),
-        ),
+        changes: values.map((v) => ({
+          field: v.field,
+          before: v.before,
+          after: v.after,
+          sensitive: v.sensitive,
+        })),
+        key,
       });
     },
   };

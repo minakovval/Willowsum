@@ -21,6 +21,7 @@ export {
   type JobStore,
   type PurgeCutoffs,
 } from "./store.ts";
+export { requeueDeadJobs } from "./recovery.ts";
 export { QUEUE_RETENTION_DAYS, purgeQueues, type QueueRetentionDeps } from "./retention.ts";
 export {
   DEFAULT_CONCURRENCY,
