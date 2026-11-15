@@ -153,3 +153,90 @@ export function termsAsKind<T extends LiabilityTerms>(terms: T, kind: LiabilityK
 export function termsMissing(terms: Pick<LiabilityTerms, "kind" | "annualRate" | "monthlyPayment">): boolean {
   return terms.kind === "loan" && (terms.annualRate === null || terms.monthlyPayment === null);
 }
+
+/**
+ * What «Реквізити» changes of a liability's terms (FIN-12@PoC FR 4, AC10; owner decision 2026-11-13): a loan's rate and
+ * monthly payment, a credit card's credit limit. A field left out is not changed; null clears it (only the limit).
+ */
+export interface TermsChangeInput {
+  readonly annualRate?: string | null | undefined;
+  readonly monthlyPayment?: string | null | undefined;
+  readonly creditLimit?: string | null | undefined;
+}
+
+/** The fields «Реквізити» changes for each kind (the grace period and a card's rate are not among them in PoC). */
+export const CHANGEABLE_TERMS: Readonly<Record<LiabilityKind, readonly (keyof TermsChangeInput)[]>> = {
+  loan: ["annualRate", "monthlyPayment"],
+  "credit-card": ["creditLimit"],
+};
+
+/**
+ * Checks a change of the terms against the terms in effect (FIN-12@PoC FR 4): a field of another kind is `not_allowed`;
+ * a loan's rate and payment are required (FIN-01 FR 5), so they are never cleared — a loan still missing one after a
+ * kind change (`termsMissing`) stays marked until both are entered; the values follow `checkTerms`. Returns the terms
+ * after the change.
+ */
+export function checkTermsChange<T extends LiabilityTerms>(
+  current: T,
+  input: TermsChangeInput,
+): { readonly terms: T } | { readonly issues: readonly TermsIssue[] } {
+  const issues: TermsIssue[] = [];
+  const allowed = CHANGEABLE_TERMS[current.kind];
+  const next: { -readonly [K in keyof LiabilityTerms]: LiabilityTerms[K] } = { ...current };
+  for (const field of ["annualRate", "monthlyPayment", "creditLimit"] as const) {
+    const value = input[field];
+    if (value === undefined) continue;
+    if (!allowed.includes(field)) {
+      issues.push({ field, issue: "not_allowed" });
+      continue;
+    }
+    if (value === null) {
+      if (current.kind === "loan") issues.push({ field, issue: "required" });
+      else next[field] = null;
+      continue;
+    }
+    if (field === "annualRate") {
+      const rate = parseAnnualRate(value);
+      if (rate === null) issues.push({ field, issue: "invalid" });
+      else next.annualRate = rate;
+      continue;
+    }
+    const amount = parseTypedAmount(value, current.currency);
+    if (amount === null || (field === "monthlyPayment" && amount.isZero()))
+      issues.push({ field, issue: "invalid" });
+    else next[field] = amount;
+  }
+  return issues.length > 0 ? { issues } : { terms: { ...current, ...next } };
+}
+
+/** Whether two sets of terms are the same (amounts by value, so 310 and 310.00 are one payment). */
+export function sameTerms(a: LiabilityTerms, b: LiabilityTerms): boolean {
+  const same = (x: Money | null, y: Money | null) => (x === null || y === null ? x === y : x.equals(y));
+  return (
+    a.kind === b.kind &&
+    a.annualRate === b.annualRate &&
+    same(a.monthlyPayment, b.monthlyPayment) &&
+    same(a.creditLimit, b.creditLimit) &&
+    a.gracePeriodDays === b.gracePeriodDays
+  );
+}
+
+/** One period of a liability's terms: from `validFrom` (null — since the registration) until the next period. */
+export interface TermsPeriod<T extends LiabilityTerms = LiabilityTerms> {
+  readonly validFrom: string | null;
+  readonly terms: T;
+}
+
+/**
+ * The terms in effect on a date (FIN-12@PoC AC10: «нова ставка діє з дати зміни»): the last period that starts on or
+ * before it, in the order given (periods by date, then in the order they were written). `periods` ends with the terms
+ * in effect now; a date before every dated period gets the terms since the registration.
+ */
+export function termsOn<T extends LiabilityTerms>(
+  periods: readonly TermsPeriod<T>[],
+  date: string,
+): T | null {
+  let found: T | null = null;
+  for (const p of periods) if (p.validFrom === null || p.validFrom <= date) found = p.terms;
+  return found;
+}

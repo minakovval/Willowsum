@@ -5,6 +5,7 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { AuditLog } from "../audit/index.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import { logEvent } from "../../platform/telemetry/signals.ts";
+import { systemClock } from "../../platform/adapters/index.ts";
 import {
   eraseHouseholdLiabilities,
   HAND_OFF_JOB,
@@ -15,8 +16,11 @@ import {
 import {
   applyHandOff,
   changeLiabilityKind,
+  changeLiabilityTerms,
+  liabilityTermsHistory,
   registerLiability,
   type ChangeKindResult,
+  type ChangeTermsResult,
   type Handed,
   type LiabilitiesTx,
   type Liability,
@@ -24,7 +28,13 @@ import {
   type LiabilityHandOff,
   type RegisterResult,
 } from "./application/index.ts";
-import type { LiabilityKind, LiabilityTermsInput } from "./domain/index.ts";
+import {
+  termsOn,
+  type LiabilityKind,
+  type LiabilityTermsInput,
+  type TermsChangeInput,
+  type TermsPeriod,
+} from "./domain/index.ts";
 
 export const liabilitiesModule = defineModule({
   name: "liabilities",
@@ -34,15 +44,24 @@ export const liabilitiesModule = defineModule({
 
 export {
   availableCredit,
+  CHANGEABLE_TERMS,
   checkTerms,
+  checkTermsChange,
   GRACE_PERIOD_MAX_DAYS,
   LIABILITY_KINDS,
   parseAnnualRate,
   parseTypedAmount,
   termsMissing,
 } from "./domain/index.ts";
-export type { LiabilityKind, LiabilityTerms, LiabilityTermsInput, TermsIssue } from "./domain/index.ts";
-export type { ChangeKindResult, Liability, RegisterResult } from "./application/index.ts";
+export type {
+  LiabilityKind,
+  LiabilityTerms,
+  LiabilityTermsInput,
+  TermsChangeInput,
+  TermsIssue,
+  TermsPeriod,
+} from "./domain/index.ts";
+export type { ChangeKindResult, ChangeTermsResult, Liability, RegisterResult } from "./application/index.ts";
 
 /** Liabilities of a space (FIN-01@PoC FR 2, FR 16): every call is bound to one space. */
 export interface Liabilities {
@@ -70,6 +89,28 @@ export interface Liabilities {
     householdId: string,
     input: { readonly actorAccountId: string; readonly accountId: string; readonly kind: LiabilityKind },
   ): Promise<ChangeKindResult>;
+  /**
+   * «Реквізити» (FIN-12@PoC FR 4, AC10): a loan's rate and monthly payment or a card's credit limit, applying from
+   * `validFrom` (the caller's today, YYYY-MM-DD; never before a change already recorded). A field left out is not
+   * changed; null clears the limit. The terms before are kept in the dated history (`termsHistory`). Audited as changed
+   * by `actorAccountId` after the commit (as `register`); the same terms again write nothing.
+   */
+  changeTerms(
+    householdId: string,
+    input: {
+      readonly actorAccountId: string;
+      readonly accountId: string;
+      readonly change: TermsChangeInput;
+      readonly validFrom: string;
+    },
+  ): Promise<ChangeTermsResult>;
+  /**
+   * The dated history of the account's liability terms (FIN-12@PoC AC10): periods by date (`validFrom` null — since the
+   * registration), the last one in effect now; null without a liability.
+   */
+  termsHistory(householdId: string, accountId: string): Promise<readonly TermsPeriod<Liability>[] | null>;
+  /** The terms in effect on a date (YYYY-MM-DD; FIN-12@PoC AC10), or null without a liability. */
+  termsOn(householdId: string, accountId: string, date: string): Promise<Liability | null>;
 }
 
 /** The hand-off's entry in the space's own log (П-10): amounts and rates are not personal data, nothing is masked. */
@@ -109,9 +150,18 @@ async function handOffNow(
   }
 }
 
-/** `db` is the liabilities module's own database (`ModuleDatabases.for("liabilities")`). */
-export function createLiabilities(db: ModuleDatabase, audit: Pick<AuditLog, "record">): Liabilities {
-  const deps = { newId: randomUUID };
+/**
+ * `db` is the liabilities module's own database (`ModuleDatabases.for("liabilities")`); `clock` dates a kind change's
+ * terms in their history (UTC; tests pass their own).
+ */
+export function createLiabilities(
+  db: ModuleDatabase,
+  audit: Pick<AuditLog, "record">,
+  clock: { now(): number } = systemClock,
+): Liabilities {
+  const deps = { newId: randomUUID, today: () => new Date(clock.now()).toISOString().slice(0, 10) };
+  const history = (householdId: string, accountId: string) =>
+    db.inHousehold(householdId, (q) => liabilityTermsHistory(liabilitiesTx(q), householdId, accountId));
   const log = liabilityAudit(audit);
   const handed = async <R>(householdId: string, work: (tx: LiabilitiesTx) => Promise<Handed<R>>) => {
     const { result, handOff } = await db.inHousehold(householdId, (q) => work(liabilitiesTx(q)));
@@ -125,6 +175,13 @@ export function createLiabilities(db: ModuleDatabase, audit: Pick<AuditLog, "rec
       db.inHousehold(householdId, (q) => liabilitiesTx(q).byAccount(householdId, accountId)),
     changeKind: (householdId, input) =>
       handed(householdId, (tx) => changeLiabilityKind(deps, tx, householdId, input)),
+    changeTerms: (householdId, input) =>
+      handed(householdId, (tx) => changeLiabilityTerms(deps, tx, householdId, input)),
+    termsHistory: history,
+    async termsOn(householdId, accountId, date) {
+      const periods = await history(householdId, accountId);
+      return periods === null ? null : termsOn(periods, date);
+    },
   };
 }
 
