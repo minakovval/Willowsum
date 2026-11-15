@@ -14,6 +14,8 @@ import {
   type Duplicate,
   type StoredAccount,
 } from "./accounts.ts";
+import type { HandOff } from "./hand-off.ts";
+import { settingsHandOff } from "./settings.ts";
 
 /**
  * «Рахунок → Налаштування» → «Реквізити» (FIN-12@PoC FR 4, AC9; NFR-01@PoC FR 6; wave 2 row 14). In the accounts
@@ -24,15 +26,16 @@ import {
  *    characters stay in the clear. The same number again keeps the sealed value as it is (no change, no entry);
  * 3. a new institution or number must not make a duplicate of another account of the space (FIN-12 FR 11, FIN-01
  *    FR 25), checked under the lock of the space's creations, as creating is;
- * 4. the row, then the audit entry with every changed field before and after — the sealed number and the note masked by
- *    the log, the number otherwise only as «••1234» — last before this transaction commits.
+ * 4. the row, then the audit entry with every changed field before and after — the sealed number and the note masked,
+ *    the number otherwise only as «••1234» — as a hand-off job of the same transaction, written once it has committed
+ *    (ARC-04, #252 item 3; `settingsHandOff`).
  *
  * The full number is never answered, logged or written to the audit log: it exists in the clear only in this request
  * and, opened for the comparison, in this process.
  */
 
 export type DetailsResult =
-  | { readonly kind: "updated" }
+  | { readonly kind: "updated"; readonly handOff: HandOff }
   | { readonly kind: "unchanged" }
   | { readonly kind: "not-found" }
   | { readonly kind: "closed" }
@@ -52,7 +55,7 @@ type Details = Pick<
 >;
 
 export async function updateAccountDetails(
-  deps: Pick<AccountsDeps, "seal" | "audit">,
+  deps: Pick<AccountsDeps, "seal" | "newId">,
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
@@ -117,8 +120,18 @@ export async function updateAccountDetails(
   const masked = (last4: string | null) => (last4 === null ? null : maskedNumber(last4));
   const sealed = (value: string | null) => (value === null ? null : "sealed");
   const changes = [
-    { field: "institutionName", before: account.institutionName, after: after.institutionName },
-    { field: "institutionCountry", before: account.institutionCountry, after: after.institutionCountry },
+    {
+      field: "institutionName",
+      before: account.institutionName,
+      after: after.institutionName,
+      sensitive: false,
+    },
+    {
+      field: "institutionCountry",
+      before: account.institutionCountry,
+      after: after.institutionCountry,
+      sensitive: false,
+    },
     // Masked by the log: whether a full number is kept, and that it changed — never its value (NFR-01 FR 6).
     ...(after.numberSealed !== account.numberSealed
       ? [
@@ -130,15 +143,19 @@ export async function updateAccountDetails(
           },
         ]
       : []),
-    { field: "numberLast4", before: masked(account.numberLast4), after: masked(after.numberLast4) },
-    { field: "cardExpiry", before: account.cardExpiry, after: after.cardExpiry },
+    {
+      field: "numberLast4",
+      before: masked(account.numberLast4),
+      after: masked(after.numberLast4),
+      sensitive: false,
+    },
+    { field: "cardExpiry", before: account.cardExpiry, after: after.cardExpiry, sensitive: false },
     // Free text: masked, as on creating (FIN-01 FR 17).
     { field: "note", before: account.note, after: after.note, sensitive: true },
-    { field: "annualRate", before: account.annualRate, after: after.annualRate },
+    { field: "annualRate", before: account.annualRate, after: after.annualRate, sensitive: false },
   ].filter((c) => c.field === "number" || c.before !== c.after);
   if (changes.length === 0) return { kind: "unchanged" };
 
   await tx.updateDetails(householdId, { id: accountId, ...after });
-  await deps.audit.settingsChanged(householdId, caller.accountId, accountId, changes);
-  return { kind: "updated" };
+  return { kind: "updated", handOff: await settingsHandOff(deps, tx, caller, accountId, changes) };
 }

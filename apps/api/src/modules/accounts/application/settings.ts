@@ -7,7 +7,8 @@ import {
   type FieldIssue,
 } from "../domain/index.ts";
 import type { AccountsDeps, AccountsTx, Caller, StoredAccount } from "./accounts.ts";
-import type { HandOff } from "./hand-off.ts";
+import { AUDIT_MASK } from "../../audit/index.ts";
+import type { AuditChange, HandOff } from "./hand-off.ts";
 
 /**
  * «Рахунок → Налаштування» → «Основне» (FIN-12@PoC FR 4–6, AC1, AC2, AC11, AC12; wave 2 row 13 b): renaming an account
@@ -20,7 +21,8 @@ import type { HandOff } from "./hand-off.ts";
  * 4. for a new credit kind, the hand-off job in the same transaction (ARC-04 FR 2, hand-off.ts): once it has
  *    committed, the liability takes the account's kind (`liabilities`, its own transaction and audit entry) — right
  *    away from the route, and from the worker if that fails;
- * 5. the audit entry with every changed field before and after, last before this transaction commits (FR 6).
+ * 5. the audit entry with every changed field before and after, as a hand-off job of the same transaction
+ *    (`settings-changed`): written once it has committed, right away or by the worker (ARC-04, #252 item 3).
  *
  * The ledger is never touched: the ledger type (asset or liability) is the group's, so the transactions and their
  * postings stay as they are (FR 6). A failure before the commit leaves the liability as it was (#238 item 1); the
@@ -28,7 +30,8 @@ import type { HandOff } from "./hand-off.ts";
  */
 
 export type SettingsResult =
-  | { readonly kind: "updated"; readonly handOff: HandOff | null }
+  /** The hand-offs to run once the transaction has committed: the audit entry and, for a credit kind, the liability. */
+  | { readonly kind: "updated"; readonly handOffs: readonly HandOff[] }
   | { readonly kind: "unchanged" }
   | { readonly kind: "not-found" }
   | { readonly kind: "closed" }
@@ -45,7 +48,7 @@ export interface SettingsInput {
 const NOT_TRANSACTIONS = ["opening-balance"] as const;
 
 export async function updateAccountSettings(
-  deps: Pick<AccountsDeps, "ledger" | "audit" | "newId">,
+  deps: Pick<AccountsDeps, "ledger" | "newId">,
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
@@ -96,19 +99,49 @@ export async function updateAccountSettings(
   const changes = SETTINGS_FIELDS.filter((field) => account[field] !== after[field]);
   if (changes.length === 0) return { kind: "unchanged" };
   await tx.updateSettings(householdId, after);
+  const handOffs: HandOff[] = [];
   // A new credit kind: the liability follows once this commits (ARC-04 FR 2).
-  const handOff: HandOff | null =
-    after.kind !== account.kind && groupOf(after.kind) === "credit"
-      ? { kind: "credit-kind", accountId, actorAccountId: caller.accountId }
-      : null;
-  if (handOff) await tx.enqueueHandOff(householdId, handOff, deps.newId());
-  await deps.audit.settingsChanged(
-    householdId,
-    caller.accountId,
-    accountId,
-    changes.map((field) => ({ field, before: account[field], after: after[field] })),
+  if (after.kind !== account.kind && groupOf(after.kind) === "credit") {
+    const handOff: HandOff = { kind: "credit-kind", accountId, actorAccountId: caller.accountId };
+    await tx.enqueueHandOff(householdId, handOff, deps.newId());
+    handOffs.push(handOff);
+  }
+  handOffs.push(
+    await settingsHandOff(
+      deps,
+      tx,
+      caller,
+      accountId,
+      changes.map((field) => ({ field, before: account[field], after: after[field], sensitive: false })),
+    ),
   );
-  return { kind: "updated", handOff };
+  return { kind: "updated", handOffs };
+}
+
+/**
+ * The audit entry of «Основне» or «Реквізити» as a hand-off job of the accounts transaction (ARC-04 FR 2): a
+ * sensitive value is masked here already, so the job's payload carries none.
+ */
+export async function settingsHandOff(
+  deps: Pick<AccountsDeps, "newId">,
+  tx: AccountsTx,
+  caller: Caller,
+  accountId: string,
+  changes: readonly AuditChange[],
+): Promise<HandOff> {
+  const handOff: HandOff = {
+    kind: "settings-changed",
+    accountId,
+    actorAccountId: caller.accountId,
+    changeId: deps.newId(),
+    changes: changes.map((c) => ({
+      ...c,
+      before: c.sensitive && c.before !== null ? AUDIT_MASK : c.before,
+      after: c.sensitive && c.after !== null ? AUDIT_MASK : c.after,
+    })),
+  };
+  await tx.enqueueHandOff(caller.householdId, handOff, handOff.changeId);
+  return handOff;
 }
 
 /** The fields «Основне» changes, as the audit entry names them. */
