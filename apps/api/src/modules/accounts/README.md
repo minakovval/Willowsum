@@ -82,7 +82,8 @@ FIN-12@PoC e) (хвиля 2, рядок 18b; #244 п. 7): у «Реквізит�
     промацувати рахунки поза нею) `{ institution, number, currencies }` → `{ duplicate: { accountId, institution,
     maskedNumber } | null }` — для «Такий рахунок уже є: <установа> ••1234» і «Відкрити наявний».
   - `GET /v1/accounts/{accountId}/closing?closedOn=` (`getAccountClosing`, дозвіл `household.data.write`) — діалог
-    закриття (FIN-12 п. 7): залишок кожної валюти на дату закриття і `zero`.
+    закриття (FIN-12 п. 7): залишок кожної валюти на дату закриття і `zero`; читання без блокування рядка; дата з рухом
+    пізніше — 409 `ACCOUNT_ACTIVITY_AFTER_CLOSE`, як і в самого закриття.
   - `POST /v1/accounts/{accountId}/close` (`closeAccount`) `{ closedOn, settlement? }` — закриття лише з нульовим залишком на
     дату закриття (від дати відкриття до сьогодні): `settlement` `{ kind: "transfer", toAccountId }` — переказ залишку
     кожної валюти на інший активний рахунок простору з цією валютою (борг сплачується з нього), або `{ kind: "adjustment" }`
@@ -137,7 +138,8 @@ FIN-12@PoC e) (хвиля 2, рядок 18b; #244 п. 7): у «Реквізит�
   closingBalance })` — перерахунок тимчасового коригування випискою з кінцевим залишком (FIN-12 п. 15, AC15) для імпорту
   виписок: нова різниця = залишок банку − залишок без коригування на кінець виписки; нуль — коригування видалено
   (`deleted`), інша сума чи дата — змінено датою кінця виписки (`changed`), та сама — `none`; ручний рахунок — `permanent`,
-  без коригування нічого не створюється (FIN-04 п. 11). Аудит — від системи, канал `import`.
+  без коригування нічого не створюється (FIN-04 п. 11); кінець виписки не дата, у майбутньому або раніше за відкриття
+  рахунку — `bad-date`, нічого не змінено. Аудит — від системи, канал `import`.
 - `createAccountsServices({ ledger, liabilities, keys, fx, audit, clock, newId })` → `AccountsServices` — порти маршрутів
   (`src/api.ts` → `ctx.services`; `main.ts`): `createLedger`, `createLiabilities`, `createSpaceKeys` модуля household
   (тип `NumberSeal`, поле `accounts.number` — `NUMBER_FIELD`), `createFxReporting` модуля fx-rates (на тому ж годиннику),

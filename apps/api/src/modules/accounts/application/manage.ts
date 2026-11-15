@@ -152,11 +152,18 @@ export async function closingPreview(
   accountId: string,
   closedOn: string,
 ): Promise<ManageRefusal | { readonly kind: "preview"; readonly currencies: readonly CurrencyBalance[] }> {
-  const account = await activeAccount(tx, householdId, accountId);
-  if (refused(account)) return account;
+  // A read: no row lock (#228). The same refusals as the closing itself, so the dialog never offers a date that the
+  // closing would refuse with 409 (a movement after it).
+  const account = await tx.account(householdId, accountId);
+  if (!account) return { kind: "not-found" };
+  if (account.status === "closed") return { kind: "closed" };
   const issue = closingDateIssue(closedOn, account.openedOn, deps.today());
   if (issue) return { kind: "invalid", issues: [{ field: "closedOn", issue }] };
   const currencies = [];
+  for (const s of await tx.subaccounts(householdId, accountId)) {
+    const latest = await deps.ledger.latestOperationDate(householdId, s.ledgerAccountId);
+    if (latest !== null && latest > closedOn) return { kind: "activity-after-close" };
+  }
   for (const s of await tx.subaccounts(householdId, accountId))
     currencies.push({
       currency: s.currency,
@@ -416,7 +423,9 @@ export type StatementResult =
   | { readonly kind: "none" | "changed" | "deleted" }
   /** A manual account's adjustment is permanent: a statement does not recount it. */
   | { readonly kind: "permanent" }
-  | { readonly kind: "not-found" | "closed" };
+  | { readonly kind: "not-found" | "closed" }
+  /** The statement's end is not a date, is in the future, or is before the account's opening (#228). */
+  | { readonly kind: "bad-date" };
 
 /**
  * The recount of a temporary adjustment by a statement with a closing balance (FIN-12 FR 15, AC15), for the import of
@@ -433,6 +442,13 @@ export async function reconcileStatement(
   const account = await managedAccount(deps, tx, householdId, input.accountId);
   const done = (result: StatementResult) => ({ result, handOff: null });
   if (refused(account)) return done(account.kind === "closed" ? { kind: "closed" } : { kind: "not-found" });
+  // The caller passes the space of its principal after its own check of rights; the date is checked here (#228).
+  if (
+    !/^\d{4}-\d{2}-\d{2}$/.test(input.statementEnd) ||
+    input.statementEnd > deps.today() ||
+    input.statementEnd < account.openedOn
+  )
+    return done({ kind: "bad-date" });
   const subaccount = (await tx.subaccounts(householdId, account.id)).find(
     (s) => s.currency === input.closingBalance.currency,
   );

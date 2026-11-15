@@ -385,6 +385,24 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
     });
     expect(later.statusCode).toBe(409);
     expect(later.json().code).toBe("ACCOUNT_ACTIVITY_AFTER_CLOSE");
+    // The dialog's preview refuses the same date, so it never offers one that the closing would refuse (#228).
+    const preview = await call(space, "GET", `/v1/accounts/${acc.id}/closing?closedOn=2026-10-12`);
+    expect([preview.statusCode, preview.json().code]).toEqual([409, "ACCOUNT_ACTIVITY_AFTER_CLOSE"]);
+  });
+
+  it("FIN-12@PoC FR 8: the adjustment that closed an account cannot be deleted from it — 409 ACCOUNT_CLOSED, the entry stays", async () => {
+    const space = await newSpace();
+    const cash = await createAccount(space, { kind: "cash", name: "Готівка", amount: "75.00" });
+    const closed = await call(space, "POST", `/v1/accounts/${cash.id}/close`, {
+      closedOn: "2026-10-01",
+      settlement: { kind: "adjustment" },
+    });
+    expect(closed.statusCode).toBe(200);
+    const before = await entries(space.householdId);
+    const adjustment = before.find((e) => e.event_type === "balance-adjustment")!;
+    const res = await call(space, "DELETE", `/v1/accounts/${cash.id}/balance-adjustments/${adjustment.id}`);
+    expect([res.statusCode, res.json().code]).toEqual([409, "ACCOUNT_CLOSED"]);
+    expect(await entries(space.householdId)).toEqual(before);
   });
 
   it("FIN-12@PoC FR 8: a closed account is read-only — no second closing, no «Оновити залишок», no transfer to it", async () => {
@@ -745,6 +763,29 @@ describe("FIN-12@PoC FR 15: the statement recounts a temporary adjustment", () =
       }),
     ).toEqual({ kind: "permanent" });
     expect(await balance(space, manual.id)).toEqual({ amount: "280", currency: "EUR" });
+  });
+});
+
+describe("FIN-12@PoC FR 15 (#228): the statement's end is a date from the account's opening to today", () => {
+  it("FIN-12@PoC FR 15: an end in the future, before the opening or not a date changes nothing — «bad-date»", async () => {
+    const space = await newSpace();
+    const acc = await createAccount(space, { kind: "current", name: "Імпорт", amount: "1000.00" });
+    await markImported(space, acc.id);
+    await call(space, "POST", `/v1/accounts/${acc.id}/balance`, {
+      balance: { amount: "1040.00", currency: "EUR" },
+    });
+    const before = await entries(space.householdId);
+    for (const statementEnd of ["2026-10-18", "2024-09-30", "2026-13-40", "yesterday"])
+      expect(
+        await statements.reconcile(space.householdId, {
+          accountId: acc.id,
+          statementEnd,
+          closingBalance: Money.of("1000.00", "EUR"),
+        }),
+        statementEnd,
+      ).toEqual({ kind: "bad-date" });
+    expect(await entries(space.householdId)).toEqual(before);
+    expect(await balance(space, acc.id)).toEqual({ amount: "1040", currency: "EUR" });
   });
 });
 
