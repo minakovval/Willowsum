@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-15
 
 This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
 the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …» (owner,
@@ -101,9 +101,8 @@ errors) lives only in `packages/domain-kernel`.
    Full conditions, exceptions and «merge on Ready, follow up separately»:
    [merge rules](.claude/references/merge-rules.md) (read when you merge or write «Owner decision»).
 
-The lead writes to the owner in chat only about a merge, a decision needed or a problem, and at the end of a
-session the retrospective and handover; no technical messages (owner, 2026-11-14) — `pr-pipeline`, «Мовчання в
-чаті».
+The lead writes to the owner in chat only about a merge, a decision needed, a problem or the end of a session;
+no technical messages — `pr-pipeline`, «Мовчання в чаті» (owner, 2026-11-14).
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
@@ -111,7 +110,8 @@ own, and list in the PR body which criteria are left.
 **Parallel branches** (owner, 2026-11-12): up to 3 working branches at a time — `claude/adoring-cray-feh4dh`
 and `claude/adoring-cray-feh4dh-<task>` — each in its own worktree with its own PR, test database
 (`pnpm db:test`; integration tests as `pnpm db:test run -- pnpm test:integration`, roles are cluster-wide) and
-the same rules; a branch is deleted after its PR is merged.
+the same rules; a branch is deleted after its PR is merged. At most 3–4 agents run at once, each in its own slot
+1–4 (`pr-pipeline` §3).
 
 **Skills** (`.claude/skills/`): `implement-requirement`, `review-pr`, `security-review`, `fix-review-findings`,
 `pr-pipeline`, `browser-task`, `sync-branch`, `change-requirement`, `deploy`, `screen-from-canvas`, `plan-wave`,
