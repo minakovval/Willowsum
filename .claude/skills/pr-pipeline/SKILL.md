@@ -100,8 +100,7 @@ Language and details: [lead communication](references/lead-communication.md).
    Check `mergeable_state` together with `behind_by`: on a conflicting PR CI does not run (#249). A `sensitive`
    PR whose verdict is expected within ≈ 1 h merges first, and the PR without `sensitive` is synced after it;
    otherwise merge a ready PR at once. Combined: a code PR with Ready still goes before a docs PR; among code PRs
-   a `sensitive` one whose verdict is expected within ≈ 1 h goes first (Рішення ведучого (2026-11-15; власник не
-   схвалював; #265)). A branch that updates from `main` with no conflicts and no regenerated files
+   a `sensitive` one whose verdict is expected within ≈ 1 h goes first (Рішення власника (2026-11-15; #178, comment 6896768536; #265)). A branch that updates from `main` with no conflicts and no regenerated files
    the lead updates itself, then the usual confirmation; otherwise an agent does it (owner, 2026-11-15, #178, comment 6891308063).
    Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR not labelled `sensitive`
    that does not overlap `main`'s changes: one command and the lead's review instead). Wait for CI of several PRs with one command. Full list and both
@@ -111,10 +110,12 @@ Language and details: [lead communication](references/lead-communication.md).
    `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
    drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
    PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR. The lead
-   opens the issues; agents never do (owner, 2026-11-13).
+   opens the issues; agents never do (owner, 2026-11-13). **Reviewer probes and tests** that were not merged are
+   posted at once as a comment on that follow-up issue, inside `<details>`, split into several comments if over 65 000
+   characters (owner, 2026-11-15, #178, comment 6896768536).
    **Token and time accounting** (owner, 2026-11-13/14, mandatory): in the same turn as the merge, before the
    container can lose the agent logs, run `node tools/token-report/index.mjs pr …` and add the row it prints to
-   the issue «Облік токенів» (#180): type, rounds, `subagent_tokens`, the agents' real spend from their logs,
+   the **body** of the issue «Облік токенів» (#180), never as a comment (owner, 2026-11-15, #178, comment 6896768536): type, rounds, `subagent_tokens`, the agents' real spend from their logs,
    author time (author and fix agents), review time (reviewers and confirmations; every run of a resumed agent
    counted) and CI minutes of the branch ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner** (owner, 2026-11-13): only in Ukrainian, every message; when to write and when to stay
@@ -148,7 +149,7 @@ session title, and **start the next lead session yourself** (owner, 2026-11-14, 
 «так, дозволяю»): `create_session` with the ready start message ([restarts](references/restarts.md), «Start
 message»), the same environment and repository; then write the new session's ID into #179 and tell the owner
 briefly in chat. At most 2 automatic restarts in a row without an answer from the owner; the third only after the
-owner answers (the counter and the third-restart steps are the lead's mechanism: Рішення ведучого (2026-11-14; власник не схвалював; #230); ask in chat, with the start message in one code block the owner can also copy;
+owner answers (the counter and the third-restart steps are the lead's mechanism: Рішення власника (2026-11-15; #178, comment 6896768536; #230); ask in chat, with the start message in one code block the owner can also copy;
 [restarts](references/restarts.md), «Automatic restart»). A new session first renames itself
 `Willowsum · ведучий N · <з чого починає>`, records its starting usage in #180, checks `get_session` →
 `external_metadata.rate_limit_info` (on a warning: at most 2–3 authors at once, reviews not cut; owner,
@@ -158,7 +159,7 @@ owner answers (the counter and the third-restart steps are the lead's mechanism:
 a multiple of 3 (the first is lead 9; lead 8 does not) reviews, after the usual start steps, every process change
 accepted since session 1, the current instructions, and the handovers of the last 5 sessions, and reports to the
 owner on #180; its proposals go to «Черга змін процесу», and it changes no rule without an owner decision
-([restarts](references/restarts.md), «Process review»). Рішення ведучого (2026-11-15; власник не схвалював; #178):
+([restarts](references/restarts.md), «Process review»). Рішення власника (2026-11-15; #178, comment 6896768536):
 перегляд — до нових задач конвеєра; ціна ≈ 100–150 тис. токенів контексту, тому сесія перегляду зіллє на 1–2 PR менше.
 Every handover is confirmed to the owner in chat in full (after an automatic restart, always also as a comment
 on #179), item by item: what was done with each item and where
@@ -175,8 +176,8 @@ requirement) and in the rules it changes, never only in session memory (owner, 2
   пос, вони мають бути десь записані і підніматись коли буде актуально»): a question that does not concern the PoC
   is not repeated in chat. Record it once in `docs/plans/owner-questions-later.md` (release, question with
   options and recommendation, source, trigger) and raise it only when that trigger row is taken or its release
-  starts. The «не повторювати» rule is the owner's; the trigger column and the moment of raising are the lead's
-  mechanism (Рішення ведучого (2026-11-14; власник не схвалював; #230)).
+  starts. The «не повторювати» rule is the owner's (2026-11-14); the trigger column and the moment of raising:
+  Рішення власника (2026-11-15; #178, comment 6896768536; #230).
 - **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
   on small details) and send them together in one message, with the next merge report or decision request. Urgent ones go at once,
   alone: a blocker that stops all parallel work, billing or CI that cannot run, and anything about security (a
@@ -212,7 +213,7 @@ start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
 tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, never on a
-hand-made database: Рішення ведучого (2026-11-14; власник не схвалював; #226): повторні й навантажувальні
+hand-made database: Рішення власника (2026-11-15; #178, comment 6896768536; #226): повторні й навантажувальні
 запуски інтеграційних тестів — лише через `pnpm db:test run -- …`, кожен на власній базі й під блокуванням
 кластера; проба на 20 000 рядків у базі, створеній вручну, вичерпала спільну таблицю блокувань кластера
 (`out of shared memory`), і впав чужий тест.
@@ -233,6 +234,6 @@ hand-made database: Рішення ведучого (2026-11-14; власник 
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
   a brief). **Fable** (owner, 2026-11-15, #178, comment 6894721169): only root-cause
   searches of flaky tests, and security reviews of the highest-risk PRs (sign-in, encryption, data isolation of
-  the household/space); at most one Fable task at a time; mutation testing of critical modules is mandatory on any
+  the household/space); at most one Fable task at a time, and none while 2 authors run in parallel (owner, 2026-11-15, #178, comment 6896768536); mutation testing of critical modules is mandatory on any
   model; everything else on the main model (token economy, item 1).
 

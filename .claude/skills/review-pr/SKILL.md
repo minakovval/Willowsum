@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-15
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -71,7 +71,7 @@ locally if needed. Drop findings you cannot support. Before tests (owner, 2026-1
 (`infra/local/README.md`).
 Load probes that need the database run only through `pnpm db:test run -- …`, each on its own database; never on a
 hand-made database (owner, 2026-11-14, #178, «так, 1–4 так, пункт 3 як пробні 2 запуски»). Mutants and repeated
-runs: Рішення ведучого (2026-11-14; власник не схвалював; #226; #178 comment 6883738878).
+runs: Рішення власника (2026-11-15; #178, comment 6896768536; #226; #178 comment 6883738878).
 
 **Rely on CI for the full suites** (owner, 2026-11-13): do not rerun the full suites (`pnpm test`,
 `pnpm test:integration`, `pnpm test:e2e`, all of `tools/*`): CI runs them on the head. Run only the tests of the
