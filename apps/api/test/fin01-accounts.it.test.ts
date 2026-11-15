@@ -107,6 +107,7 @@ beforeAll(async () => {
         flags: { ...base, isEnabled: async (_householdId, flag) => !off.has(flag) },
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
+          walletUsage: [],
           ledger: createLedger(db.databases.for("ledger")),
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

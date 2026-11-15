@@ -156,6 +156,7 @@ beforeAll(async () => {
     },
   };
   services = createAccountsServices({
+    walletUsage: [],
     ledger: flaky,
     liabilities: createLiabilities(db.databases.for("liabilities"), audit),
     keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
@@ -449,6 +450,8 @@ describe("IMP-02@PoC FR 15: «+ додати ще валюту» and removing a 
       balanceDate: "2026-11-01",
     });
     expect(off.statusCode).toBeGreaterThanOrEqual(400);
+    const offRemove = await callOn(flagOff, space, "DELETE", `/v1/accounts/${id}/wallets/PLN`);
+    expect([offRemove.statusCode, offRemove.json().code]).toEqual([off.statusCode, off.json().code]);
     expect((await view(space, id)).currencies.map((c: { currency: string }) => c.currency)).toEqual([
       "EUR",
       "PLN",

@@ -190,6 +190,7 @@ beforeAll(async () => {
         flags: fakeFlags(),
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
+          walletUsage: [],
           ledger,
           liabilities,
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
