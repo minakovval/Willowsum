@@ -421,6 +421,42 @@ describe("PR #269 security probes", () => {
     ]);
   });
 
+  it("SEC-269 M15 (#271 item 2): the mark removed by another request between the first read and the locks — the second «Зняти» is a conflict (409), nothing written twice", async () => {
+    const { space, out, into } = await ac2();
+    expect((await mark(space, out.id, into.id)).statusCode).toBe(200);
+    const untransferJobs = async () =>
+      (
+        await db.owner.query(
+          `SELECT count(*)::int AS n FROM transactions.jobs WHERE household_id = $1 AND payload->>'action' = 'untransfer'`,
+          [space.householdId],
+        )
+      ).rows[0].n as number;
+    // Another request holds both rows: the one under test reads the mark, then waits for the locks.
+    await db.owner.query("BEGIN");
+    try {
+      await db.owner.query(
+        `SELECT 1 FROM transactions.transactions WHERE household_id = $1 AND id = ANY($2::uuid[]) FOR UPDATE`,
+        [space.householdId, [out.id, into.id]],
+      );
+      const waiting = call(space, "DELETE", `/v1/transactions/${out.id}/transfer`);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await db.owner.query(
+        `UPDATE transactions.transactions SET transfer_id = NULL, version = version + 1 WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+        [space.householdId, [out.id, into.id]],
+      );
+      await db.owner.query(`DELETE FROM transactions.transfers WHERE household_id = $1`, [space.householdId]);
+      await db.owner.query("COMMIT");
+      const res = await waiting;
+      expect(res.statusCode, res.body).toBe(409);
+    } catch (error) {
+      await db.owner.query("ROLLBACK").catch(() => undefined);
+      throw error;
+    }
+    expect(await untransferJobs()).toBe(0);
+    expect((await get(space, out.id)).transfer).toBeNull();
+    expect((await get(space, into.id)).transfer).toBeNull();
+  });
+
   it("SEC-269 privacy: the hand-off job payloads carry ids and masked values only, never the counterparty", async () => {
     const { space, out, into } = await ac2();
     await mark(space, out.id, into.id);
