@@ -2,7 +2,9 @@
 // Row n points to the synthetic account n of the accounts module (same derived ids); its journal event is not
 // generated here (the ledger's own synthetic entries stand for the journal). Transaction 0 is split «За категоріями»
 // into two parts (transaction_parts loads first; its key to the row is checked at commit). Every transaction's hand-off job is done
-// (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check.
+// (ARC-04); the module publishes no events: outbox_events gets one dispatched row for the isolation check. One transfer
+// pairs the outflow −11,50 € (transaction 1) with the inflow 1 000,00 € (transaction 0); its key to the rows is checked
+// at commit, and the rows do not point back at it (the column is nullable).
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
 
@@ -49,6 +51,24 @@ export const synthetic = [
           month: null,
           amount: i === 0 ? "600.00" : "400.00",
           currency: "EUR",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "transactions.transfers",
+    perHousehold: 1,
+    // Its rows point at transactions 1 and 0; another would point at rows the isolation check does not load.
+    maxPerHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "transfer", i),
+          outflow_id: key(household.id, "transaction", 1 + 2 * i),
+          inflow_id: key(household.id, "transaction", 4 * i),
+          rate: null,
+          rate_date: null,
+          rate_source: null,
         };
     },
   }),

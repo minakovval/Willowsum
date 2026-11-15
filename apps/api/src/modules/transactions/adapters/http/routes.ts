@@ -9,15 +9,18 @@ import {
   applyHandOff,
   createTransaction,
   deleteTransaction,
+  markTransfer,
   removeSplit,
   setHidden,
   setSplit,
   splitCategoryKinds,
+  unmarkTransfer,
   updateTransaction,
   type HandOffDeps,
   type StoredTransaction,
   type TransactionHandOff,
   type TransactionResult,
+  type TransferResult,
 } from "../../application/index.ts";
 import {
   CATEGORY_PARTS_MAX,
@@ -33,9 +36,16 @@ import {
   type FieldIssue,
   type Split,
 } from "../../domain/index.ts";
-import { listedSplit, partsOf, transactionsList, transactionsTx } from "../db/store.ts";
+import {
+  listedSplit,
+  partsOf,
+  transactionsList,
+  transactionsTx,
+  transfersOf,
+  type TransferView,
+} from "../db/store.ts";
 import { transactionRows } from "../queue/hand-off.ts";
-import { STATES_FLAG, transactionsServices } from "./services.ts";
+import { STATES_FLAG, TRANSFERS_FLAG, transactionsServices } from "./services.ts";
 
 /**
  * Transactions entered by hand (FIN-03@PoC FR 1–3, FR 13, FR 16, FR 20, FR 22, FR 29, edge case 2; wave 2 row 15):
@@ -86,6 +96,20 @@ const splitSchema = z.object({
   ),
 });
 
+const transferSchema = z.object({
+  id: z.uuid(),
+  /** «списання» (outflow) or «зарахування» (inflow) of the pair. */
+  side: z.enum(["outflow", "inflow"]),
+  /** The other transaction of the pair, on another account of the space (FR 7: shown in the lists of both). */
+  counterpartId: z.uuid(),
+  /** Edge case 1: the earlier side's date. */
+  date: z.string(),
+  /** FR 8: in one currency the difference, an expense «Комісії банку» (negative); null — none or two currencies. */
+  fee: moneySchema.nullable(),
+  /** FR 8: two currencies — 1 unit of the inflow's currency in the outflow's, the official rate of the date. */
+  rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
+});
+
 const transactionSchema = z.object({
   id: z.uuid(),
   accountId: z.uuid(),
@@ -103,6 +127,11 @@ const transactionSchema = z.object({
   hidden: z.boolean(),
   /** BUD-13 FR 6–8: the budget's view of the amount; «Категорія» of the list shows the first part (FIN-03 FR 23). */
   split: splitSchema.nullable(),
+  /**
+   * FR 7: a side of a transfer between own accounts — neither income nor expense, out of the budget and the reports,
+   * whatever `type` (the direction) says; null — none. Never hidden or split (FR 18).
+   */
+  transfer: transferSchema.nullable(),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
 });
@@ -120,7 +149,24 @@ function splitOut(split: Split | null): z.input<typeof splitSchema> | null {
   };
 }
 
-function present(t: StoredTransaction): z.input<typeof transactionSchema> {
+function transferOut(id: string, view: TransferView | undefined): z.input<typeof transferSchema> | null {
+  if (!view) return null;
+  const { link } = view;
+  const outflow = link.outflowId === id;
+  return {
+    id: link.id,
+    side: outflow ? "outflow" : "inflow",
+    counterpartId: outflow ? link.inflowId : link.outflowId,
+    date: view.date,
+    fee: view.fee?.toJSON() ?? null,
+    rate:
+      link.rate === null
+        ? null
+        : { rate: link.rate.rate.toString(), date: link.rate.date, source: link.rate.source },
+  };
+}
+
+function present(t: StoredTransaction, view?: TransferView): z.input<typeof transactionSchema> {
   return {
     id: t.id,
     accountId: t.accountId,
@@ -133,8 +179,20 @@ function present(t: StoredTransaction): z.input<typeof transactionSchema> {
     source: t.source,
     hidden: t.hidden,
     split: splitOut(t.split),
+    transfer: t.transfer ? transferOut(t.id, view) : null,
     recordedAt: t.createdAt,
   };
+}
+
+/** The transaction as the API shows it: with its transfer read in the space's transactions (FR 7). */
+async function shown(
+  ctx: ProtectedContext,
+  t: StoredTransaction,
+): Promise<z.input<typeof transactionSchema>> {
+  if (!t.transfer) return present(t);
+  const id = t.transfer.id;
+  const views = await ctx.inHousehold((q) => transfersOf(q, ctx.principal.householdId, [id]));
+  return present(t, views.get(id));
 }
 
 /** Where the form is wrong: the field and an issue code, never the value sent. */
@@ -144,12 +202,19 @@ function invalid(issues: readonly FieldIssue[]): ApiProblem {
   });
 }
 
-function outcome(result: TransactionResult | { readonly kind: "ok" }): void {
+function outcome(
+  result:
+    TransactionResult | TransferResult | { readonly kind: "ok" | "closed" | "in-transfer" | "not-found" },
+): void {
   switch (result.kind) {
     case "invalid":
       throw invalid(result.issues);
     case "closed":
       throw new ApiProblem("ACCOUNT_CLOSED");
+    case "in-transfer":
+      throw new ApiProblem("TRANSACTION_IN_TRANSFER");
+    case "conflict":
+      throw new ApiProblem("VERSION_CONFLICT");
     case "not-found":
       throw new ApiProblem("NOT_FOUND");
   }
@@ -165,16 +230,18 @@ function outcome(result: TransactionResult | { readonly kind: "ok" }): void {
 async function handOffNow(
   ctx: ProtectedContext,
   deps: HandOffDeps,
-  handOff: TransactionHandOff | null,
+  handOff: TransactionHandOff | readonly TransactionHandOff[] | null,
 ): Promise<void> {
   if (handOff === null) return;
   try {
-    await applyHandOff(
-      deps,
-      transactionRows((work) => ctx.inHousehold(work)),
-      ctx.principal.householdId,
-      handOff,
-    );
+    // A transfer's two hand-offs in their order (application/transfers.ts); the worker finishes the rest on a failure.
+    for (const h of Array.isArray(handOff) ? handOff : [handOff as TransactionHandOff])
+      await applyHandOff(
+        deps,
+        transactionRows((work) => ctx.inHousehold(work)),
+        ctx.principal.householdId,
+        h,
+      );
   } catch (error) {
     logEvent("transactions.hand_off_deferred", "warn", {
       "ws.module": MODULE,
@@ -233,7 +300,7 @@ export const createTransactionRoute = defineRoute({
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return present(result.transaction);
+    return shown(ctx, result.transaction);
   },
 });
 
@@ -254,7 +321,7 @@ export const getTransactionRoute = defineRoute({
       transactionsTx(q).find(ctx.principal.householdId, params.transactionId),
     );
     if (!row) throw new ApiProblem("NOT_FOUND");
-    return present(row);
+    return shown(ctx, row);
   },
 });
 
@@ -267,7 +334,7 @@ export const updateTransactionRoute = defineRoute({
     "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 16 * 1024,
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
   request: {
     params,
     body: z
@@ -293,7 +360,7 @@ export const updateTransactionRoute = defineRoute({
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return present(result.transaction);
+    return shown(ctx, result.transaction);
   },
 });
 
@@ -305,7 +372,7 @@ export const deleteTransactionRoute = defineRoute({
   summary:
     "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16)",
   access: { permission: "household.data.write", feature: FEATURE },
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
   request: { params },
   response: {
     status: 200,
@@ -358,6 +425,7 @@ function dateText(value: unknown): string {
 function listItem(
   row: Record<string, unknown>,
   parts: Awaited<ReturnType<typeof partsOf>>,
+  transfers: ReadonlyMap<string, TransferView>,
 ): z.input<typeof transactionSchema> {
   const amount = Money.of(String(row["amount"]), String(row["currency"]));
   const recorded = row["createdAt"];
@@ -373,6 +441,10 @@ function listItem(
     source: row["source"] as StoredTransaction["source"],
     hidden: row["hidden"] === true,
     split: splitOut(listedSplit(row, parts)),
+    transfer:
+      row["transferId"] === null || row["transferId"] === undefined
+        ? null
+        : transferOut(String(row["id"]), transfers.get(String(row["transferId"]))),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
   };
 }
@@ -431,14 +503,21 @@ export const listTransactionsRoute = defineRoute({
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
     const { totals, reportingCurrency } = transactionsServices(ctx);
-    const { page, parts } = await ctx.inHousehold(async (q) => {
+    const { page, parts, transfers } = await ctx.inHousehold(async (q) => {
       const page = await transactionsList.run(q, {
         ...query,
         filter: shownUnlessAsked(query.filter),
         sort: dateAndTime(query.sort),
       });
       const split = page.items.filter((r) => r["splitMode"] !== null).map((r) => String(r["id"]));
-      return { page, parts: await partsOf(q, ctx.principal.householdId, split) };
+      const transferIds = page.items
+        .filter((r) => r["transferId"] !== null)
+        .map((r) => String(r["transferId"]));
+      return {
+        page,
+        parts: await partsOf(q, ctx.principal.householdId, split),
+        transfers: await transfersOf(q, ctx.principal.householdId, transferIds),
+      };
     });
     const of = (sign: AmountGroup["sign"]) => page.groups.filter((g) => g.sign === sign);
     const [income, expense, difference] = await Promise.all([
@@ -447,7 +526,7 @@ export const listTransactionsRoute = defineRoute({
       totals.total(page.groups, reportingCurrency),
     ]);
     return {
-      items: page.items.map((row) => listItem(row, parts)),
+      items: page.items.map((row) => listItem(row, parts, transfers)),
       page: page.page,
       pageSize: page.pageSize,
       count: page.count,
@@ -507,7 +586,7 @@ export const splitTransactionRoute = defineRoute({
     "«Розділити»: the budget's view of the amount by categories or by months; no new transaction, the journal and the balance unchanged",
   access: { permission: "household.data.write", feature: ATTRIBUTES },
   bodyLimitBytes: 16 * 1024,
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
   request: { params, body: splitInput },
   response: { status: 200, description: "The transaction with its split", schema: transactionSchema },
   handler: async ({ params, body }, ctx) => {
@@ -521,7 +600,7 @@ export const splitTransactionRoute = defineRoute({
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return present(result.transaction);
+    return shown(ctx, result.transaction);
   },
 });
 
@@ -544,7 +623,7 @@ export const unsplitTransactionRoute = defineRoute({
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
     await handOffNow(ctx, deps, result.handOff);
-    return present(result.transaction);
+    return shown(ctx, result.transaction);
   },
 });
 
@@ -555,10 +634,10 @@ const visibilityRoute = (hidden: boolean) =>
     path: `/v1/transactions/{transactionId}/${hidden ? "hide" : "show"}`,
     operationId: hidden ? "hideTransaction" : "showTransaction",
     summary: hidden
-      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17)"
+      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); never a transfer (FR 18)"
       : "A hidden transaction is shown again (FIN-03 FR 16)",
     access: { permission: "household.data.write", feature: STATES_FLAG },
-    problems: ["ACCOUNT_CLOSED"],
+    problems: hidden ? ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"] : ["ACCOUNT_CLOSED"],
     request: { params },
     response: { status: 200, description: "The transaction", schema: transactionSchema },
     handler: async ({ params }, ctx) => {
@@ -570,12 +649,85 @@ const visibilityRoute = (hidden: boolean) =>
       outcome(result);
       if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
       await handOffNow(ctx, deps, result.handOff);
-      return present(result.transaction);
+      return shown(ctx, result.transaction);
     },
   });
 
 export const hideTransactionRoute = visibilityRoute(true);
 export const showTransactionRoute = visibilityRoute(false);
+
+const transfersWiring = (ctx: ProtectedContext) => {
+  const { transfers } = transactionsServices(ctx);
+  if (transfers === null) throw new ApiProblem("INTERNAL");
+  return transfers;
+};
+
+export const markTransferRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/{transactionId}/transfer",
+  operationId: "markTransfer",
+  summary:
+    "«Позначити як переказ» / «Підтвердити» a pair: two transactions on two accounts as one transfer — neither income nor expense (FIN-03 FR 6, FR 7, FR 27)",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED", "VERSION_CONFLICT"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** The other side: a credit for a debit and the other way round, on another account of the space. */
+        counterpartId: z.uuid(),
+      })
+      .strict(),
+  },
+  response: {
+    status: 200,
+    description: "The transaction, a side of the transfer",
+    schema: transactionSchema,
+  },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const deps = transfersWiring(ctx);
+    const result = await markTransfer(
+      deps,
+      (work) => ctx.inHousehold((q) => work(transactionsTx(q))),
+      caller(ctx),
+      params.transactionId,
+      body.counterpartId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
+export const unmarkTransferRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/transactions/{transactionId}/transfer",
+  operationId: "unmarkTransfer",
+  summary: "The transfer mark removed: both transactions are income and expense again (FIN-03 FR 9)",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  problems: ["ACCOUNT_CLOSED", "VERSION_CONFLICT"],
+  request: { params },
+  response: { status: 200, description: "The transaction, no longer a transfer", schema: transactionSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const deps = transfersWiring(ctx);
+    const result = await unmarkTransfer(
+      deps,
+      (work) => ctx.inHousehold((q) => work(transactionsTx(q))),
+      caller(ctx),
+      params.transactionId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
 
 export const transactionsRoutes = [
   createTransactionRoute,
@@ -587,4 +739,6 @@ export const transactionsRoutes = [
   unsplitTransactionRoute,
   hideTransactionRoute,
   showTransactionRoute,
+  markTransferRoute,
+  unmarkTransferRoute,
 ];

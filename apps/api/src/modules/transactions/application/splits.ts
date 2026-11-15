@@ -17,8 +17,8 @@ import {
 /**
  * «Розділити» and «Об'єднати назад» (BUD-01@PoC FR 6, BUD-13@PoC FR 6–8; FIN-03@PoC FR 23). The split is the budget's
  * view of the amount only: no new transaction, no journal entry, the balance unchanged. Saving a split again replaces
- * it and clears «потребує перегляду»; an empty «За категоріями» or «Об'єднати назад» removes it. Transfers between own
- * accounts are not split (BUD-01 FR 6) — they come with `transfer-matching` (FIN-03 b, row 16b).
+ * it and clears «потребує перегляду»; an empty «За категоріями» or «Об'єднати назад» removes it. A transfer between own
+ * accounts is not split (BUD-01 FR 6, FIN-03 FR 18): «in-transfer», nothing written.
  */
 
 /** The space's category tree as the split needs it (the categories module's public `CategoryDirectory`). */
@@ -69,6 +69,7 @@ export async function setSplit(
   kinds: ReadonlyMap<string, "expense" | "income">,
 ): Promise<TransactionResult> {
   return changeRow(deps, tx, caller, id, "split", (current) => {
+    if (current.transfer) return "in-transfer";
     const built = buildSplit(current.amount, input);
     if ("problems" in built) return built.problems;
     if (built.split === null) return current.split === null ? null : { ...current, split: null };

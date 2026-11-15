@@ -8,6 +8,7 @@ import {
   type FieldIssue,
   type PostingAccount,
   type TransactionStatus,
+  type TransferLink,
 } from "../domain/index.ts";
 import { transactionAuditValues, type HandOffDeps, type TransactionHandOff } from "./hand-off.ts";
 import type { NewStoredTransaction, StoredTransaction } from "./stored.ts";
@@ -32,6 +33,10 @@ export interface TransactionsTx {
   lock(householdId: string, id: string): Promise<StoredTransaction | null>;
   update(householdId: string, row: NewStoredTransaction): Promise<StoredTransaction>;
   remove(householdId: string, id: string): Promise<void>;
+  /** FIN-03 FR 7: the pair of a transfer, written before its two rows point at it. */
+  insertTransfer(householdId: string, link: TransferLink): Promise<void>;
+  /** FR 9: the pair removed, once neither row points at it. */
+  removeTransfer(householdId: string, id: string): Promise<void>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
 }
@@ -75,6 +80,11 @@ export type TransactionResult =
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   /** The account is «Закритий»: read only (FIN-12 FR 8). */
   | { readonly kind: "closed" }
+  /**
+   * A side of a transfer (FR 7, FR 18): never hidden, split or deleted, and its account, amount, date and state stay
+   * until the mark is removed (FR 9). Nothing was written.
+   */
+  | { readonly kind: "in-transfer" }
   | { readonly kind: "not-found" };
 
 /** The hand-off of one change, with its audit values, enqueued in the caller's transaction. */
@@ -190,6 +200,7 @@ export async function createTransaction(
     source: "manual",
     hidden: false,
     split: null,
+    transfer: null,
     version: 1,
   });
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
@@ -238,6 +249,8 @@ export async function updateTransaction(
   const statusChanged = checked.status !== current.status;
   if (!moneyChanged && !textsChanged && !statusChanged)
     return { kind: "ok", transaction: current, handOff: null };
+  // The texts of a transfer's side may change; its money and state only once the mark is removed (FR 9).
+  if (current.transfer && (moneyChanged || statusChanged)) return { kind: "in-transfer" };
   // BUD-01 FR 6: a split outlives a change of the amount, marked «потребує перегляду».
   const split =
     current.split && !checked.amount.equals(current.amount)
@@ -255,6 +268,7 @@ export async function updateTransaction(
     source: current.source,
     hidden: current.hidden,
     split,
+    transfer: current.transfer,
     version: current.version + 1,
   });
   return { kind: "ok", transaction: next, handOff: await handOff(tx, caller, "update", current, next) };
@@ -269,6 +283,7 @@ export async function deleteTransaction(
 ): Promise<
   | { readonly kind: "ok"; readonly handOff: TransactionHandOff }
   | { readonly kind: "closed" }
+  | { readonly kind: "in-transfer" }
   | { readonly kind: "not-found" }
 > {
   const householdId = caller.householdId;
@@ -276,6 +291,8 @@ export async function deleteTransaction(
   if (!current) return { kind: "not-found" };
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
+  // A side of a transfer is deleted only once the mark is removed (FR 9), so the other side is never left half a pair.
+  if (current.transfer) return { kind: "in-transfer" };
   await tx.remove(householdId, id);
   return { kind: "ok", handOff: await handOff(tx, caller, "delete", current, null) };
 }
@@ -291,9 +308,12 @@ export async function setHidden(
   id: string,
   hidden: boolean,
 ): Promise<TransactionResult> {
-  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", (current) =>
-    current.hidden === hidden ? null : { ...current, hidden },
-  );
+  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", (current) => {
+    if (current.hidden === hidden) return null;
+    // FR 18: a transfer between own accounts is never hidden (hiding is for duplicates and technical records).
+    if (hidden && current.transfer) return "in-transfer";
+    return { ...current, hidden };
+  });
 }
 
 /**
@@ -306,13 +326,14 @@ export async function changeRow(
   caller: Caller,
   id: string,
   action: TransactionHandOff["action"],
-  next: (current: StoredTransaction) => StoredTransaction | FieldIssue[] | null,
+  next: (current: StoredTransaction) => StoredTransaction | FieldIssue[] | "in-transfer" | null,
 ): Promise<TransactionResult> {
   const current = await tx.lock(caller.householdId, id);
   if (!current) return { kind: "not-found" };
   const holder = await deps.accounts.postingAccount(caller.householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   const changed = next(current);
+  if (changed === "in-transfer") return { kind: "in-transfer" };
   if (Array.isArray(changed)) return { kind: "invalid", issues: changed };
   if (changed === null) return { kind: "ok", transaction: current, handOff: null };
   const row = await tx.update(caller.householdId, { ...changed, version: current.version + 1 });

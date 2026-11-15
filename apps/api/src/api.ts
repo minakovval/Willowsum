@@ -10,6 +10,7 @@ import type { CategoriesServices } from "./modules/categories/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import type { TransactionsServices } from "./modules/transactions/index.ts";
+import type { TransferMatchingServices } from "./modules/transfer-matching/index.ts";
 import { authenticateSession, SESSION_COOKIE, type IdentityServices } from "./modules/identity/index.ts";
 import { modules } from "./modules/index.ts";
 import { createEntitlements, FEATURE_KEYS, type EntitlementSource } from "./modules/plan-catalog/index.ts";
@@ -56,6 +57,11 @@ export interface ApiWiring {
   readonly transactions?: TransactionsServices;
   /** The categories module's ports (BUD-01: the audit log, clock). Omitted: its routes answer 500. */
   readonly categories?: CategoriesServices;
+  /**
+   * The transfer-matching module's ports (FIN-03: the transactions module's candidate pairs, the official rates).
+   * Omitted: its routes answer 500.
+   */
+  readonly transferMatching?: TransferMatchingServices;
   /** Served over HTTPS only (staging, production): session cookies are always `__Secure-`. */
   readonly deployed?: boolean;
   /** The session of a request; by default the session cookie (with identity and spaces), else nobody. */
@@ -92,7 +98,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
               ? wiring.transactions
               : module === "categories"
                 ? wiring.categories
-                : undefined,
+                : module === "transfer-matching"
+                  ? wiring.transferMatching
+                  : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
