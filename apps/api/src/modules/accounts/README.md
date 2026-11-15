@@ -116,13 +116,13 @@ number?, note?, cardExpiry?, annualRate? }` — «Налаштування» →
     у кредиту немає ставки чи щомісячного платежу (після зміни з картки), доки їх не введено.
   - `GET /v1/accounts/{accountId}` має також `closedOn` і `adjustments` (`id` — запис журналу, що діє; `currency`, `amount`
     зі знаком з боку власника, `date`, `permanent`).
-  - `POST /v1/accounts/{accountId}/currencies` (`addAccountCurrency`) `{ balance: { amount, currency }, balanceDate }` —
+  - `POST /v1/accounts/{accountId}/wallets` (`addAccountWallet`) `{ balance: { amount, currency }, balanceDate }` —
     «+ додати ще валюту» в «Основне» (IMP-02 п. 15, AC14; FIN-01 п. 12, FIN-12 п. 4): гаманець поточного рахунку з
     початковим залишком і датою, як у формі створення; інший тип — 400 `currency`: `not_multi_currency`; валюта, яка вже є, —
     `duplicate`; більше 10 — `too_many`; дата раніше за відкриття рахунку — `date`: `before_opening`, після сьогодні —
     `date_in_future`; та сама установа, номер і валюта в іншому рахунку (FIN-01 п. 25) — 409 `ACCOUNT_DUPLICATE`; закритий —
     409 `ACCOUNT_CLOSED`. Субрахунок — на першій вільній позиції. → 200 рахунок (поки передачу не завершено — гаманець із 0).
-  - `DELETE /v1/accounts/{accountId}/currencies/{currency}` (`removeAccountCurrency`) — прибрати валюту без транзакцій
+  - `DELETE /v1/accounts/{accountId}/wallets/{code}` (`removeAccountWallet`; `code` — код валюти) — прибрати валюту без транзакцій
     (IMP-02 п. 15, AC14): основна валюта (позиція 0) — 409 `ACCOUNT_MAIN_CURRENCY`; гаманець із записом журналу, що діє,
     крім «Початковий залишок» (коригування — транзакція), — 409 `ACCOUNT_CURRENCY_HAS_TRANSACTIONS`; невідома валюта — 404.
     Рядок субрахунку видаляється, рахунок журналу лишається з нулем. → 200 рахунок.

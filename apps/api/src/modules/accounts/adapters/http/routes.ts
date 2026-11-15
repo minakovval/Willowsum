@@ -863,11 +863,11 @@ function currencyRefusal(r: CurrencyRefusal): ApiProblem {
   }
 }
 
-export const addAccountCurrencyRoute = defineRoute({
+export const addAccountWalletRoute = defineRoute({
   module: MODULE,
   method: "POST",
-  path: "/v1/accounts/{accountId}/currencies",
-  operationId: "addAccountCurrency",
+  path: "/v1/accounts/{accountId}/wallets",
+  operationId: "addAccountWallet",
   summary:
     "«+ додати ще валюту» in «Основне»: a currency (wallet) of a current account with its opening balance and date (IMP-02 FR 15)",
   access: { permission: "household.data.write", feature: FEATURE },
@@ -921,23 +921,23 @@ export const addAccountCurrencyRoute = defineRoute({
   },
 });
 
-export const removeAccountCurrencyRoute = defineRoute({
+export const removeAccountWalletRoute = defineRoute({
   module: MODULE,
   method: "DELETE",
-  path: "/v1/accounts/{accountId}/currencies/{currency}",
-  operationId: "removeAccountCurrency",
+  path: "/v1/accounts/{accountId}/wallets/{code}",
+  operationId: "removeAccountWallet",
   summary:
     "Removes a currency (wallet) without transactions from an account; the main currency and one with transactions stay (IMP-02 FR 15)",
   access: { permission: "household.data.write", feature: FEATURE },
   problems: ["ACCOUNT_CLOSED", "ACCOUNT_MAIN_CURRENCY", "ACCOUNT_CURRENCY_HAS_TRANSACTIONS"],
-  request: { params: z.object({ accountId: z.uuid(), currency }) },
+  request: { params: z.object({ accountId: z.uuid(), code: currency }) },
   response: { status: 200, description: "The account without the currency", schema: accountSchema },
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
     const result = await ctx.inHousehold((q) =>
-      removeCurrency(deps, accountsTx(q), caller, params.accountId, params.currency),
+      removeCurrency(deps, accountsTx(q), caller, params.accountId, params.code),
     );
     if (result.kind !== "removed") throw currencyRefusal(result);
     await handOffNow(ctx, deps, result.handOff);
@@ -958,6 +958,6 @@ export const accountsRoutes = [
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
   updateAccountDetailsRoute,
-  addAccountCurrencyRoute,
-  removeAccountCurrencyRoute,
+  addAccountWalletRoute,
+  removeAccountWalletRoute,
 ];

@@ -105,13 +105,13 @@ const addCurrency = (
   balance: { amount: string; currency: string },
   balanceDate = "2026-11-01",
   principal?: { role?: string; scoped?: boolean },
-) => call(space, "POST", `/v1/accounts/${id}/currencies`, { balance, balanceDate }, principal);
+) => call(space, "POST", `/v1/accounts/${id}/wallets`, { balance, balanceDate }, principal);
 const removeCurrency = (
   space: Space,
   id: string,
   currency: string,
   principal?: { role?: string; scoped?: boolean },
-) => call(space, "DELETE", `/v1/accounts/${id}/currencies/${currency}`, undefined, principal);
+) => call(space, "DELETE", `/v1/accounts/${id}/wallets/${currency}`, undefined, principal);
 
 async function postTransaction(space: Space, wallet: Wallet, amount: string, day: string) {
   await ledger.post(space.householdId, {
@@ -444,7 +444,7 @@ describe("IMP-02@PoC FR 15: «+ додати ще валюту» and removing a 
       expect([add.statusCode, remove.statusCode]).toEqual([404, 404]);
       expect(add.body + remove.body).not.toMatch(/431|PLN|Поточний/);
     }
-    const off = await callOn(flagOff, space, "POST", `/v1/accounts/${id}/currencies`, {
+    const off = await callOn(flagOff, space, "POST", `/v1/accounts/${id}/wallets`, {
       balance: money("2.00", "GBP"),
       balanceDate: "2026-11-01",
     });
