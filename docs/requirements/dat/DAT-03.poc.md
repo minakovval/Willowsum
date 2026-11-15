@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-10, П-11, П-24, П-25, П-26, CMP-73
 - Сценарії: UC-DAT-10, UC-DAT-13
 - Модуль: bulk-actions, transactions
-- Перевіряється: apps/api/src/modules/bulk-actions/domain/dat03-bulk.test.ts, apps/api/test/dat03-bulk-actions.it.test.ts
+- Перевіряється: apps/api/src/modules/bulk-actions/domain/dat03-bulk.test.ts, apps/api/test/dat03-bulk-actions.it.test.ts, apps/api/src/modules/audit/domain/entry.test.ts
 
 **Мета.** Як власник великої колекції, я хочу змінювати локацію, власника, групу, теги чи інші поля для багатьох записів одночасно, щоб не редагувати їх по одному.
 
