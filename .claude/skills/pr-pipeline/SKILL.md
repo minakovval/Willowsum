@@ -99,7 +99,9 @@ Language and details: [lead communication](references/lead-communication.md).
    with decisions that code depends on — at once (owner, 2026-11-14, #178).
    Check `mergeable_state` together with `behind_by`: on a conflicting PR CI does not run (#249). A `sensitive`
    PR whose verdict is expected within ≈ 1 h merges first, and the PR without `sensitive` is synced after it;
-   otherwise merge a ready PR at once. A branch that updates from `main` with no conflicts and no regenerated files
+   otherwise merge a ready PR at once. Combined: a code PR with Ready still goes before a docs PR; among code PRs
+   a `sensitive` one whose verdict is expected within ≈ 1 h goes first (Рішення ведучого (2026-11-15; власник не
+   схвалював; #265)). A branch that updates from `main` with no conflicts and no regenerated files
    the lead updates itself, then the usual confirmation; otherwise an agent does it (owner, 2026-11-15, #178, comment 6891308063).
    Behind `main` → `sync-branch`, then a confirmation round (none for a docs-only PR not labelled `sensitive`
    that does not overlap `main`'s changes: one command and the lead's review instead). Wait for CI of several PRs with one command. Full list and both
@@ -224,11 +226,13 @@ hand-made database: Рішення ведучого (2026-11-14; власник 
   Workflow «супровідник», each on one PR without `sensitive` (rows `R`), from implementation to ready-to-merge;
   they may run in parallel. Compare agent tokens and the number of lead turns with #180 and report to the owner
   before making it a rule (token economy, item 8).
-- Model by risk: the strongest model for sensitive features and security reviews of critical modules; a
+- Model by risk: the strongest model for sensitive features; security reviews on the main model, on Fable only for
+  the highest-risk PRs (sign-in, encryption, data isolation of the household/space); a
   lighter one only for `review-pr` of docs-and-requirement-text-only PRs (not when they touch a security
   rule), ready reviewer patches, follow-up PRs and status checks; code reviews and their confirmation rounds
   stay on the main model — [token economy](references/token-economy.md) (read when you choose a model or write
-  a brief). **Fable** (owner, 2026-11-14, #178): **only** security reviews of critical PRs and root-cause
-  searches (e.g. flaky tests), at most one Fable task at a time (both owner decisions); everything else on the main
-  model (token economy, item 1).
+  a brief). **Fable** (owner, 2026-11-15, #178, comment 6894721169): only root-cause
+  searches of flaky tests, and security reviews of the highest-risk PRs (sign-in, encryption, data isolation of
+  the household/space); at most one Fable task at a time; mutation testing of critical modules is mandatory on any
+  model; everything else on the main model (token economy, item 1).
 
