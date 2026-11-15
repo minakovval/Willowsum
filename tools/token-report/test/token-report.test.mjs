@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addUpByModel, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, appendRow, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -327,5 +327,57 @@ describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => 
     const bad = run(["session", fx("no-usage.jsonl")]);
     assert.equal(bad.code, 1);
     assert.equal(bad.out, "");
+  });
+});
+
+describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 6899108018)", () => {
+  const body = read("body180.md");
+  const prRow = "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431 |";
+  const sessionRow = "| ведучий 2 | 2026-11-14 | 2,0 млн | 0,2 млн | 2,0 | 2,0 | 2,0 | 0,2 | — |";
+  const without = (text, line) => text.replace(`${line}\n`, "");
+
+  it("adds the row after the last row of the table «PR»; every other byte stays the same", () => {
+    const out = appendRow(body, prRow);
+    const lines = out.split("\n");
+    assert.equal(lines[lines.indexOf(prRow) - 1].slice(0, 7), "| #102 ");
+    assert.equal(without(out, prRow), body);
+  });
+
+  it("--sessions: adds the row to the table «Сесії» instead", () => {
+    const out = appendRow(body, sessionRow, { table: "sessions" });
+    const lines = out.split("\n");
+    assert.match(lines[lines.indexOf(sessionRow) - 1], /^\| ведучий 1 /);
+    assert.equal(lines[lines.indexOf(sessionRow) + 1], "");
+    assert.equal(without(out, sessionRow), body);
+  });
+
+  it("refuses a row with the wrong number of cells, more than one line, or not a table line", () => {
+    assert.throws(() => appendRow(body, "| #195 | процес |"), /2 cells, the table «PR» has 10/);
+    assert.throws(() => appendRow(body, `${prRow}\n${prRow}`), /one table line/);
+    assert.throws(() => appendRow(body, "#195 процес"), /one table line/);
+    assert.throws(() => appendRow(body, prRow, { table: "sessions" }), /10 cells, the table «Сесії» has 9/);
+  });
+
+  it("refuses a row whose PR or segment is already in the table", () => {
+    assert.throws(() => appendRow(body, prRow.replace("#195", "#101")), /already has a row «#101»/);
+  });
+
+  it("refuses a body without the table", () => {
+    assert.throws(() => appendRow("## Сесії\n\nтекст\n", sessionRow, { table: "sessions" }), /no header and separator/);
+    assert.throws(() => appendRow("текст\n", prRow), /no section of the table «PR»/);
+  });
+
+  it("CLI: writes the file in place and names the PATCH command; on an error it writes nothing", () => {
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const file = `${dir}/body.md`;
+    fs.writeFileSync(file, body);
+    const res = spawnSync(process.execPath, [INDEX, "append", "--body", file, "--row", prRow], { encoding: "utf8" });
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, prRow));
+    assert.match(res.stderr, /-F body=@/);
+    const again = run(["append", "--body", file, "--sessions", "--row", "| ведучий 1 | x | x | x | x | x | x | x | x |"]);
+    assert.equal(again.code, 1);
+    assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, prRow));
+    assert.match(run(["append", "--body", file]).err, /--body and --row are required/);
   });
 });

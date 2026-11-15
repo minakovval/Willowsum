@@ -1,6 +1,6 @@
 // Створено: 2026-11-14 · Оновлено: 2026-11-15
 // Token and time accounting for the issue «Облік токенів» (#180); owner, 2026-11-14 (#178, comment 6873950124, item 5).
-// Per-model split added (owner, 2026-11-15, #178, comment 6894721169).
+// Per-model split added (owner, 2026-11-15, #178, comment 6894721169); `append` (owner, 2026-11-15, #178, comment 6899108018).
 // Pure functions plus `main` with injected I/O, so the tests need no network. Zero dependencies, Node 22.
 import fs from "node:fs";
 
@@ -206,11 +206,70 @@ export function formatRow({ pr, type, rounds, runs, usage, ci, note }) {
   return `| ${cells.join(" | ")} |`;
 }
 
+/** The tables of the #180 body that `append` writes to: their section headings. */
+const TABLES = {
+  pr: { heading: /^## PR(\s|$)/, name: "«PR»" },
+  sessions: { heading: /^## Сесії(\s|$)/, name: "«Сесії»" },
+};
+
+/** `| a | b \| c |` → ["a", "b \| c"]: the cells of a Markdown table row (an escaped `\|` stays in its cell). */
+const tableCells = (line) =>
+  line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split(/(?<!\\)\|/)
+    .map((c) => c.trim());
+
+/**
+ * The #180 body with `row` added after the last row of the table «PR» (or «Сесії» with `table: "sessions"`);
+ * every other byte stays as it is (owner, 2026-11-15, #178, comment 6899108018). Throws UsageError when the row is
+ * not one table line, its cell count differs from the header, the table is missing, or the first cell (the PR or
+ * the segment) is already in the table.
+ */
+export function appendRow(body, row, { table = "pr" } = {}) {
+  const t = TABLES[table];
+  const line = row.trim();
+  if (/[\r\n]/.test(line) || !line.startsWith("|") || !line.endsWith("|")) {
+    throw new UsageError("--row must be one table line «| … |» (the first line that `pr` prints)");
+  }
+  const lines = body.split("\n");
+  const start = lines.findIndex((l) => t.heading.test(l));
+  if (start < 0) throw new UsageError(`the body has no section of the table ${t.name}`);
+  let header = start + 1;
+  while (header < lines.length && !lines[header].startsWith("|")) {
+    if (lines[header].startsWith("## ")) throw new UsageError(`the section of the table ${t.name} has no table`);
+    header++;
+  }
+  if (header >= lines.length - 1 || !/^\|\s*:?-{3}/.test(lines[header + 1])) {
+    throw new UsageError(`the table ${t.name} has no header and separator line`);
+  }
+  let last = header + 1;
+  while (last + 1 < lines.length && lines[last + 1].startsWith("|")) last++;
+  const width = tableCells(lines[header]).length;
+  const rowCells = tableCells(line);
+  if (rowCells.length !== width) {
+    throw new UsageError(`the row has ${rowCells.length} cells, the table ${t.name} has ${width}`);
+  }
+  for (let i = header + 2; i <= last; i++) {
+    if (tableCells(lines[i])[0] === rowCells[0]) {
+      throw new UsageError(`the table ${t.name} already has a row «${rowCells[0]}» (line ${i + 1})`);
+    }
+  }
+  const eol = lines[last].endsWith("\r") ? "\r" : "";
+  lines.splice(last + 1, 0, line + eol);
+  return lines.join("\n");
+}
+
 const USAGE = `usage:
   node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds <text>
       --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms>,tokens=<subagent_tokens> [--run …]
       (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
-  node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO time>] [--until <ISO time>]`;
+  node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO time>] [--until <ISO time>]
+  node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]`;
+
+/** Flags without a value. */
+const SWITCHES = new Set(["sessions"]);
 
 function options(argv) {
   const opts = { run: [], positional: [] };
@@ -220,9 +279,13 @@ function options(argv) {
       opts.positional.push(a);
       continue;
     }
+    const key = a.slice(2);
+    if (SWITCHES.has(key)) {
+      opts[key] = true;
+      continue;
+    }
     const value = argv[++i];
     if (value === undefined) throw new UsageError(`${a} needs a value`);
-    const key = a.slice(2);
     if (key === "run") opts.run.push(value);
     else opts[key] = value;
   }
@@ -230,7 +293,7 @@ function options(argv) {
 }
 
 /**
- * CLI. `io`: { stdout(text), stderr(text), gh(args) → stdout text, readFile(path) → text }.
+ * CLI. `io`: { stdout(text), stderr(text), gh(args) → stdout text, readFile(path) → text, writeFile(path, text) }.
  * @returns {number} exit code
  */
 export function main(argv, io) {
@@ -267,6 +330,17 @@ export function main(argv, io) {
           `${u.sidechainSkipped} sidechain records skipped`,
       );
       for (const line of modelLines(addUpByModel(seen))) io.stdout(line);
+      return 0;
+    }
+    if (mode === "append") {
+      if (!opts.body || !opts.row) throw new UsageError(`--body and --row are required\n${USAGE}`);
+      const updated = appendRow(readFile(opts.body), opts.row, { table: opts.sessions ? "sessions" : "pr" });
+      const writeFile = io.writeFile ?? ((p, text) => fs.writeFileSync(p, text, "utf8"));
+      writeFile(opts.body, updated);
+      io.stderr(
+        `appended to the table ${opts.sessions ? "«Сесії»" : "«PR»"} in ${opts.body}; now: ` +
+          "gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@" + opts.body,
+      );
       return 0;
     }
     if (mode !== "pr") throw new UsageError(USAGE);

@@ -56,8 +56,10 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 
 Mandatory (owner, 2026-11-13/14, #180). The lead keeps the tables, including every PR and session row, in the
 **body** of #180, never as comments (owner, 2026-11-15, #178): read the current body right before each edit
-(`gh api repos/{owner}/{repo}/issues/180 --jq .body > <file>`), append the new row to the end of its table in that
-file, keeping everything else as it is, and write it back with
+(`gh api repos/{owner}/{repo}/issues/180 --jq .body > <file>`), add the row with
+`node tools/token-report/index.mjs append --body <file> --row "<row>"` (`--sessions` for the table «Сесії»; owner,
+2026-11-15, #178, [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)),
+which keeps everything else byte for byte, and write it back with
 `gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@<file>` (`-F`, not `-f`: `-f` sends the literal text
 `@<file>` and erases the tables). Check the result shows both the old rows and the new one. Keep a running tally in
 the session scratchpad (`tokens.tsv`: PR, role, log path, `duration_ms`, `subagent_tokens`) so a compaction does
@@ -84,11 +86,13 @@ node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|п�
   --run role=review,log=<…>,ms=<…>,tokens=<…>  [one --run per agent run] \
   --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
 node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
+node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]
 ```
 Per-model split (owner, 2026-11-15, #178): after the row, `pr` prints one line per model (model, model calls,
 cache read, cache creation, input, output), and the row's «Примітка» gets `моделі: opus 4,1 млн / fable 1,2 млн
 cache read`; the row columns are unchanged. `session` prints the same lines after the total. The #180 PR rows note
-the per-model split. Paste only the row line into #180.
+the per-model split. Paste only the row line into #180. The row's «Примітка» is at most one line (owner, 2026-11-15,
+#178): detail stays in the agent logs and the PR comments.
 Roles: `author` and `fix` add to «Час автора», `review`, `security` and `confirm` to «Час рецензій». It prints the
 row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Агенти: cache read, млн | Агенти: output, тис. |
 Час автора, хв | Час рецензій, хв | CI, хв | Примітка); `--note` adds to the note. CI minutes are the sum of
@@ -106,13 +110,14 @@ then record the row by hand with «журнал втрачено» in the note.
 2. **PR.** In the same turn as the merge (owner, 2026-11-13; not as a later step), append the script's row to
    the table «PR» (the existing rows stay): every author, fix, reviewer and confirmation run of that PR
    (follow-up and fix agents of the same PR included).
-3. **Weekly.** Once a week (the first session after 7 days since the last analysis) add a short «Аналіз» note
-   to #180: which PR types cost most (sum and per PR, tokens and time), and the lead's own share (the session
-   sums against the agents' sums). A change of process it suggests goes to the queue «Черга змін процесу» (#178).
+3. **Analysis** (owner, 2026-11-15, #178): no weekly «Аналіз» note; the process review (every 3rd lead number,
+   [restarts](restarts.md), «Process review») draws its conclusions from #180: which PR types cost most (sum and per
+   PR, tokens and time), and the lead's own share (the session sums against the agents' sums).
 
 ## Session retrospective
 
 At the end of every lead segment — each compaction and the end of a session (owner, 2026-11-14/15, #178): a
 comment on #180 in four parts — conclusions; productivity (tokens, time, the lead's share, the costliest PRs);
-improvement proposals, each with its risks, downsides and mitigations; risks. Tell it to the owner briefly in chat. Its process proposals go to «Черга змін
+improvement proposals, each with its risks, downsides and mitigations; risks. The segment's «Сесії» row is added with
+`token-report append --sessions` («Token accounting»). Tell it to the owner briefly in chat. Its process proposals go to «Черга змін
 процесу» (#178). Example: [#180, retrospective of «ведучий 3»](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
