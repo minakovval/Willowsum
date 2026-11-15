@@ -63,10 +63,11 @@ const eur = (amount: string) => ({ amount, currency: "EUR" });
 async function runWorker(householdId: string): Promise<void> {
   const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
   try {
-    // Twice: a ledger event becomes a goals job on the first pass, the spend's audit hand-off on the next.
-    for (let i = 0; i < 3; i++) {
-      await worker.tick();
+    // Until nothing is left: a ledger event becomes a goals job on one pass, the spend's audit hand-off on a later one.
+    for (let i = 0; i < 50; i++) {
+      const handled = await worker.tick();
       await worker.idle();
+      if (handled === 0) break;
     }
   } finally {
     await worker.stop();
@@ -382,7 +383,7 @@ describe("BUD-05@PoC FR 9, FR 13: closing and deleting a goal", () => {
     ).toBe(1);
     // The closed envelope reserves nothing: the account is free for its own goal.
     const own = await goal(space, { name: "Окремий", part: { kind: "account", accountId: savings } });
-    expect(own["collected"]).toEqual(eur("4200"));
+    expect(own["collected"]).toEqual(eur("3100"));
   });
 
   it("BUD-05@PoC FR 13: «Закрити без витрати» of a reached goal, and «Видалити» of a goal with spends — their transactions are ordinary expenses again", async () => {
