@@ -347,6 +347,23 @@ export type paths = {
         patch: operations["renameCategoryGroup"];
         trace?: never;
     };
+    "/v1/duplicate-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Можливий дубль»: two transactions on one account with the same amount and currency within 3 days; never merged or hidden by the system */
+        get: operations["listDuplicateProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/email-confirmations": {
         parameters: {
             query?: never;
@@ -736,8 +753,43 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** «Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); never a transfer (FR 18) */
+        /** «Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18) */
         post: operations["hideTransaction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions/{transactionId}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27) */
+        post: operations["mergeDuplicate"];
+        /** «Роз'єднати»: a merged duplicate comes back with its own fields (on the transaction that stays: every one merged into it; FIN-03 edge case 4) */
+        delete: operations["unmergeDuplicate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions/{transactionId}/not-duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12) */
+        post: operations["dismissDuplicate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -753,7 +805,7 @@ export type paths = {
         };
         get?: never;
         put?: never;
-        /** A hidden transaction is shown again (FIN-03 FR 16) */
+        /** A hidden transaction is shown again (FIN-03 FR 16); a merged duplicate only by «Роз'єднати» */
         post: operations["showTransaction"];
         delete?: never;
         options?: never;
@@ -826,7 +878,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT: the current version of the record */
             currentVersion?: number;
             detail?: string;
@@ -4651,6 +4703,127 @@ export interface operations {
             };
         };
     };
+    listDuplicateProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pairs, newest first; «Об'єднати» is POST /v1/transactions/{first}/merge with the second as the duplicate, «Не дубль» POST /v1/transactions/{first}/not-duplicate */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            first: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                date: string;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                            second: {
+                                /** Format: uuid */
+                                accountId: string;
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                date: string;
+                                /** Format: uuid */
+                                transactionId: string;
+                            };
+                        }[];
+                        more: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     confirmEmail: {
         parameters: {
             query?: never;
@@ -4838,7 +5011,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.attributes" | "categories.tree" | "data.bulk_actions")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions")[];
                     };
                 };
             };
@@ -6764,6 +6937,8 @@ export interface operations {
                             hidden: boolean;
                             /** Format: uuid */
                             id: string;
+                            mergedDuplicates: string[];
+                            mergedInto: string | null;
                             recordedAt: string;
                             /** @enum {string} */
                             source: "manual";
@@ -6974,6 +7149,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7131,6 +7308,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7317,7 +7496,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7406,6 +7585,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7493,7 +7674,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7563,6 +7744,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7650,7 +7833,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); Only a duplicate or a technical record can be hidden (TRANSACTION_NOT_HIDEABLE) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7690,7 +7873,7 @@ export interface operations {
             };
         };
     };
-    showTransaction: {
+    mergeDuplicate: {
         parameters: {
             query?: never;
             header?: never;
@@ -7699,9 +7882,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    duplicateId: string;
+                };
+            };
+        };
         responses: {
-            /** @description The transaction */
+            /** @description The transaction that stays, «Об'єднано» */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -7720,6 +7910,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7808,6 +8000,490 @@ export interface operations {
                 };
             };
             /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    unmergeDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction, unmerged */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        recordedAt: string;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    dismissDuplicate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    counterpartId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        recordedAt: string;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    showTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        recordedAt: string;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7897,6 +8573,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -7984,7 +8662,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8054,6 +8732,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -8141,7 +8821,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -8218,6 +8898,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";
@@ -8375,6 +9057,8 @@ export interface operations {
                         hidden: boolean;
                         /** Format: uuid */
                         id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
                         recordedAt: string;
                         /** @enum {string} */
                         source: "manual";

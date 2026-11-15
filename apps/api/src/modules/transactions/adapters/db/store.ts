@@ -32,6 +32,7 @@ interface Row {
   split_mode: SplitMode | null;
   split_needs_review: boolean;
   transfer_id: string | null;
+  merged_into: string | null;
   version: number;
   created_at: Date;
 }
@@ -68,7 +69,8 @@ interface PartRow {
 
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
-  counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, version, created_at`;
+  counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, version,
+  created_at`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -172,6 +174,7 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     hidden: r.hidden,
     split: splitOf(r.split_mode, r.split_needs_review, parts),
     transfer,
+    mergedInto: r.merged_into,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
     createdAt: r.created_at.toISOString(),
@@ -253,7 +256,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
         `UPDATE transactions
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
-                split_needs_review = $14, transfer_id = $15, updated_at = now()
+                split_needs_review = $14, transfer_id = $15, merged_into = $16, updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -271,6 +274,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.split?.mode ?? null,
           t.split?.needsReview ?? false,
           t.transfer?.id ?? null,
+          t.mergedInto,
         ],
       );
       return row!;
@@ -292,6 +296,29 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     },
     async removeTransfer(householdId, id) {
       await q.query(`DELETE FROM transfers WHERE household_id = $1 AND id = $2`, [householdId, id]);
+    },
+    async duplicatesOf(householdId, id) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT id FROM transactions WHERE household_id = $1 AND merged_into = $2 ORDER BY id`,
+        [householdId, id],
+      );
+      return rows.map((r) => r.id);
+    },
+    async insertDismissal(householdId, firstId, secondId) {
+      const { rowCount } = await q.query(
+        `INSERT INTO duplicate_dismissals (household_id, first_id, second_id) VALUES ($1, $2, $3)
+         ON CONFLICT DO NOTHING`,
+        [householdId, firstId, secondId],
+      );
+      return (rowCount ?? 0) > 0;
+    },
+    async duplicatesForHiding(householdId, id, accountId, windowDays) {
+      // One hiding per account at a time: the other copy, hidden meanwhile, is seen once that one has committed.
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('transactions.hide:' || $1 || ':' || $2, 0))`,
+        [householdId, accountId],
+      );
+      return duplicateCandidatesOf(q, householdId, id, { windowDays });
     },
     async remove(householdId, id) {
       // A side of a transfer is never deleted (the route refuses it), so no transfer points at the row.
@@ -324,6 +351,7 @@ export const transactionsList = defineList({
     splitMode: "split_mode",
     splitNeedsReview: "split_needs_review",
     transferId: "transfer_id",
+    mergedInto: "merged_into",
     createdAt: "created_at",
   },
   tieBreaker: "id",
@@ -424,6 +452,95 @@ export async function transferCandidates(
       date: r.i_date,
     },
   }));
+}
+
+/** The duplicates merged into each of `ids` (FIN-03 FR 11: «Об'єднано»), in the order of their ids. */
+export async function mergedOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<Map<string, string[]>> {
+  const byKept = new Map<string, string[]>();
+  if (ids.length === 0) return byKept;
+  const { rows } = await q.query<{ id: string; merged_into: string }>(
+    `SELECT id, merged_into FROM transactions WHERE household_id = $1 AND merged_into = ANY($2::uuid[]) ORDER BY id`,
+    [householdId, ids],
+  );
+  for (const r of rows) byKept.set(r.merged_into, [...(byKept.get(r.merged_into) ?? []), r.id]);
+  return byKept;
+}
+
+/** One side of a possible duplicate (FIN-03 FR 12), as module duplicate-matching receives it. */
+export interface DuplicateSide {
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+interface DuplicateRow {
+  a_id: string;
+  a_date: string;
+  b_id: string;
+  b_date: string;
+  account_id: string;
+  amount: string;
+  currency: string;
+}
+
+const duplicateSides = (r: DuplicateRow): { first: DuplicateSide; second: DuplicateSide } => {
+  const side = (transactionId: string, date: string) => ({
+    transactionId,
+    accountId: r.account_id,
+    amount: Money.of(r.amount, r.currency),
+    date,
+  });
+  return { first: side(r.a_id, r.a_date), second: side(r.b_id, r.b_date) };
+};
+
+/**
+ * Two shown transactions on one account with the same amount and currency within `windowDays`, neither a side of a
+ * transfer, the pair not «Не дубль» (FIN-03 FR 12); a merged duplicate is hidden, so never one. `a` is the earlier
+ * (then the smaller id). The rule of duplicate-matching decides the rest.
+ */
+const DUPLICATE_PAIRS = `
+  SELECT a.id AS a_id, a.occurred_on::text AS a_date, b.id AS b_id, b.occurred_on::text AS b_date,
+         a.account_id, a.amount::text AS amount, a.currency
+    FROM transactions a
+    JOIN transactions b ON b.household_id = a.household_id AND b.account_id = a.account_id
+                       AND b.currency = a.currency AND b.amount = a.amount AND b.id <> a.id
+                       AND (b.occurred_on, b.id) > (a.occurred_on, a.id)
+                       AND b.occurred_on <= a.occurred_on + $2::int
+   WHERE a.household_id = $1 AND NOT a.hidden AND NOT b.hidden AND a.transfer_id IS NULL AND b.transfer_id IS NULL
+     AND NOT EXISTS (SELECT 1 FROM duplicate_dismissals d
+                      WHERE d.household_id = a.household_id
+                        AND d.first_id = least(a.id, b.id) AND d.second_id = greatest(a.id, b.id))`;
+
+/** The possible duplicates of a space for module duplicate-matching: newest first, at most `limit` pairs. */
+export async function duplicateCandidates(
+  q: ModuleQueryRunner,
+  householdId: string,
+  query: { readonly windowDays: number; readonly limit: number },
+): Promise<{ readonly first: DuplicateSide; readonly second: DuplicateSide }[]> {
+  const { rows } = await q.query<DuplicateRow>(
+    `${DUPLICATE_PAIRS} ORDER BY b.occurred_on DESC, a.occurred_on DESC, a.id, b.id LIMIT $3`,
+    [householdId, query.windowDays, query.limit],
+  );
+  return rows.map(duplicateSides);
+}
+
+/** The possible duplicates that one transaction is a side of (FR 18: only a duplicate is hidden). */
+export async function duplicateCandidatesOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  transactionId: string,
+  query: { readonly windowDays: number },
+): Promise<{ readonly first: DuplicateSide; readonly second: DuplicateSide }[]> {
+  const { rows } = await q.query<DuplicateRow>(
+    `${DUPLICATE_PAIRS} AND $3::uuid IN (a.id, b.id) ORDER BY a.occurred_on, a.id, b.id LIMIT 100`,
+    [householdId, query.windowDays, transactionId],
+  );
+  return rows.map(duplicateSides);
 }
 
 /**

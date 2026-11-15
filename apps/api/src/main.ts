@@ -27,11 +27,13 @@ import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
+  createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionsServices,
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
 import { createTransferMatchingServices } from "./modules/transfer-matching/index.ts";
+import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
@@ -228,6 +230,12 @@ const server = buildServer({
                 createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(
                   requests,
                 ),
+              // FIN-03 FR 18: only a «Можливий дубль» is hidden, by duplicate-matching's rule.
+              duplicates: createDuplicateCheck(),
+            }),
+            // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
+            duplicateMatching: createDuplicateMatchingServices({
+              candidates: createDuplicateCandidates(databases.for("transactions")),
             }),
             // FIN-03 FR 5, FR 6: proposals of transfers from the space's transactions at the official rates.
             transferMatching: createTransferMatchingServices({

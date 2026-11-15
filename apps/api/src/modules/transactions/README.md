@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; BUD-01 п. 12: категорії частин)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -37,6 +37,12 @@ FIN-03@PoC b) (хвиля 2, рядок 16b — серверна частина)
 курсом дати), 9 (зняти позначку), 18 (сторону переказу не приховати й не розділити), 22 (фільтр «Стан: переказ»), 23
 (позначка в рядку), 27 («Позначити як переказ»), граничний випадок 1; AC3. Пропозиції (п. 5, 6) — модуль
 `transfer-matching`. Категорія «Комісії банку» комісії — з категоризацією (рядок 20); кредитний платіж (п. 14, AC20) — далі.
+
+FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина): п. 11 (злиття: та, що лишається, зберігає свої поля; дубль
+прихований і без власної події журналу; «Об'єднано», «Роз'єднати»), 12 («Об'єднати» і «Не дубль» — пара більше не
+позначається), 18 (приховати можна лише «Можливий дубль»; переказ — ні), 27 («Об'єднати з іншою»), граничний випадок 4.
+Пошук «Можливий дубль» і правило автоматичного злиття (п. 10, AC6) — модуль `duplicate-matching`. Злиття з банківською
+транзакцією (поля банку за п. 11, AC5) — з імпортом (IMP-04, рядок 43); фільтр «Стан: можливий дубль» і бейдж — далі.
 
 ## Публічний інтерфейс
 
@@ -91,13 +97,32 @@ FIN-03@PoC b) (хвиля 2, рядок 16b — серверна частина)
     позначки — нічого.
   - Сторона переказу: `hide`, `split`, `DELETE` і зміна рахунку, суми, дати чи статусу — 409 `TRANSACTION_IN_TRANSFER`
     (тексти змінюються). Список: фільтр `transfer.eq`, поле `transfer` кожного рядка.
+  - `POST /v1/transactions/{transactionId}/merge` (`mergeDuplicate`; прапорець і ключ `transactions.duplicates`, потребує
+    `transactions.manual`) — `{ duplicateId }`: «Об'єднати» «Можливого дубля» і «Об'єднати з іншою». Обидві — простору,
+    на одному рахунку з тією самою сумою й валютою (дата — будь-яка: вибір користувача), не приховані, не сторони
+    переказу, не злиті; у дубля немає злитих у нього (без ланцюжків). Коди 400: `duplicateId` — `not_found`, `invalid`,
+    `account_mismatch`, `amount_mismatch`, `hidden`, `in_transfer`, `merged`, `has_duplicates`; `transactionId` —
+    `hidden`, `in_transfer`, `merged`. Закритий рахунок — 409 `ACCOUNT_CLOSED`. Дубль стає `hidden` з `mergedInto`,
+    його власна подія журналу сторнується; та, що лишається, не змінюється. → 200 та, що лишається.
+  - `DELETE /v1/transactions/{transactionId}/merge` (`unmergeDuplicate`) — «Роз'єднати»: на дублі — він повертається;
+    на тій, що лишається, — усі злиті в неї; кожен знову показаний зі своїми полями й подією журналу. Без злиття — нічого.
+  - `POST /v1/transactions/{transactionId}/not-duplicate` (`dismissDuplicate`) — `{ counterpartId }`: «Не дубль» (той
+    самий рахунок, сума й валюта, обидві не злиті; інакше 400 `counterpartId` — `not_found`, `invalid`,
+    `account_mismatch`, `amount_mismatch`, `merged`); пара більше не «Можливий дубль». Повтор — нічого.
+  - Злитий дубль: `PATCH`, `DELETE`, `show`, `hide`, `split` — 409 `TRANSACTION_MERGED`; та, у яку злито, — `DELETE`
+    409 `TRANSACTION_MERGED` (спершу «Роз'єднати»), решта змінюється. Кожна транзакція має `mergedInto` (у яку злито
+    або null) і `mergedDuplicates` (злиті в неї — «Об'єднано»).
+  - `POST …/hide` (п. 18): лише «Можливий дубль» зараз за правилом `duplicate-matching` (`DuplicateCheck`: вікно і
+    рішення; пошук — у транзакції зміни під блокуванням приховування рахунку, тож з двох копій приховується лише одна),
+    інакше 409 `TRANSACTION_NOT_HIDEABLE`; технічних записів у цьому випуску немає (з підключеннями банків).
   Учасник з областю: «Транзакції» закриті політикою видимості за замовчуванням — читання 404, зміни 403 (дозвіл
   `household.data.write`).
-- `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags? })` →
+- `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags?, rates?, duplicates? })` →
   `TransactionsServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `AccountDirectory` модуля
   accounts, `createLedger`, `createListTotals` (платформа) з `officialDatedRates` модуля fx-rates, журнал аудиту,
-  годинник; `CategoryDirectory` модуля categories (без нього «Розділити» — 500) і середовище прапорців (без нього
-  «Очікує» вимкнено).
+  годинник; `CategoryDirectory` модуля categories (без нього «Розділити» — 500), середовище прапорців (без нього
+  «Очікує» вимкнено), курси fx-rates (без них перекази — 500) і `DuplicateCheck` модуля duplicate-matching (без нього
+  «Приховати транзакцію» — 500).
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
   jobs }` — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
@@ -110,7 +135,11 @@ FIN-03@PoC b) (хвиля 2, рядок 16b — серверна частина)
   мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
-- `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`.
+- `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
+  можливих дублів для `duplicate-matching`: показані,
+  на одному рахунку, та сама сума й валюта, у межах `windowDays`, не сторони переказу, не «Не дубль»; `first` — раніша
+  (лише читання; правило вирішує той модуль).
+- `TRANSACTION_TYPES`, `typeOf`, тип `TransactionType`, тип `DuplicateCheck`.
 
 Журнал переказу (`application/hand-off.ts`): поки позначено, власна подія зарахування сторнована, власна подія списання —
 комісія (в одній валюті, якщо є) за датою переказу, а подія `transfer` / `fx-transfer` з джерелом `transactions` /
@@ -160,7 +189,8 @@ FIN-03@PoC b) (хвиля 2, рядок 16b — серверна частина)
 | `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
+| `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 
-Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).
+Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 1 пара «Не дубль», 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).

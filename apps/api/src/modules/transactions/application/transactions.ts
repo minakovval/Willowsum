@@ -37,6 +37,21 @@ export interface TransactionsTx {
   insertTransfer(householdId: string, link: TransferLink): Promise<void>;
   /** FR 9: the pair removed, once neither row points at it. */
   removeTransfer(householdId: string, id: string): Promise<void>;
+  /** FIN-03 FR 11: the transactions merged into `id` as its duplicates, in the order of their ids. */
+  duplicatesOf(householdId: string, id: string): Promise<string[]>;
+  /** «Не дубль» (FR 12): the pair stored in the order of its ids; false — it was stored already. */
+  insertDismissal(householdId: string, firstId: string, secondId: string): Promise<boolean>;
+  /**
+   * FR 18: the possible duplicates `id` is a side of now, by the search of `DuplicateCandidates` within `windowDays`;
+   * first takes the space's lock of hiding on the account until the transaction ends, so two copies are never hidden
+   * at once.
+   */
+  duplicatesForHiding(
+    householdId: string,
+    id: string,
+    accountId: string,
+    windowDays: number,
+  ): Promise<readonly DuplicatePairSides[]>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
 }
@@ -49,6 +64,32 @@ export interface TransactionsDeps extends HandOffDeps {
   readonly today: () => string;
   /** The release flag `transactions.states` for the space: «Очікує» and hiding (FIN-03 b); off — «Проведена» only. */
   readonly statesEnabled: (householdId: string) => Promise<boolean>;
+  /**
+   * FR 18: whether the transaction is a «Можливий дубль» now (module duplicate-matching's rule: another shown transaction
+   * on its account with the same amount and currency within 3 days, the pair not «Не дубль»); null when not wired —
+   * hiding then answers 500.
+   */
+  readonly duplicates: DuplicateCheck | null;
+}
+
+/** One side of a possible duplicate as the search finds it (FIN-03 FR 12). */
+export interface DuplicateSideFound {
+  readonly transactionId: string;
+  readonly accountId: string;
+  readonly amount: Money;
+  readonly date: string;
+}
+
+export interface DuplicatePairSides {
+  readonly first: DuplicateSideFound;
+  readonly second: DuplicateSideFound;
+}
+
+/** Module duplicate-matching's rule (wired in src/main.ts), pure: the window of the search and the decision. */
+export interface DuplicateCheck {
+  readonly windowDays: number;
+  /** Whether any of the pairs the search found is a «Можливий дубль». */
+  isPossibleDuplicate(pairs: readonly DuplicatePairSides[]): boolean;
 }
 
 export interface Caller {
@@ -85,6 +126,13 @@ export type TransactionResult =
    * until the mark is removed (FR 9). Nothing was written.
    */
   | { readonly kind: "in-transfer" }
+  /**
+   * FR 11, edge case 4: a duplicate merged into another changes only through «Роз'єднати», and a transaction that
+   * others were merged into is deleted only once they are unmerged. Nothing was written.
+   */
+  | { readonly kind: "merged" }
+  /** FR 18: hiding is for duplicates and technical records only. Nothing was written. */
+  | { readonly kind: "not-hideable" }
   | { readonly kind: "not-found" };
 
 /** The hand-off of one change, with its audit values, enqueued in the caller's transaction. */
@@ -201,6 +249,7 @@ export async function createTransaction(
     hidden: false,
     split: null,
     transfer: null,
+    mergedInto: null,
     version: 1,
   });
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
@@ -220,6 +269,7 @@ export async function updateTransaction(
   const householdId = caller.householdId;
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
+  if (current.mergedInto !== null) return { kind: "merged" };
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   const checked = await check(
@@ -269,6 +319,7 @@ export async function updateTransaction(
     hidden: current.hidden,
     split,
     transfer: current.transfer,
+    mergedInto: current.mergedInto,
     version: current.version + 1,
   });
   return { kind: "ok", transaction: next, handOff: await handOff(tx, caller, "update", current, next) };
@@ -284,6 +335,7 @@ export async function deleteTransaction(
   | { readonly kind: "ok"; readonly handOff: TransactionHandOff }
   | { readonly kind: "closed" }
   | { readonly kind: "in-transfer" }
+  | { readonly kind: "merged" }
   | { readonly kind: "not-found" }
 > {
   const householdId = caller.householdId;
@@ -293,13 +345,19 @@ export async function deleteTransaction(
   if (holder?.status === "closed") return { kind: "closed" };
   // A side of a transfer is deleted only once the mark is removed (FR 9), so the other side is never left half a pair.
   if (current.transfer) return { kind: "in-transfer" };
+  // A duplicate merged into another, or one others were merged into: «Роз'єднати» first, so none is lost (FR 11).
+  if (current.mergedInto !== null || (await tx.duplicatesOf(householdId, id)).length > 0)
+    return { kind: "merged" };
   await tx.remove(householdId, id);
   return { kind: "ok", handOff: await handOff(tx, caller, "delete", current, null) };
 }
 
 /**
  * «Приховати транзакцію» and showing it again (FIN-03 FR 16–18, FR 27): out of the list (unless asked for), the budget
- * and the reports; the journal event stays, so the balance does not change. Hiding twice changes nothing.
+ * and the reports; the journal event stays, so the balance does not change. Hiding twice changes nothing. FR 18: only a
+ * duplicate is hidden — a «Можливий дубль» now by module duplicate-matching's rule, read under the account's lock of
+ * hiding (so of two copies only one is ever hidden); technical records come with bank connections, none is in this
+ * release. A transfer between own accounts is never hidden. Without the rule wired, hiding throws (500).
  */
 export async function setHidden(
   deps: TransactionsDeps,
@@ -308,10 +366,15 @@ export async function setHidden(
   id: string,
   hidden: boolean,
 ): Promise<TransactionResult> {
-  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", (current) => {
+  return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", async (current) => {
     if (current.hidden === hidden) return null;
-    // FR 18: a transfer between own accounts is never hidden (hiding is for duplicates and technical records).
     if (hidden && current.transfer) return "in-transfer";
+    if (hidden) {
+      const rule = deps.duplicates;
+      if (rule === null) throw new Error("the duplicate rule is not wired");
+      const pairs = await tx.duplicatesForHiding(caller.householdId, id, current.accountId, rule.windowDays);
+      if (!rule.isPossibleDuplicate(pairs)) return "not-hideable";
+    }
     return { ...current, hidden };
   });
 }
@@ -326,14 +389,25 @@ export async function changeRow(
   caller: Caller,
   id: string,
   action: TransactionHandOff["action"],
-  next: (current: StoredTransaction) => StoredTransaction | FieldIssue[] | "in-transfer" | null,
+  next: (
+    current: StoredTransaction,
+  ) =>
+    | StoredTransaction
+    | FieldIssue[]
+    | "in-transfer"
+    | "not-hideable"
+    | null
+    | Promise<StoredTransaction | "in-transfer" | "not-hideable" | null>,
 ): Promise<TransactionResult> {
   const current = await tx.lock(caller.householdId, id);
   if (!current) return { kind: "not-found" };
+  // A merged duplicate is hidden, split or shown only through «Роз'єднати» (FR 11).
+  if (current.mergedInto !== null) return { kind: "merged" };
   const holder = await deps.accounts.postingAccount(caller.householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
-  const changed = next(current);
+  const changed = await next(current);
   if (changed === "in-transfer") return { kind: "in-transfer" };
+  if (changed === "not-hideable") return { kind: "not-hideable" };
   if (Array.isArray(changed)) return { kind: "invalid", issues: changed };
   if (changed === null) return { kind: "ok", transaction: current, handOff: null };
   const row = await tx.update(caller.householdId, { ...changed, version: current.version + 1 });

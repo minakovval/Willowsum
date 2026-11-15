@@ -41,7 +41,11 @@ export type FieldIssue = {
     | "same_account"
     | "same_direction"
     | "amount_mismatch"
-    | "rate_unavailable";
+    | "rate_unavailable"
+    // A merge of duplicates (duplicates.ts): a side merged already, one that others were merged into, another account.
+    | "merged"
+    | "has_duplicates"
+    | "account_mismatch";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;

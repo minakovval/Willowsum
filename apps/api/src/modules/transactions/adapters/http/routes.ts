@@ -9,13 +9,17 @@ import {
   applyHandOff,
   createTransaction,
   deleteTransaction,
+  dismissDuplicate,
   markTransfer,
+  mergeDuplicate,
   removeSplit,
   setHidden,
   setSplit,
   splitCategoryKinds,
   unmarkTransfer,
+  unmergeDuplicate,
   updateTransaction,
+  type DuplicateResult,
   type HandOffDeps,
   type StoredTransaction,
   type TransactionHandOff,
@@ -38,6 +42,7 @@ import {
 } from "../../domain/index.ts";
 import {
   listedSplit,
+  mergedOf,
   partsOf,
   transactionsList,
   transactionsTx,
@@ -45,7 +50,7 @@ import {
   type TransferView,
 } from "../db/store.ts";
 import { transactionRows } from "../queue/hand-off.ts";
-import { STATES_FLAG, TRANSFERS_FLAG, transactionsServices } from "./services.ts";
+import { DUPLICATES_FLAG, STATES_FLAG, TRANSFERS_FLAG, transactionsServices } from "./services.ts";
 
 /**
  * Transactions entered by hand (FIN-03@PoC FR 1–3, FR 13, FR 16, FR 20, FR 22, FR 29, edge case 2; wave 2 row 15):
@@ -132,6 +137,13 @@ const transactionSchema = z.object({
    * whatever `type` (the direction) says; null — none. Never hidden or split (FR 18).
    */
   transfer: transferSchema.nullable(),
+  /**
+   * FR 11, FR 12: a duplicate merged («Об'єднати») into this transaction — hidden, without its own journal event;
+   * «Роз'єднати» gives it back. Null — not merged.
+   */
+  mergedInto: z.uuid().nullable(),
+  /** FR 11: the duplicates merged into this one — «Об'єднано» and «Роз'єднати» when there are any. */
+  mergedDuplicates: z.array(z.uuid()),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
 });
@@ -166,7 +178,11 @@ function transferOut(id: string, view: TransferView | undefined): z.input<typeof
   };
 }
 
-function present(t: StoredTransaction, view?: TransferView): z.input<typeof transactionSchema> {
+function present(
+  t: StoredTransaction,
+  view: TransferView | undefined,
+  duplicates: readonly string[],
+): z.input<typeof transactionSchema> {
   return {
     id: t.id,
     accountId: t.accountId,
@@ -180,19 +196,27 @@ function present(t: StoredTransaction, view?: TransferView): z.input<typeof tran
     hidden: t.hidden,
     split: splitOut(t.split),
     transfer: t.transfer ? transferOut(t.id, view) : null,
+    mergedInto: t.mergedInto,
+    mergedDuplicates: [...duplicates],
     recordedAt: t.createdAt,
   };
 }
 
-/** The transaction as the API shows it: with its transfer read in the space's transactions (FR 7). */
+/**
+ * The transaction as the API shows it: with its transfer (FR 7) and the duplicates merged into it (FR 11) read in the
+ * space's transactions.
+ */
 async function shown(
   ctx: ProtectedContext,
   t: StoredTransaction,
 ): Promise<z.input<typeof transactionSchema>> {
-  if (!t.transfer) return present(t);
-  const id = t.transfer.id;
-  const views = await ctx.inHousehold((q) => transfersOf(q, ctx.principal.householdId, [id]));
-  return present(t, views.get(id));
+  const householdId = ctx.principal.householdId;
+  const transferId = t.transfer?.id;
+  const { views, merged } = await ctx.inHousehold(async (q) => ({
+    views: transferId ? await transfersOf(q, householdId, [transferId]) : new Map<string, TransferView>(),
+    merged: t.mergedInto === null ? await mergedOf(q, householdId, [t.id]) : new Map<string, string[]>(),
+  }));
+  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? []);
 }
 
 /** Where the form is wrong: the field and an issue code, never the value sent. */
@@ -204,7 +228,10 @@ function invalid(issues: readonly FieldIssue[]): ApiProblem {
 
 function outcome(
   result:
-    TransactionResult | TransferResult | { readonly kind: "ok" | "closed" | "in-transfer" | "not-found" },
+    | TransactionResult
+    | TransferResult
+    | DuplicateResult
+    | { readonly kind: "ok" | "closed" | "in-transfer" | "merged" | "not-found" },
 ): void {
   switch (result.kind) {
     case "invalid":
@@ -213,6 +240,10 @@ function outcome(
       throw new ApiProblem("ACCOUNT_CLOSED");
     case "in-transfer":
       throw new ApiProblem("TRANSACTION_IN_TRANSFER");
+    case "merged":
+      throw new ApiProblem("TRANSACTION_MERGED");
+    case "not-hideable":
+      throw new ApiProblem("TRANSACTION_NOT_HIDEABLE");
     case "conflict":
       throw new ApiProblem("VERSION_CONFLICT");
     case "not-found":
@@ -334,7 +365,7 @@ export const updateTransactionRoute = defineRoute({
     "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 16 * 1024,
-  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
   request: {
     params,
     body: z
@@ -372,7 +403,7 @@ export const deleteTransactionRoute = defineRoute({
   summary:
     "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16)",
   access: { permission: "household.data.write", feature: FEATURE },
-  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
   request: { params },
   response: {
     status: 200,
@@ -426,6 +457,7 @@ function listItem(
   row: Record<string, unknown>,
   parts: Awaited<ReturnType<typeof partsOf>>,
   transfers: ReadonlyMap<string, TransferView>,
+  merged: ReadonlyMap<string, string[]>,
 ): z.input<typeof transactionSchema> {
   const amount = Money.of(String(row["amount"]), String(row["currency"]));
   const recorded = row["createdAt"];
@@ -445,6 +477,8 @@ function listItem(
       row["transferId"] === null || row["transferId"] === undefined
         ? null
         : transferOut(String(row["id"]), transfers.get(String(row["transferId"]))),
+    mergedInto: (row["mergedInto"] as string | null) ?? null,
+    mergedDuplicates: merged.get(String(row["id"])) ?? [],
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
   };
 }
@@ -503,7 +537,7 @@ export const listTransactionsRoute = defineRoute({
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
     const { totals, reportingCurrency } = transactionsServices(ctx);
-    const { page, parts, transfers } = await ctx.inHousehold(async (q) => {
+    const { page, parts, transfers, merged } = await ctx.inHousehold(async (q) => {
       const page = await transactionsList.run(q, {
         ...query,
         filter: shownUnlessAsked(query.filter),
@@ -517,6 +551,11 @@ export const listTransactionsRoute = defineRoute({
         page,
         parts: await partsOf(q, ctx.principal.householdId, split),
         transfers: await transfersOf(q, ctx.principal.householdId, transferIds),
+        merged: await mergedOf(
+          q,
+          ctx.principal.householdId,
+          page.items.map((r) => String(r["id"])),
+        ),
       };
     });
     const of = (sign: AmountGroup["sign"]) => page.groups.filter((g) => g.sign === sign);
@@ -526,7 +565,7 @@ export const listTransactionsRoute = defineRoute({
       totals.total(page.groups, reportingCurrency),
     ]);
     return {
-      items: page.items.map((row) => listItem(row, parts, transfers)),
+      items: page.items.map((row) => listItem(row, parts, transfers, merged)),
       page: page.page,
       pageSize: page.pageSize,
       count: page.count,
@@ -586,7 +625,7 @@ export const splitTransactionRoute = defineRoute({
     "«Розділити»: the budget's view of the amount by categories or by months; no new transaction, the journal and the balance unchanged",
   access: { permission: "household.data.write", feature: ATTRIBUTES },
   bodyLimitBytes: 16 * 1024,
-  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
   request: { params, body: splitInput },
   response: { status: 200, description: "The transaction with its split", schema: transactionSchema },
   handler: async ({ params, body }, ctx) => {
@@ -611,7 +650,7 @@ export const unsplitTransactionRoute = defineRoute({
   operationId: "unsplitTransaction",
   summary: "«Об'єднати назад»: the transaction is whole again (BUD-13 FR 8)",
   access: { permission: "household.data.write", feature: ATTRIBUTES },
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_MERGED"],
   request: { params },
   response: { status: 200, description: "The transaction without a split", schema: transactionSchema },
   handler: async ({ params }, ctx) => {
@@ -634,15 +673,18 @@ const visibilityRoute = (hidden: boolean) =>
     path: `/v1/transactions/{transactionId}/${hidden ? "hide" : "show"}`,
     operationId: hidden ? "hideTransaction" : "showTransaction",
     summary: hidden
-      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); never a transfer (FR 18)"
-      : "A hidden transaction is shown again (FIN-03 FR 16)",
+      ? "«Приховати транзакцію»: out of the list, the budget and the reports; the balance unchanged (FIN-03 FR 16, FR 17); only a «Можливий дубль», never a transfer (FR 18)"
+      : "A hidden transaction is shown again (FIN-03 FR 16); a merged duplicate only by «Роз'єднати»",
     access: { permission: "household.data.write", feature: STATES_FLAG },
-    problems: hidden ? ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER"] : ["ACCOUNT_CLOSED"],
+    problems: hidden
+      ? ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED", "TRANSACTION_NOT_HIDEABLE"]
+      : ["ACCOUNT_CLOSED", "TRANSACTION_MERGED"],
     request: { params },
     response: { status: 200, description: "The transaction", schema: transactionSchema },
     handler: async ({ params }, ctx) => {
       refuseScoped(ctx);
       const { deps } = transactionsServices(ctx);
+      if (hidden && deps.duplicates === null) throw new ApiProblem("INTERNAL");
       const result = await ctx.inHousehold((q) =>
         setHidden(deps, transactionsTx(q), caller(ctx), params.transactionId, hidden),
       );
@@ -729,6 +771,111 @@ export const unmarkTransferRoute = defineRoute({
   },
 });
 
+const inTransactions =
+  (ctx: ProtectedContext) =>
+  <T>(work: (tx: ReturnType<typeof transactionsTx>) => Promise<T>) =>
+    ctx.inHousehold((q) => work(transactionsTx(q)));
+
+export const mergeDuplicateRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/{transactionId}/merge",
+  operationId: "mergeDuplicate",
+  summary:
+    "«Об'єднати» a «Можливий дубль» / «Об'єднати з іншою»: the duplicate is merged into this transaction, which keeps its fields; the operation counts once (FIN-03 FR 11, FR 12, FR 27)",
+  access: { permission: "household.data.write", feature: DUPLICATES_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** The duplicate: on the same account, with the same amount and currency; hidden once merged. */
+        duplicateId: z.uuid(),
+      })
+      .strict(),
+  },
+  response: {
+    status: 200,
+    description: "The transaction that stays, «Об'єднано»",
+    schema: transactionSchema,
+  },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await mergeDuplicate(
+      deps,
+      inTransactions(ctx),
+      caller(ctx),
+      params.transactionId,
+      body.duplicateId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
+export const unmergeDuplicateRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/transactions/{transactionId}/merge",
+  operationId: "unmergeDuplicate",
+  summary:
+    "«Роз'єднати»: a merged duplicate comes back with its own fields (on the transaction that stays: every one merged into it; FIN-03 edge case 4)",
+  access: { permission: "household.data.write", feature: DUPLICATES_FLAG },
+  problems: ["ACCOUNT_CLOSED"],
+  request: { params },
+  response: { status: 200, description: "The transaction, unmerged", schema: transactionSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await unmergeDuplicate(deps, inTransactions(ctx), caller(ctx), params.transactionId);
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
+export const dismissDuplicateRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/{transactionId}/not-duplicate",
+  operationId: "dismissDuplicate",
+  summary:
+    "«Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12)",
+  access: { permission: "household.data.write", feature: DUPLICATES_FLAG },
+  bodyLimitBytes: 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    params,
+    body: z
+      .object({
+        /** The other transaction of the pair: on the same account, with the same amount and currency. */
+        counterpartId: z.uuid(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The transaction", schema: transactionSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = transactionsServices(ctx);
+    const result = await dismissDuplicate(
+      deps,
+      inTransactions(ctx),
+      caller(ctx),
+      params.transactionId,
+      body.counterpartId,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return shown(ctx, result.transaction);
+  },
+});
+
 export const transactionsRoutes = [
   createTransactionRoute,
   listTransactionsRoute,
@@ -741,4 +888,7 @@ export const transactionsRoutes = [
   showTransactionRoute,
   markTransferRoute,
   unmarkTransferRoute,
+  mergeDuplicateRoute,
+  unmergeDuplicateRoute,
+  dismissDuplicateRoute,
 ];

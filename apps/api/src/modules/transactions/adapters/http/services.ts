@@ -5,12 +5,20 @@ import type { AccountDirectory } from "../../../accounts/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY } from "../../../fx-rates/index.ts";
-import type { SplitDeps, TransactionAudit, TransactionsDeps, TransferDeps } from "../../application/index.ts";
+import type {
+  DuplicateCheck,
+  SplitDeps,
+  TransactionAudit,
+  TransactionsDeps,
+  TransferDeps,
+} from "../../application/index.ts";
 
 /** The release flag of «Очікує» and hiding (FIN-03 b, wave 2 row 16a); the routes of hiding are behind it too. */
 export const STATES_FLAG = "transactions.states";
 /** The release flag and feature key of transfers between own accounts (FIN-03 b, wave 2 row 16b). */
 export const TRANSFERS_FLAG = "transactions.transfers";
+/** The release flag and feature key of «Об'єднати», «Роз'єднати» and «Не дубль» (FIN-03 b, wave 2 row 16c). */
+export const DUPLICATES_FLAG = "transactions.duplicates";
 
 const BRAND = Symbol("willowsum-transactions-services");
 
@@ -45,6 +53,11 @@ export function createTransactionsServices(options: {
   readonly flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> };
   /** fx-rates' `rates`, for the rate a transfer in two currencies keeps (FR 8); without it transfers answer 500. */
   readonly rates?: TransferDeps["rates"];
+  /**
+   * Module duplicate-matching's check whether a transaction is a «Можливий дубль» (FR 18: only duplicates are hidden);
+   * without it «Приховати транзакцію» answers 500.
+   */
+  readonly duplicates?: DuplicateCheck;
 }): TransactionsServices {
   const deps: TransactionsDeps = {
     accounts: options.accounts,
@@ -57,6 +70,7 @@ export function createTransactionsServices(options: {
     today: () => kyivToday(options.clock.now()),
     statesEnabled: (householdId) =>
       options.flags ? options.flags.isEnabled(householdId, STATES_FLAG) : Promise.resolve(false),
+    duplicates: options.duplicates ?? null,
   };
   return {
     [BRAND]: true,
