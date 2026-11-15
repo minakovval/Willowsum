@@ -407,6 +407,8 @@ export async function writeGroupAudit(
       };
     }),
   );
+  // A run that changed nothing (every record skipped) or an undo that restored nothing changed no data.
+  if (changes.length === 0) return;
   await audit.record(householdId, {
     actor: { kind: "user", id: action.actorId },
     channel: "web",

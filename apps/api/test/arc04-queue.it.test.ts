@@ -151,14 +151,28 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(categoriesSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The parts of background bulk actions, undos and group audit entries (DAT-03 FR 6, FR 9, FR 11).
+    const bulkActionsSql = readFileSync(
+      `${apiDir}/src/modules/bulk-actions/adapters/db/migrations/0003_queue.sql`,
+      "utf8",
+    );
+    expect(bulkActionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     const tables = await rows<{ schema: string; table: string; rls: boolean; forced: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
        WHERE c.relname IN ('jobs', 'outbox_events') AND c.relkind = 'r' ORDER BY 1, 2`,
     );
     expect(tables).toEqual(
-      ["accounts", "categories", "ledger", "queue_consumer", "queue_producer", "transactions"].flatMap(
-        (schema) => ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),
+      [
+        "accounts",
+        "bulk_actions",
+        "categories",
+        "ledger",
+        "queue_consumer",
+        "queue_producer",
+        "transactions",
+      ].flatMap((schema) =>
+        ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),
       ),
     );
     // Another space sees none of a space's jobs.
