@@ -11,11 +11,18 @@ function key(householdId: string, table: string, n: number): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
+/** Liabilities per household; `liability_terms` has two periods for each of them (its key to `liabilities`, checked at commit). */
+const LIABILITIES = 2;
+const PERIODS_PER_LIABILITY = 2;
+
 export const synthetic = [
   defineSyntheticTable({
     table: "liabilities.liabilities",
-    perHousehold: 2,
+    perHousehold: LIABILITIES,
     *rows({ household, rng, count }) {
+      // The terms' periods name the first LIABILITIES liabilities: fewer would break their deferred key.
+      if (count < LIABILITIES)
+        throw new Error(`liabilities.liabilities: at least ${LIABILITIES} rows (liability_terms name them)`);
       for (let i = 0; i < count; i++)
         yield {
           household_id: household.id,
@@ -74,13 +81,18 @@ export const synthetic = [
   }),
   defineSyntheticTable({
     table: "liabilities.liability_terms",
-    perHousehold: 4,
+    perHousehold: LIABILITIES * PERIODS_PER_LIABILITY,
     *rows({ household, rng, count }) {
+      // Period i belongs to liability floor(i / 2): more periods than that has liabilities breaks the deferred key.
+      if (count > LIABILITIES * PERIODS_PER_LIABILITY)
+        throw new Error(
+          `liabilities.liability_terms: at most ${LIABILITIES * PERIODS_PER_LIABILITY} rows (two per liability)`,
+        );
       for (let i = 0; i < count; i++)
         yield {
           household_id: household.id,
           id: rng.uuid(),
-          liability_id: key(household.id, "liability", Math.floor(i / 2)),
+          liability_id: key(household.id, "liability", Math.floor(i / PERIODS_PER_LIABILITY)),
           valid_from: i % 2 === 0 ? null : "2026-10-01",
           kind: "loan",
           currency: "EUR",

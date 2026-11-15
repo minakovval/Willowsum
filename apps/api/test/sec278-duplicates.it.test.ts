@@ -179,6 +179,7 @@ beforeAll(async () => {
         flags: { ...base, isEnabled },
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
+          walletUsage: [],
           ledger,
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

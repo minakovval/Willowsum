@@ -119,6 +119,7 @@ beforeAll(async () => {
   ledger = createLedger(db.databases.for("ledger"));
   liabilities = createLiabilities(db.databases.for("liabilities"), audit);
   const services = createAccountsServices({
+    walletUsage: [],
     ledger,
     liabilities,
     keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

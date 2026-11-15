@@ -112,6 +112,7 @@ beforeAll(async () => {
   const liabilities = createLiabilities(db.databases.for("liabilities"), audit);
   keys = createSpaceKeys(db.databases.for("household"), audit, localKeyManagement());
   const services = createAccountsServices({
+    walletUsage: [],
     ledger,
     liabilities,
     keys,
@@ -438,7 +439,8 @@ describe("FIN-12@PoC: who may change «Реквізити»", () => {
       expect(res.body).not.toMatch(/431|1234|Нотатка/);
     }
     const off = await callOn(flagOff, space, "PATCH", `/v1/accounts/${id}/details`, { note: "Вимкнено" });
-    expect(off.statusCode).toBeGreaterThanOrEqual(400);
+    // The route's flag is off for the space: 404 as for a route that does not exist, and nothing changes (#244 item 3).
+    expect([off.statusCode, off.json().code]).toEqual([404, "NOT_FOUND"]);
     expect(await view(space, id)).toEqual(
       expect.objectContaining({ note: "Нотатка editor", number: { last4: "1234", masked: "••1234" } }),
     );

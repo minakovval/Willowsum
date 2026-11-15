@@ -193,6 +193,7 @@ beforeAll(async () => {
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
+          walletUsage: [],
         }),
         transactions: createTransactionsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),
