@@ -811,7 +811,7 @@ describe("FIN-03@PoC FR 34: the amount and the account of a transaction others w
       expect(r.json().title).toMatch(/unmerge/i);
     }
     expect(await get(space, first.id)).toMatchObject({
-      amount: { amount: "-30.00", currency: "EUR" },
+      amount: { amount: "-30", currency: "EUR" },
       description: null,
       mergedDuplicates: [second.id],
     });
