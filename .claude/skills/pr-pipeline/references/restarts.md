@@ -35,6 +35,8 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
   starting token usage in #180 ([token economy](token-economy.md), «Token accounting»). Check `get_session` →
   `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews are not cut), and agents
   commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178).
+- **After a limit cut-off** (owner, 2026-11-15, #178, comment 6896768536): schedule `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume,
+  and delete that scheduled task (`delete_trigger`) after the wake-up.
 - Before finishing: post the session retrospective on #180 and tell it to the owner briefly in chat
   ([token economy](token-economy.md), «Session retrospective»); record the session's usage and its difference in #180; write into «Lead state» the name for
   the next session (`Willowsum · ведучий N+1 · <з чого почати>`); then rename yourself with «(завершено)»
@@ -47,7 +49,7 @@ e.g. `Willowsum · ведучий 2 · хвиля 2 з рядка 3` (N is one m
 2. `create_session` with the start message below as `prompt`, the title `Willowsum · ведучий N+1 · <з чого почати>`,
    the same environment (omit `environment_id`: it is inherited) and the same repository (`source_url`).
 3. The new session's ID goes into #179 and, briefly, to the owner in chat.
-4. **Limit** (the counter and the third-restart steps below are the lead's mechanism: Рішення ведучого (2026-11-14; власник не схвалював; #230)): at most 2 automatic restarts in a row without an answer from the owner; the third only after the
+4. **Limit** (the counter and the third-restart steps below are the lead's mechanism: Рішення власника (2026-11-15; #178, comment 6896768536; #230)): at most 2 automatic restarts in a row without an answer from the owner; the third only after the
    owner answers. The finishing lead then asks in chat and gives the start message in one code block, so the owner
    can also start it. The start message states the count: «N-й автоматичний перезапуск із 2».
 5. Risks and mitigations: a chain of sessions runs without the owner — the handover confirmation is always posted
@@ -78,7 +80,7 @@ not review — does this after the usual start steps:
    `keep/sec241-tests.mjs` was lost with its container).
 4. **Result.** A report to the owner as a comment on #180: conclusions and proposals, each with its risks, downsides
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
-Рішення ведучого (2026-11-15; власник не схвалював; #178): перегляд — до нових задач конвеєра; ціна ≈ 100–150 тис.
+Рішення власника (2026-11-15; #178, comment 6896768536): схвалено — перегляд — до нових задач конвеєра; ціна ≈ 100–150 тис.
 токенів контексту, тому сесія перегляду зіллє на 1–2 PR менше.
 
 **Handover confirmation** (owner, 2026-11-13): every handover between lead sessions is confirmed to the owner in

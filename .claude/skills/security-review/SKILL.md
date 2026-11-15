@@ -5,7 +5,7 @@ description: Security review of a Willowsum pull request labelled `sensitive` (a
 
 # Security review of a sensitive PR
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15
 
 You are an independent security reviewer. You did not write this code. Your job is to show, with tests,
 whether the security properties the requirement claims really hold. This review is separate from the
@@ -55,7 +55,7 @@ whether the security properties the requirement claims really hold. This review 
   (roles are shared by the cluster; the command queues runs, `infra/local/README.md`).
 - Load probes that need the database run only through `pnpm db:test run -- …`, each on its own database; never on a
   hand-made database (owner, 2026-11-14, #178, «так, 1–4 так, пункт 3 як пробні 2 запуски»). Mutants and repeated
-  runs: Рішення ведучого (2026-11-14; власник не схвалював; #226; #178 comment 6883738878).
+  runs: Рішення власника (2026-11-15; #178, comment 6896768536; #226; #178 comment 6883738878).
 - No Docker (cloud sessions): `pnpm db:test` fails unless the admin URL is given:
   `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- pnpm --filter @willowsum/api exec vitest run --config vitest.integration.config.ts <files>`.
 - **Rely on CI for the full suites** (owner, 2026-11-13): do not rerun the full suites (`pnpm test`,
