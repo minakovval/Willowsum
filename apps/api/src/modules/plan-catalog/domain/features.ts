@@ -21,6 +21,8 @@ export const FEATURES = {
     "Атрибути транзакцій: розділення за категоріями і на кілька місяців (BUD-13@PoC, FIN-03@PoC)",
   "categories.tree":
     "Дерево категорій: системні групи й категорії, власні групи й категорії, перейменування, приховування, об'єднання, «обов'язкова» (BUD-01@PoC)",
+  "data.bulk_actions":
+    "Масові дії зі списків: підсумок до виконання, до 500 записів, фонове виконання, «Відмінити» протягом 24 год (DAT-03@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

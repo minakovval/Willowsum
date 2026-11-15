@@ -157,6 +157,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(categoriesSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The parts of background bulk actions, undos and group audit entries (DAT-03 FR 6, FR 9, FR 11).
+    const bulkActionsSql = readFileSync(
+      `${apiDir}/src/modules/bulk-actions/adapters/db/migrations/0003_queue.sql`,
+      "utf8",
+    );
+    expect(bulkActionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     const tables = await rows<{ schema: string; table: string; rls: boolean; forced: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -165,6 +171,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
     expect(tables).toEqual(
       [
         "accounts",
+        "bulk_actions",
         "categories",
         "ledger",
         "liabilities",

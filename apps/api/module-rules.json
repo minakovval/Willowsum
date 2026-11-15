@@ -19,7 +19,7 @@
     },
     "bulk-actions": {
       "layer": "platform",
-      "dependsOn": []
+      "dependsOn": ["audit"]
     },
     "cashflow": {
       "layer": "process",
@@ -38,6 +38,7 @@
       "dependsOn": [
         "accounts",
         "audit",
+        "bulk-actions",
         "categories",
         "household",
         "identity",

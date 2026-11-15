@@ -51,6 +51,7 @@ import {
   modulePoolOptions,
   modulePoolSize,
   readinessCheck,
+  bulkActionsServicesFor,
   schedulerDailyTasks,
   workerQueues,
 } from "./wiring.ts";
@@ -232,6 +233,8 @@ const server = buildServer({
                   requests,
                 ),
             }),
+            // DAT-03: bulk actions of the selection panels, with the same targets and actions as the worker's.
+            bulkActions: bulkActionsServicesFor(audit),
             // BUD-01: the category tree of the space; the system tree is written on first use.
             categories: createCategoriesServices({ audit, clock: systemClock, newId: randomUUID }),
             deployed: config.deployed,

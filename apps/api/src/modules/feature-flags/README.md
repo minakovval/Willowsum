@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-15 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`; BUD-01: `categories.tree`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-15 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -69,6 +69,7 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 (BUD-13@PoC, FIN-03@PoC b: розділення, `/v1/transactions/{id}/split`), власник `product-owner`, перегляд до 2027-02-15;
 `transactions.transfers` — `release`, потребує `transactions.manual` (FIN-03@PoC b: перекази між власними рахунками,
 `/v1/transactions/{id}/transfer`, `/v1/transfer-proposals`), власник `product-owner`, перегляд до 2027-02-15.
+`data.bulk_actions` — `release` (DAT-03@PoC a: масові дії, `/v1/bulk-actions`), власник `product-owner`, перегляд до 2027-02-15.
 
 Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на
 етапі `all` (і так само кожен прапорець із `requires`), бо до входу немає простору для тестової групи чи частки (ADR-0009).

@@ -23,7 +23,6 @@ const SKELETONS = [
   "categorization",
   "merchants",
   "duplicate-matching",
-  "bulk-actions",
   "budget",
   "goals",
   "recurring",

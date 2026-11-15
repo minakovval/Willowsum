@@ -6,6 +6,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.ts";
 import type { AccountsServices } from "./modules/accounts/index.ts";
+import type { BulkActionsServices } from "./modules/bulk-actions/index.ts";
 import type { CategoriesServices } from "./modules/categories/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
@@ -58,6 +59,11 @@ export interface ApiWiring {
   /** The categories module's ports (BUD-01: the audit log, clock). Omitted: its routes answer 500. */
   readonly categories?: CategoriesServices;
   /**
+   * The bulk-actions module's ports (DAT-03: the targets and actions of the selection panels, the audit log, clock).
+   * Omitted: its routes answer 500.
+   */
+  readonly bulkActions?: BulkActionsServices;
+  /**
    * The transfer-matching module's ports (FIN-03: the transactions module's candidate pairs, the official rates).
    * Omitted: its routes answer 500.
    */
@@ -98,9 +104,11 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
               ? wiring.transactions
               : module === "categories"
                 ? wiring.categories
-                : module === "transfer-matching"
-                  ? wiring.transferMatching
-                  : undefined,
+                : module === "bulk-actions"
+                  ? wiring.bulkActions
+                  : module === "transfer-matching"
+                    ? wiring.transferMatching
+                    : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

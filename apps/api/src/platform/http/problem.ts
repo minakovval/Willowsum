@@ -111,6 +111,18 @@ export const PROBLEMS = {
   /** BUD-01@PoC FR 3: «Переказ» and «Коригування» are never hidden or merged; nothing was written. */
   CATEGORY_SERVICE_FIXED: { status: 409, title: "A service category cannot be hidden or merged" },
   /**
+   * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
+   * written.
+   */
+  BULK_ACTION_RUNNING: { status: 409, title: "Another bulk action is still running" },
+  /**
+   * DAT-03@PoC FR 8, AC4: «Відмінити» is not available — the 24 hours after the end are over, the action was undone
+   * already or is still running; nothing was written.
+   */
+  BULK_UNDO_UNAVAILABLE: { status: 409, title: "This bulk action can no longer be undone" },
+  /** DAT-03@PoC FR 10: «Продовжити» only for an interrupted bulk action; nothing was written. */
+  BULK_ACTION_NOT_INTERRUPTED: { status: 409, title: "This bulk action is not interrupted" },
+  /**
    * FIN-03@PoC FR 7, FR 9, FR 18: a side of a transfer between own accounts is never hidden, split or deleted, and its
    * account, amount, date and state change only once the mark is removed; nothing was written.
    */
