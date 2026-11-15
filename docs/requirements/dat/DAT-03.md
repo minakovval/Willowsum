@@ -41,7 +41,8 @@
 - [MVP] Сценарії: UC-DAT-09, UC-DAT-10, UC-DAT-11, UC-DAT-12, UC-DAT-13
 - [лише MVP] Модуль: bulk-actions, transactions, asset-registry
 - [v1] Модуль: bulk-actions, transactions, asset-registry, plan-catalog
-- Перевіряється: —
+- [лише PoC] Перевіряється: apps/api/src/modules/bulk-actions/domain/dat03-bulk.test.ts, apps/api/test/dat03-bulk-actions.it.test.ts
+- [MVP] Перевіряється: —
 
 [лише PoC] **Мета.** Як власник великої колекції, я хочу змінювати локацію, власника, групу, теги чи інші поля для багатьох записів одночасно, щоб не редагувати їх по одному.
 [лише MVP] **Мета.** Як власник великої колекції, я хочу змінювати локацію, власника чи інші поля для багатьох записів одночасно, щоб не редагувати їх по одному.
