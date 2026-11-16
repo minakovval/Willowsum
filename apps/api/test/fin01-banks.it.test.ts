@@ -160,9 +160,10 @@ describe("FIN-01@PoC FR 4: «Банк або установа» — the director
     expect((await banks(space, "?cursor=bm90LWEtY3Vyc29y")).statusCode).toBe(400);
   });
 
-  it("FIN-01@PoC FR 4: the same right as creating an account — a viewer gets 403; behind the flag accounts.manual", async () => {
+  it("FIN-01@PoC FR 4: the same right as creating an account — a viewer and a scoped member get 403; behind the flag accounts.manual", async () => {
     const space = await newSpace();
     expect((await banks(space, "", { role: "viewer" })).statusCode).toBe(403);
+    expect((await banks(space, "", { role: "editor", scoped: true })).statusCode).toBe(403);
     expect((await banks(space, "", { role: "owner" })).statusCode).toBe(200);
     off.add("accounts.manual");
     expect((await banks(space)).statusCode).toBe(404);
