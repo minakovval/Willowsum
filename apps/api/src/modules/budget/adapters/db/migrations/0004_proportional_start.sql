@@ -4,4 +4,9 @@
 -- Additive: a nullable column, so the code of row 29 runs on this schema unchanged.
 ALTER TABLE budgets
   ADD COLUMN first_day date
-    CHECK (first_day IS NULL OR (date_trunc('month', first_day)::date = first_period AND extract(day FROM first_day) > 1));
+    CHECK (
+      first_day IS NULL
+      OR (extract(year FROM first_day) = extract(year FROM first_period)
+        AND extract(month FROM first_day) = extract(month FROM first_period)
+        AND extract(day FROM first_day) > 1)
+    );
