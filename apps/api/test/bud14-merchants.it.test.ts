@@ -335,7 +335,8 @@ describe("BUD-14@PoC FR 3: rename and merge for the space; the original descript
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       action: "update",
-      actor: { kind: "user", id: space.accountId },
+      actorKind: "user",
+      actorId: space.accountId,
       changes: [{ field: "name", masked: true }],
     });
     expect(JSON.stringify(entries)).not.toContain("Сільпо");
@@ -412,7 +413,8 @@ describe("BUD-14@PoC FR 3: rename and merge for the space; the original descript
     expect(await audit.entriesFor(space.householdId, { type: ENTITY, id: source.id })).toMatchObject([
       {
         action: "update",
-        actor: { kind: "user", id: space.accountId },
+        actorKind: "user",
+        actorId: space.accountId,
         changes: [{ field: "mergedInto", before: null, after: starbucks.id, masked: false }],
       },
     ]);
