@@ -8,6 +8,7 @@ import { SessionKeeper } from "./auth/session.ts";
 import { SignInPage } from "./auth/SignInPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
+import { AccountCardPage } from "./accounts/AccountCardPage.tsx";
 import { AccountsPage } from "./accounts/AccountsPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
@@ -88,6 +89,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
     case "child": {
       const tab = DEBT_TABS[route.child.id];
       if (tab) return <DebtsScreen tab={tab} />;
+      // FIN-12@PoC c), GRID-02@PoC FR 2: S-053 «Картка рахунку».
+      if (route.child.id === "account") return <AccountCardPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
       if (route.child.id === "newTransaction")

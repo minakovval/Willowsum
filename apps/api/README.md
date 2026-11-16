@@ -60,7 +60,7 @@
 | `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
 | `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
 | `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
-| `WS_TRUSTED_PROXY_HOPS` | Скільки проксі перед API мають довіру до `X-Forwarded-For` / `X-Forwarded-Proto` (0–5); 0 — адреса клієнта з сокета, заголовки ігноруються (NFR-14 п. 8) | 0 |
+| `WS_TRUSTED_PROXY_HOPS` | Скільки проксі перед API мають довіру до `X-Forwarded-For` / `X-Forwarded-Proto` (0–5); 0 — адреса клієнта з сокета, заголовки ігноруються (NFR-14 п. 8); e2e-стек (`apps/web/e2e`) працює з 1 вузлом, API слухає лише loopback; у розгортанні порт API має бути досяжний лише через проксі (ADR-0007) | 0 |
 | `WS_RATE_LIMITS` | Ліміти частоти: `on` або `off-load-test` (лише навантажувальний тест; у `production` відхиляється; при старті — подія `rate_limits.disabled`) (NFR-14 п. 9) | `on` |
 | `WS_API_INSTANCES` | Скільки екземплярів API запущено; лічильники лімітів у пам'яті процесу, тож при > 1 і `WS_RATE_LIMITS=on` роль `api` не стартує (NFR-14 п. 10, ADR-0007) | 1 |
 | `WS_ALLOWED_ORIGINS` | Origin сторінок, яким дозволено запити на запис (через кому, точний `https://host[:port]`; http лише для localhost, у `staging`/`production` — лише https) (NFR-15 п. 5) | локально `http://localhost:5173,http://localhost:4173`; у `staging`/`production` — жодного |

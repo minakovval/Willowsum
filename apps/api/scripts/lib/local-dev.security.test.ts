@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ROLES,
+  assertFreshAllowed,
   assertLocalServer,
   confirmationLink,
   parseLocalDevArgs,
@@ -79,12 +80,19 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
       "postgres:///x?host=/tmp,evil",
       "postgres:///x?host=/tmp&hostaddr=10.0.0.5",
       "postgres:///x",
+      "postgres:///x?host=/tmp/../../evil",
       "postgres:///x?host=/tmp&host=evil.example.com",
       "postgres:///x?host=evil.example.com&host=/tmp",
       " postgres://127.0.0.1/x",
       "postgres://127.0.0.1/x ",
     ])
       expect(() => assertLocalServer(bad), bad).toThrow(/not a local/);
+  });
+
+  it("--fresh drops only the development database, never a test one (#401)", () => {
+    expect(() => assertFreshAllowed("ws_dev", true)).not.toThrow();
+    expect(() => assertFreshAllowed("ws_t_cray_feh4dh_0a1b2c3d", false)).not.toThrow();
+    expect(() => assertFreshAllowed("ws_t_cray_feh4dh_0a1b2c3d", true)).toThrow(/only the development/);
   });
 
   it("accepts a Unix socket directory", () => {

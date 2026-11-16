@@ -10,6 +10,7 @@ import {
   isTestDbName,
   psqlConnection,
   redactUrl,
+  isLocalAdminUrl,
   resolveServer,
   sanitizeTag,
   testDbName,
@@ -59,4 +60,12 @@ test('server: WS_TEST_PG_ADMIN_URL wins, else the local:up stack with Docker, el
   const none = resolveServer({ env: {}, docker: false });
   assert.equal(none.kind, 'none');
   assert.match(none.message, /WS_TEST_PG_ADMIN_URL/);
+});
+
+test('#363: WS_TEST_PG_ADMIN_URL must be this machine; another host or a host override is refused', () => {
+  for (const ok of ['postgres://postgres@127.0.0.1:5432/postgres', 'postgres://u:p@localhost/postgres', 'postgres://u@[::1]/x', 'postgres:///x?host=/var/run/postgresql'])
+    assert.equal(isLocalAdminUrl(ok), true, ok);
+  for (const bad of ['postgres://u@db.example.com/x', 'postgres://u@127.0.0.1/x?host=evil.example.com', 'postgres://u@127.0.0.1/x?hostaddr=10.0.0.5', 'postgres:///x?host=/tmp/../../evil', 'postgres:///x?host=/tmp,evil', 'postgres:///x', ' postgres://127.0.0.1/x', 'postgres://0.0.0.0/x'])
+    assert.equal(isLocalAdminUrl(bad), false, bad);
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: 'postgres://u@db.example.com/x' }, docker: true }).kind, 'none');
 });
