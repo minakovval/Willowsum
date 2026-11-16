@@ -575,13 +575,38 @@ code {
  * ACC-01@PoC sign-up, confirmation and sign-in (canvas PocSignUp, PocCheckEmail, PocLinkInvalid, PocSignIn*): focus
  * mode, the mark above one narrow card (GRID-06@PoC). Fields follow CMP-02@PoC until the design-system Field exists.
  */
+/*
+ * GRID-06@PoC FR 1, AC2: the page grid of the width class (GRID-00 FR 2: 12 columns, 32 px margins, 24 px gutter on
+ * Expanded; at most 1200 px of content on Large, from 1440 px). The mark and the card take the 6 middle columns, 3 stay empty
+ * on each side; on the narrower classes (not in PoC, П-25) the column takes the whole width.
+ */
 .auth-page {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  column-gap: var(--ws-gutter);
+  align-content: start;
   min-height: 100vh;
   padding: calc(var(--ws-space-8) + var(--ws-space-2)) var(--ws-page-margin) var(--ws-space-8);
   background: var(--ws-surface-100);
+}
+
+@media (min-width: 1440px) {
+  .auth-page {
+    padding-inline: max(var(--ws-page-margin), (100% - var(--ws-content-max)) / 2);
+  }
+}
+
+.auth-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .auth-column {
+    grid-column: 4 / span 6;
+  }
 }
 
 .auth-brand {
@@ -592,7 +617,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: var(--ws-space-4);
-  width: min(100%, 26.25rem);
+  width: 100%;
   padding: var(--ws-space-6);
   border: 1px solid var(--ws-line);
   border-radius: var(--ws-radius-xl);
@@ -895,6 +920,81 @@ code {
   align-items: center;
   gap: var(--ws-space-2);
   color: var(--ws-ink-muted);
+}
+
+.auth-tile-negative {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+/* ACC-04@PoC: the neutral «Сесію завершено…» notice carries the info marker in the link colour (PocSignInSessionEnded). */
+.auth-notice-neutral .auth-notice-icon {
+  color: var(--ws-link);
+}
+
+/* S-004 «Забули пароль?» under the password, at the end of the line (canvas PocSignIn). */
+.auth-forgot {
+  margin-block-start: calc(var(--ws-space-2) * -1);
+  text-align: end;
+}
+
+.auth-forgot a {
+  color: var(--ws-link);
+  font-weight: 500;
+}
+
+/* S-004b (canvas PocNotMe): the sign-in in question, the steps of «Захистити акаунт», a destructive outline button. */
+.auth-sign-in-facts {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ws-space-1) / 2);
+  padding: var(--ws-space-3) calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.auth-sign-in-facts b {
+  font-weight: 600;
+}
+
+.auth-sign-in-facts span,
+.auth-steps svg,
+.auth-footnote {
+  color: var(--ws-ink-muted);
+}
+
+.auth-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+}
+
+.auth-steps svg {
+  flex: none;
+  margin-block-start: calc(var(--ws-space-1) / 2);
+}
+
+.ws-button.auth-button-danger {
+  border-color: var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+.auth-footnote {
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  text-align: center;
 }
 
 /* CMP-25@PoC Tooltip gallery: narrow cards so the names are cut off; one case at the right edge. */

@@ -51,6 +51,21 @@ test.describe("NFR-07@PoC: desktop layout at 1280 px", () => {
     expect(layout.overflow).toBe(0);
   });
 
+  for (const path of ["/login", "/signup", "/password/reset", "/not-me"])
+    test(`GRID-06@PoC AC2: ${path} — the card takes the 6 middle columns, 3 empty on each side`, async ({
+      page,
+    }) => {
+      await page.goto(`/#${path}`);
+      await expect(h1(page)).toBeVisible();
+      // 12 columns, 32 px margins, 24 px gutters (GRID-00 FR 2): a column is (1280 − 64 − 11 × 24) / 12 px.
+      const column = (1280 - 2 * 32 - 11 * 24) / 12;
+      const box = (await page.getByRole("main").boundingBox())!;
+      expect(box.x).toBeCloseTo(32 + 3 * (column + 24), 0);
+      expect(box.width).toBeCloseTo(6 * column + 5 * 24, 0);
+      // Nothing of the app's navigation around the card (FR 5).
+      await expect(page.getByRole("navigation")).toHaveCount(0);
+    });
+
   test("GRID-05@PoC AC1: «Налаштування» — the header, then navigation 3 columns and the form 9", async ({
     page,
   }) => {
