@@ -36,6 +36,7 @@ import {
   createGoalsWorkerQueue,
   goalsSubscriptions,
 } from "./modules/goals/index.ts";
+import { createMerchantsRecovery, createMerchantsWorkerQueue } from "./modules/merchants/index.ts";
 import {
   createLiabilities,
   createLiabilitiesHandOffRecovery,
@@ -190,6 +191,9 @@ export function schedulerDailyTasks(deps: {
     deps.spaces.spaceIds(),
   );
   const goalsRecovery = createGoalsHandOffRecovery(deps.databases.for("goals"), () => deps.spaces.spaceIds());
+  const merchantsRecovery = createMerchantsRecovery(deps.databases.for("merchants"), () =>
+    deps.spaces.spaceIds(),
+  );
   const tasks: DailyTask[] = [
     { name: "identity.daily-cleanup", run: () => maintenance.dailyCleanup() },
     { name: "ledger.integrity-check", run: async () => void (await ledgerCheck.run()) },
@@ -242,6 +246,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await goalsRecovery.run();
         if (requeued > 0) logEvent("goals.hand_off_requeued", "warn", { "ws.module": "goals" });
+      },
+    },
+    // The same for the merchants queue (ARC-04, ADR-0015, #249): the audit entry of a rename, a merge, «Роз'єднати».
+    {
+      name: "merchants.recovery",
+      run: async () => {
+        const requeued = await merchantsRecovery.run();
+        if (requeued > 0) logEvent("merchants.jobs_requeued", "warn", { "ws.module": "merchants" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -317,6 +329,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       // BUD-05: the audit entries of goals, contributions and spends, after the goals transaction committed (ADR-0015),
       // and the ledger's reversals of spent transactions (AC5).
       createGoalsWorkerQueue(databases.for("goals"), audit),
+      // BUD-14 a: the audit entries of merchants' renames, merges and «Роз'єднати» (ADR-0015).
+      createMerchantsWorkerQueue(databases.for("merchants"), audit),
     ],
     subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions],
   };

@@ -629,6 +629,41 @@ export async function categorizableFacts(
 }
 
 /**
+ * What module merchants reads of the space's transactions (BUD-14@PoC FR 1, FR 2): the counterparty — the bank's
+ * description as received, or as the user typed it — of each existing transaction of `ids` (hidden ones too). Missing
+ * ids are absent; a transaction without a counterparty maps to null.
+ */
+export async function counterpartiesOf(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<ReadonlyMap<string, string | null>> {
+  if (ids.length === 0) return new Map();
+  const { rows } = await q.query<{ id: string; counterparty: string | null }>(
+    `SELECT id, counterparty FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])`,
+    [householdId, ids],
+  );
+  return new Map(rows.map((r) => [r.id, r.counterparty]));
+}
+
+/**
+ * BUD-14@PoC FR 3 («Об'єднати з…»): every distinct counterparty of the space's shown transactions with how many have
+ * it. Read only.
+ */
+export async function counterpartyCounts(
+  q: ModuleQueryRunner,
+  householdId: string,
+): Promise<{ readonly counterparty: string; readonly count: number }[]> {
+  const { rows } = await q.query<{ counterparty: string; count: string }>(
+    `SELECT counterparty, count(*) AS count FROM transactions
+      WHERE household_id = $1 AND counterparty IS NOT NULL AND NOT hidden
+      GROUP BY counterparty ORDER BY counterparty`,
+    [householdId],
+  );
+  return rows.map((r) => ({ counterparty: r.counterparty, count: Number(r.count) }));
+}
+
+/**
  * IMP-02@PoC FR 15: of `ids`, the subaccounts a transaction of the space is on — any status, hidden or not, posted to
  * the journal or not yet. Read only.
  */

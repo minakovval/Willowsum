@@ -134,6 +134,14 @@ export const FLAGS = {
     description:
       "Масові дії (DAT-03@PoC a): підсумок, до 500 записів, фонове виконання, «Відмінити» 24 год; маршрути /v1/bulk-actions",
   },
+  "transactions.merchants": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Мерчанти (BUD-14@PoC a): мерчант транзакції з опису банку, «Оригінальний опис», «Канал», перейменування, «Об'єднати з…», «Роз'єднати»; маршрути /v1/merchants, /v1/transactions/{id}/merchant",
+  },
   "goals.savings": {
     kind: "release",
     owner: "product-owner",

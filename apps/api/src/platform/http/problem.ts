@@ -186,6 +186,14 @@ export const PROBLEMS = {
     status: 409,
     title: "The transaction is split; change the categories of its parts",
   },
+  /**
+   * BUD-14@PoC FR 3: the merchant joined another («Об'єднати з…»); it is renamed or merged through that one, or given
+   * back by «Роз'єднати» first; nothing was written.
+   */
+  MERCHANT_MERGED: {
+    status: 409,
+    title: "The merchant is merged into another; unmerge it first",
+  },
   /** FIN-03@PoC FR 18: hiding is for duplicates and technical records only; nothing was written. */
   TRANSACTION_NOT_HIDEABLE: {
     status: 409,

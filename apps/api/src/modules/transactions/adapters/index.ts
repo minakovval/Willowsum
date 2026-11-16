@@ -6,6 +6,8 @@ export {
   duplicateCandidates,
   categoriesInParts,
   categorizableFacts,
+  counterpartiesOf,
+  counterpartyCounts,
   subaccountsInUse,
   transactionsList,
   transactionsTx,
