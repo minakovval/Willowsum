@@ -208,6 +208,14 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
         [householdId, c.id, c.goalId, c.amount.toDecimalString(), c.amount.currency, c.date],
       );
     },
+    async lockTransactions(householdId, transactionIds) {
+      // In the ids' order, so two spends of overlapping transactions never wait on each other in a cycle.
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('goals.spend:' || $1 || ':' || t, 0))
+           FROM (SELECT DISTINCT unnest($2::uuid[])::text AS t ORDER BY 1) ids`,
+        [householdId, transactionIds],
+      );
+    },
     async lockAccount(householdId, accountId) {
       await q.query(
         `SELECT pg_advisory_xact_lock(hashtextextended('goals.account:' || $1 || ':' || $2, 0))`,

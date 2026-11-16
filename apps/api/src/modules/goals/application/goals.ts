@@ -66,6 +66,11 @@ export interface GoalsTx {
   deleteSpend(householdId: string, goalId: string, id: string): Promise<StoredSpend | null>;
   /** Deletes the spends made on these journal events and returns them (AC5). */
   deleteSpendsOfEntries(householdId: string, entryIds: readonly string[]): Promise<StoredSpend[]>;
+  /**
+   * Serialises «Витратити» of these transactions until the commit, across goals (FR 8: one goal at most), so a
+   * concurrent spend of the same transaction from another goal is seen and refused as `spent`, not by the index.
+   */
+  lockTransactions(householdId: string, transactionIds: readonly string[]): Promise<void>;
   /** Serialises the changes of one account's envelopes and own goal until the commit (FR 2, FR 3). */
   lockAccount(householdId: string, accountId: string): Promise<void>;
   /** The other goals with a part on the account (`exceptGoalId` left out). */
@@ -512,6 +517,10 @@ export async function spendFromGoal(
   const goal = await tx.goal(caller.householdId, id, true);
   if (!goal) return { result: { kind: "not-found" }, handOffs: [] };
   if (goal.version !== version) return { result: { kind: "conflict", version: goal.version }, handOffs: [] };
+  await tx.lockTransactions(
+    caller.householdId,
+    candidates.map((c) => c.transactionId),
+  );
   const taken = new Set(
     (
       await tx.spendsOfTransactions(

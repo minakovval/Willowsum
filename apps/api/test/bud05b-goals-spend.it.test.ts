@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import pg from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -266,6 +267,31 @@ describe("BUD-05@PoC FR 8: «Витратити» from a goal", () => {
     const other = await goal(space, { name: "Ремонт", part: { kind: "marks", startAmount: "3000.00" } });
     const again = await spend(space, other.id, [[hotel, savings]]);
     expect(again.json().errors).toEqual([{ in: "body", path: "transactions.0", issue: "spent" }]);
+  });
+
+  it("BUD-05@PoC FR 8: two simultaneous «Витратити» of one transaction from two goals — one spends it, the other gets 400 `spent`, not 500", async () => {
+    const { space, savings, g, hotel } = await vacation();
+    const other = await goal(space, { name: "Ремонт", part: { kind: "marks", startAmount: "3000.00" } });
+    // Both requests read «not spent yet» and wait at their insert until the lock goes; then they race for the row.
+    const locker = new pg.Client({ connectionString: db.url });
+    await locker.connect();
+    try {
+      await locker.query("BEGIN");
+      await locker.query("LOCK TABLE goals.spends IN SHARE ROW EXCLUSIVE MODE");
+      const both = Promise.all([
+        spend(space, g.id, [[hotel, savings]]),
+        spend(space, other.id, [[hotel, savings]]),
+      ]);
+      await new Promise((r) => setTimeout(r, 1000));
+      await locker.query("COMMIT");
+      const codes = (await both).map((r) => r.statusCode).sort();
+      expect(codes).toEqual([201, 400]);
+      const loser = (await both).find((r) => r.statusCode === 400)!;
+      expect(loser.json().errors).toEqual([{ in: "body", path: "transactions.0", issue: "spent" }]);
+    } finally {
+      await locker.end();
+    }
+    expect(await n("goals.spends WHERE household_id = $1", space.householdId)).toBe(1);
   });
 
   it("BUD-05@PoC FR 8: a goal of marks only takes an outflow of any account of the space; never more than it holds (409, nothing written)", async () => {
