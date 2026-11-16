@@ -41,7 +41,7 @@ answer them with a status message. Risk: the owner sees less live progress — m
 1. Pick the next part from the wave plan and `docs/traceability/release-poc.md` (generated, not committed:
    `node tools/req-check/index.mjs --quiet --traceability`, or the `traceability` artifact of the latest
    «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
-   and UI). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
+   and UI; a UI row whose server part is merged may start in parallel, §3). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
    Split a code PR that touches more than one module **and** more than ≈ 1 500 lines, counted without tests and
    without the generated contract (tests have a separate limit of ≈ 1 500 lines); take the dependent part right
    after the first (owner, 2026-11-14/15, #178).
@@ -149,16 +149,19 @@ restart and its limit, the start message, the process review every 3rd lead numb
 
 ## 3. Parallel branches
 
-Up to 5 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16), each with its own worktree, PR and test database.
-**At most 7 agents at once** (owner, 2026-11-16; was 3–4), authors, reviewers and fix agents together; more wait in a queue.
-Slots count agents, not branches: give each agent a slot `k` (1–7) in its brief and keep a table slot → agent →
+Up to 7 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16, 9a, raised in `2026-11-16-owner-speedup.md`), each with its own worktree, PR and test database.
+**At most 10 agents at once** (owner, 2026-11-16; was 7, before that 3–4), authors, reviewers and fix agents together; more wait in a queue.
+Slots count agents, not branches: give each agent a slot `k` (1–10) in its brief and keep a table slot → agent →
 branch → worktree: its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on
-`WS_PORT=808k`, its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
+`WS_PORT=808k` (k = 1–9; for k = 10: web 5180, preview 4180, API 8090), its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
 processes it started, by PID (the skills that start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
 tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, each on its own
 database under the cluster lock, never on a hand-made database (owner, 2026-11-15, #178, #226).
+**UI in parallel** (owner, 2026-11-16): UI rows whose server part is already merged (wave 2: 117, 123–125, 130, 131
+of `docs/plans/poc-wave-2.md`) may run alongside the server rows, 1–2 UI authors at once, in `apps/web`; they count
+within the limits above (branches, agents, slots). Pick them in step 1 together with the server rows.
 
 ## 4. Restarts and token economy
 
