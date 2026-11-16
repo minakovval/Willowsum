@@ -28,7 +28,7 @@ export interface Debt {
   readonly kind: "credit-card" | "loan";
   readonly name: string;
   readonly currency: string;
-  /** What is owed today, positive (the journal's balance of the account's wallet, negated). */
+  /** What is owed today, positive (the journal's natural balance of the account's liability wallet). */
   readonly balance: Money;
   /** What was owed at the end of last month: the «План» column (FR 7). */
   readonly balanceLastMonth: Money;

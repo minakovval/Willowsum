@@ -42,7 +42,7 @@ function monthEnds(from: string, to: string, max: number): string[] {
 
 /**
  * The debts of the space (FR 11): its active credit cards and loans (accounts), each with its liability's rate and
- * payment (liabilities) and what is owed — the journal's balance of its wallet in the liability's currency, negated.
+ * payment (liabilities) and what is owed — the journal's natural balance of its wallet (a liability's: credits less debits) in the liability's currency.
  */
 export function debtSource(
   accounts: CreditAccounts,
@@ -57,8 +57,7 @@ export function debtSource(
         const wallet =
           account.subaccounts.find((s) => s.currency === liability?.currency) ?? account.subaccounts[0];
         if (!wallet) continue;
-        const owed = async (date: string) =>
-          (await ledger.balanceAt(householdId, wallet.ledgerAccountId, date)).negated();
+        const owed = (date: string) => ledger.balanceAt(householdId, wallet.ledgerAccountId, date);
         const balance = await owed(today);
         const lastMonth = endOfPreviousMonth(today);
         const opening = await owed(wallet.balanceDate);
