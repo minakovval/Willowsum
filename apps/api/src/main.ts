@@ -22,7 +22,8 @@ import {
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
-import { createMerchantsServices } from "./modules/merchants/index.ts";
+import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
+import { createRecurringServices } from "./modules/recurring/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -40,6 +41,7 @@ import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
+  createTransactionHistory,
   createTransactionLookup,
   createTransactionTexts,
   createTransactionWalletUsage,
@@ -291,6 +293,14 @@ const server = buildServer({
             merchants: createMerchantsServices({
               transactions: createTransactionTexts(databases.for("transactions")),
               audit,
+            }),
+            // BUD-07 a1: proposals of regular payments from the transactions (transactions), grouped by merchant
+            // (merchants), none from a loan account (accounts).
+            recurring: createRecurringServices({
+              history: createTransactionHistory(databases.for("transactions")),
+              merchants: createMerchantDirectory(databases.for("merchants")),
+              accounts: createAccountDirectory(databases.for("accounts")),
+              clock: systemClock,
             }),
             // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
             // «Витратити» reads the transaction (transactions) and its journal event (ledger).

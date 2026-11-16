@@ -142,6 +142,14 @@ export const FLAGS = {
     description:
       "Мерчанти (BUD-14@PoC a): мерчант транзакції з опису банку, «Оригінальний опис», «Канал», перейменування, «Об'єднати з…», «Роз'єднати»; маршрути /v1/merchants, /v1/transactions/{id}/merchant",
   },
+  "recurring.payments": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.manual",
+    description:
+      "Регулярні платежі (BUD-07@PoC a1): пропозиції регулярних платежів із транзакцій за 430 днів — частота, очікувана сума, наступна дата; маршрут /v1/recurring/proposals",
+  },
   "goals.savings": {
     kind: "release",
     owner: "product-owner",

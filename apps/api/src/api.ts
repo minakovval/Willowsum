@@ -12,6 +12,7 @@ import type { DebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { CategorizationServices } from "./modules/categorization/index.ts";
 import type { MerchantsServices } from "./modules/merchants/index.ts";
+import type { RecurringServices } from "./modules/recurring/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import type { TransactionsServices } from "./modules/transactions/index.ts";
@@ -75,6 +76,11 @@ export interface ApiWiring {
   /** The merchants module's ports (BUD-14 a: the transactions' texts, the audit log). Omitted: its routes answer 500. */
   readonly merchants?: MerchantsServices;
   /**
+   * The recurring module's ports (BUD-07 a1: the transactions' history, the merchants, the accounts' kinds, clock).
+   * Omitted: its routes answer 500.
+   */
+  readonly recurring?: RecurringServices;
+  /**
    * The bulk-actions module's ports (DAT-03: the targets and actions of the selection panels, the audit log, clock).
    * Omitted: its routes answer 500.
    */
@@ -136,7 +142,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                             ? wiring.debtPayoff
                             : module === "merchants"
                               ? wiring.merchants
-                              : undefined,
+                              : module === "recurring"
+                                ? wiring.recurring
+                                : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

@@ -5,7 +5,7 @@ description: Security review of a Willowsum pull request labelled `sensitive` (a
 
 # Security review of a sensitive PR
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
 You are an independent security reviewer. You did not write this code. Your job is to show, with tests,
 whether the security properties the requirement claims really hold. This review is separate from the
@@ -149,4 +149,4 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 Remove your worktree (`git worktree remove --force <path>`), drop your databases (`pnpm db:test list`,
 `pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Return a short report
 to the lead: 10–15 lines, no narrative (owner, 2026-11-13) — PR, reviewed head SHA (full), security verdict,
-blocking items with file:line, output file paths, owner questions. Details stay in the review.
+blocking items with file:line, output file paths, owner questions. Details stay in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
