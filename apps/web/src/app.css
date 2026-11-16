@@ -1082,7 +1082,7 @@ code {
 
 /*
  * BUD-13@PoC b), FIN-03@PoC e) (wave 2, row 117): «Розділити транзакцію» (S-049; boards PocMoneySplit,
- * PocMoneySplitMonths) and the attributes of a transaction in its details (S-047; board PocMoneyTxDetail).
+ * PocMoneySplitMonths).
  */
 .tx-scrim {
   position: fixed;
@@ -1133,8 +1133,7 @@ code {
 
 .tx-dialog-summary,
 .tx-dialog-explain,
-.tx-hint,
-.tx-attr-label {
+.tx-hint {
   margin: 0;
   color: var(--ws-ink-muted);
 }
@@ -1213,9 +1212,7 @@ code {
 }
 
 .tx-parts,
-.tx-schedule-list,
-.tx-split-parts,
-.tx-tags {
+.tx-schedule-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1382,130 +1379,4 @@ code {
   display: flex;
   flex: 1;
   flex-direction: column;
-}
-
-.tx-attrs {
-  display: flex;
-  flex-direction: column;
-  max-width: calc(var(--ws-space-8) * 9);
-}
-
-.tx-attr-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--ws-space-3);
-  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
-  padding: var(--ws-space-2) 0;
-  border-block-end: 1px solid var(--ws-surface-300);
-}
-
-.tx-attr-label {
-  flex: none;
-  width: calc(var(--ws-space-8) * 2 + var(--ws-space-3));
-}
-
-.tx-attr-value {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--ws-space-2);
-  min-width: 0;
-}
-
-.tx-attr-value > p {
-  display: flex;
-  gap: var(--ws-space-2);
-  margin: 0;
-}
-
-/* Chips, «Додайте тег» and «+ Тег» on one line, as on the board; the new tag field and the error below. */
-.tx-tag-value {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.tx-tag-value > .tx-tag-add,
-.tx-tag-value > .auth-field-error {
-  flex-basis: 100%;
-}
-
-.tx-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: calc(var(--ws-space-1) * 1.5);
-}
-
-.tx-tags:empty {
-  display: none;
-}
-
-.tx-tag,
-.tx-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--ws-space-1);
-  padding: 0 calc(var(--ws-space-1) * 1.5);
-  border-radius: var(--ws-radius-sm);
-  background: var(--ws-surface-300);
-  color: var(--ws-ink);
-  font-family: var(--ws-text-badge-family);
-  font-size: var(--ws-text-badge-size);
-  line-height: var(--ws-text-badge-line);
-  font-weight: var(--ws-text-badge-weight);
-  white-space: nowrap;
-}
-
-.tx-badge-warn {
-  background: var(--ws-tint-warning);
-  color: var(--ws-on-warning);
-}
-
-/* The 44 px hit area of the small «×» of a tag (DS-14) without moving the chip. */
-.tx-tag-remove {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  cursor: pointer;
-}
-
-.tx-tag-remove::after {
-  content: "";
-  position: absolute;
-  inset: calc((var(--ws-touch-target) - var(--ws-space-3)) / -2);
-}
-
-.tx-tag-add {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ws-space-1);
-  width: 100%;
-}
-
-.tx-note-input {
-  min-height: calc(var(--ws-space-8) + var(--ws-space-2));
-  padding-block: var(--ws-space-2);
-  resize: vertical;
-  font-family: inherit;
-}
-
-.tx-note-input::placeholder {
-  color: var(--ws-ink-muted);
-  opacity: 1;
-}
-
-.tx-split-parts {
-  width: 100%;
-}
-
-.tx-attr-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ws-space-2);
-  margin-block-start: var(--ws-space-4);
 }

@@ -5,17 +5,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { useState } from "react";
 import { fakeApi, plain, problem } from "../auth/testing.tsx";
-import { transactionActions, type SplitCategory, type Transaction } from "./api.ts";
+import { splitAction, type SplitCategory, type Transaction } from "./api.ts";
 import { evaluate } from "./calc.ts";
 import { SplitDialog } from "./SplitDialog.tsx";
 import { roundParts } from "./split.ts";
-import { TransactionAttributes } from "./TransactionAttributes.tsx";
 import { Decimal } from "@willowsum/domain-kernel";
 
 /**
  * BUD-13@PoC b) / FIN-03@PoC e) (wave 2, row 117): «Розділити транзакцію» (S-049; boards PocMoneySplit,
- * PocMoneySplitMonths) and the attributes in the details (S-047; board PocMoneyTxDetail) on the merged API of
- * #297 (split) and #327 (attributes).
+ * PocMoneySplitMonths) on the merged split API of #297.
  */
 const TX_ID = "70000000-0000-4000-8000-000000000001";
 const CAT = {
@@ -57,35 +55,52 @@ function tx(over: Partial<Transaction> = {}): Transaction {
 }
 
 const URL_SPLIT = `POST /v1/transactions/${TX_ID}/split`;
-const URL_UNSPLIT = `DELETE /v1/transactions/${TX_ID}/split`;
-const URL_ATTRS = `PATCH /v1/transactions/${TX_ID}/attributes`;
 
-/** The details with the attributes, as the details screen mounts them on the API. */
-function Details({ start, client }: { start: Transaction; client: ReturnType<typeof fakeApi>["client"] }) {
-  const [t, setT] = useState(start);
+/** What the details screen does: «Розділити» opens the dialog with `splitAction`; the saved transaction comes back. */
+function Opener({
+  start,
+  client,
+  saved,
+}: {
+  start: Transaction;
+  client: Client;
+  saved: (t: Transaction) => void;
+}) {
+  const [open, setOpen] = useState(false);
   return (
-    <TransactionAttributes
-      key={JSON.stringify(t)}
-      transaction={t}
-      summary="Leroy Merlin · −132,40 €"
-      spaceTags={[
-        { id: "a1", name: "ремонт-кухні", count: 2 },
-        { id: "a2", name: "повернути", count: 1 },
-      ]}
-      categories={CATEGORIES}
-      merchant="Leroy Merlin"
-      actions={transactionActions(client, TX_ID)}
-      onChange={setT}
-    />
+    <>
+      <button type="button" onClick={() => setOpen(true)}>
+        Розділити
+      </button>
+      {open ? (
+        <SplitDialog
+          transaction={start}
+          summary="Страховка авто · −1 200,00 €"
+          categories={CATEGORIES}
+          onSave={splitAction(client, TX_ID)}
+          onSaved={(t) => {
+            setOpen(false);
+            saved(t);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
-const renderDetails = (start: Transaction, client = fakeApi({}).client) =>
+type Client = ReturnType<typeof fakeApi>["client"];
+function renderOpener(start: Transaction, client: Client = fakeApi({}).client, saved = vi.fn()) {
   render(
     <I18nProvider initialLocale="uk">
-      <Details start={start} client={client} />
+      <Opener start={start} client={client} saved={saved} />
     </I18nProvider>,
   );
+  const opener = screen.getByRole("button", { name: "Розділити" });
+  opener.focus();
+  fireEvent.click(opener);
+  return { opener, saved };
+}
 
 function renderDialog(start: Transaction, onSave = vi.fn(), onClose = vi.fn()) {
   render(
@@ -236,8 +251,8 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     expect(css).toMatch(/\.tx-schedule \{[^}]*min-height:/);
   });
 
-  it("BUD-13@PoC AC2: «На кілька місяців» from March for 6 months is sent as one split; the details then show «розділено на 6 міс.»", async () => {
-    const insurance = tx({ amount: { amount: "-1200.00", currency: "EUR" }, counterparty: "Страховка авто" });
+  it("BUD-13@PoC AC2: «На кілька місяців» from March for 6 months is sent as one split on the API, and the saved transaction is handed back", async () => {
+    const insurance = tx({ amount: { amount: "-1200.00", currency: "EUR" } });
     const saved = {
       ...insurance,
       split: {
@@ -251,76 +266,33 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
       },
     };
     const api = fakeApi({ [URL_SPLIT]: { status: 200, body: saved } });
-    renderDetails(insurance, api.client);
-    const opener = screen.getByRole("button", { name: "Розділити" });
-    opener.focus();
-    fireEvent.click(opener);
+    const { opener, saved: handed } = renderOpener(insurance, api.client);
     fireEvent.click(screen.getByRole("radio", { name: "На кілька місяців" }));
     fireEvent.change(screen.getByLabelText(/^Місяців/), { target: { value: "6" } });
+    expect(plain(screen.getByText(/частин по/).closest("p")!.textContent)).toBe(
+      "6 частин по 200,00 € · березень 2026 – серпень 2026",
+    );
     fireEvent.change(screen.getByLabelText(/^Категорія$/), { target: { value: CAT.car } });
     fireEvent.click(saveButton());
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(api.calls.at(-1)?.body).toEqual({
+    expect(api.calls.map((c) => `${c.method} ${c.path}`)).toEqual([URL_SPLIT]);
+    expect(api.calls[0]?.body).toEqual({
       mode: "months",
       startMonth: "2026-03",
       months: 6,
       categoryId: CAT.car,
     });
-    expect(screen.getByText("розділено на 6 міс.")).toBeTruthy();
-    // FR 6: the full schedule after saving, in the details.
-    expect(screen.getByText(/Серпень 2026 · Страховка авто/)).toBeTruthy();
-    expect(screen.getAllByText("−200,00 €")).toHaveLength(6);
-  });
-
-  it("BUD-13@PoC FR 8: «Об'єднати назад» in the details removes the split", async () => {
-    const split = tx({
-      split: {
-        mode: "categories",
-        needsReview: true,
-        parts: [
-          { categoryId: CAT.food, month: null, amount: { amount: "-100.00", currency: "EUR" } },
-          { categoryId: CAT.home, month: null, amount: { amount: "-32.40", currency: "EUR" } },
-        ],
-      },
-    });
-    const api = fakeApi({ [URL_UNSPLIT]: { status: 200, body: tx() } });
-    renderDetails(split, api.client);
-    expect(screen.getByText("розділено")).toBeTruthy();
-    expect(screen.getByText("потребує перегляду")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Об’єднати назад" }));
-    await waitFor(() => expect(screen.queryByText("розділено")).toBeNull());
-    expect(api.calls.map((c) => `${c.method} ${c.path}`)).toEqual([URL_UNSPLIT]);
-  });
-
-  it("BUD-13@PoC EC6: a transfer between own accounts is not split — «Розділити» is inactive with the reason beside it", () => {
-    renderDetails(
-      tx({
-        transfer: {
-          id: "e0000000-0000-4000-8000-000000000001",
-          side: "outflow",
-          counterpartId: "70000000-0000-4000-8000-000000000002",
-          date: "2026-03-01",
-          fee: null,
-          rate: null,
-        },
-      }),
-    );
-    const button = screen.getByRole("button", { name: "Розділити" });
-    expect(button.getAttribute("aria-disabled")).toBe("true");
-    expect(description(button)).toBe("Перекази між власними рахунками не розділяються.");
-    fireEvent.click(button);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(handed).toHaveBeenCalledWith(saved);
+    expect(document.activeElement).toBe(opener);
   });
 
   it("S-049 error state: a refused split keeps the dialog with «Помилка», what failed and «Код: …»", async () => {
-    const api = fakeApi({
-      [URL_SPLIT]: problem(409, "ACCOUNT_CLOSED"),
-    });
-    renderDetails(tx({ amount: { amount: "-100.00", currency: "EUR" } }), api.client);
-    fireEvent.click(screen.getByRole("button", { name: "Розділити" }));
+    const api = fakeApi({ [URL_SPLIT]: problem(409, "ACCOUNT_CLOSED") });
+    renderOpener(tx({ amount: { amount: "-100.00", currency: "EUR" } }), api.client);
     fireEvent.click(screen.getByRole("radio", { name: "На кілька місяців" }));
     fireEvent.change(screen.getByLabelText(/^Категорія$/), { target: { value: CAT.car } });
     fireEvent.click(saveButton());
+    expect(plain(screen.getByRole("button", { name: /Зберігаємо/ }).textContent)).toBe("Зберігаємо…");
     const alert = await screen.findByRole("alert");
     expect(plain(alert.textContent)).toMatch(
       /^Помилка Не вдалося розділити транзакцію\. Рахунок закрито: його транзакції лише для читання\. Код: /,
@@ -328,20 +300,31 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
-  it("S-049 keyboard: focus starts on the chosen mode, Escape and «Закрити» close, focus returns to «Розділити»", () => {
-    renderDetails(tx());
-    const opener = screen.getByRole("button", { name: "Розділити" });
-    opener.focus();
-    fireEvent.click(opener);
+  it("S-049 keyboard: focus starts on the chosen mode, Escape, «Закрити» and «Скасувати» close, focus returns to «Розділити»", () => {
+    const { opener } = renderOpener(tx());
     const dialog = screen.getByRole("dialog", { name: "Розділити транзакцію" });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
     expect(document.activeElement).toBe(screen.getByRole("radio", { name: "За категоріями" }));
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(document.activeElement).toBe(opener);
-    fireEvent.click(opener);
-    fireEvent.click(screen.getByRole("button", { name: "Закрити" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    for (const name of ["Закрити", "Скасувати"]) {
+      fireEvent.click(opener);
+      fireEvent.click(screen.getByRole("button", { name }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+    }
+  });
+
+  it("S-049 keyboard: Tab stays inside the dialog (aria-modal)", () => {
+    renderOpener(tx());
+    const dialog = screen.getByRole("dialog");
+    const close = screen.getByRole("button", { name: "Закрити" });
+    const save = saveButton();
+    save.focus();
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(save);
   });
 
   it("S-049 disabled: «Прибрати частину» is inactive at 2 parts, «Додати частину» at 20; only categories of the transaction's type", () => {
@@ -359,111 +342,14 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
   });
 });
 
-describe("BUD-13@PoC b): attributes in the details (S-047)", () => {
-  it("BUD-13@PoC FR 1: the details have «Нотатка», «Теги», «Розділити» and «Схожі транзакції»; empty — «Додайте нотатку», «Додайте тег»", () => {
-    renderDetails(tx());
-    expect(screen.getByRole("textbox", { name: "Нотатка" }).getAttribute("placeholder")).toBe(
-      "Додайте нотатку",
-    );
-    expect(screen.getByRole("textbox", { name: "Нотатка" }).getAttribute("maxLength")).toBe("2000");
-    expect(screen.getByText("Теги")).toBeTruthy();
-    expect(screen.getByText("Додайте тег")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Розділити" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Схожі транзакції" }).getAttribute("href")).toBe(
-      "#/money/transactions?merchant=Leroy%20Merlin",
-    );
-  });
-
-  it("BUD-13@PoC AC1: note «фарба і валики» and tags «ремонт-кухні», «повернути» are saved and shown in the details", async () => {
-    const saved = tx({
-      note: "фарба і валики",
-      tags: [
-        { id: "a1", name: "ремонт-кухні" },
-        { id: "a2", name: "повернути" },
-      ],
-    });
-    let release: () => void = () => undefined;
-    const gate = new Promise<void>((r) => (release = r));
-    const api = fakeApi({ [URL_ATTRS]: async () => (await gate, { status: 200, body: saved }) });
-    renderDetails(tx({ amount: { amount: "-240.00", currency: "EUR" } }), api.client);
-    fireEvent.change(screen.getByRole("textbox", { name: "Нотатка" }), {
-      target: { value: "фарба і валики" },
-    });
-    for (const name of ["Ремонт-кухні ", "повернути"]) {
-      fireEvent.click(screen.getByRole("button", { name: "+ Тег" }));
-      fireEvent.change(screen.getByRole("combobox", { name: "Новий тег" }), { target: { value: name } });
-      fireEvent.keyDown(screen.getByRole("combobox", { name: "Новий тег" }), { key: "Enter" });
-      fireEvent.keyDown(screen.getByRole("combobox", { name: "Новий тег" }), { key: "Escape" });
-    }
-    fireEvent.click(screen.getByRole("button", { name: "Зберегти" }));
-    // Loading: «Зберігаємо…» while the request runs.
-    expect(plain((await screen.findByRole("status")).textContent)).toContain("Зберігаємо…");
-    release();
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Зберегти" })).toBeNull());
-    // FR 2: the space's spelling of an existing tag.
-    expect(api.calls[0]?.body).toEqual({ note: "фарба і валики", tags: ["ремонт-кухні", "повернути"] });
-    const tags = within(screen.getByRole("list", { name: "Теги" }))
-      .getAllByRole("listitem")
-      .map((li) => plain(li.textContent));
-    expect(tags).toEqual(["•ремонт-кухні", "•повернути"]);
-    expect(value(screen.getByRole("textbox", { name: "Нотатка" }))).toBe("фарба і валики");
-  });
-
-  it("BUD-13@PoC FR 2: tags are unique without regard to case, up to 60 characters; a tag is removed by its «×»", () => {
-    renderDetails(tx({ tags: [{ id: "a1", name: "ремонт-кухні" }] }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Тег" }));
-    const input = screen.getByRole("combobox", { name: "Новий тег" });
-    expect(input.getAttribute("maxLength")).toBe("60");
-    fireEvent.change(input, { target: { value: "  РЕМОНТ-КУХНІ " } });
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(within(screen.getByRole("list", { name: "Теги" })).getAllByRole("listitem")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Прибрати тег «ремонт-кухні»" }));
-    expect(screen.queryByRole("listitem")).toBeNull();
-    expect(screen.getByRole("button", { name: "Зберегти" })).toBeTruthy();
-  });
-
-  it("BUD-13@PoC «Стани інтерфейсу»: «Досягнуто 20 тегів» at the 21st tag; «Тегів ще немає» in a space without tags", () => {
-    const twenty = Array.from({ length: 20 }, (_, i) => ({ id: `t${String(i)}`, name: `тег ${String(i)}` }));
-    renderDetails(tx({ tags: twenty }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Тег" }));
-    expect(plain(screen.getByRole("alert").textContent)).toBe("Помилка Досягнуто 20 тегів.");
-    cleanup();
-    render(
-      <I18nProvider initialLocale="uk">
-        <TransactionAttributes
-          transaction={tx()}
-          summary=""
-          spaceTags={[]}
-          categories={CATEGORIES}
-          merchant={null}
-          actions={transactionActions(fakeApi({}).client, TX_ID)}
-          onChange={vi.fn()}
-        />
-      </I18nProvider>,
-    );
-    fireEvent.click(screen.getByRole("button", { name: "+ Тег" }));
-    expect(screen.getByText("Тегів ще немає")).toBeTruthy();
-    expect(screen.queryByRole("link", { name: "Схожі транзакції" })).toBeNull();
-  });
-
-  it("BUD-13@PoC «Стани інтерфейсу»: the server's «too many tags» and a failed save show «Помилка» with «Код: …»", async () => {
-    const api = fakeApi({ [URL_ATTRS]: problem(400, "VALIDATION_FAILED") });
-    renderDetails(tx(), api.client);
-    fireEvent.change(screen.getByRole("textbox", { name: "Нотатка" }), { target: { value: "x" } });
-    fireEvent.click(screen.getByRole("button", { name: "Зберегти" }));
-    const alert = await screen.findByRole("alert");
-    expect(plain(alert.textContent)).toMatch(/^Помилка Не вдалося зберегти зміни\. .+ Код: /);
-    expect(value(screen.getByRole("textbox", { name: "Нотатка" }))).toBe("x");
-  });
-
-  it("NFR-08@PoC: the text pairs of S-047 and S-049 meet 4.5 : 1 in the light theme", () => {
+describe("BUD-13@PoC b): S-049 accessibility", () => {
+  it("NFR-08@PoC: the text pairs of S-049 meet 4.5 : 1 in the light theme", () => {
     const pairs = [
       ["ink-muted", "surface-200"],
       ["ink", "surface-300"],
       ["ink-muted", "surface-inset"],
       ["ink", "surface-inset"],
       ["link", "surface-200"],
-      ["on-warning", "tint-warning"],
       ["loss", "surface-200"],
     ] as const;
     for (const [fg, bg] of pairs)

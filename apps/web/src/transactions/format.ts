@@ -1,6 +1,6 @@
 import { formatLocaleOf, type Locale, type MessageKey, type Translate } from "@willowsum/i18n";
 
-type PluralBase = "tx.split.parts" | "tx.split.moreParts" | "tx.split.badge";
+type PluralBase = "tx.split.parts" | "tx.split.moreParts";
 const FORMS = ["one", "few", "many", "other"] as const;
 
 /** A counted noun in the interface language: «36 частин», «3 частини», «1 part». */
