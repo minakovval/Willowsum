@@ -5,7 +5,7 @@ description: Apply the findings of the review-pr and security-review reviews to 
 
 # Fix review findings
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
 Input: a PR number, the review IDs to address (usually the latest `review-pr` and, for a `sensitive` PR, the
 latest `security-review`), and the lead's decisions where reviewers disagree. Output: one pushed fix commit that
@@ -94,4 +94,4 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
 3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each
    blocking item → fixed by file / test, in one line each), blockers, owner questions. Follow-ups and check
-   details go in the PR body. The reviewers then re-review only this diff.
+   details go in the PR body. The reviewers then re-review only this diff. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

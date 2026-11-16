@@ -18,8 +18,9 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
   with the reason);
-- (d) the end of a lead segment: after a compaction, the short retrospective; at the end of a session, also the
-  item-by-item handover confirmation and the start message for the next session ([restarts](references/restarts.md)).
+- (d) the end of a lead segment: after a compaction, the short retrospective in chat and the handover table on #179
+  (owner, 2026-11-16, #178); at the end of a session, also the item-by-item handover confirmation in chat and the
+  start message for the next session ([restarts](references/restarts.md)).
 
 Never write (owner, 2026-11-13/14, #178): agent started or finished, subscribed or unsubscribed, PR or issue
 opened, reviewers started, CI in progress or any other service notification (PR subscription events, an agent's
