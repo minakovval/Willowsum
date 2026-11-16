@@ -1,20 +1,18 @@
 # Lead communication and process-change queue
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when you write to the owner or when you find a process change.
 
 ## Writing to the owner
 
 1. Ukrainian only, in every message, including a one-line status note (owner, 2026-11-13).
-2. When to write and when to stay silent (service notifications, your own housekeeping, platform reminders):
-   SKILL.md «Мовчання в чаті». Batch the questions: SKILL.md §2.
-3. No purely technical questions: permission-classifier denials, implementation choices, worker counts, test
-   layout and the like. You decide, and record the decision in the decision log. Owner questions are only about
-   product, scope, legal, money, access and infrastructure (AGENTS.md «Ambiguity»; owner, 2026-11-13).
-4. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process
-   or a decision — comes at once with «ризики / мінуси / як пом'якшити» (owner, 2026-11-14, #178).
-5. At the end of every lead session, the retrospective: [token economy](token-economy.md), «Session retrospective».
+2. When to write and when to stay silent: SKILL.md «Мовчання в чаті»; batching the questions: SKILL.md §2.
+3. No purely technical questions (permission-classifier denials, implementation choices, worker counts, test
+   layout and the like): decide and record it in the decision log. Owner questions are only about product, scope,
+   legal, money, access and infrastructure (AGENTS.md «Ambiguity»; owner, 2026-11-13).
+4. Every improvement proposal to the owner — in a retrospective or anywhere you propose to change the process or a
+   decision — comes at once with «ризики / мінуси / як пом'якшити» (owner, 2026-11-14, #178).
 
 ## Batching process changes
 

@@ -800,6 +800,52 @@ export async function recurringHistory(
 }
 
 /**
+ * BUD-07@PoC FR 8 (module recurring, wave 2 row 26): the space's shown transactions in a period — no side of a transfer,
+ * merged into none — with or without a counterparty (a charge is matched by its category too), newest first, at most
+ * `limit`.
+ */
+export async function recurringMatching(
+  q: ModuleQueryRunner,
+  householdId: string,
+  query: { readonly from: string; readonly to: string; readonly limit: number },
+): Promise<
+  {
+    readonly id: string;
+    readonly accountId: string;
+    readonly date: string;
+    readonly amount: string;
+    readonly currency: string;
+    readonly counterparty: string | null;
+  }[]
+> {
+  const { rows } = await q.query<{
+    id: string;
+    account_id: string;
+    occurred_on: string;
+    amount: string;
+    currency: string;
+    counterparty: string | null;
+  }>(
+    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
+            counterparty
+       FROM transactions
+      WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
+        AND NOT hidden AND transfer_id IS NULL AND merged_into IS NULL
+      ORDER BY occurred_on DESC, id DESC
+      LIMIT $4`,
+    [householdId, query.from, query.to, query.limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    date: r.occurred_on,
+    amount: r.amount,
+    currency: r.currency,
+    counterparty: r.counterparty,
+  }));
+}
+
+/**
  * IMP-02@PoC FR 15: of `ids`, the subaccounts a transaction of the space is on — any status, hidden or not, posted to
  * the journal or not yet. Read only.
  */

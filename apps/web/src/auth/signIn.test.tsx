@@ -49,7 +49,8 @@ describe("ACC-01@PoC S-004 sign-in", () => {
     fill();
     fireEvent.click(signInButton());
     await waitFor(() => expect(window.location.hash).toBe("#/planning/budget"));
-    expect(calls).toEqual([
+    // After it, the shell only reads the space's name for the profile (ACC-08@PoC FR 2).
+    expect(calls.filter((c) => !(c.method === "GET" && c.path === "/v1/space"))).toEqual([
       {
         method: "POST",
         path: "/v1/sessions",

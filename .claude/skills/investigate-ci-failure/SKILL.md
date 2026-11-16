@@ -5,7 +5,7 @@ description: Investigate a red or blocked Willowsum CI run on a PR — reproduce
 
 # Investigate a CI failure
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Input: a PR and its failing (or never started) run. Output: the root cause, a fix (or a follow-up with the
 evidence for the lead, who opens the issue) and the same check green on the new head, or a report to the lead that CI cannot run.
@@ -85,6 +85,4 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 
 ## 5. Report
 
-To the lead, in a few lines: the failing run (link, job, error line); cause; base red or not; the fix commit
-and new head SHA, and the check green on it (run link); or the follow-up listed for the lead; or «CI cannot run» with the
-annotation.
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <failing run link, job, error line; cause; base red or not; the check green on the new head (run link), or «CI cannot run» with the annotation>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (the follow-up for the lead, the evidence) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

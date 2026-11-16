@@ -14,6 +14,7 @@ import {
   counterpartiesOf,
   counterpartyCounts,
   recurringHistory,
+  recurringMatching,
   subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
@@ -254,6 +255,23 @@ export interface TransactionHistory {
       readonly counterparty: string;
     }[]
   >;
+  /**
+   * BUD-07@PoC FR 8 (wave 2 row 26): the same, with or without a counterparty — the charges of a regular payment are
+   * matched by its category too.
+   */
+  matching(
+    householdId: string,
+    query: { readonly from: string; readonly to: string; readonly limit: number },
+  ): Promise<
+    readonly {
+      readonly id: string;
+      readonly accountId: string;
+      readonly date: string;
+      readonly amount: string;
+      readonly currency: string;
+      readonly counterparty: string | null;
+    }[]
+  >;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -261,6 +279,8 @@ export function createTransactionHistory(db: ModuleDatabase): TransactionHistory
   return {
     charges: (householdId, query) =>
       db.inHousehold(householdId, (q) => recurringHistory(q, householdId, query)),
+    matching: (householdId, query) =>
+      db.inHousehold(householdId, (q) => recurringMatching(q, householdId, query)),
   };
 }
 

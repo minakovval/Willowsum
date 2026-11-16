@@ -127,7 +127,7 @@
     },
     "recurring": {
       "layer": "subject",
-      "dependsOn": ["accounts", "audit", "categories", "merchants", "transactions"]
+      "dependsOn": ["accounts", "audit", "categories", "fx-rates", "merchants", "transactions"]
     },
     "reports": {
       "layer": "process",
