@@ -34,6 +34,17 @@ export function publishSpace(api: ApiClient, space: Space): void {
   for (const listener of store.listeners) listener();
 }
 
+/**
+ * A new session (sign-in) forgets the space of the one before, so the profile never shows another account's space
+ * name; the next view asks again.
+ */
+export function forgetSpace(api: ApiClient): void {
+  const store = storeOf(api);
+  store.space = null;
+  store.asked = false;
+  for (const listener of store.listeners) listener();
+}
+
 /** ACC-08@PoC FR 2: the name of the caller's space for the profile, or null until it is known. */
 export function useSpaceName(): string | null {
   const api = useAuthApi();
@@ -62,6 +73,8 @@ function askOnce(api: ApiClient): void {
   if (!claim(api)) return;
   void outcome(api.GET("/v1/space")).then((o) => {
     if (o.ok) publishSpace(api, o.data);
+    // No session yet (401) or another failure: ask again on the next view instead of keeping the placeholder.
+    else storeOf(api).asked = false;
   });
 }
 

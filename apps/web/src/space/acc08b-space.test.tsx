@@ -276,3 +276,26 @@ describe("ACC-06@PoC reporting currency on S-200", () => {
     expect(screen.getByRole("region", { name: "Валюта звітності" }).textContent).toContain("EUR");
   });
 });
+
+describe("ACC-08@PoC the space in the profile after signing in", () => {
+  it("ACC-08@PoC FR 2: a shell seen signed out, then sign-in in the same tab — the profile shows the space's name", async () => {
+    let signedIn = false;
+    const { client } = api({
+      "GET /v1/space": () => (signedIn ? { status: 200, body: SPACE } : problem(401, "UNAUTHENTICATED")),
+    });
+    renderAt("#/planning/budget", client);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    await act(async () => {
+      window.location.hash = "#/login";
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    signedIn = true;
+    await act(async () => {
+      window.location.hash = "#/planning/budget";
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    await waitFor(() => expect(profile().textContent).toContain("Родина Коваль"));
+  });
+});
