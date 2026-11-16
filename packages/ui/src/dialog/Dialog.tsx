@@ -14,6 +14,7 @@ import {
 import { createPortal } from "react-dom";
 import { Icon, type IconName } from "../icons/Icon.tsx";
 import { IconButton } from "../icons/IconButton.tsx";
+import { useTooltip } from "../tooltip/Tooltip.tsx";
 import { PortalRootContext } from "./portal.ts";
 
 /** The tone of the icon tile (CMP-21@PoC «Розміри і стиль»): `tint-info`, `tint-warning`, `tint-negative`. */
@@ -60,6 +61,12 @@ export interface DialogProps {
   note?: string | undefined;
   /** Where focus goes on opening; by default the first field, else the first safe action — never a danger one. */
   initialFocus?: RefObject<HTMLElement | null> | undefined;
+  /**
+   * `equal` (default): equal buttons of one width in a row, a column when they do not fit. `form`: the bar of a form
+   * (CMP-21 «Форма створення…», п. 6–7) — the first action («Скасувати») at the start, the rest («Назад», «Далі»,
+   * the main action) at the end, each as wide as its label.
+   */
+  bar?: "equal" | "form" | undefined;
   children?: ReactNode;
 }
 
@@ -87,10 +94,15 @@ const FOCUSABLE =
   'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])';
 const FIELD = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
 
+/** Controls outside a hidden or inert part (a form step that is not shown) and outside a tooltip. */
+const reachable = (el: HTMLElement) =>
+  !(el as HTMLButtonElement).disabled &&
+  !el.closest("[hidden]") &&
+  !el.closest("[inert]") &&
+  !el.closest('[role="tooltip"]');
+
 const focusables = (root: HTMLElement): HTMLElement[] =>
-  [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (el) => !(el as HTMLButtonElement).disabled && !el.closest("[hidden]") && !el.closest('[role="tooltip"]'),
-  );
+  [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(reachable);
 
 /** A computed CSS length in px («12px» → 12; «normal» → 0). Layout sizes, not amounts. */
 const px = (value: string): number => Number(value.replace(/px$/, "")) || 0;
@@ -140,6 +152,7 @@ export function Dialog({
   error,
   note,
   initialFocus,
+  bar = "equal",
   children,
 }: DialogProps) {
   const [slot] = useState(() => Symbol("dialog"));
@@ -179,7 +192,7 @@ export function Dialog({
     if (typeof el.showModal === "function") {
       if (!el.open) el.showModal();
     } else el.setAttribute("open", "");
-    const field = el.querySelector<HTMLElement>(`.ws-dialog-content :is(${FIELD})`);
+    const field = [...el.querySelectorAll<HTMLElement>(`.ws-dialog-content :is(${FIELD})`)].find(reachable);
     const safe =
       el.querySelector<HTMLElement>('.ws-dialog-action[data-variant="secondary"]') ??
       el.querySelector<HTMLElement>('.ws-dialog-action:not([data-variant="danger"])');
@@ -202,14 +215,14 @@ export function Dialog({
   // Equal-width buttons in one row, or a full-width column (primary on top) when the widest label does not fit.
   useLayoutEffect(() => {
     const row = actionsRef.current;
-    if (!shown || !row) return;
+    if (!shown || !row || bar === "form") return;
     const measure = () => setColumn(needsColumn(row));
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(row);
     return () => ro.disconnect();
-  }, [shown, actions]);
+  }, [shown, actions, bar]);
 
   // A body taller than the dialog allows is a keyboard stop of its own (WebKit never makes a scroller focusable, and
   // Chromium's implicit stop is outside the trap's list): Tab reaches it, arrows scroll it, then Tab goes on.
@@ -336,31 +349,31 @@ export function Dialog({
           <div className="ws-dialog-foot">
             {note ? (
               <p id={noteId} className="ws-disabled-reason ws-dialog-note">
-                {note}
+                {bar === "form" ? <Icon name="info" size={16} /> : null}
+                <span>{note}</span>
               </p>
+            ) : bar === "form" ? (
+              // A form keeps the line's room while every button is active, so the bar never moves (AC21).
+              <p className="ws-dialog-note" data-empty="true" aria-hidden="true" />
             ) : null}
-            <div ref={actionsRef} className="ws-dialog-actions" data-layout={column ? "column" : "row"}>
+            <div
+              ref={actionsRef}
+              className="ws-dialog-actions"
+              data-bar={bar}
+              data-layout={column ? "column" : "row"}
+            >
               {primaryFirst.map((a) => {
-                const variant = a.variant ?? "secondary";
                 const loading = busy && a === main;
                 const inactive = !loading && (busy || Boolean(a.disabled));
                 return (
-                  <button
+                  <ActionButton
                     key={a.label}
-                    type="button"
-                    className={`ws-button ws-dialog-action${variant === "primary" ? " ws-button-primary" : ""}`}
-                    data-variant={variant}
-                    aria-disabled={inactive || undefined}
-                    aria-busy={loading || undefined}
-                    aria-describedby={inactive && note ? noteId : undefined}
-                    onClick={() => {
-                      if (!inactive && !loading) a.onClick();
-                    }}
-                  >
-                    <span className="ws-dialog-action-label">
-                      {loading && a.busyLabel ? a.busyLabel : a.label}
-                    </span>
-                  </button>
+                    action={a}
+                    loading={loading}
+                    inactive={inactive}
+                    reason={inactive ? note : undefined}
+                    reasonId={noteId}
+                  />
                 );
               })}
             </div>
@@ -369,5 +382,53 @@ export function Dialog({
       </PortalRootContext.Provider>
     </dialog>,
     document.body,
+  );
+}
+
+/**
+ * One button of the action bar. Inactive: it keeps its focus place (`aria-disabled`), presses, Enter and Space do
+ * nothing, it is described by the reason line above the buttons, and hover or focus shows the same reason in a
+ * tooltip (CMP-21 «Перевірка полів…», AC18).
+ */
+function ActionButton({
+  action,
+  loading,
+  inactive,
+  reason,
+  reasonId,
+}: {
+  action: DialogAction;
+  loading: boolean;
+  inactive: boolean;
+  reason: string | undefined;
+  reasonId: string;
+}) {
+  const variant = action.variant ?? "secondary";
+  const { triggerProps, tooltip } = useTooltip(reason ?? "", Boolean(reason));
+  return (
+    <>
+      <button
+        ref={triggerProps?.ref}
+        type="button"
+        className={`ws-button ws-dialog-action${variant === "primary" ? " ws-button-primary" : ""}`}
+        data-variant={variant}
+        aria-disabled={inactive || undefined}
+        aria-busy={loading || undefined}
+        aria-describedby={reason ? reasonId : undefined}
+        onClick={() => {
+          if (!inactive && !loading) action.onClick();
+        }}
+        onMouseEnter={triggerProps?.onMouseEnter}
+        onMouseLeave={triggerProps?.onMouseLeave}
+        onFocus={triggerProps?.onFocus}
+        onBlur={triggerProps?.onBlur}
+        onMouseDown={triggerProps?.onMouseDown}
+      >
+        <span className="ws-dialog-action-label">
+          {loading && action.busyLabel ? action.busyLabel : action.label}
+        </span>
+      </button>
+      {tooltip}
+    </>
   );
 }

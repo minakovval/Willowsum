@@ -454,6 +454,9 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       "long",
       "split",
       "wide",
+      "form",
+      "short",
+      "word",
     ]);
     for (const opener of openers) {
       opener.focus();
@@ -467,6 +470,40 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       expect(document.querySelector("dialog.ws-dialog")).toBeNull();
       expect(document.activeElement).toBe(opener);
     }
+  });
+
+  it("CMP-21@PoC AC13: the gallery form «Нова ціль» has three steps, «Далі» on step 1 and the main action inactive until the required fields are filled", () => {
+    render(<App />);
+    act(() => document.querySelector<HTMLButtonElement>('button[data-case="form"]')!.click());
+    const dialog = screen.getByRole("dialog", { name: "Нова ціль" });
+    const steps = within(dialog).getByRole("list", { name: "Кроки форми" });
+    expect(steps.querySelectorAll("li")).toHaveLength(3);
+    const bar = () => [...dialog.querySelectorAll(".ws-dialog-action")].map((b) => b.textContent);
+    expect(bar()).toEqual(["Скасувати", "Далі", "Додати ціль"]);
+    const submit = within(dialog).getByRole("button", { name: "Додати ціль" });
+    expect(submit.getAttribute("aria-disabled")).toBe("true");
+    expect(norm(dialog.querySelector(".ws-dialog-note")!.textContent)).toBe(
+      "Щоб продовжити, заповніть: Назва, Цільова сума",
+    );
+    fireEvent.change(within(dialog).getByLabelText(/^Назва/), { target: { value: "Відпустка" } });
+    const amount = within(dialog).getByLabelText(/^Цільова сума/);
+    act(() => amount.focus());
+    fireEvent.change(amount, { target: { value: "3000" } });
+    expect(submit.getAttribute("aria-disabled")).toBeNull();
+    act(() => within(dialog).getByRole("button", { name: "Далі" }).click());
+    expect(bar()).toEqual(["Скасувати", "Назад", "Далі", "Додати ціль"]);
+  });
+
+  it("CMP-21@PoC AC4: the gallery «Закрити акаунт?» keeps its action inactive until «ВИДАЛИТИ» is typed", () => {
+    render(<App />);
+    act(() => document.querySelector<HTMLButtonElement>('button[data-case="word"]')!.click());
+    const dialog = screen.getByRole("alertdialog", { name: "Закрити акаунт?" });
+    const action = within(dialog).getByRole("button", { name: "Закрити акаунт" });
+    expect(action.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.change(within(dialog).getByLabelText("Введіть ВИДАЛИТИ, щоб підтвердити"), {
+      target: { value: "ВИДАЛИТИ" },
+    });
+    expect(action.getAttribute("aria-disabled")).toBeNull();
   });
 
   it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {

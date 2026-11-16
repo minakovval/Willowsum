@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   colors,
+  CONTRAST_PAIRS,
   contrastRatio,
   CONTRAST_MINIMUM,
   layout,
@@ -178,5 +179,93 @@ describe("CMP-21@PoC Dialog styles", () => {
     ];
     for (const [fg, bg] of ui)
       expect(contrastRatio(light(fg), light(bg))).toBeGreaterThanOrEqual(CONTRAST_MINIMUM.ui);
+  });
+});
+
+describe("CMP-21@PoC form dialog and step indicator styles", () => {
+  it("CMP-21@PoC AC21: every step sits in one grid cell, so the dialog keeps the tallest step's height; hidden steps keep their room", () => {
+    expect(rule(".ws-form-steps")).toContain("display: grid;");
+    expect(rule(".ws-form-step")).toContain("grid-area: 1 / 1;");
+    expect(rule(".ws-form-step[inert]")).toContain("visibility: hidden;");
+    expect(rule(".ws-form-step[inert]")).not.toContain("display: none");
+  });
+
+  it("CMP-21@PoC AC24: the form bar puts «Скасувати» at the start and the rest at the end", () => {
+    expect(rule('.ws-dialog-actions[data-bar="form"]')).toContain("justify-content: flex-end;");
+    expect(rule('.ws-dialog-actions[data-bar="form"] > .ws-dialog-action:first-child')).toContain(
+      "margin-inline-end: auto;",
+    );
+  });
+
+  it("CMP-21@PoC AC15: step indicator `dialog` — 44 px pills, 20 px circle, 10 × 1 px `border-control` dashes; current on `tint-info` with `brand`, done `gain`, unavailable `disabled-*`, error `tint-warning`", () => {
+    const step = rule(".ws-stepper-step");
+    expect(step).toContain("min-height: var(--ws-touch-target);");
+    expect(step).toContain("border-radius: var(--ws-radius-pill);");
+    expect(step).toContain("padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2) 0 var(--ws-space-2);");
+    expect(step).toContain("font-size: var(--ws-text-label-size);");
+    expect(step).toContain("line-height: calc(var(--ws-space-4) + var(--ws-space-1) / 2);");
+    expect(space["space-2"] + space["space-1"] / 2).toBe(10);
+    expect(space["space-4"] + space["space-1"] / 2).toBe(18);
+    const mark = rule(".ws-stepper-mark");
+    expect(mark).toContain("width: calc(var(--ws-space-4) + var(--ws-space-1));");
+    expect(mark).toContain("font-weight: 700;");
+    expect(space["space-4"] + space["space-1"]).toBe(20);
+    const dash = rule(".ws-stepper-dash");
+    expect(dash).toContain("width: calc(var(--ws-space-2) + var(--ws-space-1) / 2);");
+    expect(dash).toContain("height: 1px;");
+    expect(dash).toContain("background: var(--ws-border-control);");
+    expect(rule('.ws-stepper-step[data-state="current"]')).toContain("background: var(--ws-tint-info);");
+    expect(rule('.ws-stepper-step[data-state="current"] .ws-stepper-mark')).toContain(
+      "background: var(--ws-brand);",
+    );
+    expect(rule('.ws-stepper-step[data-state="done"] .ws-stepper-mark')).toContain(
+      "background: var(--ws-gain);",
+    );
+    expect(rule('.ws-stepper-step[data-state="unavailable"] .ws-stepper-mark')).toContain(
+      "background: var(--ws-disabled-bg);",
+    );
+    expect(rule('.ws-stepper-step[data-state="attention"] .ws-stepper-mark')).toContain(
+      "background: var(--ws-tint-warning);",
+    );
+    expect([light("tint-info"), light("brand"), light("gain"), light("surface-300")]).toEqual([
+      "#EEF2F7",
+      "#0B2545",
+      "#27704C",
+      "#F1F1EF",
+    ]);
+  });
+
+  it("CMP-21@PoC AC15: the step indicator and the form hint meet 4.5 : 1 for text and 3 : 1 for markers in the light theme", () => {
+    const text: [keyof typeof colors, keyof typeof colors][] = [
+      ["ink", "tint-info"],
+      ["ink", "surface-200"],
+      ["on-brand", "brand"],
+      ["ink", "surface-300"],
+      ["on-warning", "tint-warning"],
+      ["ink-muted", "surface-200"],
+    ];
+    for (const [fg, bg] of text) {
+      expect(contrastRatio(light(fg), light(bg))).toBeGreaterThanOrEqual(CONTRAST_MINIMUM.text);
+      expect(CONTRAST_PAIRS.some((p) => p.fg === fg && p.bg === bg)).toBe(true);
+    }
+    expect(contrastRatio(light("surface-200"), light("gain"))).toBeGreaterThanOrEqual(CONTRAST_MINIMUM.ui);
+    expect(contrastRatio(light("border-control"), light("surface-200"))).toBeGreaterThanOrEqual(
+      CONTRAST_MINIMUM.ui,
+    );
+  });
+
+  it("CMP-21@PoC «Зменшений рух»: changing steps and opening «Додатково» do not animate", () => {
+    const all = [".ws-form-steps", ".ws-form-step", ".ws-form-more", ".ws-form-more-body", ".ws-stepper-step"]
+      .map(rule)
+      .join("\n");
+    expect(all).not.toMatch(/transform|animation|transition/);
+  });
+});
+
+describe("CMP-21@PoC form bar reason line", () => {
+  it("CMP-21@PoC AC21: in a form the reason line keeps one line of room even when empty, so the bar stays in place", () => {
+    const note = rule('.ws-dialog-foot:has(> .ws-dialog-actions[data-bar="form"]) > .ws-dialog-note');
+    expect(note).toContain("min-height: var(--ws-text-body-sm-line);");
+    expect(note).toContain("justify-content: flex-end;");
   });
 });
