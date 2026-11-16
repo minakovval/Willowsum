@@ -5,6 +5,7 @@ import {
   CHILDREN,
   GALLERY_TOKENS_PATH,
   IMPORT_WIZARD_PATH,
+  PROFILE_PATH,
   SECTIONS,
   SETTINGS_PATH,
   SPACE_SETTINGS_PATH,
@@ -24,6 +25,7 @@ const routes: readonly string[] = [
   ...SECTIONS.flatMap((s) => s.pages.map((p) => p.path)),
   ...CHILDREN.map((c) => c.path),
   SETTINGS_PATH,
+  PROFILE_PATH,
   SPACE_SETTINGS_PATH,
   IMPORT_WIZARD_PATH,
   GALLERY_TOKENS_PATH,
@@ -104,6 +106,102 @@ test.describe("DS-06@PoC AC2: contrast of the CMP-21 dialogs in the gallery, lig
       await expectNoContrastProblems(page);
     });
   }
+});
+
+/**
+ * DS-06@PoC AC2 on «Налаштування» (S-186), «Профіль» (S-187) and the step-up dialog (S-032) in the states the route
+ * table alone does not reach (ACC-05@PoC «Стани інтерфейсу»). The profile is answered here in the browser
+ * (synthetic), so no account is needed.
+ */
+test.describe("DS-06@PoC AC2: «Налаштування», «Профіль» and step-up in their states", () => {
+  const profile = {
+    name: "Олена Синтетична",
+    email: "olena@example.test",
+    locale: "uk-UA",
+    timeZone: "Europe/Kyiv",
+  };
+  const json = (body: unknown, status = 200) => ({
+    status,
+    contentType: status < 400 ? "application/json" : "application/problem+json",
+    body: JSON.stringify(body),
+  });
+  const problemOf = (status: number, code: string) =>
+    json({ type: "about:blank", title: code, status, code }, status);
+
+  test("DS-06@PoC AC2: «Налаштування» with the profile and with its load error", async ({ page }) => {
+    let fail = false;
+    await page.route("**/v1/profile", (route) =>
+      route.fulfill(fail ? problemOf(500, "INTERNAL") : json(profile)),
+    );
+    await page.goto(`/#${SETTINGS_PATH}`);
+    await expect(page.getByText(profile.email)).toBeVisible();
+    await expectNoContrastProblems(page);
+    fail = true;
+    await page.reload();
+    await expect(page.getByRole("alert")).toContainText("Не вдалося завантажити профіль");
+    await expectNoContrastProblems(page);
+  });
+
+  test("DS-06@PoC AC2: «Профіль» saved, a failed save, a short password and the step-up dialog with its errors", async ({
+    page,
+  }) => {
+    let failSave = false;
+    let stepUp = 0;
+    await page.route("**/v1/profile", (route) =>
+      route.request().method() === "PATCH"
+        ? route.fulfill(failSave ? problemOf(500, "INTERNAL") : json({ ...profile, name: "Олена Інша" }))
+        : route.fulfill(json(profile)),
+    );
+    await page.route("**/v1/session/step-up", (route) =>
+      route.fulfill(
+        ++stepUp === 1
+          ? problemOf(403, "STEP_UP_PASSWORD_INVALID")
+          : { ...problemOf(429, "SIGN_IN_LOCKED"), headers: { "Retry-After": "900" } },
+      ),
+    );
+    await page.goto(`/#${PROFILE_PATH}`);
+    const name = page.getByRole("textbox", { name: /^Ім’я/ });
+    await expect(name).toHaveValue(profile.name);
+    await expectNoContrastProblems(page);
+
+    await name.fill("Олена Інша");
+    await page.getByRole("button", { name: "Зберегти", exact: true }).click();
+    await expect(page.getByText("Профіль збережено")).toBeVisible();
+    await expectNoContrastProblems(page);
+
+    failSave = true;
+    await name.fill("Ще інша");
+    await page.getByRole("button", { name: "Зберегти", exact: true }).click();
+    await expect(page.getByRole("alert")).toContainText("Не вдалося зберегти. Спробуйте ще раз");
+    await expectNoContrastProblems(page);
+
+    await page.getByRole("button", { name: "Змінити пароль" }).click();
+    await page.getByLabel(/^Новий пароль/).fill("short");
+    await page.getByRole("button", { name: "Зберегти пароль" }).click();
+    await expect(page.getByText(/не коротшим за\s12\sсимволів/)).toBeVisible();
+    await expectNoContrastProblems(page);
+
+    await page.getByLabel(/^Новий пароль/).fill("synthetic-new-password");
+    await page.getByRole("button", { name: "Зберегти пароль" }).click();
+    const dialog = page.getByRole("dialog", { name: "Підтвердіть, що це ви" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByLabel(/^Поточний пароль/)).toBeFocused();
+    await expectNoContrastProblems(page);
+
+    await dialog.getByLabel(/^Поточний пароль/).fill("synthetic-wrong");
+    await dialog.getByRole("button", { name: "Підтвердити" }).click();
+    await expect(dialog.getByText("Пароль неправильний")).toBeVisible();
+    await expectNoContrastProblems(page);
+
+    await dialog.getByLabel(/^Поточний пароль/).fill("synthetic-wrong");
+    await dialog.getByRole("button", { name: "Підтвердити" }).click();
+    await expect(dialog.getByRole("alert")).toContainText("Вхід тимчасово заблоковано. Спробуйте через 15");
+    await expectNoContrastProblems(page);
+
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole("button", { name: "Зберегти пароль" })).toBeFocused();
+  });
 });
 
 /**

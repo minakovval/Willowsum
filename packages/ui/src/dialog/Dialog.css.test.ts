@@ -122,8 +122,10 @@ describe("CMP-21@PoC Dialog styles", () => {
     expect(button).toContain("border-radius: var(--ws-radius-md);");
     expect(layout["touch-target"] - space["space-1"]).toBe(40);
     expect(radii["radius-md"]).toBe(8);
-    // The 2 px above and below make the 44 px target.
-    expect(rule(".ws-button::after")).toContain("inset-block: calc(var(--ws-space-1) / -2);");
+    // The 44 px target (CMP-01: the hit area is at least the touch target, centred on the button).
+    const hit = rule(".ws-button::after");
+    expect(hit).toContain("width: max(100%, var(--ws-touch-target));");
+    expect(hit).toContain("height: max(100%, var(--ws-touch-target));");
     const close = rule(".ws-dialog-close.ws-icon-button");
     expect(close).toContain("min-width: calc(var(--ws-space-6) + var(--ws-space-1));");
     expect(close).toContain("border-radius: var(--ws-radius-pill);");

@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
 import { categoryMerged } from "../../../categories/index.ts";
-import { handOffKey, type CategoryHandOff } from "../../application/index.ts";
+import { transactionCreated } from "../../../transactions/index.ts";
+import { handOffKey, type AuditHandOff, type CategoryHandOff } from "../../application/index.ts";
 import { CATEGORY_SOURCES } from "../../domain/index.ts";
 
 const side = z.strictObject({ categoryId: z.uuid().nullable(), source: z.enum(CATEGORY_SOURCES) });
@@ -36,3 +37,37 @@ export const CATEGORY_MERGED_JOB = defineJob({
 export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: CategoryHandOff): Promise<void> {
   await enqueueJob(q, HAND_OFF_JOB, handOffKey(handOff), handOff as z.infer<typeof handOffSchema>);
 }
+
+/**
+ * BUD-14 FR 8: «Нова транзакція» of module transactions (`transactions.created` v1), one job per event: the space's
+ * category rules set its category (application/rules.ts `applyRulesToNew`).
+ */
+export const TRANSACTION_CREATED_JOB = defineJob({
+  name: "categorization.transaction-created",
+  schema: transactionCreated.schema,
+});
+
+/**
+ * BUD-14 «Обов'язково пишуться в журнал аудиту: зміни правил … застосування»: the audit entry of a change of a rule or
+ * of a rule's category on a new transaction (ADR-0015), keyed by the entry's own key. Ids, codes and positions only:
+ * the conditions are a masked marker.
+ */
+const auditSchema = z.strictObject({
+  key: z.string().regex(/^categorization\.[A-Za-z0-9:._-]{1,180}$/),
+  actorAccountId: z.uuid().nullable(),
+  entity: z.enum(["categorization.rule", "categorization.transaction-category"]),
+  entityId: z.uuid(),
+  action: z.enum(["create", "update"]),
+  changes: z
+    .array(
+      z.strictObject({
+        field: z.enum(["conditions", "position", "categoryId", "accountIds", "enabled", "source", "ruleId"]),
+        before: z.string().max(1000).nullable(),
+        after: z.string().max(1000).nullable(),
+        sensitive: z.boolean(),
+      }),
+    )
+    .max(10),
+}) satisfies z.ZodType<AuditHandOff>;
+
+export const AUDIT_JOB = defineJob({ name: "categorization.audit", schema: auditSchema });

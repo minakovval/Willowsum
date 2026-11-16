@@ -34,6 +34,12 @@ whether the security properties the requirement claims really hold. This review 
   (inside a block scalar) → full review. Then post one short review: «Light confirmation: only test titles /
   comments in <files>», `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or
   configuration change in a sensitive path → full review.
+- **By tier** ([merge rules](../../references/merge-rules.md), «Review tiers»; the lead names it in the brief;
+  Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))):
+  Фундамент — this skill in full, mutation testing for critical modules (§4); Функціональність — only when CI set
+  `sensitive` because the PR touches the foundation, then in full for those files; Локальні інструменти — **one**
+  round, no mutation testing, and findings that do not concern production are non-blocking (follow-ups), so no
+  round 2 unless a production-relevant blocker remains.
 - The owner decision and the owner's approval for cloud or production are checked by `review-pr`, not here.
 - **Round 2** checks only the fixes and your own round-1 findings (the diff since the head you last
   reviewed). At most two rounds (see «7. Rounds»).
