@@ -142,6 +142,14 @@ export const FLAGS = {
     description:
       "Мерчанти (BUD-14@PoC a): мерчант транзакції з опису банку, «Оригінальний опис», «Канал», перейменування, «Об'єднати з…», «Роз'єднати»; маршрути /v1/merchants, /v1/transactions/{id}/merchant",
   },
+  "categorization.rules": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.merchants",
+    description:
+      "Правила категорій (BUD-14@PoC b): умови, пріоритет, «Увімкнено», «Потребує уваги», «Показати»; нові транзакції проходять правила; маршрути /v1/category-rules",
+  },
   "recurring.payments": {
     kind: "release",
     owner: "product-owner",

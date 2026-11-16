@@ -13,6 +13,8 @@ import {
   transferFee,
   type TransferLink,
 } from "../../domain/index.ts";
+import { publishEvent } from "../../../../platform/queue/index.ts";
+import { transactionCreated } from "../../events.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The transactions schema through the module's own role (migrations/0001_transactions.sql). The row policy binds the space; SQL filters it too. */
@@ -374,6 +376,9 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       await q.query(`DELETE FROM transactions WHERE household_id = $1 AND id = $2`, [householdId, id]);
     },
     enqueueHandOff: (householdId, handOff) => enqueueHandOff({ ...q, householdId }, handOff),
+    async publishCreated(householdId, transactionId) {
+      await publishEvent({ ...q, householdId }, transactionCreated, { transactionId });
+    },
   };
 }
 

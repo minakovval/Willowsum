@@ -15,7 +15,7 @@ export const AMOUNT_OPERATORS = ["equals", "greater", "less"] as const;
 
 /** At most this many conditions in one rule and accounts in «Лише для рахунків». */
 export const RULE_CONDITIONS_MAX = 10;
-export const RULE_ACCOUNTS_MAX = 50;
+export const RULE_ACCOUNTS_MAX = 20;
 /** At most this many rules in a space: the rules of a new transaction are checked one by one. */
 export const RULES_MAX = 500;
 

@@ -5,8 +5,15 @@ import type { EventSubscription, WorkerQueue } from "../../platform/queue/index.
 import type { AuditLog } from "../audit/index.ts";
 import type { BulkActionHandler, BulkTarget } from "../bulk-actions/index.ts";
 import { categoryMerged, type CategoryDirectory, type CategoryUsage } from "../categories/index.ts";
-import type { TransactionLookup } from "../transactions/index.ts";
+import type { AccountDirectory } from "../accounts/index.ts";
+import type { MerchantDirectory } from "../merchants/index.ts";
 import {
+  transactionCreated,
+  type TransactionLookup,
+  type TransactionRuleInputs,
+} from "../transactions/index.ts";
+import {
+  AUDIT_JOB,
   CATEGORY_MERGED_JOB,
   categorizationAudit,
   categorizationRoutes,
@@ -16,24 +23,57 @@ import {
   HAND_OFF_JOB,
   requeueDeadJobsOf,
   setCategoryAction,
+  TRANSACTION_CREATED_JOB,
   transactionsCategoryTarget,
 } from "./adapters/index.ts";
-import { categoriesInUse } from "./application/index.ts";
+import { categoriesInUse, type RuleDeps } from "./application/index.ts";
 
 export const categorizationModule = defineModule({
   name: "categorization",
   publishes: [],
-  consumes: [categoryMerged],
+  consumes: [categoryMerged, transactionCreated],
   routes: categorizationRoutes,
 });
 
 export { createCategorizationServices, type CategorizationServices } from "./adapters/index.ts";
 export { SET_CATEGORY_ACTION, TRANSACTIONS_ENTITY } from "./adapters/index.ts";
-export { CATEGORY_SOURCES, pickCategory, proposalApplies } from "./domain/index.ts";
+export { CATEGORY_SOURCES, pickCategory, proposalApplies, RULES_MAX } from "./domain/index.ts";
+export { RULE_SCAN_MAX } from "./adapters/index.ts";
 export type { CategorySource, TransactionCategory } from "./domain/index.ts";
 
-/** The categorization queue's jobs (ARC-04): the audit hand-off of a change, and «Категорію об'єднано» (BUD-01 FR 8). */
-export { CATEGORY_MERGED_JOB, HAND_OFF_JOB };
+/**
+ * The categorization queue's jobs (ARC-04): the audit hand-off of a change, «Категорію об'єднано» (BUD-01 FR 8), the
+ * rules of a new transaction and the audit entries of the rules (BUD-14 FR 8).
+ */
+export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB };
+
+/** The ports of the category rules (BUD-14 b) — other modules' public interfaces, as the rules read them. */
+export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
+
+/**
+ * BUD-14 b: the rules' ports from module accounts' directory (an account exists in the space), module merchants'
+ * directory (the shown merchant name of a counterparty) and module transactions' rule inputs (src/main.ts,
+ * src/wiring.ts).
+ */
+export function categorizationRulePorts(deps: {
+  readonly accounts: AccountDirectory;
+  readonly merchants: MerchantDirectory;
+  readonly inputs: TransactionRuleInputs;
+}): CategorizationRulePorts {
+  return {
+    accounts: {
+      exists: async (householdId, accountId) =>
+        (await deps.accounts.postingAccount(householdId, accountId)) !== null,
+    },
+    merchants: {
+      async names(householdId, counterparties) {
+        const shown = await deps.merchants.shownMerchants(householdId, counterparties);
+        return new Map([...shown].map(([counterparty, m]) => [counterparty, m.name]));
+      },
+    },
+    inputs: deps.inputs,
+  };
+}
 
 /**
  * BUD-01@PoC FR 12: the categories that existing transactions of the space have as their own category, for module
@@ -70,19 +110,28 @@ export function createCategoryBulkActions(deps: {
 
 /**
  * The worker's categorization queue (ARC-04; src/wiring.ts): the hand-off jobs (audit entries of changes, with the same
- * audit log as the routes') and the jobs of «Категорію об'єднано». `db` is the categorization database.
+ * audit log as the routes'), the jobs of «Категорію об'єднано», the rules of a new transaction and the rules' audit
+ * entries. `db` is the categorization database.
  */
 export function createCategorizationWorkerQueue(
   db: ModuleDatabase,
   audit: Pick<AuditLog, "record">,
   categories: Pick<CategoryDirectory, "category">,
+  rules: CategorizationRulePorts,
 ): WorkerQueue {
-  return categorizationWorkerQueue(db, categorizationAudit(audit), categories);
+  return categorizationWorkerQueue(db, categorizationAudit(audit), categories, {
+    deps: { ...rules, categories },
+    audit,
+  });
 }
 
-/** BUD-01 FR 8: module categories' «Категорію об'єднано» becomes a categorization job (src/wiring.ts). */
+/**
+ * BUD-01 FR 8: module categories' «Категорію об'єднано» and BUD-14 FR 8: module transactions' «Нова транзакція» become
+ * categorization jobs (src/wiring.ts).
+ */
 export const categorizationSubscriptions: readonly EventSubscription[] = [
   { event: categoryMerged, consumer: "categorization", job: CATEGORY_MERGED_JOB },
+  { event: transactionCreated, consumer: "categorization", job: TRANSACTION_CREATED_JOB },
 ];
 
 /**

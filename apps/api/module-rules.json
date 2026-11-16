@@ -31,7 +31,7 @@
     },
     "categorization": {
       "layer": "subject",
-      "dependsOn": ["audit", "bulk-actions", "categories", "transactions"]
+      "dependsOn": ["accounts", "audit", "bulk-actions", "categories", "merchants", "transactions"]
     },
     "data-erasure": {
       "layer": "process",

@@ -17,6 +17,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
+  categorizationRulePorts,
   createCategorizationServices,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
@@ -43,6 +44,7 @@ import {
   createTransactionCategoryUsage,
   createTransactionHistory,
   createTransactionLookup,
+  createTransactionRuleInputs,
   createTransactionTexts,
   createTransactionWalletUsage,
   createTransactionsServices,
@@ -273,6 +275,12 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               audit,
+              // BUD-14 b: the category rules read the accounts, the merchants and the transactions' rule inputs.
+              rules: categorizationRulePorts({
+                accounts: createAccountDirectory(databases.for("accounts")),
+                merchants: createMerchantDirectory(databases.for("merchants")),
+                inputs: createTransactionRuleInputs(databases.for("transactions")),
+              }),
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the

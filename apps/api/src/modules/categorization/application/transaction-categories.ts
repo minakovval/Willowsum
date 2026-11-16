@@ -20,7 +20,12 @@ import type { CategoryHandOff } from "./hand-off.ts";
 export interface StoredTransactionCategory extends TransactionCategory {
   readonly transactionId: string;
   readonly version: number;
+  /** BUD-14 FR 13: the rule that set the category (the source «rule»); null otherwise. */
+  readonly ruleId: string | null;
 }
+
+/** A category as written: with the source «rule», the rule that set it (BUD-14 FR 13). */
+export type NextCategory = TransactionCategory & { readonly ruleId?: string | null };
 
 /** The transactions of the space as this module reads them (module transactions' `TransactionLookup`). */
 export interface TransactionFactsPort {
@@ -38,14 +43,9 @@ export interface CategorizationTx {
   lock(householdId: string, transactionId: string): Promise<StoredTransactionCategory | null>;
   read(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, StoredTransactionCategory>>;
   /** A new row at version 1; false if another writer inserted it first. */
-  insert(householdId: string, transactionId: string, next: TransactionCategory): Promise<boolean>;
+  insert(householdId: string, transactionId: string, next: NextCategory): Promise<boolean>;
   /** The locked row's next version. */
-  update(
-    householdId: string,
-    transactionId: string,
-    next: TransactionCategory,
-    version: number,
-  ): Promise<void>;
+  update(householdId: string, transactionId: string, next: NextCategory, version: number): Promise<void>;
   /** The rows that have any of `categoryIds`: transaction id → category id. */
   withCategories(householdId: string, categoryIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
   /** FR 8: every row of `sourceId` takes `targetId`; returns how many. */
@@ -73,19 +73,26 @@ export async function writeCategory(
   tx: CategorizationTx,
   householdId: string,
   transactionId: string,
-  next: TransactionCategory,
+  next: NextCategory,
   expectedVersion?: number,
 ): Promise<WriteOutcome> {
   const current = await tx.lock(householdId, transactionId);
   const version = current?.version ?? 0;
   if (expectedVersion !== undefined && expectedVersion !== version) return { kind: "conflict" };
   const before: TransactionCategory = current ?? UNCATEGORIZED;
-  const unchangedRow = current ?? { transactionId, ...UNCATEGORIZED, version: 0 };
+  const unchangedRow = current ?? { transactionId, ...UNCATEGORIZED, version: 0, ruleId: null };
   if (same(before, next)) return { kind: "unchanged", row: unchangedRow };
   if (current === null) {
     if (!(await tx.insert(householdId, transactionId, next))) return { kind: "conflict" };
   } else await tx.update(householdId, transactionId, next, version + 1);
-  return { kind: "changed", row: { transactionId, ...next, version: version + 1 }, before };
+  const row = {
+    transactionId,
+    categoryId: next.categoryId,
+    source: next.source,
+    version: version + 1,
+    ruleId: next.ruleId ?? null,
+  };
+  return { kind: "changed", row, before };
 }
 
 export type SetResult =
@@ -157,6 +164,7 @@ export async function categoryOf(
       transactionId,
       ...UNCATEGORIZED,
       version: 0,
+      ruleId: null,
     }
   );
 }
@@ -172,9 +180,13 @@ export async function applyMerge(
   categories: CategoryFactsPort,
   householdId: string,
   event: { readonly sourceId: string; readonly targetId: string },
+  rules?: { moveRules(householdId: string, sourceId: string, targetId: string): Promise<number> },
 ): Promise<number> {
   const source = await categories.category(householdId, event.sourceId);
-  return tx.move(householdId, event.sourceId, source?.mergedInto ?? event.targetId);
+  const target = source?.mergedInto ?? event.targetId;
+  // BUD-14 FR 10: the rules of the merged category are rewritten to the target too.
+  await rules?.moveRules(householdId, event.sourceId, target);
+  return tx.move(householdId, event.sourceId, target);
 }
 
 /**

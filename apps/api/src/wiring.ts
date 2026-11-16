@@ -17,6 +17,7 @@ import {
   type BulkActionsServices,
 } from "./modules/bulk-actions/index.ts";
 import {
+  categorizationRulePorts,
   categorizationSubscriptions,
   createCategorizationRecovery,
   createCategorizationWorkerQueue,
@@ -42,7 +43,11 @@ import {
   recurringSubscriptions,
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
-import { createMerchantsRecovery, createMerchantsWorkerQueue } from "./modules/merchants/index.ts";
+import {
+  createMerchantDirectory,
+  createMerchantsRecovery,
+  createMerchantsWorkerQueue,
+} from "./modules/merchants/index.ts";
 import {
   createLiabilities,
   createLiabilitiesHandOffRecovery,
@@ -50,6 +55,7 @@ import {
 } from "./modules/liabilities/index.ts";
 import {
   createTransactionLookup,
+  createTransactionRuleInputs,
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
 } from "./modules/transactions/index.ts";
@@ -346,6 +352,11 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         databases.for("categorization"),
         audit,
         createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
+        categorizationRulePorts({
+          accounts: createAccountDirectory(databases.for("accounts")),
+          merchants: createMerchantDirectory(databases.for("merchants")),
+          inputs: createTransactionRuleInputs(databases.for("transactions")),
+        }),
       ),
       createTransactionsWorkerQueue(databases.for("transactions"), {
         accounts: createAccountDirectory(databases.for("accounts")),

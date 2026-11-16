@@ -9,7 +9,9 @@ import {
   type StoredTransactionCategory,
 } from "../../application/index.ts";
 import { CATEGORY_SOURCES } from "../../domain/index.ts";
+import { rulesTx } from "../db/rules.ts";
 import { categorizationTx } from "../db/store.ts";
+import { rulesRoutes } from "./rules.ts";
 import { categorizationServices, handOffNow } from "./services.ts";
 
 /**
@@ -34,12 +36,21 @@ const categorySchema = z.object({
    * (`dictionary`), «немає» (`none` — «Без категорії»).
    */
   source: z.enum(CATEGORY_SOURCES),
+  /**
+   * BUD-14 FR 8, FR 13: «за правилом №…» — the rule that set the category (`source` «rule») and its place in the order
+   * now; null — no rule (or it is no longer there).
+   */
+  rule: z.object({ id: z.uuid(), position: z.number().int() }).nullable(),
 });
 
-const present = (row: StoredTransactionCategory): z.input<typeof categorySchema> => ({
+const present = (
+  row: StoredTransactionCategory,
+  position: number | null = null,
+): z.input<typeof categorySchema> => ({
   transactionId: row.transactionId,
   categoryId: row.categoryId,
   source: row.source,
+  rule: row.ruleId !== null && position !== null ? { id: row.ruleId, position } : null,
 });
 
 /** Scoped members: «Транзакції» are closed by the visibility policy's default (00-general «Область доступу»). */
@@ -87,10 +98,16 @@ export const getTransactionCategoryRoute = defineRoute({
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     await existing(ctx, params.transactionId);
-    const row = await ctx.inHousehold((q) =>
-      categoryOf(categorizationTx(q), ctx.principal.householdId, params.transactionId),
-    );
-    return present(row);
+    const householdId = ctx.principal.householdId;
+    const { row, position } = await ctx.inHousehold(async (q) => {
+      const found = await categoryOf(categorizationTx(q), householdId, params.transactionId);
+      const rule =
+        found.ruleId === null
+          ? undefined
+          : (await rulesTx(q).rules(householdId)).find((r) => r.id === found.ruleId);
+      return { row: found, position: rule?.position ?? null };
+    });
+    return present(row, position);
   },
 });
 
@@ -134,4 +151,8 @@ export const setTransactionCategoryRoute = defineRoute({
   },
 });
 
-export const categorizationRoutes = [getTransactionCategoryRoute, setTransactionCategoryRoute];
+export const categorizationRoutes = [
+  getTransactionCategoryRoute,
+  setTransactionCategoryRoute,
+  ...rulesRoutes,
+];
