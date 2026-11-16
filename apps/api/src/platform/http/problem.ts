@@ -275,6 +275,11 @@ export const ProblemSchema = z
     currentVersion: z.number().int().min(0).optional().meta({
       description: "VERSION_CONFLICT: the current version of the record",
     }),
+    /** For VERSION_CONFLICT of «Підтвердити» (BUD-12 FR 7): the category the transaction has now; null — «Без категорії». */
+    currentCategoryId: z.uuid().nullable().optional().meta({
+      description:
+        "VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload",
+    }),
     /**
      * For VERSION_CONFLICT: the fields someone else changed — those of the `base` the client sent (the values it
      * read at its version) that the caller may read and whose stored value now differs. Names only, never values.
@@ -348,7 +353,10 @@ export class ApiProblem extends Error {
 
 /** The extension members a problem may carry (declared in ProblemSchema). */
 export type ProblemExtensions = Partial<
-  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason" | "excess">
+  Pick<
+    Problem,
+    "currentVersion" | "currentCategoryId" | "changedFields" | "limit" | "sessionEndReason" | "excess"
+  >
 >;
 
 export function problemBody(
@@ -371,6 +379,9 @@ export function problemBody(
     ...(options.errors !== undefined ? { errors: [...options.errors] } : {}),
     ...(options.extensions?.currentVersion !== undefined
       ? { currentVersion: options.extensions.currentVersion }
+      : {}),
+    ...(options.extensions?.currentCategoryId !== undefined
+      ? { currentCategoryId: options.extensions.currentCategoryId }
       : {}),
     ...(options.extensions?.changedFields !== undefined
       ? { changedFields: [...options.extensions.changedFields] }

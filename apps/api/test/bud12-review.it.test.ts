@@ -233,6 +233,7 @@ beforeAll(async () => {
           categories: directory,
           flags: { isEnabled },
           duplicates: createDuplicateCheck(),
+          categoryOf: createTransactionCategories(db.databases.for("categorization")),
         }),
         categories: createCategoriesServices({
           audit,
@@ -435,6 +436,27 @@ describe("BUD-12@PoC FR 4–7: «Підтвердити», «Пропустит�
     expect(fresh).toMatchObject({ review: "queued", version: 2 });
     expect(await reviewEntries(space, shell.id)).toEqual([]);
     expect((await confirm(space, fresh)).statusCode).toBe(200);
+  });
+
+  it("BUD-12@PoC AC5: the category was changed in another window — «Підтвердити» on the stale card (its category) is refused", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const shell = await add(space, account, "-52.10", { counterparty: "Shell" });
+    await setCategory(space, shell.id, "Кафе і ресторани");
+    await queue(space, [shell.id]);
+    const shown = await category(space, "Кафе і ресторани");
+    // Another window changes only the category (module categorization); the card still shows «Кафе і ресторани».
+    await setCategory(space, shell.id, "Пальне");
+    const stale = await call(space, "POST", `/v1/transactions/${shell.id}/review/confirm`, {
+      version: shell.version,
+      categoryId: shown,
+    });
+    expect(stale.statusCode, stale.body).toBe(409);
+    expect(stale.json()).toMatchObject({
+      code: "VERSION_CONFLICT",
+      currentCategoryId: await category(space, "Пальне"),
+    });
+    expect((await get(space, shell.id)).review).toBe("queued");
   });
 
   it("BUD-12@PoC AC6: a confirmed transaction's category changed — it does not return to the queue, the change is in the audit log, the budget's sums are recounted", async () => {

@@ -1483,6 +1483,8 @@ export type components = {
              * @enum {string}
              */
             code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
+            currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT: the current version of the record */
             currentVersion?: number;
             detail?: string;
@@ -14762,6 +14764,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    categoryId?: string | null;
                     version: number;
                 };
             };
@@ -14935,6 +14938,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    categoryId?: string | null;
                     version: number;
                 };
             };

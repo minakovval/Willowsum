@@ -60,13 +60,28 @@ const reviewRoute = (step: ReviewStep) =>
            * `currentVersion`; the card reloads and shows «Транзакцію змінено, перевірте ще раз».
            */
           version: z.number().int().min(1),
+          /**
+           * The category the card shows (FR 7; null — «Без категорії»), confirm only: the category is module
+           * categorization's, so a change of it alone leaves `version` as it is; another — 409 VERSION_CONFLICT.
+           */
+          categoryId: z.uuid().nullable().optional(),
         })
         .strict(),
     },
     response: { status: 200, description: "The transaction after the change", schema: transactionSchema },
     handler: async ({ params, body }, ctx) => {
       refuseScoped(ctx);
-      const { deps } = transactionsServices(ctx);
+      const { deps, categoryOf } = transactionsServices(ctx);
+      if (step === "confirm" && body.categoryId !== undefined) {
+        if (!categoryOf) throw new ApiProblem("INTERNAL");
+        const current = await categoryOf.categoriesOf(ctx.principal.householdId, [params.transactionId]);
+        const currentCategoryId = current.get(params.transactionId) ?? null;
+        // `currentCategoryId` lets the card show the new category without a reload (null — «Без категорії»).
+        if (currentCategoryId !== body.categoryId)
+          throw new ApiProblem("VERSION_CONFLICT", {
+            extensions: { currentVersion: body.version, currentCategoryId },
+          });
+      }
       const result = await ctx.inHousehold((q) =>
         setReview(transactionsTx(q), caller(ctx), params.transactionId, body.version, step),
       );
