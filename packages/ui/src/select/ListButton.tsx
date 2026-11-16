@@ -111,7 +111,7 @@ export function ListButton({ label, options, value, onChange, disabled, classNam
           tabIndex={-1}
           aria-label={label}
           aria-activedescendant={active >= 0 ? optionId(listId, active) : undefined}
-          className="ws-select-panel ws-select-list ws-list-button__panel"
+          className="ws-dropdown-panel ws-select-list ws-list-button__panel"
           onKeyDown={onListKey}
         >
           {options.map((o, i) => (

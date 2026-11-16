@@ -900,7 +900,7 @@
 }
 
 /* The menu panel: as wide as the field (or under the list button), `surface-200`, 1 px `line`, radius 8, popover shadow. */
-.ws-select-panel {
+.ws-dropdown-panel {
   position: absolute;
   inset-inline: 0;
   inset-block-start: calc(100% + var(--ws-space-1));

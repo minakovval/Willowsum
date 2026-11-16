@@ -179,7 +179,7 @@ export function SearchSelect(props: SearchSelectProps) {
             </span>
           </button>
           {open ? (
-            <div className="ws-select-panel">
+            <div className="ws-dropdown-panel">
               <span className="ws-select-search">
                 <Icon name="search" size={16} tone="muted" />
                 <input

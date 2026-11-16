@@ -8,7 +8,7 @@ import {
   radii,
   space,
   typeScale,
-  type ColorToken,
+  type ColorTokenName,
 } from "../tokens/index.ts";
 
 /**
@@ -106,7 +106,7 @@ describe("CMP-03@PoC Select styles", () => {
   });
 
   it("CMP-03@PoC panel: `surface-200`, 1 px `line`, radius 8, `shadow-popover`; a 36 px search field; 11 px group headings in capitals", () => {
-    const panel = rule(components, ".ws-select-panel");
+    const panel = rule(components, ".ws-dropdown-panel");
     expect(panel).toContain("background: var(--ws-surface-200);");
     expect(panel).toContain("border: 1px solid var(--ws-line);");
     expect(panel).toContain("border-radius: var(--ws-radius-md);");
@@ -119,7 +119,7 @@ describe("CMP-03@PoC Select styles", () => {
   });
 
   it("CMP-03@PoC NFR-08: every text pair is at least 4.5 : 1 and every control and mark at least 3 : 1, both themes", () => {
-    const pair = (fg: ColorToken, bg: ColorToken, min: number) => {
+    const pair = (fg: ColorTokenName, bg: ColorTokenName, min: number) => {
       for (const theme of ["light", "dark"] as const) {
         expect(
           contrastRatio(colors[fg][theme], colors[bg][theme]),

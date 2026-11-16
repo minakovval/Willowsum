@@ -247,7 +247,7 @@ describe("CMP-03@PoC Select — «з пошуком»", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /Категорія/ }));
-    const panel = document.querySelector(".ws-select-panel")!;
+    const panel = document.querySelector(".ws-dropdown-panel")!;
     expect(panel.firstElementChild!.querySelector('[role="combobox"]')).not.toBeNull();
     const groups = screen.getAllByRole("group");
     expect(
