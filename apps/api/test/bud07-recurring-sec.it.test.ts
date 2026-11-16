@@ -169,7 +169,14 @@ beforeAll(async () => {
           history: createTransactionHistory(db.databases.for("transactions")),
           merchants: createMerchantDirectory(db.databases.for("merchants")),
           accounts: createAccountDirectory(db.databases.for("accounts")),
+          categories: createCategoryDirectory({
+            db: db.databases.for("categories"),
+            audit,
+            newId: randomUUID,
+          }),
+          audit,
           clock: { now: () => NOW },
+          newId: randomUUID,
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -279,9 +286,9 @@ describe("sec309: what the history port reads", () => {
     const account = await createAccount(space);
     const keep = await tx(space, account, "2026-11-01", "-1.00", "SYNTH KEPT");
     const merged = [
-      await tx(space, account, "2026-08-03", "-21.00", "SYNTH MERGED"),
       await tx(space, account, "2026-09-03", "-21.00", "SYNTH MERGED"),
       await tx(space, account, "2026-10-03", "-21.00", "SYNTH MERGED"),
+      await tx(space, account, "2026-11-03", "-21.00", "SYNTH MERGED"),
     ];
     await db.owner.query(
       `UPDATE transactions.transactions SET merged_into = $3 WHERE household_id = $1 AND id = ANY($2::uuid[])`,

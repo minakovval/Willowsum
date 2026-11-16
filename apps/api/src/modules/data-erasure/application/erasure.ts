@@ -29,6 +29,7 @@ export interface ErasureDeps {
   readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly merchants: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly goals: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly recurring: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly debtPayoff: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -45,6 +46,7 @@ export interface ErasureDeps {
         | "transactions.records"
         | "categorization.records"
         | "merchants.records"
+        | "recurring.records"
         | "categories.records"
         | "goals.records"
         | "debt-payoff.records"
@@ -129,6 +131,10 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // consumes no events, so its place among the consumers is free — after categorization.
     await deps.platformAudit.spaceStep(householdId, "merchants.records");
     await deps.merchants.eraseHousehold(householdId);
+    // Regular payments (BUD-07): after module categories, whose outbox («categories.merged») feeds the recurring queue —
+    // a publisher before its consumer. They name merchants, categories, accounts and transactions by id only.
+    await deps.platformAudit.spaceStep(householdId, "recurring.records");
+    await deps.recurring.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "accounts.records");
     await deps.accounts.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "liabilities.records");
@@ -155,6 +161,8 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     await deps.categorization.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "goals.records", "erasure-sweep");
     await deps.goals.eraseHousehold(householdId);
+    await deps.platformAudit.spaceStep(householdId, "recurring.records", "erasure-sweep");
+    await deps.recurring.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log", "erasure-sweep");
     await deps.audit.eraseHousehold(householdId);
   }

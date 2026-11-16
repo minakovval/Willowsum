@@ -148,7 +148,7 @@ export const FLAGS = {
     reviewBy: "2027-02-15",
     requires: "transactions.manual",
     description:
-      "Регулярні платежі (BUD-07@PoC a1): пропозиції регулярних платежів із транзакцій за 430 днів — частота, очікувана сума, наступна дата; маршрут /v1/recurring/proposals",
+      "Регулярні платежі (BUD-07@PoC a): пропозиції регулярних платежів із транзакцій за 430 днів — частота, очікувана сума, наступна дата; підтвердження з правками, «Не регулярний», ручне додавання; маршрути /v1/recurring/proposals, /v1/recurring/payments",
   },
   "goals.savings": {
     kind: "release",
