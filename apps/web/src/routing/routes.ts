@@ -76,6 +76,10 @@ export const RECURRING = findPage("planning", "recurring");
 export const START_PATH = BUDGET.path;
 /** UX-09@PoC item 18: opened from the profile menu. */
 export const SETTINGS_PATH = "/settings";
+/** ACC-05@PoC FR 1: «Налаштування → Профіль» (S-187). */
+export const PROFILE_PATH = "/settings/profile";
+/** ACC-08@PoC FR 5: «Налаштування → Простір» (S-200); its screen is wave 2 row 111. */
+export const SPACE_SETTINGS_PATH = "/settings/household";
 /** UX-09@PoC item 14: the statement import wizard (focus mode). */
 export const IMPORT_WIZARD_PATH = "/import";
 
@@ -139,6 +143,7 @@ export type Route =
   | { kind: "page"; section: SectionDef; page: PageDef }
   | { kind: "child"; section: SectionDef; child: ChildDef }
   | { kind: "settings" }
+  | { kind: "profile" }
   | { kind: "importWizard" }
   | { kind: "gallery" }
   | { kind: "auth"; screen: AuthScreen }
@@ -165,6 +170,7 @@ export function canonicalPath(path: string): string {
 export function resolveRoute(path: string): Route {
   if (path === GALLERY_TOKENS_PATH) return { kind: "gallery" };
   if (path === SETTINGS_PATH) return { kind: "settings" };
+  if (path === PROFILE_PATH) return { kind: "profile" };
   if (path === IMPORT_WIZARD_PATH) return { kind: "importWizard" };
   const auth = AUTH_PATHS[path];
   if (auth) return { kind: "auth", screen: auth };
