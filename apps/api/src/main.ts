@@ -330,6 +330,10 @@ const server = buildServer({
                 audit,
                 newId: randomUUID,
               }),
+              // BUD-07 b: a charge is matched by its category (categorization), in another currency at the rate of
+              // its date (fx-rates).
+              transactionCategories: createTransactionCategories(databases.for("categorization")),
+              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               audit,
               clock: systemClock,
               newId: randomUUID,

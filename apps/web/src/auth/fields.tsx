@@ -80,6 +80,8 @@ interface TextFieldProps {
   readonly name: string;
   readonly maxLength?: number;
   readonly inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
+  /** A hint under the field, its description; the error replaces it (CMP-02). */
+  readonly hint?: ReactNode | undefined;
 }
 
 export function TextField({
@@ -94,15 +96,18 @@ export function TextField({
   name,
   maxLength,
   inputMode,
+  hint,
 }: TextFieldProps) {
   const id = useId();
   const errorId = `${id}-error`;
+  const hintId = `${id}-hint`;
   return (
     <FieldFrame
       id={id}
       label={label}
       required={required}
-      hintId={`${id}-hint`}
+      hint={hint}
+      hintId={hintId}
       error={error}
       errorId={errorId}
     >
@@ -119,7 +124,7 @@ export function TextField({
         maxLength={maxLength}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(error && errorId)}
+        aria-describedby={describedBy(error ? errorId : hint ? hintId : null)}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />

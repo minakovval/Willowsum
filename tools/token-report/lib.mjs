@@ -1,4 +1,4 @@
-// Створено: 2026-11-14 · Оновлено: 2026-11-15
+// Створено: 2026-11-14 · Оновлено: 2026-11-16 (огляд процесу 15)
 // Token and time accounting for the issue «Облік токенів» (#180); owner, 2026-11-14 (#178, comment 6873950124, item 5).
 // Per-model split added (owner, 2026-11-15, #178, comment 6894721169); `append` (owner, 2026-11-15, #178, comment 6899108018).
 // Note cap and body size cap with `archive` (owner, 2026-11-16, #178, comment 6904503474, proposal 2).
@@ -206,9 +206,13 @@ export function formatRow({ pr, type, rounds, runs, usage, ci, note }) {
 
 /** The tables of the #180 body that `append` writes to: their section headings. */
 const TABLES = {
-  pr: { heading: /^## PR(\s|$)/, name: "«PR»" },
-  sessions: { heading: /^## Сесії(\s|$)/, name: "«Сесії»" },
+  pr: { heading: /^## PR(\s|$)/, name: "«PR»", maxNote: 120 },
+  sessions: { heading: /^## Сесії(\s|$)/, name: "«Сесії»", maxNote: 250 },
 };
+
+/** PR types of the table «PR» (owner, 2026-11-16, process review 15, proposal 4); the first three need CI > 0. */
+export const PR_TYPES = ["код", "UI", "вимоги", "процес", "виправлення"];
+const CI_REQUIRED = new Set(["код", "UI", "виправлення"]);
 
 /** `| a | b \| c |` → ["a", "b \| c"]: the cells of a Markdown table row (an escaped `\|` stays in its cell). */
 const tableCells = (line) =>
@@ -239,11 +243,21 @@ export function appendRow(body, row, { table = "pr" } = {}) {
   }
   const noteAt = tableCells(lines[header]).findIndex((c) => c === "Примітка");
   const note = noteAt >= 0 ? rowCells[noteAt] : undefined;
-  if (note !== undefined && [...note].length > MAX_NOTE) {
+  if (note !== undefined && [...note].length > t.maxNote) {
     throw new UsageError(
-      `the «Примітка» cell is ${[...note].length} characters, the limit is ${MAX_NOTE} (owner, 2026-11-16, #178): ` +
+      `the «Примітка» cell is ${[...note].length} characters, the limit is ${t.maxNote} (owner, 2026-11-16, #178): ` +
         "shorten --note; detail stays in the agent logs and the PR comments",
     );
+  }
+  if (table === "sessions") {
+    for (const name of ["Час агентів, год", "CI, год"]) {
+      const at = tableCells(lines[header]).findIndex((c) => c === name);
+      if (at >= 0 && /^(—|-|)$/.test(rowCells[at])) {
+        throw new UsageError(
+          `the «${name}» cell is empty: build the row with --segment/--start/--end/--prs (process review 15, proposal 4)`,
+        );
+      }
+    }
   }
   const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
   for (let i = header + 2; i <= last; i++) {
@@ -265,8 +279,9 @@ export function appendRow(body, row, { table = "pr" } = {}) {
   return updated;
 }
 
-/** Longest «Примітка» cell and longest #180 body, in characters (owner, 2026-11-16, #178, comment 6904503474). */
-export const MAX_NOTE = 120;
+/** Longest «Примітка» cell of a PR row («Сесії»: 250) and longest #180 body, in characters (owner, 2026-11-16, #178). */
+export const MAX_NOTE = TABLES.pr.maxNote;
+export const MAX_SESSION_NOTE = TABLES.sessions.maxNote;
 export const MAX_BODY = 55_000;
 /** GitHub's own limit for an issue body. */
 export const GITHUB_BODY_LIMIT = 65_536;
@@ -323,12 +338,92 @@ export function archivePrRows(body) {
   return { body: lines.join("\n"), archive, rows: rows.length };
 }
 
+/**
+ * One `get_session` snapshot: { at, cacheRead, output, usd }. Takes the saved `get_session` result
+ * (`ccr.external_metadata.usage`, time `ccr.updated_at`) or the short form `{ "at": ISO, "usage": { … } }`;
+ * an `at` field wins over `updated_at`.
+ */
+export function readSnapshot(json, path) {
+  const s = json?.ccr ?? json;
+  const usage = s?.usage ?? s?.external_metadata?.usage;
+  const at = json?.at ?? s?.at ?? s?.updated_at;
+  const n = (f) => {
+    if (!Number.isFinite(usage?.[f])) throw new UsageError(`${path}: no usage.${f} — save the \`get_session\` result`);
+    return usage[f];
+  };
+  const time = Date.parse(at ?? "");
+  if (!Number.isFinite(time)) throw new UsageError(`${path}: no time (\`at\` or \`updated_at\`)`);
+  return { at: new Date(time), cacheRead: n("cache_read_tokens"), output: n("output_tokens"), usd: n("cost_usd") };
+}
+
+/** «12,0» or «1 234» → number; anything else → NaN. */
+const cellNumber = (c) => (/^\d[\d\s\u00a0\u202f]*(,\d+)?$/.test(c) ? Number(c.replace(/[\s\u00a0\u202f]/g, "").replace(",", ".")) : NaN);
+
+/** 1.123 → «1,12». */
+const twoDecimals = (n) => n.toFixed(2).replace(".", ",");
+
+/** «2026-11-16 13:20 → 15:25 UTC» (the end date only when it differs). */
+function period(a, b) {
+  const [da, ta] = a.toISOString().slice(0, 16).split("T");
+  const [db, tb] = b.toISOString().slice(0, 16).split("T");
+  return `${da} ${ta} → ${da === db ? "" : `${db} `}${tb} UTC`;
+}
+
+/**
+ * The «Сесії» row of a segment (owner, 2026-11-16, process review 15, proposal 4): cache read, output and USD are
+ * the end snapshot minus the start one (`get_session` → `usage`, agents included); «Час агентів» and CI are the sums
+ * of the segment's rows in the table «PR» of `body` («Час автора» + «Час рецензій», «CI», minutes → hours).
+ * Throws UsageError when a PR has no row or a non-numeric cell, or the end is not after the start.
+ */
+export function sessionRow(body, { segment, start, end, prs, note }) {
+  if (!(end.at > start.at)) throw new UsageError("the end snapshot is not later than the start snapshot");
+  const diff = { cacheRead: end.cacheRead - start.cacheRead, output: end.output - start.output, usd: end.usd - start.usd };
+  if (Object.values(diff).some((v) => v < 0)) {
+    throw new UsageError("usage went down between the snapshots: are they from the same session?");
+  }
+  const { lines, header, last } = locateTable(body, TABLES.pr);
+  const head = tableCells(lines[header]);
+  const col = (name) => {
+    const at = head.findIndex((c) => c === name);
+    if (at < 0) throw new UsageError(`the table «PR» has no column «${name}»`);
+    return at;
+  };
+  const cols = { author: col("Час автора, хв"), review: col("Час рецензій, хв"), ci: col("CI, хв") };
+  const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
+  let agentMin = 0;
+  let ciMin = 0;
+  for (const pr of prs) {
+    const i = lines.findIndex((l, k) => k > header + 1 && k <= last && key(tableCells(l)[0]) === pr);
+    if (i < 0) throw new UsageError(`${pr} has no row in the table «PR»: add it first (\`pr\`, then \`append\`)`);
+    const cells = tableCells(lines[i]);
+    const [a, r, c] = [cells[cols.author], cells[cols.review], cells[cols.ci]].map(cellNumber);
+    if ([a, r, c].some(Number.isNaN)) throw new UsageError(`${pr}: its time or CI cell is not a number — fix that row first`);
+    agentMin += a + r;
+    ciMin += c;
+  }
+  const merged = prs.length ? `${prs.length} PR (${prs.join(", ")})` : "0 PR";
+  const cells = [
+    segment,
+    period(start.at, end.at),
+    `${oneDecimal(diff.cacheRead / 1e6)} млн`,
+    `${twoDecimals(diff.output / 1e6)} млн`,
+    oneDecimal(diff.usd),
+    oneDecimal((end.at - start.at) / 3_600_000),
+    oneDecimal(agentMin / 60),
+    oneDecimal(ciMin / 60),
+    [merged, note].filter(Boolean).join("; "),
+  ];
+  return `| ${cells.join(" | ")} |`;
+}
+
 const USAGE = `usage:
   node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds <text>
       --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms>,tokens=<subagent_tokens> [--run …]
       (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
   node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO time>] [--until <ISO time>]
-  node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]
+  node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>"
+  node tools/token-report/index.mjs append --body <#180 body file> --sessions --segment "ведучий N"
+      --start <get_session.json> --end <get_session.json> --prs <#a,#b | none> [--note <text>]
   node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>`;
 
 /** Flags without a value. */
@@ -396,8 +491,29 @@ export function main(argv, io) {
       return 0;
     }
     if (mode === "append") {
-      if (!opts.body || !opts.row) throw new UsageError(`--body and --row are required\n${USAGE}`);
-      const updated = appendRow(readFile(opts.body), opts.row, { table: opts.sessions ? "sessions" : "pr" });
+      if (!opts.body) throw new UsageError(`--body is required\n${USAGE}`);
+      const body = readFile(opts.body);
+      let row = opts.row;
+      if (opts.sessions && !row) {
+        for (const key of ["segment", "start", "end", "prs"])
+          if (!opts[key]) throw new UsageError(`--sessions needs --${key} (or --row)\n${USAGE}`);
+        const snap = (p) => {
+          try {
+            return readSnapshot(JSON.parse(readFile(p)), p);
+          } catch (e) {
+            if (e instanceof UsageError) throw e;
+            throw new UsageError(`${p}: not JSON`);
+          }
+        };
+        const prs =
+          opts.prs.trim() === "none"
+            ? []
+            : opts.prs.split(",").map((p) => `#${p.trim().replace(/^#/, "")}`).filter((p) => p !== "#");
+        row = sessionRow(body, { segment: opts.segment, start: snap(opts.start), end: snap(opts.end), prs, note: opts.note });
+        io.stdout(row);
+      }
+      if (!row) throw new UsageError(`--body and --row are required\n${USAGE}`);
+      const updated = appendRow(body, row, { table: opts.sessions ? "sessions" : "pr" });
       const writeFile = io.writeFile ?? ((p, text) => fs.writeFileSync(p, text, "utf8"));
       writeFile(opts.body, updated);
       io.stderr(
@@ -422,6 +538,9 @@ export function main(argv, io) {
     if (mode !== "pr") throw new UsageError(USAGE);
     for (const key of ["pr", "type", "rounds"])
       if (!opts[key]) throw new UsageError(`--${key} is required\n${USAGE}`);
+    if (!PR_TYPES.includes(opts.type)) {
+      throw new UsageError(`--type ${opts.type}: must be one of ${PR_TYPES.join(", ")} (process review 15, proposal 4)`);
+    }
     if (opts.run.length === 0) throw new UsageError(`at least one --run is required\n${USAGE}`);
     const runs = opts.run.map(parseRun);
     const noLog = runs.filter((r) => !r.log).map((r) => ROLES[r.role].label);
@@ -450,6 +569,12 @@ export function main(argv, io) {
       throw new UsageError("the GitHub Actions runs are not JSON");
     }
     const ci = ciMinutes(parsed);
+    if (CI_REQUIRED.has(opts.type) && Math.round(ci.minutes) === 0) {
+      throw new UsageError(
+        `CI = 0 for a «${opts.type}» PR (${ci.runs} runs): check --branch or fetch every page ` +
+          "(gh api --paginate --slurp …); a code PR always has CI runs",
+      );
+    }
     if (ci.unfinished > 0) io.stderr(`warning: ${ci.unfinished} of ${ci.runs} runs are not completed yet`);
     const usage = addUp(seen);
     const byModel = addUpByModel(seen);

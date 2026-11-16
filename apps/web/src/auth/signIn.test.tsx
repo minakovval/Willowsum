@@ -49,9 +49,11 @@ describe("ACC-01@PoC S-004 sign-in", () => {
     fill();
     fireEvent.click(signInButton());
     await waitFor(() => expect(window.location.hash).toBe("#/planning/budget"));
-    // The start page then reads the session (ACC-04@PoC: the session keeper), which neither extends nor signs in.
-    await waitFor(() => expect(calls).toHaveLength(2));
-    expect(calls).toEqual([
+    // After it, the shell only reads the space's name for the profile (ACC-08@PoC FR 2), and the start page reads the
+    // session (ACC-04@PoC: the session keeper), which neither extends nor signs in.
+    const notSpace = () => calls.filter((c) => !(c.method === "GET" && c.path === "/v1/space"));
+    await waitFor(() => expect(notSpace()).toHaveLength(2));
+    expect(notSpace()).toEqual([
       {
         method: "POST",
         path: "/v1/sessions",

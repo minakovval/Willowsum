@@ -16,6 +16,7 @@ import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
 import { RecurringPage } from "./recurring/RecurringPage.tsx";
+import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import {
   canonicalPath,
   DEBTS,
@@ -86,6 +87,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
     }
     case "settings":
       return <SettingsPage />;
+    case "spaceSettings":
+      return <SpaceSettingsPage />;
     case "importWizard":
       return <ImportWizardPage />;
     case "auth":

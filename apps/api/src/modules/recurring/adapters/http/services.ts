@@ -4,12 +4,14 @@ import { kyivToday } from "../../../../platform/lists/list-total.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import type { CategoryDirectory } from "../../../categories/index.ts";
+import type { FxReporting } from "../../../fx-rates/index.ts";
 import {
   applyHandOff,
   type PaymentDeps,
   type ProposalDeps,
   type RecurringAudit,
   type RecurringHandOff,
+  type TrackingDeps,
 } from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-recurring-services");
@@ -23,6 +25,7 @@ export interface RecurringServices {
   readonly [BRAND]: true;
   readonly deps: ProposalDeps;
   readonly payments: PaymentDeps;
+  readonly tracking: TrackingDeps;
   readonly audit: RecurringAudit;
 }
 
@@ -44,7 +47,7 @@ export function recurringAudit(audit: Pick<AuditLog, "record">): RecurringAudit 
 }
 
 export function createRecurringServices(options: {
-  readonly history: ProposalDeps["history"];
+  readonly history: ProposalDeps["history"] & TrackingDeps["history"];
   readonly merchants: ProposalDeps["merchants"];
   /** Module accounts' `AccountDirectory`. */
   readonly accounts: {
@@ -55,6 +58,10 @@ export function createRecurringServices(options: {
   };
   /** Module categories' `CategoryDirectory`: the category of a payment (FR 6). */
   readonly categories: Pick<CategoryDirectory, "category">;
+  /** Module categorization's `TransactionCategories`: the category of a transaction (FR 8, row 26). */
+  readonly transactionCategories: TrackingDeps["categories"];
+  /** Module fx-rates' `FxReporting`: a charge in another currency at the rate of its date (FR 12, row 26). */
+  readonly fx: Pick<FxReporting, "total">;
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
@@ -89,6 +96,21 @@ export function createRecurringServices(options: {
           return a ? { kind: a.kind, closed: a.status === "closed" } : null;
         },
       },
+    },
+    tracking: {
+      history: options.history,
+      merchants: options.merchants,
+      categories: options.transactionCategories,
+      async convert(amounts, currency) {
+        const reported = await options.fx.total(amounts, currency);
+        return reported.items.map((item) =>
+          item.kind === "rate-unavailable"
+            ? null
+            : { value: item.value, approximate: item.kind === "converted" && item.conversion.approximate },
+        );
+      },
+      today,
+      newId: options.newId,
     },
     audit: recurringAudit(options.audit),
   };

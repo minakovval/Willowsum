@@ -31,7 +31,7 @@ Read when you merge a PR, write an «Owner decision» section, or a PR acts on t
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
    that commit, as above). Exception for a merge from `main` (owner, 2026-11-13, #178): a docs-only PR not
    labelled `sensitive` whose files `main`'s changes do not touch needs no confirmation agent, but the lead's
-   check and PR review ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md), «Docs-only PR
-   after a sync»); likewise a code PR without `sensitive` whose diff against its merge-base is byte-identical
+   check and PR review ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md), «The lead
+   confirms a sync itself»); likewise a code PR without `sensitive` whose diff against its merge-base is byte-identical
    before and after the sync, with green CI on the new head ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md),
-   «Code PR after a sync, lead confirms»; owner, 2026-11-16). Any other later commit still needs a re-review.
+   «The lead confirms a sync itself»; owner, 2026-11-16). Any other later commit still needs a re-review.
