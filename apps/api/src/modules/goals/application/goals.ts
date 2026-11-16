@@ -76,6 +76,8 @@ export interface GoalsTx {
   /** The other goals with a part on the account (`exceptGoalId` left out). */
   goalsOnAccount(householdId: string, accountId: string, exceptGoalId: string | null): Promise<StoredGoal[]>;
   enqueueHandOff(handOff: GoalHandOff): Promise<void>;
+  /** The check of a new spend's journal event, in the same transaction as the spend (#306 item 2). */
+  enqueueSpendCheck(check: { readonly transactionId: string; readonly entryId: string }): Promise<void>;
 }
 
 /**
@@ -551,6 +553,9 @@ export async function spendFromGoal(
   const handOffs: GoalHandOff[] = [];
   for (const s of spends) {
     await tx.insertSpend(caller.householdId, s);
+    // The reversal of its event may have reached the queue before this spend existed; the request's own check after the
+    // commit can be lost (a failure, a restart) — the queue repeats it (#306 item 2).
+    await tx.enqueueSpendCheck({ transactionId: s.transactionId, entryId: s.entryId });
     handOffs.push(spendHandOff(deps, caller, s, "create"));
   }
   for (const h of handOffs) await tx.enqueueHandOff(h);

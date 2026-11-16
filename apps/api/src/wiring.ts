@@ -340,7 +340,7 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       createLiabilitiesWorkerQueue(databases.for("liabilities"), audit),
       // BUD-05: the audit entries of goals, contributions and spends, after the goals transaction committed (ADR-0015),
       // and the ledger's reversals of spent transactions (AC5).
-      createGoalsWorkerQueue(databases.for("goals"), audit),
+      createGoalsWorkerQueue(databases.for("goals"), audit, ledger),
       // BUD-19 a: the audit entries of saved and deleted debt payoff plans (ADR-0015).
       createDebtPayoffWorkerQueue(databases.for("debt-payoff"), audit),
       // BUD-14 a: the audit entries of merchants' renames, merges and «Роз'єднати» (ADR-0015).
