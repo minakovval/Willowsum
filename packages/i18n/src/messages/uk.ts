@@ -58,6 +58,16 @@ export const uk = {
 
   "button.busy": "Виконується",
 
+  "pagination.label": "Сторінки списку",
+  "pagination.pageSize": "Рядків на сторінці",
+  "pagination.range": "{from}–{to} з {total}",
+  "pagination.shown": "Показано {from}–{to} з {total}",
+  "pagination.previous": "Попередня сторінка",
+  "pagination.next": "Наступна сторінка",
+  "pagination.reason.first": "Це перша сторінка",
+  "pagination.reason.last": "Це остання сторінка",
+  "pagination.reason.loading": "Сторінка завантажується",
+
   "skeleton.loading": "Завантаження",
   "skeleton.slow": "Ще завантажується…",
 
@@ -563,6 +573,16 @@ export const uk = {
   "gallery.button.live": "Повторне натискання під час завантаження",
   "gallery.button.save": "Зберегти",
   "gallery.button.saves": "Збережень: {count}",
+  "gallery.pagination.title": "Пагінація",
+  "gallery.pagination.intro":
+    "Три розміри сторінки: 25, 50 і 100. Живий список нижче завантажує сторінку з затримкою, ставить фокус на перший рядок і запам’ятовує сторінку й розмір.",
+  "gallery.pagination.first": "Перша сторінка: «‹» вимкнена",
+  "gallery.pagination.last": "Остання сторінка: «›» вимкнена",
+  "gallery.pagination.loading": "Завантаження сторінки: кнопки вимкнені, діапазон не змінюється",
+  "gallery.pagination.empty": "Порожній список",
+  "gallery.pagination.emptyNote": "Записів немає: пагінації нема.",
+  "gallery.pagination.live": "Живий список із 1 240 записів",
+  "gallery.pagination.record": "Запис {n}",
   "gallery.unit.px": "{value} px",
   "gallery.unit.ms": "{value} мс",
   "gallery.range.between": "{from}–{to} px",

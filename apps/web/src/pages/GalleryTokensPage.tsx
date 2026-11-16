@@ -48,6 +48,7 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { DialogDemo } from "./DialogDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
+import { PaginationDemo } from "./PaginationDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
@@ -411,6 +412,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-button" title={t("gallery.button.title")}>
         <ButtonDemo />
+      </Section>
+
+      <Section id="g-pagination" title={t("gallery.pagination.title")}>
+        <PaginationDemo />
       </Section>
 
       <Section id="g-field" title={t("gallery.field.title")}>

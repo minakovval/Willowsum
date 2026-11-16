@@ -1609,3 +1609,74 @@
 .ws-dialog-action[aria-busy="true"] {
   cursor: progress;
 }
+
+/*
+ * CMP-13@PoC Pagination: one right-aligned row «Рядків на сторінці [25 ˅] · 1–25 з 1 240 ‹ ›», Inter 14/20,
+ * 12 px between the groups and 8 px between the arrows. Info and size label are ink-muted with tabular digits;
+ * the arrows are secondary Buttons 44 px high; a disabled arrow keeps its place and its reason is read, not shown.
+ */
+.ws-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ws-space-3);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The label is the 44 px target of the 32 px size control (a click on its text focuses the select). */
+.ws-pagination__size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+}
+
+.ws-pagination__select {
+  height: var(--ws-space-6);
+  padding: 0 var(--ws-space-2);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ws-pagination__select:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-pagination__select:disabled {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-pagination__arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.ws-pagination__arrow.ws-button {
+  min-width: var(--ws-touch-target);
+  min-height: var(--ws-touch-target);
+}
+
+.ws-pagination__arrows .ws-disabled-reason {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -57,6 +57,16 @@ export const en: Messages = {
 
   "button.busy": "In progress",
 
+  "pagination.label": "List pages",
+  "pagination.pageSize": "Rows per page",
+  "pagination.range": "{from}–{to} of {total}",
+  "pagination.shown": "Showing {from}–{to} of {total}",
+  "pagination.previous": "Previous page",
+  "pagination.next": "Next page",
+  "pagination.reason.first": "This is the first page",
+  "pagination.reason.last": "This is the last page",
+  "pagination.reason.loading": "The page is loading",
+
   "skeleton.loading": "Loading",
   "skeleton.slow": "Still loading…",
 
@@ -564,6 +574,16 @@ export const en: Messages = {
   "gallery.button.live": "Pressing again while loading",
   "gallery.button.save": "Save",
   "gallery.button.saves": "Saves: {count}",
+  "gallery.pagination.title": "Pagination",
+  "gallery.pagination.intro":
+    "Three page sizes: 25, 50 and 100. The live list below loads a page after a delay, moves focus to the first row and remembers the page and size.",
+  "gallery.pagination.first": "First page: «‹» disabled",
+  "gallery.pagination.last": "Last page: «›» disabled",
+  "gallery.pagination.loading": "Page loading: buttons disabled, the range does not change",
+  "gallery.pagination.empty": "Empty list",
+  "gallery.pagination.emptyNote": "No records: no pagination.",
+  "gallery.pagination.live": "A live list of 1,240 records",
+  "gallery.pagination.record": "Record {n}",
   "gallery.unit.px": "{value} px",
   "gallery.unit.ms": "{value} ms",
   "gallery.range.between": "{from}–{to} px",

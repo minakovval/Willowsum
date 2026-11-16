@@ -79,3 +79,6 @@ export { AmountField, Field } from "./field/Field.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/Button.tsx";
+export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
+export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
+export { useRestoredListState } from "./pagination/listState.ts";

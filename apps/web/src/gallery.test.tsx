@@ -17,7 +17,9 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
     render(<App />);
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // The only `nav` landmarks are the Pagination demos (CMP-13); there is no app navigation.
+    for (const nav of screen.queryAllByRole("navigation"))
+      expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
   });
@@ -328,6 +330,41 @@ describe("/gallery/tokens (DS-22)", () => {
     );
     expect(norm(within(at("approx")).getByRole<HTMLInputElement>("textbox").value)).toBe("≈ 0,33");
     expect(at("abbreviated").querySelector(".gallery-field__narrow")).not.toBeNull();
+  });
+
+  it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
+    vi.useFakeTimers();
+    sessionStorage.clear();
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-pagination")!.textContent).toBe("Пагінація");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(norm(at("pagination-first").textContent)).toContain("1–25 з 1 240");
+    expect(
+      within(at("pagination-first"))
+        .getByRole("button", { name: "Попередня сторінка" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(norm(at("pagination-last").textContent)).toContain("1 226–1 240 з 1 240");
+    expect(
+      within(at("pagination-last"))
+        .getByRole("button", { name: "Наступна сторінка" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(norm(at("pagination-loading").textContent)).toContain("26–50 з 1 240");
+    expect(at("pagination-empty").querySelector("nav")).toBeNull();
+
+    const live = at("pagination-live");
+    act(() => within(live).getByRole("button", { name: "Наступна сторінка" }).click());
+    expect(norm(live.textContent)).toContain("1–25 з 1 240"); // the range waits for the data
+    expect(live.querySelector('[role="status"]:not(.ws-visually-hidden)')).toBeNull();
+    act(() => void vi.advanceTimersByTime(600));
+    expect(norm(live.textContent)).toContain("26–50 з 1 240");
+    expect(norm(within(live).getByRole("navigation").querySelector('[role="status"]')!.textContent)).toBe(
+      "Показано 26–50 з 1 240",
+    );
+    expect(document.activeElement).toBe(live.querySelector("li"));
+    expect(live.querySelector("li")!.textContent).toBe("Запис 26");
+    vi.useRealTimers();
   });
 
   it("switches language to English", () => {
