@@ -763,7 +763,7 @@ describe("BUD-19@PoC security review: input bounds", () => {
     const slow = await call(space, "POST", `/v1/debts/${visa}/scenario`, {
       annualRate: "0",
       monthlyPayment: "0.01",
-      oneOffs: many.slice(0, 24).map((o, i) => ({ month: `${2027 + i}-01`, amount: "0.01" })),
+      oneOffs: many.slice(0, 24).map((_o, i) => ({ month: `${2027 + i}-01`, amount: "0.01" })),
     });
     expect(slow.statusCode).toBe(200);
     expect(slow.json().scenario.status).toBe("over-limit");

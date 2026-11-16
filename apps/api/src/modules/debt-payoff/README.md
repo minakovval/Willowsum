@@ -47,7 +47,8 @@ AC1–AC8 (серверні частини), граничні випадки 1, 
 - `createDebtPayoffServices({ accounts, liabilities, ledger, audit, clock, newId })` → `DebtPayoffServices` — порти
   маршрутів (`src/api.ts`, `main.ts`): `CreditAccounts` модуля `accounts`, `Liabilities.forAccount` (ставка, платіж),
   `Ledger.balanceAt` (борг — природний залишок гаманця зобов'язання); «сьогодні» — дата за Києвом.
-- `createDebtPlannedExpenses(db)` → `DebtPlannedExpenses.inMonth(householdId, month)` — додаткові платежі планів з
+- `createDebtPlannedExpenses(db, accounts)` → `DebtPlannedExpenses.inMonth(householdId, month)` (`accounts` — `CreditAccounts`:
+  плани закритих рахунків не повертаються) — додаткові платежі планів з
   «Додати до запланованих витрат» як заплановані витрати місяця (з місяця після збереження до місяця погашення) для
   «Можна витратити» (BUD-03) і «План» (BUD-17), без категорії бюджету.
 - `createDebtPayoffWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createDebtPayoffHandOffRecovery(db,
