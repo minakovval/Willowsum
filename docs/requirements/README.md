@@ -275,7 +275,7 @@ requirement is kept in the README of that module.
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |
-| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 8, MVP 3, v1-mobile 1 |
+| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 6, MVP 5, v1-mobile 1 |
 | PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 
 ## Folders

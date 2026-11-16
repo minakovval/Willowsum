@@ -7,7 +7,7 @@
 - Розширює: —
 - Залежить від: —
 - Дизайн: —
-- Спільні правила: П-5, П-6, П-9, П-10, П-11, П-12, П-24, П-26, ARC-03, ARC-11, CICD-03, NFR-01, NFR-14
+- Спільні правила: П-5, П-6, П-9, П-10, П-11, П-12, П-24, П-26, ARC-03, ARC-11, NFR-01, NFR-14
 - Сценарії: —
 - Модуль: —
 - Перевіряється: apps/api/test/nfr15-origin.test.ts, apps/api/src/platform/http/nfr15-general.test.ts, apps/api/test/nfr15-db.it.test.ts, apps/api/src/platform/config/config-nfr14.test.ts, apps/api/test/nfr14-contract.test.ts, apps/api/test/process.it.test.ts, apps/api/test/sec86-origin-cookies.test.ts, apps/api/test/sec86-list-query.test.ts, apps/api/test/sec86-db.it.test.ts, apps/api/test/sec86-process.it.test.ts, apps/api/test/sec86r2-list-route.test.ts, apps/api/test/sec86r2-filter-values.it.test.ts, apps/api/test/sec86r2-versioned.it.test.ts, apps/api/src/modules/identity/identity.it.test.ts, apps/api/test/sec90-identity.it.test.ts, apps/api/src/modules/identity/password-reset.it.test.ts, docs/security/threat-model.md, apps/api/test/isolation.it.test.ts, apps/api/test/schema.it.test.ts, apps/api/test/sec99-session-space.it.test.ts, apps/api/test/not-found.it.test.ts, apps/api/src/modules/audit/audit.it.test.ts, apps/api/test/sec122-ledger.it.test.ts, apps/api/src/modules/identity/sign-up-allowlist.it.test.ts, apps/api/src/modules/identity/sec116-allowlist.it.test.ts, apps/api/src/modules/identity/sec94-password-reset.it.test.ts, apps/api/test/telemetry-http.test.ts, apps/api/test/no-network.test.ts, apps/api/src/platform/adapters/last-known.test.ts, apps/api/test/sec131-ledger-alert.it.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/domain/device.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts, apps/api/src/modules/identity/acc04-sign-in-journal.it.test.ts, apps/api/src/modules/identity/domain/journal.test.ts
@@ -79,7 +79,7 @@
 | Критерій | Поріг | Спосіб перевірки |
 | --- | --- | --- |
 | Модель загроз | Одна сторінка; переглянута перед релізом; кожна загроза має засіб і тест | Огляд відповідальним за безпеку; наявність регресійних тестів |
-| Автентифікація | 0 розкриттів існування акаунта | Регресійні тести безпеки автентифікації; легкий baseline-скан OWASP ZAP у CI проти локальної збірки застосунку (production не сканується) |
+| Автентифікація | 0 розкриттів існування акаунта | Регресійні тести безпеки автентифікації |
 | Step-up | Поточний пароль перед кожною чутливою дією; підтвердження одноразове, прив'язане до сесії і дії, 5 хв; невірні паролі — у лічильнику невдалих входів (5 за 15 хв) → сесію завершено, блок, CAPTCHA, безпековий лист; коду на email немає | Автотести правильного і невірного пароля, прив'язки, строку дії, спільного лічильника і блокування |
 | Незмінність журналів | 0 успішних змін журналу проводок і аудиту | Тест тригерів бази даних |
 | Ліміти ресурсів | Усі ліміти з переліку повертають помилку при перевищенні | Автотести граничних значень |
