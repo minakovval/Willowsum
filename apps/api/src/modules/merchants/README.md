@@ -1,6 +1,6 @@
 # Модуль merchants
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-14 a: мерчант транзакції, нормалізація назви, перейменування, об'єднання, «Роз'єднати»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-14 a: мерчант транзакції, нормалізація назви, перейменування, об'єднання, «Роз'єднати»; BUD-07 a1: `MerchantDirectory`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -51,6 +51,10 @@ BUD-14@PoC a) (хвиля 2, рядок 22 — серверна частина):
     транзакціями своїх описів; неприєднаний — нічого.
 - `createMerchantsServices({ transactions, audit })` → `MerchantsServices` — порти маршрутів (`src/api.ts` →
   `ctx.services`; `main.ts`): `TransactionTexts` модуля transactions (контрагенти), журнал аудиту.
+- `createMerchantDirectory(db)` → `MerchantDirectory.shownMerchants(householdId, counterparties)` — для `recurring`
+  (BUD-07 a1: групування транзакцій за мерчантом): показаний мерчант кожного контрагента (той, до кого приєднано, інакше
+  власний; `id`, `name`); контрагента без мерчанта немає в результаті. Мерчант опису, що трапився вперше, народжується,
+  як і під час будь-якого читання мерчантів.
 - `createMerchantsWorkerQueue(db, audit)` — черга воркера (`src/wiring.ts`): задача `merchants.hand-off`
   (`HAND_OFF_JOB`, запис аудиту зміни).
 - `createMerchantsRecovery(db, households)` → `{ run() }` — щоденна задача планувальника `merchants.recovery` (до

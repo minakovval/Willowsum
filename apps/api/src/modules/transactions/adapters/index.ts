@@ -8,6 +8,7 @@ export {
   categorizableFacts,
   counterpartiesOf,
   counterpartyCounts,
+  recurringHistory,
   subaccountsInUse,
   transactionsList,
   transactionsTx,
