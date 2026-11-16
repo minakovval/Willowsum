@@ -22,19 +22,26 @@ export function tagsTx(q: ModuleQueryRunner): TagsTx {
       const byKey = new Map<string, Tag>();
       if (names.length === 0) return byKey;
       // In the order of the keys, so two requests creating the same new tags never wait on each other in a circle.
-      const sorted = [...names].sort((a, b) => (tagKey(a) < tagKey(b) ? -1 : 1));
-      for (const name of sorted)
-        await q.query(
-          `INSERT INTO tags (household_id, id, name, name_key) VALUES ($1, $2, $3, $4)
-           ON CONFLICT (household_id, name_key) DO NOTHING`,
-          [householdId, newId(), name, tagKey(name)],
-        );
-      const { rows } = await q.query<TagRow & { name_key: string }>(
-        `SELECT id, name, name_key, version FROM tags WHERE household_id = $1 AND name_key = ANY($2::text[])
-          ORDER BY id FOR SHARE`,
-        [householdId, sorted.map(tagKey)],
+      let missing = [...new Map(names.map((n) => [tagKey(n), n])).values()].sort((a, b) =>
+        tagKey(a) < tagKey(b) ? -1 : 1,
       );
-      for (const r of rows) byKey.set(r.name_key, tag(r));
+      // A tag deleted or renamed by another request between the insert and the lock is created again (a few times).
+      for (let attempt = 0; missing.length > 0 && attempt < 3; attempt++) {
+        for (const name of missing)
+          await q.query(
+            `INSERT INTO tags (household_id, id, name, name_key) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (household_id, name_key) DO NOTHING`,
+            [householdId, newId(), name, tagKey(name)],
+          );
+        const { rows } = await q.query<TagRow & { name_key: string }>(
+          `SELECT id, name, name_key, version FROM tags WHERE household_id = $1 AND name_key = ANY($2::text[])
+            ORDER BY id FOR SHARE`,
+          [householdId, missing.map(tagKey)],
+        );
+        for (const r of rows) byKey.set(r.name_key, tag(r));
+        missing = missing.filter((n) => !byKey.has(tagKey(n)));
+      }
+      if (missing.length > 0) throw new Error("a tag kept changing while it was attached");
       return byKey;
     },
     async names(householdId, ids) {

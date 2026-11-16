@@ -9,7 +9,6 @@ import {
   type TransferLink,
 } from "../domain/index.ts";
 import type { StoredTransaction } from "./stored.ts";
-import type { TagAudit } from "./attributes.ts";
 
 /**
  * The hand-off of a transactions change to the journal and the audit log (ARC-04 FR 2, FR 3; ADR-0015; issue #240
@@ -76,6 +75,21 @@ export function handOffKey(handOff: TransactionHandOff): string {
 /** The audit entry's key (ARC-04 FR 3): written once per change. */
 export function auditKey(handOff: TransactionHandOff): string {
   return `transactions.${handOff.action}:${handOff.transactionId}:${handOff.version}`;
+}
+
+/** One tag change for the space's audit log (П-10): the name is free text — masked. */
+export interface TagAudit {
+  readonly tagId: string;
+  readonly actorAccountId: string;
+  readonly action: "update" | "delete";
+  /** The audit entry's key (ARC-04 FR 3): `transactions.tag.<rename|merge|delete>:<tag>:<version>`. */
+  readonly key: string;
+  readonly changes: readonly {
+    readonly field: string;
+    readonly before: string | null;
+    readonly after: string | null;
+    readonly sensitive: boolean;
+  }[];
 }
 
 /** The space's audit log as the hand-off writes it (FR 20, П-10). */

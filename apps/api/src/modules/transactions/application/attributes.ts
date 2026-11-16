@@ -7,6 +7,7 @@ import {
   type TransactionsDeps,
   type TransactionsTx,
 } from "./transactions.ts";
+import type { TagAudit } from "./hand-off.ts";
 
 /**
  * The attributes of a transaction (BUD-13@PoC FR 1, FR 2, FR 5; wave 2 row 21): «Нотатка» and «Теги», and the space's
@@ -27,21 +28,6 @@ export interface Tag {
   readonly id: string;
   readonly name: string;
   readonly version: number;
-}
-
-/** One tag change for the space's audit log (П-10): the name is free text — masked. */
-export interface TagAudit {
-  readonly tagId: string;
-  readonly actorAccountId: string;
-  readonly action: "update" | "delete";
-  /** The audit entry's key (ARC-04 FR 3): `transactions.tag.<rename|merge|delete>:<tag>:<version>`. */
-  readonly key: string;
-  readonly changes: readonly {
-    readonly field: string;
-    readonly before: string | null;
-    readonly after: string | null;
-    readonly sensitive: boolean;
-  }[];
 }
 
 export interface TagsTx {
