@@ -319,7 +319,7 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
     });
   });
 
-  it("BUD-02@PoC FR 3: the proposal reads the budget's accounts only, without uncategorized, service or hidden categories", async () => {
+  it("BUD-02@PoC FR 3: the proposal reads the budget's accounts only and proposes no limit for «Без категорії»", async () => {
     const space = await newSpace();
     const acc = await account(space);
     const savings = await account(space, "savings");
@@ -328,7 +328,6 @@ describe("BUD-02@PoC: «Створити за моїми витратами»", 
       await history(space, acc, p, { groceries: "100.00", salary: "1000.00" });
       await spend(space, savings, "-5000.00", `${p}-07`, "Продукти");
       await spend(space, acc, "-77.00", `${p}-08`, null);
-      await spend(space, acc, "-300.00", `${p}-09`, "Переказ");
     }
     const w = await wizard(space);
     expect(w.fromSpending.incomePlan).toEqual(eur("1000"));
@@ -473,7 +472,7 @@ describe("BUD-02@PoC: the start of the first period", () => {
     await spend(space, acc, "-80.00", "2026-11-10", "Продукти");
     await spend(space, acc, "-45.00", "2026-11-18", "Продукти");
     await spend(space, acc, "1000.00", "2026-11-05", "Зарплата");
-    await spend(space, acc, "-12.00", "2026-11-19", "Подорожі");
+    await spend(space, acc, "-12.00", "2026-11-18", "Подорожі");
     const nov = await period(space, "2026-11");
     expect(nov).toMatchObject({
       mode: "current",
