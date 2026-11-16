@@ -53,14 +53,13 @@ export const rateDate = (locale: Locale, isoDate: string): string => {
 };
 
 /**
- * DS-04 FR 13: «··4417». The owner's decision of 2026-11-16 (item 4): a number whose last 4 characters hold
- * letters is shown «··AB12»; until the shared `maskNumber` does that (#405), such a tail is masked here the same
- * way. Anything else is not shown.
+ * DS-04 FR 13: «··4417»; a number whose last 4 characters hold letters is «··AB12» (owner decision 2026-11-16,
+ * item 4). Anything that cannot be masked is not shown.
  */
 export function maskedNumber(last4: string): string | null {
   try {
     return maskNumber(last4);
   } catch {
-    return /^[0-9A-Za-z]{4}$/.test(last4) ? `··${last4.toUpperCase()}` : null;
+    return null;
   }
 }

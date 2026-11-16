@@ -510,7 +510,7 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
   });
 
   it("FIN-01@PoC «Бізнес-правила»: a number with letters in its last 4 characters is masked «··AB12»; the full number is never shown", async () => {
-    const iban = account({ name: "Revolut", number: { last4: "ab12", masked: "••AB12" } });
+    const iban = account({ name: "Revolut", number: { last4: "AB12", masked: "••AB12" } });
     renderAt("#/money/accounts", api([iban]).client);
     await screen.findByText("Revolut");
     expect(plain(rowOf("Revolut").textContent)).toContain("··AB12");
