@@ -48,10 +48,23 @@ export type Load<T> =
   | { readonly state: "error"; readonly failure: Exclude<Outcome<unknown>, { ok: true }> }
   | { readonly state: "ready"; readonly data: T };
 
+/**
+ * DS-04 FR 13 masks the last 4 characters («··4417», «··AB12»); a number that is not alphanumeric is named
+ * without a mask, and a label never throws (a throw here would leave the screen in «loading»).
+ */
+function maskedOrNothing(last4: string): string | null {
+  try {
+    return maskNumber(last4);
+  } catch {
+    return null;
+  }
+}
+
 function accountLabel(a: AccountItem): AccountLabel {
+  const mask = a.number ? maskedOrNothing(a.number.last4) : null;
   return {
     id: a.id,
-    label: a.number ? `${a.name} ${maskNumber(a.number.last4)}` : a.name,
+    label: mask ? `${a.name} ${mask}` : a.name,
     selectable: a.kind !== "loan" && a.status === "active",
     currency: a.currencies[0]?.currency,
   };
@@ -118,9 +131,16 @@ export function useLoad<T>(load: (api: ApiClient) => Promise<Load<T>>): {
   const [round, setRound] = useState(0);
   useEffect(() => {
     let live = true;
-    void load(api).then((r) => {
-      if (live) setResult(r);
-    });
+    // Any rejection or throw is the error state (DS-04 FR 13, «Стани інтерфейсу»), never an endless «loading».
+    const failed: Load<T> = { state: "error", failure: { ok: false, kind: "network" } };
+    void (async () => load(api))().then(
+      (r) => {
+        if (live) setResult(r);
+      },
+      () => {
+        if (live) setResult(failed);
+      },
+    );
     return () => {
       live = false;
     };

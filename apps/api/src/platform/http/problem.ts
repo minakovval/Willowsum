@@ -96,6 +96,14 @@ export const PROBLEMS = {
     title: "The account has movements after the closing date",
   },
   /**
+   * FIN-01@PoC EC4: a change of the account's money saved in another module (a transaction) has not reached the journal
+   * yet and could not be finished now; the account was not closed. Try again later.
+   */
+  ACCOUNT_POSTINGS_PENDING: {
+    status: 409,
+    title: "Some of the account's transactions are still being posted; try again later",
+  },
+  /**
    * «Тип можна змінити лише в межах групи» (FIN-12@PoC FR 5, AC2): «Готівкові» ↔ «Кредитні» is refused; nothing was
    * written.
    */
@@ -135,6 +143,23 @@ export const PROBLEMS = {
   RECURRING_PROPOSAL_GONE: {
     status: 409,
     title: "The proposal is no longer offered; read the proposals again",
+  },
+  /**
+   * BUD-07@PoC FR 20, FR 21: the charge is not in the status the action needs — «Позначити пропущеним» only an overdue
+   * charge, «Зарахувати за <місяць>» only an overdue or skipped one (it was paid or marked meanwhile); nothing was
+   * written. FR 10: «Залишити» only a payment that is «Можливо, скасований».
+   */
+  RECURRING_CHARGE_STATE: {
+    status: 409,
+    title: "The charge or the payment is not in the status this action needs; read it again",
+  },
+  /**
+   * BUD-07@PoC FR 8, FR 20: the transaction already pays a charge of a regular payment (matched, or settled by the user),
+   * or is not one of the payment's type within the transactions analysed; nothing was written.
+   */
+  RECURRING_TRANSACTION_TAKEN: {
+    status: 409,
+    title: "The transaction already pays a charge, or cannot pay this one",
   },
   /** BUD-05@PoC FR 2: the account is another goal's own account, or has envelopes beside one; nothing was written. */
   GOAL_ACCOUNT_TAKEN: {
@@ -215,6 +240,14 @@ export const PROBLEMS = {
     status: 409,
     title: "Only a duplicate or a technical record can be hidden",
   },
+  /**
+   * BUD-12@PoC FR 8: «Підтвердити» and its «Відмінити» are for the transactions of «До розбору»; one entered by hand was
+   * never there; nothing was written.
+   */
+  TRANSACTION_NOT_IN_REVIEW: {
+    status: 409,
+    title: "The transaction is not in the review queue",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
@@ -266,6 +299,11 @@ export const ProblemSchema = z
     /** For VERSION_CONFLICT: the version of the record now (NFR-15 FR 13). */
     currentVersion: z.number().int().min(0).optional().meta({
       description: "VERSION_CONFLICT: the current version of the record",
+    }),
+    /** For VERSION_CONFLICT of «Підтвердити» (BUD-12 FR 7): the category the transaction has now; null — «Без категорії». */
+    currentCategoryId: z.uuid().nullable().optional().meta({
+      description:
+        "VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload",
     }),
     /**
      * For VERSION_CONFLICT: the fields someone else changed — those of the `base` the client sent (the values it
@@ -340,7 +378,10 @@ export class ApiProblem extends Error {
 
 /** The extension members a problem may carry (declared in ProblemSchema). */
 export type ProblemExtensions = Partial<
-  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason" | "excess">
+  Pick<
+    Problem,
+    "currentVersion" | "currentCategoryId" | "changedFields" | "limit" | "sessionEndReason" | "excess"
+  >
 >;
 
 export function problemBody(
@@ -363,6 +404,9 @@ export function problemBody(
     ...(options.errors !== undefined ? { errors: [...options.errors] } : {}),
     ...(options.extensions?.currentVersion !== undefined
       ? { currentVersion: options.extensions.currentVersion }
+      : {}),
+    ...(options.extensions?.currentCategoryId !== undefined
+      ? { currentCategoryId: options.extensions.currentCategoryId }
       : {}),
     ...(options.extensions?.changedFields !== undefined
       ? { changedFields: [...options.extensions.changedFields] }

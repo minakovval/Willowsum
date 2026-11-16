@@ -1,7 +1,8 @@
-import { useId, useState, type FormEvent } from "react";
+import { useEffect, useId, useState, type FormEvent } from "react";
 import { useT } from "@willowsum/i18n";
 import { START_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
+import { forgetSpace } from "../space/api.ts";
 import { outcome, useAuthApi } from "./api.ts";
 import { AuthLayout, LinkLine, Notice, SubmitButton } from "./AuthLayout.tsx";
 import { Captcha } from "./captcha/Captcha.tsx";
@@ -9,8 +10,16 @@ import type { CaptchaConfig } from "./captcha/config.ts";
 import { withBold } from "./emphasis.tsx";
 import { failureOf, type Failure } from "./failure.ts";
 import { PasswordField, TextField } from "./fields.tsx";
-import { navigate, SIGN_UP_PATH } from "./navigation.ts";
+import {
+  forgetHashQuery,
+  hashParam,
+  navigate,
+  PASSWORD_RESET_PATH,
+  SIGN_IN_PATH,
+  SIGN_UP_PATH,
+} from "./navigation.ts";
 import { formatCountdown } from "./rules.ts";
+import { ENDED_PARAM, isSessionEnd, markSignedIn, type SessionEnd } from "./session.ts";
 import { deadlineIn, useCountdown } from "./useCountdown.ts";
 
 /** The lockout lasts 15 min (ACC-01 «Блокування»); used only when the server sent no `Retry-After`. */
@@ -27,6 +36,11 @@ interface Unconfirmed {
  * or password. After 5 failures the server locks the email for 15 min: «Увійти» waits with a countdown and the
  * CAPTCHA is in the card; afterwards every attempt sends it. An unconfirmed account gets «Спершу підтвердіть email»
  * with «Надіслати лист ще раз». Signed in → «Планування → Бюджет» (the start page).
+ *
+ * ACC-04@PoC «Стани інтерфейсу» (canvas PocSignInSessionEnded): opened after the session ended (`?ended=`), the card
+ * says why — «Сесію завершено через бездіяльність» or «Сесію завершено з іншого пристрою»; an end by sign-out or
+ * by the 12 h limit shows the plain screen. After «Це був не я» the right password gets «Спершу змініть пароль» (AC7).
+ * «Забули пароль?» opens S-007 (GRID-06@PoC FR 2; canvas PocSignIn).
  */
 export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | undefined } = {}) {
   const t = useT();
@@ -46,6 +60,15 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
   const [resendAt, setResendAt] = useState<number | null>(null);
   const resendSeconds = useCountdown(resendAt);
   const [resent, setResent] = useState(false);
+  const [ended, setEnded] = useState<SessionEnd | null>(() => {
+    const reason = hashParam(ENDED_PARAM);
+    return isSessionEnd(reason) ? reason : null;
+  });
+
+  // The reason is for this view only: a reload or a bookmark shows the plain screen.
+  useEffect(() => {
+    if (hashParam(ENDED_PARAM) !== null) forgetHashQuery(SIGN_IN_PATH);
+  }, []);
 
   // When the lockout is over, the message moves on to the CAPTCHA that every attempt now needs.
   const locked = lockSeconds > 0;
@@ -59,6 +82,7 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
     setBusy("sign-in");
     setFailure(null);
     setResent(false);
+    setEnded(null);
     setHideSignal((n) => n + 1);
     const result = await outcome(
       api.POST("/v1/sessions", {
@@ -72,6 +96,8 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
     }
     if (result.ok) {
       if (result.data.status === "signed-in") {
+        markSignedIn();
+        forgetSpace(api);
         navigate(START_PATH);
         return;
       }
@@ -94,6 +120,10 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
           setPassword("");
           setCaptchaNeeded(true);
           setLockedUntil(deadlineIn(result.retryAfterS ?? LOCK_FALLBACK_S));
+          return;
+        case "PASSWORD_RESET_REQUIRED":
+          setPassword("");
+          setFailure({ key: "auth.signIn.resetRequired", code: result.supportId });
           return;
         case "CAPTCHA_REQUIRED":
           // The first time: the CAPTCHA appears. With a CAPTCHA that did not pass: an error.
@@ -138,6 +168,14 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
   return (
     <AuthLayout title={t("auth.page.signIn")}>
       <h1 className="auth-title">{t("auth.signIn.title")}</h1>
+      {ended === "idle" || ended === "ended-elsewhere" ? (
+        <Notice
+          tone="neutral"
+          title={t(ended === "idle" ? "auth.sessionEnded.idleTitle" : "auth.sessionEnded.elsewhereTitle")}
+        >
+          {t(ended === "idle" ? "auth.sessionEnded.idleBody" : "auth.sessionEnded.elsewhereBody")}
+        </Notice>
+      ) : null}
       {locked ? (
         <Notice tone="error" title={t("auth.signIn.lockedTitle")}>
           {t("auth.signIn.lockedBody")}
@@ -176,6 +214,9 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
           autoComplete="current-password"
           hideSignal={hideSignal}
         />
+        <p className="auth-forgot">
+          <a href={hrefFor(PASSWORD_RESET_PATH)}>{t("auth.signIn.forgot")}</a>
+        </p>
         {captchaNeeded && (
           <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} action="sign-in" config={captcha} />
         )}

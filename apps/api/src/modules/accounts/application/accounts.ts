@@ -193,6 +193,20 @@ export interface WalletUsage {
   used(householdId: string, subaccountIds: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7: a module that moves an account's money through its own queue (ARC-04) — saved in
+ * that module, in the journal only once its hand-off has run — answers before the account closes: `settle` runs the
+ * hand-offs of its records that may still move the account's money and says whether all of them finished, so the
+ * closing reads the balance they leave and never closes past a posting still to come. Accounts never reads that
+ * module's tables (ARC-02). A module that starts to post to accounts' subaccounts through its queue adds its own to
+ * the API's wiring (src/main.ts) in the same PR.
+ */
+export interface PendingPostings {
+  /** The answering module, for the reader of the wiring. */
+  readonly module: string;
+  settle(householdId: string, accountId: string): Promise<boolean>;
+}
+
 export interface AccountsDeps {
   readonly ledger: Pick<
     Ledger,
@@ -217,6 +231,8 @@ export interface AccountsDeps {
   readonly today: () => string;
   /** The modules that keep subaccount ids (IMP-02 FR 15): a wallet one of them uses is not removed. */
   readonly walletUsage: readonly WalletUsage[];
+  /** FIN-01 EC4: the modules whose queued hand-offs may still move an account's money (transactions'). */
+  readonly pendingPostings: readonly PendingPostings[];
 }
 
 export interface Caller {

@@ -106,17 +106,20 @@
 }
 
 /*
- * CMP-01 (canvas P0): 40 px visible, radius 8, 14/20 px 600. Secondary is white with a 1 px
- * border-control border (3:1, DS-14) and ink text; the hit area stays 44 px (an invisible extension).
+ * CMP-01@PoC Button. md: 40 px visible, radius 8, 14/20 px 600, one line; the hit area stays 44 px (an
+ * invisible extension). The default (secondary) is white with a 1 px border-control border (3:1, DS-14) and
+ * ink text, 14 px side padding (`--ws-button-pad`; primary 16, quiet 12, sm 12).
  */
 .ws-button {
+  --ws-button-pad: calc(var(--ws-space-4) - var(--ws-space-1) / 2);
   position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   gap: var(--ws-space-2);
   min-height: calc(var(--ws-touch-target) - var(--ws-space-1));
-  padding: 0 calc(var(--ws-space-4) - var(--ws-space-1) / 2);
+  padding: 0 var(--ws-button-pad);
   border: 1px solid var(--ws-border-control);
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-200);
@@ -125,16 +128,24 @@
   font-size: var(--ws-text-body-sm-size);
   line-height: var(--ws-text-body-sm-line);
   font-weight: 600;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--ws-duration-interaction) var(--ws-easing-out);
 }
 
+/*
+ * The hit area: at least 44 × 44 px around the centre, whatever the visible size and border (the box is laid
+ * out on the padding box, so a fixed inset would fall short by the border).
+ */
 .ws-button::after {
   content: "";
   position: absolute;
-  inset-inline: 0;
-  inset-block: calc(var(--ws-space-1) / -2);
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--ws-touch-target));
+  height: max(100%, var(--ws-touch-target));
+  transform: translate(-50%, -50%);
 }
 
 .ws-button:hover {
@@ -146,7 +157,7 @@
 }
 
 .ws-button-primary {
-  padding: 0 var(--ws-space-4);
+  --ws-button-pad: var(--ws-space-4);
   border-color: var(--ws-brand);
   background: var(--ws-brand);
   color: var(--ws-on-brand);
@@ -161,6 +172,90 @@
 .ws-button-primary:active {
   border-color: var(--ws-brand-pressed);
   background: var(--ws-brand-pressed);
+}
+
+/* CMP-01 `quiet`: no fill, no border, link text; hover fills surface-300 and underlines the label. */
+.ws-button-quiet {
+  --ws-button-pad: var(--ws-space-3);
+  border-color: transparent;
+  background: transparent;
+  color: var(--ws-link);
+}
+
+.ws-button-quiet:hover {
+  background: var(--ws-surface-300);
+  text-decoration: underline;
+}
+
+.ws-button-quiet:active {
+  background: var(--ws-line);
+}
+
+/* CMP-01 `danger` (deletes data): surface-200 fill, a 1.5 px loss border and loss text; hover tint-negative. */
+.ws-button-danger {
+  border: calc(var(--ws-space-1) * 3 / 8) solid var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+.ws-button-danger:hover,
+.ws-button-danger:active {
+  background: var(--ws-tint-negative);
+}
+
+/* CMP-01 `sm`: 32 px visible, 13/20 px text, 12 px padding; the hit area still reaches 44 px (`::after`). */
+.ws-button-sm {
+  --ws-button-pad: var(--ws-space-3);
+  min-height: var(--ws-space-6);
+  font-size: var(--ws-text-label-size);
+}
+
+/* CMP-01 AC7: an icon-only button is square (40 or 32 px); `::after` takes it to 44 × 44 px. */
+.ws-button-icon-only {
+  --ws-button-pad: 0;
+  min-width: calc(var(--ws-touch-target) - var(--ws-space-1));
+}
+
+.ws-button-sm.ws-button-icon-only {
+  min-width: var(--ws-space-6);
+}
+
+/* The 16 px icon slot; while loading it holds the spinner instead of the icon. */
+.ws-button-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--ws-space-4);
+  height: var(--ws-space-4);
+}
+
+/* CMP-01 «Будова»: a 14 × 14 px spinner, 2 px rim in the text colour with one side clear, 1 turn in 0.8 s. */
+.ws-button-spinner {
+  width: calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  height: calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border: calc(var(--ws-space-1) / 2) solid currentcolor;
+  border-inline-end-color: transparent;
+}
+
+/*
+ * CMP-01 AC4: while loading the width does not change. With an icon the spinner takes the icon's slot; without
+ * one the slot (16 px) and its 8 px gap come out of the side padding, 12 px a side.
+ */
+.ws-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.ws-button[aria-busy="true"]:not(.ws-button-with-icon) {
+  padding-inline: calc(var(--ws-button-pad) - (var(--ws-space-4) + var(--ws-space-2)) / 2);
+}
+
+/* CMP-01 «Адаптивність»: a row of buttons wraps 16 px apart, the main action on the right. */
+.ws-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--ws-space-4);
 }
 
 /*
@@ -762,4 +857,1242 @@
 
 .ws-page-tabpanel {
   margin-block-start: var(--ws-space-5);
+}
+
+/*
+ * CMP-02@PoC Field. Label 13/16 500 in normal case above, the field visibly 40 px (search 36 px) with a 1 px
+ * border-control border, radius-md and surface-200, text 14/20 ink; the input itself is 44 px tall and overflows
+ * the box by 2 px above and below, so the touch area is 44 px without covering the text. 8 px between the label,
+ * the field and the hint (13/18 ink-muted); the error (14/20 500 loss) takes the hint's place.
+ */
+.ws-field {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.ws-field-label {
+  color: var(--ws-ink);
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  margin-block-end: var(--ws-space-2);
+}
+
+.ws-field-required {
+  color: var(--ws-loss);
+}
+
+.ws-field-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  padding-inline: var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  cursor: text;
+}
+
+.ws-field-box[data-size="search"] {
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+}
+
+.ws-field-input {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: var(--ws-touch-target);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font-family: var(--ws-text-body-sm-family);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* AC6: the placeholder only changes the colour, never the font, size or weight. */
+.ws-field-input::placeholder {
+  color: var(--ws-ink-muted);
+  opacity: 1;
+}
+
+/* The ring goes around the whole field, not the input inside it (DS-14). */
+.ws-field-input:focus-visible {
+  outline: none;
+}
+
+.ws-field-box:hover {
+  border-color: var(--ws-ink);
+}
+
+.ws-field-box:has(.ws-field-input:focus-visible) {
+  border-color: var(--ws-ink);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/*
+ * AC3: an abbreviated amount, not being edited, has a dotted underline. Browsers do not draw text-decoration in
+ * an input, so the input takes the height and width of its text and draws the dots as its bottom border; the
+ * unit stays on the right, and the box's strips below keep the 44 px touch area.
+ */
+.ws-field-input[data-abbreviated] {
+  flex: 0 1 auto;
+  field-sizing: content;
+  block-size: auto;
+  border-block-end: 1px dotted currentColor;
+}
+
+/* The 40 px box reaches 44 px: 2 px strips above and below that put the caret in the input. */
+.ws-field-box::before,
+.ws-field-box::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  block-size: calc(var(--ws-space-1) / 2);
+}
+
+.ws-field-box::before {
+  inset-block-end: 100%;
+}
+
+.ws-field-box::after {
+  inset-block-start: 100%;
+}
+
+.ws-field-probe + * {
+  margin-inline-start: auto;
+}
+
+.ws-field-prefix,
+.ws-field-suffix,
+.ws-field-counter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--ws-ink-muted);
+}
+
+.ws-field-suffix {
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-field-counter {
+  font-size: var(--ws-text-chart-axis-size);
+  line-height: var(--ws-text-chart-axis-line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The hidden copy that measures whether the value fits: the input's type, never seen or read. */
+.ws-field-probe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  visibility: hidden;
+  white-space: pre;
+  font-family: var(--ws-text-body-sm-family);
+  font-size: var(--ws-text-body-sm-size);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.ws-field-hint {
+  margin-block-start: var(--ws-space-2);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-tooltip-family);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+/* The live region stays in place while empty (so the error is announced) and takes no room then. */
+.ws-field-error {
+  margin-block-start: var(--ws-space-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-1);
+  color: var(--ws-loss);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+}
+
+.ws-field-error .ws-icon {
+  margin-block-start: calc(var(--ws-space-1) / 2);
+}
+
+.ws-field[data-state="error"] .ws-field-box {
+  border-color: var(--ws-loss);
+}
+
+.ws-field[data-state="readonly"] .ws-field-box {
+  background: var(--ws-surface-100);
+}
+
+/* AC5: disabled-bg, disabled-ink, no border. */
+.ws-field[data-state="disabled"] .ws-field-box {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-field[data-state="disabled"] .ws-field-input {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+/*
+ * CMP-03@PoC Select. The label 13/16 500 in ordinary case above the field (6 px apart); the control 40 px visible
+ * with a 44 px hit area, 12 px left and 40 px right padding (room for the 16 px chevron 12 px from the edge), a 1 px
+ * `border-control` border, radius 8, `surface-200`, 14/20 `ink`; a long value is cut with an ellipsis.
+ */
+.ws-select {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.ws-select-label {
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ws-select-required-mark {
+  color: var(--ws-loss);
+}
+
+.ws-select-required {
+  margin-inline-start: var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  font-weight: 400;
+}
+
+.ws-select-box {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+}
+
+.ws-select-box::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) / -2);
+}
+
+/* The control sits above the 2 px strips of the hit area; a press on a strip opens it (Select.tsx). */
+.ws-select-control {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--ws-space-3) calc(var(--ws-space-6) + var(--ws-space-2));
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-select-control:hover {
+  border-color: var(--ws-ink);
+}
+
+.ws-select-control:focus-visible {
+  border-color: var(--ws-ink);
+}
+
+.ws-select-control--empty {
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-control option {
+  color: var(--ws-ink);
+}
+
+.ws-select-control[aria-invalid="true"] {
+  border-color: var(--ws-loss);
+}
+
+.ws-select-control:disabled,
+.ws-select-control:disabled:hover {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-select-value {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-select-chevron {
+  position: absolute;
+  inset-inline-end: var(--ws-space-3);
+  inset-block-start: 50%;
+  display: inline-flex;
+  z-index: var(--ws-layer-local-2);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ws-select-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+/* CMP-02 «Помилка»: 14/20 500 `loss`, a marker and the word «Помилка» first; it replaces the hint. */
+.ws-select-error {
+  display: flex;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  margin: 0;
+  color: var(--ws-loss);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+}
+
+/* The menu panel: as wide as the field (or under the list button), `surface-200`, 1 px `line`, radius 8, popover shadow. */
+.ws-dropdown-panel {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(100% + var(--ws-space-1));
+  z-index: var(--ws-layer-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  box-sizing: border-box;
+  max-block-size: calc(var(--ws-space-8) * 5);
+  padding: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+/* The search field of the panel: 36 px with a 16 px magnifier. */
+.ws-select-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ws-space-2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.ws-select-search:focus-within {
+  border-color: var(--ws-ink);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.ws-select-search input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  outline: none;
+}
+
+.ws-select-search input::placeholder {
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-list {
+  overflow-y: auto;
+}
+
+.ws-select-list:focus-visible {
+  outline-offset: calc(var(--ws-focus-ring-width) * -1);
+}
+
+.ws-select-group-title {
+  padding: var(--ws-space-2) calc(var(--ws-space-2) + var(--ws-space-1) / 2) var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Options show their full text: never cut (AC1). The current one has a check, not only a colour. */
+.ws-select-option {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  min-block-size: calc(var(--ws-touch-target) - var(--ws-space-1) - var(--ws-space-1) / 2);
+  padding: var(--ws-space-1) calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-sm);
+  color: var(--ws-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ws-select-option--active {
+  background: var(--ws-surface-300);
+  box-shadow: inset 0 0 0 2px var(--ws-focus);
+}
+
+.ws-select-option[aria-disabled="true"] {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-select-option--create {
+  margin-block-start: var(--ws-space-1);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  box-shadow: 0 -1px 0 var(--ws-line);
+}
+
+.ws-select-option__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.ws-select-option__secondary {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-chart-axis-size);
+  line-height: var(--ws-text-chart-axis-line);
+}
+
+.ws-select-option__check {
+  display: inline-flex;
+  color: var(--ws-brand);
+}
+
+.ws-select-nothing {
+  margin: 0;
+  padding: var(--ws-space-2) calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-nothing:empty {
+  display: none;
+}
+
+/* The category circle (its colour comes with the category) and the 24 px institution logo. */
+.ws-select-dot {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  border-radius: var(--ws-radius-pill);
+  color: var(--ws-surface-200);
+}
+
+.ws-select-logo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  overflow: hidden;
+  border-radius: var(--ws-radius-sm);
+}
+
+/*
+ * CMP-03@PoC «кнопка-список з підписом»: 36 px (44 px hit area), 0 × 12 px, 1 px `border-control`, radius 8,
+ * `surface-200`; the label with its colon 13/18 `ink-muted`, the value 13/18 500 `ink`, the chevron 16 px.
+ */
+.ws-list-button-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.ws-list-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-list-button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) * -1);
+}
+
+.ws-list-button:hover,
+.ws-list-button:focus-visible {
+  border-color: var(--ws-ink);
+}
+
+.ws-list-button:disabled {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-list-button__label {
+  color: var(--ws-ink-muted);
+}
+
+.ws-list-button:disabled .ws-list-button__label {
+  color: inherit;
+}
+
+.ws-list-button__value {
+  font-weight: 500;
+}
+
+.ws-list-button__panel {
+  inset-inline-end: auto;
+  min-inline-size: 100%;
+  inline-size: max-content;
+  max-inline-size: calc(var(--ws-space-8) * 6);
+}
+
+/*
+ * CMP-21@PoC Dialog: a modal <dialog> in the top layer over the `scrim` with a 2 px blur; 16 px radius,
+ * `surface-200`, `shadow-dialog`; at most 560 px wide (640 / 900 only for the named content) and the window
+ * height minus 2 × 48 px. Only the body scrolls when content is taller: the action bar stays in place.
+ */
+.ws-dialog {
+  box-sizing: border-box;
+  width: min(var(--ws-dialog-width), calc(100% - 2 * var(--ws-space-4)));
+  max-width: none;
+  max-height: calc(100% - 2 * var(--ws-space-7));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-dialog);
+  color: var(--ws-ink);
+}
+
+.ws-dialog[data-size="split"] {
+  width: min(var(--ws-dialog-width-split), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[data-size="wide"] {
+  width: min(var(--ws-dialog-width-wide), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No slide or scale on appearing (CMP-21 «Зменшений рух»): the dialog and its scrim simply appear. */
+.ws-dialog::backdrop {
+  background: var(--ws-scrim);
+  backdrop-filter: blur(var(--ws-scrim-blur));
+}
+
+.ws-dialog-box {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* «✕»: a 36 px circle 12 px from the top right corner; the hit area stays 44 × 44 px. */
+.ws-dialog-close.ws-icon-button {
+  position: absolute;
+  inset-block-start: var(--ws-space-3);
+  inset-inline-end: var(--ws-space-3);
+  z-index: var(--ws-layer-local-1);
+  min-width: calc(var(--ws-space-6) + var(--ws-space-1));
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+}
+
+.ws-dialog-close.ws-icon-button::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-space-6) + var(--ws-space-1) - var(--ws-touch-target)) / 2);
+}
+
+.ws-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ws-space-5);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ws-space-6);
+}
+
+/* The scrolling body is a Tab stop; its ring is drawn inside, where the dialog's rounded clip cannot cut it. */
+.ws-dialog-body:focus-visible {
+  outline-offset: calc(-1 * var(--ws-focus-ring-width));
+}
+
+.ws-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog[data-align="center"] .ws-dialog-head {
+  align-items: center;
+  padding-inline: var(--ws-space-5);
+  text-align: center;
+}
+
+.ws-dialog[data-align="start"] .ws-dialog-head {
+  align-items: flex-start;
+  padding-inline-end: var(--ws-space-5);
+  text-align: start;
+}
+
+/* The icon tile: 56 × 56 px, radius 16 px, the soft tint of the dialog's tone with a 24 px icon in its colour. */
+.ws-dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--ws-space-7) + var(--ws-space-2));
+  height: calc(var(--ws-space-7) + var(--ws-space-2));
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-tint-info);
+  color: var(--ws-link);
+}
+
+.ws-dialog-icon[data-tone="warning"] {
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.ws-dialog-icon[data-tone="danger"] {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.ws-dialog-title {
+  margin: 0;
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  letter-spacing: var(--ws-text-heading-2-tracking);
+}
+
+.ws-dialog-text {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-action-size);
+  line-height: calc(var(--ws-space-5) - var(--ws-space-1) / 2);
+}
+
+.ws-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  text-align: start;
+}
+
+/* A failed action: the message starts with «Помилка»; the dialog stays open. */
+.ws-dialog-error {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-negative);
+  color: var(--ws-ink);
+  text-align: start;
+}
+
+/* The action bar: `surface-inset`, a 1 px `surface-300` line on top, 20 × 32 px. */
+.ws-dialog-foot {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: calc(var(--ws-space-4) + var(--ws-space-1)) var(--ws-space-6);
+  border-block-start: 1px solid var(--ws-surface-300);
+  background: var(--ws-surface-inset);
+}
+
+.ws-dialog-note {
+  margin: 0;
+}
+
+/* Equal buttons of one size in one row, 12 px apart; a full-width column (primary on top) when they do not fit. */
+.ws-dialog-actions {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog-actions[data-layout="column"] {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ws-dialog-action {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ws-dialog-action[data-variant="danger"]:not([aria-disabled="true"]) {
+  border: 1.5px solid var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+/* The running main action keeps its look and shows its busy label. */
+.ws-dialog-action[aria-busy="true"] {
+  cursor: progress;
+}
+
+/*
+ * CMP-13@PoC Pagination: one right-aligned row «Рядків на сторінці [25 ˅] · 1–25 з 1 240 ‹ ›», Inter 14/20,
+ * 12 px between the groups and 8 px between the arrows. Info and size label are ink-muted with tabular digits;
+ * the arrows are secondary Buttons 44 px high; a disabled arrow keeps its place and its reason is read, not shown.
+ */
+.ws-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ws-space-3);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The label is the 44 px target of the 32 px size control (a click on its text focuses the select). */
+.ws-pagination__size {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+}
+
+.ws-pagination__select {
+  height: var(--ws-space-6);
+  padding: 0 var(--ws-space-2);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.ws-pagination__select:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-pagination__select:disabled {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-pagination__arrows {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.ws-pagination__arrow.ws-button {
+  min-width: var(--ws-touch-target);
+  min-height: var(--ws-touch-target);
+}
+
+.ws-pagination__arrows .ws-disabled-reason {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+ * CMP-18 (the part the rows use): a flat 20 px plate, radius 4, 0 × 6 px padding, no border, 11/16 px 500; the
+ * tone's symbol comes first and is always there, the colour only strengthens it. It never wraps.
+ */
+.ws-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ws-space-1);
+  block-size: calc(var(--ws-space-4) + var(--ws-space-1));
+  padding: 0 calc(var(--ws-space-1) * 1.5);
+  border-radius: var(--ws-radius-sm);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: var(--ws-text-badge-weight);
+  white-space: nowrap;
+}
+
+.ws-badge-positive {
+  background: var(--ws-tint-positive);
+  color: var(--ws-gain);
+}
+
+.ws-badge-negative {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.ws-badge-attention {
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.ws-badge-info {
+  background: var(--ws-tint-info);
+  color: var(--ws-link);
+}
+
+.ws-badge-neutral {
+  background: var(--ws-surface-300);
+  color: var(--ws-ink-muted);
+}
+
+/*
+ * CMP-27 ListRow and CMP-28 TransactionRow. At least 56 px high; padding 8 × 16 px (a transaction 12 × 16), gap
+ * 12 px, a 1 px `line` under it, `surface-200`; hover `surface-100`, pressed and selected `surface-300`. The open
+ * area (link or button) stretches over the whole row with its `::after`; the checkbox, the actions and the amount
+ * sit above it, so the whole row opens the record and the controls inside still work. The 3 px focus ring is
+ * drawn inside the row.
+ */
+.ws-list-row,
+.ws-tx-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: calc(var(--ws-space-7) + var(--ws-space-2));
+  padding: var(--ws-space-2) var(--ws-space-4);
+  border-block-end: 1px solid var(--ws-line);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  transition: background-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-tx-row {
+  padding-block: var(--ws-space-3);
+}
+
+.ws-list-row:hover,
+.ws-tx-row:hover {
+  background: var(--ws-surface-100);
+}
+
+.ws-list-row:active,
+.ws-tx-row:active,
+.ws-list-row-selected,
+.ws-list-row-selected:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-row-open {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ws-row-open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ws-row-open:focus-visible {
+  outline: none;
+}
+
+.ws-row-open:focus-visible::after {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: calc(var(--ws-focus-ring-width) * -1);
+}
+
+.ws-row-text {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.ws-row-headline {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-inline-size: 0;
+}
+
+.ws-row-title {
+  min-inline-size: 0;
+  overflow: hidden;
+  font-size: var(--ws-text-body-size);
+  line-height: var(--ws-text-body-line);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-row-meta {
+  min-inline-size: 0;
+  overflow: hidden;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-body-sm-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-list-row-archived .ws-row-title {
+  color: var(--ws-ink-muted);
+}
+
+.ws-row-leading {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ws-ink-muted);
+}
+
+/* The amount: at most 45 % of the row, right-aligned, 2 px to the change under it. */
+.ws-row-money {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--ws-space-1) / 2);
+  max-inline-size: 45%;
+  min-inline-size: 0;
+  color: var(--ws-ink);
+  text-align: end;
+  pointer-events: none;
+}
+
+.ws-row-money-main {
+  position: relative;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+/* Keeps the box at the width of the full value (see RowAmount); takes no height and is never seen. */
+.ws-row-money-sizer {
+  display: block;
+  block-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.ws-row-money button,
+.ws-row-money [tabindex] {
+  pointer-events: auto;
+}
+
+.ws-row-delta {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: 500;
+}
+
+.ws-row-check,
+.ws-row-check-spacer {
+  flex: none;
+  inline-size: var(--ws-space-4);
+  block-size: var(--ws-space-4);
+}
+
+.ws-row-check {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  appearance: none;
+  margin: 0;
+  border: calc(var(--ws-space-1) * 3 / 8) solid var(--ws-border-control);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-surface-200);
+  cursor: pointer;
+}
+
+.ws-row-check::after {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(var(--ws-space-1) * 0.25);
+  inset-inline-start: calc(var(--ws-space-1) * 1.25);
+  inline-size: calc(var(--ws-space-1) * 1);
+  block-size: calc(var(--ws-space-1) * 2);
+  border: solid var(--ws-on-brand);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+}
+
+.ws-row-check:checked {
+  border-color: var(--ws-brand);
+  background: var(--ws-brand);
+}
+
+.ws-row-check:checked::after {
+  transform: rotate(45deg) scale(1);
+}
+
+/* The loading state: the skeleton of a row (a circle and two bars, CMP-22) in the row's place. */
+.ws-list-row-loading,
+.ws-tx-row-loading {
+  pointer-events: none;
+}
+
+.ws-list-row-loading .ws-skeleton-region,
+.ws-tx-row-loading .ws-skeleton-region {
+  flex: 1;
+}
+
+/* CMP-28: the merchant tile, the category chip, the marks, the actions and the review stripe. */
+.ws-tx-logo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: calc(var(--ws-space-6));
+  block-size: calc(var(--ws-space-6));
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: 600;
+}
+
+.ws-tx-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.ws-tx-row .ws-row-open {
+  min-inline-size: calc(var(--ws-space-8) * 2.5);
+}
+
+.ws-tx-category {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ws-space-1) * 1.5);
+  block-size: calc(var(--ws-space-5));
+  padding: 0 var(--ws-space-2) 0 calc(var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  white-space: nowrap;
+}
+
+.ws-tx-category-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: calc(var(--ws-space-4) + var(--ws-space-1));
+  block-size: calc(var(--ws-space-4) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-chart-transfer);
+  color: var(--ws-on-accent);
+}
+
+.ws-tx-category-dot[data-tone="1"] {
+  background: var(--ws-chart-cat-1);
+}
+.ws-tx-category-dot[data-tone="2"] {
+  background: var(--ws-chart-cat-2);
+}
+.ws-tx-category-dot[data-tone="3"] {
+  background: var(--ws-chart-cat-3);
+}
+.ws-tx-category-dot[data-tone="4"] {
+  background: var(--ws-chart-cat-4);
+}
+.ws-tx-category-dot[data-tone="5"] {
+  background: var(--ws-chart-cat-5);
+}
+.ws-tx-category-dot[data-tone="6"] {
+  background: var(--ws-chart-cat-6);
+}
+.ws-tx-category-dot[data-tone="7"] {
+  background: var(--ws-chart-cat-7);
+}
+.ws-tx-category-dot[data-tone="8"] {
+  background: var(--ws-chart-cat-8);
+}
+.ws-tx-category-dot:not([data-tone="transfer"]) {
+  color: var(--ws-on-brand);
+}
+
+/* «Без категорії»: a dashed chip without an icon. */
+.ws-tx-category-none {
+  padding: 0 var(--ws-space-2);
+  border: 1px dashed var(--ws-border-control);
+  background: transparent;
+  color: var(--ws-ink-muted);
+}
+
+.ws-tx-mark {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  display: inline-flex;
+  flex: none;
+  color: var(--ws-ink-muted);
+}
+
+.ws-tx-actions {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.ws-tx-row-review {
+  box-shadow: inset calc(var(--ws-space-1) * 1.5) 0 0 var(--ws-ink);
+}
+
+/* The table form: [select] · Контрагент · Категорія · Актив · Рахунок · Дата і час · Сума; the date is never first. */
+.ws-tx-row-table {
+  display: grid;
+  grid-template-columns:
+    minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr) minmax(0, 2fr)
+    calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
+  gap: var(--ws-space-3);
+}
+
+.ws-tx-row-table:has(.ws-row-check),
+.ws-tx-head:has(.ws-row-check-spacer) {
+  grid-template-columns:
+    var(--ws-space-4) minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr)
+    minmax(0, 2fr) calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
+}
+
+.ws-tx-who {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-inline-size: 0;
+}
+
+.ws-tx-cell {
+  min-inline-size: 0;
+}
+
+.ws-tx-cell-text {
+  overflow: hidden;
+  color: var(--ws-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-tx-when {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-tx-row-table .ws-row-money {
+  max-inline-size: none;
+  inline-size: 100%;
+}
+
+.ws-tx-head {
+  min-block-size: 0;
+  padding-block: var(--ws-space-2);
+  background: var(--ws-surface-200);
+  pointer-events: none;
+}
+
+.ws-tx-head:hover {
+  background: var(--ws-surface-200);
+}
+
+.ws-tx-head-amount {
+  text-align: end;
 }

@@ -124,6 +124,12 @@ async function startLocked(webOrigin: string, releaseLock: () => Promise<void>):
     WS_TELEMETRY_ENVIRONMENT: "ci",
     WS_ALLOWED_ORIGINS: webOrigin,
     WS_WEB_ORIGIN: webOrigin,
+    // The browsers reach the API through `vite preview`'s `/v1` proxy: one hop, as a deployed API behind its proxy
+    // (NFR-14 FR 8). Each test sends its own synthetic client address in `X-Forwarded-For` (web e2e/fixtures.ts),
+    // so the per-address limits (NFR-14 FR 5: public 60/min) count each test's own requests at their product values
+    // instead of every test of both browser projects sharing the proxy's one address (#357, #370: WebKit's last
+    // sign-ups refused once Chromium and WebKit together passed 60 public requests in one minute).
+    WS_TRUSTED_PROXY_HOPS: "1",
   };
   const child: ChildProcess = spawn(process.execPath, ["src/main.ts", "--role", "api"], {
     cwd: apiDir,

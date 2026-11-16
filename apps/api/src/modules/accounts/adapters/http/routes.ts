@@ -14,6 +14,7 @@ import {
   balanceNow,
   closeAccount,
   closingPreview,
+  settlePending,
   createAccount,
   createdAccountView,
   deleteAdjustment,
@@ -603,10 +604,31 @@ function refusal(r: ManageRefusal): ApiProblem {
       return new ApiProblem("ACCOUNT_ACTIVITY_AFTER_CLOSE");
     case "balance-not-zero":
       return new ApiProblem("ACCOUNT_BALANCE_NOT_ZERO");
+    case "postings-pending":
+      return new ApiProblem("ACCOUNT_POSTINGS_PENDING");
   }
 }
 
 const accountParams = z.object({ accountId: z.uuid() });
+
+/**
+ * FIN-01 EC4: the other modules' pending postings of the account first, before this module's transaction holds a
+ * connection (the hand-off reads accounts' directory on this module's pool; #391 review B1). The account is looked up in
+ * the caller's space before anything runs, in a read of its own: another space's or an unknown account is 404 and a
+ * closed one 409, and nothing is settled for either (security review (a)). The closing checks it again under its lock.
+ */
+async function settleBeforeClosing(
+  ctx: ProtectedContext,
+  deps: ReturnType<typeof accountsServices>["deps"],
+  accountId: string,
+): Promise<void> {
+  const { householdId } = ctx.principal;
+  const account = await ctx.inHousehold((q) => accountsTx(q).account(householdId, accountId));
+  if (!account) throw refusal({ kind: "not-found" });
+  if (account.status === "closed") throw refusal({ kind: "closed" });
+  const pending = await settlePending(deps, householdId, accountId);
+  if (pending) throw refusal(pending);
+}
 
 /** The account after a change, as `GET` answers it. */
 async function presentAccount(
@@ -628,7 +650,7 @@ export const accountClosingRoute = defineRoute({
   summary: "The closing dialog: the account's balance on the closing date per currency (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   request: { params: accountParams, query: z.object({ closedOn: isoDate }) },
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE", "ACCOUNT_POSTINGS_PENDING"],
   response: {
     status: 200,
     description: "The balances on the closing date; `zero` — the account can close without a choice",
@@ -641,6 +663,7 @@ export const accountClosingRoute = defineRoute({
   handler: async ({ params, query }, ctx) => {
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
+    await settleBeforeClosing(ctx, deps, params.accountId);
     const result = await ctx.inHousehold((q) =>
       closingPreview(deps, accountsTx(q), ctx.principal.householdId, params.accountId, query.closedOn),
     );
@@ -662,7 +685,12 @@ export const closeAccountRoute = defineRoute({
     "«Закрити рахунок»: with a zero balance on the closing date, after a transfer or a write-off (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 4 * 1024,
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_BALANCE_NOT_ZERO", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: [
+    "ACCOUNT_CLOSED",
+    "ACCOUNT_BALANCE_NOT_ZERO",
+    "ACCOUNT_ACTIVITY_AFTER_CLOSE",
+    "ACCOUNT_POSTINGS_PENDING",
+  ],
   request: {
     params: accountParams,
     body: z
@@ -684,6 +712,7 @@ export const closeAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    await settleBeforeClosing(ctx, deps, params.accountId);
     const result = await ctx.inHousehold((q) =>
       closeAccount(deps, accountsTx(q), caller, params.accountId, {
         closedOn: body.closedOn,

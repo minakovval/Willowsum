@@ -113,6 +113,7 @@ beforeAll(async () => {
     clock: { now: () => NOW },
     newId: randomUUID,
     walletUsage: [],
+    pendingPostings: [],
   });
   app = buildServer({
     readiness: async () => ({ ready: true }),

@@ -365,6 +365,12 @@
   inset-block-end: calc(100% + var(--ws-space-1));
 }
 
+/* A menu of a button at the end of a toolbar lines up with the button's end edge. */
+.ws-menu-end {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
 .ws-menu-item {
   display: flex;
   align-items: center;
@@ -374,6 +380,16 @@
   border-radius: var(--ws-radius-sm);
   color: var(--ws-ink);
   text-decoration: none;
+}
+
+/* An action item (a button, not a link) looks the same as a link item. */
+button.ws-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
 }
 
 .ws-menu-item:hover,

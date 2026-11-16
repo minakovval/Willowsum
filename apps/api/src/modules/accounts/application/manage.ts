@@ -49,7 +49,8 @@ export type ManageRefusal =
   | { readonly kind: "not-closed" }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   | { readonly kind: "activity-after-close" }
-  | { readonly kind: "balance-not-zero" };
+  | { readonly kind: "balance-not-zero" }
+  | { readonly kind: "postings-pending" };
 
 export interface CurrencyBalance {
   readonly currency: string;
@@ -116,6 +117,25 @@ export async function finishPending(
 ): Promise<void> {
   for (const pending of await tx.pendingManaged(householdId, accountId))
     await applyMoves(deps.ledger, householdId, pending);
+}
+
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7 (code review finding 3, 2026-11-16): another module's change of the account's money
+ * that is saved but not in the journal yet (a transaction whose hand-off is still in the transactions queue, ARC-04)
+ * is finished by that module first (`PendingPostings`, its port — never its tables), so the movements after the
+ * closing date and the balance on it are read as they will be. One that cannot finish now refuses the closing.
+ * The route calls it before it opens the accounts transaction: the other module's hand-off reads accounts' directory on
+ * this module's own pool, so running it while a connection (and the row lock) is held wedges the pool once as many
+ * closings run at once as it has connections.
+ */
+export async function settlePending(
+  deps: Pick<AccountsDeps, "pendingPostings">,
+  householdId: string,
+  accountId: string,
+): Promise<ManageRefusal | null> {
+  for (const module of deps.pendingPostings)
+    if (!(await module.settle(householdId, accountId))) return { kind: "postings-pending" };
+  return null;
 }
 
 /** The account's row, locked until the transaction ends; a refusal when it is not there or not active. */

@@ -83,6 +83,9 @@ export const SENSITIVE_PATHS = {
   schema: [
     '**/migrations/**',
     'apps/api/src/platform/db/**',
+    'apps/api/src/platform/queue/**', // job queue and outbox tables, claim and retry (ARC-04; owner, 2026-11-16)
+    'apps/api/src/platform/events/**', // module events: catalogue, outbox contract (ARC-04; owner, 2026-11-16, item 5а)
+    'apps/api/src/modules/*/adapters/queue/**', // queue adapters of the modules (owner, 2026-11-16, item 5а)
     'apps/api/schema-exemptions.json',
     'apps/api/scripts/check-schema.ts',
     'apps/api/scripts/check-migrations.ts',

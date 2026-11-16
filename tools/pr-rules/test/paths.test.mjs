@@ -45,6 +45,14 @@ test('CICD-01 FR 4: files are classified by path into the sensitive categories',
     'packages/domain-kernel/src/money.ts': ['money'],
     'apps/api/src/modules/audit/adapters/db/migrations/0002_x.sql': ['schema'],
     'apps/api/src/platform/db/isolation.ts': ['schema'],
+    // Owner, 2026-11-16: the background job queue and outbox (ARC-04) are sensitive, with the schema.
+    'apps/api/src/platform/queue/worker.ts': ['schema'],
+    'apps/api/src/platform/queue/queue-tables.sql': ['schema'],
+    // Owner, 2026-11-16 (item 5а): module events and the queue adapters of modules are sensitive too.
+    'apps/api/src/platform/events/catalogue.ts': ['schema'],
+    'apps/api/src/platform/events/compat.ts': ['schema'],
+    'apps/api/src/modules/merchants/adapters/queue/job.ts': ['schema'],
+    'apps/api/src/modules/categorization/adapters/queue/worker.ts': ['schema'],
     '.github/workflows/pr-checks.yml': ['pipeline'],
     'apps/api/Dockerfile': ['pipeline'],
     '.gitleaksignore': ['pipeline'],
@@ -65,6 +73,14 @@ test('CICD-01 FR 4: ordinary code, UI and documentation are not sensitive', () =
     'apps/api/src/modules/crypto-wallets.md',
     'apps/api/scripts/lib/dependency-rules.test.ts',
     'tools/synthetic/index.mjs',
+    // Near misses of the events and queue-adapter globs.
+    'apps/api/src/platform/eventsource/x.ts',
+    'apps/api/src/platform/events.ts',
+    'apps/api/src/modules/merchants/events/x.ts',
+    'apps/api/src/modules/merchants/adapters/queues/x.ts',
+    'apps/api/src/modules/merchants/adapters/api/queue/x.ts',
+    'apps/api/src/modules/merchants/queue/x.ts',
+    'apps/api/src/modules/adapters/queue/x.ts',
   ]) {
     assert.deepEqual(categoriesOf(path), [], path);
   }

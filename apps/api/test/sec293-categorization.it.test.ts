@@ -190,6 +190,7 @@ beforeAll(async () => {
           clock: { now: () => NOW },
           newId: randomUUID,
           walletUsage: [],
+          pendingPostings: [],
         }),
         transactions: createTransactionsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),

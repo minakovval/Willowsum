@@ -39,7 +39,7 @@
     },
     "categorization": {
       "layer": "subject",
-      "dependsOn": ["audit", "bulk-actions", "categories", "transactions"]
+      "dependsOn": ["accounts", "audit", "bulk-actions", "categories", "merchants", "transactions"]
     },
     "data-erasure": {
       "layer": "process",
@@ -127,7 +127,7 @@
     },
     "recurring": {
       "layer": "subject",
-      "dependsOn": ["accounts", "audit", "categories", "merchants", "transactions"]
+      "dependsOn": ["accounts", "audit", "categories", "fx-rates", "merchants", "transactions"]
     },
     "reports": {
       "layer": "process",

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
+import { createTransactionCategories } from "../src/modules/categorization/index.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
@@ -194,6 +195,7 @@ beforeAll(async () => {
           clock: { now: () => NOW },
           newId: randomUUID,
           walletUsage: [],
+          pendingPostings: [],
         }),
         transactions: createTransactionsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),
@@ -220,6 +222,8 @@ beforeAll(async () => {
         }),
         recurring: createRecurringServices({
           history: createTransactionHistory(db.databases.for("transactions")),
+          transactionCategories: createTransactionCategories(db.databases.for("categorization")),
+          fx: createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW }),
           merchants: createMerchantDirectory(db.databases.for("merchants")),
           accounts: createAccountDirectory(db.databases.for("accounts")),
           categories,

@@ -5,7 +5,7 @@ description: Build one Willowsum design-system component or screen (DS-*, CMP-*,
 
 # Build a component or screen from the canvas
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Input: one requirement ID (or a small group, e.g. `CMP-33 / DS-12`) and the target release (PoC now).
 Output: one PR whose title starts with the ID, CI green, every criterion of the view covered by a test, the
@@ -68,8 +68,13 @@ keyboard operation, accessible name and role, «колір не єдина оз�
    values, outside the app navigation, `noindex`. DS-22 itself moved to PoC v2; the in-app gallery
    is a developer tool, so do not claim DS-22 criteria.
 4. **Strings** in `packages/i18n/src/messages/uk.ts` and `en.ts`, both complete (AGENTS.md; PoC shows only
-   Ukrainian, П-25, but П-15 applies in full). Wording follows DS-03 and the board; no hard-coded string
-   (NFR-09 FR 1; `apps/web/src/i18n/noHardcodedStrings.test.ts` and the lint rule check it).
+   Ukrainian, П-25, but П-15 applies in full). Each `uk.ts` string is, word for word, the chosen text of the
+   screen's «Тексти» block on the canvas, and only from it; `en.ts` translates `uk.ts` (owner, 2026-11-16, «текст
+   завжди варто додавати на канву»; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-requirements-and-texts.md)); rule and block format: `docs/design/ARTIFACTS.md`, «Тексти
+   інтерфейсу: канва — єдине джерело»). A text the block lacks (or a screen with no block yet): add it to the block
+   in the same PR, marked «варіант від агента, потребує погодження», and list it in the PR body; a text the
+   requirement still holds moves to the block (on a difference the canvas wins; note it in the PR body). No
+   hard-coded string (NFR-09 FR 1; `apps/web/src/i18n/noHardcodedStrings.test.ts` and the lint rule check it).
 5. **Screen** (when the task is a screen, not a component): the page in `apps/web/src/pages`, built only from
    `packages/ui` components; a missing element goes into `packages/ui` first (AGENTS.md «design before code»,
    item 11).
@@ -114,7 +119,8 @@ your own PIDs — [own ports](../../references/own-ports.md) (read when you star
   release, behaviour, money, access) goes to the lead and is written in the PR body; do not guess. Small
   details the lead decides (AGENTS.md «Ambiguity»).
 - **Reuse.** Do not invent an element the design system or another screen already has (AGENTS.md «design
-  before code», item 11). Never change a board, card or requirement in a code PR: that is `change-requirement`.
+  before code», item 11). Never change a board, card or requirement in a code PR: that is `change-requirement`. The one exception
+  is the screen's «Тексти» block (§4 item 4).
 
 ## 8. PR and hand-off
 
@@ -140,7 +146,7 @@ PR with the template, title `<ID>: <component>`, and add to the body:
 - [ ] Criteria → tests table (the `--coverage` row)
 - [ ] States: empty, loading, error, disabled, focus — test name each, or why it does not apply
 - [ ] Tokens only; any new token and the view line that states it
-- [ ] Gallery entry path; uk and en keys added
+- [ ] Gallery entry path; uk and en keys added; `uk.ts` strings from the «Тексти» block, agent variants listed
 - [ ] Accessibility checks run (§5)
 - [ ] Screenshot check at 1280 px done; remaining differences listed
 - [ ] Canvas / card vs requirement disagreements and how each was resolved
@@ -149,6 +155,8 @@ PR with the template, title `<ID>: <component>`, and add to the body:
 Then the lead (`pr-pipeline`) starts a `review-pr` session in a **different** session with: the PR number,
 the view path, the board names and the card name, so the reviewer can repeat the screenshot check. Fixes go
 through `fix-review-findings`; merge rules are AGENTS.md steps 5 and 7.
+
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <CI, criteria and states covered or left, screenshot differences counted>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (the checklist above, follow-ups) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
 GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).

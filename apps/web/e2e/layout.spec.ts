@@ -50,4 +50,52 @@ test.describe("NFR-07@PoC: desktop layout at 1280 px", () => {
     expect(layout.width).toBeLessThanOrEqual(1200);
     expect(layout.overflow).toBe(0);
   });
+
+  for (const path of ["/login", "/signup", "/password/reset", "/not-me"])
+    test(`GRID-06@PoC AC2: ${path} — the card takes the 6 middle columns, 3 empty on each side`, async ({
+      page,
+    }) => {
+      await page.goto(`/#${path}`);
+      await expect(h1(page)).toBeVisible();
+      // 12 columns, 32 px margins, 24 px gutters (GRID-00 FR 2): a column is (1280 − 64 − 11 × 24) / 12 px.
+      const column = (1280 - 2 * 32 - 11 * 24) / 12;
+      const box = (await page.getByRole("main").boundingBox())!;
+      expect(box.x).toBeCloseTo(32 + 3 * (column + 24), 0);
+      expect(box.width).toBeCloseTo(6 * column + 5 * 24, 0);
+      // Nothing of the app's navigation around the card (FR 5).
+      await expect(page.getByRole("navigation")).toHaveCount(0);
+    });
+
+  test("GRID-05@PoC AC1: «Налаштування» — the header, then navigation 3 columns and the form 9", async ({
+    page,
+  }) => {
+    await page.route("**/v1/profile", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          name: "Олена Синтетична",
+          email: "olena@example.test",
+          locale: null,
+          timeZone: null,
+        }),
+      }),
+    );
+    await page.goto("/#/settings");
+    await expect(h1(page)).toHaveText("Налаштування");
+    const box = async (selector: string) => (await page.locator(selector).boundingBox())!;
+    const [head, layout, nav, form] = [
+      await h1(page).boundingBox(),
+      await box(".settings-layout"),
+      await box(".settings-nav"),
+      await box(".settings-form"),
+    ];
+    // 12 columns with 24 px gutters: 3 columns span 3c + 2g, 9 columns 9c + 8g.
+    const column = (layout.width - 11 * 24) / 12;
+    expect(Math.abs(nav.width - (3 * column + 2 * 24))).toBeLessThan(1);
+    expect(form.x - (nav.x + nav.width)).toBeCloseTo(24, 0);
+    expect(form.x + Math.min(form.width, 820)).toBeLessThanOrEqual(layout.x + layout.width + 1);
+    expect(head!.y + head!.height).toBeLessThanOrEqual(nav.y);
+    expect(Math.round(nav.y)).toBe(Math.round(form.y));
+  });
 });

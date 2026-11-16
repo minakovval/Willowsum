@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -68,6 +68,28 @@ A card's link header has only «Зрізи» (its slices, in release order, matc
 
 **Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
 slice stays self-contained: no other requirement IDs (the checker enforces it).
+
+## Detail only the current release
+
+Owner, 2026-11-16 (relayed from the audit session): «Агенти витрачають токени на читання - значить мають читати лише
+ту версію, до якої відносяться», «Тексти інтерфейсу живуть у двох місцях - треба узгодженний сорс оф трус»
+([log](../decisions/log/2026-11-16-owner-requirements-and-texts.md)). Рішення ведучого (2026-11-16; власник не
+схвалював; same log): the rules below; why: agents read only what their release needs, and UI texts have one home.
+
+- Full detail (FR, AC, EC, states) only for the **current release** (now PoC). A later release gets 1–2 sentences:
+  what and why; no FR, AC, states or texts.
+- A release is detailed when it becomes current, in one batch PR (`change-requirement`) before `plan-wave` plans its
+  first wave.
+- Details of later releases already written are not deleted or rewritten, only not maintained; where one
+  contradicts the current release, mark it «переглянути при деталізації».
+- Agents read only the view of their release; another release only through a direct link the task gives.
+- **No UI texts in requirements.** A requirement states the behaviour and points to the screen or element
+  («кнопка підтвердження на S-050 (текст — канва)»); for a legal or product text it says that such a text must exist
+  and what it conveys. The wording lives on the canvas: `docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва —
+  єдине джерело». Texts already in requirements move to the canvas when a PR first touches their screen (no mass
+  move).
+- Until stages 1–3 are done, no new PoC requirement: `.claude/skills/pr-pipeline/SKILL.md` §2, «PoC requirements
+  freeze».
 
 ## Source and generated release views
 
@@ -246,14 +268,14 @@ requirement is kept in the README of that module.
 | INT | [int/](int/README.md) | Open data access (API) | 1 | v2 1 |
 | PLN | [pln/](pln/README.md) | Long-term forecast, retirement modelling, estate planning | 3 | v2 3 |
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
-| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 17, PoC v2 1, v1-mobile 1 |
+| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 15, MVP 2, PoC v2 1, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 16, PoC v2 1, MVP 6 |
 | CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 40, MVP 26, v1 3, PoC v2 5 |
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 11, MVP 28, v1 5, v2 9, PoC v2 5 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |
-| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
+| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 6, MVP 5, v1-mobile 1 |
 | PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 
 ## Folders

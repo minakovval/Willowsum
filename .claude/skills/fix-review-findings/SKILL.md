@@ -44,7 +44,7 @@ fixes every blocking item, CI green, the new head SHA.
 ## 3. Non-blocking
 
 Do not fix non-blocking items in this commit unless they are one-line and safe. List each under «Follow-ups»
-in the PR body / report; the lead opens the issue.
+in the PR body / report; the lead opens the issue. A security finding left unfixed in `main`: in «Follow-ups» only one line (module, rule broken); the probe, test and patch stay in the reviewer's scratchpad `keep/` file for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the probe, test and patch go into the issue or PR as usual; from the start of MVP planning this rule is in force.
 
 A decision this round records (the lead's choice between patches, a small detail) goes into a **new file**
 `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken; owner, 2026-11-13),
@@ -92,6 +92,4 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
    plus a separate sync merge commit when the branch is behind `main` (pr-pipeline step 4); WIP commits made during
    the round are fine (pr-pipeline step 2); push. Committing and pushing to the PR's own branch is part of the task, no separate owner approval (owner,
    2026-11-13, #178: «дозволяю»); if the permission classifier still refuses, stop and report it to the lead.
-3. Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, new head SHA (full), result (each
-   blocking item → fixed by file / test, in one line each), blockers, owner questions. Follow-ups and check
-   details go in the PR body. The reviewers then re-review only this diff. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+3. **Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <blocking items fixed: count, and the fix commit>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (each item → file / test, follow-ups, check details) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178). The reviewers then re-review only this diff.

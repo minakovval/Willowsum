@@ -14,3 +14,20 @@ export {
   type CategorySource,
   type TransactionCategory,
 } from "./transaction-category.ts";
+export {
+  AMOUNT_OPERATORS,
+  RULE_ACCOUNTS_MAX,
+  RULE_CONDITIONS_MAX,
+  RULE_FIELDS,
+  RULES_MAX,
+  TEXT_OPERATORS,
+  conditionKey,
+  firstRule,
+  moved,
+  ruleMatches,
+  type RankedRule,
+  type RuleAttention,
+  type RuleCondition,
+  type RuleMatcher,
+  type RuleSubject,
+} from "./rule.ts";

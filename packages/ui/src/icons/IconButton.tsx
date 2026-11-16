@@ -14,6 +14,9 @@ export function IconButton({
   onClick,
   pressed,
   className,
+  expanded,
+  controls,
+  "aria-disabled": ariaDisabled,
 }: {
   icon: IconName;
   /** The action as a verb or noun («Фільтр», «Закрити»): the accessible name and the tooltip. */
@@ -22,6 +25,12 @@ export function IconButton({
   /** A toggle's state (`aria-pressed`); leave out for a plain action. */
   pressed?: boolean | undefined;
   className?: string | undefined;
+  /** A disclosure's state (`aria-expanded`): a row that opens its sub-rows. */
+  expanded?: boolean | undefined;
+  /** The ids of what the disclosure shows (`aria-controls`). */
+  controls?: string | undefined;
+  /** Inactive but kept in the focus order (a dialog's «✕» while its action runs). */
+  "aria-disabled"?: boolean | undefined;
 }) {
   return (
     <Tooltip text={label}>
@@ -30,6 +39,9 @@ export function IconButton({
         className={className ? `ws-icon-button ${className}` : "ws-icon-button"}
         aria-label={label}
         aria-pressed={pressed}
+        aria-expanded={expanded}
+        aria-controls={expanded ? controls : undefined}
+        aria-disabled={ariaDisabled}
         onClick={onClick}
       >
         <Icon name={icon} size={20} inButton />
