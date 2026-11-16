@@ -295,6 +295,23 @@ export type paths = {
         patch: operations["updateBudgetPlan"];
         trace?: never;
     };
+    "/v1/budget/wizard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The budget wizard: the start choices and the proposal «Створити за моїми витратами» (FR 2, FR 3, FR 14; AC1, AC15) */
+        get: operations["getBudgetWizard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/bulk-actions": {
         parameters: {
             query?: never;
@@ -4060,6 +4077,12 @@ export interface operations {
                                 /** Format: uuid */
                                 categoryId: string;
                             }[];
+                            proportional: {
+                                days: number;
+                                daysInPeriod: number;
+                                from: string;
+                                to: string;
+                            } | null;
                             version: number;
                         } | null;
                     };
@@ -4172,6 +4195,7 @@ export interface operations {
                         /** Format: uuid */
                         categoryId: string;
                     }[];
+                    proportional?: boolean;
                 };
             };
         };
@@ -4202,6 +4226,12 @@ export interface operations {
                             /** Format: uuid */
                             categoryId: string;
                         }[];
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         version: number;
                     };
                 };
@@ -4673,6 +4703,12 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         totals: {
                             limits: {
                                 amount: string;
@@ -4821,6 +4857,12 @@ export interface operations {
                             /** Format: uuid */
                             categoryId: string;
                         }[];
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         version: number;
                     };
                 };
@@ -4872,6 +4914,133 @@ export interface operations {
             };
             /** @description The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetWizard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wizard's figures; nothing is saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fromSpending: {
+                            available: boolean;
+                            categories: {
+                                average: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                limit: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            }[];
+                            historyMonths: number;
+                            incomeIrregular: boolean;
+                            incomePlan: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                        midPeriod: boolean;
+                        starts: {
+                            days: number | null;
+                            daysInPeriod: number | null;
+                            firstPeriod: string;
+                            from: string;
+                            /** @enum {string} */
+                            start: "period-start" | "next-period" | "proportional";
+                            to: string;
+                        }[];
+                        today: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

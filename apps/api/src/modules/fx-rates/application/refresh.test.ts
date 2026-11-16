@@ -42,10 +42,12 @@ function manualClock(start: number) {
   };
 }
 
-function memoryStore(): FxRateStore & { saved: PivotRate[][]; claims: Set<string> } {
+function memoryStore(
+  lastSuccess: number | null = null,
+): FxRateStore & { saved: PivotRate[][]; claims: Set<string> } {
   const saved: PivotRate[][] = [];
   const claims = new Set<string>();
-  let last: number | null = null;
+  let last: number | null = lastSuccess;
   return {
     saved,
     claims,
@@ -184,6 +186,63 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     await second.time.advance(1); // exactly 24 h after the start
     expect(second.events.filter((e) => e.kind === "stale")).toHaveLength(1);
     await second.loop.stop();
+  });
+
+  it("VAL-05@PoC AC6: a successful update 3 h ago → restart → no request to the NBU until 24 h have passed", async () => {
+    const store = memoryStore(T0 - 3 * HOUR);
+    const { time, feed, events, loop } = setup(store);
+    await time.advance(FIRST_ATTEMPT_DELAY_MS); // the old first attempt, a minute after the start
+    expect(feed.calls).toEqual([]);
+    await time.advance(21 * HOUR - FIRST_ATTEMPT_DELAY_MS - 1);
+    expect(feed.calls).toEqual([]);
+    await time.advance(1); // exactly 24 h after the success
+    expect(feed.calls).toEqual(["2026-11-13"]);
+    expect(events).toEqual([{ kind: "updated", currencies: 3 }]);
+    expect(time.pending()).toEqual([24 * HOUR]);
+    await loop.stop();
+  });
+
+  it("VAL-05@PoC AC6: a restart with the last success 24 h ago or more (or none) tries a minute after the start", async () => {
+    for (const last of [T0 - 24 * HOUR, T0 - 40 * HOUR, null]) {
+      const { time, feed, loop } = setup(memoryStore(last));
+      await time.advance(FIRST_ATTEMPT_DELAY_MS);
+      expect(feed.calls).toHaveLength(1);
+      await loop.stop();
+    }
+  });
+
+  it("VAL-05@PoC AC6: stop() while the first timer reads the last success → no request after the stop", async () => {
+    const store = memoryStore(null);
+    const read = store.lastSuccessAt.bind(store);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    store.lastSuccessAt = async () => {
+      await gate;
+      return read();
+    };
+    const { time, feed, loop } = setup(store);
+    await time.advance(FIRST_ATTEMPT_DELAY_MS);
+    const stopping = loop.stop();
+    release();
+    await stopping;
+    await new Promise((r) => setTimeout(r, 5));
+    expect(feed.calls).toEqual([]);
+  });
+
+  it("VAL-05@PoC AC7: a failed request is retried the same day until the first success; after it no request for 24 h", async () => {
+    const { time, feed, events, loop } = setup();
+    feed.up = false;
+    await time.advance(FIRST_ATTEMPT_DELAY_MS);
+    await time.advance(15 * MINUTE);
+    await time.advance(15 * MINUTE);
+    expect(feed.calls).toHaveLength(3); // the same day: three attempts, all failed
+    feed.up = true;
+    await time.advance(time.pending()[0]!);
+    expect(events.at(-1)).toEqual({ kind: "updated", currencies: 3 });
+    expect(feed.calls).toHaveLength(4);
+    await time.advance(24 * HOUR - 1);
+    expect(feed.calls).toHaveLength(4);
+    await loop.stop();
   });
 
   it("VAL-05 FR1: an attempt asked while one runs joins it (one update at a time)", async () => {
