@@ -49,6 +49,8 @@ describe("ACC-01@PoC S-004 sign-in", () => {
     fill();
     fireEvent.click(signInButton());
     await waitFor(() => expect(window.location.hash).toBe("#/planning/budget"));
+    // The start page then reads the session (ACC-04@PoC: the session keeper), which neither extends nor signs in.
+    await waitFor(() => expect(calls).toHaveLength(2));
     expect(calls).toEqual([
       {
         method: "POST",
@@ -56,6 +58,7 @@ describe("ACC-01@PoC S-004 sign-in", () => {
         origin: window.location.origin,
         body: { email: "olena@example.com", password: "correct horse battery" },
       },
+      { method: "GET", path: "/v1/session", origin: window.location.origin, body: undefined },
     ]);
   });
 
