@@ -91,7 +91,7 @@ export interface RuleDeps {
   /** The shown merchant name of each counterparty that has one (module merchants' directory). */
   readonly merchants: {
     names(householdId: string, counterparties: readonly string[]): Promise<ReadonlyMap<string, string>>;
-    /** As `names`, read only: a description seen for the first time has no merchant yet and is absent. */
+    /** As `names`, read only: a description seen for the first time has the name its merchant would be born with. */
     knownNames(householdId: string, counterparties: readonly string[]): Promise<ReadonlyMap<string, string>>;
   };
   readonly inputs: {
@@ -423,7 +423,7 @@ export async function matchingTransactions(
   scanMax: number,
 ): Promise<Matches> {
   const { items, more } = await deps.inputs.candidates(householdId, scanMax);
-  // Read permission: no merchant is born here; a merchant not known yet matches no condition on a merchant.
+  // Read permission: no merchant is born here; a merchant not known yet is matched by the name it would be born with.
   const names = await namesOf(deps, householdId, items, true);
   const matching = items.filter((row) => ruleMatches(matcher, subjectOf(row, names)));
   const totals = new Map<string, Money>();

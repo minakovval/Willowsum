@@ -167,18 +167,6 @@ async function listRules(space: Space): Promise<RuleBody[]> {
   return res.json().items as RuleBody[];
 }
 
-/** The merchants of the space's descriptions are born where the space reads them (the job, the list); «Показати» only reads. */
-async function knowMerchants(space: Space): Promise<void> {
-  const { rows } = await db.owner.query<{ counterparty: string }>(
-    `SELECT DISTINCT counterparty FROM transactions.transactions WHERE household_id = $1 AND counterparty IS NOT NULL`,
-    [space.householdId],
-  );
-  await createMerchantDirectory(db.databases.for("merchants")).shownMerchants(
-    space.householdId,
-    rows.map((r) => r.counterparty),
-  );
-}
-
 async function matches(space: Space, body: Record<string, unknown>) {
   const res = await call(space, "POST", "/v1/category-rules/matches", body);
   expect(res.statusCode, res.body).toBe(200);
@@ -377,7 +365,6 @@ describe("BUD-14@PoC security review (PR #340): guards without a test in the PR"
     const mine = await purchase(space, await createAccount(space), "ADOBE *CREATIVE CLOUD");
     const foreignAccount = await createAccount(other);
     await purchase(other, foreignAccount, "ADOBE *CREATIVE CLOUD");
-    await knowMerchants(space);
     const found = await matches(space, { conditions: [merchantIs("Adobe")] });
     expect(found.items.map((i) => i.transactionId)).toEqual([mine]);
     expect(found.count).toBe(1);
@@ -414,7 +401,6 @@ describe("BUD-14@PoC security review (PR #340): guards without a test in the PR"
       [space.householdId],
     );
     expect(rows.map((r) => r.transaction_id)).toEqual([keeper]);
-    await knowMerchants(space);
     const found = await matches(space, { conditions: [merchantIs("Adobe")] });
     expect(found.items.map((i) => i.transactionId)).toEqual([keeper]);
   });

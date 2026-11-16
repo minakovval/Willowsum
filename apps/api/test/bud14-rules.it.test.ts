@@ -179,18 +179,6 @@ async function listRules(space: Space): Promise<RuleBody[]> {
   return res.json().items as RuleBody[];
 }
 
-/** The merchants of the space's descriptions are born where the space reads them (the job, the list); «Показати» only reads. */
-async function knowMerchants(space: Space): Promise<void> {
-  const { rows } = await db.owner.query<{ counterparty: string }>(
-    `SELECT DISTINCT counterparty FROM transactions.transactions WHERE household_id = $1 AND counterparty IS NOT NULL`,
-    [space.householdId],
-  );
-  await createMerchantDirectory(db.databases.for("merchants")).shownMerchants(
-    space.householdId,
-    rows.map((r) => r.counterparty),
-  );
-}
-
 async function matches(space: Space, body: Record<string, unknown>) {
   const res = await call(space, "POST", "/v1/category-rules/matches", body);
   expect(res.statusCode, res.body).toBe(200);
@@ -453,7 +441,6 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
       `SELECT count(*) AS n FROM categorization.transaction_categories WHERE household_id = $1`,
       [space.householdId],
     );
-    await knowMerchants(space);
     const found = await matches(space, {
       conditions: [merchantIs("Adobe"), amountOver("50")],
       accountIds: [],
@@ -483,7 +470,6 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
     const account = await createAccount(space);
     const t = await purchase(space, account, "SYNTH STREAMING 4411", "-12.00");
     await copies(space.householdId, t, 1199);
-    await knowMerchants(space);
     const many = await matches(space, { conditions: [merchantIs("Synth Streaming")] });
     expect(many).toMatchObject({
       count: SCAN_MAX,
@@ -499,17 +485,19 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
       await purchase(small, smallAccount, "SYNTH STREAMING 4411", "-12.00"),
       899,
     );
-    await knowMerchants(small);
     expect(await matches(small, { conditions: [merchantIs("Synth Streaming")] })).toMatchObject({
       count: 900,
       truncated: false,
     });
   });
 
-  it("BUD-14@PoC FR 7, SEC: «Показати» needs only read permission and so creates no merchant; an unknown merchant is no match", async () => {
+  it("BUD-14@PoC FR 7, AC2, SEC: «Показати» needs only read permission and creates no merchant, yet finds the transactions of a merchant not born yet — as the job of a new transaction does", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
-    await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    const subscriptions = await category(space, "Підписки");
+    // No rule yet, so the job of this transaction reads no merchant: none is born (the first rule of a space).
+    const past = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    await runWorker(space.householdId);
     const count = async () =>
       Number(
         (
@@ -518,15 +506,54 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
           ])
         ).rows[0].n,
       );
-    const before = await count();
+    expect(await count()).toBe(0);
     const found = await matches(space, { conditions: [merchantIs("Adobe")] });
-    expect(found.count).toBe(0);
-    // The description is matched as it is, and still nothing is born.
+    expect(found.count).toBe(1);
+    expect(found.items.map((i) => i.transactionId)).toEqual([past]);
     expect(
       (await matches(space, { conditions: [{ field: "description", operator: "contains", value: "ADOBE" }] }))
         .count,
     ).toBe(1);
-    expect(await count()).toBe(before);
+    expect(await count()).toBe(0);
+    // The same condition on a new transaction: the job agrees with «Показати» (and there the merchant is born).
+    await createRule(space, { conditions: [merchantIs("Adobe")], categoryId: subscriptions });
+    const fresh = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    await runWorker(space.householdId);
+    expect(await categoryOf(space, fresh)).toMatchObject({ categoryId: subscriptions, source: "rule" });
+    expect((await matches(space, { conditions: [merchantIs("Adobe")] })).count).toBe(2);
+  });
+
+  it("BUD-14@PoC FR 8, CICD-06: a worker without the flag runtime applies no rule to a new transaction (fails closed)", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const subscriptions = await category(space, "Підписки");
+    await createRule(space, { conditions: [merchantIs("Adobe")], categoryId: subscriptions });
+    const t = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    const pending = async () =>
+      Number(
+        (
+          await db.owner.query(
+            `SELECT (SELECT count(*) FROM categorization.jobs WHERE household_id = $1 AND state IN ('queued', 'running'))
+                  + (SELECT count(*) FROM transactions.outbox_events WHERE household_id = $1 AND dispatched_at IS NULL) AS n`,
+            [space.householdId],
+          )
+        ).rows[0].n,
+      );
+    for (let pass = 0; pass < 20 && (await pending()) > 0; pass++) {
+      // As main.ts would wire a worker that was given no flag runtime.
+      const worker = createWorker({
+        ...workerQueues(db.databases),
+        households: async () => [space.householdId],
+      });
+      try {
+        await worker.tick();
+        await worker.idle();
+      } finally {
+        await worker.stop();
+      }
+    }
+    expect(await pending()).toBe(0);
+    expect(await categoryOf(space, t)).toMatchObject({ categoryId: null, source: "none" });
   });
 });
 
@@ -652,7 +679,6 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     // Enabling changes no past transaction (FR 7); «Показати» lists the one it would.
     await runWorker(space.householdId);
     expect(await categoryOf(space, t)).toMatchObject({ source: "none" });
-    await knowMerchants(space);
     const found = await matches(space, { conditions: [merchantIs("Netflix")] });
     expect(found.items.map((i) => i.transactionId)).toEqual([t]);
   });

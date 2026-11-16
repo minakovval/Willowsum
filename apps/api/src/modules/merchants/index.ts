@@ -34,11 +34,14 @@ export interface MerchantDirectory {
     householdId: string,
     counterparties: readonly string[],
   ): Promise<ReadonlyMap<string, { readonly id: string; readonly name: string }>>;
-  /** As `shownMerchants`, read only: a description seen for the first time is absent and no merchant is born. */
+  /**
+   * As `shownMerchants`, read only: no merchant is born; a description seen for the first time shows the name its
+   * merchant would be born with, `id` null.
+   */
   knownMerchants(
     householdId: string,
     counterparties: readonly string[],
-  ): Promise<ReadonlyMap<string, { readonly id: string; readonly name: string }>>;
+  ): Promise<ReadonlyMap<string, { readonly id: string | null; readonly name: string }>>;
 }
 
 /** `db` is the merchants database. */
@@ -50,10 +53,7 @@ export function createMerchantDirectory(db: ModuleDatabase): MerchantDirectory {
         return new Map([...shown].map(([c, m]) => [c, { id: m.id, name: m.name }]));
       }),
     knownMerchants: (householdId, counterparties) =>
-      db.inHousehold(householdId, async (q) => {
-        const known = await knownMerchants(merchantsTx(q), householdId, counterparties);
-        return new Map([...known].map(([c, m]) => [c, { id: m.id, name: m.name }]));
-      }),
+      db.inHousehold(householdId, (q) => knownMerchants(merchantsTx(q), householdId, counterparties)),
   };
 }
 export { merchantInitials, merchantKey, normalizeDescription } from "./domain/index.ts";

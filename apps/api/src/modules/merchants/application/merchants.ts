@@ -110,20 +110,27 @@ export async function shownMerchants(
 }
 
 /**
- * As `shownMerchants`, but only reads: a description seen for the first time has no merchant and is absent (for a
- * read behind a read permission, BUD-14 FR 7 «Показати»).
+ * As `shownMerchants`, but only reads (for a read behind a read permission, BUD-14 FR 7 «Показати»): no merchant is
+ * born. A description seen for the first time has no merchant yet: it shows the name its merchant would be born with
+ * (`id` null), so the answer is the one `shownMerchants` would give.
  */
 export async function knownMerchants(
   tx: MerchantsTx,
   householdId: string,
   counterparties: readonly string[],
-): Promise<ReadonlyMap<string, Merchant>> {
+): Promise<ReadonlyMap<string, { readonly id: string | null; readonly name: string }>> {
   const normalized = new Map<string, NormalizedMerchant>();
   for (const counterparty of new Set(counterparties)) {
     const n = normalizeDescription(counterparty);
     if (n !== null) normalized.set(counterparty, n);
   }
-  return shownOf(tx, householdId, normalized);
+  const shown = await shownOf(tx, householdId, normalized);
+  const known = new Map<string, { readonly id: string | null; readonly name: string }>();
+  for (const [counterparty, n] of normalized) {
+    const merchant = shown.get(counterparty);
+    known.set(counterparty, merchant ? { id: merchant.id, name: merchant.name } : { id: null, name: n.name });
+  }
+  return known;
 }
 
 async function shownOf(
