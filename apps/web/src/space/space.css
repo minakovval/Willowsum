@@ -1,0 +1,119 @@
+/* ACC-08@PoC, ACC-06@PoC «Налаштування → Простір» (S-200): canvas PocSettingsSpace. Tokens only (DS-06 item 1, DS-09). */
+
+.space-page {
+  display: grid;
+  gap: var(--ws-space-4);
+  max-width: calc(var(--ws-space-8) * 13 - var(--ws-space-3));
+}
+
+.space-head {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.space-head h1,
+.space-head p {
+  margin: 0;
+}
+
+.space-card {
+  display: grid;
+  gap: var(--ws-space-4);
+  padding: calc(var(--ws-space-4) + var(--ws-space-1)) var(--ws-space-5);
+}
+
+.space-card-title {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-transform: uppercase;
+}
+
+.space-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}
+
+.space-saved {
+  margin: 0;
+  margin-inline-end: auto;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.space-failure,
+.space-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+}
+
+.space-failure p,
+.space-error p {
+  margin: 0;
+}
+
+.space-failure {
+  color: var(--ws-loss);
+  font-weight: 500;
+}
+
+.space-error-title {
+  color: var(--ws-loss);
+  font-weight: 600;
+}
+
+.space-facts {
+  margin: 0;
+}
+
+.space-facts > div {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-4);
+  padding-block-start: var(--ws-space-3);
+  border-block-start: 1px solid var(--ws-surface-300);
+}
+
+.space-facts dt {
+  flex: 0 0 calc(var(--ws-space-8) * 3 - var(--ws-space-3));
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.space-facts dd {
+  flex: 1;
+  margin: 0;
+}
+
+/* «Налаштування» until its sections list (S-186, wave 2 row 110): the way to «Простір». */
+.settings-links {
+  display: grid;
+  gap: var(--ws-space-2);
+  max-width: calc(var(--ws-space-8) * 13 - var(--ws-space-3));
+  margin: var(--ws-space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-link {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: var(--ws-touch-target);
+  color: var(--ws-ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.settings-link:hover {
+  border-color: var(--ws-border-control);
+}
