@@ -514,7 +514,7 @@ describe("DAT-03@PoC FR 2: «Змінити категорію» of the selectio
     for (const id of ids.slice(0, 2)) expect((await categoryOf(space, id)).categoryId).toBe(groceries.id);
   });
 
-  it("DAT-03@PoC FR 5 (#296 item 6): a transaction with the category of a rule is «Зміниться» (its source becomes «вручну», as a single change does), one already «вручну» is «без змін»", async () => {
+  it("DAT-03@PoC FR 5 (#296 no. 6): a transaction with the category of a rule is «Зміниться» (its source becomes «вручну», as a single change does), one already «вручну» is «без змін»", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const groceries = await category(space, "Продукти");
@@ -651,7 +651,7 @@ describe("ARC-04@PoC FR 2–4: the audit hand-off of a change, its dead job and 
     expect(await audit.entriesFor(space.householdId, { type: ENTITY, id: t })).toHaveLength(1);
   });
 
-  it("ARC-04@PoC FR 4 (#296 item 7): the merge's job in state dead goes back with the daily recovery and moves the transactions", async () => {
+  it("ARC-04@PoC FR 4 (#296 no. 7): the merge's job in state dead goes back with the daily recovery and moves the transactions", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const coffee = await addCategory(space, "Синтетична кава");

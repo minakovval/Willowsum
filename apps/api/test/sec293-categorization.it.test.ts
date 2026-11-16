@@ -359,7 +359,7 @@ describe("security review #293: the bulk target re-checks at write time (TOCTOU 
     expect(await target.select({ ...caller, scoped: true }, [], [], 100)).toEqual({ ids: [], count: 0 });
   });
 
-  it("DAT-03@PoC FR 2 (#296 item 15, M27): «Вибрати всі за фільтром» without a state filter leaves out the hidden transactions, with `hidden.eq:true` it takes them", async () => {
+  it("DAT-03@PoC FR 2 (#296 no. 15, M27): «Вибрати всі за фільтром» without a state filter leaves out the hidden transactions, with `hidden.eq:true` it takes them", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const shown = await purchase(space, account, "Синтетична крамниця");
