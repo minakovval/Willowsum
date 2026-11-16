@@ -328,6 +328,21 @@ describe("BUD-07@PoC FR 4, AC1: the user confirms a proposal (fields may be edit
     expect((await proposals(space)).map((x) => x.expectedAmount.amount)).toEqual(["4.99"]);
   });
 
+  it("BUD-07@PoC FR 6: confirming when the latest charge's account is closed — 201 with no account, not 400 (#328 item 3)", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    await streaming(space, account);
+    const closed = await call(space, "POST", `/v1/accounts/${account}/close`, {
+      closedOn: "2026-11-16",
+      settlement: { kind: "adjustment" },
+    });
+    expect(closed.statusCode, closed.body).toBe(200);
+    const [p] = await proposals(space);
+    const res = await call(space, "POST", "/v1/recurring/proposals/confirm", { key: p!.key });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().accountId).toBeNull();
+  });
+
   it("BUD-07@PoC FR 4: a proposal no longer offered — 409 RECURRING_PROPOSAL_GONE, nothing written", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
@@ -339,11 +354,13 @@ describe("BUD-07@PoC FR 4, AC1: the user confirms a proposal (fields may be edit
     for (const [url, body] of [
       ["/v1/recurring/proposals/confirm", { key: p!.key }],
       ["/v1/recurring/proposals/reject", { key: p!.key }],
-      ["/v1/recurring/proposals/confirm", { key: "no-such-key" }],
     ] as const) {
       const res = await call(space, "POST", url, body);
       expect([res.statusCode, res.json().code], url).toEqual([409, "RECURRING_PROPOSAL_GONE"]);
     }
+    // A key the space never decided on is «не знайдено», not «gone» (AC9; #328 item 2).
+    const unknown = await call(space, "POST", "/v1/recurring/proposals/confirm", { key: "no-such-key" });
+    expect(unknown.statusCode).toBe(404);
     expect(await n("recurring.payments WHERE household_id = $1", space.householdId)).toBe(0);
     expect(await n("recurring.rejections WHERE household_id = $1", space.householdId)).toBe(1);
   });
@@ -545,8 +562,11 @@ describe("BUD-07@PoC AC9, «Права доступу»: the space's boundary", 
     const res = await call(stranger, "GET", `/v1/recurring/payments/${created.json().id}`);
     expect(res.statusCode).toBe(404);
     expect(res.body).not.toContain("650");
-    const confirm = await call(stranger, "POST", "/v1/recurring/proposals/confirm", { key: p!.key });
-    expect([confirm.statusCode, confirm.json().code]).toEqual([409, "RECURRING_PROPOSAL_GONE"]);
+    for (const action of ["confirm", "reject"]) {
+      const res = await call(stranger, "POST", `/v1/recurring/proposals/${action}`, { key: p!.key });
+      expect(res.statusCode, action).toBe(404);
+      expect(res.body).not.toContain(p!.key);
+    }
     expect(await n("recurring.payments WHERE household_id = $1", stranger.householdId)).toBe(0);
     expect(await n("recurring.payments WHERE household_id = $1", owner.householdId)).toBe(1);
   });
