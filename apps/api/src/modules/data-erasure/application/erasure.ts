@@ -156,6 +156,8 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     await deps.categorization.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "goals.records", "erasure-sweep");
     await deps.goals.eraseHousehold(householdId);
+    await deps.platformAudit.spaceStep(householdId, "recurring.records", "erasure-sweep");
+    await deps.recurring.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log", "erasure-sweep");
     await deps.audit.eraseHousehold(householdId);
   }
