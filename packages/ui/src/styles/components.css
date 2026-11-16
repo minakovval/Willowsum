@@ -838,6 +838,11 @@
   padding: var(--ws-space-6);
 }
 
+/* The scrolling body is a Tab stop; its ring is drawn inside, where the dialog's rounded clip cannot cut it. */
+.ws-dialog-body:focus-visible {
+  outline-offset: calc(-1 * var(--ws-focus-ring-width));
+}
+
 .ws-dialog-head {
   display: flex;
   flex-direction: column;

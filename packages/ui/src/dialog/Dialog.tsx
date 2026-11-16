@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -44,7 +45,7 @@ export interface DialogProps {
   tone?: DialogTone | undefined;
   /** `role="alertdialog"` (dangerous actions); by default for the `danger` tone. */
   alert?: boolean | undefined;
-  /** Centred only for short messages; left-aligned (32 px edge) as soon as there are fields, options or lists. */
+  /** Centred only for short messages; left-aligned (32 px edge) once there are fields, options or lists. */
   align?: "center" | "start" | undefined;
   size?: DialogSize | undefined;
   /** The accessible name of «✕» («Закрити»). Left out for a dialog that requires a decision: no «✕», no backdrop close. */
@@ -152,7 +153,13 @@ export function Dialog({
   const [root, setRoot] = useState<HTMLDialogElement | null>(null);
   const actionsRef = useRef<HTMLDivElement | null>(null);
   const [column, setColumn] = useState(false);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const [scrolls, setScrolls] = useState(false);
   const pressedOnBackdrop = useRef(false);
+  const setDialog = useCallback((el: HTMLDialogElement | null) => {
+    ref.current = el;
+    setRoot(el);
+  }, []);
   const base = useId();
   const titleId = `${base}-title`;
   const textId = `${base}-text`;
@@ -204,6 +211,20 @@ export function Dialog({
     return () => ro.disconnect();
   }, [shown, actions]);
 
+  // A body taller than the dialog allows is a keyboard stop of its own (WebKit never makes a scroller focusable, and
+  // Chromium's implicit stop is outside the trap's list): Tab reaches it, arrows scroll it, then Tab goes on.
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (!shown || !body) return;
+    const measure = () => setScrolls(body.scrollHeight > body.clientHeight + 0.5);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(body);
+    [...body.children].forEach((child) => ro.observe(child));
+    return () => ro.disconnect();
+  }, [shown, children, error]);
+
   if (!shown || typeof document === "undefined") return null;
 
   const close = () => {
@@ -212,6 +233,8 @@ export function Dialog({
 
   const onKeyDown = (e: KeyboardEvent<HTMLDialogElement>) => {
     if (e.key === "Escape") {
+      // An open tooltip inside took this Esc (it calls preventDefault): the dialog stays.
+      if (e.defaultPrevented) return;
       e.preventDefault();
       e.stopPropagation();
       close();
@@ -256,10 +279,7 @@ export function Dialog({
 
   return createPortal(
     <dialog
-      ref={(el) => {
-        ref.current = el;
-        setRoot(el);
-      }}
+      ref={setDialog}
       className="ws-dialog"
       role={isAlert ? "alertdialog" : undefined}
       aria-modal="true"
@@ -276,9 +296,21 @@ export function Dialog({
       <PortalRootContext.Provider value={root}>
         <div className="ws-dialog-box" tabIndex={-1}>
           {closeLabel ? (
-            <IconButton icon="close" label={closeLabel} className="ws-dialog-close" onClick={close} />
+            <IconButton
+              icon="close"
+              label={closeLabel}
+              className="ws-dialog-close"
+              aria-disabled={busy || undefined}
+              onClick={close}
+            />
           ) : null}
-          <div className="ws-dialog-body">
+          <div
+            ref={bodyRef}
+            className="ws-dialog-body"
+            tabIndex={scrolls ? 0 : undefined}
+            role={scrolls ? "region" : undefined}
+            aria-labelledby={scrolls ? titleId : undefined}
+          >
             <div className="ws-dialog-head">
               {icon ? (
                 <span className="ws-dialog-icon" data-tone={tone}>

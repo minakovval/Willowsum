@@ -115,7 +115,10 @@ export function useTooltip(
     if (closeCurrent !== close) closeCurrent?.();
     closeCurrent = close;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDismissed(true);
+      if (e.key !== "Escape") return;
+      // Esc closes the tooltip only; a dialog around it checks `defaultPrevented` and stays open.
+      e.preventDefault();
+      setDismissed(true);
     };
     const onScroll = () => {
       if (!revealing.current) setDismissed(true);

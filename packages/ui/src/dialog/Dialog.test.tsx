@@ -143,6 +143,27 @@ describe("CMP-21@PoC Dialog — opening and focus", () => {
     }
   });
 
+  it("CMP-21@PoC AC2: a body taller than the dialog is one Tab stop between «✕» and the actions; Tab goes on to them", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("ws-dialog-body") ? 900 : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("ws-dialog-body") ? 300 : 0;
+    });
+    openWith((close) => deleteAccount(close));
+    const dialog = dialogEl()!;
+    const body = dialog.querySelector<HTMLElement>(".ws-dialog-body")!;
+    expect(body.tabIndex).toBe(0);
+    expect(body.getAttribute("role")).toBe("region");
+    act(() => screen.getByRole("button", { name: "Закрити" }).focus());
+    tab();
+    expect(document.activeElement).toBe(body);
+    tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Скасувати" }));
+    tab(true);
+    expect(document.activeElement).toBe(body);
+  });
+
   it("CMP-21@PoC AC2: focus moved outside while open is brought back in", () => {
     openWith((close) => deleteAccount(close));
     act(() => screen.getByRole("link", { name: "Після" }).focus());
@@ -173,6 +194,19 @@ describe("CMP-21@PoC Dialog — closing", () => {
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     expect(dialogEl()).toBeNull();
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("CMP-21@PoC AC3: Esc inside the open «✕» tooltip closes the tooltip only; the next Esc closes the dialog", () => {
+    openWith((close) => deleteAccount(close));
+    const x = screen.getByRole("button", { name: "Закрити" });
+    act(() => x.focus());
+    const tipId = x.getAttribute("aria-describedby")!;
+    expect(document.getElementById(tipId)!.hidden).toBe(false);
+    fireEvent.keyDown(x, { key: "Escape" });
+    expect(dialogEl()).not.toBeNull();
+    expect(document.getElementById(tipId)!.hidden).toBe(true);
+    fireEvent.keyDown(x, { key: "Escape" });
+    expect(dialogEl()).toBeNull();
   });
 
   it("CMP-21@PoC AC3: «✕» and a press on the backdrop close it too, with focus back on the opener", () => {
@@ -325,6 +359,15 @@ describe("CMP-21@PoC Dialog — states", () => {
     );
     act(() => save.click());
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("CMP-21@PoC: «✕» is marked aria-disabled while busy and keeps its place in the focus order", () => {
+    const onClose = vi.fn();
+    render(<Dialog open onClose={onClose} busy {...deleteAccount(vi.fn())} />);
+    const x = screen.getByRole("button", { name: "Закрити" });
+    expect(x.getAttribute("aria-disabled")).toBe("true");
+    act(() => x.click());
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("CMP-21@PoC: the «✕» tooltip is rendered inside the modal dialog (the rest of the page is inert)", () => {
