@@ -273,6 +273,8 @@ export async function createTransaction(
     split: null,
     transfer: null,
     mergedInto: null,
+    note: null,
+    tagIds: [],
     version: 1,
   });
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
@@ -355,6 +357,8 @@ export async function updateTransaction(
     split,
     transfer: current.transfer,
     mergedInto: current.mergedInto,
+    note: current.note,
+    tagIds: current.tagIds,
     version: current.version + 1,
   });
   const updated = await handOff(tx, caller, "update", current, next);

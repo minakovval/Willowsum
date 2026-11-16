@@ -22,6 +22,8 @@ const row: StoredTransaction = {
   split: null,
   transfer: null,
   mergedInto: null,
+  note: null,
+  tagIds: [],
   version: 1,
   createdAt: "2026-10-10T10:00:00Z",
 };

@@ -51,6 +51,7 @@ import {
 } from "./modules/liabilities/index.ts";
 import {
   createTransactionLookup,
+  createTransactionTagBulkActions,
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
 } from "./modules/transactions/index.ts";
@@ -73,22 +74,31 @@ import { randomUUID } from "node:crypto";
  * The bulk actions of the selection panels (DAT-03@PoC FR 2), the same for the API (main.ts) and the worker: each
  * entity's target and each action come from the module that owns the fields, through its public interface.
  * «Змінити категорію» — categorization (BUD-01 b, wave 2 row 20; #272 item 1) on the target «transactions» (module
- * transactions' lookup). «Додати теги» (BUD-13 a, row 21) and «Підтвердити категорії» (BUD-12 a, row 24) come with
- * their fields; until then they are unknown actions.
+ * transactions' lookup). «Додати теги» (BUD-13 a, row 21) — transactions on its target «transaction-tags».
+ * «Підтвердити категорії» (BUD-12 a, row 24) comes with its field; until then it is an unknown action.
  */
 export function bulkActionsServicesFor(
   audit: Pick<AuditLog, "record">,
   databases: Pick<ModuleDatabases, "for">,
   clock: { now(): number } = systemClock,
+  /** The flag runtime: an action behind its own flag (e.g. «Додати теги») is unknown without it. */
+  flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
 ): BulkActionsServices {
   const categories = createCategoryBulkActions({
     db: databases.for("categorization"),
     transactions: createTransactionLookup(databases.for("transactions")),
     categories: createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
   });
+  // «Додати теги» (BUD-13 a, row 21): module transactions' own field on its own target.
+  const tags = createTransactionTagBulkActions({
+    db: databases.for("transactions"),
+    accounts: createAccountDirectory(databases.for("accounts")),
+    newId: randomUUID,
+    ...(flags ? { flags } : {}),
+  });
   return createBulkActionsServices({
-    targets: [...categories.targets],
-    actions: [...categories.actions],
+    targets: [...categories.targets, ...tags.targets],
+    actions: [...categories.actions, ...tags.actions],
     audit,
     clock,
     newId: randomUUID,
