@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
+import { fakeApi, renderAt } from "./auth/testing.tsx";
 import { CHILDREN, resolveRoute, SECTIONS } from "./routing/routes.ts";
 import { resetNavigationSession } from "./routing/session.ts";
 
@@ -63,13 +64,15 @@ describe("UX-09@PoC navigation", () => {
     expect(navLink("Бюджет").getAttribute("aria-current")).toBe("page");
   });
 
-  it("UX-09 item 2: «Планування» has «Бюджет», «Цілі», «Регулярні платежі», «Борги» (always visible); no «Чи можу я дозволити» (PoC v2)", () => {
-    render(<App />);
+  it("UX-09 item 2: «Планування» has «Бюджет», «Цілі», «Регулярні платежі», «Борги» (always visible); no «Чи можу я дозволити» (PoC v2)", async () => {
+    renderAt("#/", fakeApi({ "GET /v1/debts": { status: 200, body: { debts: [] } } }).client);
     expect(pageLabels()).toEqual(["Бюджет", "Цілі", "Регулярні платежі", "Борги"]);
     expect(within(nav()).queryByRole("link", { name: /Чи можу я дозволити/ })).toBeNull();
     follow(navLink("Борги"));
     expect(h1()).toBe("Борги");
-    expect(screen.getByText("Тут поки нічого немає")).toBeTruthy();
+    // BUD-19@PoC FR 11: the page «Борги» itself (S-143), not the empty page of a missing screen; `GET /v1/debts` is
+    // stubbed with no debts, so it settles on its own empty state (AC10) instead of the loading or error view.
+    expect(await screen.findByRole("heading", { name: "Боргів не додано" })).toBeTruthy();
   });
 
   it("UX-09 AC7 (structure): «Гроші» shows only «Транзакції» and «Рахунки»; no «До розбору», «Пари», «Підключення» items", () => {
