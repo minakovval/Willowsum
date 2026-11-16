@@ -1,6 +1,6 @@
 # Модуль budget
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-02@PoC a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-02@PoC b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -17,8 +17,11 @@ BUD-02@PoC a) (хвиля 2, рядок 29 — серверна частина):
 поточного періоду, без перенесення залишку; без ліміту — «Поза планом»), 9 (серверна частина: план і факт доходу,
 ліміт, витрачено, залишок, «Поза планом», підсумки), 10 (рахунки бюджету), 11 (знімок завершеного періоду), 12 (що
 враховує бюджет), 13 (видалення); AC2, AC3, AC4, AC5, AC16, AC12–AC14 (серверні частини); граничні випадки 4–6.
-Далі: майстер — «За моїми витратами», нерегулярний дохід, пропорційний перший період (рядок 30); «Розподіл», план
-майбутнього місяця, рядок підсумку, фільтр (рядок 31); UI (рядки 123–125).
+BUD-02@PoC b) (рядок 30 — серверна частина майстра): п. 2 і 3 («Створити за моїми витратами»: доступність, середнє за
+3 міс. з округленням до 10, план доходу; нижня смуга кроку лімітів — рядок 31), 5 і 14 (старт посеред періоду,
+пропорційний перший період); AC1, AC15 (серверні частини); граничні випадки 1–3.
+Далі: «Розподіл» і нижня смуга кроку лімітів (AC6, AC7), план майбутнього місяця, рядок підсумку, фільтр (рядок 31); UI
+(рядки 123–125).
 
 Зрізи PoC, що ще називають модуль: BUD-03@PoC, BUD-06@PoC, BUD-16@PoC, BUD-17@PoC, FLW-34@PoC, FLW-35@PoC, FLW-37@PoC,
 FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
@@ -31,9 +34,15 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `household.data.read`, зміни — `household.data.write`; учасник з областю: «бюджет і цілі» закриті політикою видимості
   за замовчуванням — читання й зміни 404, створення 403; ліміту плану немає):
   - `GET /v1/budget` (`getBudget`) → `{ budget }` або `{ budget: null }` (порожній стан): `id`, `currency`,
-    `firstPeriod` (YYYY-MM), `incomePlan`, `limits` (`categoryId`, `amount`), `createdOn`, `version`.
-  - `POST /v1/budget` (`createBudget`, `Idempotency-Key`) — `firstPeriod` (поточний або наступний місяць, інакше 400
-    `firstPeriod: invalid`), `incomePlan` (типово 0), `limits` (до 300). Ліміт — активна категорія витрат простору (400
+    `firstPeriod` (YYYY-MM), `proportional` (`from`, `to`, `days`, `daysInPeriod` або null), `incomePlan`, `limits` (`categoryId`, `amount`), `createdOn`, `version`.
+  - `GET /v1/budget/wizard` (`getBudgetWizard`) — лише читання: `today`, `midPeriod` (false першого числа), `starts`
+    (`period-start`, `next-period`, `proportional` з `days`/`daysInPeriod`; жоден не типовий), `fromSpending`
+    (`available` — ≥ 3 повних місяців категоризованих транзакцій поспіль, `historyMonths`, `incomePlan`,
+    `incomeIrregular`, `categories` — `categoryId`, `average` за 3 міс., `limit` — до 10, половина вгору; null — менше 5).
+    Рахує, як період (п. 12), рахунки, що ввійшли б у бюджет.
+  - `POST /v1/budget` (`createBudget`, `Idempotency-Key`) — `firstPeriod` (поточний або наступний місяць; першого числа —
+    лише поточний; інакше 400 `firstPeriod: invalid`), `proportional` (true — поточний місяць від сьогодні, не першого
+    числа; інакше 400 `proportional: invalid`), `incomePlan` (типово 0), `limits` (до 300). Ліміт — активна категорія витрат простору (400
     `limits.<i>.categoryId`: `not_found`, `not_expense`, `hidden`, `duplicate`), ≥ 0 у валюті бюджету (`limits.<i>.amount`:
     `invalid`, `….currency: currency`). Другий бюджет — 409 `BUDGET_EXISTS`. → 201 бюджет.
   - `PATCH /v1/budget/plan` (`updateBudgetPlan`) — `version`, `incomePlan`, `limits` (`amount` null прибирає ліміт).
@@ -43,7 +52,8 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   - `GET /v1/budget/accounts` (`listBudgetAccounts`) → `accounts`: `accountId`, `kind`, `status`, `included` (типово —
     поточні, кредитні картки, готівка).
   - `PUT /v1/budget/accounts/{accountId}` (`setBudgetAccount`) — `{ included }`; рахунок іншого простору — 404.
-  - `GET /v1/budget/periods/{period}` (`getBudgetPeriod`) — `mode` (`past`: план зі знімка — записується під час
+  - `GET /v1/budget/periods/{period}` (`getBudgetPeriod`) — `proportional` (пропорційний перший період: план уже × частку
+    днів, витрати — від `from`; інакше null), `mode` (`past`: план зі знімка — записується під час
     першого перегляду — проти живого факту; `current`; `future`: лише план), `incomePlan`, `plannedSavings` (0 до
     рядка 31), `incomeActual`, `groups` (категорії з лімітом за групами в порядку дерева: `limit`, `spent`, `remaining`,
     `mandatory`), `outsidePlan` (`categories` — `categoryId`, null — «Без категорії»; `total`), `totals`,
@@ -97,7 +107,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
 
 | Таблиця | Що |
 | --- | --- |
-| `budgets` | Бюджет: валюта, `first_period`, `income_plan`, `created_on`, версія; UNIQUE (`household_id`) — один на простір (`0001_budget.sql`) |
+| `budgets` | Бюджет: валюта, `first_period`, `income_plan`, `created_on`, версія; UNIQUE (`household_id`) — один на простір (`0001_budget.sql`); `first_day` — день старту пропорційного першого періоду (`0004_proportional_start.sql`) |
 | `limits` | Ліміт категорії витрат (непрозорий ідентифікатор категорії `categories`) і його валюта; без рядка — «Поза планом» |
 | `budget_accounts` | Рахунок (`accounts`), перемкнений проти типового; ключ — рахунок: не більше одного бюджету на рахунок |
 | `period_snapshots` | Знімок завершеного періоду: план доходу, заплановані заощадження, ліміти з «обов'язкова» (jsonb) |
