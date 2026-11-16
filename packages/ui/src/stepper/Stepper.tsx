@@ -21,7 +21,7 @@ export interface StepperProps {
 }
 
 const NAME_KEY = {
-  current: "stepper.step",
+  current: "stepper.step.current",
   available: "stepper.step",
   done: "stepper.step.done",
   unavailable: "stepper.step.unavailable",
@@ -51,6 +51,7 @@ export function Stepper({ label, steps, onSelect }: StepperProps) {
               data-state={step.state}
               aria-current={step.state === "current" ? "step" : undefined}
               aria-disabled={step.state === "unavailable" || undefined}
+              tabIndex={pressable ? undefined : -1}
               aria-label={t(NAME_KEY[step.state], { number, step: step.label })}
               onClick={() => {
                 if (pressable) onSelect(index);

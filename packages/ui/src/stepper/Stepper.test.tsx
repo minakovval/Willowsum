@@ -23,7 +23,7 @@ describe("CMP-14@PoC Stepper", () => {
     expect(one!.dataset["state"]).toBe("done");
     expect(one!.querySelector(".ws-stepper-mark svg")).toBeTruthy();
     expect(two!.getAttribute("aria-current")).toBe("step");
-    expect(two!.getAttribute("aria-label")).toBe("Крок 2: Контрагент і категорія");
+    expect(two!.getAttribute("aria-label")).toBe("Крок 2: Контрагент і категорія — поточний");
     expect(three!.textContent).toContain("3");
     expect(rule('.ws-stepper-step[data-state="done"] .ws-stepper-mark')).toMatch(
       /background: var\(--ws-gain\)/,
@@ -82,8 +82,10 @@ describe("CMP-14@PoC Stepper", () => {
     );
     expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
       "Крок 1: Основне — заповнено",
-      "Крок 2: Контрагент і категорія",
+      "Крок 2: Контрагент і категорія — поточний",
       "Крок 3: Додатково — ще недоступний",
     ]);
+    // Tab passes only the steps that can be pressed.
+    expect(screen.getAllByRole("button").map((b) => b.tabIndex)).toEqual([0, -1, -1]);
   });
 });

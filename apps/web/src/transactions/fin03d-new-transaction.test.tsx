@@ -194,13 +194,13 @@ describe("FIN-03@PoC d): «Нова транзакція» (S-048)", () => {
         .getAllByRole("button")
         .map((b) => b.getAttribute("aria-label")),
     ).toEqual([
-      "Крок 1: Основне",
+      "Крок 1: Основне — поточний",
       "Крок 2: Контрагент і категорія — ще недоступний",
       "Крок 3: Додатково — ще недоступний",
     ]);
-    expect(within(steps).getByRole("button", { name: "Крок 1: Основне" }).getAttribute("aria-current")).toBe(
-      "step",
-    );
+    expect(
+      within(steps).getByRole("button", { name: "Крок 1: Основне — поточний" }).getAttribute("aria-current"),
+    ).toBe("step");
     expect(dialog().textContent).toContain("Поля з * обов’язкові.");
     const type = within(dialog()).getByRole("group", { name: "Тип транзакції" });
     expect(

@@ -870,6 +870,7 @@ export const en: Messages = {
   "select.account.new": "New account",
   "select.account.search": "Search accounts",
   "stepper.step": "Step {number}: {step}",
+  "stepper.step.current": "Step {number}: {step} — current",
   "stepper.step.done": "Step {number}: {step} — completed",
   "stepper.step.unavailable": "Step {number}: {step} — not available yet",
   "stepper.step.error": "Step {number}: {step} — has an error",

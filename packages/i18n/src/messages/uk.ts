@@ -869,6 +869,7 @@ export const uk = {
   "select.account.new": "Новий рахунок",
   "select.account.search": "Пошук рахунку",
   "stepper.step": "Крок {number}: {step}",
+  "stepper.step.current": "Крок {number}: {step} — поточний",
   "stepper.step.done": "Крок {number}: {step} — заповнено",
   "stepper.step.unavailable": "Крок {number}: {step} — ще недоступний",
   "stepper.step.error": "Крок {number}: {step} — є помилка",
