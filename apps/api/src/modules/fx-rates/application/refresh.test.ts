@@ -211,6 +211,24 @@ describe("VAL-05@PoC: the daily update task with retries", () => {
     }
   });
 
+  it("VAL-05@PoC AC6: stop() while the first timer reads the last success → no request after the stop", async () => {
+    const store = memoryStore(null);
+    const read = store.lastSuccessAt.bind(store);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    store.lastSuccessAt = async () => {
+      await gate;
+      return read();
+    };
+    const { time, feed, loop } = setup(store);
+    await time.advance(FIRST_ATTEMPT_DELAY_MS);
+    const stopping = loop.stop();
+    release();
+    await stopping;
+    await new Promise((r) => setTimeout(r, 5));
+    expect(feed.calls).toEqual([]);
+  });
+
   it("VAL-05@PoC AC7: a failed request is retried the same day until the first success; after it no request for 24 h", async () => {
     const { time, feed, events, loop } = setup();
     feed.up = false;

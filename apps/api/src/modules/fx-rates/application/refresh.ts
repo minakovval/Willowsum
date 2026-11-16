@@ -147,6 +147,7 @@ export function startFxRefresh(
   const due = async (): Promise<void> => {
     if (stopped) return;
     const last = await deps.store.lastSuccessAt().catch(() => null);
+    if (stopped) return; // stop() came while the store was read: no request after it
     const wait = last === null ? 0 : last + REFRESH_INTERVAL_MS - deps.clock.now();
     if (wait > 0) {
       arm(wait, true);
