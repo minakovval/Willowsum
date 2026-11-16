@@ -21,20 +21,17 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
      follow-up PRs and status checks also on the lighter model;
    - **security reviews**: the main model, except the Fable uses below; **mutation testing of critical modules
      is mandatory on any model**;
-   - **Fable** (owner, 2026-11-14/15/16, #178) only for:
-     (a) the security review of a `sensitive:money` PR that **writes** sums, balances or postings, with no
-     condition on the number of authors; a money PR that only reads (a directory, read-only queries, like #338)
-     goes to the main model with mutation testing; the lead decides by the diff, in doubt Fable (owner,
-     2026-11-16, process review 15, proposal 2);
-     (b) the security review of the highest-risk PRs (sign-in, encryption, data isolation of the household or
-     space) and (c) root-cause searches of flaky tests — (b) and (c) at most one at a time and only while at
-     most 3 authors run (owner, 2026-11-16, 9a).
-     At most 2 Fable tasks at once in total (owner, 2026-11-16, `2026-11-16-owner-speedup.md`, #331); Рішення
-     ведучого (2026-11-16; власник не схвалював; #331): (a) has priority, and a flaky-test search starts only
-     while fewer than 2 Fable tasks run, else it waits or goes to the main model. Everything else — architecture
-     rows, vault encryption, statement import, requirement sweeps, follow-ups, docs, sync confirmations — is on
-     the main model. Fable draws on the same 100 USD subscription limit about twice as fast per token, with
-     longer turns: short briefs that state the goal; compare its rows in #180 by the per-model split;
+   - **Fable** (owner, 2026-11-16, Ultra, [log](../../../../docs/decisions/log/2026-11-16-owner-ultra-fable-fingerprints.md), items 1–3) only for:
+     (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the security review of every PR that
+     **writes** sums, balances or postings — a money PR that only reads (a directory, read-only queries, like #338)
+     goes to the main model with mutation testing; the lead decides by the diff, in doubt Fable (owner, 2026-11-16,
+     process review 15, proposal 2); (c) the security reviews of sign-in, encryption and data isolation of the
+     household or space, not queued behind (b); (d) wave planning (`plan-wave`). At most 4 Fable tasks at once.
+     Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
+     import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
+     Opus; parallelism as in AGENTS.md (7 branches, 10 agents). Fable draws on the Ultra subscription limit about
+     twice as fast per token, with longer turns: short briefs that state the goal; compare its rows in #180 by the
+     per-model split;
    - **reviews** (owner, 2026-11-13): a `review-pr` of a PR whose every file passes `isDocsOnly` (merge checklist)
      and none is a test or code may use a lighter model; every review and confirmation of a PR that changes code,
      tools or workflows stays on the main model, as does a `.claude/`- or AGENTS.md-only PR that touches a security
@@ -109,7 +106,7 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
    reviewer and confirmation run of that PR (follow-up and fix agents of the same PR included).
 3. **Analysis** (owner, 2026-11-15, #178): no weekly «Аналіз» note; the process review ([restarts](restarts.md))
    draws its conclusions from #180: which PR types cost most (sum and per PR, tokens and time) and the lead's share.
-   Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)): once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the week before it: the mean time
+   Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)): once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the pace from 2026-11-16 on, not earlier days (owner, 2026-11-16, Ultra, item 4): the mean time
    from opening a PR to its merge, review sessions per PR and cost per merged PR (from #180); if one of them did not
    improve, tell the owner in two or three lines; why: the brief's «Як перевірити, що спрацювало».
 
