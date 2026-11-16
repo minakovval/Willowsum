@@ -26,12 +26,13 @@ export function jobNames(yamlText) {
     if (!inJobs) continue;
     const key = /^ {2}([A-Za-z0-9_-]+):\s*(#.*)?$/.exec(line);
     if (key) {
-      current = { key: key[1], name: null, matrixName: false, needs: [] };
+      current = { key: key[1], name: null, matrixName: false, needs: [], text: '' };
       jobs.push(current);
       inNeedsList = false;
       continue;
     }
     if (!current) continue;
+    current.text += `${line}\n`;
     if (inNeedsList) {
       const item = /^ {6}- ([A-Za-z0-9_-]+)\s*(#.*)?$/.exec(line);
       if (item) {
@@ -50,6 +51,8 @@ export function jobNames(yamlText) {
     if (name) current.name = name[2].trim();
     else if (/^ {4}name:.*\$\{\{\s*matrix\./.test(line)) current.matrixName = true;
   }
-  const needed = new Set(jobs.flatMap((j) => j.needs));
-  return jobs.filter((j) => !(j.matrixName && needed.has(j.key))).map((j) => j.name ?? j.key);
+  // A matrix job is covered by an aggregate job only when that job reads `needs.<key>.result` (#243): a job that
+  // needs it just for ordering would otherwise drop it from the required list unseen.
+  const covered = (key) => jobs.some((j) => j.needs.includes(key) && j.text.includes(`needs.${key}.result`));
+  return jobs.filter((j) => !(j.matrixName && covered(j.key))).map((j) => j.name ?? j.key);
 }
