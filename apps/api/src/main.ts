@@ -8,7 +8,11 @@ import { parseArgs } from "node:util";
 import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
-import { createAccountDirectory, createAccountsServices } from "./modules/accounts/index.ts";
+import {
+  createAccountDirectory,
+  createAccountsServices,
+  createCreditAccounts,
+} from "./modules/accounts/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
@@ -16,6 +20,7 @@ import {
   createCategorizationServices,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
+import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantsServices } from "./modules/merchants/index.ts";
 import {
@@ -293,6 +298,15 @@ const server = buildServer({
               accounts: createAccountDirectory(databases.for("accounts")),
               ledger: createLedger(databases.for("ledger")),
               transactions: createTransactionLookup(databases.for("transactions")),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
+            }),
+            // BUD-19 a: «Борги» — the credit cards and loans (accounts) with their terms (liabilities) and debts (ledger).
+            debtPayoff: createDebtPayoffServices({
+              accounts: createCreditAccounts(databases.for("accounts")),
+              liabilities: createLiabilities(databases.for("liabilities"), audit),
+              ledger: createLedger(databases.for("ledger")),
               audit,
               clock: systemClock,
               newId: randomUUID,

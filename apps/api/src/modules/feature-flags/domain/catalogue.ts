@@ -149,6 +149,13 @@ export const FLAGS = {
     description:
       "Цілі накопичення (BUD-05@PoC a): ціль з однією частиною, «Внести», потрібний щомісячний внесок, прогрес, темп; маршрути /v1/goals",
   },
+  "debts.payoff": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Погашення боргів (BUD-19@PoC a): борги з розрахунком, сценарій з додатковим і разовим платежем, Avalanche / Snowball, збережені плани, прогрес; маршрути /v1/debts",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;
