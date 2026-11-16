@@ -192,7 +192,7 @@ function text(
   return parse(value);
 }
 
-interface Checked {
+export interface Checked {
   readonly account: PostingAccount;
   readonly subaccount: PostingAccount["subaccounts"][number];
   readonly amount: Money;
@@ -203,7 +203,7 @@ interface Checked {
 }
 
 /** Every field of the form against its rule, then the account and the currency (FR 2, FR 29, FR 32, edge case 2). */
-async function check(
+export async function check(
   deps: TransactionsDeps,
   householdId: string,
   input: TransactionInput,
