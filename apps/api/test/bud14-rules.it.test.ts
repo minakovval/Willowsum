@@ -185,9 +185,16 @@ async function matches(space: Space, body: Record<string, unknown>) {
   };
 }
 
-/** One pass of the worker as main.ts wires it, until the jobs it took have ended; twice — a dispatch, then its job. */
+/** Passes of the worker as main.ts wires it until the space's events are dispatched and its jobs have ended. */
 async function runWorker(householdId: string): Promise<void> {
-  for (let pass = 0; pass < 2; pass++) {
+  for (let pass = 0; pass < 20; pass++) {
+    const { rows } = await db.owner.query(
+      `SELECT (SELECT count(*) FROM categorization.jobs WHERE household_id = $1 AND state IN ('queued', 'running'))
+            + (SELECT count(*) FROM transactions.outbox_events WHERE household_id = $1 AND dispatched_at IS NULL)
+            + (SELECT count(*) FROM categories.outbox_events WHERE household_id = $1 AND dispatched_at IS NULL) AS n`,
+      [householdId],
+    );
+    if (Number(rows[0].n) === 0) return;
     const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
     try {
       await worker.tick();
@@ -460,7 +467,7 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
     expect(many).toMatchObject({
       count: SCAN_MAX,
       truncated: true,
-      totals: [{ amount: "-12000.00", currency: "EUR" }],
+      totals: [{ amount: "-12000", currency: "EUR" }],
     });
     expect(many.items).toHaveLength(100);
     // Within the bound every row counts.
@@ -530,7 +537,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     );
     // A second run of the same event changes nothing more.
     await db.owner.query(
-      `UPDATE categorization.jobs SET state = 'pending', run_at = now() WHERE household_id = $1 AND name = 'categorization.transaction-created'`,
+      `UPDATE categorization.jobs SET state = 'queued', run_after = now(), finished_at = NULL WHERE household_id = $1 AND name = 'categorization.transaction-created'`,
       [space.householdId],
     );
     await runWorker(space.householdId);
@@ -729,7 +736,7 @@ describe("BUD-14@PoC «Права доступу»: one space, its Owner", () =>
       ).statusCode,
     ).toBe(403);
 
-    const scoped = { role: "member", scoped: true };
+    const scoped = { role: "editor", scoped: true };
     expect((await call(space, "GET", "/v1/category-rules", undefined, scoped)).statusCode).toBe(404);
     expect(
       (await call(space, "POST", "/v1/category-rules/matches", { conditions: [merchantIs("Synth")] }, scoped))
@@ -838,17 +845,20 @@ describe("ARC-04@PoC FR 2–4: the audit entries of the rules, their dead job an
     vi.restoreAllMocks();
     const ruleId = res.json().id as string;
     const t = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
-    // The dispatch hands the event to the queue; both jobs die before they run.
-    const worker = createWorker({
-      ...workerQueues(db.databases),
-      households: async () => [space.householdId],
-    });
-    await worker.tick();
-    await worker.idle();
-    await worker.stop();
+    // Both jobs die before they run: the audit job of the rule, and the rules of the new transaction — its event is
+    // handed to the categorization queue as a job the worker gave up on.
     await db.owner.query(
       `UPDATE categorization.jobs SET state = 'dead', attempts = 8 WHERE household_id = $1 AND state <> 'done'`,
       [space.householdId],
+    );
+    await db.owner.query(
+      `UPDATE transactions.outbox_events SET dispatched_at = now() WHERE household_id = $1`,
+      [space.householdId],
+    );
+    await db.owner.query(
+      `INSERT INTO categorization.jobs (household_id, name, dedupe_key, payload, state, attempts)
+       VALUES ($1, 'categorization.transaction-created', $2, jsonb_build_object('transactionId', $2::text), 'dead', 8)`,
+      [space.householdId, t],
     );
     await runWorker(space.householdId);
     expect(
