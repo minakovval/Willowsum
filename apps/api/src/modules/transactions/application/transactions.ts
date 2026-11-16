@@ -42,9 +42,14 @@ export interface TransactionsTx {
   /** «Не дубль» (FR 12): the pair stored in the order of its ids; false — it was stored already. */
   insertDismissal(householdId: string, firstId: string, secondId: string): Promise<boolean>;
   /**
+   * The space's lock of duplicates until the transaction ends (FIN-03 FR 18, FR 35): taken first — before any row's
+   * lock — by hiding, by a change of the amount, account or date, by «Видалити» and by «Не дубль», so a copy is never
+   * hidden while its pair changes, and two copies are never hidden at once.
+   */
+  lockDuplicates(householdId: string): Promise<void>;
+  /**
    * FR 18: the possible duplicates `id` is a side of now, by the search of `DuplicateCandidates` within `windowDays`;
-   * first takes the space's lock of hiding on the account until the transaction ends, so two copies are never hidden
-   * at once.
+   * read under `lockDuplicates`.
    */
   duplicatesForHiding(
     householdId: string,
@@ -52,6 +57,17 @@ export interface TransactionsTx {
     accountId: string,
     windowDays: number,
   ): Promise<readonly DuplicatePairSides[]>;
+  /**
+   * FR 35: the manual transactions hidden as a duplicate (not merged, no side of a transfer) that `side` — a shown
+   * transaction as it is now — is a possible-duplicate pair of within `windowDays`, the pair not «Не дубль»; by id.
+   */
+  hiddenCopiesOf(
+    householdId: string,
+    side: { readonly id: string; readonly accountId: string; readonly amount: Money; readonly date: string },
+    windowDays: number,
+  ): Promise<string[]>;
+  /** FR 35: the pairs the hidden transaction `id` would make with the shown ones, as if it were shown. */
+  pairsOfHidden(householdId: string, id: string, windowDays: number): Promise<readonly DuplicatePairSides[]>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
 }
@@ -117,6 +133,8 @@ export type TransactionResult =
       readonly transaction: StoredTransaction;
       /** Run it once the transaction has committed (ARC-04 FR 2); the worker runs it too. Null: nothing changed. */
       readonly handOff: TransactionHandOff | null;
+      /** FR 35: the hidden copies this change showed again, run after `handOff`. */
+      readonly shown?: readonly TransactionHandOff[];
     }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   /** The account is «Закритий»: read only (FIN-12 FR 8). */
@@ -133,6 +151,11 @@ export type TransactionResult =
   | { readonly kind: "merged" }
   /** FR 18: hiding is for duplicates and technical records only. Nothing was written. */
   | { readonly kind: "not-hideable" }
+  /**
+   * FR 34 (owner, 2026-11-15, #281 item 4): the amount and the account of a transaction others were merged into change
+   * only after «Роз'єднати». Nothing was written.
+   */
+  | { readonly kind: "has-duplicates" }
   | { readonly kind: "not-found" };
 
 /** The hand-off of one change, with its audit values, enqueued in the caller's transaction. */
@@ -267,6 +290,11 @@ export async function updateTransaction(
   change: TransactionChange,
 ): Promise<TransactionResult> {
   const householdId = caller.householdId;
+  // FR 35: a change of the amount, account or date may end a hidden copy's pair; their rows are locked with this one.
+  const copies =
+    change.accountId !== undefined || change.amount !== undefined || change.date !== undefined
+      ? await lockWithCopies(deps, tx, householdId, id)
+      : [];
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
   if (current.mergedInto !== null) return { kind: "merged" };
@@ -301,6 +329,13 @@ export async function updateTransaction(
     return { kind: "ok", transaction: current, handOff: null };
   // The texts of a transfer's side may change; its money and state only once the mark is removed (FR 9).
   if (current.transfer && (moneyChanged || statusChanged)) return { kind: "in-transfer" };
+  // FR 34: a new amount (or currency) or account of one others were merged into — «Роз'єднати» first; the date,
+  // texts and state change (lead decision, 2026-11-15).
+  if (
+    (!checked.amount.equals(current.amount) || checked.account.accountId !== current.accountId) &&
+    (await tx.duplicatesOf(householdId, id)).length > 0
+  )
+    return { kind: "has-duplicates" };
   // BUD-01 FR 6: a split outlives a change of the amount, marked «потребує перегляду».
   const split =
     current.split && !checked.amount.equals(current.amount)
@@ -322,7 +357,66 @@ export async function updateTransaction(
     mergedInto: current.mergedInto,
     version: current.version + 1,
   });
-  return { kind: "ok", transaction: next, handOff: await handOff(tx, caller, "update", current, next) };
+  const updated = await handOff(tx, caller, "update", current, next);
+  if (!moneyChanged) return { kind: "ok", transaction: next, handOff: updated };
+  // FR 35: its hidden copies whose pair it was, and the row itself when it is a hidden copy, shown if no pair is left.
+  const shown = await showLonelyCopies(deps, tx, caller, next.hidden ? [...copies, id] : copies);
+  return {
+    kind: "ok",
+    transaction: shown.rows.get(id) ?? next,
+    handOff: updated,
+    shown: shown.handOffs,
+  };
+}
+
+/**
+ * FR 35, the start of a change that may end a hidden copy's pair: the space's lock of duplicates first (as hiding takes
+ * it), then the row and the hidden copies it is a pair of now, locked in the order of their ids (as a merge locks its
+ * two). Returns those copies; none when the duplicate rule is not wired (nothing was hidden by it).
+ */
+export async function lockWithCopies(
+  deps: Pick<TransactionsDeps, "duplicates">,
+  tx: TransactionsTx,
+  householdId: string,
+  id: string,
+): Promise<string[]> {
+  await tx.lockDuplicates(householdId);
+  const rule = deps.duplicates;
+  const seen = await tx.find(householdId, id);
+  // Only a shown transaction outside a transfer and not merged is a side of a pair; the copies cannot grow meanwhile:
+  // a row is hidden as a duplicate only under the lock taken above.
+  if (!rule || !seen || seen.hidden || seen.transfer || seen.mergedInto !== null) return [];
+  const copies = await tx.hiddenCopiesOf(householdId, seen, rule.windowDays);
+  for (const rowId of [...new Set([id, ...copies])].sort()) await tx.lock(householdId, rowId);
+  return copies;
+}
+
+/**
+ * FR 35 (owner, 2026-11-15, #281 item 5): each of `ids` that is a manual transaction hidden as a duplicate (not
+ * merged, no side of a transfer) and is a «Можливий дубль» of no shown transaction any more is shown again, in the
+ * caller's transaction, with its own hand-off (`show`): its journal event is posted again (hand-off.ts), so no
+ * operation leaves the balance unseen. Rows locked already by the caller (lockWithCopies, or both sides of a pair).
+ */
+export async function showLonelyCopies(
+  deps: Pick<TransactionsDeps, "duplicates">,
+  tx: TransactionsTx,
+  caller: Caller,
+  ids: readonly string[],
+): Promise<{ readonly handOffs: TransactionHandOff[]; readonly rows: Map<string, StoredTransaction> }> {
+  const rule = deps.duplicates;
+  const handOffs: TransactionHandOff[] = [];
+  const rows = new Map<string, StoredTransaction>();
+  if (!rule) return { handOffs, rows };
+  for (const rowId of [...new Set(ids)].sort()) {
+    const row = await tx.lock(caller.householdId, rowId);
+    if (!row || !row.hidden || row.mergedInto !== null || row.transfer || row.source !== "manual") continue;
+    if (rule.isPossibleDuplicate(await tx.pairsOfHidden(caller.householdId, rowId, rule.windowDays)))
+      continue;
+    const shown = await tx.update(caller.householdId, { ...row, hidden: false, version: row.version + 1 });
+    handOffs.push(await handOff(tx, caller, "show", row, shown));
+    rows.set(rowId, shown);
+  }
+  return { handOffs, rows };
 }
 
 /** «Видалити» of a transaction entered by hand (FR 16, AC10): its postings are reversed, the row goes. */
@@ -332,13 +426,19 @@ export async function deleteTransaction(
   caller: Caller,
   id: string,
 ): Promise<
-  | { readonly kind: "ok"; readonly handOff: TransactionHandOff }
+  | {
+      readonly kind: "ok";
+      readonly handOff: TransactionHandOff;
+      /** FR 35: the hidden copies of the deleted transaction shown again, run after `handOff`. */
+      readonly shown: readonly TransactionHandOff[];
+    }
   | { readonly kind: "closed" }
   | { readonly kind: "in-transfer" }
   | { readonly kind: "merged" }
   | { readonly kind: "not-found" }
 > {
   const householdId = caller.householdId;
+  const copies = await lockWithCopies(deps, tx, householdId, id);
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
@@ -349,14 +449,16 @@ export async function deleteTransaction(
   if (current.mergedInto !== null || (await tx.duplicatesOf(householdId, id)).length > 0)
     return { kind: "merged" };
   await tx.remove(householdId, id);
-  return { kind: "ok", handOff: await handOff(tx, caller, "delete", current, null) };
+  const deleted = await handOff(tx, caller, "delete", current, null);
+  // FR 35: the hidden copies whose pair it was, shown again if no other pair is left.
+  return { kind: "ok", handOff: deleted, shown: (await showLonelyCopies(deps, tx, caller, copies)).handOffs };
 }
 
 /**
  * «Приховати транзакцію» and showing it again (FIN-03 FR 16–18, FR 27): out of the list (unless asked for), the budget
  * and the reports; a manual row's journal entry is reversed on hiding and posted again on showing (FIN-03 FR 17; an imported row keeps its entry). Hiding twice changes nothing. FR 18: only a
- * duplicate is hidden — a «Можливий дубль» now by module duplicate-matching's rule, read under the account's lock of
- * hiding (so of two copies only one is ever hidden); technical records come with bank connections, none is in this
+ * duplicate is hidden — a «Можливий дубль» now by module duplicate-matching's rule, read under the space's lock of
+ * duplicates (so of two copies only one is ever hidden, and never one whose pair is changing: FR 35); technical records come with bank connections, none is in this
  * release. A transfer between own accounts is never hidden. Without the rule wired, hiding throws (500).
  */
 export async function setHidden(
@@ -366,6 +468,8 @@ export async function setHidden(
   id: string,
   hidden: boolean,
 ): Promise<TransactionResult> {
+  // The space's lock of duplicates before the row's, as every change that may end a pair takes them (FR 35).
+  if (hidden) await tx.lockDuplicates(caller.householdId);
   return changeRow(deps, tx, caller, id, hidden ? "hide" : "show", async (current) => {
     if (current.hidden === hidden) return null;
     if (hidden && current.transfer) return "in-transfer";

@@ -1,7 +1,7 @@
 import { dismissalPair, dismissIssues, mergeIssues, type FieldIssue } from "../domain/index.ts";
 import { transactionAuditValues, type TransactionHandOff } from "./hand-off.ts";
 import type { StoredTransaction } from "./stored.ts";
-import type { Caller, TransactionsDeps, TransactionsTx } from "./transactions.ts";
+import { showLonelyCopies, type Caller, type TransactionsDeps, type TransactionsTx } from "./transactions.ts";
 import { anyClosed, lockBoth, type InTransactions } from "./transfers.ts";
 
 /**
@@ -130,7 +130,9 @@ export async function unmergeDuplicate(
 /**
  * «Не дубль» (FR 12): the mark is taken off the pair and never put on it again. The pair must be one that could be a
  * duplicate (one account, the same amount and currency; domain dismissIssues), neither merged. Twice: nothing changes.
- * The audit entry is the transaction's the action was on (`notDuplicateOf`).
+ * The audit entry is the transaction's the action was on (`notDuplicateOf`). FR 35 (owner, 2026-11-15, #281 item 5): a
+ * side hidden as a duplicate is shown again in the same transaction when no other pair is left to it, so «Не дубль»
+ * never leaves a real operation out of the balance. Under the space's lock of duplicates first, then both rows.
  */
 export async function dismissDuplicate(
   deps: TransactionsDeps,
@@ -141,6 +143,7 @@ export async function dismissDuplicate(
 ): Promise<DuplicateResult> {
   const householdId = caller.householdId;
   return inTransactions(async (tx) => {
+    await tx.lockDuplicates(householdId);
     const [current, counterpart] = await lockBoth(tx, householdId, id, counterpartId);
     if (!current) return { kind: "not-found" };
     if (!counterpart) return { kind: "invalid", issues: [{ field: "counterpartId", issue: "not_found" }] };
@@ -150,9 +153,6 @@ export async function dismissDuplicate(
       ["counterpartId", counterpart],
     ] as const)
       if (side.mergedInto !== null) issues.push({ field, issue: "merged" });
-      // FR 17: a hidden manual copy is out of the balance as a duplicate; «Не дубль» would leave a real operation out of
-      // it, hidden. «Показати» first (as «Об'єднати» refuses a hidden side).
-      else if (side.hidden) issues.push({ field, issue: "hidden" });
     if (issues.length > 0) return { kind: "invalid", issues };
     if (await anyClosed(deps, householdId, [current])) return { kind: "closed" };
     const [first, second] = dismissalPair(id, counterpartId);
@@ -160,10 +160,12 @@ export async function dismissDuplicate(
       return { kind: "ok", transaction: current, handOffs: [] };
     const row = await tx.update(householdId, { ...current, version: current.version + 1 });
     const audit = [{ field: "notDuplicateOf", before: null, after: counterpartId, sensitive: false }];
+    const dismissed = await enqueue(tx, caller, "not-duplicate", current, row, audit);
+    const shown = await showLonelyCopies(deps, tx, caller, [id, counterpartId]);
     return {
       kind: "ok",
-      transaction: row,
-      handOffs: [await enqueue(tx, caller, "not-duplicate", current, row, audit)],
+      transaction: shown.rows.get(id) ?? row,
+      handOffs: [dismissed, ...shown.handOffs],
     };
   });
 }
