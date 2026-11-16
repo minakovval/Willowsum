@@ -13,6 +13,7 @@ import {
   categorizableFacts,
   counterpartiesOf,
   counterpartyCounts,
+  recurringHistory,
   subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
@@ -225,6 +226,35 @@ export function createTransactionTexts(db: ModuleDatabase): TransactionTexts {
       db.inHousehold(householdId, (q) => counterpartiesOf(q, householdId, ids)),
     counterpartyCounts: (householdId) =>
       db.inHousehold(householdId, (q) => counterpartyCounts(q, householdId)),
+  };
+}
+
+/**
+ * The transactions module as module recurring reads it (BUD-07@PoC FR 1; wave 2 row 25): the space's shown transactions
+ * with a counterparty in a period — no side of a transfer, merged into none — newest first, at most `limit`. `amount` is
+ * signed in `currency` (minus — an expense). Read only; every call is bound to one space.
+ */
+export interface TransactionHistory {
+  charges(
+    householdId: string,
+    query: { readonly from: string; readonly to: string; readonly limit: number },
+  ): Promise<
+    readonly {
+      readonly id: string;
+      readonly accountId: string;
+      readonly date: string;
+      readonly amount: string;
+      readonly currency: string;
+      readonly counterparty: string;
+    }[]
+  >;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransactionHistory(db: ModuleDatabase): TransactionHistory {
+  return {
+    charges: (householdId, query) =>
+      db.inHousehold(householdId, (q) => recurringHistory(q, householdId, query)),
   };
 }
 

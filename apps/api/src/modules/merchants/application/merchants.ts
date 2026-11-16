@@ -89,6 +89,35 @@ export async function merchantOfTransaction(
   };
 }
 
+/**
+ * The merchant each counterparty shows (FR 1, FR 3) — for another module that groups transactions by merchant (BUD-07
+ * FR 1): the merchant a merge joined it into, else its own; a counterparty that normalizes to nothing is absent. The
+ * merchant of a description seen for the first time is born, as when it is read here.
+ */
+export async function shownMerchants(
+  tx: MerchantsTx,
+  householdId: string,
+  counterparties: readonly string[],
+): Promise<ReadonlyMap<string, Merchant>> {
+  const normalized = new Map<string, NormalizedMerchant>();
+  for (const counterparty of new Set(counterparties)) {
+    const n = normalizeDescription(counterparty);
+    if (n !== null) normalized.set(counterparty, n);
+  }
+  const born = new Map([...normalized.values()].map((n) => [n.key, n]));
+  await tx.ensure(householdId, [...born.values()]);
+  const byKey = await tx.byKeys(householdId, [...born.keys()]);
+  const roots = await tx.byIds(householdId, [
+    ...new Set([...byKey.values()].flatMap((m) => (m.mergedInto === null ? [] : [m.mergedInto]))),
+  ]);
+  const shown = new Map<string, Merchant>();
+  for (const [counterparty, n] of normalized) {
+    const own = byKey.get(n.key)!;
+    shown.set(counterparty, own.mergedInto === null ? own : (roots.get(own.mergedInto) ?? own));
+  }
+  return shown;
+}
+
 /** A merchant of the list «Об'єднати з…»: with how many shown transactions it has, its joined merchants' included. */
 export interface ListedMerchant {
   readonly merchant: Merchant;

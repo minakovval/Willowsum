@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -13,8 +13,8 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
    - **Fable** (owner, 2026-11-14/15, #178): **only** root-cause searches of flaky tests and the security review
      of the highest-risk PRs (sign-in, encryption, data isolation of the household/space). Other security reviews
      are on the main model, as is everything else (architecture rows, vault encryption, statement import,
-     requirement sweeps, follow-ups, docs, sync confirmations). **At most one Fable task at a time, and no Fable
-     task while 2 authors run in parallel.** **Mutation testing of critical modules is mandatory on any model.**
+     requirement sweeps, follow-ups, docs, sync confirmations). **At most one Fable task at a time, and Fable
+     only while at most 3 authors run in parallel (owner, 2026-11-16; was: not while 2 authors run).** **Mutation testing of critical modules is mandatory on any model.**
      A security review already started on Fable (#266) is finished on Fable. Fable draws on the same 100 USD
      subscription limit and spends it faster (about ×2 price per token, longer turns); its briefs are short and
      state the goal. Compare Fable rows with similar PRs in #180 by the per-model split (see «Token accounting»);

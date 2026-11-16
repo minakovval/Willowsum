@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -122,7 +122,7 @@ the issue): write the text to your scratchpad file and run
 (`-F`, so the file's text is sent). The same for every confirmation round.
 
 **Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR, reviewed head SHA (full), verdict, blocking items with file:line, owner questions. Details go in the PR body
-or the review, not in the report.
+or the review, not in the report. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
 **At most two rounds** (owner, 2026-11-12). If something blocking remains after round 2, give a ready fix
 with a test in the review (a patch or exact code) and the verdict `Changes requested`; after the author

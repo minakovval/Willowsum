@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -18,8 +18,9 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
   with the reason);
-- (d) the end of a lead segment: after a compaction, the short retrospective; at the end of a session, also the
-  item-by-item handover confirmation and the start message for the next session ([restarts](references/restarts.md)).
+- (d) the end of a lead segment: after a compaction, the short retrospective in chat and the handover table on #179
+  (owner, 2026-11-16, #178); at the end of a session, also the item-by-item handover confirmation in chat and the
+  start message for the next session ([restarts](references/restarts.md)).
 
 Never write (owner, 2026-11-13/14, #178): agent started or finished, subscribed or unsubscribed, PR or issue
 opened, reviewers started, CI in progress or any other service notification (PR subscription events, an agent's
@@ -148,9 +149,9 @@ restart and its limit, the start message, the process review every 3rd lead numb
 
 ## 3. Parallel branches
 
-Up to 3 branches at a time (AGENTS.md «Parallel branches»), each with its own worktree, PR and test database.
-**At most 3–4 agents at once** (owner, 2026-11-13), implementers and reviewers together; more wait in a queue.
-Slots count agents, not branches: give each agent a slot `k` (1–4) in its brief and keep a table slot → agent →
+Up to 5 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16), each with its own worktree, PR and test database.
+**At most 7 agents at once** (owner, 2026-11-16; was 3–4), authors, reviewers and fix agents together; more wait in a queue.
+Slots count agents, not branches: give each agent a slot `k` (1–7) in its brief and keep a table slot → agent →
 branch → worktree: its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on
 `WS_PORT=808k`, its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
 processes it started, by PID (the skills that start servers or databases say how). Choose parts that touch

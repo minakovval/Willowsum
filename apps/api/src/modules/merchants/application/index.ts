@@ -6,6 +6,7 @@ export {
   mergeMerchants,
   merchantOfTransaction,
   renameMerchant,
+  shownMerchants,
   unmergeMerchant,
   type ChangeResult,
   type ListedMerchant,

@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
 
 Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, CI
 green, every acceptance criterion covered by a test. Gate: no change to `apps/` or `packages/` for a release whose
@@ -40,6 +40,9 @@ elsewhere in the file, else the first view). A table criterion without a number 
 (`criterion «…»`). Include where relevant: permission tests (every role and a scoped member; PoC: the one user
 and other spaces), `402 PLAN_LIMIT_REACHED` with data still visible, `Decimal` money with mixed currencies, the
 audit entry, and a fixed or injected clock (never re-read `Date.now()` to pick a window; #92).
+For every new write endpoint labelled `sensitive:money`, also a test with two simultaneous requests
+(`Promise.all`, same resource): the result must be consistent, with no double spend or lost update. Рішення
+ведучого (2026-11-16; власник не схвалював; #178): reviews found races in #299, #302, #303.
 
 ## 4. Implement and verify
 
@@ -105,4 +108,4 @@ for a decision the owner gave (AGENTS.md steps 5 and 7). Review rounds (what blo
 reviewer's ready fix): AGENTS.md step 5.
 
 **Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI,
-criteria covered or left), blockers, owner questions. Details go in the PR body. Follow-ups: list them under Follow-ups in the PR body / report; the lead opens the issue.
+criteria covered or left), blockers, owner questions. Details go in the PR body. Follow-ups: list them under Follow-ups in the PR body / report; the lead opens the issue. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

@@ -572,6 +572,32 @@ describe("BUD-02@PoC: what the period counts", () => {
 });
 
 describe("BUD-02@PoC: deletion, the space's boundary, audit", () => {
+  it("BUD-02@PoC FR 10, FR 13: two simultaneous switches of one account write one change; two simultaneous deletes delete once", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const company = await account(space);
+    const switches = await Promise.all([
+      call(space, "PUT", `/v1/budget/accounts/${company}`, { included: false }),
+      call(space, "PUT", `/v1/budget/accounts/${company}`, { included: false }),
+    ]);
+    expect(switches.map((r) => r.statusCode)).toEqual([200, 200]);
+    expect(await n("budget.budget_accounts WHERE household_id = $1", space.householdId)).toBe(1);
+    expect(
+      await n(
+        "budget.jobs WHERE household_id = $1 AND payload->>'entity' = 'budget.account'",
+        space.householdId,
+      ),
+    ).toBe(1);
+    const deletes = await Promise.all([
+      call(space, "DELETE", "/v1/budget"),
+      call(space, "DELETE", "/v1/budget"),
+    ]);
+    expect(deletes.map((r) => r.statusCode).sort()).toEqual([200, 404]);
+    expect(
+      await n("budget.jobs WHERE household_id = $1 AND payload->>'action' = 'delete'", space.householdId),
+    ).toBe(1);
+  });
+
   it("BUD-02@PoC FR 13, AC13 (server part): «Видалити бюджет» takes the limits, account choices and snapshots; AC14 — the Owner does it", async () => {
     now = at("2026-10-05");
     const space = await newSpace();

@@ -5,9 +5,9 @@ description: Bring a Willowsum working branch up to date with origin/main by mer
 
 # Sync a branch with main
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
-Up to 3 working branches exist at once (AGENTS.md, «Parallel branches»), so `main` moves under every PR.
+Up to 5 working branches exist at once (`pr-pipeline` §3; owner, 2026-11-16), so `main` moves under every PR.
 Input: a working branch in its own worktree. Output: the branch containing `origin/main`, checks green, one
 merge commit pushed, the reviewers' confirmation requested on the new head.
 
@@ -113,4 +113,4 @@ only brought in files outside the PR; none for a docs-only PR not labelled `sens
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit
-message or the PR body.
+message or the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

@@ -863,6 +863,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurring/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Proposals of regular payments: series of one merchant's charges at a frequency with a fixed (± 10 %) or variable amount, from the last 430 days (BUD-07 FR 1–4) */
+        get: operations["listRecurringProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/registrations": {
         parameters: {
             query?: never;
@@ -8154,7 +8171,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "goals.savings" | "budget.period")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "recurring.payments" | "goals.savings" | "budget.period")[];
                     };
                 };
             };
@@ -9545,6 +9562,124 @@ export interface operations {
                 };
             };
             /** @description Too many requests from this client in the current minute (RATE_LIMITED; 60 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listRecurringProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The proposals by next date; analysed anew on every read */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** Format: uuid */
+                            accountId: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** @enum {string} */
+                            frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                            key: string;
+                            lastDate: string;
+                            merchant: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            };
+                            nextDate: string;
+                            transactionIds: string[];
+                            /** @enum {string} */
+                            type: "expense" | "income";
+                            variable: boolean;
+                        }[];
+                        more: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
             429: {
                 headers: {
                     /** @description Seconds until the current one-minute window ends */
