@@ -502,7 +502,7 @@ describe("BUD-13@PoC FR 6, FR 8 / BUD-01@PoC FR 6: «Розділити» is the
       accountId: usd,
       amount: { amount: "-186.00", currency: "USD" },
     });
-    expect(moved.statusCode, moved.body).toBe(422);
+    expect(moved.statusCode, moved.body).toBe(400);
     expect(moved.json().errors).toEqual([{ in: "body", path: "accountId", issue: "split" }]);
     const after = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
     expect(after).toEqual(before);
@@ -539,7 +539,7 @@ describe("BUD-13@PoC FR 6, FR 8 / BUD-01@PoC FR 6: «Розділити» is the
       const flipped = await call(space, "PATCH", `/v1/transactions/${t.id}`, {
         amount: { amount: "186.00", currency: "EUR" },
       });
-      expect(flipped.statusCode, flipped.body).toBe(422);
+      expect(flipped.statusCode, flipped.body).toBe(400);
       expect(flipped.json().errors).toEqual([{ in: "body", path: "amount", issue: "split" }]);
       const after = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
       expect(after).toEqual(before);
