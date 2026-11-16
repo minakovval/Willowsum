@@ -1079,3 +1079,421 @@ code {
   gap: var(--ws-space-2);
   min-height: var(--ws-touch-target);
 }
+
+/*
+ * BUD-13@PoC b), FIN-03@PoC e) (wave 2, row 117): «Розділити транзакцію» (S-049; boards PocMoneySplit,
+ * PocMoneySplitMonths) and the attributes of a transaction in its details (S-047; board PocMoneyTxDetail).
+ */
+.tx-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ws-layer-drawer);
+  display: grid;
+  place-items: start center;
+  padding: var(--ws-space-7) var(--ws-space-4);
+  background: var(--ws-scrim);
+  backdrop-filter: blur(var(--ws-scrim-blur));
+}
+
+/* BUD-13 FR 6: the dialog is never taller than 624 px; the months schedule keeps one height for any N. */
+.tx-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: min(624px, 100%);
+  overflow: auto;
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-dialog);
+  color: var(--ws-ink);
+}
+
+.tx-dialog-close {
+  position: absolute;
+  inset-block-start: var(--ws-space-3);
+  inset-inline-end: var(--ws-space-3);
+}
+
+.tx-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-4);
+  padding: calc(var(--ws-space-5) + var(--ws-space-1)) var(--ws-space-6) var(--ws-space-5);
+}
+
+.tx-dialog-title {
+  margin: 0 calc(var(--ws-space-6) + var(--ws-space-2)) 0 0;
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  letter-spacing: var(--ws-text-heading-2-tracking);
+}
+
+.tx-dialog-summary,
+.tx-dialog-explain,
+.tx-hint,
+.tx-attr-label {
+  margin: 0;
+  color: var(--ws-ink-muted);
+}
+
+.tx-dialog-explain,
+.tx-hint {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-dialog-explain {
+  margin-block-start: calc(var(--ws-space-2) * -1);
+}
+
+.tx-dialog-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5) var(--ws-space-6);
+  border-block-start: 1px solid var(--ws-surface-300);
+  background: var(--ws-surface-inset);
+}
+
+.tx-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-2);
+}
+
+.tx-reason {
+  margin: 0;
+}
+
+.tx-segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: calc(var(--ws-space-1) / 2);
+  margin: 0;
+  padding: calc(var(--ws-space-1) - 1px);
+  border: 0;
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+}
+
+.tx-segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  padding: 0 var(--ws-space-3);
+  border-radius: calc(var(--ws-radius-md) - 2px);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tx-segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tx-segment:has(input:checked) {
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-raised);
+  color: var(--ws-ink);
+  font-weight: 600;
+}
+
+.tx-segment:has(input:focus-visible) {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.tx-parts,
+.tx-schedule-list,
+.tx-split-parts,
+.tx-tags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+}
+
+.tx-part {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.tx-part-index {
+  width: calc(var(--ws-space-5) - var(--ws-space-1));
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.tx-part-category {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-part-amount {
+  position: relative;
+  flex: none;
+  width: calc(var(--ws-space-8) * 2 + var(--ws-space-3));
+}
+
+.tx-part-amount .auth-input,
+.tx-num {
+  padding-inline-end: calc(var(--ws-space-6) + var(--ws-space-3));
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-num {
+  padding-inline-end: var(--ws-space-3);
+}
+
+.tx-part-currency {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--ws-space-3);
+  display: flex;
+  align-items: center;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  pointer-events: none;
+}
+
+.tx-link-button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: calc(var(--ws-space-1) * 1.5);
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-link);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tx-link-button:disabled {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.tx-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3) calc(var(--ws-space-3) + 2px);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-note b {
+  font-weight: 600;
+}
+
+.tx-note-done > svg {
+  color: var(--ws-gain);
+}
+
+.tx-month-fields {
+  display: flex;
+  gap: var(--ws-space-3);
+}
+
+.tx-month-fields > .auth-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-month-fields > .tx-field-narrow {
+  flex: none;
+  width: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+}
+
+/* Head, two shares, the folded line and the last share: one height whatever the number of months (FR 6, AC8). */
+.tx-schedule {
+  min-height: calc(var(--ws-space-8) * 3 + var(--ws-space-6) + var(--ws-space-2));
+  border: 1px solid var(--ws-line);
+  border-radius: calc(var(--ws-radius-md) + 2px);
+  overflow: hidden;
+}
+
+.tx-schedule-empty {
+  border-style: dashed;
+}
+
+.tx-schedule-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 0;
+  padding: var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+  background: var(--ws-surface-inset);
+}
+
+.tx-schedule-head b {
+  font-weight: 600;
+}
+
+.tx-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  padding: var(--ws-space-1) var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-surface-300);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-schedule-row:last-child {
+  border-block-end: 0;
+}
+
+.tx-schedule-more {
+  background: var(--ws-surface-inset);
+  color: var(--ws-ink-muted);
+}
+
+.tx-schedule-index {
+  width: calc(var(--ws-space-5) - 2px);
+  color: var(--ws-ink-muted);
+}
+
+.tx-schedule-month {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.tx-attrs {
+  display: flex;
+  flex-direction: column;
+  max-width: calc(var(--ws-space-8) * 9);
+}
+
+.tx-attr-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  padding: var(--ws-space-2) 0;
+  border-block-end: 1px solid var(--ws-surface-300);
+}
+
+.tx-attr-label {
+  flex: none;
+  width: calc(var(--ws-space-8) * 2 + var(--ws-space-3));
+}
+
+.tx-attr-value {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+  min-width: 0;
+}
+
+.tx-attr-value > p {
+  display: flex;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.tx-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--ws-space-1) * 1.5);
+}
+
+.tx-tags:empty {
+  display: none;
+}
+
+.tx-tag,
+.tx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  padding: 0 calc(var(--ws-space-1) * 1.5);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-badge-family);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: var(--ws-text-badge-weight);
+  white-space: nowrap;
+}
+
+.tx-badge-warn {
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+/* The 44 px hit area of the small «×» of a tag (DS-14) without moving the chip. */
+.tx-tag-remove {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tx-tag-remove::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-touch-target) - var(--ws-space-3)) / -2);
+}
+
+.tx-tag-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  width: 100%;
+}
+
+.tx-note-input {
+  min-height: calc(var(--ws-space-8) + var(--ws-space-2));
+  padding-block: var(--ws-space-2);
+  resize: vertical;
+  font-family: inherit;
+}
+
+.tx-note-input::placeholder {
+  color: var(--ws-ink-muted);
+  opacity: 1;
+}
+
+.tx-split-parts {
+  width: 100%;
+}
+
+.tx-attr-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-2);
+  margin-block-start: var(--ws-space-4);
+}

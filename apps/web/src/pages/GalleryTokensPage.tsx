@@ -46,6 +46,7 @@ import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
+import { TransactionDemo } from "./TransactionDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -377,6 +378,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-progress" title={t("gallery.progress.title")}>
         <ProgressDemo />
+      </Section>
+
+      <Section id="g-transaction" title={t("gallery.section.transaction")}>
+        <TransactionDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
