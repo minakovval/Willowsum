@@ -93,7 +93,8 @@ export function createReviewBulkActions(deps: {
   const confirmCategories: BulkActionHandler = {
     name: CONFIRM_CATEGORY_ACTION,
     entity: REVIEW_ENTITY,
-    params: z.strictObject({}),
+    // No parameters: «Підтвердити категорії» confirms the category each transaction has.
+    params: z.strictObject({}).optional(),
     enabled: (caller) =>
       deps.flags ? deps.flags.isEnabled(caller.householdId, REVIEW_FEATURE) : Promise.resolve(false),
     async plan(caller, records) {
