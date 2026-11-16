@@ -332,6 +332,64 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(at("abbreviated").querySelector(".gallery-field__narrow")).not.toBeNull();
   });
 
+  it("CMP-27@PoC gallery: the ListRow section shows an account, a debt with a real minus, a selected row, an archived record, a long name and the loading skeleton", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-list-row")!.textContent).toBe("Рядок списку");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(norm(within(at("list-row-account")).getByRole("button").getAttribute("aria-label"))).toBe(
+      "Поточний ··4417, monobank · EUR · оновлено 12 хв тому, Активне, 11 400,00 євро, зросло на 12,4 % за місяць",
+    );
+    expect(norm(at("list-row-debt").querySelector(".ws-amount")!.textContent)).toBe("−180 000,00 €");
+    const box = within(at("list-row-selected")).getByRole<HTMLInputElement>("checkbox", {
+      name: "Вибрати Кредитна ··9021",
+    });
+    expect(box.checked).toBe(true);
+    act(() => box.click());
+    expect(box.checked).toBe(false);
+    expect(at("list-row-archived").querySelector(".ws-badge")!.getAttribute("data-tone")).toBe("neutral");
+    expect(at("list-row-long").querySelector(".ws-row-title")!.textContent).toContain("Накопичувальний");
+    expect(at("list-row-loading").querySelector('[aria-busy="true"]')).not.toBeNull();
+    act(() => within(at("list-row-debt")).getByRole("button").click());
+    expect(at("list-row-opened").textContent).toBe("Відкрито: debt");
+  });
+
+  it("CMP-28@PoC gallery: the TransactionRow section shows the states, a queue whose «Підтвердити» waits for the server, and the table columns", async () => {
+    vi.useFakeTimers();
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-transaction-row")!.textContent).toBe("Рядок транзакції");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    const states = at("tx-states");
+    expect(states.querySelectorAll(".ws-tx-row")).toHaveLength(6);
+    expect(states.querySelector(".ws-tx-category-none")!.textContent).toBe("Без категорії");
+    expect(within(states).getByRole("button", { name: "Об’єднати" })).toBeTruthy();
+
+    const queue = at("tx-queue");
+    expect(queue.querySelectorAll(".ws-tx-row-review")).toHaveLength(3);
+    const confirm = within(queue).getAllByRole("button", { name: "Підтвердити" })[0]!;
+    act(() => confirm.click());
+    expect(confirm.getAttribute("aria-busy")).toBe("true");
+    expect(queue.querySelectorAll(".ws-tx-row-review")).toHaveLength(3);
+    await act(() => vi.advanceTimersByTimeAsync(800));
+    expect(queue.querySelectorAll(".ws-tx-row-review")).toHaveLength(2);
+    expect(
+      [...queue.querySelectorAll('[role="status"]')].some(
+        (s) => s.textContent === "Підтверджено. Лишилось 2",
+      ),
+    ).toBe(true);
+
+    const head = at("tx-table").querySelector(".ws-tx-head")!;
+    expect([...head.children].map((c) => c.textContent).filter(Boolean)).toEqual([
+      "Контрагент",
+      "Категорія",
+      "Актив",
+      "Рахунок",
+      "Дата і час",
+      "Сума",
+    ]);
+    expect(at("tx-loading").querySelector('[aria-busy="true"]')).not.toBeNull();
+    vi.useRealTimers();
+  });
+
   it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
     vi.useFakeTimers();
     sessionStorage.clear();

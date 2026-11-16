@@ -79,6 +79,18 @@ export { AmountField, Field } from "./field/Field.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/Button.tsx";
+export { Badge } from "./badge/Badge.tsx";
+export type { BadgeTone } from "./badge/Badge.tsx";
+export { ListRow } from "./list/ListRow.tsx";
+export type { ListRowProps } from "./list/ListRow.tsx";
+export {
+  merchantInitials,
+  ReviewAnnouncement,
+  TransactionRow,
+  TransactionTableHead,
+} from "./list/TransactionRow.tsx";
+export type { TransactionCategory, TransactionRowProps } from "./list/TransactionRow.tsx";
+export type { RowMoney } from "./list/rowParts.tsx";
 export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
 export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
 export { useRestoredListState } from "./pagination/listState.ts";
