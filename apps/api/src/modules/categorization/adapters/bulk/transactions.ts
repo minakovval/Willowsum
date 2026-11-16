@@ -77,6 +77,7 @@ export function transactionsCategoryTarget(deps: {
           transactionId: id,
           ...UNCATEGORIZED,
           version: 0,
+          ruleId: null,
         };
         out.set(id, { id, version: row.version, values: valuesOf(row) });
       }

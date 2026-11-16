@@ -1,6 +1,6 @@
 # Модуль categorization
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (BUD-01 b: категорія транзакції, «Без категорії», зміна вручну; DAT-03 «Змінити категорію»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-14 b1: правила категорій — умови, пріоритет, нові транзакції, «Показати», «Потребує уваги»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -24,6 +24,16 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
 і перемикач «Застосувати до всіх…» (BUD-14, рядок 23; п. 5, AC2), пари переказів «Переказ» (п. 7, AC4 —
 `transfer-matching`), колонка й фільтр «Категорія» списку транзакцій, UI (рядок 118).
 
+BUD-14@PoC b1) (хвиля 2, рядок 23 — серверна частина, перший зріз): п. 4 (серверна частина: правила в порядку
+пріоритету, «Застосовано: N», «Увімкнено», «Змінити правило», порядок «#» / «Вище» / «Нижче»), 5 (умови «Мерчант», «Опис»,
+«Сума», «Рахунок»; «Лише для рахунків»; дія — категорія), 7 («Показати» і N наявних, що підходять, без змін; без прапорця
+минулі транзакції не змінюються), 8 (нові транзакції — перше правило, що підходить), 9 (ручна категорія не
+перезаписується), 10 («Потребує уваги», об'єднання категорій переписує правила), 11 (попередження про ідентичні умови),
+12 (дії «приховати» немає), 13 (серверна частина: правило, що задало категорію); AC7, AC8, AC9, AC12, AC14 (серверна
+частина). Далі (зріз b2): «Застосувати до N наявних транзакцій» однією операцією (до 500 — одразу, понад 500 — у фоні),
+«Відмінити» 7 днів, «Пропущено: ручні зміни» (п. 7, AC2, AC4–AC6, AC15, граничні випадки 1 і 5), дія «теги» і
+«Застосовано правила: №…» з кількох правил (п. 8, AC3) — після тегів транзакцій BUD-13; UI — рядок 120.
+
 ## Публічний інтерфейс
 
 `index.ts`:
@@ -41,9 +51,33 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
     можна; тип категорії зі знаком суми не звіряється (повернення, п. 1). Сторона переказу — 409
     `TRANSACTION_IN_TRANSFER`, розділена — 409 `TRANSACTION_SPLIT`, злитий дубль — 409 `TRANSACTION_MERGED`; рядок
     вставив одночасно інший запит — 409 `VERSION_CONFLICT`. Без змін — нічого.
-- `createCategorizationServices({ transactions, categories, audit })` → `CategorizationServices` — порти маршрутів
-  (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionLookup` модуля transactions, `CategoryDirectory` модуля
-  categories, журнал аудиту.
+  - `GET /v1/transactions/{transactionId}/category` також повертає `rule` (BUD-14 п. 13: `{ id, position }` правила, що
+    задало категорію зі джерелом `rule`; інакше поля немає).
+- Правила категорій (BUD-14 b1; прапорець випуску і ключ функції `categorization.rules` «правила», потребує
+  `transactions.merchants`; дозвіл читання `household.data.read`, зміни — `household.data.write`; учасник з областю —
+  404; правило, категорія чи рахунок іншого простору — як неіснуючі). Правило: `id`, `position` (1 — найвищий
+  пріоритет), `conditions` (1–10: `merchant` / `description` — `equals` / `contains`, 1–200 символів одним рядком, без
+  урахування регістру; `amount` — `equals` / `greater` / `less`, `{ amount, currency }` додатне, не більше знаків, ніж у
+  валюти, порівнюється із сумою без знака в тій самій валюті; `account` — `equals`, ідентифікатор рахунку), `accountIds`
+  («Лише для рахунків», до 20), `categoryId`, `enabled`, `needsAttention` (`category_deleted` / `account_deleted` / null),
+  `appliedCount`. «Опис» — оригінальний опис банку (контрагент транзакції).
+  - `GET /v1/category-rules` (`listCategoryRules`) → `items` у порядку пріоритету.
+  - `POST /v1/category-rules` (`createCategoryRule`) — `{ conditions, accountIds?, categoryId, enabled? }` → 201 правило
+    з `duplicateOf` (п. 11: правило з ідентичними умовами вищого пріоритету або null; збереження не блокується). Нове —
+    останнє в порядку. Понад 500 правил — 422 `LIMIT_REACHED` (`limit: 500`). Категорія поза деревом простору, об'єднана
+    чи службова — 400 `categoryId: not_found`; рахунок не простору — 400 `accountIds` / `conditions.N.value: not_found`.
+  - `PATCH /v1/category-rules/{ruleId}` (`updateCategoryRule`) — ті самі поля, кожне необов'язкове (`enabled` —
+    «Увімкнено») → правило з `duplicateOf`; минулі транзакції не змінюються (п. 7).
+  - `POST /v1/category-rules/{ruleId}/move` (`moveCategoryRule`) — `{ position }` (1…n; більше — 400
+    `position: out_of_range`) → усі правила в новому порядку.
+  - `POST /v1/category-rules/matches` (`matchCategoryRule`) — `{ conditions, accountIds? }` → `count`, `totals` (сума зі
+    знаком за валютами), `items` (до 100 найновіших: `transactionId`, `accountId`, `date`, `amount`, `counterparty`),
+    `truncated`. Перевіряються найновіші 20 000 показаних транзакцій простору (не сторони переказу, не розділені, не
+    злиті); нічого не пише.
+- `createCategorizationServices({ transactions, categories, audit, rules?, scanMax? })` → `CategorizationServices` — порти
+  маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionLookup` модуля transactions, `CategoryDirectory`
+  модуля categories, журнал аудиту; `rules` — `categorizationRulePorts({ accounts, merchants, inputs })` з
+  `AccountDirectory`, `MerchantDirectory` і `TransactionRuleInputs` (без них маршрути правил — 500).
 - `createCategorizationCategoryUsage(db, transactions)` → `CategoryUsage` модуля categories (п. 12): які з категорій
   мають наявні транзакції простору (рядок видаленої транзакції — не вжиток). З'єднує `src/main.ts`.
 - `createCategoryBulkActions({ db, transactions, categories })` → `{ targets, actions }` для `createBulkActionsServices`
@@ -52,13 +86,16 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
   `transactions.set-category` (`{ categoryId }`; та сама категорія — «без змін»; переказ, розділена, злитий дубль —
   «невалідний» `transaction.in_transfer` / `transaction.split` / `transaction.merged`; категорія поза деревом —
   `category.not_found` для всіх). «Відмінити» повертає категорію і джерело.
-- `createCategorizationWorkerQueue(db, audit)`, `categorizationSubscriptions` — черга воркера і підписка
-  (`src/wiring.ts`): задачі `categorization.hand-off` (`HAND_OFF_JOB`, запис аудиту зміни) і
-  `categorization.category-merged` (`CATEGORY_MERGED_JOB`, подія `categories.merged`).
+- `createCategorizationWorkerQueue(db, audit, categories, rules)`, `categorizationSubscriptions` — черга воркера і
+  підписки (`src/wiring.ts`): задачі `categorization.hand-off` (`HAND_OFF_JOB`, запис аудиту зміни),
+  `categorization.category-merged` (`CATEGORY_MERGED_JOB`, подія `categories.merged`: транзакції й правила),
+  `categorization.transaction-created` (`TRANSACTION_CREATED_JOB`, подія `transactions.created`: правила нової
+  транзакції) і `categorization.audit` (`AUDIT_JOB`, запис аудиту правила чи категорії «за правилом»).
 - `createCategorizationRecovery(db, households)` → `{ run() }` — щоденна задача планувальника `categorization.recovery`
-  (до очищення черги): задачі `dead` обох назв повертаються в чергу; подія логу `categorization.jobs_requeued` (WARN).
+  (до очищення черги): задачі `dead` усіх чотирьох назв повертаються в чергу; подія логу
+  `categorization.jobs_requeued` (WARN).
 - `createCategorizationErasure(db)` → `eraseHousehold(householdId)` → `{ transactionCategories, jobs }` — видалення
-  простору (NFR-12@PoC п. 3, крок `categorization.records`); викликає лише `data-erasure`.
+  простору (NFR-12@PoC п. 3, крок `categorization.records`; правила теж); викликає лише `data-erasure`.
 - `CATEGORY_SOURCES`, `pickCategory` (п. 4: перше джерело з категорією вирішує), `proposalApplies` (автоматична
   пропозиція не замінює ручної і вищого джерела; граничний випадок 3), типи `CategorySource`, `TransactionCategory`.
 
@@ -74,7 +111,21 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
 
 ## Залежності
 
-Шар: subject. Модулі: audit, bulk-actions (типи портів), categories, transactions (`apps/api/module-rules.json`).
+Порядок зміни правила: перевірки через інші модулі (категорія, рахунки) → у транзакції модуля під консультативним
+блокуванням правил простору (`categorization.rules:<простір>`): рядки і задача `categorization.audit` (ключ
+`categorization.rule:<правило>:<версія>`) → коміт → запис аудиту одразу (невдача — WARN
+`categorization.hand_off_deferred`, запис допише воркер). Запис — сутність `categorization.rule`, дія `create` / `update`,
+поля `conditions` (замасковано: умови можуть містити опис банку), `position`, `categoryId`, `accountIds`, `enabled`.
+Нова транзакція: задача події читає вхід транзакції (`TransactionRuleInputs`) і мерчанта (`MerchantDirectory`); перше
+ввімкнене правило, що підходить і не потребує уваги, записує категорію `rule` з `rule_id`, якщо `proposalApplies` (ручна
+категорія лишається); запис аудиту — сутність `categorization.transaction-category`, автор — система (`system`), ключ
+`categorization.set:<транзакція>:<версія>`. «Застосовано: N» рахує рядки категорій, що досі задані правилом (рядки
+видалених транзакцій теж — до події видалення транзакції, як і вище).
+
+## Залежності
+
+Шар: subject. Модулі: accounts, audit, bulk-actions (типи портів), categories, merchants, transactions
+(`apps/api/module-rules.json`).
 
 ## Події
 
@@ -84,7 +135,8 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
-| `categories.merged` | 1 | BUD-01 п. 8: транзакції об'єднаної категорії отримують цільову (задача `categorization.category-merged`) |
+| `categories.merged` | 1 | BUD-01 п. 8: транзакції об'єднаної категорії отримують цільову (задача `categorization.category-merged`); BUD-14 п. 10: правила теж |
+| `transactions.created` | 1 | BUD-14 п. 8: нова транзакція проходить правила категорій (задача `categorization.transaction-created`) |
 
 ## Власні таблиці
 
@@ -94,6 +146,7 @@ BUD-01@PoC b) (хвиля 2, рядок 20 — серверна частина):
 | --- | --- |
 | `transaction_categories` | Категорія транзакції: ідентифікатор транзакції (модуля transactions), категорія (дерева модуля categories) або null, джерело (`manual` · `rule` · `merchant` · `bank` · `dictionary` · `none`; null лише з `none`), версія, час зміни (`0001_transaction_categories.sql`) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0002_queue.sql`, дослівно `queue-tables.sql`); подій модуль не публікує |
+| `rules` | Правило категорії: позиція (пріоритет, 1…n без пропусків, унікальна — перевіряється при коміті), умови (JSON), «Лише для рахунків», категорія, «Увімкнено», канонічний ключ умов (п. 11), версія (`0003_rules.sql`); `transaction_categories.rule_id` — правило, що задало категорію |
 
 Синтетичні дані: `synthetic.ts` (4 категорії транзакцій — серед них «Без категорії», 2 виконані задачі передачі й 1
 передана подія на простір).
