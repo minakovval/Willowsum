@@ -99,6 +99,7 @@ Post **one** review with event `COMMENT` (not «approve» or «request changes»
 - **Blocking** — only a security bypass, data loss or leak, or a violation of a security property the PR's
   requirement claims; each with file:line, the failing path, the `it.fails` test and the patch file;
 - **Non-blocking** — everything else (the author lists it under «Follow-ups» in the PR body / report; the lead opens the issue);
+- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md));
 - where the output files are (scratchpad path) and how to apply them.
 
 Post one PR review of this shape (a confirmation of a sensitive PR by one agent posts two PR reviews with commit_id, one per verdict line; pr-pipeline step 5, owner, 2026-11-14, #178):

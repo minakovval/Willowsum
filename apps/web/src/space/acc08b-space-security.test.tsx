@@ -25,8 +25,11 @@ describe("sec probes PR359", () => {
     await waitFor(() => expect(window.location.hash).toBe("#/planning/budget"));
     await waitFor(() => expect(calls.length).toBeGreaterThan(1));
     expect(calls[0]!.method).toBe("POST");
-    for (const c of calls.slice(1))
-      expect(c).toMatchObject({ method: "GET", path: "/v1/space", body: undefined });
+    // After it: the space reads and the session keeper's read (ACC-04@PoC), all body-less GETs.
+    for (const c of calls.slice(1)) {
+      expect(c).toMatchObject({ method: "GET", body: undefined });
+      expect(["/v1/space", "/v1/session"]).toContain(c.path);
+    }
     expect(calls.filter((c) => JSON.stringify(c.body ?? "").includes("pw pw"))).toHaveLength(1);
   });
 

@@ -17,7 +17,9 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
     render(<App />);
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // The only `nav` landmarks are the Pagination demos (CMP-13); there is no app navigation.
+    for (const nav of screen.queryAllByRole("navigation"))
+      expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
   });
@@ -121,7 +123,7 @@ describe("/gallery/tokens (DS-22)", () => {
     const { container } = render(<App />);
     const section = container.querySelector("#g-icon-buttons")!.parentElement as HTMLElement;
     const buttons = within(section).getAllByRole("button");
-    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+    expect(buttons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
       "Параметри",
       "Колонки",
       "Сортувати",
@@ -228,6 +230,32 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(norm(within(live).getByRole("status").textContent)).toBe("Готово, 6 файлів");
     act(() => within(live).getByRole("button", { name: "Почати знову" }).click());
     expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("CMP-03@PoC gallery: the Select section shows the native list in every state, «з пошуком» and the list buttons", () => {
+    const { container } = render(<App />);
+    const section = container.querySelector("#g-select")!.closest("section")!;
+    expect(container.querySelector("#g-select")!.textContent).toBe("Список вибору");
+    const at = (c: string) => section.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(within(at("default")).getByRole("combobox", { name: "Валюта" })).toBeTruthy();
+    expect(at("long").querySelector("select")!.value).toBe("USD");
+    expect(at("empty").querySelector(".ws-select-control--empty")).not.toBeNull();
+    expect(within(at("error")).getByRole("alert").textContent).toContain("Помилка. Оберіть валюту рахунку.");
+    expect((at("disabled").querySelector("select") as HTMLSelectElement).disabled).toBe(true);
+    expect(at("disabled").textContent).toContain("Банк не змінюється після підключення рахунку.");
+    expect(at("loading").querySelector(".ws-skeleton--field")).not.toBeNull();
+    expect(within(at("categories")).getByRole("button", { name: /Категорія/ }).textContent).toContain(
+      "Продукти",
+    );
+    expect(within(at("accounts")).getByRole("button", { name: /Рахунок/ }).textContent).toContain(
+      "Поточний ··4417",
+    );
+    const buttons = within(at("list-buttons")).getAllByRole("button");
+    expect(buttons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
+      "Категорія: Усі",
+      "Порівняти з: Середнє за 3 міс.",
+      "Вигляд: Повний",
+    ]);
   });
 
   it("CMP-01@PoC gallery: the Button section shows each variant at rest, with an icon, disabled with its reason and loading; sizes, icon-only, a row and a live case", () => {
@@ -359,6 +387,40 @@ describe("/gallery/tokens (DS-22)", () => {
       "Сума",
     ]);
     expect(at("tx-loading").querySelector('[aria-busy="true"]')).not.toBeNull();
+  });
+
+  it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
+    vi.useFakeTimers();
+    sessionStorage.clear();
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-pagination")!.textContent).toBe("Пагінація");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(norm(at("pagination-first").textContent)).toContain("1–25 з 1 240");
+    expect(
+      within(at("pagination-first"))
+        .getByRole("button", { name: "Попередня сторінка" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(norm(at("pagination-last").textContent)).toContain("1 226–1 240 з 1 240");
+    expect(
+      within(at("pagination-last"))
+        .getByRole("button", { name: "Наступна сторінка" })
+        .getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(norm(at("pagination-loading").textContent)).toContain("26–50 з 1 240");
+    expect(at("pagination-empty").querySelector("nav")).toBeNull();
+
+    const live = at("pagination-live");
+    act(() => within(live).getByRole("button", { name: "Наступна сторінка" }).click());
+    expect(norm(live.textContent)).toContain("1–25 з 1 240"); // the range waits for the data
+    expect(live.querySelector('[role="status"]:not(.ws-visually-hidden)')).toBeNull();
+    act(() => void vi.advanceTimersByTime(600));
+    expect(norm(live.textContent)).toContain("26–50 з 1 240");
+    expect(norm(within(live).getByRole("navigation").querySelector('[role="status"]')!.textContent)).toBe(
+      "Показано 26–50 з 1 240",
+    );
+    expect(document.activeElement).toBe(live.querySelector("li"));
+    expect(live.querySelector("li")!.textContent).toBe("Запис 26");
     vi.useRealTimers();
   });
 
@@ -368,5 +430,58 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Design tokens");
     expect(document.documentElement.lang).toBe("en");
     expect(document.title).toBe("Willowsum · Design tokens");
+  });
+});
+
+describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installMatchMedia({ width: 1280 });
+    window.location.hash = "#/gallery/tokens";
+  });
+
+  it("CMP-21@PoC AC1: every case opens from its button with focus inside, never on a danger action, and closes back", () => {
+    render(<App />);
+    const section = document.getElementById("g-dialog")!.parentElement!;
+    const openers = [...section.querySelectorAll<HTMLButtonElement>("button[data-case]")];
+    expect(openers.map((b) => b.dataset.case)).toEqual([
+      "delete",
+      "unsaved",
+      "options",
+      "column",
+      "error",
+      "long",
+      "split",
+      "wide",
+    ]);
+    for (const opener of openers) {
+      opener.focus();
+      act(() => opener.click());
+      const dialog = document.querySelector<HTMLDialogElement>("dialog.ws-dialog")!;
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      expect((document.activeElement as HTMLElement).dataset.variant).not.toBe("danger");
+      act(() => {
+        dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      expect(document.querySelector("dialog.ws-dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    }
+  });
+
+  it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
+    vi.useFakeTimers();
+    try {
+      render(<App />);
+      act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
+      act(() =>
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Видалити рахунок" }).click(),
+      );
+      expect(screen.getByRole("button", { name: "Видаляємо…" }).getAttribute("aria-busy")).toBe("true");
+      act(() => vi.advanceTimersByTime(1200));
+      const alert = within(screen.getByRole("alertdialog")).getByRole("alert");
+      expect(norm(alert.textContent)).toMatch(/^Помилка Не вдалося видалити рахунок/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -456,7 +456,7 @@ if (config.role === "scheduler") {
   lifecycle.onStop(() => fx.stop());
 }
 
-await server.listen({ host: "0.0.0.0", port: config.port });
+await server.listen({ host: config.host, port: config.port });
 logEvent("process.started", "info", { "ws.role": config.role });
 /**
  * Lifecycle lines written directly to stdout, outside telemetry: «stopped» comes after telemetry has stopped.
