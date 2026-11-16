@@ -150,13 +150,18 @@ export type Route =
   | { kind: "auth"; screen: AuthScreen }
   | { kind: "notFound" };
 
-/** ACC-01@PoC screens outside the app shell (focus mode, GRID-06): S-001, S-002, S-003 (with the link page), S-004. */
-export type AuthScreen = "signUp" | "checkEmail" | "verify" | "signIn";
+/**
+ * ACC-01@PoC and ACC-04@PoC screens outside the app shell (focus mode, GRID-06): S-001, S-002, S-003 (with the link
+ * page), S-004, S-007 «Відновлення пароля» and S-004b «Це був не я».
+ */
+export type AuthScreen = "signUp" | "checkEmail" | "verify" | "signIn" | "passwordReset" | "notMe";
 export const AUTH_PATHS: Readonly<Record<string, AuthScreen>> = {
   "/signup": "signUp",
   "/signup/check-email": "checkEmail",
   "/verify": "verify",
   "/login": "signIn",
+  "/password/reset": "passwordReset",
+  "/not-me": "notMe",
 };
 
 export const sectionOf = (p: PageDef): SectionDef => SECTIONS.find((s) => s.id === p.sectionId)!;

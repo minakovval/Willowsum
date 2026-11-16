@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useT } from "@willowsum/i18n";
 import { Icon } from "@willowsum/ui";
-import type { FieldError } from "./rules.ts";
+import { passwordStrength, type FieldError } from "./rules.ts";
 
 /**
  * Minimal form fields of the sign-up and sign-in cards, built to CMP-02@PoC (label above, 40 px field, error with
@@ -252,5 +252,22 @@ export function PasswordField({
         </button>
       </span>
     </FieldFrame>
+  );
+}
+
+/** The strength indicator of a new password (ACC-01@PoC FR 3): three segments by length, the level in words too. */
+export function StrengthMeter({ password }: { readonly password: string }) {
+  const t = useT();
+  if (password === "") return null;
+  const strength = passwordStrength(password);
+  return (
+    <span className="auth-strength" data-level={strength}>
+      <span className="auth-strength-bar" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+      <span>{t("auth.password.strength", { level: t(`auth.password.strength.${strength}`) })}</span>
+    </span>
   );
 }

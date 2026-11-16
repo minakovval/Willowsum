@@ -3,7 +3,7 @@
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
-finishes (a new session: also [new session](new-session.md)).
+finishes (a new session: also [new session](../../../references/new-lead-session.md)).
 
 The container can restart and agents' context is lost. Recover state from durable sources, not memory:
 - open PRs and their heads: `gh api 'repos/{owner}/{repo}/pulls?state=open&per_page=100' --jq '.[] | [.number, .head.ref, .head.sha] | @tsv'` (GraphQL, so `gh pr list`, is blocked in cloud sessions);
@@ -39,10 +39,10 @@ agent; the lead then, in the same session:
    `Willowsum · ведучий N+1 · <з чого продовжує>`;
 3. posts the retrospective of lead N ([token economy](token-economy.md), «Session retrospective»), adds its
    «Сесії» row to #180 and records the new segment's start («Token accounting» item 1);
-4. posts the handover table on #179 («Handover template»; the table stays at every handover, a compaction
+4. posts the handover table on #179 ([handover confirmation](../../../references/handover-confirmation.md); the table stays at every handover, a compaction
    included: owner, 2026-11-16, #178, «ні, таблиця потрібна для відстеження історії»): «Передано» is «Lead state»
    as kept current, «Прийнято» is what lead N+1 re-read and did; the chat gets only the short retrospective;
-5. continues the pipeline. A lead number that is a multiple of 3 starts with the «Process review» below.
+5. continues the pipeline; when a «Process review» is due (below), it comes first.
 
 **Session names** (owner, 2026-11-13, #178): every lead is `Willowsum · ведучий N · <з чого починає>`, e.g.
 `Willowsum · ведучий 2 · хвиля 2 з рядка 3`; N is one more than the previous lead's, whether it ended in a
@@ -54,45 +54,21 @@ commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178). **After a
 2026-11-15, #178): `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that scheduled task
 (`delete_trigger`) after the wake-up.
 
-**Process review** (owner, 2026-11-15, #178): «кожна третя сесія при запуску має ретроспективно передивитись всі
-покращення і зміни в процесах». A lead whose number is a multiple of 3 (from lead 9; after a compaction, the new
-number) does it after the start steps, before new tasks (≈ 100–150 k tokens, 1–2 PRs fewer), and reviews:
-1. every accepted process change since session 1 (#178, `docs/decisions/log/`, AGENTS.md, the skills) — rational,
-   needed, useful, optimal? — on the data of #180 (tokens, time, rounds);
+**Process review.** Due when **both** hold: at least 40 PRs were merged and at least 24 hours passed since the
+previous review's comment on #180 (commands: [process limits](../../../references/process-limits.md)). The lead
+that starts a segment checks it after the start steps; when due, the review comes before new tasks. It reviews:
+1. every accepted process change since the previous review (#178, `docs/decisions/log/`, AGENTS.md, the skills) —
+   rational, needed, useful, optimal? — on the data of #180 (tokens, time, rounds);
 2. the current instructions (AGENTS.md, `pr-pipeline` and `references/`, the other skills, `.claude/references/`):
    contradictions, duplication, outdated or unneeded text, what to simplify or shorten;
-3. the handovers of the last 5 leads: what «Lead state», start messages and confirmations lost or got wrong.
-Result: a comment on #180 with conclusions and proposals (each with risks, downsides, mitigations); the proposals go
-to «Черга змін процесу» (#178); no rule changes without an owner decision.
+3. the handovers since the previous review: what «Lead state» and the confirmations lost or got wrong.
+Result: a comment on #180 with conclusions and **at most 3 proposals**, ranked by expected saving (each with risks,
+downsides, mitigations); the rest waits in «Черга змін процесу» (#178) for the next review. No rule changes without
+an owner decision; between reviews only what [lead communication](lead-communication.md), «Batching process
+changes», allows as a separate PR.
 
-**Handover confirmation** (owner, 2026-11-13/14/15/16, #178,
-[comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): every handover
-between leads, a compaction included, is confirmed item by item as a comment on #179 with **only** the table below
-— the 10 fixed items in this order, no other rows or free text (owner, 2026-11-16, process review 15, proposal 5).
-The finishing lead fills «Передано», the new lead «Прийнято»: what was done and where, with a link; not acted on →
-«не виконано» and why; a summary does not count. At a new session the confirmation also goes to the owner in chat
-in full; at a compaction the chat gets only the short retrospective (SKILL.md «Мовчання в чаті» (d)). Item 4 lists
-the segment's decisions and each retrospective proposal with its link in #178 (or «не внесено до #178» and why).
-An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries «перенесено N разів»:
-one more than in the previous table. An item carried **≥ 3 handovers** goes to the owner with options (owner,
-2026-11-16, #178): do it in the next 2 plan rows / move it to `docs/plans/owner-questions-later.md` / close it —
-in the next batch of owner questions; it is not carried further until the owner answers. Before the handover,
-every file in the scratchpad `keep/` goes to a branch or an issue (item 7). Test database names are not handed
-over: they do not survive a new container.
-```markdown
-| № | Пункт | Передано (хто завершує: що, де, посилання) | Прийнято (новий ведучий: що зроблено, де) | Перенесено N разів |
-| --- | --- | --- | --- | --- |
-| 1 | Відкриті PR: номер, повний head SHA, вердикти, наступний крок | | | |
-| 2 | Агенти й незавершена робота: гілка, WIP-коміт запушено | | | |
-| 3 | Питання власнику (посилання) | | | |
-| 4 | Рішення сесії (власника й ведучого: файл або відкритий PR); пропозиції ретро — кожна з посиланням на #178 | | | |
-| 5 | Follow-ups: issues і списки злитих PR | | | |
-| 6 | Наступні рядки плану | | | |
-| 7 | Файли з `keep/`: гілка або issue | | | |
-| 8 | Ліміт (`rate_limit_info`) і лічильник перезапусків | | | |
-| 9 | #180: знімок, рядки PR, рядок «Сесії», ретроспектива | | | |
-| 10 | Назва наступної сесії або сегмента | | | |
-```
+**Handover confirmation** and its table: [handover confirmation](../../../references/handover-confirmation.md)
+(read at every handover, a compaction included).
 
 **Owner decisions in documents** (owner, 2026-11-13): each is recorded in a document (decision log, skill, AGENTS.md,
 requirement) and carried into the rules it changes (SKILL.md §2), never only in memory; check it before a handover.
