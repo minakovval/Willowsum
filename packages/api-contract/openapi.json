@@ -19665,7 +19665,7 @@
     "/v1/transactions/{transactionId}": {
       "delete": {
         "operationId": "deleteTransaction",
-        "summary": "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16)",
+        "summary": "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35)",
         "tags": [
           "transactions"
         ],
@@ -20208,7 +20208,7 @@
       },
       "patch": {
         "operationId": "updateTransaction",
-        "summary": "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event",
+        "summary": "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event; a hidden copy whose pair this ends is shown again (FIN-03 FR 35)",
         "tags": [
           "transactions"
         ],
@@ -20634,7 +20634,7 @@
             }
           },
           "409": {
-            "description": "The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED)",
+            "description": "The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); Duplicates are merged into this transaction; unmerge them to change its amount or account (TRANSACTION_HAS_DUPLICATES)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -22297,7 +22297,7 @@
     "/v1/transactions/{transactionId}/not-duplicate": {
       "post": {
         "operationId": "dismissDuplicate",
-        "summary": "«Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12)",
+        "summary": "«Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12); a side hidden as a duplicate with no other pair left is shown again (FR 35)",
         "tags": [
           "transactions"
         ],
@@ -25262,6 +25262,7 @@
               "BULK_ACTION_NOT_INTERRUPTED",
               "TRANSACTION_IN_TRANSFER",
               "TRANSACTION_MERGED",
+              "TRANSACTION_HAS_DUPLICATES",
               "TRANSACTION_SPLIT",
               "TRANSACTION_NOT_HIDEABLE",
               "PAYLOAD_TOO_LARGE",

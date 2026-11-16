@@ -286,7 +286,9 @@ describe("SEC-262 journal: «Очікує» reverses and re-posts, never twice a
       categoryId: c.home,
     });
     await patch(space, t.id, { amount: { amount: "-50.00", currency: "EUR" } });
-    expect(await balance(space, account)).toBe("954.5");
+    // FIN-03 FR 35 (owner, 2026-11-15, #281 item 5; lead decision for the copy itself): −50 is no copy of −45.50 any
+    // more, so the hidden row is shown again and back in the balance: 1 000 − 45.50 − 50 = 904.50.
+    expect(await balance(space, account)).toBe("904.5");
     await patch(space, t.id, { status: "pending" });
     expect(await balance(space, account)).toBe("954.5");
     await call(space, "POST", `/v1/transactions/${t.id}/show`);

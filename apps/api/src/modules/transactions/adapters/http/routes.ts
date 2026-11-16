@@ -244,6 +244,8 @@ function outcome(
       throw new ApiProblem("TRANSACTION_MERGED");
     case "not-hideable":
       throw new ApiProblem("TRANSACTION_NOT_HIDEABLE");
+    case "has-duplicates":
+      throw new ApiProblem("TRANSACTION_HAS_DUPLICATES");
     case "conflict":
       throw new ApiProblem("VERSION_CONFLICT");
     case "not-found":
@@ -362,10 +364,10 @@ export const updateTransactionRoute = defineRoute({
   path: "/v1/transactions/{transactionId}",
   operationId: "updateTransaction",
   summary:
-    "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event",
+    "«Зберегти» of the edit form: the fields sent change; the account, amount or date correct the journal event; a hidden copy whose pair this ends is shown again (FIN-03 FR 35)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 16 * 1024,
-  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
+  problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED", "TRANSACTION_HAS_DUPLICATES"],
   request: {
     params,
     body: z
@@ -390,7 +392,7 @@ export const updateTransactionRoute = defineRoute({
     );
     outcome(result);
     if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
-    await handOffNow(ctx, deps, result.handOff);
+    await handOffNow(ctx, deps, result.handOff ? [result.handOff, ...(result.shown ?? [])] : null);
     return shown(ctx, result.transaction);
   },
 });
@@ -401,7 +403,7 @@ export const deleteTransactionRoute = defineRoute({
   path: "/v1/transactions/{transactionId}",
   operationId: "deleteTransaction",
   summary:
-    "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16)",
+    "«Видалити» a transaction entered by hand: its postings are reversed, the balance is as before (FR 16); a hidden copy whose pair it was is shown again (FR 35)",
   access: { permission: "household.data.write", feature: FEATURE },
   problems: ["ACCOUNT_CLOSED", "TRANSACTION_IN_TRANSFER", "TRANSACTION_MERGED"],
   request: { params },
@@ -417,7 +419,7 @@ export const deleteTransactionRoute = defineRoute({
       deleteTransaction(deps, transactionsTx(q), caller(ctx), params.transactionId),
     );
     outcome(result);
-    if (result.kind === "ok") await handOffNow(ctx, deps, result.handOff);
+    if (result.kind === "ok") await handOffNow(ctx, deps, [result.handOff, ...result.shown]);
     return { deleted: true as const };
   },
 });
@@ -845,7 +847,7 @@ export const dismissDuplicateRoute = defineRoute({
   path: "/v1/transactions/{transactionId}/not-duplicate",
   operationId: "dismissDuplicate",
   summary:
-    "«Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12)",
+    "«Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12); a side hidden as a duplicate with no other pair left is shown again (FR 35)",
   access: { permission: "household.data.write", feature: DUPLICATES_FLAG },
   bodyLimitBytes: 1024,
   problems: ["ACCOUNT_CLOSED"],

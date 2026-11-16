@@ -312,13 +312,62 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       );
       return (rowCount ?? 0) > 0;
     },
-    async duplicatesForHiding(householdId, id, accountId, windowDays) {
-      // One hiding per account at a time: the other copy, hidden meanwhile, is seen once that one has committed.
-      await q.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended('transactions.hide:' || $1 || ':' || $2, 0))`,
-        [householdId, accountId],
-      );
+    async lockDuplicates(householdId) {
+      await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('transactions.duplicates:' || $1, 0))`, [
+        householdId,
+      ]);
+    },
+    async duplicatesForHiding(householdId, id, _accountId, windowDays) {
+      // Under the space's lock of duplicates (lockDuplicates, taken first by the caller): the other copy, hidden or
+      // changed meanwhile, is seen once that one has committed.
       return duplicateCandidatesOf(q, householdId, id, { windowDays });
+    },
+    async hiddenCopiesOf(householdId, side, windowDays) {
+      const { rows } = await q.query<{ id: string }>(
+        `SELECT h.id FROM transactions h
+          WHERE h.household_id = $1 AND h.hidden AND h.merged_into IS NULL AND h.transfer_id IS NULL
+            AND h.source = 'manual' AND h.id <> $2 AND h.account_id = $3 AND h.currency = $4
+            AND h.amount = $5::numeric AND abs(h.occurred_on - $6::date) <= $7::int
+            AND NOT EXISTS (SELECT 1 FROM duplicate_dismissals d
+                             WHERE d.household_id = h.household_id
+                               AND d.first_id = least(h.id, $2::uuid) AND d.second_id = greatest(h.id, $2::uuid))
+          ORDER BY h.id`,
+        [
+          householdId,
+          side.id,
+          side.accountId,
+          side.amount.currency,
+          side.amount.toDecimalString(),
+          side.date,
+          windowDays,
+        ],
+      );
+      return rows.map((r) => r.id);
+    },
+    async pairsOfHidden(householdId, id, windowDays) {
+      const { rows } = await q.query<DuplicateRow>(
+        `SELECT h.id AS a_id, h.occurred_on::text AS a_date, o.id AS b_id, o.occurred_on::text AS b_date,
+                h.account_id, h.amount::text AS amount, h.currency
+           FROM transactions h
+           JOIN transactions o ON o.household_id = h.household_id AND o.account_id = h.account_id
+                              AND o.currency = h.currency AND o.amount = h.amount AND o.id <> h.id
+                              AND abs(o.occurred_on - h.occurred_on) <= $3::int
+          WHERE h.household_id = $1 AND h.id = $2 AND h.transfer_id IS NULL AND NOT o.hidden AND o.transfer_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM duplicate_dismissals d
+                             WHERE d.household_id = h.household_id
+                               AND d.first_id = least(h.id, o.id) AND d.second_id = greatest(h.id, o.id))
+          ORDER BY o.occurred_on, o.id LIMIT 100`,
+        [householdId, id, windowDays],
+      );
+      // Each pair in the order of the search (the earlier, then the smaller id, first).
+      return rows
+        .map(duplicateSides)
+        .map(({ first, second }) =>
+          first.date < second.date ||
+          (first.date === second.date && first.transactionId < second.transactionId)
+            ? { first, second }
+            : { first: second, second: first },
+        );
     },
     async remove(householdId, id) {
       // A side of a transfer is never deleted (the route refuses it), so no transfer points at the row.
