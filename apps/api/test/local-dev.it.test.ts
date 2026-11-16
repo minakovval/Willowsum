@@ -173,7 +173,20 @@ describe("#363: pnpm local:dev on a machine where other programs hold ports", ()
   let second: Run;
   it("a second start stops the leftovers of the first (same pid, start time and command line) and runs", async () => {
     const old = parsePidsFile(readFileSync(pidsFile, "utf8")).map((e) => e.pid);
+    const before = (await query<{ now: Date }>("SELECT now()"))[0]!.now;
     second = await startRun();
+    // The flag upsert on a second start moves changed_at (#363); every release flag is stored, including `data.bulk_actions`.
+    expect(second.output()).not.toMatch(/Flag \S+ is not turned on/);
+    const dbUrl = new URL(adminUrl);
+    dbUrl.pathname = `/${database}`;
+    const flagDb = new pg.Client({ connectionString: dbUrl.toString() });
+    await flagDb.connect();
+    const flags = (
+      await flagDb.query<{ key: string; changed_at: Date }>("SELECT key, changed_at FROM feature_flags.flags")
+    ).rows;
+    await flagDb.end();
+    expect(flags.length).toBeGreaterThan(0);
+    for (const f of flags) expect(f.changed_at.getTime(), f.key).toBeGreaterThanOrEqual(before.getTime());
     expect(second.output()).toMatch(/Зупиняю те, що лишилося від попереднього `pnpm local:dev`/);
     expect(await allGone(old, 5_000)).toEqual([]);
     expect(first.child.exitCode ?? first.child.signalCode).not.toBeNull();

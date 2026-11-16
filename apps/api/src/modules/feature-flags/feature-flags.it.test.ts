@@ -217,6 +217,7 @@ describe("CICD-06 FR 1: every flag of the catalogue can be stored and rolled out
       "a._b",
       "A.b",
       "a..b",
+      "a.bC",
       "a.b.",
       "a.b c",
       "a.b/c",

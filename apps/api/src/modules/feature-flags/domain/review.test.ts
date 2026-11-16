@@ -14,13 +14,14 @@ describe("CICD-06 FR 2: every flag has an owner and a review date; CI fails for 
       "data.bulk_actions",
       "household.space-settings",
       "Data.bulk",
+      "data.Bulk",
       "data..bulk",
       "data.bulk actions",
       `a.${"x".repeat(99)}`,
     ];
     const problems = flagReviewProblems(Object.fromEntries(keys.map((k) => [k, flag])), "2026-11-16", keys);
     expect(problems).toEqual(
-      ["Data.bulk", "data..bulk", "data.bulk actions", `a.${"x".repeat(99)}`].map(
+      ["Data.bulk", "data.Bulk", "data..bulk", "data.bulk actions", `a.${"x".repeat(99)}`].map(
         (k) =>
           `${k}: the flags table cannot store this key (lowercase dot-separated parts of [a-z0-9_-], ≤ 100 characters)`,
       ),

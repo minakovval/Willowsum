@@ -65,6 +65,8 @@ export function adminUrlFromState(values) {
  */
 export function isLocalAdminUrl(adminUrl) {
   if (adminUrl !== adminUrl.trim()) return false;
+  // libpq has no fragment: parameters behind a `#` still apply there, while `new URL` hides them.
+  if (adminUrl.includes('#')) return false;
   let u;
   try {
     u = new URL(adminUrl);
