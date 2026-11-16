@@ -2,8 +2,8 @@
 
 **Створено:** 2026-11-16
 
-Read when leads hand over, a compaction included. Moved unchanged from
-`pr-pipeline/references/restarts.md` to keep the skill within its size limit.
+Read when leads hand over, a compaction included. Moved from `pr-pipeline/references/restarts.md` to keep the
+skill within its size limit; since then only the `keep/` exception for security detail was added.
 
 **Handover confirmation** (owner, 2026-11-13/14/15/16, #178,
 [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): every handover
@@ -17,7 +17,9 @@ An item that is not a whole row's state (a plan row, a follow-up, an owner quest
 one more than in the previous table. An item carried **≥ 3 handovers** goes to the owner with options (owner,
 2026-11-16, #178): do it in the next 2 plan rows / move it to `docs/plans/owner-questions-later.md` / close it —
 in the next batch of owner questions; it is not carried further until the owner answers. Before the handover,
-every file in the scratchpad `keep/` goes to a branch or an issue (item 7). Test database names are not handed
+every file in the scratchpad `keep/` goes to a branch or an issue (item 7), except the detail of a security finding
+not yet fixed in `main`: it goes to its draft security advisory, or, if that failed, item 7 names it as «лише в
+`keep/`, власнику повідомлено» ([process limits](process-limits.md)). Test database names are not handed
 over: they do not survive a new container.
 ```markdown
 | № | Пункт | Передано (хто завершує: що, де, посилання) | Прийнято (новий ведучий: що зроблено, де) | Перенесено N разів |
@@ -28,7 +30,7 @@ over: they do not survive a new container.
 | 4 | Рішення сесії (власника й ведучого: файл або відкритий PR); пропозиції ретро — кожна з посиланням на #178 | | | |
 | 5 | Follow-ups: issues і списки злитих PR | | | |
 | 6 | Наступні рядки плану | | | |
-| 7 | Файли з `keep/`: гілка або issue | | | |
+| 7 | Файли з `keep/`: гілка або issue (подробиці вади безпеки — advisory) | | | |
 | 8 | Ліміт (`rate_limit_info`) і лічильник перезапусків | | | |
 | 9 | #180: знімок, рядки PR, рядок «Сесії», ретроспектива | | | |
 | 10 | Назва наступної сесії або сегмента | | | |
