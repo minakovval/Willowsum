@@ -7,6 +7,9 @@ import {
   parseBudgetAmount,
   periodMode,
   periodsToSnapshot,
+  scalePlan,
+  shareFrom,
+  startChoices,
   type BudgetCategory,
   type BudgetIssue,
   type CountedAmount,
@@ -22,6 +25,8 @@ export interface StoredBudget {
   readonly incomePlan: Money;
   readonly createdOn: string;
   readonly version: number;
+  /** FR 14: the day a proportional first period starts (today when created); null — the whole first period. */
+  readonly firstDay: string | null;
 }
 
 export interface StoredLimit {
@@ -80,6 +85,8 @@ export interface BudgetReads {
     accountIds: readonly string[],
     period: Period,
     currency: string,
+    /** FR 14: a proportional first period counts from this day (a share «На кілька місяців» — the whole month). */
+    from?: string,
   ): Promise<{
     readonly amounts: readonly CountedAmount[];
     readonly nearestRateCount: number;
@@ -155,6 +162,7 @@ const budgetFields = (b: StoredBudget) => ({
   currency: b.currency,
   firstPeriod: b.firstPeriod,
   incomePlan: b.incomePlan.toDecimalString(),
+  ...(b.firstDay === null ? {} : { firstDay: b.firstDay }),
 });
 
 const limitChange = (categoryId: string, before: Money | null, after: Money | null) => [
@@ -215,8 +223,19 @@ export async function ensureSnapshots(
   );
   if (missing.length === 0) return;
   const plan = livePlan(budget, await tx.limits(householdId, budget.id), categories);
-  for (const p of missing) await tx.insertSnapshot(householdId, budget.id, p, plan);
+  for (const p of missing) await tx.insertSnapshot(householdId, budget.id, p, planOf(budget, p, plan));
 }
+
+/** FR 14: a proportional first period has the plan × its share of days; every other period the plan as it is. */
+export function planOf(budget: StoredBudget, period: Period, plan: PeriodPlan): PeriodPlan {
+  return budget.firstDay !== null && period === budget.firstPeriod
+    ? scalePlan(plan, shareFrom(budget.firstDay))
+    : plan;
+}
+
+/** FR 14: the first day the period counts — the proportional first period's start, else its 1st (undefined). */
+export const countsFrom = (budget: StoredBudget, period: Period): string | undefined =>
+  budget.firstDay !== null && period === budget.firstPeriod ? budget.firstDay : undefined;
 
 export function livePlan(
   budget: StoredBudget,
@@ -234,9 +253,9 @@ export const byId = (categories: readonly BudgetCategory[]): ReadonlyMap<string,
   new Map(categories.map((c) => [c.id, c]));
 
 /**
- * «Почати з нуля» and the saving of the wizard (FR 1, FR 2, FR 5; edge case 6): one budget per space, in the space's
- * reporting currency, starting with the current or the next month. The wizard's proposal and the proportional first
- * period are row 30.
+ * «Почати з нуля» and the saving of the wizard (FR 1, FR 2, FR 5, FR 14; edge case 6): one budget per space, in the
+ * space's reporting currency, starting with the current or the next month — or, from the 2nd of the month on,
+ * proportionally from today (`proportional`). There is no default start: `firstPeriod` is required.
  */
 export async function createBudget(
   deps: BudgetDeps,
@@ -244,6 +263,8 @@ export async function createBudget(
   caller: Caller,
   input: {
     readonly firstPeriod: string;
+    /** FR 14: «Пропорційно на <сьогодні>–<останній день>» — the current month from today, not on its 1st. */
+    readonly proportional?: boolean | undefined;
     readonly incomePlan?: { readonly amount: string; readonly currency: string } | undefined;
     readonly limits?: readonly LimitInput[] | undefined;
   },
@@ -253,6 +274,10 @@ export async function createBudget(
   const issues: BudgetIssue[] = [];
   if (!isPeriod(input.firstPeriod) || !firstPeriodChoices(deps.today()).includes(input.firstPeriod))
     issues.push({ field: "firstPeriod", issue: "invalid" });
+  const today = deps.today();
+  const proportional = startChoices(today).choices.find((c) => c.start === "proportional");
+  if (input.proportional === true && proportional?.firstPeriod !== input.firstPeriod)
+    issues.push({ field: "proportional", issue: "invalid" });
   const income = input.incomePlan
     ? parseBudgetAmount("incomePlan", input.incomePlan, currency)
     : Money.zero(currency);
@@ -266,8 +291,9 @@ export async function createBudget(
     currency,
     firstPeriod: input.firstPeriod,
     incomePlan: income,
-    createdOn: deps.today(),
+    createdOn: today,
     version: 1,
+    firstDay: input.proportional === true ? today : null,
   };
   if (!(await tx.insertBudget(caller.householdId, budget)))
     return { result: { kind: "exists" }, handOffs: [] };
@@ -446,7 +472,7 @@ export async function periodPlan(
   if (period < budget.firstPeriod) return null;
   const today = deps.today();
   if (periodMode(period, today) !== "past")
-    return livePlan(budget, await tx.limits(householdId, budget.id), categories);
+    return planOf(budget, period, livePlan(budget, await tx.limits(householdId, budget.id), categories));
   let snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   if (!snapshot) {
     const locked = await tx.budget(householdId, true);

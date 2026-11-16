@@ -33,13 +33,11 @@ export function periodMode(period: Period, today: string): "past" | "current" | 
 }
 
 /**
- * FR 5 (the part of row 29): the first period is the current month or the next one; the wizard's third choice — a
- * proportional first period (FR 14) — comes with row 30.
+ * FR 5, FR 14: the first period is the current month or, from the 2nd of the month on, the next one; on the 1st it is
+ * the current one (no mid-period choice). The proportional start is a share of the current month (domain/wizard.ts).
  */
-export const firstPeriodChoices = (today: string): readonly Period[] => [
-  periodOf(today),
-  addMonths(periodOf(today), 1),
-];
+export const firstPeriodChoices = (today: string): readonly Period[] =>
+  today.endsWith("-01") ? [periodOf(today)] : [periodOf(today), addMonths(periodOf(today), 1)];
 
 /** The finished periods since the first one that have no snapshot yet (FR 11), oldest first. */
 export function periodsToSnapshot(

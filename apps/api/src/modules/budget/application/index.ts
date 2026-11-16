@@ -2,3 +2,4 @@
 // Uses ports; adapters are wired in ../index.ts.
 export * from "./budget.ts";
 export * from "./hand-off.ts";
+export * from "./wizard.ts";
