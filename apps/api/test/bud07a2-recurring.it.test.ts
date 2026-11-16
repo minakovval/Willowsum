@@ -328,6 +328,21 @@ describe("BUD-07@PoC FR 4, AC1: the user confirms a proposal (fields may be edit
     expect((await proposals(space)).map((x) => x.expectedAmount.amount)).toEqual(["4.99"]);
   });
 
+  it("BUD-07@PoC FR 6: confirming when the latest charge's account is closed — 201 with no account, not 400 (#328 item 3)", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    await streaming(space, account);
+    const closed = await call(space, "POST", `/v1/accounts/${account}/close`, {
+      closedOn: "2026-11-16",
+      settlement: { kind: "adjustment" },
+    });
+    expect(closed.statusCode, closed.body).toBe(200);
+    const [p] = await proposals(space);
+    const res = await call(space, "POST", "/v1/recurring/proposals/confirm", { key: p!.key });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().accountId).toBeNull();
+  });
+
   it("BUD-07@PoC FR 4: a proposal no longer offered — 409 RECURRING_PROPOSAL_GONE, nothing written", async () => {
     const space = await newSpace();
     const account = await createAccount(space);

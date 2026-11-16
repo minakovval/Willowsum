@@ -278,13 +278,19 @@ export const confirmRecurringProposalRoute = defineRoute({
     const { payments, audit } = recurringServices(ctx);
     const proposal = await proposalOf(ctx, body.key);
     const edits = Object.entries(body).filter(([k, v]) => k !== "key" && v !== undefined);
+    // The latest charge's account is only a default: a closed one (or a loan) is not offered, the payment gets none.
+    let defaultAccount: string | null = proposal.accountId;
+    if (body.accountId === undefined) {
+      const latest = await payments.references.account(ctx.principal.householdId, proposal.accountId);
+      if (!latest || latest.closed || latest.kind === "loan") defaultAccount = null;
+    }
     const fields = await fieldsOf(ctx, {
       // The merchant's shown name, cut to the payment's 60 characters.
       name: [...proposal.merchant.name].slice(0, NAME_MAX).join(""),
       amount: proposal.expectedAmount.toJSON(),
       frequency: proposal.frequency,
       anchorDate: proposal.anchorDate,
-      accountId: proposal.accountId,
+      accountId: defaultAccount,
       type: proposal.type,
       variable: proposal.variable,
       ...Object.fromEntries(edits),
