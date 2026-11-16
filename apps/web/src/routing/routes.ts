@@ -70,6 +70,7 @@ export const ACCOUNTS = findPage("money", "accounts");
 export const BUDGET = findPage("planning", "budget");
 export const GOALS = findPage("planning", "goals");
 export const DEBTS = findPage("planning", "debts");
+export const RECURRING = findPage("planning", "recurring");
 
 /** UX-09@PoC item 5, CMP-71@PoC: the start page, the brand-mark link and «На Бюджет». */
 export const START_PATH = BUDGET.path;
@@ -87,7 +88,8 @@ export type ChildId =
   | "accountSettings"
   | "debtsPlan"
   | "debtsStrategy"
-  | "debtsProgress";
+  | "debtsProgress"
+  | "newRecurring";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -113,6 +115,8 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "debtsPlan", parent: DEBTS, path: `${DEBTS.path}/plan`, title: "debts.tab.plan" },
   { id: "debtsStrategy", parent: DEBTS, path: `${DEBTS.path}/strategy`, title: "debts.tab.strategy" },
   { id: "debtsProgress", parent: DEBTS, path: `${DEBTS.path}/progress`, title: "debts.tab.progress" },
+  // BUD-07@PoC FR 6: «Додати вручну» on S-141.
+  { id: "newRecurring", parent: RECURRING, path: `${RECURRING.path}/new`, title: "page.newRecurring" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 

@@ -11,9 +11,12 @@ import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
+import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
+import { RecurringPage } from "./recurring/RecurringPage.tsx";
 import {
   canonicalPath,
   DEBTS,
+  RECURRING,
   resolveRoute,
   type AuthScreen,
   type ChildId,
@@ -63,10 +66,13 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
       if (route.page.id === DEBTS.id) return <DebtsScreen tab="list" />;
+      // BUD-07@PoC c): S-141 «Регулярні платежі».
+      if (route.page.id === RECURRING.id) return <RecurringPage />;
       return <SectionPage section={route.section} page={route.page} />;
     case "child": {
       const tab = DEBT_TABS[route.child.id];
       if (tab) return <DebtsScreen tab={tab} />;
+      if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       return <ChildPage section={route.section} child={route.child} />;
     }
     case "settings":
