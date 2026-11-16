@@ -64,6 +64,12 @@ export const layout = {
   "focus-ring-offset": 2,
   /** DS-10 item 7: a table becomes a stack of cards below this container width. */
   "table-stack-below": 520,
+  /** CMP-21@PoC «Розміри і стиль»: every dialog is at most 560 px wide (three equal buttons in one row). */
+  "dialog-width": 560,
+  /** CMP-21@PoC: only «Розділити транзакцію» (split rows with amount, category and month). */
+  "dialog-width-split": 640,
+  /** CMP-21@PoC: only the recognised receipt next to its original. */
+  "dialog-width-wide": 900,
 } as const;
 
 export const iconSizes = [16, 20, 24, 32, 40] as const;
