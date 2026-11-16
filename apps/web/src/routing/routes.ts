@@ -69,6 +69,7 @@ export const TRANSACTIONS = findPage("money", "transactions");
 export const ACCOUNTS = findPage("money", "accounts");
 export const BUDGET = findPage("planning", "budget");
 export const GOALS = findPage("planning", "goals");
+export const DEBTS = findPage("planning", "debts");
 
 /** UX-09@PoC item 5, CMP-71@PoC: the start page, the brand-mark link and «На Бюджет». */
 export const START_PATH = BUDGET.path;
@@ -78,7 +79,15 @@ export const SETTINGS_PATH = "/settings";
 export const IMPORT_WIZARD_PATH = "/import";
 
 /** Pages below an L2 page: they open from that page or from «+ Додати», not from the menu. */
-export type ChildId = "importHistory" | "newTransaction" | "newAccount" | "newGoal";
+export type ChildId =
+  | "importHistory"
+  | "newTransaction"
+  | "newAccount"
+  | "newGoal"
+  | "accountSettings"
+  | "debtsPlan"
+  | "debtsStrategy"
+  | "debtsProgress";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -100,8 +109,24 @@ export const CHILDREN: readonly ChildDef[] = [
   },
   { id: "newAccount", parent: ACCOUNTS, path: `${ACCOUNTS.path}/new`, title: "page.newAccount" },
   { id: "newGoal", parent: GOALS, path: `${GOALS.path}/new`, title: "page.newGoal" },
+  // BUD-19@PoC FR 11: the tabs «План погашення» (S-144), «Стратегія» (S-145), «Прогрес» (S-146) of «Борги».
+  { id: "debtsPlan", parent: DEBTS, path: `${DEBTS.path}/plan`, title: "debts.tab.plan" },
+  { id: "debtsStrategy", parent: DEBTS, path: `${DEBTS.path}/strategy`, title: "debts.tab.strategy" },
+  { id: "debtsProgress", parent: DEBTS, path: `${DEBTS.path}/progress`, title: "debts.tab.progress" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
+
+/** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is wave 2 row 113. */
+const ACCOUNT_SETTINGS: ChildDef = {
+  id: "accountSettings",
+  parent: ACCOUNTS,
+  path: `${ACCOUNTS.path}/:id/settings`,
+  title: "page.accountSettings",
+};
+const ACCOUNT_SETTINGS_PATH = /^\/money\/accounts\/[0-9a-fA-F-]{36}\/settings$/;
+/** S-054 of one account: «›» of a debt row opens it (BUD-19@PoC FR 11, AC9). */
+export const accountSettingsPath = (accountId: string): string =>
+  ACCOUNT_SETTINGS.path.replace(":id", encodeURIComponent(accountId));
 
 /** DS-22: the design-system sample page, outside the app navigation. */
 export const GALLERY_TOKENS_PATH = "/gallery/tokens";
@@ -143,7 +168,9 @@ export function resolveRoute(path: string): Route {
     const p = section.pages.find((x) => x.path === path);
     if (p) return { kind: "page", section, page: p };
   }
-  const child = CHILDREN.find((c) => c.path === path);
+  const child =
+    CHILDREN.find((c) => c.path === path) ??
+    (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined);
   if (child) return { kind: "child", section: sectionOf(child.parent), child };
   return { kind: "notFound" };
 }

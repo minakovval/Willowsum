@@ -50,3 +50,5 @@ export { Skeleton } from "./skeleton/Skeleton.tsx";
 export type { SkeletonProps, SkeletonVariant } from "./skeleton/Skeleton.tsx";
 export { Progress } from "./progress/Progress.tsx";
 export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";
+export { PageTabs } from "./tabs/PageTabs.tsx";
+export type { PageTab } from "./tabs/PageTabs.tsx";

@@ -711,3 +711,52 @@
     white-space: normal;
   }
 }
+
+/*
+ * CMP-11@PoC «Вкладки сторінки»: 36 px pills (hit area 44 px), radius 999, 0 × 14 px, 4 px apart, 14/20 px, no
+ * divider line. Selected — surface-300 with brand text 600; others transparent, ink-muted 500; hover — ink on
+ * surface-100; focus — the 3 px focus ring with a 1 px offset. A row that does not fit scrolls sideways.
+ */
+.ws-page-tabs {
+  display: flex;
+  gap: var(--ws-space-1);
+  overflow-x: auto;
+  padding: calc((var(--ws-touch-target) - var(--ws-space-6) - var(--ws-space-1)) / 2) var(--ws-space-1);
+  margin-inline: calc(var(--ws-space-1) * -1);
+}
+
+.ws-page-tab {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  padding: 0 calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-body-sm-family);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ws-page-tab:hover {
+  background: var(--ws-surface-100);
+  color: var(--ws-ink);
+}
+
+.ws-page-tab[aria-selected="true"] {
+  background: var(--ws-surface-300);
+  color: var(--ws-brand);
+  font-weight: 600;
+}
+
+.ws-page-tab:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: 1px;
+}
+
+.ws-page-tabpanel {
+  margin-block-start: var(--ws-space-5);
+}
