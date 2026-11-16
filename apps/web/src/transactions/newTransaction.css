@@ -1,0 +1,70 @@
+/* FIN-03@PoC d): S-048 «Нова транзакція» — canvas PocMoneyNewTx, PocMoneyNewTxStep2, PocMoneyNewTxStep3, *Acc, *Cat,
+   *Date, *NoAcc. One column, the label above the field, 16 px between fields. */
+.newtx {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+}
+
+.newtx .ws-stepper {
+  margin-inline-start: calc(var(--ws-space-2) * -1);
+}
+
+/* CMP-21@PoC FR 7: the height of the dialog does not change between steps (the tallest one, step 1). */
+.newtx-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-4);
+  min-block-size: calc(var(--ws-space-8) * 5 + var(--ws-space-5));
+}
+
+.newtx-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.newtx-step .app-quiet-link {
+  align-self: flex-start;
+}
+
+/* FIN-03@PoC FR 23: the counterparty is its initials on a grey tile (no logos in PoC). */
+.newtx-initials {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-badge-size);
+  font-weight: 600;
+}
+
+.newtx-noaccount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+}
+
+.newtx-noaccount .ws-select {
+  align-self: stretch;
+}
+
+.newtx-pair {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--ws-space-3);
+}
+
+.newtx-error {
+  margin: 0;
+}
+
+.newtx-code {
+  display: block;
+  color: var(--ws-ink-muted);
+}

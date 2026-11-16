@@ -58,7 +58,7 @@ export function Stepper({ label, steps, onSelect }: StepperProps) {
             >
               <span className="ws-stepper-mark" aria-hidden="true">
                 {step.state === "done" ? (
-                  <Icon name="check" size={12} />
+                  <Icon name="check" size={16} />
                 ) : step.state === "error" ? (
                   t("stepper.errorMark")
                 ) : (
