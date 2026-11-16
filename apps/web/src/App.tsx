@@ -10,7 +10,9 @@ import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
-import { canonicalPath, resolveRoute, type AuthScreen, type Route } from "./routing/routes.ts";
+import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
+import { RecurringPage } from "./recurring/RecurringPage.tsx";
+import { canonicalPath, RECURRING, resolveRoute, type AuthScreen, type Route } from "./routing/routes.ts";
 import { initialLocale } from "./i18n/languages.ts";
 import { recordVisit, rememberPage } from "./routing/session.ts";
 import { hrefFor, useHashPath } from "./routing/useHashPath.ts";
@@ -54,8 +56,11 @@ function Router() {
 function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
+      // BUD-07@PoC c): S-141 «Регулярні платежі».
+      if (route.page.id === RECURRING.id) return <RecurringPage />;
       return <SectionPage section={route.section} page={route.page} />;
     case "child":
+      if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       return <ChildPage section={route.section} child={route.child} />;
     case "settings":
       return <SettingsPage />;

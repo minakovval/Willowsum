@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -44,6 +44,13 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 Пошук «Можливий дубль» і правило автоматичного злиття (п. 10, AC6) — модуль `duplicate-matching`. Злиття з банківською
 транзакцією (поля банку за п. 11, AC5) — з імпортом (IMP-04, рядок 43); фільтр «Стан: можливий дубль» і бейдж — далі.
 
+BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина): п. 1 («Нотатка» до 2 000 символів, «Теги»), 2 (теги простору без
+урахування регістру, до 60 символів і 20 на транзакцію; перейменування на наявний — об'єднання; видалення з кількістю;
+фільтр «Теги»; масова дія «Додати теги»), 3 і 4 (прапорців і вкладень немає), 5 (атрибути в деталі й рядку; фільтри тегу,
+мерчанта — `counterparty`, і розділення), 9 («Вибрано N · Сума ±X €»), аудит змін атрибутів; AC1, AC4 і AC9 (серверна
+частина), AC6, AC7, граничні випадки 1, 5, 6. Далі: калькулятор і стислий розклад (п. 7, граничний випадок 3), «Схожі
+транзакції» (п. 10) — UI, рядок 117; повторний імпорт (граничний випадок 4) — з імпортом.
+
 ## Публічний інтерфейс
 
 `index.ts`:
@@ -70,7 +77,7 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
     видалення рядка; повтор — 404.
   - `GET /v1/transactions` (`listTransactions`, `household.data.read`) — рушій DAT-01 (`transactionsList`,
     `adapters/db/store.ts`): `filter` (`accountId.eq|in`, `date.gte|lte`, `type.eq:in|out`, `amount.gte|lte` — сума без
-    знака, `counterparty.eq|has`, `search.has` — контрагент і опис, `status.eq|in`, `split.eq`, `hidden.eq`; без фільтра
+    знака, `counterparty.eq|has`, `search.has` — контрагент і опис, `status.eq|in`, `split.eq`, `hidden.eq`, `tag.eq|in` (BUD-13; масив `tag_ids`, `array` рушія); без фільтра
     `hidden` — лише показані), `sort` (`date`, `amount`, `counterparty`; за
     замовчуванням `-date`; у межах дати — час запису, `-date,-recordedAt`), `page`, `pageSize` (25, 50, 100). → `items`, `page`, `pageSize`, `count`, `from`, `to`,
     `summary` (рядок підсумків: `currency` профілю, `income`, `expense`, `difference`: сума без округлення, `converted`, `approximate`,
@@ -83,6 +90,21 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
     невідома, об'єднана чи службова — 400 `…categoryId: not_found`; іншого типу, ніж сума, — `kind_mismatch`. Журнал не
     змінюється. → 200 транзакція.
   - `DELETE /v1/transactions/{transactionId}/split` (`unsplitTransaction`) — «Об'єднати назад».
+  - `PATCH /v1/transactions/{transactionId}/attributes` (`setTransactionAttributes`, ключ і прапорець
+    `transactions.attributes`) — `note` (до 2 000; null чи порожній знімає) і `tags` (імена, замінюють теги транзакції:
+    кожне 1–60 символів, обрізане, один рядок; той самий без урахування регістру — раз; понад 20 — 400 `tags: too_many`;
+    тег, якого в просторі немає, створюється). Злитий дубль — 409 `TRANSACTION_MERGED`, закритий рахунок — 409
+    `ACCOUNT_CLOSED`. Запис аудиту — `update` з полями `note` (замасковано) і `tags` (ідентифікатори); журнал не змінюється.
+    Кожна транзакція має `note` і `tags` (`id`, `name` по порядку) — і в списку.
+  - `GET /v1/transaction-tags` (`listTransactionTags`) — теги простору за назвою з `count` (транзакцій із тегом, приховані
+    теж: «Тег буде знято з N транзакцій»). `PATCH /v1/transaction-tags/{tagId}` (`renameTransactionTag`) — `{ name }`;
+    назва іншого тегу простору (без урахування регістру) — об'єднання: той лишається, кожна транзакція має його раз, цей
+    зникає; → 200 тег, що лишився. `DELETE /v1/transaction-tags/{tagId}` (`deleteTransactionTag`) — знімає тег з усіх
+    транзакцій → `{ deleted, removed }`. Запис аудиту — сутність `transactions.tag` (назва замаскована; `mergedInto`,
+    `transactions` — кількість) через задачу `transactions.tag-audit`; кожна транзакція з тегом отримує нову версію.
+  - `POST /v1/transactions/selection-summary` (`summarizeTransactionSelection`, ключ `transactions.manual`) — `{ ids }`
+    (1–500): `count`, `sum` у валюті профілю за курсом дати кожної транзакції (`ListTotals`), `convertedCount`,
+    `approximate`, `nearestRateCount`, `noRateCount`; транзакції поза простором не рахуються і не згадуються.
   - `POST /v1/transactions/{transactionId}/hide` і `/show` (`hideTransaction`, `showTransaction`; ключ і прапорець
     `transactions.states`) — приховати і показати знову; ручна транзакція, прихована як дубль, знімається з балансу (її
     проводка сторнується, як у злитого дубля), а показана знову — проводиться (FIN-03 п. 17; рішення власника
@@ -132,13 +154,20 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   годинник; `CategoryDirectory` модуля categories (без нього «Розділити» — 500), середовище прапорців (без нього
   «Очікує» вимкнено), курси fx-rates (без них перекази — 500) і `DuplicateCheck` модуля duplicate-matching (без нього
   «Приховати транзакцію» — 500).
+- `createTransactionTagBulkActions({ db, accounts, newId })` → `{ targets, actions }` для `createBulkActionsServices`
+  (`src/wiring.ts`; DAT-03 п. 2, BUD-13 п. 2): ціль `transaction-tags` (вибір за фільтром списку; поле `tags` — JSON імен
+  по порядку; версія — версія транзакції; запис — правилами однієї зміни, без власного аудиту) і дія
+  `transactions.add-tags` (`{ tags }`: теги додаються після наявних, той самий раз; усі вже є — «без змін»; понад 20 —
+  «невалідний» `tags.too_many`; злитий дубль — `transaction.merged`; закритий рахунок — `account.closed`). Імена в
+  груповому аудиті замасковані. «Відмінити» повертає теги за назвами.
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
   jobs }` — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
 - `createTransactionsWorkerQueue(db, { accounts, ledger, audit })` → черга воркера (`src/wiring.ts`, `workerQueues`):
   задачі `transactions.hand-off` (`HAND_OFF_JOB`) зі схеми модуля, з тими самими портами, що в маршрутів.
 - `createTransactionsHandOffRecovery(db, households)` → `{ run() }` — щоденна задача планувальника
-  `transactions.hand-off-recovery` (до очищення черги): невдалі (`dead`) задачі передачі повертаються в чергу; подія логу
+  `transactions.hand-off-recovery` (до очищення черги): невдалі (`dead`) задачі передачі й аудиту тегів
+  (`transactions.tag-audit`) повертаються в чергу; подія логу
   `transactions.hand_off_requeued` (WARN), якщо хоч одна повернулася.
 - `createTransactionCategoryUsage(db)` → `CategoryUsage` модуля categories (BUD-01@PoC п. 12): які з даних категорій
   мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
@@ -195,10 +224,13 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 прапорцем (#281 п. 7). Те саме для п. 34 і 35. Блокування дублів простору змінено з `transactions.hide:<простір>:<рахунок>`
 на `transactions.duplicates:<простір>`: стара версія й нова не бачать блокувань одна одної, тож і тут — прапорці
 вимкнені, доки всі процеси не на цій версії. Зняти прапорець `transactions.states` — приховані рядки зникають зі списку (див. вище).
+Атрибути (BUD-13) — за прапорцем `transactions.attributes`: стара версія не знає задачі `transactions.tag-audit`
+(задача чекає в черзі, потім `dead`, і щоденне повернення ставить її знову, коли процеси оновлено), а її `PATCH` не
+стирає `note` і `tag_ids` (не пише цих колонок).
 
 ## Залежності
 
-Шар: subject. Модулі: accounts, audit, categories, fx-rates, ledger (`apps/api/module-rules.json`).
+Шар: subject. Модулі: accounts, audit, bulk-actions (типи портів), categories, fx-rates, ledger (`apps/api/module-rules.json`).
 
 ## Події
 
@@ -217,10 +249,11 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 | Таблиця | Що |
 | --- | --- |
 | `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
+| `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `jobs`, `outbox_events` | Черга модуля (ARC-04; `0003_queue.sql`, дослівно `queue-tables.sql`): задачі передачі `transactions.hand-off`; подій модуль поки не публікує |
 
-Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 1 пара «Не дубль», 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).
+Синтетичні дані: `synthetic.ts` (20 транзакцій — серед них «Очікує», прихована і розділена на 2 частини, 1 переказ, 1 пара «Не дубль», 2 теги на одній транзакції з нотаткою, 2 ключі, 3 виконані задачі передачі й 1 передана подія на простір).

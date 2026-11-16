@@ -69,6 +69,7 @@ export const TRANSACTIONS = findPage("money", "transactions");
 export const ACCOUNTS = findPage("money", "accounts");
 export const BUDGET = findPage("planning", "budget");
 export const GOALS = findPage("planning", "goals");
+export const RECURRING = findPage("planning", "recurring");
 
 /** UX-09@PoC item 5, CMP-71@PoC: the start page, the brand-mark link and «На Бюджет». */
 export const START_PATH = BUDGET.path;
@@ -78,7 +79,7 @@ export const SETTINGS_PATH = "/settings";
 export const IMPORT_WIZARD_PATH = "/import";
 
 /** Pages below an L2 page: they open from that page or from «+ Додати», not from the menu. */
-export type ChildId = "importHistory" | "newTransaction" | "newAccount" | "newGoal";
+export type ChildId = "importHistory" | "newTransaction" | "newAccount" | "newGoal" | "newRecurring";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -100,6 +101,8 @@ export const CHILDREN: readonly ChildDef[] = [
   },
   { id: "newAccount", parent: ACCOUNTS, path: `${ACCOUNTS.path}/new`, title: "page.newAccount" },
   { id: "newGoal", parent: GOALS, path: `${GOALS.path}/new`, title: "page.newGoal" },
+  // BUD-07@PoC FR 6: «Додати вручну» on S-141.
+  { id: "newRecurring", parent: RECURRING, path: `${RECURRING.path}/new`, title: "page.newRecurring" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 

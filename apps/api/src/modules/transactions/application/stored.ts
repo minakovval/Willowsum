@@ -1,7 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
 import type { Split, TransactionStatus, TransferLink } from "../domain/index.ts";
 
-/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql). */
+/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql). */
 export interface StoredTransaction {
   readonly id: string;
   readonly accountId: string;
@@ -25,6 +25,10 @@ export interface StoredTransaction {
    * journal event until «Роз'єднати»; null — not merged.
    */
   readonly mergedInto: string | null;
+  /** BUD-13 FR 1: «Нотатка»; null — none. */
+  readonly note: string | null;
+  /** BUD-13 FR 2: the space's tags of the transaction (`tags`), in the order given; at most 20. */
+  readonly tagIds: readonly string[];
   readonly version: number;
   /** ISO 8601 UTC; set by the database. */
   readonly createdAt: string;

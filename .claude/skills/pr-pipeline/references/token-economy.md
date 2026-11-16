@@ -9,12 +9,17 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 
 1. Pick the agent's model by risk:
    - the strongest model for implementing sensitive features; security reviews of critical modules (isolation,
-     money, auth, encryption) on the main model, except the highest-risk PRs (see Fable);
+     auth, encryption) on the main model, except the highest-risk PRs and every `sensitive:money` PR (see Fable);
+     fixes and confirmations stay on the lighter model working from ready patches (owner, 2026-11-16: a faster
+     fix model was considered and declined);
    - **Fable** (owner, 2026-11-14/15, #178): **only** root-cause searches of flaky tests and the security review
-     of the highest-risk PRs (sign-in, encryption, data isolation of the household/space). Other security reviews
+     of the highest-risk PRs (sign-in, encryption, data isolation of the household/space) and of `sensitive:money` PRs. Other security reviews
      are on the main model, as is everything else (architecture rows, vault encryption, statement import,
-     requirement sweeps, follow-ups, docs, sync confirmations). **At most one Fable task at a time, and Fable
-     only while at most 3 authors run in parallel (owner, 2026-11-16; was: not while 2 authors run).** **Mutation testing of critical modules is mandatory on any model.**
+     requirement sweeps, follow-ups, docs, sync confirmations). **Fable limit (owner, 2026-11-16, `2026-11-16-owner-speedup.md`, #331): at most 2 Fable tasks at once in total.
+     The security review of every PR labelled `sensitive:money` runs on Fable, with no condition on the number
+     of authors. The other Fable uses (flaky-test root causes, the reviews of sign-in, encryption and
+     data-isolation PRs) keep the earlier rule: at most one at a time and only while at most 3 authors run
+     (owner, 2026-11-16, 9a). (lead decision, not approved by the owner, 2026-11-16, #331: both uses share the 2; money reviews have priority; a flaky-test search starts only if fewer than 2 Fable tasks run, else it waits or goes to the main model).** **Mutation testing of critical modules is mandatory on any model.**
      A security review already started on Fable (#266) is finished on Fable. Fable draws on the same 100 USD
      subscription limit and spends it faster (about ×2 price per token, longer turns); its briefs are short and
      state the goal. Compare Fable rows with similar PRs in #180 by the per-model split (see «Token accounting»);
