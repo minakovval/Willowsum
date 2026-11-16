@@ -1332,3 +1332,32 @@ code {
   align-items: center;
   gap: var(--ws-space-4);
 }
+
+/* CMP-02@PoC gallery: Field in every state. */
+.gallery-field {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-field p {
+  margin: 0;
+}
+
+.gallery-field__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-field__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+/* AC3: the amount field 120 px wide. */
+.gallery-field__narrow {
+  inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+}

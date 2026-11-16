@@ -47,6 +47,7 @@ import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
+import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
@@ -400,6 +401,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-button" title={t("gallery.button.title")}>
         <ButtonDemo />
+      </Section>
+
+      <Section id="g-field" title={t("gallery.field.title")}>
+        <FieldDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
