@@ -267,7 +267,7 @@ const server = buildServer({
                 ),
             }),
             // DAT-03: bulk actions of the selection panels, with the same targets and actions as the worker's.
-            bulkActions: bulkActionsServicesFor(audit, databases),
+            bulkActions: bulkActionsServicesFor(audit, databases, systemClock, flags),
             // BUD-01 b: a transaction's category and its source, changed by hand (categorization).
             categorization: createCategorizationServices({
               transactions: createTransactionLookup(databases.for("transactions")),

@@ -212,6 +212,8 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
       // The hand-off queue (ARC-04, migrations/0003_queue.sql).
       { relname: "jobs", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "outbox_events", relrowsecurity: true, relforcerowsecurity: true },
+      // The space's tags (BUD-13 a, migrations/0007_attributes.sql).
+      { relname: "tags", relrowsecurity: true, relforcerowsecurity: true },
       // The parts of a split (FIN-03 b, migrations/0004_states_and_splits.sql).
       { relname: "transaction_parts", relrowsecurity: true, relforcerowsecurity: true },
       { relname: "transactions", relrowsecurity: true, relforcerowsecurity: true },

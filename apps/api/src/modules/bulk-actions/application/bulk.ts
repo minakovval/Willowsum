@@ -87,6 +87,7 @@ const pick = (values: BulkValues, fields: readonly string[]): BulkValues =>
 async function resolve(deps: BulkDeps, caller: BulkCaller, request: BulkRequest): Promise<Resolved> {
   const handler = deps.registry.actions.get(request.action);
   if (!handler) throw new BulkError("UNKNOWN_ACTION");
+  if (handler.enabled && !(await handler.enabled(caller))) throw new BulkError("UNKNOWN_ACTION");
   const target = deps.registry.targets.get(handler.entity);
   if (!target) throw new BulkError("UNKNOWN_ACTION");
   const parsed = handler.params.safeParse(request.params);

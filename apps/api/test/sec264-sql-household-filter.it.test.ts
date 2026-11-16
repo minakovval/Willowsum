@@ -33,6 +33,8 @@ const row = (id: string): NewStoredTransaction => ({
   split: null,
   transfer: null,
   mergedInto: null,
+  note: null,
+  tagIds: [],
   version: 1,
 });
 

@@ -45,7 +45,9 @@ export type FieldIssue = {
     // A merge of duplicates (duplicates.ts): a side merged already, one that others were merged into, another account.
     | "merged"
     | "has_duplicates"
-    | "account_mismatch";
+    | "account_mismatch"
+    // The attributes (attributes.ts, BUD-13 FR 2): more than 20 tags on a transaction — «Досягнуто 20 тегів».
+    | "too_many";
 };
 
 const AMOUNT_RE = /^-?\d{1,20}(?:\.\d{1,18})?$/;
