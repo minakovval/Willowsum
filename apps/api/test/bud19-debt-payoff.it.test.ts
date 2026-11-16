@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import pg from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -262,7 +263,10 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
       addToPlannedExpenses: true,
       version: 1,
     });
-    const planned = createDebtPlannedExpenses(db.databases.for("debt-payoff"));
+    const planned = createDebtPlannedExpenses(
+      db.databases.for("debt-payoff"),
+      createCreditAccounts(db.databases.for("accounts")),
+    );
     expect(await planned.inMonth(space.householdId, "2026-11")).toEqual([]);
     expect(
       (await planned.inMonth(space.householdId, "2026-12")).map((p) => [p.accountId, p.amount.toJSON()]),
@@ -272,6 +276,32 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
     // The product moves no money: the journal has no new entry.
     expect(await n("ledger.entries WHERE household_id = $1", space.householdId)).toBe(journal);
     expect((await debts(space))[0]!.plan).toMatchObject({ months: 17, addToPlannedExpenses: true });
+  });
+
+  it("BUD-19@PoC AC2: the plan of a closed credit account is no planned expense any more (#325 item 1)", async () => {
+    const space = await newSpace();
+    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    const other = await loan(space, "Other", "3000.00", "12", "200.00");
+    for (const id of [visa, other])
+      expect(
+        (
+          await call(space, "PUT", `/v1/debts/${id}/plan`, {
+            extraMonthly: "100.00",
+            addToPlannedExpenses: true,
+          })
+        ).statusCode,
+      ).toBe(200);
+    const planned = createDebtPlannedExpenses(
+      db.databases.for("debt-payoff"),
+      createCreditAccounts(db.databases.for("accounts")),
+    );
+    expect(await planned.inMonth(space.householdId, "2026-12")).toHaveLength(2);
+    const closed = await call(space, "POST", `/v1/accounts/${visa}/close`, {
+      closedOn: TODAY,
+      settlement: { kind: "adjustment" },
+    });
+    expect(closed.statusCode, closed.body).toBe(200);
+    expect((await planned.inMonth(space.householdId, "2026-12")).map((p) => p.accountId)).toEqual([other]);
   });
 
   it("BUD-19@PoC AC4: 5 000 € at 24 % and 90 € — no date, «За цих умов борг не зменшується»; such a plan is not saved", async () => {
@@ -564,5 +594,194 @@ describe("BUD-19@PoC «Збережені плани погашення обов
     );
     expect(erased).toEqual({ plans: 1, jobs: 1 });
     expect(await n("debt_payoff.jobs WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+});
+
+describe("BUD-19@PoC security review: two saves at once", () => {
+  it("BUD-19@PoC FR 5: two first saves of one debt's plan that really overlap — one create, one update, versions 1 and 2", async () => {
+    const space = await newSpace();
+    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    // Hold every write to the plans table, so both requests reach the database before either commits.
+    const blocker = new pg.Client({ connectionString: db.url });
+    await blocker.connect();
+    const blockerPid = (await blocker.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0]!.pid;
+    try {
+      await blocker.query("BEGIN");
+      await blocker.query("LOCK TABLE debt_payoff.plans IN SHARE MODE");
+      const both = Promise.all([
+        call(space, "PUT", `/v1/debts/${visa}/plan`, { extraMonthly: "100.00" }),
+        call(space, "PUT", `/v1/debts/${visa}/plan`, { extraMonthly: "50.00" }),
+      ]);
+      for (let i = 0; i < 200; i++) {
+        const { rows } = await db.owner.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type IN ('Lock', 'LWLock') AND pid <> $1`,
+          [blockerPid],
+        );
+        if (rows[0]!.n >= 2) break;
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      await blocker.query("COMMIT");
+      const [a, b] = await both;
+      expect([a.statusCode, b.statusCode]).toEqual([200, 200]);
+      expect([a.json().version, b.json().version].sort()).toEqual([1, 2]);
+      expect(a.json().id).toBe(b.json().id);
+    } finally {
+      await blocker.end();
+    }
+    expect(await planAudit(space.householdId, "create")).toBe(1);
+    expect(await planAudit(space.householdId, "update")).toBe(1);
+  });
+});
+
+/**
+ * Security review of PR #321 (BUD-19 a): the space's boundary on every debt route, a scoped member on every route,
+ * input bounds, erasure of one space only.
+ */
+const stripSupport = (body: string) => body.replace(/"supportId":"[0-9a-f]+"/, '"supportId":"-"');
+
+describe("BUD-19@PoC security review: the space's boundary and the scope", () => {
+  it("BUD-19@PoC AC7: another space's DELETE of a debt that has a plan — 404, the plan and its audit untouched", async () => {
+    const owner = await newSpace();
+    const stranger = await newSpace();
+    const visa = await loan(owner, "Visa", "5000.00", "24", "250.00");
+    expect((await call(owner, "PUT", `/v1/debts/${visa}/plan`, { extraMonthly: "100.00" })).statusCode).toBe(
+      200,
+    );
+    const unknown = await call(stranger, "DELETE", `/v1/debts/${randomUUID()}/plan`);
+    const res = await call(stranger, "DELETE", `/v1/debts/${visa}/plan`);
+    expect(res.statusCode).toBe(404);
+    expect(stripSupport(res.body)).toBe(stripSupport(unknown.body));
+    const put = await call(stranger, "PUT", `/v1/debts/${visa}/plan`, { extraMonthly: "1.00" });
+    expect(put.statusCode).toBe(404);
+    expect(await n("debt_payoff.plans WHERE household_id = $1", owner.householdId)).toBe(1);
+    expect(await n("debt_payoff.plans WHERE household_id = $1", stranger.householdId)).toBe(0);
+    expect(await planAudit(owner.householdId, "delete")).toBe(0);
+    expect((await debts(owner))[0]!.plan).toMatchObject({ version: 1, extraMonthly: eur("100") });
+  });
+
+  it("BUD-19@PoC AC7: «Стратегія» naming another space's debt answers as for an unknown id and computes nothing of it", async () => {
+    const owner = await newSpace();
+    const stranger = await newSpace();
+    const visa = await loan(owner, "Visa", "5000.00", "24", "250.00");
+    await loan(stranger, "Own", "1000.00", "10", "100.00");
+    const body = (id: string) => ({
+      total: eur("500.00"),
+      debts: [{ accountId: id, minimumPayment: "10.00" }],
+    });
+    const foreign = await call(stranger, "POST", "/v1/debts/strategy", body(visa));
+    const unknown = await call(stranger, "POST", "/v1/debts/strategy", body(randomUUID()));
+    expect(foreign.statusCode).toBe(400);
+    expect(stripSupport(foreign.body)).toBe(stripSupport(unknown.body));
+    const ok = await call(stranger, "POST", "/v1/debts/strategy", { total: eur("500.00") });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.body).not.toContain(visa);
+  });
+
+  it("BUD-19@PoC «Права доступу»: a scoped member gets 404 on scenario and strategy, 403 on save and delete, whatever the role", async () => {
+    const space = await newSpace();
+    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    expect((await call(space, "PUT", `/v1/debts/${visa}/plan`, {})).statusCode).toBe(200);
+    for (const role of ["editor", "viewer", "advisor"]) {
+      const as = { role, scoped: true };
+      const scenario = await call(space, "POST", `/v1/debts/${visa}/scenario`, {}, as);
+      expect(scenario.statusCode, role).toBe(404);
+      expect(scenario.body).not.toContain("5000");
+      const strategy = await call(space, "POST", "/v1/debts/strategy", { total: eur("500.00") }, as);
+      expect(strategy.statusCode, role).toBe(404);
+      expect(strategy.body).not.toContain(visa);
+      expect((await call(space, "GET", "/v1/debts", undefined, as)).statusCode, role).toBe(404);
+      expect(
+        (await call(space, "PUT", `/v1/debts/${visa}/plan`, { extraMonthly: "1.00" }, as)).statusCode,
+        role,
+      ).toBe(403);
+      expect((await call(space, "DELETE", `/v1/debts/${visa}/plan`, undefined, as)).statusCode, role).toBe(
+        403,
+      );
+    }
+    // An unscoped viewer reads but never writes.
+    expect((await call(space, "POST", `/v1/debts/${visa}/scenario`, {}, { role: "viewer" })).statusCode).toBe(
+      200,
+    );
+    expect(
+      (await call(space, "DELETE", `/v1/debts/${visa}/plan`, undefined, { role: "viewer" })).statusCode,
+    ).toBe(403);
+    expect(await n("debt_payoff.plans WHERE household_id = $1", space.householdId)).toBe(1);
+    expect(await planAudit(space.householdId, "update")).toBe(0);
+    expect(await planAudit(space.householdId, "delete")).toBe(0);
+  });
+});
+
+describe("BUD-19@PoC security review: input bounds", () => {
+  it("BUD-19@PoC EC6: the largest amounts and rate stay a 4xx or a result, never a 500; nothing is written", async () => {
+    const space = await newSpace();
+    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    const big = "99999999999999999999";
+    const bodies = [
+      { balance: big, annualRate: "100", monthlyPayment: big },
+      { balance: big, annualRate: "100", monthlyPayment: "1.00", extraMonthly: big },
+      { balance: big, annualRate: "0", monthlyPayment: "0.01" },
+      { balance: `${big}.99`, annualRate: "100", monthlyPayment: `${big}.99` },
+    ];
+    for (const body of bodies) {
+      for (const [method, url] of [
+        ["POST", `/v1/debts/${visa}/scenario`],
+        ["PUT", `/v1/debts/${visa}/plan`],
+      ] as const) {
+        const started = Date.now();
+        const res = await call(space, method, url, body);
+        expect(res.statusCode, `${method} ${JSON.stringify(body)}: ${res.body}`).toBeLessThan(500);
+        expect(Date.now() - started).toBeLessThan(2000);
+      }
+    }
+    const strategy = await call(space, "POST", "/v1/debts/strategy", {
+      total: eur(big),
+      debts: [{ accountId: visa, minimumPayment: big, annualRate: "100" }],
+    });
+    expect(strategy.statusCode, strategy.body).toBeLessThan(500);
+  });
+
+  it("BUD-19@PoC EC5: more than 24 one-offs, a past month or a malformed amount is a 400; a 49-character decimal is refused by the schema", async () => {
+    const space = await newSpace();
+    const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      month: `2027-${String((i % 12) + 1).padStart(2, "0")}`,
+      amount: "1.00",
+    }));
+    for (const body of [
+      { oneOffs: many },
+      { oneOffs: [{ month: "2026-11", amount: "1.00" }] },
+      { oneOffs: [{ month: "2027-01", amount: "1e3" }] },
+      { balance: "1".repeat(49) },
+      { annualRate: "100.01" },
+      { monthlyPayment: "-1" },
+    ]) {
+      const res = await call(space, "POST", `/v1/debts/${visa}/scenario`, body);
+      expect(res.statusCode, JSON.stringify(body)).toBe(400);
+    }
+    // 1 200 months × 24 one-offs at most: quick.
+    const started = Date.now();
+    const slow = await call(space, "POST", `/v1/debts/${visa}/scenario`, {
+      annualRate: "0",
+      monthlyPayment: "0.01",
+      oneOffs: many.slice(0, 24).map((o, i) => ({ month: `${2027 + i}-01`, amount: "0.01" })),
+    });
+    expect(slow.statusCode).toBe(200);
+    expect(slow.json().scenario.status).toBe("over-limit");
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+});
+
+describe("BUD-19@PoC security review: erasure", () => {
+  it("NFR-12@PoC FR 3: erasing one space takes its plans and jobs only; another space's stay", async () => {
+    const erased = await newSpace();
+    const kept = await newSpace();
+    for (const s of [erased, kept]) {
+      const visa = await loan(s, "Visa", "5000.00", "24", "250.00");
+      expect((await call(s, "PUT", `/v1/debts/${visa}/plan`, {})).statusCode).toBe(200);
+    }
+    await createDebtPayoffErasure(db.databases.for("debt-payoff")).eraseHousehold(erased.householdId);
+    expect(await n("debt_payoff.plans WHERE household_id = $1", erased.householdId)).toBe(0);
+    expect(await n("debt_payoff.plans WHERE household_id = $1", kept.householdId)).toBe(1);
+    expect(await n("debt_payoff.jobs WHERE household_id = $1", kept.householdId)).toBe(1);
   });
 });
