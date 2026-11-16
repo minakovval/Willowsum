@@ -8,9 +8,11 @@ import {
   HAND_OFF_JOB,
   merchantsAudit,
   merchantsRoutes,
+  merchantsTx,
   merchantsWorkerQueue,
   requeueDeadJobsOf,
 } from "./adapters/index.ts";
+import { shownMerchants } from "./application/index.ts";
 
 export const merchantsModule = defineModule({
   name: "merchants",
@@ -20,6 +22,30 @@ export const merchantsModule = defineModule({
 });
 
 export { createMerchantsServices, type MerchantsServices } from "./adapters/index.ts";
+
+/**
+ * The merchants as another module reads them (BUD-07@PoC FR 1: module recurring groups transactions by merchant): the
+ * merchant each counterparty shows — the one a merge joined it into, else its own (`id`, `name`); a counterparty with no
+ * merchant (no letters or digits left) is absent. A description seen for the first time has its merchant born, as on
+ * any read of merchants. Bound to one space.
+ */
+export interface MerchantDirectory {
+  shownMerchants(
+    householdId: string,
+    counterparties: readonly string[],
+  ): Promise<ReadonlyMap<string, { readonly id: string; readonly name: string }>>;
+}
+
+/** `db` is the merchants database. */
+export function createMerchantDirectory(db: ModuleDatabase): MerchantDirectory {
+  return {
+    shownMerchants: (householdId, counterparties) =>
+      db.inHousehold(householdId, async (q) => {
+        const shown = await shownMerchants(merchantsTx(q), householdId, counterparties);
+        return new Map([...shown].map(([c, m]) => [c, { id: m.id, name: m.name }]));
+      }),
+  };
+}
 export { merchantInitials, merchantKey, normalizeDescription } from "./domain/index.ts";
 export type { Merchant, NormalizedMerchant } from "./domain/index.ts";
 
