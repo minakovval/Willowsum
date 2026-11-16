@@ -407,7 +407,7 @@ describe("BUD-14@PoC FR 5: conditions and actions", () => {
 });
 
 describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a rule matches, nothing changed", () => {
-  it("BUD-14@PoC AC2: «Мерчант містить Adobe» and «Сума більше за 50 €» — 14 transactions on 839,86 €; nothing changes", async () => {
+  it("BUD-14@PoC FR 7, FR 6: «Показати» for «Мерчант містить Adobe» and «Сума більше за 50 €» — 14 transactions on 839,86 €, a list without «було → стане»; nothing changes", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const adobe: string[] = [];
@@ -435,6 +435,14 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
     expect(found.totals).toEqual([{ amount: "-839.86", currency: "EUR" }]);
     expect(found.items.map((i) => i.transactionId).sort()).toEqual([...adobe].sort());
     expect(found.truncated).toBe(false);
+    // FR 6: no preview panel «було → стане» — the list names the transactions, not their categories before and after.
+    expect(Object.keys(found.items[0]!).sort()).toEqual([
+      "accountId",
+      "amount",
+      "counterparty",
+      "date",
+      "transactionId",
+    ]);
     const after = await db.owner.query(
       `SELECT count(*) AS n FROM categorization.transaction_categories WHERE household_id = $1`,
       [space.householdId],
@@ -531,7 +539,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     ).toHaveLength(1);
   });
 
-  it("BUD-14@PoC FR 8: the first matching rule sets the category; moving rules changes only what new transactions get, never the past ones", async () => {
+  it("BUD-14@PoC FR 8, FR 13: the first matching rule sets the category and is shown as «за правилом №…»; moving rules changes only what new transactions get, never the past ones", async () => {
     const space = await newSpace();
     const current = await createAccount(space, "Синтетичний поточний");
     const amex = await createAccount(space, "Синтетична Amex");
@@ -624,7 +632,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
 });
 
 describe("BUD-14@PoC FR 10: «Потребує уваги» and a merge of categories", () => {
-  it("BUD-14@PoC AC7: the category «Кава» deleted — the rule is marked «Потребує уваги» and not applied until edited", async () => {
+  it("BUD-14@PoC AC7, EC2: the category «Кава» deleted — the rule is marked «Потребує уваги» and not applied until edited", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const coffee = await addCategory(space, "Кава синт.");
@@ -665,7 +673,7 @@ describe("BUD-14@PoC FR 10: «Потребує уваги» and a merge of categ
 });
 
 describe("BUD-14@PoC FR 11: identical conditions", () => {
-  it("BUD-14@PoC AC8: «Мерчант містить Netflix» exists — a new rule with the same condition is saved with a warning that links to it", async () => {
+  it("BUD-14@PoC AC8, EC4: «Мерчант містить Netflix» exists — a new rule with the same condition is saved with a warning that links to it", async () => {
     const space = await newSpace();
     const subscriptions = await category(space, "Підписки");
     const first = await createRule(space, { conditions: [merchantIs("Netflix")], categoryId: subscriptions });
