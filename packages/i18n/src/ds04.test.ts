@@ -243,7 +243,16 @@ describe("DS-04@PoC: the number mask", () => {
     const mask = maskNumber("4441 1144 1744 4417");
     expect(mask).toMatch(/^·{2}\d{4}$/);
     expect(mask).not.toMatch(/[•*\s]/);
-    for (const bad of ["", "441", "44a7", "****4417"]) expect(() => maskNumber(bad), bad).toThrow(RangeError);
+    for (const bad of ["", "441", "44-7", "****4417", "AB1"])
+      expect(() => maskNumber(bad), bad).toThrow(RangeError);
+  });
+});
+
+describe("DS-04@PoC FR 13: an IBAN-like number shows its last 4 characters as they are", () => {
+  it("DS-04@PoC FR 13: letters among the last 4 keep the same mask «··AB12»", () => {
+    expect(maskNumber("AB12")).toBe("··AB12");
+    expect(maskNumber("UA21 3223 1300 0002 6007 2335 66AB")).toBe("··66AB");
+    expect(maskNumber("12ab")).toBe("··12ab");
   });
 });
 

@@ -49,7 +49,7 @@ export type Load<T> =
   | { readonly state: "ready"; readonly data: T };
 
 /**
- * DS-04 FR 13 masks digits only («··4417»); an IBAN-like number whose last characters are not digits is named
+ * DS-04 FR 13 masks the last 4 characters («··4417», «··AB12»); a number that is not alphanumeric is named
  * without a mask, and a label never throws (a throw here would leave the screen in «loading»).
  */
 function maskedOrNothing(last4: string): string | null {
