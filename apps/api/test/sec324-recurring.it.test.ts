@@ -253,13 +253,13 @@ describe("sec324: idempotency keys of the recurring create routes (ARC-07 FR 4)"
     expect(await n("recurring.payments WHERE household_id = $1", b.householdId)).toBe(1);
   });
 
-  it("sec324: a confirm's key reused on reject with the same body — 409, the series is not rejected; a 409 GONE leaves the key free", async () => {
+  it("sec324: a confirm's key reused on reject with the same body — 409, the series is not rejected; a refused unknown key leaves the key free", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     await streaming(space, account);
     const [p] = await proposals(space);
     const gone = await call(space, "POST", "/v1/recurring/proposals/confirm", { key: "no-such" }, {}, KEY);
-    expect([gone.statusCode, gone.json().code]).toEqual([409, "RECURRING_PROPOSAL_GONE"]);
+    expect([gone.statusCode, gone.json().code]).toEqual([404, "NOT_FOUND"]);
     expect(await n("recurring.idempotency_keys WHERE household_id = $1", space.householdId)).toBe(0);
     const ok = await call(space, "POST", "/v1/recurring/proposals/confirm", { key: p!.key }, {}, KEY);
     expect(ok.statusCode, ok.body).toBe(201);
