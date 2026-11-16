@@ -96,6 +96,14 @@ export const PROBLEMS = {
     title: "The account has movements after the closing date",
   },
   /**
+   * FIN-01@PoC EC4: a change of the account's money saved in another module (a transaction) has not reached the journal
+   * yet and could not be finished now; the account was not closed. Try again later.
+   */
+  ACCOUNT_POSTINGS_PENDING: {
+    status: 409,
+    title: "Some of the account's transactions are still being posted; try again later",
+  },
+  /**
    * «Тип можна змінити лише в межах групи» (FIN-12@PoC FR 5, AC2): «Готівкові» ↔ «Кредитні» is refused; nothing was
    * written.
    */

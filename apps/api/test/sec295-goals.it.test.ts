@@ -109,6 +109,7 @@ function services() {
   return {
     accounts: createAccountsServices({
       walletUsage: [],
+      pendingPostings: [],
       ledger,
       liabilities: createLiabilities(db.databases.for("liabilities"), audit),
       keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

@@ -50,6 +50,7 @@ import {
   createTransactionLookup,
   createTransactionRuleInputs,
   createTransactionTexts,
+  createTransactionPendingPostings,
   createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
@@ -226,6 +227,14 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
               walletUsage: [createTransactionWalletUsage(databases.for("transactions"))],
+              // FIN-01 EC4: a closing first finishes the account's transactions still in the transactions queue.
+              pendingPostings: [
+                createTransactionPendingPostings(databases.for("transactions"), {
+                  accounts: createAccountDirectory(databases.for("accounts")),
+                  ledger: createLedger(databases.for("ledger")),
+                  audit,
+                }),
+              ],
             }),
             // FIN-03: a transaction is one journal event on the account's subaccount (accounts' directory); the
             // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates); split parts

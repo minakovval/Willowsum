@@ -4,7 +4,7 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
-import type { WalletUsage } from "../accounts/index.ts";
+import type { PendingPostings, WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
@@ -19,6 +19,7 @@ import {
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
+  settleAccountHandOffs,
   transactionAudit,
   transactionsList,
   transactionsRoutes,
@@ -312,6 +313,31 @@ export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
   return {
     module: "transactions",
     used: (householdId, ids) => db.inHousehold(householdId, (q) => subaccountsInUse(q, householdId, ids)),
+  };
+}
+
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7: the space's transactions whose hand-off to the journal has not finished, for module
+ * accounts' closing — run now with the worker's ports (the accounts directory, the journal, the audit log), so the
+ * closing reads the balance they leave; false when one cannot finish now (the closing is refused). `db` is the
+ * transactions module's own database (`ModuleDatabases.for("transactions")`).
+ */
+export function createTransactionPendingPostings(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+  },
+): PendingPostings {
+  const deps: HandOffDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+  };
+  return {
+    module: "transactions",
+    settle: (householdId, accountId) => settleAccountHandOffs(db, deps, householdId, accountId),
   };
 }
 
