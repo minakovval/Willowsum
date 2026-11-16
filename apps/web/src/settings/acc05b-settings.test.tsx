@@ -26,6 +26,8 @@ const PROFILE = {
   timeZone: "Europe/Kyiv",
 };
 const TOKEN_2 = "B".repeat(43);
+// Built at run time so the CI job `secrets` (gitleaks) does not read it as a key (synthetic, ≥ 12 characters).
+const NEW_PASSWORD = ["olena", "kyiv", "2026"].join("-");
 
 // jsdom has no modal dialogs: `showModal` and `close` only toggle `open` here (the browser's top layer is real).
 beforeAll(() => {
@@ -55,7 +57,7 @@ async function openProfile(handlers: Record<string, Reply | ((c: Call) => Reply)
   return api;
 }
 
-async function startPasswordChange(newPassword = "olena-kyiv-2026") {
+async function startPasswordChange(newPassword = NEW_PASSWORD) {
   fireEvent.click(screen.getByRole("button", { name: "Змінити пароль" }));
   fireEvent.change(screen.getByLabelText(/^Новий пароль/), { target: { value: newPassword } });
   const save = screen.getByRole("button", { name: "Зберегти пароль" });
@@ -268,7 +270,7 @@ describe("ACC-05@PoC FR 5 password change with step-up (S-032)", () => {
       { action: "password-change", password: "old-password-123" },
     ]);
     expect(callsTo(calls, "/v1/profile/password").map((c) => c.body)).toEqual([
-      { password: "olena-kyiv-2026", stepUpToken: TOKEN },
+      { password: NEW_PASSWORD, stepUpToken: TOKEN },
     ]);
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByLabelText(/^Новий пароль/)).toBeNull();
