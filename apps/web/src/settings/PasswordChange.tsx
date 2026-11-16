@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useT } from "@willowsum/i18n";
 import { Icon } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../auth/api.ts";
@@ -31,9 +31,11 @@ export function PasswordChange() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const [changed, setChanged] = useState(false);
-  // After «Скасувати» or a change the form goes and the focus returns to «Змінити пароль».
+  // After «Скасувати» or a change the form goes and the focus returns to «Змінити пароль». A layout effect, so
+  // the focus is on the button in the same commit that removes the form (a passive effect runs later, and
+  // the focus sits on <body> in between).
   const [refocus, setRefocus] = useState(0);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (refocus > 0) openerRef.current?.focus();
   }, [refocus]);
   const error = serverError ?? newPasswordError(password);
