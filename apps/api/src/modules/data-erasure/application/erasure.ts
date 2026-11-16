@@ -121,15 +121,17 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // into a queue already erased.
     await deps.platformAudit.spaceStep(householdId, "categorization.records");
     await deps.categorization.eraseHousehold(householdId);
-    // Goals (BUD-05): they name accounts by id only, so before or after them alike.
-    await deps.platformAudit.spaceStep(householdId, "goals.records");
-    await deps.goals.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "accounts.records");
     await deps.accounts.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "liabilities.records");
     await deps.liabilities.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "ledger.journal");
     await deps.ledger.eraseHousehold(householdId);
+    // Goals (BUD-05): after the journal, whose outbox («ledger.entry-recorded») feeds the goals queue (AC5) — a
+    // publisher before its consumer, so a worker pass between the steps hands no event into a queue already erased.
+    // They name accounts and transactions by id only.
+    await deps.platformAudit.spaceStep(householdId, "goals.records");
+    await deps.goals.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log");
     await deps.audit.eraseHousehold(householdId);
     // Last: the key, with the space's record, in one locked transaction.
