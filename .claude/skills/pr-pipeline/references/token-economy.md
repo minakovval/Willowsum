@@ -9,7 +9,7 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 
 1. Pick the agent's model by risk:
    - **implementing** sensitive features: the main model (Рішення ведучого (2026-11-16; власник не схвалював;
-     #PRNUM): «the strongest model» of the earlier text is the main model, since Fable has only the uses below);
+     #360): «the strongest model» of the earlier text is the main model, since Fable has only the uses below);
    - **fixes and confirmations**: the lighter model working from ready reviewer patches (`fix-review-findings`),
      a fresh agent per fix; if it must deviate from a patch, it stops and reports, and the fix moves to the main
      model (owner, 2026-11-14, #178; #191 deadlocked; a faster fix model was declined: owner, 2026-11-16);
@@ -94,7 +94,7 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
    row with `append --sessions` (above): cache read, output and USD are the snapshot difference, agents included;
    «Час агентів» and CI are the sums of the segment's PR rows; a lost snapshot file is rebuilt in the short form
    from its #180 comment ([README](../../../../tools/token-report/README.md)). Рішення ведучого (2026-11-16;
-   власник не схвалював; #PRNUM): the row includes the agents, as the rows since «ведучий 3» do; the lead's own
+   власник не схвалював; #360): the row includes the agents, as the rows since «ведучий 3» do; the lead's own
    share (`session --since <start>`) goes into the retrospective.
 2. **PR.** In the same turn as the merge (owner, 2026-11-13), append the script's row to «PR»: every author, fix,
    reviewer and confirmation run of that PR (follow-up and fix agents of the same PR included).

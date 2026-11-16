@@ -24,7 +24,7 @@ full each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>
 comment. It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions,
 follow-ups, the next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178).
 Rewrite it after every 3 merges, whenever an owner question changes and, from the 350 k stop, before each long
-step. Рішення ведучого (2026-11-16; власник не схвалював; #PRNUM): the handover tables stay comments on #179 — they
+step. Рішення ведучого (2026-11-16; власник не схвалював; #360): the handover tables stay comments on #179 — they
 are the history the owner keeps (2026-11-16: «таблиця потрібна для відстеження історії»), not the state.
 
 **After compaction** (owner, 2026-11-15, #178,
