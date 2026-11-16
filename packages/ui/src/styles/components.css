@@ -731,6 +731,7 @@
   align-items: center;
   min-height: calc(var(--ws-space-6) + var(--ws-space-1));
   padding: 0 calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border: 1px solid transparent;
   border-radius: var(--ws-radius-pill);
   color: var(--ws-ink-muted);
   font-family: var(--ws-text-body-sm-family);
@@ -748,6 +749,8 @@
 
 .ws-page-tab[aria-selected="true"] {
   background: var(--ws-surface-300);
+  /* surface-300 on the page is 1.09 : 1; the selected tab is a control, so its edge is border-control (3 : 1, DS-06 AC2) */
+  border-color: var(--ws-border-control);
   color: var(--ws-brand);
   font-weight: 600;
 }
