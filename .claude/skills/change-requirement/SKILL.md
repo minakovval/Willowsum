@@ -85,7 +85,11 @@ Run, from the repository root, in this order:
 
 1. `node tools/req-check/index.mjs --views` — writes every view from its source, then checks;
 2. `node tools/req-check/index.mjs --check-mentions` — a renumbered item still named by a test fails CI;
-3. `node --test tools/req-check`.
+3. `node tools/req-check/index.mjs --check-fingerprints` — an item whose text you changed after its tests were
+   checked fails, naming those tests (owner, 2026-11-16, items 6–8): re-check them; if they still match, run
+   `--update-fingerprints <ID> "<release>/<item>"` and explain under «## Why the tests and code still match»,
+   otherwise stop and tell the lead: the tests or code must change with the text (`implement-requirement`);
+4. `node --test tools/req-check`.
 
 There must be 0 errors. Commit the sources and the regenerated views; never hand-edit or hand-merge a view (on
 a conflict see `sync-branch`). The traceability files and the req-check report are not committed (owner,

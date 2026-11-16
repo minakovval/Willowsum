@@ -101,3 +101,20 @@ test('sections: headings inside code fences and HTML comments are ignored', () =
   assert.deepEqual([...s.keys()], ['A', 'D']);
   assert.match(s.get('A'), /## B/);
 });
+
+test('owner decision 2026-11-16 item 8: a PR that updates fingerprints without tests or code says why they still match', () => {
+  const fp = { filename: 'docs/requirements/bud/BUD-03.fingerprints.json', status: 'modified' };
+  const why = '\n\n## Why the tests and code still match\n\nFR 2 was reworded only (a comma); the tests check the same values.\n';
+  // Only the fingerprints file (and the requirement text): the section is required and must not be empty.
+  fails({ title: 'BUD-03: x', body: body(), files: [fp, { filename: 'docs/requirements/bud/BUD-03.md' }] }, /changes only text fingerprints .*«## Why the tests and code still match»/);
+  fails({ title: 'BUD-03: x', body: `${body()}\n\n## Why the tests and code still match\n\n<!-- explain -->\n`, files: [fp] }, /Why the tests and code still match» is empty/);
+  ok({ title: 'BUD-03: x', body: `${body()}${why}`, files: [fp] });
+  // A test or code file changed with it: the diff shows the re-check, no section needed.
+  ok({ title: 'BUD-03: x', body: body(), files: [fp, { filename: 'apps/web/src/budget/x.test.tsx' }] });
+  ok({ title: 'BUD-03: x', body: body(), files: [fp, { filename: 'packages/ui/src/x.ts' }] });
+  // No fingerprints file, or no file list (older callers): no rule.
+  ok({ title: 'BUD-03: x', body: body(), files: [{ filename: 'docs/requirements/bud/BUD-03.md' }] });
+  ok({ title: 'BUD-03: x', body: body() });
+  // A fingerprints file anywhere else is not one (only docs/requirements/<area>/<ID>.fingerprints.json).
+  ok({ title: 'BUD-03: x', body: body(), files: [{ filename: 'docs/BUD-03.fingerprints.json' }] });
+});
