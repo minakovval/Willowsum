@@ -87,3 +87,19 @@ test.describe("DS-06@PoC AC2: contrast of every route, light theme, 1280 px", ()
     await expectNoContrastProblems(page);
   });
 });
+
+test.describe("DS-06@PoC AC2: contrast of the CMP-21 dialogs in the gallery, light theme, 1280 px", () => {
+  for (const name of ["delete", "unsaved", "options", "column", "error"]) {
+    test(`DS-06@PoC AC2: dialog «${name}»`, async ({ page }) => {
+      await page.goto(`/#${GALLERY_TOKENS_PATH}`);
+      await page.locator(`button[data-case="${name}"]`).click();
+      const dialog = page.locator("dialog.ws-dialog[open]");
+      await expect(dialog).toBeVisible();
+      if (name === "error") {
+        await dialog.locator('.ws-dialog-action[data-variant="danger"]').click();
+        await expect(dialog.getByRole("alert")).toContainText("Помилка");
+      }
+      await expectNoContrastProblems(page);
+    });
+  }
+});

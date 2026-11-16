@@ -52,3 +52,11 @@ export { Progress } from "./progress/Progress.tsx";
 export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";
 export { PageTabs } from "./tabs/PageTabs.tsx";
 export type { PageTab } from "./tabs/PageTabs.tsx";
+export { Dialog } from "./dialog/Dialog.tsx";
+export type {
+  DialogAction,
+  DialogActionVariant,
+  DialogProps,
+  DialogSize,
+  DialogTone,
+} from "./dialog/Dialog.tsx";
