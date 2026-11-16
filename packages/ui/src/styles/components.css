@@ -1775,9 +1775,10 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-surface-200);
 }
 
-.ws-stepper-step[data-state="attention"] .ws-stepper-mark {
-  background: var(--ws-tint-warning);
-  color: var(--ws-on-warning);
+/* «З помилкою»: «!» in `loss` on `tint-negative` — DS-06 AC9, the warning colours never mark an error. */
+.ws-stepper-step[data-state="error"] .ws-stepper-mark {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
 }
 
 .ws-stepper-step[data-state="unavailable"] {

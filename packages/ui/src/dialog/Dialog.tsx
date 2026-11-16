@@ -94,9 +94,13 @@ const FOCUSABLE =
   'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])';
 const FIELD = 'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])';
 
-/** Controls outside a hidden or inert part (a form step that is not shown) and outside a tooltip. */
+/**
+ * Controls Tab reaches: not disabled, not taken out of the order (`tabindex="-1"`, an unavailable step), outside a
+ * hidden or inert part (a form step that is not shown) and outside a tooltip.
+ */
 const reachable = (el: HTMLElement) =>
   !(el as HTMLButtonElement).disabled &&
+  el.getAttribute("tabindex") !== "-1" &&
   !el.closest("[hidden]") &&
   !el.closest("[inert]") &&
   !el.closest('[role="tooltip"]');

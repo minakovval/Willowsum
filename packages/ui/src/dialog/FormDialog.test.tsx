@@ -356,7 +356,7 @@ describe("CMP-21@PoC FormDialog", () => {
     // Outside the dialog in a real page; here the clear comes from the consumer's state.
     const clear = document.querySelector<HTMLButtonElement>("body > div > button")!;
     act(() => clear.click());
-    expect(stepItems().map((s) => s.dataset.state)).toEqual(["attention", "current", "unavailable"]);
+    expect(stepItems().map((s) => s.dataset.state)).toEqual(["error", "current", "unavailable"]);
     expect(stepItems()[0]!.textContent).toContain("!");
     expect(within(steps()).getByRole("button", { name: "Крок 1: Основне — є помилка" })).toBeTruthy();
   });
@@ -427,6 +427,38 @@ describe("CMP-21@PoC FormDialog", () => {
     fillStep1();
     act(() => button("Далі").click());
     expect(document.activeElement).toBe(input("Щомісячний внесок"));
+  });
+
+  it("CMP-21@PoC AC2: without «✕», Shift+Tab from the first field wraps to the last action, past the unavailable steps", () => {
+    function Form() {
+      const [name, setName] = useState("");
+      return (
+        <I18nProvider>
+          <FormDialog
+            open
+            onClose={() => {}}
+            title="Нова ціль"
+            steps={STEPS}
+            fields={[{ id: "name", label: "Назва", required: true, empty: name === "" }]}
+            submitLabel="Додати ціль"
+            onSubmit={() => {}}
+          >
+            {(form) => (form.step === 0 ? <Field label="Назва" value={name} onChange={setName} /> : null)}
+          </FormDialog>
+        </I18nProvider>
+      );
+    }
+    render(<Form />);
+    expect(
+      stepItems()
+        .slice(1)
+        .map((s) => s.dataset.state),
+    ).toEqual(["unavailable", "unavailable"]);
+    expect(document.activeElement).toBe(input("Назва"));
+    act(() => tab(true));
+    expect(document.activeElement).toBe(button("Додати ціль"));
+    act(() => tab());
+    expect(document.activeElement).toBe(input("Назва"));
   });
 
   it("CMP-21@PoC AC2: Tab never reaches a field of a hidden step", () => {

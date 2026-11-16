@@ -80,7 +80,7 @@ const FormContext = createContext<FormContextValue | null>(null);
 /**
  * CMP-21@PoC «Форма створення або редагування сутності»: the 560 px dialog of a create or edit form, built on `Dialog`.
  * - One hint on top, «Поля з * обов’язкові.»; a field's error appears when the user leaves it, not while typing
- *   («Обов’язкове поле» for an empty required one) and goes as soon as the value is valid.
+ *   («Обов’язкове поле» for an empty required one) and goes once the value is valid.
  * - The bar: «Скасувати» at the start; «Назад» (from step 2), «Далі» (until the last step) and the main action at the
  *   end. The main action is inactive while any required field of the whole form is empty or any field has a blocking
  *   error, and is active on any step once they are all valid; «Далі» is inactive while the current step is not valid.
@@ -145,7 +145,7 @@ export function FormDialog({
         : visited.has(i)
           ? stepValid(i)
             ? "done"
-            : "attention"
+            : "error"
           : "available";
 
   const go = (i: number) => {

@@ -197,7 +197,7 @@ describe("CMP-21@PoC form dialog and step indicator styles", () => {
     );
   });
 
-  it("CMP-21@PoC AC15: step indicator `dialog` — 44 px pills, 20 px circle, 10 × 1 px `border-control` dashes; current on `tint-info` with `brand`, done `gain`, unavailable `disabled-*`, error `tint-warning`", () => {
+  it("CMP-21@PoC AC15: step indicator `dialog` — 44 px pills, 20 px circle, 10 × 1 px `border-control` dashes; current on `tint-info` with `brand`, done `gain`, unavailable `disabled-*`, error `loss` on `tint-negative` (DS-06 AC9)", () => {
     const step = rule(".ws-stepper-step");
     expect(step).toContain("min-height: var(--ws-touch-target);");
     expect(step).toContain("border-radius: var(--ws-radius-pill);");
@@ -224,9 +224,10 @@ describe("CMP-21@PoC form dialog and step indicator styles", () => {
     expect(rule('.ws-stepper-step[data-state="unavailable"] .ws-stepper-mark')).toContain(
       "background: var(--ws-disabled-bg);",
     );
-    expect(rule('.ws-stepper-step[data-state="attention"] .ws-stepper-mark')).toContain(
-      "background: var(--ws-tint-warning);",
-    );
+    const error = rule('.ws-stepper-step[data-state="error"] .ws-stepper-mark');
+    expect(error).toContain("background: var(--ws-tint-negative);");
+    expect(error).toContain("color: var(--ws-loss);");
+    expect(error).not.toMatch(/warning/);
     expect([light("tint-info"), light("brand"), light("gain"), light("surface-300")]).toEqual([
       "#EEF2F7",
       "#0B2545",
@@ -241,7 +242,7 @@ describe("CMP-21@PoC form dialog and step indicator styles", () => {
       ["ink", "surface-200"],
       ["on-brand", "brand"],
       ["ink", "surface-300"],
-      ["on-warning", "tint-warning"],
+      ["loss", "tint-negative"],
       ["ink-muted", "surface-200"],
     ];
     for (const [fg, bg] of text) {

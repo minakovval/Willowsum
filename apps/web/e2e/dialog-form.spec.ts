@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { expect, test } from "./fixtures.ts";
+import { expectFormStepsFit } from "./form-steps.ts";
 
 /**
  * CMP-21@PoC b) in a real browser on the smallest supported desktop window, 1280 × 720 px: the gallery's form
@@ -51,27 +52,36 @@ test("CMP-21@PoC AC13, AC21: «Нова ціль» in three steps — at most 62
   expect(await box(page)).toEqual(first);
 });
 
-test("CMP-21@PoC AC22: every step and the form without steps, with «Додатково» open, fit 624 px without scrolling", async ({
+test("CMP-21@PoC AC22: a group that would make a 700 px step is split into two steps, each at most 624 px; «Додатково» opened, nothing scrolls", async ({
   page,
 }) => {
-  await openCase(page, "short");
-  const rule = page.getByRole("dialog", { name: "Правило категорії" });
-  await rule.getByRole("button", { name: "Додатково: нотатка" }).click();
-  await expect(rule.getByLabel("Нотатка")).toBeVisible();
-  const opened = await box(page);
-  expect(opened.height).toBeLessThanOrEqual(LIMIT);
-  expect(opened.scrolls).toBe(false);
-
-  await page.keyboard.press("Escape");
-  await expect(page.locator("dialog.ws-dialog[open]")).toHaveCount(0);
   await openCase(page, "form");
   const goal = page.getByRole("dialog", { name: "Нова ціль" });
+  // «Внески» and «Додатково» of «Нова ціль» as one step would be taller than the window allows (about 710 px)…
+  const m = await expectFormStepsFit(page);
+  expect(m.steps).toHaveLength(3);
+  const merged = m.chrome + m.steps[1]! + m.gap + m.steps[2]!;
+  expect(merged).toBeGreaterThan(m.limit);
+  // …so they are two steps, each within 624 px, and the dialog shows each of them without scrolling.
+  expect(m.limit).toBe(624);
   await goal.getByLabel(/^Назва/).fill("Відпустка");
   await goal.getByLabel(/^Цільова сума/).fill("3000");
   for (let step = 0; step < 3; step++) {
     if (step > 0) await goal.getByRole("button", { name: "Далі" }).click();
     const shown = await box(page);
-    expect(shown.height).toBeLessThanOrEqual(LIMIT);
+    expect(shown.height).toBeLessThanOrEqual(m.limit);
     expect(shown.scrolls).toBe(false);
   }
+
+  // A form without steps with «Додатково» open fits as well.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("dialog.ws-dialog[open]")).toHaveCount(0);
+  await openCase(page, "short");
+  const rule = page.getByRole("dialog", { name: "Правило категорії" });
+  await expectFormStepsFit(page);
+  await rule.getByRole("button", { name: "Додатково: нотатка" }).click();
+  await expect(rule.getByLabel("Нотатка")).toBeVisible();
+  const opened = await box(page);
+  expect(opened.height).toBeLessThanOrEqual(m.limit);
+  expect(opened.scrolls).toBe(false);
 });
