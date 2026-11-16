@@ -34,6 +34,12 @@ whether the security properties the requirement claims really hold. This review 
   (inside a block scalar) → full review. Then post one short review: «Light confirmation: only test titles /
   comments in <files>», `Reviewed head: <SHA>` and the verdict line. Any logic, assertion, fixture or
   configuration change in a sensitive path → full review.
+- **By tier** ([merge rules](../../references/merge-rules.md), «Review tiers»; the lead names it in the brief;
+  Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))):
+  Фундамент — this skill in full, mutation testing for critical modules (§4); Функціональність — only when CI set
+  `sensitive` because the PR touches the foundation, then in full for those files; Локальні інструменти — **one**
+  round, no mutation testing, and findings that do not concern production are non-blocking (follow-ups), so no
+  round 2 unless a production-relevant blocker remains.
 - The owner decision and the owner's approval for cloud or production are checked by `review-pr`, not here.
 - **Round 2** checks only the fixes and your own round-1 findings (the diff since the head you last
   reviewed). At most two rounds (see «7. Rounds»).
@@ -147,6 +153,6 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 ## 8. Clean up
 
 Remove your worktree (`git worktree remove --force <path>`), drop your databases (`pnpm db:test list`,
-`pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Return a short report
-to the lead: 10–15 lines, no narrative (owner, 2026-11-13) — PR, reviewed head SHA (full), security verdict,
-blocking items with file:line, output file paths, owner questions. Details stay in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+`pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Then report.
+
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Security verdict: Ready` or `Security verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (output file paths, the mutant table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

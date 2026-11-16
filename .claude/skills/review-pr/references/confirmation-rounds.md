@@ -1,6 +1,6 @@
 # Confirmation rounds («6. Confirmation rounds», full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Moved out of `review-pr` SKILL.md without change (owner, 2026-11-13). Read when you confirm a fix commit, a ready fix you gave or a `sync-branch` merge.
 
@@ -10,7 +10,8 @@ fix commit, a ready fix you gave, or a `sync-branch` merge (`<new>` = the PR hea
 1. Check `git merge-base --is-ancestor <old> <new>`. Then read `git diff <old> <new>` minus what a merge
    brought from `main` (step 3): each of your previous blocking findings is fixed and has its test; nothing
    else changed that you have not reviewed; CI is green on `<new>`.
-2. A fresh agent with a narrow brief does it (`pr-pipeline`, «Token economy»): the PR, `<old>`, `<new>`, the
+2. The same reviewer session, resumed, does it when only the fixes changed; a fresh agent with a narrow brief when
+   more changed (owner, 2026-11-16, «2 а»; `pr-pipeline`, «Token economy», item 2): the PR, `<old>`, `<new>`, the
    previous findings.
 3. **Merge commit from `sync-branch`**: prove it adds nothing unreviewed by comparing trees. For the merge
    `M` (`M^1` = `<old>`, the branch; `M^2` = the `main` commit): the first output line of

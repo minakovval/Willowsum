@@ -107,5 +107,4 @@ only on Ready verdicts naming the exact head; never write «Схвалюю» / �
 for a decision the owner gave (AGENTS.md steps 5 and 7). Review rounds (what blocks, at most two rounds, the
 reviewer's ready fix): AGENTS.md step 5.
 
-**Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI,
-criteria covered or left), blockers, owner questions. Details go in the PR body. Follow-ups: list them under Follow-ups in the PR body / report; the lead opens the issue. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <CI, criteria covered or left>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (follow-ups under «Follow-ups»: the lead opens the issues) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

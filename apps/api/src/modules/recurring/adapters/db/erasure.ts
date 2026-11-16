@@ -1,7 +1,7 @@
 import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
 
 /**
- * Erasure of a space's regular payments (NFR-12@PoC FR 3): every payment and rejected series, the idempotency keys and
+ * Erasure of a space's regular payments (NFR-12@PoC FR 3): every payment with its charges' marks and rejected series, the idempotency keys and
  * the queue rows, in one transaction of the module's own role. The queue rows go under their lock: a hand-off running
  * now finishes first, and one whose row is gone writes nothing.
  */
@@ -10,6 +10,7 @@ export async function eraseHouseholdRecurring(
   householdId: string,
 ): Promise<{ readonly payments: number; readonly rejections: number; readonly jobs: number }> {
   return db.inHousehold(householdId, async (q) => {
+    await q.query(`DELETE FROM charge_marks WHERE household_id = $1`, [householdId]);
     const payments = await q.query(`DELETE FROM payments WHERE household_id = $1`, [householdId]);
     const rejections = await q.query(`DELETE FROM rejections WHERE household_id = $1`, [householdId]);
     await q.query(`DELETE FROM idempotency_keys WHERE household_id = $1`, [householdId]);

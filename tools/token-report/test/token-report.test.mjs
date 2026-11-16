@@ -1,4 +1,4 @@
-// Створено: 2026-11-14 · Оновлено: 2026-11-16
+// Створено: 2026-11-14 · Оновлено: 2026-11-16 (облік без утрат, огляд процесу 15)
 // Token and time accounting for the issue «Облік токенів» (#180): owner, 2026-11-14, #178 comments 6873950124 (5),
 // 6873807074 and 6866721229. Synthetic fixtures only; no network (`--branch` is tested with a fake `gh`).
 // Run: node --test tools/token-report
@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addUpByModel, appendRow, archivePrRows, ARCHIVE_LINE, MAX_BODY, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, appendRow, archivePrRows, ARCHIVE_LINE, MAX_BODY, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, PR_TYPES, readSnapshot, sessionRow, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -410,9 +410,10 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
     assert.equal(fs.readFileSync(file, "utf8"), body);
   });
 
-  it("the note cap applies to the «Сесії» table too", () => {
-    const row = `| ведучий 2 | 2026-11-14 | 1 | 1 | 1 | 1 | 1 | 1 | ${"x".repeat(121)} |`;
-    assert.throws(() => appendRow(body, row, { table: "sessions" }), /limit is 120/);
+  it("the «Сесії» table has its own cap: 250 characters pass, 251 fail (process review 15, proposal 4)", () => {
+    const row = (n) => `| ведучий 2 | 2026-11-14 | 1 | 1 | 1 | 1 | 1 | 1 | ${"x".repeat(n)} |`;
+    assert.doesNotThrow(() => appendRow(body, row(250), { table: "sessions" }));
+    assert.throws(() => appendRow(body, row(251), { table: "sessions" }), /251 characters, the limit is 250/);
   });
 
   it("pr: a typical row (three agent runs, two models, long --note within reason) passes the cap; the per-agent list is gone", () => {
@@ -505,5 +506,95 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
     assert.equal(fs.readFileSync(file, "utf8"), archivePrRows(body).body);
     assert.equal(fs.readFileSync(out, "utf8"), archivePrRows(body).archive);
     assert.match(res.stderr, /Архів рядків PR: <посилання>/);
+  });
+});
+
+describe("accounting without gaps (owner, 2026-11-16, process review 15, proposal 4)", () => {
+  const body = read("body180.md");
+  const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+  const json = (name, value) => {
+    const file = `${dir}/${name}`;
+    fs.writeFileSync(file, JSON.stringify(value));
+    return file;
+  };
+  // The saved `get_session` result (only the fields the script reads) and the short form.
+  const start = json("start.json", {
+    ccr: { updated_at: "2026-11-16T13:20:00Z", external_metadata: { usage: { cache_read_tokens: 1_000_000_000, output_tokens: 4_000_000, cost_usd: 400.25 } } },
+  });
+  const end = json("end.json", {
+    at: "2026-11-16T15:26:00Z",
+    usage: { cache_read_tokens: 1_346_500_000, output_tokens: 5_120_000, cost_usd: 555.75 },
+  });
+  const row =
+    "| ведучий 14 | 2026-11-16 13:20 → 15:26 UTC | 346,5 млн | 1,12 млн | 155,5 | 2,1 | 0,1 | 0,1 | 2 PR (#101, #102); ретро — коментар 1 |";
+
+  it("readSnapshot: the get_session result and the short form; a missing field or time fails", () => {
+    assert.deepEqual(readSnapshot(JSON.parse(fs.readFileSync(start, "utf8")), "s"), {
+      at: new Date("2026-11-16T13:20:00Z"),
+      cacheRead: 1_000_000_000,
+      output: 4_000_000,
+      usd: 400.25,
+    });
+    assert.throws(() => readSnapshot({ at: "2026-11-16T13:20:00Z", usage: { cache_read_tokens: 1 } }, "s"), /usage.output_tokens/);
+    assert.throws(() => readSnapshot({ usage: { cache_read_tokens: 1, output_tokens: 1, cost_usd: 1 } }, "s"), /no time/);
+  });
+
+  it("sessionRow: differences of the snapshots; agent time and CI summed from the segment's PR rows", () => {
+    const s = readSnapshot(JSON.parse(fs.readFileSync(start, "utf8")), "s");
+    const e = readSnapshot(JSON.parse(fs.readFileSync(end, "utf8")), "e");
+    assert.equal(sessionRow(body, { segment: "ведучий 14", start: s, end: e, prs: ["#101", "#102"], note: "ретро — коментар 1" }), row);
+    // #101: 1,0 + 1,0 min, CI 1; #102: 2,0 + 2,0 min, CI 2 → 6 min = 0,1 h; CI 3 min = 0,1 h.
+    const none = sessionRow(body, { segment: "ведучий 15", start: s, end: e, prs: [] });
+    assert.match(none, /\| 0,0 \| 0,0 \| 0 PR \|$/);
+    assert.throws(() => sessionRow(body, { segment: "x", start: s, end: e, prs: ["#999"] }), /#999 has no row/);
+    assert.throws(() => sessionRow(body, { segment: "x", start: e, end: s, prs: [] }), /not later/);
+    const lost = body.replace("| #102 | процес | 2 | 200 | 2,0 | 2 | 2,0 | 2,0 | 2 |", "| #102 | процес | 2 | 200 | 2,0 | 2 | 2,0 | 2,0 | — |");
+    assert.throws(() => sessionRow(lost, { segment: "x", start: s, end: e, prs: ["#102"] }), /not a number/);
+  });
+
+  it("CLI append --sessions: builds the row, prints it and appends it to «Сесії»; a missing flag fails, file untouched", () => {
+    const file = `${dir}/body.md`;
+    fs.writeFileSync(file, body);
+    const args = ["append", "--body", file, "--sessions", "--segment", "ведучий 14", "--start", start, "--end", end];
+    const r = run([...args, "--prs", "101, #102", "--note", "ретро — коментар 1"]);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(r.out, row);
+    assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, row, { table: "sessions" }));
+    fs.writeFileSync(file, body);
+    const missing = run(args);
+    assert.equal(missing.code, 1);
+    assert.match(missing.err, /--sessions needs --prs/);
+    assert.equal(fs.readFileSync(file, "utf8"), body);
+    assert.equal(run([...args.slice(0, 6), "--start", start, "--end", end, "--prs", "none"]).code, 0);
+  });
+
+  it("append --sessions --row refuses an empty «Час агентів» or CI cell", () => {
+    const hand = "| ведучий 13 | 2026-11-16 | — | — | 103,6 | 3,1 | — | — | 9 PR |";
+    assert.throws(() => appendRow(body, hand, { table: "sessions" }), /«Час агентів, год» cell is empty/);
+    assert.throws(() => appendRow(body, hand.replace("| — | — | 9 PR", "| 1,0 | — | 9 PR"), { table: "sessions" }), /«CI, год» cell is empty/);
+  });
+
+  const pr = (type, runs) => [
+    "pr", "--pr", "7", "--type", type, "--rounds", "1",
+    "--run", `role=author,log=${fx("author.jsonl")},ms=60000,tokens=5`, "--ci-runs", runs,
+  ];
+
+  it("pr: refuses a type outside the list (e.g. «code/docs»)", () => {
+    for (const t of PR_TYPES) assert.equal(run(pr(t, fx("runs.json"))).code, 0, t);
+    const r = run(pr("code/docs", fx("runs.json")));
+    assert.equal(r.code, 1);
+    assert.match(r.err, /must be one of код, UI, вимоги, процес, виправлення/);
+    assert.equal(r.out, "");
+  });
+
+  it("pr: refuses CI = 0 for код, UI and виправлення; вимоги and процес may have CI = 0", () => {
+    const empty = json("runs-empty.json", { total_count: 0, workflow_runs: [] });
+    for (const t of ["код", "UI", "виправлення"]) {
+      const r = run(pr(t, empty));
+      assert.equal(r.code, 1, t);
+      assert.match(r.err, /CI = 0/);
+      assert.equal(r.out, "");
+    }
+    for (const t of ["вимоги", "процес"]) assert.equal(run(pr(t, empty)).code, 0, t);
   });
 });

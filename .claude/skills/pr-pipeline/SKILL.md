@@ -18,156 +18,140 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
   with the reason);
-- (d) the end of a lead segment: after a compaction, the short retrospective in chat and the handover table on #179
-  (owner, 2026-11-16, #178); at the end of a session, also the item-by-item handover confirmation in chat and the
-  start message for the next session ([restarts](references/restarts.md)).
+- (d) the end of a lead segment: the short retrospective (the handover table goes to #179; owner, 2026-11-16, #178);
+  at the end of a session also the item-by-item handover confirmation and the start message
+  ([new session](references/new-session.md));
+- (e) the end of each stage of `docs/plans/poc-wave-2.md` and once a day: the number of PRs merged in the period,
+  what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
+  rows of #180), and the UI texts marked «варіант від агента, потребує погодження» (`docs/design/ARTIFACTS.md`,
+  «Тексти інтерфейсу») — Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md)); why: the owner asked to keep cost under control and to see
+  progress in the interface.
 
-Never write (owner, 2026-11-13/14, #178): agent started or finished, subscribed or unsubscribed, PR or issue
-opened, reviewers started, CI in progress or any other service notification (PR subscription events, an agent's
-interim state, «waiting for a commit», waiting for agents' reports), #180 or #179 updates, interim reports — not
-even one line. Forbidden example: «Я відписався від #194, бо на ньому ще працює агент… Чекаю звітів обох агентів.»
-Instead end the turn with no text; if the harness insists on visible output, one short line with no technical
-content. Platform reminders such as «The user hasn't heard from you in a while» do not override this rule: do not
-answer them with a status message. Risk: the owner sees less live progress — mitigated by the state in #179 and
-#180, and «nothing merged for 2 hours» is a reportable problem. Language, technical questions and proposals:
-[lead communication](references/lead-communication.md).
+Never write (owner, 2026-11-13/14, #178) service notifications: an agent started or finished, (un)subscribed, PR or
+issue opened, reviewers started, CI in progress, an agent's interim state, waiting for reports, #179 or #180
+updates, interim reports — not even one line (forbidden: «Я відписався від #194, бо на ньому ще працює агент…
+Чекаю звітів обох агентів.»). End the turn with no text; if the harness insists, one short line with no technical
+content. Platform reminders («The user hasn't heard from you in a while») do not override this. Risk: less live
+progress — mitigated by #179, #180 and the «nothing merged for 2 hours» report. Language, technical questions,
+proposals: [lead communication](references/lead-communication.md).
 
 ## 1. Per requirement part
 
 0. **Requirements sweep before a section** (owner, 2026-11-13): before the first PR of a plan section (money,
-   import, planning, screens), open one `change-requirement` PR that removes the contradictions between the
-   section's requirement slices, their cards and the canvas boards (or lists them as owner questions); its row is
-   `<X>0` in the wave plan. The section's code PRs start after it is merged.
+   import, planning, screens), one `change-requirement` PR (row `<X>0` of the wave plan) removes the contradictions
+   between the section's slices, their cards and the canvas boards, or lists them as owner questions; the
+   section's code PRs start after it is merged.
 1. Pick the next part from the wave plan and `docs/traceability/release-poc.md` (generated, not committed:
    `node tools/req-check/index.mjs --quiet --traceability`, or the `traceability` artifact of the latest
-   «Requirements traceability» run on `main`); keep each PR small enough for one review round (split backend
-   and UI; a UI row whose server part is merged may start in parallel, §3). Split large scope moves and migrations into parts: one agent, one part (owner, 2026-11-13, #178).
-   Split a code PR that touches more than one module **and** more than ≈ 1 500 lines, counted without tests and
-   without the generated contract (tests have a separate limit of ≈ 1 500 lines); take the dependent part right
-   after the first (owner, 2026-11-14/15, #178).
-2. **Implementer**: a new agent with the `implement-requirement` skill, in its own git worktree on its own
-   branch (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`).
-   Brief: the requirement ID and slice, the exact files and sections to read, branch, worktree path, its slot
-   `k` (§3), and the report it returns: 10–15 lines, no narrative (owner, 2026-11-13) — PR, head SHA (full),
-   result, blockers, owner questions; details go in the PR body or the review. Reviewer briefs ask for the same
-   short report (verdict, blocking with file:line, follow-ups, checks). Agents never create GitHub issues (owner,
-   2026-11-13): they list follow-ups in the PR body or their report, and the lead opens the issues and links them.
-   Every implementer and fix brief also says (owner, 2026-11-13/14, #178): committing and pushing to its own PR
-   branch is part of the task (if the permission classifier still refuses, the agent stops and reports it, and you
-   ask the owner); before tests `pg_lsclusters`, and if the cluster is down `pg_ctlcluster 16 main start` (the
-   environment's setup script does not run when a container restarts); type checks as `pnpm typecheck` run in
-   the agent's worktree (`cd <worktree> && pnpm typecheck`): it is the same command as the CI job `web` (#184);
-   on a rate-limit warning ([restarts](references/restarts.md), «Session names»), commit WIP to its branch after
-   each step, so a cut-off costs little. A PR with a background job queue: a test for a job in state `dead` and
-   for its daily recovery (#249); a PR that changes `migrations/`: the «old code + new schema» command in the
-   author's checks before push (`implement-requirement` §4) (owner, 2026-11-15, #178).
-   The PR body ends with the session's attribution lines exactly as given in the session's instructions; GitHub
-   may rewrite the footer, which is fine. Give every agent a scratchpad prefix or subfolder unique to the PR and
-   role (`pr153-review/`; owner, 2026-11-13), never a generic `body.md`.
-3. **PR opened** → do not subscribe while an agent (author, reviewer, fix) works on it: act on the agent's
-   report; subscribe only when the PR waits for merge (step 6) (owner, 2026-11-14, #178). First open the issues
-   for any dependent slice the implementer listed and link them in the PR body (PRC-02). Then in parallel, each
-   review on a fresh agent ([token economy](references/token-economy.md) item 2):
-   - a reviewer with `review-pr`;
-   - if the PR has the label `sensitive`: a security reviewer with `security-review`.
-   Each in a different session from the author, with the PR number and head SHA; the brief asks for the
-   verdict as a PR review with `commit_id=<head>`, never an issue comment (owner, 2026-11-14, #185), and for
-   the PostgreSQL check before tests (step 2), and says: «red CI is not a review finding unless the change caused
-   it; checking CI is the lead's job before merge» (owner, 2026-11-14, #178, #197).
-4. **Batch**: wait until both reviews are in (owner, 2026-11-13), then collect the blocking items of both
-   into **one** fix request to the implementer (`fix-review-findings`): review IDs, which patch wins where
-   reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»). Never forward items one by one.
-   How often to resume the implementer and which model fixes: [token economy](references/token-economy.md)
-   items 1 and 7. Cheap reviewer tests (non-blocking) go into a fix round only when one is needed anyway for a
-   blocking finding; both verdicts Ready → merge without them. A branch behind `main` is synced by the fix agent,
-   as a separate commit in the same push, and the fix confirmation covers it: no separate sync-confirmation
-   round (owner, 2026-11-14, #178, #207).
-5. **Round 2**: a fresh reviewer per review kind with a narrow brief — the diff since the last reviewed head
-   plus its previous findings. At most two rounds; after that the reviewer gives a ready fix and confirms it.
-   A confirmation (of fixes or a sync) of a `sensitive` PR goes to **one** agent that posts both verdicts,
-   `Verdict` and `Security verdict`, as two PR reviews with `commit_id` (owner, 2026-11-14, #178). It loads both
-   `review-pr` and `security-review`, runs in a session other than the author's and the fix agent's, and
-   switches to a full security review per `security-review` §7 when the diff adds a guard, endpoint, query or
-   sensitive path, or the PR gains a `sensitive:<category>`.
-6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for
-   `sensitive` the latest `Security verdict: Ready`) names that exact SHA, the owner decision is recorded for
-   `owner-decision` PRs, the owner's approval for cloud or production, no unanswered owner «stop» or question
-   (read the PR comments before every merge; owner, 2026-11-14). The order of merges, `behind_by` and
-   `mergeable_state`, syncs and their confirmation, the docs-only sync check and the CI wait command:
+   «Requirements traceability» run on `main`). Keep each PR to one review round: split backend and UI (a UI row
+   whose server part is merged may run in parallel, §3); split large scope moves and migrations into parts, one
+   agent per part (owner, 2026-11-13, #178); split a code PR that touches more than one module **and** more than
+   ≈ 1 500 lines without tests and the generated contract (tests: a separate ≈ 1 500), taking the dependent part
+   right after the first (owner, 2026-11-14/15, #178).
+2. **Implementer**: a new agent with `implement-requirement`, in its own worktree on its own branch
+   (`claude/adoring-cray-feh4dh` or `claude/adoring-cray-feh4dh-<task>`, from up-to-date `main`). Brief: the ID
+   and slice, the exact files and sections to read, branch, worktree, slot `k` (§3), a scratchpad prefix unique
+   to the PR and role (`pr153-review/`, never a generic `body.md`; owner, 2026-11-13), and the report.
+   **Report** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, fixed form — `PR`, `Head`
+   (full SHA), `Result`, `Blockers`, `Owner questions`; reviewers: `PR` · `Head`, `Verdict` (`Security verdict`),
+   `Blocking` (file:line), `Owner questions`, `Checks`. Everything else goes in the PR body or the review; read a verdict with
+   `--jq` (its last line). The skills carry the same form. Every implementer and fix brief also says (owner,
+   2026-11-13/14/15, #178): committing and pushing to its own PR branch is part of the task (if the permission
+   classifier refuses, the agent stops and reports, and you ask the owner); before tests `pg_lsclusters` (down →
+   `pg_ctlcluster 16 main start`: the setup script does not run after a container restart); type checks as
+   `cd <worktree> && pnpm typecheck` (the CI job `web`, #184); on a rate-limit warning
+   ([restarts](references/restarts.md), «Session names») a WIP commit after each step; a background job queue
+   needs a test for a `dead` job and its daily recovery (#249); a PR that changes `migrations/` runs the
+   «old code + new schema» command before push (`implement-requirement` §4). Agents never create GitHub issues
+   (owner, 2026-11-13): they list follow-ups in the PR body, the lead opens and links the issues. The PR body ends
+   with the session's attribution lines as given (GitHub may rewrite the footer; that is fine).
+3. **PR opened** → do not subscribe while an agent (author, reviewer, fix) works on it; act on its report and
+   subscribe only when the PR waits for merge (owner, 2026-11-14, #178). First open the issues for the dependent
+   slices the implementer listed and link them (PRC-02). Then in parallel, each on a fresh agent
+   ([token economy](references/token-economy.md) item 2), as the PR's tier asks ([merge rules](../../references/merge-rules.md),
+   «Review tiers»; name the tier in the brief): a `review-pr` reviewer and, for a PR labelled
+   `sensitive`, a `security-review` reviewer — each in a session other than the author's, with the PR number and
+   head SHA. The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment (owner,
+   2026-11-14, #185), the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
+   caused it; checking CI is the lead's job before merge» (owner, 2026-11-14, #178, #197).
+4. **Batch**: wait for both reviews (owner, 2026-11-13), then send **one** fix request (`fix-review-findings`):
+   review IDs, which patch wins where reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»);
+   never forward items one by one. Fix model and resume limit: [token economy](references/token-economy.md)
+   items 1 and 5. Cheap non-blocking reviewer tests go into a fix round only when one is due anyway and only in the tier
+   Фундамент (merge rules, «Merge on Ready, follow up separately»); both verdicts Ready → merge without them. A branch behind `main` is synced by the fix agent as a separate commit in the same
+   push, covered by the fix confirmation (owner, 2026-11-14, #178, #207).
+5. **Round 2**: per review kind, the same reviewer session resumed when only the fixes changed, otherwise a fresh
+   reviewer ([token economy](references/token-economy.md) item 2; owner, 2026-11-16, «2 а»), briefed with the diff
+   since the last reviewed head and its previous findings; at most two rounds, then the reviewer gives a ready fix
+   and confirms it. A sync the lead confirms itself needs no agent ([merge checklist](references/merge-checklist.md),
+   «The lead confirms a sync itself»; `sensitive` too, owner, 2026-11-16, «1 б»). A confirmation (of
+   fixes or a sync) of a `sensitive` PR goes to **one** agent that loads `review-pr` and `security-review` and
+   posts both verdicts as two PR reviews with `commit_id` (owner, 2026-11-14, #178), in a session other than the
+   author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
+   guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`.
+6. **Merge** (squash) only on the **current head SHA**: CI green, the latest `Verdict: Ready` (and for `sensitive`
+   `Security verdict: Ready`) names it, the owner decision recorded for `owner-decision` PRs, the owner's approval
+   for cloud or production, no unanswered owner «stop» or question (read the PR comments before every merge; owner,
+   2026-11-14). Order, `behind_by`, syncs, confirmations and the CI wait command:
    [merge checklist](references/merge-checklist.md) (read before every merge).
-7. **After merge**: unsubscribe from the PR; the branch is deleted; reset the working branch to the new
-   `main` (`git fetch origin main && git reset --hard origin/main` in its worktree) or remove the worktree;
-   drop its test databases. The non-blocking items left at merge (the PR's «Follow-ups») go to one follow-up
-   PR (an implementer on a lighter model, «Token economy») or to an issue each, linked from the merged PR; the
-   lead opens the issues (step 2). **Reviewer probes and tests** that were not merged are posted at once as a
-   comment on that follow-up issue, inside `<details>`, split into several comments if over 65 000 characters
-   (owner, 2026-11-15, #178).
-   **Token and time accounting** (owner, 2026-11-13/14, mandatory): in the same turn as the merge, before the
-   container can lose the agent logs, add the PR's row to the **body** of #180 —
-   [token economy](references/token-economy.md), «Token accounting».
-8. **Report to the owner**: when to write, «Мовчання в чаті» above; questions, §2; language and technical
-   questions: [lead communication](references/lead-communication.md).
-9. **Follow-up sweep** (owner, 2026-11-13): after every 8–10 merged PRs, one PR (row `R` of the wave plan, an
-   implementer on a lighter model) closes the small open follow-ups: issues labelled or listed as follow-ups and
-   the «Follow-ups» lists of the merged PRs. Larger items get a plan row of their own instead. Run row R more
-   often, with only modules that have no open PR, security items first (owner, 2026-11-14, #178). Small process
-   changes: [lead communication](references/lead-communication.md), «Batching process changes».
+7. **After merge**: unsubscribe; the branch is deleted; reset the worktree to the new `main`
+   (`git fetch origin main && git reset --hard origin/main`) or remove it; drop its test databases. The PR's
+   «Follow-ups» go to one follow-up PR (lighter model) or an issue each, linked from the merged PR. Unmerged
+   **reviewer probes and tests** are posted at once on that follow-up issue inside `<details>`, split if over
+   65 000 characters (owner, 2026-11-15, #178). **Token and time accounting** (owner, 2026-11-13/14, mandatory):
+   in the same turn as the merge, before the agent logs can vanish, add the PR's row to the **body** of #180
+   ([token economy](references/token-economy.md), «Token accounting»).
+8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.
+9. **Follow-up sweep** (owner, 2026-11-13/14, #178): after every 8–10 merged PRs, one PR (row `R`, lighter model)
+   closes the small open follow-ups (issues and the «Follow-ups» of merged PRs), security items first, only in
+   modules with no open PR; run it more often rather than less. Larger items get a plan row. Small process changes:
+   [lead communication](references/lead-communication.md), «Batching process changes».
 
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
-**Lead sessions** — [restarts](references/restarts.md) (read when a session starts or finishes, at ~350 k tokens
-of context and after a compaction): the 350 k stop, «After compaction» (lead N+1 in the same session), «Lead state»
-(#179), start steps, a new session only when the container is lost or no compaction by ~450 k, the automatic
-restart and its limit, the start message, the process review every 3rd lead number, the handover confirmation and its template (#179). The retrospective: [token economy](references/token-economy.md), «Session retrospective».
+**Lead sessions** — [restarts](references/restarts.md) (read at the start, after a restart or an agent cut off by a
+limit, at ~350 k tokens and after a compaction); a new session, the automatic restart and the start message:
+[new session](references/new-session.md). Model by risk (Fable included), briefs, resumes, token accounting and the
+retrospective: [token economy](references/token-economy.md) (read when you choose a model or write a brief).
 
 ## 2. Owner
 
-- Questions to the owner are explicit and separate: one numbered list, each with options and your
-  recommendation; only real product questions (AGENTS.md «Ambiguity»). Improvement proposals:
-  [lead communication](references/lead-communication.md) item 4.
-- **Questions for a later release** (owner, 2026-11-14; the trigger column and the moment of raising: owner,
-  2026-11-15, #178): a question that does not concern the PoC is not repeated in chat. Record it once in
+- Questions to the owner: one numbered list, each with options and your recommendation; only real product
+  questions (AGENTS.md «Ambiguity»). Improvement proposals: [lead communication](references/lead-communication.md).
+- **Questions for a later release** (owner, 2026-11-14/15, #178): not repeated in chat; recorded once in
   `docs/plans/owner-questions-later.md` (release, question with options and recommendation, source, trigger) and
-  raise it only when that trigger row is taken or its release starts.
-- **Batch the questions** (owner, 2026-11-13): collect non-urgent questions (and the «told afterwards» notes
-  on small details) and send them together in one message, with the next merge report or decision request.
-  Urgent ones go at once, alone: a blocker that stops all parallel work, billing or CI that cannot run, and
-  anything about security (a leaked secret, a security finding in `main`, a production risk). While a question
-  waits, keep the other branches moving.
-- Anything the owner must do in a web console → a browser task (`browser-task` skill), never a request for
-  keys in chat.
-- Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a
-  numeric suffix if the name is taken; owner, 2026-11-13; `state-2026-11-05.md` is the archive) and, for PRs that
-  implement it, as the `Рішення власника (YYYY-MM-DD): схвалено …` line. Never write «Схвалюю» or «Approved».
-- A small detail you decide (AGENTS.md «Ambiguity») goes into the decision log, and into the PR body and the
-  skill or document it shapes, as one entry of this form (owner, 2026-11-13):
-  `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.`
-  (examples: `docs/decisions/state-2026-11-05.md`). Change it to an owner line only when the owner answers.
-- **GitHub errors** (owner, 2026-11-13): [retry rules](../../references/github-errors.md) (read when a call fails
-  with 502, 503 or «token store unavailable»). Brief the agents you start to do the same (their skills say so).
+  raised only when that trigger row is taken or its release starts.
+- **Batch the questions** (owner, 2026-11-13): non-urgent questions and «told afterwards» notes go together in one
+  message with the next merge report or decision request. Urgent ones go at once, alone: a blocker that stops all
+  parallel work, billing or CI that cannot run, anything about security (a leaked secret, a finding in `main`, a
+  production risk). While a question waits, keep the other branches moving.
+- Anything the owner must do in a web console → a browser task (`browser-task`), never a request for keys in chat.
+- **PoC requirements freeze** (owner, 2026-11-16, «база має бути надійною»; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))): until stages 1–3 of
+  `docs/plans/poc-wave-2.md` (Рахунки, Транзакції, Імпорт) are done, no new PoC requirement and no wider PoC scope.
+  Allowed: bug fixes, answers to questions that block the current stages, and moving scope to a later release. PRs
+  of the decision log and requirement clean-ups: at most one a day, as a batch of that day's files (each log file is
+  still written the day of the decision, below); a decision a running code PR needs goes at once ([merge checklist](references/merge-checklist.md),
+  «Order»); why: detailed requirements took the time while the interface still cannot create an account.
+- Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (AGENTS.md
+  «Where things are») and, in the PRs that implement it, as `Рішення власника (YYYY-MM-DD): схвалено …`. A small
+  detail you decide (AGENTS.md «Ambiguity») goes into the decision log, the PR body and the document it shapes as
+  `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.` (owner, 2026-11-13;
+  examples: `docs/decisions/state-2026-11-05.md`); it becomes an owner line only when the owner answers.
+- **GitHub errors** (owner, 2026-11-13): [retry rules](../../references/github-errors.md) (read on 502, 503 or
+  «token store unavailable»); the skills tell the agents the same.
 
 ## 3. Parallel branches
 
-Up to 7 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16, 9a, raised in `2026-11-16-owner-speedup.md`), each with its own worktree, PR and test database.
-**At most 10 agents at once** (owner, 2026-11-16; was 7, before that 3–4), authors, reviewers and fix agents together; more wait in a queue.
-Slots count agents, not branches: give each agent a slot `k` (1–10) in its brief and keep a table slot → agent →
-branch → worktree: its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on
-`WS_PORT=808k` (k = 1–9; k = 10: see `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
-processes it started, by PID (the skills that start servers or databases say how). Choose parts that touch
-different modules; two PRs that change the same files go one after the other. Integration tests on one
-cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
-tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, each on its own
-database under the cluster lock, never on a hand-made database (owner, 2026-11-15, #178, #226).
-**UI in parallel** (owner, 2026-11-16; list and limit changed by `docs/decisions/log/2026-11-16-owner-wave2-order.md`): UI rows whose server part is already merged (wave 2: 109–116, 118, 119, the rest of 117;
-after #340 and #339 merge, also 120 and 121 of `docs/plans/poc-wave-2.md`) may run alongside the server rows,
-3–4 UI authors at once on stages 1–3 (owner, 2026-11-16), in `apps/web`; they count within the limits above
-(branches, agents, slots). Pause: «Планування» UI (122–131) is not taken until stage 2 is done. Pick them in step 1
-together with the server rows.
-
-## 4. Restarts and token economy
-
-- After a restart, or when an agent is cut off by a limit or a restart: [restarts](references/restarts.md)
-  (read when you resume).
-- Model by risk (Fable included), briefs, the resume limit, token accounting:
-  [token economy](references/token-economy.md) (read when you choose a model or write a brief).
+Up to 7 branches (AGENTS.md «Parallel branches»; owner, 2026-11-16, `2026-11-16-owner-speedup.md`) and **at most
+10 agents at once** — authors, reviewers and fix agents together (owner, 2026-11-16); more wait in a queue. Slots
+count agents: give each a slot `k` (1–10) in its brief and keep a table slot → agent → branch → worktree. Slot `k`
+has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
+(k = 10: `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and
+worktree, and stops only the processes it started, by PID. Choose parts in different modules; two PRs that change
+the same files go one after the other. Integration tests, repeated runs and load probes run only as
+`pnpm db:test run -- …` (cluster lock, own database; roles are cluster-wide), never on a hand-made database
+(owner, 2026-11-15, #178, #226).
+**UI in parallel** (owner, 2026-11-16; `2026-11-16-owner-wave2-order.md`): a UI row whose server part is merged
+may run alongside the server rows — 3–4 UI authors on stages 1–3, within the limits above; which rows and when,
+and the «Планування» pause: the stage table of `docs/plans/poc-wave-2.md`. Pick them in step 1.
