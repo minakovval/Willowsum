@@ -1391,3 +1391,39 @@ code {
   flex-wrap: wrap;
   gap: var(--ws-space-2);
 }
+
+/* CMP-21@PoC Dialog in the gallery: the buttons that open each case and the synthetic content. */
+.gallery-dialog__openers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.gallery-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.gallery-dialog__options legend {
+  padding: 0;
+}
+
+.gallery-dialog__option {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+}
+
+.gallery-dialog__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

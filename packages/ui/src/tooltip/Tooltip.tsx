@@ -13,6 +13,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
+import { usePortalRoot } from "../dialog/portal.ts";
 import { space } from "../tokens/spacing.ts";
 
 /** Gap between the element and the tooltip; the `::before` bridge in components.css covers it. */
@@ -73,6 +74,7 @@ export function useTooltip(
   enabled = true,
 ): { triggerProps: TooltipTriggerProps | null; tooltip: ReactNode } {
   const id = useId();
+  const portalRoot = usePortalRoot();
   const trigger = useRef<HTMLElement | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState(false);
@@ -113,7 +115,10 @@ export function useTooltip(
     if (closeCurrent !== close) closeCurrent?.();
     closeCurrent = close;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setDismissed(true);
+      if (e.key !== "Escape") return;
+      // Esc closes the tooltip only; a dialog around it checks `defaultPrevented` and stays open.
+      e.preventDefault();
+      setDismissed(true);
     };
     const onScroll = () => {
       if (!revealing.current) setDismissed(true);
@@ -185,7 +190,7 @@ export function useTooltip(
   };
 
   const tooltip =
-    typeof document === "undefined"
+    portalRoot === null
       ? null
       : createPortal(
           <div
@@ -205,7 +210,7 @@ export function useTooltip(
           >
             {text}
           </div>,
-          document.body,
+          portalRoot,
         );
 
   return { triggerProps, tooltip };

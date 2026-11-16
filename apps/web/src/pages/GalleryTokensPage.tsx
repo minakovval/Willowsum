@@ -46,6 +46,7 @@ import { offeredLanguages } from "../i18n/languages.ts";
 import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
+import { DialogDemo } from "./DialogDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
@@ -402,6 +403,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-select" title={t("gallery.select.title")}>
         <SelectDemo />
+      </Section>
+
+      <Section id="g-dialog" title={t("gallery.dialog.title")}>
+        <DialogDemo />
       </Section>
 
       <Section id="g-button" title={t("gallery.button.title")}>

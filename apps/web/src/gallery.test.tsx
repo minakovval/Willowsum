@@ -338,3 +338,56 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(document.title).toBe("Willowsum · Design tokens");
   });
 });
+
+describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installMatchMedia({ width: 1280 });
+    window.location.hash = "#/gallery/tokens";
+  });
+
+  it("CMP-21@PoC AC1: every case opens from its button with focus inside, never on a danger action, and closes back", () => {
+    render(<App />);
+    const section = document.getElementById("g-dialog")!.parentElement!;
+    const openers = [...section.querySelectorAll<HTMLButtonElement>("button[data-case]")];
+    expect(openers.map((b) => b.dataset.case)).toEqual([
+      "delete",
+      "unsaved",
+      "options",
+      "column",
+      "error",
+      "long",
+      "split",
+      "wide",
+    ]);
+    for (const opener of openers) {
+      opener.focus();
+      act(() => opener.click());
+      const dialog = document.querySelector<HTMLDialogElement>("dialog.ws-dialog")!;
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      expect((document.activeElement as HTMLElement).dataset.variant).not.toBe("danger");
+      act(() => {
+        dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      expect(document.querySelector("dialog.ws-dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    }
+  });
+
+  it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
+    vi.useFakeTimers();
+    try {
+      render(<App />);
+      act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
+      act(() =>
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Видалити рахунок" }).click(),
+      );
+      expect(screen.getByRole("button", { name: "Видаляємо…" }).getAttribute("aria-busy")).toBe("true");
+      act(() => vi.advanceTimersByTime(1200));
+      const alert = within(screen.getByRole("alertdialog")).getByRole("alert");
+      expect(norm(alert.textContent)).toMatch(/^Помилка Не вдалося видалити рахунок/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

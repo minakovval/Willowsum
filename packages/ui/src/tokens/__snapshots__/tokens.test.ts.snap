@@ -165,6 +165,9 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-focus-ring-width: 3px;
   --ws-focus-ring-offset: 2px;
   --ws-table-stack-below: 520px;
+  --ws-dialog-width: 560px;
+  --ws-dialog-width-split: 640px;
+  --ws-dialog-width-wide: 900px;
   --ws-chart-area-opacity: 0.14;
   --ws-scrim-blur: 2px;
   --ws-columns: 4;
@@ -1150,6 +1153,9 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
   "layout": {
     "bottom-bar-height": 56,
     "content-max": 1200,
+    "dialog-width": 560,
+    "dialog-width-split": 640,
+    "dialog-width-wide": 900,
     "focus-ring-offset": 2,
     "focus-ring-width": 3,
     "rail-item": 56,

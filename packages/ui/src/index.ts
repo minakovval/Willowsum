@@ -67,6 +67,14 @@ export type {
 } from "./select/choices.tsx";
 export { SELECT_NATIVE_MAX, selectVariant } from "./select/listbox.tsx";
 export type { FieldStateProps, SearchGroup, SearchOption, SelectOption } from "./select/listbox.tsx";
+export { Dialog } from "./dialog/Dialog.tsx";
+export type {
+  DialogAction,
+  DialogActionVariant,
+  DialogProps,
+  DialogSize,
+  DialogTone,
+} from "./dialog/Dialog.tsx";
 export { AmountField, Field } from "./field/Field.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
