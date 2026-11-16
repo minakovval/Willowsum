@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-10, П-15, П-24, П-25, П-26, NFR-01, NFR-15
 - Сценарії: UC-ACC-27
 - Модуль: identity
-- Перевіряється: apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts
+- Перевіряється: apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts, apps/web/src/settings/acc05b-settings.test.tsx, apps/web/e2e/contrast.spec.ts
 
 **Мета.** Як користувач, я хочу керувати своїм профілем і паролем, щоб зміна пароля не відкривала шлях для захоплення акаунта.
 
