@@ -863,3 +863,216 @@ code {
   flex-wrap: wrap;
   gap: var(--ws-space-3);
 }
+
+/* BUD-07@PoC c), S-141 «Регулярні платежі» (boards PocPlanRecurring, PocPlanRecurringEmpty). Tokens only. */
+.rec-head {
+  align-items: flex-end;
+}
+
+.rec-head-text {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.rec-notice:empty {
+  display: none;
+}
+
+.rec-notice {
+  margin-block: var(--ws-space-3) 0;
+}
+
+.rec-card {
+  margin-block-start: var(--ws-space-4);
+  padding: 0;
+  overflow: hidden;
+}
+
+.rec-error,
+.rec-form-card {
+  padding: var(--ws-card-padding);
+}
+
+.rec-error h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0 0 var(--ws-space-2);
+}
+
+.rec-code {
+  font-size: var(--ws-text-label-size);
+}
+
+.rec-empty-body {
+  display: grid;
+  justify-items: center;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-7) var(--ws-space-4) var(--ws-space-6);
+  text-align: center;
+}
+
+.rec-empty-body h2,
+.rec-empty-body p {
+  margin: 0;
+  max-width: 48ch;
+}
+
+.rec-empty-icon {
+  display: grid;
+  place-items: center;
+  width: calc(var(--ws-space-8) + var(--ws-space-4));
+  height: calc(var(--ws-space-8) + var(--ws-space-4));
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-300);
+}
+
+.rec-section-head {
+  padding: var(--ws-space-4) var(--ws-space-4) var(--ws-space-2);
+}
+
+.rec-label {
+  margin: 0;
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-transform: uppercase;
+  color: var(--ws-ink-muted);
+}
+
+.rec-hint,
+.rec-meta {
+  margin: 0;
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+.rec-proposal-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-proposal {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.rec-proposal-text,
+.rec-payment-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+
+.rec-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rec-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--ws-space-6);
+  height: var(--ws-space-6);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  font-weight: 600;
+}
+
+.rec-action-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-1);
+  margin: 0;
+  padding: 0 var(--ws-space-4) var(--ws-space-2);
+  color: var(--ws-loss);
+  font-weight: 500;
+}
+
+.rec-proposals .rec-hint:last-child {
+  padding: var(--ws-space-2) var(--ws-space-4) var(--ws-space-3);
+}
+
+.rec-table th,
+.rec-table td {
+  vertical-align: middle;
+}
+
+.rec-table th:first-child,
+.rec-table td:first-child {
+  padding-inline-start: var(--ws-space-4);
+}
+
+.rec-table th:last-child,
+.rec-table td:last-child {
+  padding-inline-end: var(--ws-space-4);
+}
+
+.rec-table tbody th[scope="row"] {
+  font-weight: inherit;
+}
+
+.rec-group th {
+  background: var(--ws-surface-100);
+}
+
+.rec-payment {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.rec-payment-name {
+  font-weight: 600;
+}
+
+.rec-account {
+  color: var(--ws-ink-muted);
+}
+
+.rec-num {
+  text-align: end;
+}
+
+.ws-table .rec-num {
+  text-align: end;
+}
+
+.rec-form {
+  max-width: calc(var(--ws-space-8) * 10);
+}
+
+.rec-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.rec-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rec-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-4);
+}
+
+.rec-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+}
