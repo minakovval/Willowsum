@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../db/module-db.ts";
+import { exportedText, testTelemetryForFile } from "../telemetry/testing.ts";
 import {
   MAX_ATTEMPTS,
   RETRY_BASE_MS,
@@ -79,6 +80,8 @@ function memoryStore(
     purge: async () => ({ events: 0, jobs: 0 }),
   };
 }
+
+const telemetry = testTelemetryForFile();
 
 const sum = defineJob({ name: "reports.sum", schema: z.object({ n: z.number().int() }) });
 const big = defineJob({ name: "reports.big", schema: z.object({ n: z.number().int() }), heavy: true });
@@ -172,5 +175,73 @@ describe("ARC-04@PoC: retries and the job interface", () => {
       await worker.idle();
     }
     expect([...store.jobs.values()].every((j) => j.state === "done")).toBe(true);
+  });
+});
+
+/** A database error of one space: its message names the space, so the log must carry only the class. */
+class StoreUnavailableError extends Error {}
+
+describe("ARC-02@PoC FR 2 / ARC-04@PoC: a failure in one space does not stop the worker pass for the others", () => {
+  const job = (key: string) => ({ name: sum.name, key, payload: { n: 1 }, heavy: false, traceparent: null });
+  const failFor = (store: JobStore, method: "claim" | "pendingEvents", householdId: string): void => {
+    const original = store[method].bind(store) as (...args: unknown[]) => Promise<unknown>;
+    (store as unknown as Record<string, unknown>)[method] = async (h: string, ...rest: unknown[]) => {
+      if (h === householdId) throw new StoreUnavailableError(`claim failed for household ${householdId}`);
+      return original(h, ...rest);
+    };
+  };
+
+  it("ARC-02@PoC FR 2: a store that throws for one space — the other spaces and a later module are served in the same pass", async () => {
+    const reports = memoryStore("reports");
+    const ledger = memoryStore("ledger");
+    const seen: string[] = [];
+    const reportsHandler = defineJobHandler({
+      job: sum,
+      run: async (j) => void seen.push(`reports/${j.householdId}`),
+    });
+    const posting = defineJob({ name: "ledger.post", schema: z.object({ n: z.number().int() }) });
+    const ledgerHandler = defineJobHandler({
+      job: posting,
+      run: async (j) => void seen.push(`ledger/${j.householdId}`),
+    });
+    for (const h of ["h1", "h2", "h3"]) {
+      await reports.enqueue(h, job("a"));
+      await ledger.enqueue(h, { ...job("a"), name: posting.name });
+    }
+    failFor(reports, "claim", "h2");
+    failFor(ledger, "pendingEvents", "h1");
+    const worker = createWorker({
+      queues: [
+        { store: reports, handlers: [reportsHandler] },
+        { store: ledger, handlers: [ledgerHandler] },
+      ],
+      households: async () => ["h1", "h2", "h3"],
+    });
+    // The first pass starts with h1: reports fails on h2 (claim), ledger fails on h1 (dispatch).
+    expect(await worker.tick()).toBe(4);
+    await worker.idle();
+    expect(seen.sort()).toEqual(["ledger/h2", "ledger/h3", "reports/h1", "reports/h3"]);
+    expect(reports.jobs.get("h2/reports.sum/a")!.state).toBe("queued");
+    expect(ledger.jobs.get("h1/ledger.post/a")!.state).toBe("queued");
+
+    // One warning per failed module × space pair: the module and the error class — never the space or the message.
+    const failed = telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed");
+    expect(failed.map((r) => [r.severityText, r.attributes])).toEqual([
+      ["WARN", { "ws.module": "reports", "error.type": "StoreUnavailableError" }],
+      ["WARN", { "ws.module": "ledger", "error.type": "StoreUnavailableError" }],
+    ]);
+    const text = await exportedText(telemetry);
+    expect(text).not.toContain("household h");
+  });
+
+  it("ARC-02@PoC FR 2: when every module × space pair fails, the pass fails as a whole (a systematic failure is not hidden)", async () => {
+    const store = memoryStore("reports");
+    for (const h of ["h1", "h2"]) failFor(store, "claim", h);
+    const worker = createWorker({
+      queues: [{ store, handlers: [defineJobHandler({ job: sum, run: async () => undefined })] }],
+      households: async () => ["h1", "h2"],
+    });
+    await expect(worker.tick()).rejects.toBeInstanceOf(StoreUnavailableError);
+    expect(telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed")).toHaveLength(2);
   });
 });
