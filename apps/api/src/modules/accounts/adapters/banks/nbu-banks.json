@@ -1,0 +1,31 @@
+{
+  "registry": "nbu-banks",
+  "seed": true,
+  "asOf": "2026-11-16",
+  "source": {
+    "name": "Національний банк України — перелік банків (відкриті дані)",
+    "url": "https://bank.gov.ua/NBU_BankInfo/get_data_branch_glbank?json",
+    "licence": "Відкриті дані (Закон України «Про доступ до публічної інформації», ст. 10-1): вільне використання з посиланням на джерело",
+    "attribution": "Джерело: Національний банк України (bank.gov.ua)"
+  },
+  "note": "SEED: a short hand-made list of 17 banks (code = the bank's MFO), not yet imported from the NBU list. Replace with `pnpm --filter @willowsum/api banks:update` (apps/api/src/modules/accounts/README.md, «Довідник установ»).",
+  "banks": [
+    { "code": "305299", "name": "ПриватБанк" },
+    { "code": "300465", "name": "Ощадбанк" },
+    { "code": "322001", "name": "Універсал Банк (monobank)" },
+    { "code": "380805", "name": "Райффайзен Банк" },
+    { "code": "322313", "name": "Укрексімбанк" },
+    { "code": "334851", "name": "ПУМБ" },
+    { "code": "300528", "name": "ОТП Банк" },
+    { "code": "351005", "name": "УКРСИББАНК" },
+    { "code": "307770", "name": "А-Банк" },
+    { "code": "300346", "name": "Сенс Банк" },
+    { "code": "300614", "name": "Креді Агріколь Банк" },
+    { "code": "320478", "name": "Укргазбанк" },
+    { "code": "380838", "name": "Правекс Банк" },
+    { "code": "325365", "name": "Кредобанк" },
+    { "code": "320984", "name": "ПроКредит Банк" },
+    { "code": "339500", "name": "Таскомбанк" },
+    { "code": "380634", "name": "Акордбанк" }
+  ]
+}

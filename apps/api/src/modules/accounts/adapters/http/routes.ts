@@ -37,13 +37,16 @@ import {
   ACCOUNT_SOURCES,
   ACCOUNT_STATUSES,
   CURRENCIES_MAX,
+  bankInstitution,
   INSTITUTION_NAME_MAX,
   institutionKey,
   institutionOf,
   NOTE_MAX,
   parseAccountNumber,
+  searchBanks,
   type FieldIssue,
 } from "../../domain/index.ts";
+import { bankRegistry } from "../banks/registry.ts";
 import { accountsListTx, accountsTx } from "../db/store.ts";
 import { accountKinds } from "../queue/hand-off.ts";
 import { accountsServices } from "./services.ts";
@@ -354,6 +357,64 @@ export const findDuplicateAccountRoute = defineRoute({
     return { duplicate };
   },
 });
+
+const bankSchema = z.object({
+  /** The bank's code (МФО) in the NBU list. */
+  code: z.string(),
+  name: z.string(),
+  /** Always «Україна» (UA) for a bank of the directory. */
+  country: z.string(),
+});
+
+/**
+ * «Банк або установа» (FIN-01@PoC FR 4, AC22): the search of the built-in directory of NBU banks for the account form
+ * and «Реквізити». Picking a bank fills `institution` with its name and the country «Україна»; «Інша установа» sends a
+ * name and a country by hand, and neither changes the directory. The directory is the versioned file of the app (no
+ * call to the NBU at run time); `source` names it for the attribution. Same right as creating an account.
+ */
+export const searchBanksRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts/banks",
+  operationId: "searchBanks",
+  summary: "Banks of the built-in NBU directory whose name contains the text (all of them for an empty text)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  list: true,
+  request: {
+    query: z.object({
+      ...pageQuery.shape,
+      q: z
+        .string()
+        .max(INSTITUTION_NAME_MAX * 4)
+        .optional(),
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "A page of banks, names starting with the text first, then by name; the directory's source and date",
+    schema: pageOf(bankSchema).extend({
+      source: z.object({
+        attribution: z.string(),
+        url: z.string(),
+        /** The date of the NBU list the directory was built from. */
+        asOf: z.string(),
+      }),
+    }),
+  },
+  handler: async ({ query }) => {
+    const registry = bankRegistry();
+    const from = query.cursor ? decodeCursor(query.cursor, bankPosition).o : 0;
+    const hits = searchBanks(registry, query.q ?? "");
+    const page = hits.slice(from, from + query.limit);
+    return {
+      items: page.map((bank) => ({ code: bank.code, ...bankInstitution(bank) })),
+      nextCursor: from + query.limit < hits.length ? encodeCursor({ o: from + query.limit }) : null,
+      source: { attribution: registry.source.attribution, url: registry.source.url, asOf: registry.asOf },
+    };
+  },
+});
+const bankPosition = z.object({ o: z.number().int().min(0) });
 
 /** A sum in the profile currency: unrounded; null only when no amount has any rate (never 0). */
 const reportedSumSchema = z.object({
@@ -967,6 +1028,7 @@ export const removeAccountWalletRoute = defineRoute({
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
+  searchBanksRoute,
   accountsSummaryRoute,
   listAccountsRoute,
   getAccountRoute,
