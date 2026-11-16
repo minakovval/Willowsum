@@ -25,8 +25,6 @@ verdict needs a confirmation on the new head SHA:
   Report both SHAs to the lead.
 - exception (owner, 2026-11-16): a code PR without `sensitive` whose diff is byte-identical before and after the sync, with green CI,
   is confirmed by the lead without an agent: [merge checklist](../../pr-pipeline/references/merge-checklist.md),
-  «Code PR after a sync, lead confirms».
+  «The lead confirms a sync itself».
 
-Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
-the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit
-message or the PR body.
+Report to the lead in the fixed form of `sync-branch` («Report to the lead»).

@@ -10,6 +10,7 @@ export {
   counterpartiesOf,
   counterpartyCounts,
   recurringHistory,
+  recurringMatching,
   subaccountsInUse,
   transactionsList,
   transactionsTx,
