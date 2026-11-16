@@ -481,6 +481,17 @@ describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 69045
     assert.throws(() => archivePrRows("текст\n"), /no section of the table «PR»/);
   });
 
+  it("archivePrRows (#319): a second run keeps one archive line — the placeholder stays one, a filled link is kept", () => {
+    const first = archivePrRows(body).body;
+    const second = archivePrRows(appendRow(first, prRow("y"))).body;
+    assert.equal(second.split("\n").filter((l) => l.startsWith("Архів рядків PR:")).length, 1);
+    assert.ok(second.includes(`\n\n${ARCHIVE_LINE}\n`));
+    const filled = first.replace(ARCHIVE_LINE, "Архів рядків PR: https://example.test/1");
+    const third = archivePrRows(appendRow(filled, prRow("z"))).body;
+    const lines = third.split("\n").filter((l) => l.startsWith("Архів рядків PR:"));
+    assert.deepEqual(lines, [`${ARCHIVE_LINE}; раніше: https://example.test/1`]);
+  });
+
   it("CLI archive: writes --out and the body; without --out it fails and writes nothing", () => {
     const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
     const file = `${dir}/body.md`;
