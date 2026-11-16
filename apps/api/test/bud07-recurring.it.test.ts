@@ -169,7 +169,14 @@ beforeAll(async () => {
           history: createTransactionHistory(db.databases.for("transactions")),
           merchants: createMerchantDirectory(db.databases.for("merchants")),
           accounts: createAccountDirectory(db.databases.for("accounts")),
+          categories: createCategoryDirectory({
+            db: db.databases.for("categories"),
+            audit,
+            newId: randomUUID,
+          }),
+          audit,
           clock: { now: () => NOW },
+          newId: randomUUID,
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -205,6 +212,7 @@ describe("BUD-07@PoC FR 1, FR 2, FR 4: a series of one merchant's charges is pro
         variable: false,
         expectedAmount: { amount: "16.2", currency: "EUR" },
         nextDate: "2026-12-13",
+        anchorDate: "2026-10-13",
         lastDate: "2026-10-13",
         accountId: account,
         transactionIds: ids,
@@ -237,9 +245,9 @@ describe("BUD-07@PoC FR 1, FR 2, FR 4: a series of one merchant's charges is pro
     const space = await newSpace();
     const account = await createAccount(space);
     const ids = [
-      await tx(space, account, "2026-08-05", "-40.00", "SUMUP *SPORTLIFE 0012 KYIV UA"),
-      await tx(space, account, "2026-09-05", "-40.00", "SPORTLIFE 4411"),
-      await tx(space, account, "2026-10-05", "-40.00", "POS SPORTLIFE"),
+      await tx(space, account, "2026-09-05", "-40.00", "SUMUP *SPORTLIFE 0012 KYIV UA"),
+      await tx(space, account, "2026-10-05", "-40.00", "SPORTLIFE 4411"),
+      await tx(space, account, "2026-11-05", "-40.00", "POS SPORTLIFE"),
     ];
     expect(await proposals(space)).toMatchObject([
       { merchant: { name: "Sportlife" }, frequency: "month", transactionIds: ids, nextDate: "2026-12-05" },
@@ -249,9 +257,9 @@ describe("BUD-07@PoC FR 1, FR 2, FR 4: a series of one merchant's charges is pro
   it("BUD-07@PoC FR 1: merchants merged with «Об'єднати з…» (BUD-14) are one merchant for the analysis", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
-    const a = await tx(space, account, "2026-08-05", "-25.00", "SYNTH GYM");
-    await tx(space, account, "2026-09-05", "-25.00", "SYNTH FITNESS CLUB");
+    const a = await tx(space, account, "2026-09-05", "-25.00", "SYNTH GYM");
     await tx(space, account, "2026-10-05", "-25.00", "SYNTH FITNESS CLUB");
+    await tx(space, account, "2026-11-05", "-25.00", "SYNTH FITNESS CLUB");
     expect(await proposals(space)).toEqual([]);
     const target = (await call(space, "GET", `/v1/transactions/${a}/merchant`)).json().merchant.id as string;
     const listed = (await call(space, "GET", "/v1/merchants")).json().items as { id: string; name: string }[];
@@ -299,7 +307,7 @@ describe("BUD-07@PoC FR 3: variable series and several series of one merchant", 
   it("BUD-07@PoC FR 3: two subscriptions of one merchant at different prices are proposed separately", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
-    for (const date of ["2026-07-01", "2026-07-31", "2026-08-30", "2026-09-29"])
+    for (const date of ["2026-07-31", "2026-08-30", "2026-09-29", "2026-10-29"])
       await tx(space, account, date, "-0.99", "SYNTH APPS STORE");
     for (const date of ["2026-07-15", "2026-08-14", "2026-09-13", "2026-10-13"])
       await tx(space, account, date, "-9.99", "SYNTH APPS STORE");
@@ -314,7 +322,7 @@ describe("BUD-07@PoC FR 3: variable series and several series of one merchant", 
   it("BUD-07@PoC FR 2: a series in another currency is its own; amounts are compared in their currency", async () => {
     const space = await newSpace();
     const account = await createAccount(space, { balance: { amount: "100.00", currency: "GBP" } });
-    for (const date of ["2026-08-03", "2026-09-03", "2026-10-03"])
+    for (const date of ["2026-09-03", "2026-10-03", "2026-11-03"])
       await tx(space, account, date, "-10.00", "SYNTH NEWS", "GBP");
     expect(await proposals(space)).toMatchObject([
       { frequency: "month", expectedAmount: { amount: "10", currency: "GBP" } },
@@ -327,16 +335,16 @@ describe("BUD-07@PoC FR 1, FR 4: charges that never make a proposal", () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const hidden = [
-      await tx(space, account, "2026-08-02", "-12.00", "SYNTH HIDDEN"),
       await tx(space, account, "2026-09-02", "-12.00", "SYNTH HIDDEN"),
       await tx(space, account, "2026-10-02", "-12.00", "SYNTH HIDDEN"),
+      await tx(space, account, "2026-11-02", "-12.00", "SYNTH HIDDEN"),
     ];
     const transfer = [
-      await tx(space, account, "2026-08-02", "-300.00", "SYNTH SAVINGS"),
       await tx(space, account, "2026-09-02", "-300.00", "SYNTH SAVINGS"),
       await tx(space, account, "2026-10-02", "-300.00", "SYNTH SAVINGS"),
+      await tx(space, account, "2026-11-02", "-300.00", "SYNTH SAVINGS"),
     ];
-    for (const date of ["2026-08-04", "2026-09-04", "2026-10-04"]) await tx(space, account, date, "-7.00");
+    for (const date of ["2026-09-04", "2026-10-04", "2026-11-04"]) await tx(space, account, date, "-7.00");
     await db.owner.query(
       `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = ANY($2::uuid[])`,
       [space.householdId, hidden],
@@ -365,7 +373,7 @@ describe("BUD-07@PoC FR 1, FR 4: charges that never make a proposal", () => {
       annualRate: "30",
       creditLimit: "2000.00",
     });
-    for (const date of ["2026-08-07", "2026-09-07", "2026-10-07"]) {
+    for (const date of ["2026-09-07", "2026-10-07", "2026-11-07"]) {
       await tx(space, loan, date, "250.00", "SYNTH BANK LOAN");
       await tx(space, card, date, "-5.99", "SYNTH MUSIC");
     }

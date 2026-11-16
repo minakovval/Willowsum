@@ -2,10 +2,13 @@ import { Money } from "@willowsum/domain-kernel";
 import {
   addDays,
   detectSeries,
+  isFresh,
+  isRejected,
   nextDate,
   scheduleAnchor,
   type Charge,
   type Frequency,
+  type RejectedSeries,
 } from "../domain/index.ts";
 
 /**
@@ -66,6 +69,8 @@ export interface Proposal {
   readonly expectedAmount: Money;
   /** FR 4 «дату»: the next date of the schedule anchored at the latest charge — on or after today, after that charge. */
   readonly nextDate: string;
+  /** FR 6 «дата прив'язки»: the charge the schedule is counted from (the series' day of the month kept). */
+  readonly anchorDate: string;
   readonly lastDate: string;
   /** The account of the latest charge («рахунок списання»). */
   readonly accountId: string;
@@ -76,10 +81,23 @@ export interface Proposal {
 /** FR 4: a loan account («Кредит») — its payments are the account's monthly payment (FR 16), never a proposal. */
 const LOAN = "loan";
 
-/** FR 1–4: the proposals of the space, by next date, then merchant name, then key. */
+/** FR 4: what the user has decided — the merchants that are regular payments, and the series rejected. */
+export interface Decisions {
+  readonly merchantIds: ReadonlySet<string>;
+  readonly rejections: readonly RejectedSeries[];
+}
+
+const NONE: Decisions = { merchantIds: new Set(), rejections: [] };
+
+/**
+ * FR 1–4: the proposals of the space, by next date, then merchant name, then key. FR 2: a series whose latest charge is
+ * older than one interval + 3 days is not proposed; FR 4: none for a merchant that is a regular payment already, and
+ * none for a series rejected («Не регулярний»).
+ */
 export async function listProposals(
   deps: ProposalDeps,
   householdId: string,
+  decided: Decisions = NONE,
 ): Promise<{ readonly items: readonly Proposal[]; readonly more: boolean }> {
   const today = deps.today();
   const found = await deps.history.charges(householdId, {
@@ -112,6 +130,7 @@ export async function listProposals(
 
   const items: Proposal[] = [];
   for (const [groupKey, group] of groups) {
+    if (decided.merchantIds.has(group.merchant.id)) continue;
     const byId = new Map(group.charges.map((h) => [h.id, h]));
     const input: Charge[] = group.charges.map((h) => ({
       id: h.id,
@@ -121,6 +140,20 @@ export async function listProposals(
     for (const series of detectSeries(input)) {
       const first = series.charges[0]!;
       const last = series.charges.at(-1)!;
+      if (!isFresh(last.date, series.frequency, today)) continue;
+      const found = {
+        merchantId: group.merchant.id,
+        type: group.type,
+        frequency: series.frequency,
+        variable: series.variable,
+        expected: series.expected,
+        transactionIds: series.charges.map((c) => c.id),
+      };
+      if (decided.rejections.some((r) => isRejected(found, r))) continue;
+      const anchor = scheduleAnchor(
+        series.charges.map((c) => c.date),
+        series.frequency,
+      );
       items.push({
         key: `${groupKey}:${series.frequency}:${first.id}`,
         merchant: group.merchant,
@@ -128,17 +161,11 @@ export async function listProposals(
         frequency: series.frequency,
         variable: series.variable,
         expectedAmount: series.expected,
-        nextDate: nextDate(
-          scheduleAnchor(
-            series.charges.map((c) => c.date),
-            series.frequency,
-          ),
-          series.frequency,
-          today > last.date ? today : addDays(last.date, 1),
-        ),
+        nextDate: nextDate(anchor, series.frequency, today > last.date ? today : addDays(last.date, 1)),
+        anchorDate: anchor,
         lastDate: last.date,
         accountId: byId.get(last.id)!.accountId,
-        transactionIds: series.charges.map((c) => c.id),
+        transactionIds: found.transactionIds,
       });
     }
   }

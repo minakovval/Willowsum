@@ -187,6 +187,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(budgetSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off jobs of regular payments and the category merges (BUD-07 a2, ADR-0015).
+    const recurringSql = readFileSync(
+      `${apiDir}/src/modules/recurring/adapters/db/migrations/0003_queue.sql`,
+      "utf8",
+    );
+    expect(recurringSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     // The audit hand-off jobs of saved debt payoff plans (BUD-19 a, ARC-04 FR 2, ADR-0015).
     const debtPayoffSql = readFileSync(
       `${apiDir}/src/modules/debt-payoff/adapters/db/migrations/0002_queue.sql`,
@@ -212,6 +218,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "merchants",
         "queue_consumer",
         "queue_producer",
+        "recurring",
         "transactions",
       ].flatMap((schema) =>
         ["jobs", "outbox_events"].map((table) => ({ schema, table, rls: true, forced: true })),

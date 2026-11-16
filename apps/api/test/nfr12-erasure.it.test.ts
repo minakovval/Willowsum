@@ -109,6 +109,7 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
       "categories.records",
       "categorization.records",
       "merchants.records",
+      "recurring.records",
       "goals.records",
       "budget.records",
       "debt-payoff.records",
@@ -116,7 +117,8 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
       "liabilities.records",
     ]) {
       // The consumers of the queues are swept once more after the key (#296 no. 11, #306 no. 4).
-      const swept = type === "categorization.records" || type === "goals.records";
+      const swept =
+        type === "categorization.records" || type === "goals.records" || type === "recurring.records";
       expect(
         (await audit.platformEntriesFor({ type, id: person.householdId })).map((e) => [
           e.action,
