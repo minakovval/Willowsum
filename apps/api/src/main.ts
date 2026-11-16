@@ -19,6 +19,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
+  categorizationRulePorts,
   createCategorizationServices,
   createTransactionCategories,
 } from "./modules/categorization/index.ts";
@@ -47,6 +48,7 @@ import {
   createTransactionCategoryUsage,
   createTransactionHistory,
   createTransactionLookup,
+  createTransactionRuleInputs,
   createTransactionTexts,
   createTransactionWalletUsage,
   createTransactionsServices,
@@ -279,6 +281,12 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               audit,
+              // BUD-14 b: the category rules read the accounts, the merchants and the transactions' rule inputs.
+              rules: categorizationRulePorts({
+                accounts: createAccountDirectory(databases.for("accounts")),
+                merchants: createMerchantDirectory(databases.for("merchants")),
+                inputs: createTransactionRuleInputs(databases.for("transactions")),
+              }),
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the
@@ -385,7 +393,7 @@ lifecycle.onStop(() => server.close());
 // It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
 if (config.role === "worker") {
   const worker = createWorker({
-    ...workerQueues(databases),
+    ...workerQueues(databases, flags),
     households: () => spaces.spaceIds(),
     moduleAvailable: (module) => flags.isModuleAvailable(module),
   });

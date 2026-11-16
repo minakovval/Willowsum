@@ -3,9 +3,13 @@ import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import {
+  applyAudit,
   applyHandOff,
+  type AuditHandOff,
   type CategoryAudit,
   type CategoryHandOff,
+  type RuleDeps,
+  type RulesAuditLog,
   type SetDeps,
 } from "../../application/index.ts";
 
@@ -19,17 +23,31 @@ export interface CategorizationServices {
   readonly [BRAND]: true;
   readonly deps: SetDeps;
   readonly audit: CategoryAudit;
+  /** BUD-14 b: the ports of the category rules; absent — the rule routes answer 500. */
+  readonly rules: { readonly deps: RuleDeps } | null;
+  readonly rulesAudit: RulesAuditLog;
+  /** FR 7 «Показати»: the newest transactions of a space a rule's conditions are matched against. */
+  readonly scanMax: number;
 }
+
+/** BUD-14 FR 7: a rule's matches look at the newest 20 000 transactions of the space (a bound on one request). */
+export const RULE_SCAN_MAX = 20_000;
 
 export function createCategorizationServices(options: {
   readonly transactions: SetDeps["transactions"];
   readonly categories: SetDeps["categories"];
   readonly audit: Pick<AuditLog, "record">;
+  /** BUD-14 b: module accounts' directory, module merchants' names, module transactions' rule inputs. */
+  readonly rules?: Omit<RuleDeps, "categories">;
+  readonly scanMax?: number;
 }): CategorizationServices {
   return {
     [BRAND]: true,
     deps: { transactions: options.transactions, categories: options.categories },
     audit: categorizationAudit(options.audit),
+    rules: options.rules ? { deps: { ...options.rules, categories: options.categories } } : null,
+    rulesAudit: options.audit,
+    scanMax: options.scanMax ?? RULE_SCAN_MAX,
   };
 }
 
@@ -78,6 +96,26 @@ export async function handOffNow(
   if (handOff === null) return;
   try {
     await applyHandOff(audit, householdId, handOff);
+  } catch (error) {
+    logEvent("categorization.hand_off_deferred", "warn", {
+      "ws.module": "categorization",
+      "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+    });
+  }
+}
+
+/**
+ * The audit entry of a committed change of a rule, right away (ARC-04 FR 2): a failure is no failure of the request —
+ * the job `categorization.audit` is in the queue and the worker writes it. Logged as `categorization.hand_off_deferred`.
+ */
+export async function rulesAuditNow(
+  audit: RulesAuditLog,
+  householdId: string,
+  handOff: AuditHandOff | null,
+): Promise<void> {
+  if (handOff === null) return;
+  try {
+    await applyAudit(audit, householdId, handOff);
   } catch (error) {
     logEvent("categorization.hand_off_deferred", "warn", {
       "ws.module": "categorization",

@@ -25,17 +25,23 @@ import {
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
+  ruleCandidates,
+  ruleInputsOf,
   type CandidateSide,
   type DuplicateSide,
+  type RuleInput,
 } from "./adapters/index.ts";
+import { transactionCreated } from "./events.ts";
 import type { HandOffDeps } from "./application/index.ts";
 
 export const transactionsModule = defineModule({
   name: "transactions",
-  publishes: [],
+  publishes: [transactionCreated],
   consumes: [],
   routes: transactionsRoutes,
 });
+
+export { transactionCreated, type TransactionCreated } from "./events.ts";
 
 export { createTransactionsServices, type TransactionsServices } from "./adapters/index.ts";
 export { TRANSACTION_TYPES, typeOf } from "./domain/index.ts";
@@ -306,6 +312,30 @@ export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
   return {
     module: "transactions",
     used: (householdId, ids) => db.inHousehold(householdId, (q) => subaccountsInUse(q, householdId, ids)),
+  };
+}
+
+/**
+ * The transactions module as module categorization's category rules read it (BUD-14@PoC FR 5, FR 7, FR 8; wave 2 row
+ * 23). Read only; every call is bound to one space.
+ */
+export interface TransactionRuleInputs {
+  /** The inputs of each existing transaction of `ids` (hidden ones too); the others are absent. */
+  inputs(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, RuleInput>>;
+  /** The eligible transactions, newest first, at most `limit`; `more` — there are others beyond them. */
+  candidates(
+    householdId: string,
+    limit: number,
+  ): Promise<{ readonly items: readonly RuleInput[]; readonly more: boolean }>;
+}
+export type { RuleInput };
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransactionRuleInputs(db: ModuleDatabase): TransactionRuleInputs {
+  return {
+    inputs: (householdId, ids) => db.inHousehold(householdId, (q) => ruleInputsOf(q, householdId, ids)),
+    candidates: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => ruleCandidates(q, householdId, limit)),
   };
 }
 

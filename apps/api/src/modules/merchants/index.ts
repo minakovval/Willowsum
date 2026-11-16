@@ -12,7 +12,7 @@ import {
   merchantsWorkerQueue,
   requeueDeadJobsOf,
 } from "./adapters/index.ts";
-import { shownMerchants } from "./application/index.ts";
+import { knownMerchants, shownMerchants } from "./application/index.ts";
 
 export const merchantsModule = defineModule({
   name: "merchants",
@@ -34,6 +34,14 @@ export interface MerchantDirectory {
     householdId: string,
     counterparties: readonly string[],
   ): Promise<ReadonlyMap<string, { readonly id: string; readonly name: string }>>;
+  /**
+   * As `shownMerchants`, read only: no merchant is born; a description seen for the first time shows the name its
+   * merchant would be born with, `id` null.
+   */
+  knownMerchants(
+    householdId: string,
+    counterparties: readonly string[],
+  ): Promise<ReadonlyMap<string, { readonly id: string | null; readonly name: string }>>;
 }
 
 /** `db` is the merchants database. */
@@ -44,6 +52,8 @@ export function createMerchantDirectory(db: ModuleDatabase): MerchantDirectory {
         const shown = await shownMerchants(merchantsTx(q), householdId, counterparties);
         return new Map([...shown].map(([c, m]) => [c, { id: m.id, name: m.name }]));
       }),
+    knownMerchants: (householdId, counterparties) =>
+      db.inHousehold(householdId, (q) => knownMerchants(merchantsTx(q), householdId, counterparties)),
   };
 }
 export { merchantInitials, merchantKey, normalizeDescription } from "./domain/index.ts";

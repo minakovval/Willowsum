@@ -1,4 +1,4 @@
-import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
+import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
 import {
   defineJobHandler,
   postgresJobStore,
@@ -6,22 +6,48 @@ import {
   type WorkerQueue,
 } from "../../../../platform/queue/index.ts";
 import {
+  applyAudit,
   applyHandOff,
   applyMerge,
+  applyRulesToNew,
+  moveRulesToCategory,
   type CategoryAudit,
   type CategoryFactsPort,
+  type RuleDeps,
+  type RulesAuditLog,
 } from "../../application/index.ts";
+import { rulesTx } from "../db/rules.ts";
 import { categorizationTx } from "../db/store.ts";
-import { CATEGORY_MERGED_JOB, HAND_OFF_JOB } from "./job.ts";
+import { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB } from "./job.ts";
+
+/** The jobs whose dead rows the daily recovery puts back; each one is idempotent. */
+const JOBS = [HAND_OFF_JOB, CATEGORY_MERGED_JOB, TRANSACTION_CREATED_JOB, AUDIT_JOB];
+
+/** As liabilities' (#270 item 2): the space's erasure, which deletes the queue rows, waits for this lock. */
+async function holdsJob(q: HouseholdQueryRunner, householdId: string, id: string): Promise<boolean> {
+  const { rowCount } = await q.query(`SELECT 1 FROM jobs WHERE household_id = $1 AND id = $2 FOR UPDATE`, [
+    householdId,
+    id,
+  ]);
+  return (rowCount ?? 0) > 0;
+}
 
 /**
  * The worker's categorization queue (src/wiring.ts): the store in the categorization schema, the hand-off's handler
- * (the audit entry through the audit log's public interface, ADR-0015, holding the job's row lock) and the merge's.
+ * (the audit entry through the audit log's public interface, ADR-0015, holding the job's row lock), the merge's (the
+ * transactions and the rules of the merged category, BUD-01 FR 8, BUD-14 FR 10), the rules of a new transaction
+ * (BUD-14 FR 8) and the audit entries of the rules.
  */
 export function categorizationWorkerQueue(
   db: ModuleDatabase,
   audit: CategoryAudit,
   categories: CategoryFactsPort,
+  rules: {
+    readonly deps: RuleDeps;
+    readonly audit: RulesAuditLog;
+    /** The release flag of the rules (CICD-06): off — a new transaction takes nothing from a rule. */
+    readonly enabled: (householdId: string) => Promise<boolean>;
+  },
 ): WorkerQueue {
   return {
     store: postgresJobStore(db),
@@ -29,20 +55,40 @@ export function categorizationWorkerQueue(
       defineJobHandler({
         job: HAND_OFF_JOB,
         run: async (job, q) => {
-          // As liabilities' (#270 item 2): the space's erasure, which deletes the queue rows, waits for this lock, and a
-          // job whose row it took already writes nothing into the erased space.
-          const { rowCount } = await q.query(
-            `SELECT 1 FROM jobs WHERE household_id = $1 AND id = $2 FOR UPDATE`,
-            [job.householdId, job.id],
-          );
-          if (!rowCount) return;
-          await applyHandOff(audit, job.householdId, job.payload);
+          if (await holdsJob(q, job.householdId, job.id))
+            await applyHandOff(audit, job.householdId, job.payload);
         },
       }),
       defineJobHandler({
         job: CATEGORY_MERGED_JOB,
         run: async (job, q) => {
-          await applyMerge(categorizationTx(q), categories, job.householdId, job.payload);
+          await applyMerge(categorizationTx(q), categories, job.householdId, job.payload, {
+            moveRules: (householdId, sourceId, targetId) =>
+              moveRulesToCategory(rulesTx(q), householdId, sourceId, targetId),
+          });
+        },
+      }),
+      defineJobHandler({
+        job: TRANSACTION_CREATED_JOB,
+        run: async (job, q) => {
+          // The routes answer 404 with the flag off, so nobody could switch a rule off: no rule applies either.
+          if (!(await rules.enabled(job.householdId))) return;
+          const outcome = await applyRulesToNew(
+            categorizationTx(q),
+            rulesTx(q),
+            rules.deps,
+            job.householdId,
+            job.payload.transactionId,
+          );
+          // Another writer inserted the row first (a change by hand): run again, which then sees it.
+          if (outcome === "conflict") throw new Error("categorization.transaction-created: version conflict");
+        },
+      }),
+      defineJobHandler({
+        job: AUDIT_JOB,
+        run: async (job, q) => {
+          if (await holdsJob(q, job.householdId, job.id))
+            await applyAudit(rules.audit, job.householdId, job.payload);
         },
       }),
     ],
@@ -50,13 +96,12 @@ export function categorizationWorkerQueue(
 }
 
 /**
- * The scheduler's daily recovery (src/wiring.ts, `categorization.recovery`; ADR-0015, #249): the space's dead jobs —
- * hand-offs and merges — go back in the queue before the retention cleanup. Both are idempotent (a keyed entry; a
- * merge moves only what still has the merged category).
+ * The scheduler's daily recovery (src/wiring.ts, `categorization.recovery`; ADR-0015, #249): the space's dead jobs go
+ * back in the queue before the retention cleanup. All are idempotent (a keyed entry; a merge moves only what still has
+ * the merged category; the rules of a new transaction change nothing a second time).
  */
 export async function requeueDeadJobsOf(db: ModuleDatabase, householdId: string): Promise<number> {
-  return (
-    (await requeueDeadJobs(db, householdId, HAND_OFF_JOB.name)) +
-    (await requeueDeadJobs(db, householdId, CATEGORY_MERGED_JOB.name))
-  );
+  let requeued = 0;
+  for (const job of JOBS) requeued += await requeueDeadJobs(db, householdId, job.name);
+  return requeued;
 }
