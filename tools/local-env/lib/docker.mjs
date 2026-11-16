@@ -28,3 +28,9 @@ export function dockerAvailable() {
   const res = spawnSync('docker', ['compose', 'version'], { encoding: 'utf8' });
   return !res.error && res.status === 0;
 }
+
+/** True when the Docker engine answers (Docker Desktop on macOS may be installed but not started). */
+export function dockerRunning() {
+  const res = spawnSync('docker', ['info'], { encoding: 'utf8', stdio: 'ignore' });
+  return !res.error && res.status === 0;
+}
