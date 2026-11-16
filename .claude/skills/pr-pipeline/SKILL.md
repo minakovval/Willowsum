@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -148,9 +148,9 @@ restart and its limit, the start message, the process review every 3rd lead numb
 
 ## 3. Parallel branches
 
-Up to 3 branches at a time (AGENTS.md «Parallel branches»), each with its own worktree, PR and test database.
-**At most 3–4 agents at once** (owner, 2026-11-13), implementers and reviewers together; more wait in a queue.
-Slots count agents, not branches: give each agent a slot `k` (1–4) in its brief and keep a table slot → agent →
+Up to 5 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16), each with its own worktree, PR and test database.
+**At most 7 agents at once** (owner, 2026-11-16; was 3–4), authors, reviewers and fix agents together; more wait in a queue.
+Slots count agents, not branches: give each agent a slot `k` (1–7) in its brief and keep a table slot → agent →
 branch → worktree: its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on
 `WS_PORT=808k`, its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
 processes it started, by PID (the skills that start servers or databases say how). Choose parts that touch
