@@ -13,6 +13,7 @@ import {
   ChartColumn,
   ChartLine,
   ChartPie,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -150,6 +151,7 @@ export type IconName =
   | "plus"
   | "close"
   | "check"
+  | "calendar"
   | "chevron-left"
   | "chevron-right"
   | "chevron-up"
@@ -334,6 +336,7 @@ const GLYPHS: Record<IconName, Glyph> = {
   plus: lucide(Plus),
   close: lucide(X),
   check: lucide(Check),
+  calendar: lucide(Calendar),
   "chevron-left": lucide(ChevronLeft),
   "chevron-right": lucide(ChevronRight),
   "chevron-up": lucide(ChevronUp),
@@ -446,6 +449,7 @@ export const ICON_GROUPS = {
     "minus",
     "close",
     "check",
+    "calendar",
     "chevron-left",
     "chevron-right",
     "chevron-up",

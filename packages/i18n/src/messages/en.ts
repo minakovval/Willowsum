@@ -535,6 +535,15 @@ export const en: Messages = {
   "gallery.progress.fail": "Stop with an error",
   "gallery.progress.reset": "Start again",
   "gallery.field.title": "Field",
+  "gallery.date.title": "Date field",
+  "gallery.date.intro":
+    "The “Date” field with its calendar: today, an empty required one with its error, a disabled one with its reason.",
+  "gallery.date.label": "Date",
+  "gallery.date.today": "Today",
+  "gallery.date.yesterday": "Yesterday",
+  "gallery.date.limit": "Future dates are not available — use “Recurring payments” for scheduled ones.",
+  "gallery.date.required": "Required field",
+  "gallery.date.disabledReason": "The date is set by the account",
   "gallery.field.intro":
     "Point at a field to see the hover border; Tab shows the focus ring around the field. In «Amount» enter «12.345» and leave the field to see the error.",
   "gallery.field.case.empty": "Empty: placeholder and hint",
@@ -796,6 +805,10 @@ export const en: Messages = {
   "select.account.masked": "{name} ··{last4}",
   "select.account.new": "New account",
   "select.account.search": "Search accounts",
+  "date.todaySuffix": "· today",
+  "date.dialog": "Choose a date",
+  "date.prevMonth": "Previous month",
+  "date.nextMonth": "Next month",
   "gallery.select.title": "Select",
   "gallery.select.intro":
     "A native list for short lists of up to 8 items; «with search» for longer ones; the «labelled list button» for a single filter or page view. Arrows change the choice, Esc closes the list and returns the focus.",

@@ -534,6 +534,15 @@ export const uk = {
   "gallery.progress.fail": "Зупинити помилкою",
   "gallery.progress.reset": "Почати знову",
   "gallery.field.title": "Поле введення",
+  "gallery.date.title": "Поле дати",
+  "gallery.date.intro":
+    "Поле «Дата» з календарем: сьогодні, порожнє обов’язкове з помилкою, вимкнене з причиною.",
+  "gallery.date.label": "Дата",
+  "gallery.date.today": "Сьогодні",
+  "gallery.date.yesterday": "Учора",
+  "gallery.date.limit": "Майбутні дати недоступні — для запланованих платежів є «Регулярні платежі».",
+  "gallery.date.required": "Обов’язкове поле",
+  "gallery.date.disabledReason": "Дату задано рахунком",
   "gallery.field.intro":
     "Наведіть вказівник, щоб побачити рамку наведення; Tab показує фокус-кільце навколо поля. У полі «Сума» введіть «12,345» і вийдіть з поля — з’явиться помилка.",
   "gallery.field.case.empty": "Порожнє: плейсхолдер і підказка",
@@ -796,6 +805,10 @@ export const uk = {
   "select.account.masked": "{name} ··{last4}",
   "select.account.new": "Новий рахунок",
   "select.account.search": "Пошук рахунку",
+  "date.todaySuffix": "· сьогодні",
+  "date.dialog": "Оберіть дату",
+  "date.prevMonth": "Попередній місяць",
+  "date.nextMonth": "Наступний місяць",
   "gallery.select.title": "Список вибору",
   "gallery.select.intro":
     "Нативний список для коротких переліків до 8 пунктів; «з пошуком» — для довших; «кнопка-список з підписом» — для єдиного фільтра чи вигляду сторінки. Стрілки змінюють вибір, Esc закриває перелік і повертає фокус.",
