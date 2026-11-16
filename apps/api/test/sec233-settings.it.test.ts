@@ -143,6 +143,7 @@ beforeAll(async () => {
   const services = (log: Pick<AuditLog, "record">) =>
     createAccountsServices({
       walletUsage: [],
+      pendingPostings: [],
       ledger,
       liabilities,
       keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

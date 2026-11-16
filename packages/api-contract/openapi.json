@@ -4494,7 +4494,7 @@
             }
           },
           "409": {
-            "description": "The account is closed (ACCOUNT_CLOSED); The balance on the closing date is not zero (ACCOUNT_BALANCE_NOT_ZERO); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE)",
+            "description": "The account is closed (ACCOUNT_CLOSED); The balance on the closing date is not zero (ACCOUNT_BALANCE_NOT_ZERO); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -4689,7 +4689,7 @@
             }
           },
           "409": {
-            "description": "The account is closed (ACCOUNT_CLOSED); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE)",
+            "description": "The account is closed (ACCOUNT_CLOSED); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING)",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -39301,6 +39301,7 @@
               "ACCOUNT_NOT_CLOSED",
               "ACCOUNT_BALANCE_NOT_ZERO",
               "ACCOUNT_ACTIVITY_AFTER_CLOSE",
+              "ACCOUNT_POSTINGS_PENDING",
               "ACCOUNT_KIND_OTHER_GROUP",
               "ACCOUNT_HAS_TRANSACTIONS",
               "ACCOUNT_MAIN_CURRENCY",

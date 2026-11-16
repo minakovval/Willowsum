@@ -1,11 +1,17 @@
 import type { HouseholdQueryRunner, ModuleDatabase } from "../../../../platform/db/module-db.ts";
+import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import {
   defineJobHandler,
   postgresJobStore,
   requeueDeadJobs,
   type WorkerQueue,
 } from "../../../../platform/queue/index.ts";
-import { applyHandOff, type HandOffDeps, type TransactionRows } from "../../application/index.ts";
+import {
+  applyHandOff,
+  type HandOffDeps,
+  type TransactionHandOff,
+  type TransactionRows,
+} from "../../application/index.ts";
 import { transactionsTx } from "../db/store.ts";
 import { HAND_OFF_JOB, TAG_AUDIT_JOB } from "./job.ts";
 
@@ -71,4 +77,74 @@ export async function requeueDeadHandOffs(db: ModuleDatabase, householdId: strin
     // BUD-13 FR 2: the audit entries of tag changes, the same way.
     (await requeueDeadJobs(db, householdId, TAG_AUDIT_JOB.name))
   );
+}
+
+/** At most this many unfinished hand-offs are finished for one closing; more — the closing is refused (try again later). */
+const SETTLE_LIMIT = 100;
+
+/**
+ * The unfinished hand-offs (`queued`, `running` or `dead`) that may still move money on the account (FIN-01@PoC EC4):
+ * those of a transaction on it now, of one that was on it before the change (a delete or a move: the audit values'
+ * `accountId`), and of a side of a transfer whose other side is on it (the outflow's hand-off posts the transfer event
+ * to both accounts). A transfer's mark removed needs no more: the inflow's own hand-off reverses that event as well. A
+ * job that finished is not read again: the route's own run, if it succeeded, left the journal as the worker's would.
+ */
+async function pendingHandOffsOn(
+  q: HouseholdQueryRunner,
+  householdId: string,
+  accountId: string,
+): Promise<readonly unknown[]> {
+  const { rows } = await q.query<{ payload: unknown }>(
+    `SELECT j.payload FROM jobs j
+      WHERE j.household_id = $1 AND j.name = $3 AND j.state IN ('queued', 'running', 'dead')
+        AND (
+          EXISTS (SELECT 1 FROM transactions t
+                   WHERE t.household_id = j.household_id AND t.id::text = j.payload->>'transactionId'
+                     AND t.account_id = $2)
+          OR EXISTS (SELECT 1 FROM jsonb_array_elements(j.payload->'audit') a
+                      WHERE a->>'field' = 'accountId' AND $2::text IN (a->>'before', a->>'after'))
+          OR EXISTS (SELECT 1 FROM transactions t
+                       JOIN transfers f ON f.household_id = t.household_id AND f.id = t.transfer_id
+                       JOIN transactions o ON o.household_id = f.household_id
+                                          AND o.id IN (f.outflow_id, f.inflow_id) AND o.id <> t.id
+                      WHERE t.household_id = j.household_id AND t.id::text = j.payload->>'transactionId'
+                        AND o.account_id = $2)
+        )
+      ORDER BY j.created_at, j.id
+      LIMIT ${SETTLE_LIMIT + 1}`,
+    [householdId, accountId, HAND_OFF_JOB.name],
+  );
+  return rows.map((r) => r.payload);
+}
+
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7 (module accounts' `PendingPostings`, src/main.ts): before an account closes, the
+ * hand-offs of the space's transactions that may still move its money are run now — each the worker's own step,
+ * idempotent, with the transaction's row locked — so the closing reads the balance they leave. False when one of them
+ * cannot finish now (it stays in the queue for the worker): the closing is refused, never made past a posting to come.
+ * Only the space's rows are read (`inHousehold`: the row policy binds the space).
+ */
+export async function settleAccountHandOffs(
+  db: ModuleDatabase,
+  deps: HandOffDeps,
+  householdId: string,
+  accountId: string,
+): Promise<boolean> {
+  try {
+    const payloads = await db.inHousehold(householdId, (q) => pendingHandOffsOn(q, householdId, accountId));
+    if (payloads.length > SETTLE_LIMIT) return false;
+    const rows = transactionRows((work) => db.inHousehold(householdId, work));
+    for (const payload of payloads) {
+      // The payload as the worker reads it: checked by the job's schema.
+      const handOff: TransactionHandOff = HAND_OFF_JOB.schema.parse(payload);
+      await applyHandOff(deps, rows, householdId, handOff);
+    }
+    return true;
+  } catch (error) {
+    logEvent("transactions.hand_off_deferred", "warn", {
+      "ws.module": "transactions",
+      "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
+    });
+    return false;
+  }
 }

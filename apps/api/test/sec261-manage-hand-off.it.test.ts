@@ -145,6 +145,7 @@ beforeAll(async () => {
   liabilities = createLiabilities(db.databases.for("liabilities"), audit);
   services = createAccountsServices({
     walletUsage: [],
+    pendingPostings: [],
     ledger,
     liabilities,
     keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

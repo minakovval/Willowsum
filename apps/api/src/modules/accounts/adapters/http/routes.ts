@@ -542,6 +542,8 @@ function refusal(r: ManageRefusal): ApiProblem {
       return new ApiProblem("ACCOUNT_ACTIVITY_AFTER_CLOSE");
     case "balance-not-zero":
       return new ApiProblem("ACCOUNT_BALANCE_NOT_ZERO");
+    case "postings-pending":
+      return new ApiProblem("ACCOUNT_POSTINGS_PENDING");
   }
 }
 
@@ -567,7 +569,7 @@ export const accountClosingRoute = defineRoute({
   summary: "The closing dialog: the account's balance on the closing date per currency (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   request: { params: accountParams, query: z.object({ closedOn: isoDate }) },
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE", "ACCOUNT_POSTINGS_PENDING"],
   response: {
     status: 200,
     description: "The balances on the closing date; `zero` — the account can close without a choice",
@@ -601,7 +603,12 @@ export const closeAccountRoute = defineRoute({
     "«Закрити рахунок»: with a zero balance on the closing date, after a transfer or a write-off (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 4 * 1024,
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_BALANCE_NOT_ZERO", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: [
+    "ACCOUNT_CLOSED",
+    "ACCOUNT_BALANCE_NOT_ZERO",
+    "ACCOUNT_ACTIVITY_AFTER_CLOSE",
+    "ACCOUNT_POSTINGS_PENDING",
+  ],
   request: {
     params: accountParams,
     body: z

@@ -49,7 +49,8 @@ export type ManageRefusal =
   | { readonly kind: "not-closed" }
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   | { readonly kind: "activity-after-close" }
-  | { readonly kind: "balance-not-zero" };
+  | { readonly kind: "balance-not-zero" }
+  | { readonly kind: "postings-pending" };
 
 export interface CurrencyBalance {
   readonly currency: string;
@@ -118,6 +119,22 @@ export async function finishPending(
     await applyMoves(deps.ledger, householdId, pending);
 }
 
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7 (code review finding 3, 2026-11-16): another module's change of the account's money
+ * that is saved but not in the journal yet (a transaction whose hand-off is still in the transactions queue, ARC-04)
+ * is finished by that module first (`PendingPostings`, its port — never its tables), so the movements after the
+ * closing date and the balance on it are read as they will be. One that cannot finish now refuses the closing.
+ */
+async function settlePending(
+  deps: Pick<AccountsDeps, "pendingPostings">,
+  householdId: string,
+  accountId: string,
+): Promise<ManageRefusal | null> {
+  for (const module of deps.pendingPostings)
+    if (!(await module.settle(householdId, accountId))) return { kind: "postings-pending" };
+  return null;
+}
+
 /** The account's row, locked until the transaction ends; a refusal when it is not there or not active. */
 async function activeAccount(
   tx: AccountsTx,
@@ -146,7 +163,7 @@ const refused = (a: StoredAccount | ManageRefusal): a is ManageRefusal => !("id"
 
 /** The closing dialog (FIN-12 FR 7, AC4): the balance on the closing date per currency, and whether it is zero. */
 export async function closingPreview(
-  deps: Pick<AccountsDeps, "ledger" | "today">,
+  deps: Pick<AccountsDeps, "ledger" | "today" | "pendingPostings">,
   tx: AccountsTx,
   householdId: string,
   accountId: string,
@@ -159,6 +176,9 @@ export async function closingPreview(
   if (account.status === "closed") return { kind: "closed" };
   const issue = closingDateIssue(closedOn, account.openedOn, deps.today());
   if (issue) return { kind: "invalid", issues: [{ field: "closedOn", issue }] };
+  // The dialog shows the balance the closing will read: the other modules' pending postings first (FIN-01 EC4).
+  const pending = await settlePending(deps, householdId, accountId);
+  if (pending) return pending;
   const currencies = [];
   for (const s of await tx.subaccounts(householdId, accountId)) {
     const latest = await deps.ledger.latestOperationDate(householdId, s.ledgerAccountId);
@@ -198,6 +218,9 @@ export async function closeAccount(
   const today = deps.today();
   const issue = closingDateIssue(input.closedOn, account.openedOn, today);
   if (issue) return { kind: "invalid", issues: [{ field: "closedOn", issue }] };
+  // FIN-01 EC4: the other modules' postings still in their queues reach the journal before it is read.
+  const pending = await settlePending(deps, householdId, accountId);
+  if (pending) return pending;
 
   const subaccounts = await tx.subaccounts(householdId, accountId);
   const owed: { readonly subaccount: StoredSubaccount; readonly balance: Money }[] = [];

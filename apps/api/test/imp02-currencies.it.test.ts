@@ -157,6 +157,7 @@ beforeAll(async () => {
   };
   services = createAccountsServices({
     walletUsage: [],
+    pendingPostings: [],
     ledger: flaky,
     liabilities: createLiabilities(db.databases.for("liabilities"), audit),
     keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

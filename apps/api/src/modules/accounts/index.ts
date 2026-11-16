@@ -74,7 +74,13 @@ export function createAccountsHandOffRecovery(
   };
 }
 export { NUMBER_FIELD } from "./application/index.ts";
-export type { AccountView, NumberSeal, StatementResult, WalletUsage } from "./application/index.ts";
+export type {
+  AccountView,
+  NumberSeal,
+  PendingPostings,
+  StatementResult,
+  WalletUsage,
+} from "./application/index.ts";
 export { ACCOUNT_KINDS, depositAccrual, groupOf, maskedNumber, parseAccountNumber } from "./domain/index.ts";
 export type { AccountGroup, AccountKind, DepositAccrual } from "./domain/index.ts";
 

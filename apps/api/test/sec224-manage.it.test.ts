@@ -110,6 +110,7 @@ beforeAll(async () => {
   const servicesWith = (l: LedgerPort) =>
     createAccountsServices({
       walletUsage: [],
+      pendingPostings: [],
       ledger: l,
       liabilities: createLiabilities(db.databases.for("liabilities"), audit),
       keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

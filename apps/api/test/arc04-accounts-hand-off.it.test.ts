@@ -215,6 +215,7 @@ beforeAll(async () => {
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
           walletUsage: [],
+          pendingPostings: [],
           ledger,
           liabilities,
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),

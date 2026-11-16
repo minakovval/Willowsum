@@ -119,12 +119,21 @@ const pendingJobs = async (householdId: string) =>
     )
   ).rows[0]!.n;
 
+const auditEntries = async (householdId: string) =>
+  (
+    await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit.entries WHERE household_id = $1`,
+      [householdId],
+    )
+  ).rows[0]!.n;
+
 beforeAll(async () => {
   db = await setupRealModules(6);
   spaces = householdSpaces(db);
   audit = createAuditLog(db.databases.for("audit"));
   ledger = createLedger(db.databases.for("ledger"));
   const accounts = createAccountDirectory(db.databases.for("accounts"));
+  const fx = createFxRates({ db: db.databases.for("fx-rates"), now: () => NOW });
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>
@@ -149,10 +158,9 @@ beforeAll(async () => {
         transactions: createTransactionsServices({
           accounts,
           ledger,
-          totals: createListTotals({
-            rates: officialDatedRates(createFxRates({ db: db.databases.for("fx-rates"), now: () => NOW })),
-            now: () => NOW,
-          }),
+          totals: createListTotals({ rates: officialDatedRates(fx), now: () => NOW }),
+          // FIN-03 FR 8: the rate a transfer keeps (transfers answer 500 without it).
+          rates: (requests) => fx.rates(requests),
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
@@ -251,5 +259,130 @@ describe("FIN-01@PoC EC4: an account cannot be closed past a transaction whose h
     await runWorker(space.householdId);
     expect(await onClosingDate(space, from)).toEqual({ status: "closed", balance: 0 });
     expect(await onClosingDate(space, to)).toEqual({ status: "active", balance: -45.5 });
+  });
+
+  it("FIN-01@PoC EC4: a transfer marked, its outflow's hand-off pending — the inflow's account closes on the balance the transfer event leaves", async () => {
+    const space = await newSpace();
+    const from = await account(space);
+    const to = await account(space);
+    const outflow = await transaction(space, from, "-100.00");
+    const inflow = await transaction(space, to, "100.00");
+    await runWorker(space.householdId);
+    // The transfer event cannot be posted now: the outflow's own event is reversed, the transfer waits in the queue.
+    const post = ledger.post.bind(ledger);
+    vi.spyOn(ledger, "post").mockImplementation((householdId, input) =>
+      input.event.type === "transfer" ? Promise.reject(new Error("injected")) : post(householdId, input),
+    );
+    const marked = await call(space, "POST", `/v1/transactions/${outflow}/transfer`, {
+      counterpartId: inflow,
+    });
+    expect(marked.statusCode, marked.body).toBe(200);
+    vi.restoreAllMocks();
+
+    const res = await call(space, "POST", `/v1/accounts/${to}/close`, {
+      closedOn: CLOSED_ON,
+      settlement: { kind: "adjustment" },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    // One pass may not take every job of the space; the next one does.
+    await runWorker(space.householdId);
+    await runWorker(space.householdId);
+    expect(await pendingJobs(space.householdId)).toBe(0);
+    expect(await onClosingDate(space, to)).toEqual({ status: "closed", balance: 0 });
+    expect(await onClosingDate(space, from)).toEqual({ status: "active", balance: -100 });
+  });
+
+  it("FIN-01@PoC EC4: a hand-off that cannot finish now refuses the closing and its dialog with ACCOUNT_POSTINGS_PENDING; nothing is written", async () => {
+    const space = await newSpace();
+    const accountId = await account(space);
+    vi.spyOn(ledger, "post").mockRejectedValue(new Error("injected"));
+    await transaction(space, accountId);
+    const auditBefore = await auditEntries(space.householdId);
+
+    const preview = await call(space, "GET", `/v1/accounts/${accountId}/closing?closedOn=${CLOSED_ON}`);
+    expect(preview.statusCode, preview.body).toBe(409);
+    expect(preview.json().code).toBe("ACCOUNT_POSTINGS_PENDING");
+    for (const body of [
+      { closedOn: CLOSED_ON },
+      { closedOn: CLOSED_ON, settlement: { kind: "adjustment" } },
+    ]) {
+      const res = await call(space, "POST", `/v1/accounts/${accountId}/close`, body);
+      expect(res.statusCode, res.body).toBe(409);
+      expect(res.json().code).toBe("ACCOUNT_POSTINGS_PENDING");
+    }
+    vi.restoreAllMocks();
+    expect(await auditEntries(space.householdId)).toBe(auditBefore);
+    expect(
+      (
+        await db.owner.query<{ n: number }>(
+          `SELECT count(*)::int AS n FROM accounts.jobs WHERE household_id = $1 AND state <> 'done'`,
+          [space.householdId],
+        )
+      ).rows[0]!.n,
+    ).toBe(0);
+
+    await runWorker(space.householdId);
+    expect(await onClosingDate(space, accountId)).toEqual({ status: "active", balance: -45.5 });
+  });
+
+  it("FIN-01@PoC EC4, П-5: the closing finishes only its own space's hand-offs — another space's pending transaction stays queued and out of its journal", async () => {
+    const mine = await newSpace();
+    const other = await newSpace();
+    const accountId = await account(mine);
+    const theirs = await account(other);
+    vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
+    await transaction(other, theirs);
+    vi.restoreAllMocks();
+    expect(await pendingJobs(other.householdId)).toBe(1);
+
+    const res = await call(mine, "POST", `/v1/accounts/${accountId}/close`, { closedOn: CLOSED_ON });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await pendingJobs(other.householdId)).toBe(1);
+    expect(await onClosingDate(other, theirs)).toEqual({ status: "active", balance: 0 });
+  });
+
+  it("FIN-01@PoC EC4, ARC-04@PoC FR 4: a hand-off the worker gave up on (`dead`) is finished by the closing too — never closed past it", async () => {
+    const space = await newSpace();
+    const accountId = await account(space);
+    vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
+    await transaction(space, accountId);
+    vi.restoreAllMocks();
+    await db.owner.query(
+      `UPDATE transactions.jobs SET state = 'dead', attempts = 8 WHERE household_id = $1 AND state <> 'done'`,
+      [space.householdId],
+    );
+
+    const res = await call(space, "POST", `/v1/accounts/${accountId}/close`, {
+      closedOn: CLOSED_ON,
+      settlement: { kind: "adjustment" },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    // The daily recovery puts the job back; run again, it changes nothing (idempotent).
+    await db.owner.query(
+      `UPDATE transactions.jobs SET state = 'queued', attempts = 0, run_after = now() WHERE household_id = $1 AND state = 'dead'`,
+      [space.householdId],
+    );
+    await runWorker(space.householdId);
+    expect(await pendingJobs(space.householdId)).toBe(0);
+    expect(await onClosingDate(space, accountId)).toEqual({ status: "closed", balance: 0 });
+  });
+
+  it("FIN-01@PoC EC4: two closings at once, a transaction pending — one closes, the other is refused; zero on the closing date", async () => {
+    const space = await newSpace();
+    const accountId = await account(space);
+    vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
+    await transaction(space, accountId);
+    vi.restoreAllMocks();
+
+    const body = { closedOn: CLOSED_ON, settlement: { kind: "adjustment" } };
+    const results = await Promise.all([
+      call(space, "POST", `/v1/accounts/${accountId}/close`, body),
+      call(space, "POST", `/v1/accounts/${accountId}/close`, body),
+    ]);
+    expect(results.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(results.find((r) => r.statusCode === 409)!.json().code).toBe("ACCOUNT_CLOSED");
+    await runWorker(space.householdId);
+    await runWorker(space.householdId);
+    expect(await onClosingDate(space, accountId)).toEqual({ status: "closed", balance: 0 });
   });
 });
