@@ -664,6 +664,52 @@ export async function counterpartyCounts(
 }
 
 /**
+ * What module recurring reads of the space's transactions (BUD-07@PoC FR 1): the shown transactions with a counterparty
+ * dated `from`…`to` (both included) that are no side of a transfer and were merged into none — either status, entered
+ * by hand or imported — oldest first, at most `limit`. Read only.
+ */
+export async function recurringHistory(
+  q: ModuleQueryRunner,
+  householdId: string,
+  query: { readonly from: string; readonly to: string; readonly limit: number },
+): Promise<
+  {
+    readonly id: string;
+    readonly accountId: string;
+    readonly date: string;
+    readonly amount: string;
+    readonly currency: string;
+    readonly counterparty: string;
+  }[]
+> {
+  const { rows } = await q.query<{
+    id: string;
+    account_id: string;
+    occurred_on: string;
+    amount: string;
+    currency: string;
+    counterparty: string;
+  }>(
+    `SELECT id, account_id, to_char(occurred_on, 'YYYY-MM-DD') AS occurred_on, amount::text AS amount, currency,
+            counterparty
+       FROM transactions
+      WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
+        AND counterparty IS NOT NULL AND NOT hidden AND transfer_id IS NULL AND merged_into IS NULL
+      ORDER BY occurred_on, id
+      LIMIT $4`,
+    [householdId, query.from, query.to, query.limit],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    date: r.occurred_on,
+    amount: r.amount,
+    currency: r.currency,
+    counterparty: r.counterparty,
+  }));
+}
+
+/**
  * IMP-02@PoC FR 15: of `ids`, the subaccounts a transaction of the space is on — any status, hidden or not, posted to
  * the journal or not yet. Read only.
  */
