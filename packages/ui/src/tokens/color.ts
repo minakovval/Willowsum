@@ -396,11 +396,15 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...uiOn("link", ["surface-300"], "CMP-74 progress fill on its track"),
   ...uiOn("gain", ["surface-300"], "CMP-74 finished progress fill on its track"),
   ...uiOn("loss", ["surface-300"], "CMP-74 failed progress fill on its track"),
+  ...textOn("link", ["surface-300"], "CMP-01 quiet button on hover"),
+  ...textOn("ink", ["line"], "CMP-01 secondary button pressed"),
 ];
 
 /** Pairs that only hold in one theme and are therefore checked only there. */
 export const THEME_ONLY_PAIRS: readonly (ContrastPair & { theme: ThemeName })[] = [
   { fg: "accent", bg: "surface-100", kind: "ui", source: "DS-06 amber on navy page (dark)", theme: "dark" },
+  // Dark is MVP for CMP-01 (4.47:1 there): the pressed quiet button is checked in the PoC light theme only.
+  { fg: "link", bg: "line", kind: "text", source: "CMP-01 quiet button pressed", theme: "light" },
 ];
 
 /**
