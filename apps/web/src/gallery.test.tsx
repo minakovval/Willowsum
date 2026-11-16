@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
@@ -228,6 +228,43 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(norm(within(live).getByRole("status").textContent)).toBe("Готово, 6 файлів");
     act(() => within(live).getByRole("button", { name: "Почати знову" }).click());
     expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("CMP-02@PoC gallery: the Field section shows empty, required with counter, error, disabled, read-only, search and the amount cases", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-field")!.textContent).toBe("Поле введення");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="field-${c}"]`)!;
+    const state = (c: string) => at(c).querySelector<HTMLElement>(".ws-field")!.dataset.state;
+
+    const note = within(at("empty")).getByRole<HTMLInputElement>("textbox", { name: "Нотатка" });
+    expect(note.placeholder).toBe("Наприклад, подарунок на день народження");
+    expect(norm(at("empty").querySelector(".ws-field-hint")!.textContent)).toBe("До 200 символів");
+    expect(
+      within(at("required")).getByRole("textbox", { name: "Назва цілі, обов’язкове поле" }),
+    ).toBeTruthy();
+    expect(norm(at("required").querySelector(".ws-field-counter")!.textContent)).toBe("20 / 40");
+    expect(state("error")).toBe("error");
+    expect(norm(at("error").querySelector(".ws-field-error")!.textContent)).toBe(
+      "Помилка. Введіть число, наприклад 12,5.",
+    );
+    expect(state("disabled")).toBe("disabled");
+    expect(state("readonly")).toBe("readonly");
+    expect(within(at("search")).getByRole("searchbox", { name: "Пошук транзакцій" })).toBeTruthy();
+
+    const amount = within(at("amount")).getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    expect(amount.inputMode).toBe("decimal");
+    act(() => {
+      amount.focus();
+    });
+    fireEvent.change(amount, { target: { value: "12,345" } });
+    act(() => {
+      amount.blur();
+    });
+    expect(norm(at("amount").querySelector(".ws-field-error")!.textContent)).toBe(
+      "Помилка. Використовуйте до 2 знаків після коми для євро.",
+    );
+    expect(norm(within(at("approx")).getByRole<HTMLInputElement>("textbox").value)).toBe("≈ 0,33");
+    expect(at("abbreviated").querySelector(".gallery-field__narrow")).not.toBeNull();
   });
 
   it("switches language to English", () => {

@@ -46,6 +46,7 @@ import { offeredLanguages } from "../i18n/languages.ts";
 import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
+import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
@@ -395,6 +396,10 @@ export function GalleryTokensPage() {
         >
           <p className="ws-muted">{t("gallery.tabs.panel")}</p>
         </PageTabs>
+      </Section>
+
+      <Section id="g-field" title={t("gallery.field.title")}>
+        <FieldDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
