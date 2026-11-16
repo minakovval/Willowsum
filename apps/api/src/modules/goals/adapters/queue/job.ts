@@ -44,6 +44,23 @@ export const HAND_OFF_JOB = defineJob({ name: "goals.hand-off", schema: handOffS
  */
 export const ENTRY_RECORDED_JOB = defineJob({ name: "goals.entry-recorded", schema: entryRecorded.schema });
 
+/**
+ * #306 item 2: the check of a new spend's journal event, enqueued with the spend: if the transaction's event is no
+ * longer in effect (changed or deleted while the spend was saved), the spend is cancelled. Light; dead jobs go back daily.
+ */
+export const SPEND_CHECK_JOB = defineJob({
+  name: "goals.spend-check",
+  schema: z.strictObject({ transactionId: z.uuid(), entryId: z.uuid() }),
+});
+
+/** Enqueues the spend's check in the caller's goals transaction; the same entry twice is one job. */
+export async function enqueueSpendCheck(
+  q: HouseholdQueryRunner,
+  check: { readonly transactionId: string; readonly entryId: string },
+): Promise<void> {
+  await enqueueJob(q, SPEND_CHECK_JOB, `spend-check:${check.entryId}`, check);
+}
+
 /** Enqueues the hand-off in the caller's goals transaction; the same change twice is one job. */
 export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: GoalHandOff): Promise<void> {
   await enqueueJob(q, HAND_OFF_JOB, handOffKey(handOff), handOff as z.infer<typeof handOffSchema>);

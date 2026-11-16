@@ -450,7 +450,11 @@ describe("PR #295 security: the goals hand-off and the space's erasure", () => {
         return audit.record(...args);
       },
     };
-    const handler = createGoalsWorkerQueue(db.databases.for("goals"), counting).handlers[0]!;
+    const handler = createGoalsWorkerQueue(
+      db.databases.for("goals"),
+      counting,
+      createLedger(db.databases.for("ledger")),
+    ).handlers[0]!;
     const { rows } = await db.owner.query<{ id: string; payload: unknown }>(
       `SELECT id, payload FROM goals.jobs WHERE household_id = $1`,
       [space.householdId],
