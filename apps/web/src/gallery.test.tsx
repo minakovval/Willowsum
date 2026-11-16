@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
@@ -267,11 +267,101 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.useRealTimers();
   });
 
+  it("CMP-02@PoC gallery: the Field section shows empty, required with counter, error, disabled, read-only, search and the amount cases", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-field")!.textContent).toBe("Поле введення");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="field-${c}"]`)!;
+    const state = (c: string) => at(c).querySelector<HTMLElement>(".ws-field")!.dataset.state;
+
+    const note = within(at("empty")).getByRole<HTMLInputElement>("textbox", { name: "Нотатка" });
+    expect(note.placeholder).toBe("Наприклад, подарунок на день народження");
+    expect(norm(at("empty").querySelector(".ws-field-hint")!.textContent)).toBe("До 200 символів");
+    expect(
+      within(at("required")).getByRole("textbox", { name: "Назва цілі, обов’язкове поле" }),
+    ).toBeTruthy();
+    expect(norm(at("required").querySelector(".ws-field-counter")!.textContent)).toBe("20 / 40");
+    expect(state("error")).toBe("error");
+    expect(norm(at("error").querySelector(".ws-field-error")!.textContent)).toBe(
+      "Помилка. Введіть число, наприклад 12,5.",
+    );
+    expect(state("disabled")).toBe("disabled");
+    expect(state("readonly")).toBe("readonly");
+    expect(within(at("search")).getByRole("searchbox", { name: "Пошук транзакцій" })).toBeTruthy();
+
+    const amount = within(at("amount")).getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    expect(amount.inputMode).toBe("decimal");
+    act(() => {
+      amount.focus();
+    });
+    fireEvent.change(amount, { target: { value: "12,345" } });
+    act(() => {
+      amount.blur();
+    });
+    expect(norm(at("amount").querySelector(".ws-field-error")!.textContent)).toBe(
+      "Помилка. Використовуйте до 2 знаків після коми для євро.",
+    );
+    expect(norm(within(at("approx")).getByRole<HTMLInputElement>("textbox").value)).toBe("≈ 0,33");
+    expect(at("abbreviated").querySelector(".gallery-field__narrow")).not.toBeNull();
+  });
+
   it("switches language to English", () => {
     render(<App />);
     act(() => screen.getByLabelText("English").click());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Design tokens");
     expect(document.documentElement.lang).toBe("en");
     expect(document.title).toBe("Willowsum · Design tokens");
+  });
+});
+
+describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    installMatchMedia({ width: 1280 });
+    window.location.hash = "#/gallery/tokens";
+  });
+
+  it("CMP-21@PoC AC1: every case opens from its button with focus inside, never on a danger action, and closes back", () => {
+    render(<App />);
+    const section = document.getElementById("g-dialog")!.parentElement!;
+    const openers = [...section.querySelectorAll<HTMLButtonElement>("button[data-case]")];
+    expect(openers.map((b) => b.dataset.case)).toEqual([
+      "delete",
+      "unsaved",
+      "options",
+      "column",
+      "error",
+      "long",
+      "split",
+      "wide",
+    ]);
+    for (const opener of openers) {
+      opener.focus();
+      act(() => opener.click());
+      const dialog = document.querySelector<HTMLDialogElement>("dialog.ws-dialog")!;
+      expect(dialog.contains(document.activeElement)).toBe(true);
+      expect((document.activeElement as HTMLElement).dataset.variant).not.toBe("danger");
+      act(() => {
+        dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      });
+      expect(document.querySelector("dialog.ws-dialog")).toBeNull();
+      expect(document.activeElement).toBe(opener);
+    }
+  });
+
+  it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
+    vi.useFakeTimers();
+    try {
+      render(<App />);
+      act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
+      act(() =>
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Видалити рахунок" }).click(),
+      );
+      expect(screen.getByRole("button", { name: "Видаляємо…" }).getAttribute("aria-busy")).toBe("true");
+      act(() => vi.advanceTimersByTime(1200));
+      const alert = within(screen.getByRole("alertdialog")).getByRole("alert");
+      expect(norm(alert.textContent)).toMatch(/^Помилка Не вдалося видалити рахунок/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

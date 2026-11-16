@@ -16,15 +16,17 @@ interface Row {
   category_id: string | null;
   source: CategorySource;
   version: number;
+  rule_id: string | null;
 }
 
-const COLUMNS = `transaction_id, category_id, source, version`;
+const COLUMNS = `transaction_id, category_id, source, version, rule_id`;
 
 const stored = (r: Row): StoredTransactionCategory => ({
   transactionId: r.transaction_id,
   categoryId: r.category_id,
   source: r.source,
   version: r.version,
+  ruleId: r.source === "rule" ? r.rule_id : null,
 });
 
 export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
@@ -48,17 +50,17 @@ export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
     },
     async insert(householdId, transactionId, next) {
       const { rowCount } = await q.query(
-        `INSERT INTO transaction_categories (household_id, transaction_id, category_id, source)
-         VALUES ($1, $2, $3, $4) ON CONFLICT (household_id, transaction_id) DO NOTHING`,
-        [householdId, transactionId, next.categoryId, next.source],
+        `INSERT INTO transaction_categories (household_id, transaction_id, category_id, source, rule_id)
+         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (household_id, transaction_id) DO NOTHING`,
+        [householdId, transactionId, next.categoryId, next.source, next.ruleId ?? null],
       );
       return (rowCount ?? 0) === 1;
     },
     async update(householdId, transactionId, next, version) {
       await q.query(
-        `UPDATE transaction_categories SET category_id = $3, source = $4, version = $5, updated_at = now()
+        `UPDATE transaction_categories SET category_id = $3, source = $4, version = $5, rule_id = $6, updated_at = now()
           WHERE household_id = $1 AND transaction_id = $2`,
-        [householdId, transactionId, next.categoryId, next.source, version],
+        [householdId, transactionId, next.categoryId, next.source, version, next.ruleId ?? null],
       );
     },
     async withCategories(householdId, categoryIds) {

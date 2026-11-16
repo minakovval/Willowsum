@@ -1432,3 +1432,68 @@ code {
   align-items: center;
   gap: var(--ws-space-4);
 }
+
+/* CMP-02@PoC gallery: Field in every state. */
+.gallery-field {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-field p {
+  margin: 0;
+}
+
+.gallery-field__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-field__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+/* AC3: the amount field 120 px wide. */
+.gallery-field__narrow {
+  inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+}
+
+/* CMP-21@PoC Dialog in the gallery: the buttons that open each case and the synthetic content. */
+.gallery-dialog__openers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.gallery-dialog__options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.gallery-dialog__options legend {
+  padding: 0;
+}
+
+.gallery-dialog__option {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+}
+
+.gallery-dialog__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

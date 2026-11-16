@@ -858,3 +858,396 @@
 .ws-page-tabpanel {
   margin-block-start: var(--ws-space-5);
 }
+
+/*
+ * CMP-02@PoC Field. Label 13/16 500 in normal case above, the field visibly 40 px (search 36 px) with a 1 px
+ * border-control border, radius-md and surface-200, text 14/20 ink; the input itself is 44 px tall and overflows
+ * the box by 2 px above and below, so the touch area is 44 px without covering the text. 8 px between the label,
+ * the field and the hint (13/18 ink-muted); the error (14/20 500 loss) takes the hint's place.
+ */
+.ws-field {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.ws-field-label {
+  color: var(--ws-ink);
+  font-family: var(--ws-text-label-family);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  margin-block-end: var(--ws-space-2);
+}
+
+.ws-field-required {
+  color: var(--ws-loss);
+}
+
+.ws-field-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  padding-inline: var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  cursor: text;
+}
+
+.ws-field-box[data-size="search"] {
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+}
+
+.ws-field-input {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: var(--ws-touch-target);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font-family: var(--ws-text-body-sm-family);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* AC6: the placeholder only changes the colour, never the font, size or weight. */
+.ws-field-input::placeholder {
+  color: var(--ws-ink-muted);
+  opacity: 1;
+}
+
+/* The ring goes around the whole field, not the input inside it (DS-14). */
+.ws-field-input:focus-visible {
+  outline: none;
+}
+
+.ws-field-box:hover {
+  border-color: var(--ws-ink);
+}
+
+.ws-field-box:has(.ws-field-input:focus-visible) {
+  border-color: var(--ws-ink);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/*
+ * AC3: an abbreviated amount, not being edited, has a dotted underline. Browsers do not draw text-decoration in
+ * an input, so the input takes the height and width of its text and draws the dots as its bottom border; the
+ * unit stays on the right, and the box's strips below keep the 44 px touch area.
+ */
+.ws-field-input[data-abbreviated] {
+  flex: 0 1 auto;
+  field-sizing: content;
+  block-size: auto;
+  border-block-end: 1px dotted currentColor;
+}
+
+/* The 40 px box reaches 44 px: 2 px strips above and below that put the caret in the input. */
+.ws-field-box::before,
+.ws-field-box::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  block-size: calc(var(--ws-space-1) / 2);
+}
+
+.ws-field-box::before {
+  inset-block-end: 100%;
+}
+
+.ws-field-box::after {
+  inset-block-start: 100%;
+}
+
+.ws-field-probe + * {
+  margin-inline-start: auto;
+}
+
+.ws-field-prefix,
+.ws-field-suffix,
+.ws-field-counter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--ws-ink-muted);
+}
+
+.ws-field-suffix {
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-field-counter {
+  font-size: var(--ws-text-chart-axis-size);
+  line-height: var(--ws-text-chart-axis-line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The hidden copy that measures whether the value fits: the input's type, never seen or read. */
+.ws-field-probe {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  visibility: hidden;
+  white-space: pre;
+  font-family: var(--ws-text-body-sm-family);
+  font-size: var(--ws-text-body-sm-size);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.ws-field-hint {
+  margin-block-start: var(--ws-space-2);
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-tooltip-family);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+/* The live region stays in place while empty (so the error is announced) and takes no room then. */
+.ws-field-error {
+  margin-block-start: var(--ws-space-2);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-1);
+  color: var(--ws-loss);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+}
+
+.ws-field-error .ws-icon {
+  margin-block-start: calc(var(--ws-space-1) / 2);
+}
+
+.ws-field[data-state="error"] .ws-field-box {
+  border-color: var(--ws-loss);
+}
+
+.ws-field[data-state="readonly"] .ws-field-box {
+  background: var(--ws-surface-100);
+}
+
+/* AC5: disabled-bg, disabled-ink, no border. */
+.ws-field[data-state="disabled"] .ws-field-box {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-field[data-state="disabled"] .ws-field-input {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+/*
+ * CMP-21@PoC Dialog: a modal <dialog> in the top layer over the `scrim` with a 2 px blur; 16 px radius,
+ * `surface-200`, `shadow-dialog`; at most 560 px wide (640 / 900 only for the named content) and the window
+ * height minus 2 × 48 px. Only the body scrolls when content is taller: the action bar stays in place.
+ */
+.ws-dialog {
+  box-sizing: border-box;
+  width: min(var(--ws-dialog-width), calc(100% - 2 * var(--ws-space-4)));
+  max-width: none;
+  max-height: calc(100% - 2 * var(--ws-space-7));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-dialog);
+  color: var(--ws-ink);
+}
+
+.ws-dialog[data-size="split"] {
+  width: min(var(--ws-dialog-width-split), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[data-size="wide"] {
+  width: min(var(--ws-dialog-width-wide), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No slide or scale on appearing (CMP-21 «Зменшений рух»): the dialog and its scrim simply appear. */
+.ws-dialog::backdrop {
+  background: var(--ws-scrim);
+  backdrop-filter: blur(var(--ws-scrim-blur));
+}
+
+.ws-dialog-box {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* «✕»: a 36 px circle 12 px from the top right corner; the hit area stays 44 × 44 px. */
+.ws-dialog-close.ws-icon-button {
+  position: absolute;
+  inset-block-start: var(--ws-space-3);
+  inset-inline-end: var(--ws-space-3);
+  z-index: var(--ws-layer-local-1);
+  min-width: calc(var(--ws-space-6) + var(--ws-space-1));
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+}
+
+.ws-dialog-close.ws-icon-button::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-space-6) + var(--ws-space-1) - var(--ws-touch-target)) / 2);
+}
+
+.ws-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ws-space-5);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ws-space-6);
+}
+
+/* The scrolling body is a Tab stop; its ring is drawn inside, where the dialog's rounded clip cannot cut it. */
+.ws-dialog-body:focus-visible {
+  outline-offset: calc(-1 * var(--ws-focus-ring-width));
+}
+
+.ws-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog[data-align="center"] .ws-dialog-head {
+  align-items: center;
+  padding-inline: var(--ws-space-5);
+  text-align: center;
+}
+
+.ws-dialog[data-align="start"] .ws-dialog-head {
+  align-items: flex-start;
+  padding-inline-end: var(--ws-space-5);
+  text-align: start;
+}
+
+/* The icon tile: 56 × 56 px, radius 16 px, the soft tint of the dialog's tone with a 24 px icon in its colour. */
+.ws-dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--ws-space-7) + var(--ws-space-2));
+  height: calc(var(--ws-space-7) + var(--ws-space-2));
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-tint-info);
+  color: var(--ws-link);
+}
+
+.ws-dialog-icon[data-tone="warning"] {
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.ws-dialog-icon[data-tone="danger"] {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.ws-dialog-title {
+  margin: 0;
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  letter-spacing: var(--ws-text-heading-2-tracking);
+}
+
+.ws-dialog-text {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-action-size);
+  line-height: calc(var(--ws-space-5) - var(--ws-space-1) / 2);
+}
+
+.ws-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  text-align: start;
+}
+
+/* A failed action: the message starts with «Помилка»; the dialog stays open. */
+.ws-dialog-error {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-negative);
+  color: var(--ws-ink);
+  text-align: start;
+}
+
+/* The action bar: `surface-inset`, a 1 px `surface-300` line on top, 20 × 32 px. */
+.ws-dialog-foot {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: calc(var(--ws-space-4) + var(--ws-space-1)) var(--ws-space-6);
+  border-block-start: 1px solid var(--ws-surface-300);
+  background: var(--ws-surface-inset);
+}
+
+.ws-dialog-note {
+  margin: 0;
+}
+
+/* Equal buttons of one size in one row, 12 px apart; a full-width column (primary on top) when they do not fit. */
+.ws-dialog-actions {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog-actions[data-layout="column"] {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ws-dialog-action {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ws-dialog-action[data-variant="danger"]:not([aria-disabled="true"]) {
+  border: 1.5px solid var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+/* The running main action keeps its look and shows its busy label. */
+.ws-dialog-action[aria-busy="true"] {
+  cursor: progress;
+}

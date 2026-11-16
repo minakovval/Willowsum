@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-12, П-17, П-24, П-25, П-26, CMP-74
 - Сценарії: UC-BUD-75, UC-BUD-76, UC-BUD-77, UC-BUD-78, UC-BUD-79, UC-BUD-81
 - Модуль: merchants, categorization
-- Перевіряється: apps/api/src/modules/merchants/domain/bud14-merchants.test.ts, apps/api/test/bud14-merchants.it.test.ts
+- Перевіряється: apps/api/src/modules/merchants/domain/bud14-merchants.test.ts, apps/api/test/bud14-merchants.it.test.ts, apps/api/src/modules/categorization/domain/bud14-rules.test.ts, apps/api/test/bud14-rules.it.test.ts, apps/api/test/bud14-rules-sec.it.test.ts
 
 **Мета.** Як власник бюджету, я хочу бачити зрозумілі назви мерчантів і налаштовувати правила з кількома умовами й діями, щоб транзакції категоризувались і позначались без ручної роботи.
 
