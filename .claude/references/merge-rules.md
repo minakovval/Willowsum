@@ -55,14 +55,16 @@ security rounds with mutation testing on a developer-only script).
 | Tier | Which PRs | Reviews |
 | --- | --- | --- |
 | **Фундамент** | A change in a foundation file (below), money and sums, a module's database schema, access rights, production infrastructure and deploy workflows | Unchanged: `review-pr` + `security-review`, mutation testing for critical modules |
-| **Функціональність** | New screens and components, server parts of functions on top of the foundation that do not change its rules | `review-pr`; `security-review` only when CI set `sensitive` because the PR touches the foundation |
+| **Функціональність** | New screens and components, server parts of functions on top of the foundation that do not change its rules; any change of UI texts that touches `uk.ts`/`en.ts` (`review-pr` checks the strings equal the canvas «Тексти» block) | `review-pr`; `security-review` only when CI set `sensitive` because the PR touches the foundation |
 | **Локальні інструменти** | `tools/local-env`, `tools/synthetic`, scripts for development only, test helpers — even when CI set `sensitive:pipeline` by path | `review-pr` + **one** `security-review` round without mutation testing; findings that do not concern production go to follow-ups |
-| **Документи** | Plan statuses, README, the decision log (not requirement text) | The lead checks it against the [merge checklist](../skills/pr-pipeline/references/merge-checklist.md); no separate review session |
+| **Документи** | Plan statuses, README, the decision log (not requirement text); a canvas snapshot change only (`design/canvas/`, no code, no `uk.ts`/`en.ts`) | The lead checks it against the [merge checklist](../skills/pr-pipeline/references/merge-checklist.md); no separate review session |
 
 The lead picks the tier from the diff and names it in the reviewer's brief; a PR in two tiers takes the stricter
 one; in doubt — Фундамент (lead, 2026-11-16, same log). Requirement text, AGENTS.md and skills keep their own
 review (`change-requirement` §8; `owner-decision` above). The owner's approval for cloud or production, the hard
-rules and «Ready on the exact head» do not depend on the tier.
+rules and «Ready on the exact head» do not depend on the tier. UI texts (Рішення ведучого (2026-11-16; власник не
+схвалював; #369)): a text change that touches `uk.ts`/`en.ts` is Функціональність, never Документи, since those files
+are code (they fail `isDocsOnly`); only a snapshot-only change of `design/canvas/` is Документи.
 
 ### Foundation files
 
