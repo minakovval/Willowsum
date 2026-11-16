@@ -20,7 +20,12 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
   with the reason);
 - (d) the end of a lead segment: the short retrospective (the handover table goes to #179; owner, 2026-11-16, #178);
   at the end of a session also the item-by-item handover confirmation and the start message
-  ([new session](references/new-session.md)).
+  ([new session](references/new-session.md));
+- (e) the end of each stage of `docs/plans/poc-wave-2.md` and once a day: the number of PRs merged in the period,
+  what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
+  rows of #180), and the UI texts marked «варіант від агента, потребує погодження» (`docs/design/ARTIFACTS.md`,
+  «Тексти інтерфейсу») — Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md)); why: the owner asked to keep cost under control and to see
+  progress in the interface.
 
 Never write (owner, 2026-11-13/14, #178) service notifications: an agent started or finished, (un)subscribed, PR or
 issue opened, reviewers started, CI in progress, an agent's interim state, waiting for reports, #179 or #180
@@ -63,7 +68,8 @@ proposals: [lead communication](references/lead-communication.md).
 3. **PR opened** → do not subscribe while an agent (author, reviewer, fix) works on it; act on its report and
    subscribe only when the PR waits for merge (owner, 2026-11-14, #178). First open the issues for the dependent
    slices the implementer listed and link them (PRC-02). Then in parallel, each on a fresh agent
-   ([token economy](references/token-economy.md) item 2): a `review-pr` reviewer and, for a PR labelled
+   ([token economy](references/token-economy.md) item 2), as the PR's tier asks ([merge rules](../../references/merge-rules.md),
+   «Review tiers»; name the tier in the brief): a `review-pr` reviewer and, for a PR labelled
    `sensitive`, a `security-review` reviewer — each in a session other than the author's, with the PR number and
    head SHA. The brief asks for the verdict as a PR review with `commit_id=<head>`, never an issue comment (owner,
    2026-11-14, #185), the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
@@ -71,11 +77,14 @@ proposals: [lead communication](references/lead-communication.md).
 4. **Batch**: wait for both reviews (owner, 2026-11-13), then send **one** fix request (`fix-review-findings`):
    review IDs, which patch wins where reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»);
    never forward items one by one. Fix model and resume limit: [token economy](references/token-economy.md)
-   items 1 and 5. Cheap non-blocking reviewer tests go into a fix round only when one is due anyway; both verdicts
-   Ready → merge without them. A branch behind `main` is synced by the fix agent as a separate commit in the same
+   items 1 and 5. Cheap non-blocking reviewer tests go into a fix round only when one is due anyway and only in the tier
+   Фундамент (merge rules, «Merge on Ready, follow up separately»); both verdicts Ready → merge without them. A branch behind `main` is synced by the fix agent as a separate commit in the same
    push, covered by the fix confirmation (owner, 2026-11-14, #178, #207).
-5. **Round 2**: a fresh reviewer per review kind, briefed with the diff since the last reviewed head and its
-   previous findings; at most two rounds, then the reviewer gives a ready fix and confirms it. A confirmation (of
+5. **Round 2**: per review kind, the same reviewer session resumed when only the fixes changed, otherwise a fresh
+   reviewer ([token economy](references/token-economy.md) item 2; owner, 2026-11-16, «2 а»), briefed with the diff
+   since the last reviewed head and its previous findings; at most two rounds, then the reviewer gives a ready fix
+   and confirms it. A sync the lead confirms itself needs no agent ([merge checklist](references/merge-checklist.md),
+   «The lead confirms a sync itself»; `sensitive` too, owner, 2026-11-16, «1 б»). A confirmation (of
    fixes or a sync) of a `sensitive` PR goes to **one** agent that loads `review-pr` and `security-review` and
    posts both verdicts as two PR reviews with `commit_id` (owner, 2026-11-14, #178), in a session other than the
    author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
@@ -118,6 +127,12 @@ retrospective: [token economy](references/token-economy.md) (read when you choos
   parallel work, billing or CI that cannot run, anything about security (a leaked secret, a finding in `main`, a
   production risk). While a question waits, keep the other branches moving.
 - Anything the owner must do in a web console → a browser task (`browser-task`), never a request for keys in chat.
+- **PoC requirements freeze** (owner, 2026-11-16, «база має бути надійною»; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))): until stages 1–3 of
+  `docs/plans/poc-wave-2.md` (Рахунки, Транзакції, Імпорт) are done, no new PoC requirement and no wider PoC scope.
+  Allowed: bug fixes, answers to questions that block the current stages, and moving scope to a later release. PRs
+  of the decision log and requirement clean-ups: at most one a day, as a batch of that day's files (each log file is
+  still written the day of the decision, below); a decision a running code PR needs goes at once ([merge checklist](references/merge-checklist.md),
+  «Order»); why: detailed requirements took the time while the interface still cannot create an account.
 - Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (AGENTS.md
   «Where things are») and, in the PRs that implement it, as `Рішення власника (YYYY-MM-DD): схвалено …`. A small
   detail you decide (AGENTS.md «Ambiguity») goes into the decision log, the PR body and the document it shapes as

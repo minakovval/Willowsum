@@ -7,7 +7,12 @@ session starts or finishes.
 
 Owner request 2026-11-12. Each item carries its source: most are owner decisions, «lead» marks the lead's own.
 
-1. Pick the agent's model by risk:
+1. Pick the agent's model by risk and by the PR's tier ([merge rules](../../../references/merge-rules.md), «Review
+   tiers»). Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)): the tier Фундамент keeps the models below (main model, Fable for its uses); authors and
+   `review-pr` reviewers of the tiers Функціональність (screens, components), Документи and Локальні інструменти run
+   on the lighter model, which for those tiers replaces «every review … of a PR that changes code … stays on the main
+   model» below; security reviews stay as below; why: the owner asked for cost by risk (brief «легший процес,
+   надійна база», item 5):
    - **implementing** sensitive features: the main model (Рішення ведучого (2026-11-16; власник не схвалював;
      #360): «the strongest model» of the earlier text is the main model, since Fable has only the uses below);
    - **fixes and confirmations**: the lighter model working from ready reviewer patches (`fix-review-findings`),
@@ -34,8 +39,11 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
      and none is a test or code may use a lighter model; every review and confirmation of a PR that changes code,
      tools or workflows stays on the main model, as does a `.claude/`- or AGENTS.md-only PR that touches a security
      rule (hard rules, review procedures, approvals, secrets, sensitive paths) (lead, follow-up of #166).
-2. Every review, first or repeat, goes to a fresh agent with a narrow brief (round 2: the diff since the last head
-   and the previous findings); a long-context reviewer is never resumed (owner, 2026-11-13).
+2. A first review goes to a fresh agent with a narrow brief. A re-review **resumes the same reviewer session**
+   when only the fixes changed since its last head (the brief: the diff since that head and its previous findings);
+   a **fresh reviewer** when more changed — a sync with non-mechanical changes, new scope, a rewritten history
+   (owner, 2026-11-16, «2 а», [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md); it replaces
+   «a long-context reviewer is never resumed», owner, 2026-11-13). At most two rounds either way (AGENTS.md step 5).
 3. Reviewers rely on green CI for full suites: locally only the tests of the changed code (plus integration tests
    for database changes).
 4. Briefs point agents at exact files and sections instead of «read everything»; reports in the fixed ≤ 5-line
@@ -44,7 +52,8 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
    context (#180, lead session 1); a third round of fixes goes to a fresh agent with the diff, the findings and
    the patch.
 6. Cost of rounds (owner, 2026-11-14, #178): one confirmation agent for both verdicts of a `sensitive` PR saves
-   ≈ 80–90 k per sync (SKILL.md steps 1, 4, 5); no sync at all: [merge checklist](merge-checklist.md), «Quiet `main`».
+   ≈ 80–90 k per sync (SKILL.md steps 1, 4, 5); no sync at all: [merge checklist](merge-checklist.md), «Sync only
+   when needed».
 
 ## Token accounting
 
@@ -100,6 +109,9 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
    reviewer and confirmation run of that PR (follow-up and fix agents of the same PR included).
 3. **Analysis** (owner, 2026-11-15, #178): no weekly «Аналіз» note; the process review ([restarts](restarts.md))
    draws its conclusions from #180: which PR types cost most (sum and per PR, tokens and time) and the lead's share.
+   Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)): once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the week before it: the mean time
+   from opening a PR to its merge, review sessions per PR and cost per merged PR (from #180); if one of them did not
+   improve, tell the owner in two or three lines; why: the brief's «Як перевірити, що спрацювало».
 
 ## Session retrospective
 
