@@ -45,8 +45,8 @@
   що diff пише суми, проводки або баланси; «найсильніша модель» для реалізації чутливих функцій — основна модель,
   бо Fable має лише перелічені застосування; причина: огляд назвав це формулювання неоднозначним.
 - Рішення ведучого (2026-11-16; власник не схвалював; #360): у п. 3 форма звіту — `PR`, `Head` (повний SHA),
-  `Result`, `Blockers`, `Owner questions`; рецензенти — `PR`, `Head`, `Verdict` або `Security verdict`,
-  `Blocking` (file:line), `Checks`; follow-ups і питання рецензента — у рецензії; причина: фіксовані поля
+  `Result`, `Blockers`, `Owner questions`; рецензенти — `PR` · `Head`, `Verdict` або `Security verdict`,
+  `Blocking` (file:line), `Owner questions`, `Checks`; follow-ups — у рецензії; причина: фіксовані поля
   ведучий читає без переказу.
 - Рішення ведучого (2026-11-16; власник не схвалював; #360): у п. 4 знімок — збережений у JSON результат
   `get_session` (`keep/snap-N-start.json`, `keep/snap-N-end.json`) або коротка форма `{at, usage}`; PR сегмента

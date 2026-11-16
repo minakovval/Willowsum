@@ -48,8 +48,8 @@ proposals: [lead communication](references/lead-communication.md).
    and slice, the exact files and sections to read, branch, worktree, slot `k` (§3), a scratchpad prefix unique
    to the PR and role (`pr153-review/`, never a generic `body.md`; owner, 2026-11-13), and the report.
    **Report** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, fixed form — `PR`, `Head`
-   (full SHA), `Result`, `Blockers`, `Owner questions`; reviewers: `PR`, `Head`, `Verdict` (`Security verdict`),
-   `Blocking` (file:line), `Checks`. Everything else goes in the PR body or the review; read a verdict with
+   (full SHA), `Result`, `Blockers`, `Owner questions`; reviewers: `PR` · `Head`, `Verdict` (`Security verdict`),
+   `Blocking` (file:line), `Owner questions`, `Checks`. Everything else goes in the PR body or the review; read a verdict with
    `--jq` (its last line). The skills carry the same form. Every implementer and fix brief also says (owner,
    2026-11-13/14/15, #178): committing and pushing to its own PR branch is part of the task (if the permission
    classifier refuses, the agent stops and reports, and you ask the owner); before tests `pg_lsclusters` (down →
