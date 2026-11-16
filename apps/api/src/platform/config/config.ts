@@ -17,6 +17,11 @@ export interface Config {
   readonly role: Role;
   /** HTTP port: the API itself for `api`, the health probes for every role. */
   readonly port: number;
+  /**
+   * Address the HTTP server listens on: every interface (`0.0.0.0`, containers) or only this machine
+   * (`127.0.0.1`, `pnpm local:dev`: another program on the same port of another address is not reached instead).
+   */
+  readonly host: (typeof LISTEN_HOSTS)[number];
   readonly shutdownTimeoutMs: number;
   /** Source of the plan matrix (plan-catalog); PoC: every feature enabled (П-24). */
   readonly planEntitlements: (typeof PLAN_ENTITLEMENT_SOURCES)[number];
@@ -168,6 +173,9 @@ export function parseSignUpAllowlist(value: string): ReadonlySet<string> | undef
   return list;
 }
 
+/** `WS_HOST`: every interface or only the loopback address of this machine. */
+export const LISTEN_HOSTS = ["0.0.0.0", "127.0.0.1"] as const;
+
 export function modulePasswordVariable(module: string): string {
   return `WS_DB_PASSWORD_${schemaName(module).toUpperCase()}`;
 }
@@ -183,6 +191,7 @@ export function loadConfig(
 ): Config {
   const shape = {
     WS_PORT: port.default(8080),
+    WS_HOST: z.enum(LISTEN_HOSTS).default("0.0.0.0"),
     WS_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(120_000).default(30_000),
     WS_PLAN_ENTITLEMENTS: z.enum(PLAN_ENTITLEMENT_SOURCES).default("all-enabled"),
     WS_PROVIDER_MODE: z.enum(PROVIDER_MODES).default("test"),
@@ -306,6 +315,7 @@ export function loadConfig(
   return {
     role: role as Role,
     port: v["WS_PORT"] as number,
+    host: v["WS_HOST"] as Config["host"],
     shutdownTimeoutMs: v["WS_SHUTDOWN_TIMEOUT_MS"] as number,
     planEntitlements: v["WS_PLAN_ENTITLEMENTS"] as Config["planEntitlements"],
     providerMode: v["WS_PROVIDER_MODE"] as ProviderMode,

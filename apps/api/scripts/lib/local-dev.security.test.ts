@@ -16,7 +16,7 @@ describe("CICD-04 security: pnpm local:dev role processes", () => {
     "%s: the run's password sits only under *_PASSWORD variables, no superuser credential",
     (role) => {
       const env = roleEnv({
-        role,
+        port: 40000 + ROLES.indexOf(role),
         databaseUrl: ADMIN,
         password: PW,
         modules: ["identity", "household"],
@@ -31,6 +31,8 @@ describe("CICD-04 security: pnpm local:dev role processes", () => {
       expect(env["WS_PROVIDER_MODE"]).toBe("test");
       expect(env["WS_TELEMETRY"]).toBe("test");
       expect(env["WS_TELEMETRY_ENVIRONMENT"]).toBe("local");
+      // #363: only this machine's loopback address, never every interface.
+      expect(env["WS_HOST"]).toBe("127.0.0.1");
     },
   );
 
@@ -91,13 +93,16 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
   });
 
   it("the web process gets only PATH, HOME and the API origin", () => {
-    const env = webEnv({
-      PATH: "/bin",
-      HOME: "/h",
-      DATABASE_URL: "postgres://a:b@x/y",
-      WS_DB_PASSWORD: "s",
-      AWS_SECRET: "z",
-    });
-    expect(env).toEqual({ PATH: "/bin", HOME: "/h", WS_API_ORIGIN: "http://127.0.0.1:8080" });
+    const env = webEnv(
+      {
+        PATH: "/bin",
+        HOME: "/h",
+        DATABASE_URL: "postgres://a:b@x/y",
+        WS_DB_PASSWORD: "s",
+        AWS_SECRET: "z",
+      },
+      41234,
+    );
+    expect(env).toEqual({ PATH: "/bin", HOME: "/h", WS_API_ORIGIN: "http://127.0.0.1:41234" });
   });
 });
