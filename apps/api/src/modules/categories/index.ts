@@ -49,6 +49,8 @@ export interface CategoryDirectory {
   category(householdId: string, categoryId: string): Promise<CategoryRef | null>;
   /** «Переказ» or «Коригування» of the space (FR 1, FR 7), for transfer matching and balance adjustments. */
   serviceCategory(householdId: string, key: ServiceCategoryKey): Promise<CategoryRef | null>;
+  /** Every category of the space's tree in use — hidden ones too, not merged ones (BUD-02: the budget's groups and limits). */
+  categories(householdId: string): Promise<readonly CategoryRef[]>;
 }
 
 const ref = (c: StoredCategory): CategoryRef => ({
@@ -79,6 +81,11 @@ export function createCategoryDirectory(options: {
   return {
     category: (householdId, categoryId) => read(householdId, (tx) => tx.category(householdId, categoryId)),
     serviceCategory: (householdId, key) => read(householdId, (tx) => tx.bySystemKey(householdId, key)),
+    async categories(householdId) {
+      await options.db.inHousehold(householdId, (q) => ensureTree(deps, categoriesTx(q), householdId));
+      const rows = await options.db.inHousehold(householdId, (q) => categoriesTx(q).categories(householdId));
+      return rows.map(ref);
+    },
   };
 }
 

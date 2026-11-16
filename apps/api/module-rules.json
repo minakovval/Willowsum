@@ -15,7 +15,15 @@
     },
     "budget": {
       "layer": "process",
-      "dependsOn": []
+      "dependsOn": [
+        "accounts",
+        "audit",
+        "categories",
+        "categorization",
+        "fx-rates",
+        "household",
+        "transactions"
+      ]
     },
     "bulk-actions": {
       "layer": "platform",
@@ -38,6 +46,7 @@
       "dependsOn": [
         "accounts",
         "audit",
+        "budget",
         "bulk-actions",
         "categories",
         "categorization",

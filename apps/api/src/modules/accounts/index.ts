@@ -8,6 +8,7 @@ import type { AuditLog } from "../audit/index.ts";
 import {
   accountAudit,
   accountKinds,
+  accountsListTx,
   accountsRoutes,
   accountsTx,
   accountsWorkerQueue,
@@ -170,5 +171,36 @@ export function createAccountDirectory(db: ModuleDatabase): AccountDirectory {
           })),
         };
       }),
+  };
+}
+
+/**
+ * The space's accounts as the budget's «Рахунки бюджету» lists them (BUD-02@PoC FR 10): each account, closed ones too,
+ * with its kind and state, in the order of «Рахунки». Read only; every call is bound to one space.
+ */
+export interface AccountList {
+  accounts(householdId: string): Promise<
+    readonly {
+      readonly accountId: string;
+      readonly kind: AccountKind;
+      readonly status: "active" | "closed";
+    }[]
+  >;
+}
+
+/** `db` is the accounts module's own database (`ModuleDatabases.for("accounts")`). */
+export function createAccountList(db: ModuleDatabase): AccountList {
+  return {
+    accounts: (householdId) =>
+      db.inHousehold(householdId, async (q) =>
+        (
+          await accountsListTx(q).listAccounts(householdId, {
+            includeClosed: true,
+            kinds: null,
+            after: null,
+            limit: null,
+          })
+        ).map((a) => ({ accountId: a.id, kind: a.kind, status: a.status })),
+      ),
   };
 }

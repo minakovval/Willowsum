@@ -141,6 +141,10 @@ export const PROBLEMS = {
    */
   GOAL_OWN_ACCOUNT: { status: 409, title: "Add a transfer to the goal's account instead" },
   GOAL_SPEND_OVER_COLLECTED: { status: 409, title: "The transactions take more than the goal holds" },
+  /** «Бюджет уже існує» (BUD-02@PoC FR 1, edge case 6): the space has its one budget; nothing was written. */
+  BUDGET_EXISTS: { status: 409, title: "The space already has a budget" },
+  /** «Бюджет ще не існував на цю дату» (BUD-02@PoC edge case 5): the period is before the budget's first one. */
+  BUDGET_PERIOD_BEFORE_START: { status: 404, title: "The budget did not exist yet in this period" },
   /**
    * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
    * written.

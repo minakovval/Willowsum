@@ -149,6 +149,13 @@ export const FLAGS = {
     description:
       "Цілі накопичення (BUD-05@PoC a): ціль з однією частиною, «Внести», потрібний щомісячний внесок, прогрес, темп; маршрути /v1/goals",
   },
+  "budget.period": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Бюджет періоду (BUD-02@PoC a): один бюджет простору, ліміти, «Поза планом», рахунки бюджету, знімок завершеного періоду; маршрути /v1/budget",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;
