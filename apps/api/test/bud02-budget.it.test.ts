@@ -298,7 +298,7 @@ describe("BUD-02@PoC: one budget per space", () => {
     expect(again.json().code).toBe("BUDGET_EXISTS");
   });
 
-  it("BUD-02@PoC FR 5 (server part): the first period is the current or the next month; edge case 5 — before it «Бюджет ще не існував»", async () => {
+  it("BUD-02@PoC FR 5 (server part): the first period is the current or the next month; EC5 — before it «Бюджет ще не існував»", async () => {
     const space = await newSpace();
     const bad = await call(space, "POST", "/v1/budget", { firstPeriod: "2026-10" });
     expect(bad.statusCode).toBe(400);
@@ -446,7 +446,7 @@ describe("BUD-02@PoC: limits from the current period on", () => {
     expect(rows[0]!.limits).toEqual([{ categoryId: groceries, amount: "500", mandatory: true }]);
   });
 
-  it("BUD-02@PoC AC16: October's unspent «Одяг» and overspent «Кафе і ресторани» do not carry over — November has the base limits", async () => {
+  it("BUD-02@PoC FR 8, AC16: October's unspent «Одяг» and overspent «Кафе і ресторани» do not carry over — November has the base limits", async () => {
     now = at("2026-10-01");
     const space = await newSpace();
     const clothing = await category(space, "Одяг");
@@ -494,7 +494,7 @@ describe("BUD-02@PoC: what the period counts", () => {
     });
   });
 
-  it("BUD-02@PoC FR 12: pending ones count, hidden ones do not; a split one counts by its parts; edge case 4 — a refund lowers spending", async () => {
+  it("BUD-02@PoC FR 12: pending ones count, hidden ones do not; a split one counts by its parts; EC4 — a refund lowers spending", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     const household = await category(space, "Побутова хімія");
@@ -540,7 +540,7 @@ describe("BUD-02@PoC: what the period counts", () => {
     expect(exact.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
   });
 
-  it("BUD-02@PoC AC2: «Рахунки бюджету» — current accounts in, savings out by default; a company account switched off leaves the budget but stays in the list", async () => {
+  it("BUD-02@PoC FR 10, AC2: «Рахунки бюджету» — current accounts in, savings out by default; a company account switched off leaves the budget but stays in the list", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("600.00") }] });
@@ -572,7 +572,7 @@ describe("BUD-02@PoC: what the period counts", () => {
 });
 
 describe("BUD-02@PoC: deletion, the space's boundary, audit", () => {
-  it("BUD-02@PoC AC13 (server part): «Видалити бюджет» takes the limits, account choices and snapshots; AC14 — the Owner does it", async () => {
+  it("BUD-02@PoC FR 13, AC13 (server part): «Видалити бюджет» takes the limits, account choices and snapshots; AC14 — the Owner does it", async () => {
     now = at("2026-10-05");
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
