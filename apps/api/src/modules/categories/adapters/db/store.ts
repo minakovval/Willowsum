@@ -125,9 +125,9 @@ export function categoriesTx(q: HouseholdQueryRunner): CategoriesTx {
         `SELECT ${GROUP_COLUMNS} FROM category_groups WHERE household_id = $1 ORDER BY position, created_at, id`,
         [householdId],
       ),
-    categories: (householdId) =>
+    categories: (householdId, options) =>
       categories(
-        `SELECT ${CATEGORY_COLUMNS} FROM categories WHERE household_id = $1 AND state <> 'retired'
+        `SELECT ${CATEGORY_COLUMNS} FROM categories WHERE household_id = $1${options?.withRetired ? "" : " AND state <> 'retired'"}
           ORDER BY position, created_at, id`,
         [householdId],
       ),
