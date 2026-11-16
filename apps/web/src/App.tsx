@@ -2,6 +2,9 @@ import { useEffect, useRef } from "react";
 import { I18nProvider } from "@willowsum/i18n";
 import { HideAmountsProvider, MAIN_ID, ThemeProvider } from "@willowsum/ui";
 import { CheckEmailPage } from "./auth/CheckEmailPage.tsx";
+import { NotMePage } from "./auth/NotMePage.tsx";
+import { PasswordResetPage } from "./auth/PasswordResetPage.tsx";
+import { SessionKeeper } from "./auth/session.ts";
 import { SignInPage } from "./auth/SignInPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
@@ -61,7 +64,13 @@ function Router() {
         <GalleryTokensPage />
       </HideAmountsProvider>
     );
-  return <HideAmountsProvider initialHidden={false}>{appPage(route)}</HideAmountsProvider>;
+  return (
+    <HideAmountsProvider initialHidden={false}>
+      {/* ACC-04@PoC: the app's own pages keep the session; sign-in, sign-up and «Не знайдено» do not. */}
+      {route.kind !== "auth" && route.kind !== "notFound" && <SessionKeeper />}
+      {appPage(route)}
+    </HideAmountsProvider>
+  );
 }
 
 function appPage(route: Exclude<Route, { kind: "gallery" }>) {
@@ -109,6 +118,10 @@ function authPage(screen: AuthScreen) {
       return <VerifyPage />;
     case "signIn":
       return <SignInPage />;
+    case "passwordReset":
+      return <PasswordResetPage />;
+    case "notMe":
+      return <NotMePage />;
   }
 }
 
