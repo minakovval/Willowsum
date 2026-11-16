@@ -48,9 +48,11 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
+import { ListRowDemo } from "./ListRowDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
+import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -405,6 +407,14 @@ export function GalleryTokensPage() {
 
       <Section id="g-field" title={t("gallery.field.title")}>
         <FieldDemo />
+      </Section>
+
+      <Section id="g-list-row" title={t("gallery.listRow.title")}>
+        <ListRowDemo />
+      </Section>
+
+      <Section id="g-transaction-row" title={t("gallery.transactionRow.title")}>
+        <TransactionRowDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>

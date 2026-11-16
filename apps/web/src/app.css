@@ -1361,3 +1361,34 @@ code {
 .gallery-field__narrow {
   inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
 }
+
+/* CMP-27, CMP-28@PoC: the ListRow and TransactionRow sections of the gallery — each case is a card of rows. */
+.gallery-rows {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-rows p,
+.gallery-rows figure,
+.gallery-rows h3 {
+  margin: 0;
+}
+
+.gallery-rows__case {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.gallery-rows__list {
+  padding: 0;
+  overflow: hidden;
+}
+
+.gallery-rows__list .ws-list-row:last-child,
+.gallery-rows__list .ws-tx-row:last-child {
+  border-block-end: 0;
+}
+
+.gallery-rows__empty {
+  padding: var(--ws-space-4);
+}

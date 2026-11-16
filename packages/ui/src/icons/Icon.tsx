@@ -78,6 +78,8 @@ import {
   Watch,
   Wine,
   Amphora,
+  StickyNote,
+  Tag,
   X,
   type IconNode,
 } from "lucide";
@@ -155,6 +157,8 @@ export type IconName =
   | "eye"
   | "eye-off"
   | "edit"
+  | "tag"
+  | "note"
   | "trash"
   | "upload"
   | "download"
@@ -337,6 +341,8 @@ const GLYPHS: Record<IconName, Glyph> = {
   eye: lucide(Eye),
   "eye-off": lucide(EyeOff),
   edit: lucide(Pencil),
+  tag: lucide(Tag),
+  note: lucide(StickyNote),
   trash: lucide(Trash2),
   upload: lucide(Upload),
   download: lucide(Download),
@@ -447,6 +453,8 @@ export const ICON_GROUPS = {
     "eye",
     "eye-off",
     "edit",
+    "tag",
+    "note",
     "trash",
     "upload",
     "download",
