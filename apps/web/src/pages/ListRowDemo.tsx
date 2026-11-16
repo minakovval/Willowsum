@@ -8,7 +8,7 @@ import { Icon, ListRow, type IconName } from "@willowsum/ui";
  * and focus are shown by pointing at, pressing and tabbing to the rows.
  */
 const row = (cls: string, caption: MessageKey, children: ReactNode) => (
-  <figure className="gallery-rows__case" data-case={cls} key={cls}>
+  <figure className="gallery-rows__case" data-case={`list-row-${cls}`} key={cls}>
     <figcaption className="ws-text-label ws-muted">{caption}</figcaption>
     <div className="ws-card gallery-rows__list">{children}</div>
   </figure>
@@ -87,7 +87,7 @@ export function ListRowDemo() {
         />,
       )}
       {row("loading", "gallery.listRow.loading", <ListRow title="" loading />)}
-      <p className="ws-muted" aria-live="polite" data-case="opened">
+      <p className="ws-muted" aria-live="polite" data-case="list-row-opened">
         {opened ? t("gallery.listRow.opened", { name: opened }) : ""}
       </p>
     </div>

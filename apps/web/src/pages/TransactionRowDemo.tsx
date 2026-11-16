@@ -51,7 +51,7 @@ export function TransactionRowDemo() {
       <p className="ws-muted">{t("gallery.transactionRow.intro")}</p>
 
       {caption("gallery.transactionRow.states")}
-      <div className="ws-card gallery-rows__list" data-case="states">
+      <div className="ws-card gallery-rows__list" data-case="tx-states">
         <TransactionRow
           merchant={t("gallery.transactionRow.silpo")}
           date="2026-11-02"
@@ -104,7 +104,7 @@ export function TransactionRowDemo() {
       </div>
 
       {caption("gallery.transactionRow.queue")}
-      <div className="ws-card gallery-rows__list" data-case="queue">
+      <div className="ws-card gallery-rows__list" data-case="tx-queue">
         {queue.map((id, i) => (
           <TransactionRow
             key={id}
@@ -125,7 +125,7 @@ export function TransactionRowDemo() {
       </div>
 
       {caption("gallery.transactionRow.table")}
-      <div className="ws-card gallery-rows__list" data-case="table">
+      <div className="ws-card gallery-rows__list" data-case="tx-table">
         <TransactionTableHead selectable />
         <TransactionRow
           layout="table"
@@ -155,7 +155,7 @@ export function TransactionRowDemo() {
       </div>
 
       {caption("gallery.transactionRow.loading")}
-      <div className="ws-card gallery-rows__list" data-case="loading">
+      <div className="ws-card gallery-rows__list" data-case="tx-loading">
         <TransactionRow merchant="" date="2026-11-02" amount={{ value: "0", currency: "EUR" }} loading />
       </div>
     </div>

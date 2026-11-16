@@ -1342,7 +1342,7 @@
   block-size: calc(var(--ws-space-4) + var(--ws-space-1));
   border-radius: var(--ws-radius-pill);
   background: var(--ws-chart-transfer);
-  color: var(--ws-ink);
+  color: var(--ws-on-accent);
 }
 
 .ws-tx-category-dot[data-tone="1"] {

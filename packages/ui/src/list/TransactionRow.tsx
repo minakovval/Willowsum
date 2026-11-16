@@ -1,6 +1,6 @@
 import { formatDate, useI18n, type MessageKey } from "@willowsum/i18n";
 import { useEffect, useRef, useState } from "react";
-import { Badge } from "../badge/Badge.tsx";
+import { Badge, type BadgeTone } from "../badge/Badge.tsx";
 import { Button } from "../button/Button.tsx";
 import { Icon, type IconName } from "../icons/Icon.tsx";
 import { IconButton } from "../icons/IconButton.tsx";
@@ -162,15 +162,12 @@ export function TransactionRow({
       : split
         ? t("transactionRow.split")
         : "";
-  const marks: { key: MessageKey; text: string }[] = [
-    pending && { key: "transactionRow.pending" as const, text: t("transactionRow.pending") },
-    possibleDuplicate && {
-      key: "transactionRow.possibleDuplicate" as const,
-      text: t("transactionRow.possibleDuplicate"),
-    },
-    split ? { key: "transactionRow.split" as const, text: splitLabel } : false,
-    transfer && { key: "transactionRow.transfer" as const, text: t("transactionRow.transfer") },
-  ].filter((m): m is { key: MessageKey; text: string } => m !== false);
+  // The marks beside the merchant, in the card's order; no others (CMP-28 «Будова»).
+  const marks: { text: string; tone: BadgeTone }[] = [];
+  if (pending) marks.push({ text: t("transactionRow.pending"), tone: "info" });
+  if (possibleDuplicate) marks.push({ text: t("transactionRow.possibleDuplicate"), tone: "attention" });
+  if (split) marks.push({ text: splitLabel, tone: "neutral" });
+  if (transfer) marks.push({ text: t("transactionRow.transfer"), tone: "neutral" });
 
   const name = [
     merchant,
@@ -223,17 +220,7 @@ export function TransactionRow({
           </span>
         )}
         {marks.map((m) => (
-          <Badge
-            key={m.key}
-            label={m.text}
-            tone={
-              m.key === "transactionRow.pending"
-                ? "info"
-                : m.key === "transactionRow.possibleDuplicate"
-                  ? "attention"
-                  : "neutral"
-            }
-          />
+          <Badge key={m.text} label={m.text} tone={m.tone} />
         ))}
       </span>
       {!table && (

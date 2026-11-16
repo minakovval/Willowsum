@@ -398,6 +398,21 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...uiOn("loss", ["surface-300"], "CMP-74 failed progress fill on its track"),
   ...textOn("link", ["surface-300"], "CMP-01 quiet button on hover"),
   ...textOn("ink", ["line"], "CMP-01 secondary button pressed"),
+  ...uiOn(
+    "on-brand",
+    [
+      "chart-cat-1",
+      "chart-cat-2",
+      "chart-cat-3",
+      "chart-cat-4",
+      "chart-cat-5",
+      "chart-cat-6",
+      "chart-cat-7",
+      "chart-cat-8",
+    ],
+    "CMP-28 category icon on its coloured circle",
+  ),
+  ...uiOn("on-accent", ["chart-transfer"], "CMP-28 «Переказ» category icon on its circle"),
 ];
 
 /** Pairs that only hold in one theme and are therefore checked only there. */
