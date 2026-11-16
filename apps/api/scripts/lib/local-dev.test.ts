@@ -3,11 +3,10 @@ import { describe, expect, it } from "vitest";
 import { FLAGS } from "../../src/modules/feature-flags/index.ts";
 import {
   DEV_DATABASE,
-  LOCAL_DEV_PORTS,
+  WEB_PORT,
   busyPortsMessage,
   isPortFree,
   makeStopper,
-  ROLE_PORTS,
   confirmationLink,
   databaseUrlFor,
   parseLocalDevArgs,
@@ -31,14 +30,15 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
 
   it("gives each role its own port and only synthetic providers and in-process telemetry", () => {
     const env = roleEnv({
-      role: "worker",
+      port: 41001,
       databaseUrl: "postgres://u:p@127.0.0.1:5433/ws_dev",
       password: "pw",
       modules: ["identity", "feature-flags"],
       path: "/bin",
     });
     expect(env).toMatchObject({
-      WS_PORT: String(ROLE_PORTS.worker),
+      WS_PORT: "41001",
+      WS_HOST: "127.0.0.1",
       WS_DB_HOST: "127.0.0.1",
       WS_DB_PORT: "5433",
       WS_DB_NAME: "ws_dev",
@@ -51,7 +51,6 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
       WS_ALLOWED_ORIGINS: "http://localhost:5173",
       WS_WEB_ORIGIN: "http://localhost:5173",
     });
-    expect(new Set(Object.values(ROLE_PORTS)).size).toBe(3);
     // The superuser's credentials never reach a role process.
     expect(JSON.stringify(env)).not.toContain("u:p");
     expect(env).not.toHaveProperty("DATABASE_URL");
@@ -73,10 +72,6 @@ describe("CICD-04: pnpm local:dev — the whole app locally with one command", (
 });
 
 describe("CICD-04: stopping and busy ports", () => {
-  it("watches the three role ports and the web port", () => {
-    expect([...LOCAL_DEV_PORTS].sort()).toEqual([5173, 8080, 8081, 8082]);
-  });
-
   it("a second stop waits for the first and returns only when it is done (a failed start never prints «running»)", async () => {
     const events: string[] = [];
     let finish!: () => void;
@@ -97,10 +92,13 @@ describe("CICD-04: stopping and busy ports", () => {
 
   it("names every busy port in plain words and says nothing when all are free", async () => {
     expect(await busyPortsMessage([1, 2], async () => true)).toBe("");
-    const message = await busyPortsMessage([8080, 5173, 8081], async (port) => port === 8081);
-    expect(message).toMatch(/Port 8080 is in use by another program\. Close it/);
-    expect(message).toMatch(/Port 5173 is in use/);
-    expect(message).not.toMatch(/8081/);
+    expect(await busyPortsMessage(undefined, async (port) => port !== WEB_PORT)).toMatch(
+      /Порт 5173 зайнятий/,
+    );
+    const message = await busyPortsMessage([5174, 5173, 5175], async (port) => port === 5175);
+    expect(message).toMatch(/Порт 5174 зайнятий іншою програмою\. Закрийте її/);
+    expect(message).toMatch(/Порт 5173 зайнятий/);
+    expect(message).not.toMatch(/5175/);
   });
 
   it("detects a real listener", async () => {
