@@ -18,7 +18,7 @@ import {
   SIGN_UP_PATH,
 } from "./navigation.ts";
 import { formatCountdown } from "./rules.ts";
-import { ENDED_PARAM, isSessionEnd, type SessionEnd } from "./session.ts";
+import { ENDED_PARAM, isSessionEnd, markSignedIn, type SessionEnd } from "./session.ts";
 import { deadlineIn, useCountdown } from "./useCountdown.ts";
 
 /** The lockout lasts 15 min (ACC-01 «Блокування»); used only when the server sent no `Retry-After`. */
@@ -95,6 +95,7 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
     }
     if (result.ok) {
       if (result.data.status === "signed-in") {
+        markSignedIn();
         navigate(START_PATH);
         return;
       }

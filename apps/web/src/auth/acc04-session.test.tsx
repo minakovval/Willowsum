@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
-import { REFRESH_GAP_MS, SESSION_END_KEY } from "./session.ts";
+import { REFRESH_GAP_MS, SESSION_CHECKED_KEY, SESSION_END_KEY, SIGNED_IN_KEY } from "./session.ts";
 import { fakeApi, plain, problem, renderAt, resetAuthState, type Reply } from "./testing.tsx";
 
 /**
@@ -27,6 +27,8 @@ const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 beforeEach(() => {
   installMatchMedia({ width: 1280 });
   resetAuthState();
+  // This browser signed in earlier (SignInPage sets it).
+  localStorage.setItem(SIGNED_IN_KEY, "1");
 });
 afterEach(() => vi.useRealTimers());
 
@@ -75,6 +77,22 @@ describe("ACC-04@PoC web session", () => {
     fireEvent.keyDown(document.body, { key: "a" });
     await waitFor(() => expect(heading()).toBe("Вхід"));
     expect(screen.queryByText(/Сесію завершено/)).toBeNull();
+  });
+
+  it("ACC-04@PoC AC5: at the 12 h end the browser drops the cookie (Max-Age), the server answers UNAUTHENTICATED and «Вхід» opens", async () => {
+    const { client } = fakeApi({
+      "GET /v1/session": SESSION_OK,
+      "POST /v1/session/refresh": problem(401, "UNAUTHENTICATED"),
+    });
+    renderAt("#/planning/goals", client);
+    await waitFor(() => expect(heading()).toBe("Цілі"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.keyDown(document.body, { key: "a" });
+    await waitFor(() => expect(heading()).toBe("Вхід"));
+    expect(screen.queryByText(/Сесію завершено/)).toBeNull();
+    expect(JSON.parse(localStorage.getItem(SESSION_END_KEY)!)).toMatchObject({ reason: "expired" });
   });
 
   it("ACC-04@PoC FR 1: user actions extend the session, at most one refresh per gap; background requests never do", async () => {
@@ -237,6 +255,71 @@ describe("ACC-04@PoC web session", () => {
     expect(screen.getByRole("link", { name: "Забули пароль?" }).getAttribute("href")).toBe(
       "#/password/reset",
     );
+  });
+
+  it("ACC-04@PoC FR 1: a page load of a browser that never signed in sends nothing (the public budget of NFR-14 FR 5 is shared with sign-in)", async () => {
+    localStorage.removeItem(SIGNED_IN_KEY);
+    const { client, calls } = fakeApi({ "GET /v1/session": SESSION_OK });
+    renderAt("#/planning/budget", client);
+    await waitFor(() => expect(heading()).toBe("Бюджет"));
+    fireEvent.pointerDown(document.body);
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(calls.filter((c) => c.path.startsWith("/v1/session"))).toEqual([]);
+  });
+
+  it("ACC-04@PoC FR 1: signing in marks the browser, and the start page keeps the session", async () => {
+    localStorage.removeItem(SIGNED_IN_KEY);
+    const { client, calls } = fakeApi({
+      "POST /v1/sessions": { status: 200, body: { status: "signed-in" } },
+      "GET /v1/session": SESSION_OK,
+    });
+    renderAt("#/login", client);
+    fireEvent.change(screen.getByRole("textbox", { name: /^Email/ }), {
+      target: { value: "olena@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^Пароль/, { selector: "input" }), {
+      target: { value: "correct horse battery" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Увійти/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === "GET" && c.path === "/v1/session")).toBe(true));
+    expect(localStorage.getItem(SIGNED_IN_KEY)).not.toBeNull();
+  });
+
+  it("ACC-04@PoC FR 1: a page load within a minute of another read sends nothing, but actions still extend the session", async () => {
+    localStorage.setItem(SESSION_CHECKED_KEY, String(Date.now()));
+    const { client, calls } = fakeApi({
+      "GET /v1/session": SESSION_OK,
+      "POST /v1/session/refresh": REFRESHED,
+    });
+    renderAt("#/planning/budget", client);
+    await waitFor(() => expect(heading()).toBe("Бюджет"));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(calls.filter((c) => c.path === "/v1/session")).toEqual([]);
+    fireEvent.pointerDown(document.body);
+    await waitFor(() => expect(refreshes(calls)).toBe(1));
+  });
+
+  it("ACC-04@PoC FR 1: the link and sign-in pages never read the session, even for a signed-in browser", async () => {
+    const { client, calls } = fakeApi({});
+    for (const hash of ["#/login", "#/signup", "#/password/reset", "#/not-me"]) {
+      const view = renderAt(hash, client);
+      fireEvent.pointerDown(document.body);
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await act(async () => {
+        await Promise.resolve();
+      });
+      view.unmount();
+    }
+    expect(calls.filter((c) => c.path.startsWith("/v1/session"))).toEqual([]);
   });
 
   it("ACC-04@PoC: sign-in, sign-up and the link pages keep no session (they send nothing for it)", async () => {
