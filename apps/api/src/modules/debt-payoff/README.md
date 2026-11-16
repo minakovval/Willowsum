@@ -47,11 +47,12 @@ AC1–AC8 (серверні частини), граничні випадки 1, 
 - `createDebtPayoffServices({ accounts, liabilities, ledger, audit, clock, newId })` → `DebtPayoffServices` — порти
   маршрутів (`src/api.ts`, `main.ts`): `CreditAccounts` модуля `accounts`, `Liabilities.forAccount` (ставка, платіж),
   `Ledger.balanceAt` (борг — природний залишок гаманця зобов'язання); «сьогодні» — дата за Києвом.
-- `createDebtPlannedExpenses(db)` → `DebtPlannedExpenses.inMonth(householdId, month)` — додаткові платежі планів з
+- `createDebtPlannedExpenses(db, accounts)` → `DebtPlannedExpenses.inMonth(householdId, month)` (`accounts` — `CreditAccounts`:
+  плани закритих рахунків не повертаються) — додаткові платежі планів з
   «Додати до запланованих витрат» як заплановані витрати місяця (з місяця після збереження до місяця погашення) для
   «Можна витратити» (BUD-03) і «План» (BUD-17), без категорії бюджету.
 - `createDebtPayoffWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createDebtPayoffHandOffRecovery(db,
-  households)` — щоденне повернення задач `dead` (`debt-payoff.hand-off-recovery`, до очищення черги; WARN
+households)` — щоденне повернення задач `dead` (`debt-payoff.hand-off-recovery`, до очищення черги; WARN
   `debt_payoff.hand_off_requeued`); `HAND_OFF_JOB`.
 - `createDebtPayoffErasure(db)` → `eraseHousehold(householdId)` → `{ plans, jobs }` — лише для `data-erasure` (крок
   `debt-payoff.records`).
@@ -79,20 +80,20 @@ AC1–AC8 (серверні частини), граничні випадки 1, 
 ## Події
 
 | Публікує | Версія | Коли |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ---- |
+| —        |        |      |
 
 | Споживає | Версія | Навіщо |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ------ |
+| —        |        |        |
 
 ## Власні таблиці
 
 Схема `debt_payoff`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Усі під політикою простору.
 
-| Таблиця | Що |
-| --- | --- |
-| `plans` | Збережений план (`0001_plans.sql`): борг (`account_id` — непрозорий ідентифікатор рахунку `accounts`, один план на борг), валюта, місяць збереження, припущення (`balance`, `annual_rate`, `monthly_payment`, `extra_monthly`, `one_offs` — jsonb `[{ month, amount }]`, до 24), результат (`months`, `total_interest`, `payoff_month`), `add_to_planned_expenses`, версія. Видалений план видаляється; історія — у журналі аудиту |
-| `outbox_events`, `jobs` | Черга модуля (`0002_queue.sql`, таблиці платформи дослівно): задачі `debt-payoff.hand-off`; подій модуль не публікує |
+| Таблиця                 | Що                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `plans`                 | Збережений план (`0001_plans.sql`): борг (`account_id` — непрозорий ідентифікатор рахунку `accounts`, один план на борг), валюта, місяць збереження, припущення (`balance`, `annual_rate`, `monthly_payment`, `extra_monthly`, `one_offs` — jsonb `[{ month, amount }]`, до 24), результат (`months`, `total_interest`, `payoff_month`), `add_to_planned_expenses`, версія. Видалений план видаляється; історія — у журналі аудиту |
+| `outbox_events`, `jobs` | Черга модуля (`0002_queue.sql`, таблиці платформи дослівно): задачі `debt-payoff.hand-off`; подій модуль не публікує                                                                                                                                                                                                                                                                                                               |
 
 Синтетичні дані: `synthetic.ts` (1 план на простір, виконана задача передачі).
