@@ -381,6 +381,75 @@ export type paths = {
         patch: operations["renameCategoryGroup"];
         trace?: never;
     };
+    "/v1/category-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Правила категорій»: the space's rules in priority order, «Потребує уваги», «Застосовано: N» (BUD-14 FR 4) */
+        get: operations["listCategoryRules"];
+        put?: never;
+        /** «Зберегти правило» of «Нове правило»: the lowest priority; applies to new transactions only (BUD-14 FR 4, FR 7) */
+        post: operations["createCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** «Змінити правило» and «Увімкнено»: new transactions follow the change, past ones keep their categories (BUD-14 FR 4, FR 7) */
+        patch: operations["updateCategoryRule"];
+        trace?: never;
+    };
+    "/v1/category-rules/{ruleId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «#» drag, «Вище» / «Нижче»: the rule takes the position, 1 — the highest priority; past categories stay (BUD-14 FR 4, AC14) */
+        post: operations["moveCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-rules/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Показати» and «Застосувати до N наявних транзакцій, що підходять»: the existing transactions the conditions match; nothing changes (BUD-14 FR 7) */
+        post: operations["matchCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/debts": {
         parameters: {
             query?: never;
@@ -5524,6 +5593,790 @@ export interface operations {
             };
         };
     };
+    listCategoryRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rules, the highest priority first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountIds: string[];
+                            appliedCount: number;
+                            /** Format: uuid */
+                            categoryId: string;
+                            conditions: ({
+                                /** @constant */
+                                field: "merchant";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "description";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "amount";
+                                /** @enum {string} */
+                                operator: "equals" | "greater" | "less";
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | {
+                                /** @constant */
+                                field: "account";
+                                /** @constant */
+                                operator: "equals";
+                                /** Format: uuid */
+                                value: string;
+                            })[];
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            needsAttention: ("category_deleted" | "account_deleted") | null;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    accountIds?: string[];
+                    /** Format: uuid */
+                    categoryId: string;
+                    conditions: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                    /** @default true */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountIds: string[];
+                        appliedCount: number;
+                        /** Format: uuid */
+                        categoryId: string;
+                        conditions: ({
+                            /** @constant */
+                            field: "merchant";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "description";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "amount";
+                            /** @enum {string} */
+                            operator: "equals" | "greater" | "less";
+                            value: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | {
+                            /** @constant */
+                            field: "account";
+                            /** @constant */
+                            operator: "equals";
+                            /** Format: uuid */
+                            value: string;
+                        })[];
+                        duplicateOf: string | null;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        needsAttention: ("category_deleted" | "account_deleted") | null;
+                        position: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A limit of the service was reached (LIMIT_REACHED) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accountIds?: string[];
+                    /** Format: uuid */
+                    categoryId?: string;
+                    conditions?: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountIds: string[];
+                        appliedCount: number;
+                        /** Format: uuid */
+                        categoryId: string;
+                        conditions: ({
+                            /** @constant */
+                            field: "merchant";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "description";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "amount";
+                            /** @enum {string} */
+                            operator: "equals" | "greater" | "less";
+                            value: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | {
+                            /** @constant */
+                            field: "account";
+                            /** @constant */
+                            operator: "equals";
+                            /** Format: uuid */
+                            value: string;
+                        })[];
+                        duplicateOf: string | null;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        needsAttention: ("category_deleted" | "account_deleted") | null;
+                        position: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    moveCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    position: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The rules in their new order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountIds: string[];
+                            appliedCount: number;
+                            /** Format: uuid */
+                            categoryId: string;
+                            conditions: ({
+                                /** @constant */
+                                field: "merchant";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "description";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "amount";
+                                /** @enum {string} */
+                                operator: "equals" | "greater" | "less";
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | {
+                                /** @constant */
+                                field: "account";
+                                /** @constant */
+                                operator: "equals";
+                                /** Format: uuid */
+                                value: string;
+                            })[];
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            needsAttention: ("category_deleted" | "account_deleted") | null;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    matchCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    accountIds?: string[];
+                    conditions: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                };
+            };
+        };
+        responses: {
+            /** @description The matching transactions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            /** Format: uuid */
+                            transactionId: string;
+                        }[];
+                        totals: {
+                            amount: string;
+                            currency: string;
+                        }[];
+                        truncated: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listDebts: {
         parameters: {
             query?: never;
@@ -8082,7 +8935,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "recurring.payments" | "goals.savings" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "categorization.rules" | "recurring.payments" | "goals.savings" | "debts.payoff")[];
                     };
                 };
             };
@@ -12050,6 +12903,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            position: number;
+                        } | null;
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */
@@ -12158,6 +13016,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
+                        rule: {
+                            /** Format: uuid */
+                            id: string;
+                            position: number;
+                        } | null;
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */
