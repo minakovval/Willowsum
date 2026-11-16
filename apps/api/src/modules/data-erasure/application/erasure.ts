@@ -29,6 +29,7 @@ export interface ErasureDeps {
   readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly merchants: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly goals: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly budget: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly recurring: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly debtPayoff: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -49,6 +50,7 @@ export interface ErasureDeps {
         | "recurring.records"
         | "categories.records"
         | "goals.records"
+        | "budget.records"
         | "debt-payoff.records"
         | "accounts.records"
         | "liabilities.records"
@@ -146,6 +148,10 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // They name accounts and transactions by id only.
     await deps.platformAudit.spaceStep(householdId, "goals.records");
     await deps.goals.eraseHousehold(householdId);
+    // The budget (BUD-02): it publishes and consumes no events; it names categories and accounts by id only. Its
+    // worker writes only audit entries (swept with the log below), so it needs no second pass.
+    await deps.platformAudit.spaceStep(householdId, "budget.records");
+    await deps.budget.eraseHousehold(householdId);
     // Debt payoff plans (BUD-19): they name the accounts by id only; the module publishes and consumes no events.
     await deps.platformAudit.spaceStep(householdId, "debt-payoff.records");
     await deps.debtPayoff.eraseHousehold(householdId);

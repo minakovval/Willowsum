@@ -1,4 +1,5 @@
 // Public interface of the transactions module (ARC-01 FR 2). Other modules import only this file.
+import type { Money } from "@willowsum/domain-kernel";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
@@ -7,6 +8,7 @@ import type { WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
+  budgetRows,
   categoriesInParts,
   categorizableFacts,
   counterpartiesOf,
@@ -179,6 +181,38 @@ export interface TransactionLookup {
 }
 
 /**
+ * The transactions module as module budget counts it (BUD-02@PoC FR 12): the shown transactions of the budget's
+ * accounts in a period, pending ones too, without transfers between own accounts and merged duplicates; a split one
+ * with its parts (a part «На кілька місяців» counts in its month). Read only; every call is bound to one space.
+ */
+export interface BudgetTransactions {
+  inPeriod(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<
+    readonly {
+      readonly id: string;
+      readonly accountId: string;
+      readonly amount: Money;
+      readonly date: string;
+      readonly parts:
+        | readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[]
+        | null;
+    }[]
+  >;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions {
+  return {
+    inPeriod: (householdId, accountIds, from, to) =>
+      db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to)),
+  };
+}
+
+/**
  * The transactions module as module merchants reads it (BUD-14@PoC a; wave 2 row 22): the counterparty — the bank's
  * description — is the source of a transaction's merchant. Read only; every call is bound to one space.
  */
@@ -284,3 +318,10 @@ export function createTransactionRuleInputs(db: ModuleDatabase): TransactionRule
       db.inHousehold(householdId, (q) => ruleCandidates(q, householdId, limit)),
   };
 }
+
+/**
+ * DAT-03@PoC FR 2, BUD-13@PoC FR 2 (src/wiring.ts `bulkActionsServicesFor`): «Додати теги» — the target
+ * `transaction-tags` and the action `transactions.add-tags` for module bulk-actions. `db` is the transactions module's
+ * own database; `accounts` the accounts module's directory (a closed account's transactions are read only).
+ */
+export { createTagBulkActions as createTransactionTagBulkActions } from "./adapters/bulk/tags.ts";

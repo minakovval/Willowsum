@@ -275,6 +275,8 @@ export async function createTransaction(
     split: null,
     transfer: null,
     mergedInto: null,
+    note: null,
+    tagIds: [],
     version: 1,
   });
   await tx.publishCreated(caller.householdId, id);
@@ -358,6 +360,8 @@ export async function updateTransaction(
     split,
     transfer: current.transfer,
     mergedInto: current.mergedInto,
+    note: current.note,
+    tagIds: current.tagIds,
     version: current.version + 1,
   });
   const updated = await handOff(tx, caller, "update", current, next);

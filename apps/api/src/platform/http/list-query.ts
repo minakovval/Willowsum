@@ -66,6 +66,7 @@ const ATTRIBUTE_RE = /^[a-z][a-z0-9_]{0,62}$/;
 /** One filter of the request: a field, an operator and the value text. */
 const FILTER_RE = /^([a-z][A-Za-z0-9]{0,63})\.([a-z]{2,6}):([\s\S]*)$/;
 const MAX_SORT_KEYS = 3;
+const ARRAY_OPERATORS: readonly FilterOperator[] = ["eq", "in", "empty", "nempty"];
 const MAX_FILTER_TEXT = 1024;
 
 export interface FilterField {
@@ -76,6 +77,11 @@ export interface FilterField {
   readonly operators: readonly FilterOperator[];
   /** One key of a type attribute inside the JSONB `column` (DAT-01 FR 4); such a field is text. */
   readonly attribute?: string;
+  /**
+   * The column is an array of `cast` (BUD-13 FR 2: the tags of a transaction): `eq` — it contains the value, `in` — it
+   * contains any of them, `empty` / `nempty` — it has no element / some. No other operator.
+   */
+  readonly array?: true;
 }
 
 const INT4_MIN = -2_147_483_648;
@@ -189,6 +195,8 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
       throw new Error(`list query: filter ${field} uses «has» on a ${f.cast} column`);
     if (f.attribute !== undefined && (!ATTRIBUTE_RE.test(f.attribute) || f.cast !== "text"))
       throw new Error(`list query: filter ${field} has an invalid attribute (a text key of a JSONB column)`);
+    if (f.array && (f.attribute !== undefined || !f.operators.every((o) => ARRAY_OPERATORS.includes(o))))
+      throw new Error(`list query: filter ${field} on an array takes eq, in, empty and nempty only`);
   }
   for (const [field, column] of Object.entries(spec.sorts))
     if (!FIELD_RE.test(field) || !IDENTIFIER_RE.test(column))
@@ -231,7 +239,11 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
         }
         if (op === "empty" || op === "nempty") {
           if (text !== "") invalid("filter", "invalid_value");
-          const blank = field.cast === "text" ? `(${target} IS NULL OR ${target} = '')` : `${target} IS NULL`;
+          const blank = field.array
+            ? `coalesce(cardinality(${target}), 0) = 0`
+            : field.cast === "text"
+              ? `(${target} IS NULL OR ${target} = '')`
+              : `${target} IS NULL`;
           conditions.push(op === "empty" ? blank : `NOT ${blank}`);
           continue;
         }
@@ -240,12 +252,20 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
           const values = text.split(",");
           requireWithinLimit(values.length, TECHNICAL_LIMITS.filtersPerRequest);
           params.push(values.map((v) => parseValue(field, v)));
-          conditions.push(`${target} = ANY(${placeholder}::${field.cast}[])`);
+          conditions.push(
+            field.array
+              ? `${target} && ${placeholder}::${field.cast}[]`
+              : `${target} = ANY(${placeholder}::${field.cast}[])`,
+          );
         } else if (op === "has") {
           const value = String(parseValue(field, text));
           if (value === "") invalid("filter", "invalid_value");
           params.push(`%${value.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
           conditions.push(`${target} ILIKE ${placeholder}::text ESCAPE '\\'`);
+        } else if (field.array) {
+          params.push(parseValue(field, text));
+          // Containment, so a GIN index on the array serves it.
+          conditions.push(`${target} @> ARRAY[${placeholder}::${field.cast}]`);
         } else {
           params.push(parseValue(field, text));
           conditions.push(

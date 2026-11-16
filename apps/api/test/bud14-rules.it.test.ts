@@ -507,7 +507,12 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
       id: fresh,
     });
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ actor: { kind: "system" }, channel: "system", action: "update" });
+    expect(entries[0]).toMatchObject({
+      actorKind: "system",
+      actorId: null,
+      channel: "system",
+      action: "update",
+    });
     expect(entries[0]!.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "categoryId", before: null, after: subscriptions }),
@@ -790,7 +795,7 @@ describe("ARC-04@PoC FR 2–4: the audit entries of the rules, their dead job an
     });
     const entries = await audit.entriesFor(space.householdId, { type: "categorization.rule", id: rule.id });
     expect(entries.map((e) => e.action)).toEqual(["create", "update"]);
-    expect(entries[0]!.actor).toEqual({ kind: "user", id: space.accountId });
+    expect(entries[0]).toMatchObject({ actorKind: "user", actorId: space.accountId });
     expect(entries[1]!.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ field: "conditions", before: AUDIT_MASK, after: AUDIT_MASK }),
