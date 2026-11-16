@@ -59,6 +59,11 @@ export interface LocalDevOptions {
   readonly fresh: boolean;
 }
 
+/** `--fresh` drops the database: only the development one, never a `pnpm db:test` database another run may be using (#401). */
+export function assertFreshAllowed(database: string, fresh: boolean): void {
+  if (fresh && database !== DEV_DATABASE) throw new Error("--fresh recreates only the development database");
+}
+
 export const LOCAL_DEV_USAGE = "usage: pnpm local:dev [--fresh]";
 
 export function parseLocalDevArgs(argv: readonly string[]): LocalDevOptions {
@@ -157,6 +162,8 @@ export function assertLocalServer(adminUrl: string): void {
   if (params.getAll("host").length > 1) refuse("host given more than once");
   if (params.getAll("hostaddr").length > 1) refuse("hostaddr given more than once");
   if (params.has("hostaddr") || !socket.startsWith("/") || socket.includes(",")) refuse(socket || "no host");
+  // A path that climbs out of its directory is not the directory it names (#363).
+  if (socket.split("/").includes("..")) refuse(socket);
 }
 
 /** Environment of the web dev server: only what Vite needs and the API address, not the whole process.env. */

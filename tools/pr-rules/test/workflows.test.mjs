@@ -42,11 +42,13 @@ test('jobNames: a matrix job that another job needs is covered by that aggregate
     '        part: [a, b]',
     '  agg:',
     '    needs: [changes, parts]',
+    '    steps:',
+    '      - env: { PARTS: "${{ needs.parts.result }}" }',
     '  other:',
     '    name: o ${{ matrix.x }}',
     '  listed:',
     '    needs:',
-    '      - other',
+    '      - other', // needs `other` for ordering only: it never reads `needs.other.result`, so `other` stays listed
     '  lone:',
     '    name: l ${{ matrix.x }}',
     '  plain:',
@@ -56,7 +58,7 @@ test('jobNames: a matrix job that another job needs is covered by that aggregate
     '',
   ].join('\n');
   // `lone` is needed by nobody: it stays listed by its key, so a missing check run is reported, never lost.
-  assert.deepEqual(jobNames(yml), ['agg', 'listed', 'lone', 'Plain', 'dep']);
+  assert.deepEqual(jobNames(yml), ['agg', 'other', 'listed', 'lone', 'Plain', 'dep']);
 });
 
 // Owner, 2026-11-14 (#178 comment 6883729022 item 2): integration tests in 2 shards. `api` stays the one required
