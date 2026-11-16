@@ -114,5 +114,14 @@ describe("FIN-01@PoC FR 4: the update from the NBU list (scripts/nbu-banks.ts)",
     expect(displayNameOf('АТ "Райффайзен Банк"')).toBe("Райффайзен Банк");
     expect(displayNameOf("ПУБЛІЧНЕ АКЦІОНЕРНЕ ТОВАРИСТВО «Банк Приклад»")).toBe("Банк Приклад");
     expect(displayNameOf('АТ АКБ "КОНКОРД"')).toBe("КОНКОРД");
+    // Forms seen in the NBU list of 2026-11-16.
+    expect(displayNameOf('АБ "УКРГАЗБАНК"')).toBe("УКРГАЗБАНК");
+    expect(displayNameOf('АТ "АБ "РАДАБАНК"')).toBe("РАДАБАНК");
+    expect(displayNameOf('ПуАТ "КБ "АКОРДБАНК"')).toBe("АКОРДБАНК");
+    expect(displayNameOf('Акціонерний банк "Південний"')).toBe("Південний");
+    expect(displayNameOf("ПрАТ “ПЕРЕХІДНИЙ БАНК “ЮТЕ БАНК”")).toBe("ПЕРЕХІДНИЙ БАНК ЮТЕ БАНК");
+    expect(displayNameOf("Полікомбанк")).toBe("Полікомбанк");
+    expect(displayNameOf('АТ "БАНК 3/4"')).toBe("БАНК 3/4");
+    expect(displayNameOf('АТ "АТБ Інвест"')).toBe("АТБ Інвест");
   });
 });

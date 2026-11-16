@@ -6,7 +6,10 @@ export const BANK_REGISTRY_FILE = new URL("./nbu-banks.json", import.meta.url);
 
 let loaded: BankRegistry | undefined;
 
-/** The directory, parsed and checked on first use (a broken file fails loudly, never a half directory). */
+/**
+ * The directory, parsed and checked on the first search, then kept (lead decision, 2026-11-16): a broken file answers
+ * that search with 500, never a half directory; CI catches it before that (`nbu-banks.test.ts`).
+ */
 export function bankRegistry(): BankRegistry {
   loaded ??= parseBankRegistry(JSON.parse(readFileSync(BANK_REGISTRY_FILE, "utf8")));
   return loaded;

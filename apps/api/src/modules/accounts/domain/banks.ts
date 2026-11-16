@@ -121,13 +121,20 @@ export function bankInstitution(bank: Bank): Institution {
   return { name: bank.name, country: BANK_COUNTRY };
 }
 
-/** Legal forms the NBU short name starts with; a new bank's display name is the rest (`importNbuBanks`). */
-const LEGAL_FORM =
-  /^(?:(?:ПУБЛІЧНЕ|ПРИВАТНЕ)\s+)?(?:АКЦІОНЕРНЕ\s+ТОВАРИСТВО|ПрАТ|ПАТ|АТ)\s+(?:(?:КБ|АБ|АКБ)\s+)?/iu;
+/**
+ * Legal forms and bank abbreviations the NBU short name starts with, alone or one after another, with or without
+ * quotes (e.g. `АТ КБ "ПриватБанк"`, `ПуАТ "КБ "АКОРДБАНК"`, `Акціонерний банк "Південний"`).
+ */
+const LEGAL_PREFIX =
+  /^["«„“”]?(?:(?:ПУБЛІЧНЕ|ПРИВАТНЕ)\s+)?(?:АКЦІОНЕРНЕ\s+ТОВАРИСТВО|АКЦІОНЕРНИЙ\s+БАНК|ПрАТ|ПуАТ|ПАТ|АТ|КБ|АБ|АКБ)(?=[\s"«„“”])\s*/iu;
 
-/** A display name from the NBU short name: without the legal form and the quotes. */
+/** A display name from the NBU short name: without the legal form and the quotes; the NBU's letter case is kept. */
 export function displayNameOf(shortName: string): string {
-  const rest = shortName.normalize("NFC").trim().replace(LEGAL_FORM, "");
+  let rest = shortName.normalize("NFC").trim();
+  for (let prev = ""; prev !== rest;) {
+    prev = rest;
+    rest = rest.replace(LEGAL_PREFIX, "");
+  }
   return rest
     .replace(/["«»„“”]/gu, "")
     .replace(/\s+/gu, " ")
@@ -146,7 +153,7 @@ export interface NbuImport {
  * Builds the directory from the rows of the NBU list of banks (the update script, `scripts/nbu-banks.ts`): one bank per
  * code (МФО: `GLMFO`, else `MFO`), the legal name `SHORTNAME`; a row whose status `N_STAN` is there and is not
  * «Нормальний» is left out. A bank already in the directory keeps its display name (names are curated once), a new one
- * gets `displayNameOf`. The field names are those of the NBU JSON; the first full import checks them (owner question).
+ * gets `displayNameOf`. The field names are those of the NBU JSON (checked by the first full import, 2026-11-16).
  */
 export function importNbuBanks(rows: readonly unknown[], current: BankRegistry, asOf: string): NbuImport {
   const known = new Map(current.banks.map((b) => [b.code, b]));
