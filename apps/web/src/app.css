@@ -577,7 +577,7 @@ code {
  */
 /*
  * GRID-06@PoC FR 1, AC2: the page grid of the width class (GRID-00 FR 2: 12 columns, 32 px margins, 24 px gutter on
- * Expanded; at most 1200 px of content from 1440 px). The mark and the card take the 6 middle columns, 3 stay empty
+ * Expanded; at most 1200 px of content on Large, from 1440 px). The mark and the card take the 6 middle columns, 3 stay empty
  * on each side; on the narrower classes (not in PoC, П-25) the column takes the whole width.
  */
 .auth-page {
@@ -586,9 +586,14 @@ code {
   column-gap: var(--ws-gutter);
   align-content: start;
   min-height: 100vh;
-  padding: calc(var(--ws-space-8) + var(--ws-space-2))
-    max(var(--ws-page-margin), (100% - var(--ws-content-max)) / 2) var(--ws-space-8);
+  padding: calc(var(--ws-space-8) + var(--ws-space-2)) var(--ws-page-margin) var(--ws-space-8);
   background: var(--ws-surface-100);
+}
+
+@media (min-width: 1440px) {
+  .auth-page {
+    padding-inline: max(var(--ws-page-margin), (100% - var(--ws-content-max)) / 2);
+  }
 }
 
 .auth-column {

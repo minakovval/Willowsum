@@ -11,7 +11,7 @@ import { navigate, SIGN_IN_PATH } from "./navigation.ts";
  *   do (business rules);
  * - checks with `GET /v1/session`, which does not extend the session, when the page is shown again (EC2: a laptop
  *   woke up) and every `CHECK_EVERY_MS` (a revoked session is noticed within 60 s);
- * - opens the sign-in screen with the reason as soon as an answer says SESSION_ENDED. The page is replaced, so an
+ * - opens the sign-in screen with the reason once an answer says SESSION_ENDED. The page is replaced, so an
  *   unsaved form is gone and no draft is kept (FR 2, AC2);
  * - shares the end with the other tabs of the browser through `localStorage` (FR 3, AC3): the server's timer is
  *   already common to them, and a tab that learns of the end tells the rest at once.

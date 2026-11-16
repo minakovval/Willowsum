@@ -31,9 +31,10 @@ describe("GRID-06@PoC sign-in and onboarding page grids", () => {
     expect(css).toContain(
       ".auth-page { display: grid; grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr)); column-gap: var(--ws-gutter);",
     );
-    // Margins and the 1200 px content limit come from the tokens (GRID-00 FR 2, 5), not from the page.
-    expect(css).toMatch(
-      /\.auth-page \{[^}]*max\(var\(--ws-page-margin\), \(100% - var\(--ws-content-max\)\) \/ 2\)/,
+    // Margins and the 1200 px content limit of Large come from the tokens (GRID-00 FR 2, 5), not from the page.
+    expect(css).toMatch(/\.auth-page \{[^}]*padding: [^;]* var\(--ws-page-margin\) /);
+    expect(css).toContain(
+      "@media (min-width: 1440px) { .auth-page { padding-inline: max(var(--ws-page-margin), (100% - var(--ws-content-max)) / 2); } }",
     );
     expect(css).toContain("@media (min-width: 1024px) { .auth-column { grid-column: 4 / span 6; } }");
     expect(css).toMatch(/\.auth-card \{[^}]*width: 100%;/);
@@ -60,7 +61,7 @@ describe("GRID-06@PoC sign-in and onboarding page grids", () => {
     }
   });
 
-  it("GRID-06@PoC AC3: after 5 failures the sign-in is locked for 15 min and then the CAPTCHA is in the card", async () => {
+  it("GRID-06@PoC FR 3, AC3: after 5 failures the sign-in is locked for 15 min and then the CAPTCHA is in the card", async () => {
     const { client } = fakeApi({
       "POST /v1/sessions": problem(429, "SIGN_IN_LOCKED", { "retry-after": "900" }),
     });

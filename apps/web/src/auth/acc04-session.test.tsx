@@ -12,8 +12,12 @@ const SESSION_OK: Reply = { status: 200, body: { name: "Олена", email: "ole
 const REFRESHED: Reply = { status: 200, body: { status: "active", idleTimeoutS: 900, expiresInS: 43_000 } };
 
 function ended(reason: string): Reply {
-  const reply = problem(401, "SESSION_ENDED");
-  return { ...reply, body: { ...(reply as { body: object }).body, sessionEndReason: reason } } as Reply;
+  const reply = problem(401, "SESSION_ENDED") as {
+    status: number;
+    body: object;
+    headers: Record<string, string>;
+  };
+  return { ...reply, body: { ...reply.body, sessionEndReason: reason } };
 }
 
 const refreshes = (calls: readonly { method: string; path: string }[]) =>
@@ -204,7 +208,7 @@ describe("ACC-04@PoC web session", () => {
     expect(heading()).toBe("Бюджет");
   });
 
-  it("ACC-04@PoC EC2: a browser woken after the timeout shows «Вхід» as soon as the page is shown again", async () => {
+  it("ACC-04@PoC EC2: a browser woken after the timeout shows «Вхід» once the page is shown again", async () => {
     let asleep = false;
     const { client } = fakeApi({ "GET /v1/session": () => (asleep ? ended("idle") : SESSION_OK) });
     renderAt("#/planning/budget", client);
