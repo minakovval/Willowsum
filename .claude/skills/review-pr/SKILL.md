@@ -97,7 +97,7 @@ Post one PR review:
   the issue; they never start a new round by themselves. Only in the tier Фундамент you may mark an item «cheap
   and safe to fold in»; the lead decides whether it goes in before merge (AGENTS.md step 7, owner, 2026-11-13;
   tiers: [merge rules](../../references/merge-rules.md), «Review tiers»).
-- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)).
+- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then write the detail in the issue or PR as usual; from the start of MVP planning this rule is in force.
 - A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
