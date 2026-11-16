@@ -232,6 +232,14 @@ export const PROBLEMS = {
     status: 409,
     title: "Only a duplicate or a technical record can be hidden",
   },
+  /**
+   * BUD-12@PoC FR 8: «Підтвердити» and its «Відмінити» are for the transactions of «До розбору»; one entered by hand was
+   * never there; nothing was written.
+   */
+  TRANSACTION_NOT_IN_REVIEW: {
+    status: 409,
+    title: "The transaction is not in the review queue",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
@@ -283,6 +291,11 @@ export const ProblemSchema = z
     /** For VERSION_CONFLICT: the version of the record now (NFR-15 FR 13). */
     currentVersion: z.number().int().min(0).optional().meta({
       description: "VERSION_CONFLICT: the current version of the record",
+    }),
+    /** For VERSION_CONFLICT of «Підтвердити» (BUD-12 FR 7): the category the transaction has now; null — «Без категорії». */
+    currentCategoryId: z.uuid().nullable().optional().meta({
+      description:
+        "VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload",
     }),
     /**
      * For VERSION_CONFLICT: the fields someone else changed — those of the `base` the client sent (the values it
@@ -357,7 +370,10 @@ export class ApiProblem extends Error {
 
 /** The extension members a problem may carry (declared in ProblemSchema). */
 export type ProblemExtensions = Partial<
-  Pick<Problem, "currentVersion" | "changedFields" | "limit" | "sessionEndReason" | "excess">
+  Pick<
+    Problem,
+    "currentVersion" | "currentCategoryId" | "changedFields" | "limit" | "sessionEndReason" | "excess"
+  >
 >;
 
 export function problemBody(
@@ -380,6 +396,9 @@ export function problemBody(
     ...(options.errors !== undefined ? { errors: [...options.errors] } : {}),
     ...(options.extensions?.currentVersion !== undefined
       ? { currentVersion: options.extensions.currentVersion }
+      : {}),
+    ...(options.extensions?.currentCategoryId !== undefined
+      ? { currentCategoryId: options.extensions.currentCategoryId }
       : {}),
     ...(options.extensions?.changedFields !== undefined
       ? { changedFields: [...options.extensions.changedFields] }

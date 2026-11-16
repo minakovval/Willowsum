@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`; BUD-12 a: `transactions.review`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -77,6 +77,9 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 `transactions.manual`, власник `product-owner`, перегляд до 2027-02-15.
 `recurring.payments` — `release` (BUD-07@PoC a1: пропозиції регулярних платежів, `/v1/recurring/proposals`), потребує
 `transactions.manual`, власник `product-owner`, перегляд до 2027-02-15.
+`transactions.review` — `release` (BUD-12@PoC a: «До розбору», `/v1/transaction-review`,
+`/v1/transactions/{id}/review/confirm`, `/reopen`, масова дія «Підтвердити категорії»), потребує `transactions.manual`,
+власник `product-owner`, перегляд до 2027-02-16.
 
 Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на
 етапі `all` (і так само кожен прапорець із `requires`), бо до входу немає простору для тестової групи чи частки (ADR-0009).

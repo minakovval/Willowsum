@@ -6,6 +6,9 @@
 //   pnpm local:smoke   end-to-end check of all three services
 //   pnpm local:down    stop; data is kept
 //   pnpm local:reset   stop and delete all local data (volumes), then start empty
+//   pnpm local:dev     the whole app for a person to click through: starts the services above, then the API, worker,
+//                      scheduler and web dev server on the persistent database ws_dev (apps/api/scripts/local-dev.ts);
+//                      `--fresh` starts with an empty database. With WS_TEST_PG_ADMIN_URL: that server, no Docker
 //   pnpm db:test       a throwaway test database for this agent; prints DATABASE_URL with the password hidden and
 //                      writes the full URL to infra/local/.state/db-test/<name>.env (0600, git-ignored; lib/db-test.mjs)
 //                      `pnpm db:test drop <name>`, `pnpm db:test list`,
@@ -14,7 +17,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable } from './lib/docker.mjs';
+import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable, dockerRunning } from './lib/docker.mjs';
 import { ensureBucket, ensureWritable } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
@@ -42,6 +45,7 @@ function fail(message) {
 
 function requireDocker() {
   if (!dockerAvailable()) fail('Docker with the compose plugin is required (docker compose version failed).');
+  if (!dockerRunning()) fail('Docker is installed but not running. Open Docker Desktop, wait until it says it is running, then run this command again.');
 }
 
 async function up() {
@@ -192,6 +196,27 @@ async function dbTest() {
   }
 }
 
+// ---- pnpm local:dev ----
+
+async function dev() {
+  const server = resolveServer({ env: process.env, docker: dockerAvailable() });
+  if (server.kind === 'none') fail(server.message);
+  let url = server.url;
+  if (server.kind === 'compose') {
+    await up();
+    url = adminUrlFromState(readState(STATE_DIR).values);
+  }
+  const script = path.join(REPO_ROOT, 'apps/api/scripts/local-dev.ts');
+  const child = spawn(process.execPath, [script, ...process.argv.slice(3)], {
+    cwd: path.join(REPO_ROOT, 'apps/api'),
+    stdio: 'inherit',
+    env: { ...process.env, DATABASE_URL: url },
+  });
+  // Ctrl+C reaches both; the child stops the app and exits, this process follows it.
+  process.on('SIGINT', () => {});
+  await new Promise((resolve) => child.on('exit', (code) => resolve((process.exitCode = code ?? 1))));
+}
+
 const commands = {
   up,
   down: () => down(),
@@ -205,6 +230,7 @@ const commands = {
   status,
   smoke,
   'db-test': dbTest,
+  dev,
 };
 
 const name = process.argv[2];

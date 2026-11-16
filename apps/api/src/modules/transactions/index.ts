@@ -315,3 +315,8 @@ export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
  * own database; `accounts` the accounts module's directory (a closed account's transactions are read only).
  */
 export { createTagBulkActions as createTransactionTagBulkActions } from "./adapters/bulk/tags.ts";
+/**
+ * BUD-12@PoC FR 12, FR 14: «Підтвердити категорії» — the target `transaction-review` and the action
+ * `transactions.confirm-category` for module bulk-actions (`db`: the transactions module's own database).
+ */
+export { createReviewBulkActions as createTransactionReviewBulkActions } from "./adapters/bulk/review.ts";
