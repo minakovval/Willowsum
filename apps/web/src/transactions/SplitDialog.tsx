@@ -4,11 +4,12 @@ import { formatLocaleOf, formatMoney, useI18n, type MessageKey } from "@willowsu
 import { Icon } from "@willowsum/ui";
 import type { Outcome } from "../auth/api.ts";
 import type { Failure } from "../auth/failure.ts";
-import { evaluate } from "./calc.ts";
+import { EXPRESSION_MAX_LENGTH, evaluate } from "./calc.ts";
 import { changeFailure, type SplitBody, type SplitCategory, type Transaction } from "./api.ts";
 import { counted, monthName } from "./format.ts";
 import {
   fieldText,
+  minorUnits,
   MONTHS_MAX,
   MONTHS_MIN,
   monthShares,
@@ -38,6 +39,8 @@ interface Row {
   readonly key: number;
   readonly categoryId: string;
   readonly text: string;
+  /** FR 6: the unrounded value of the expression last worked out in this field; null once the field is typed in. */
+  readonly exact: Decimal | null;
 }
 
 function useDecimalComma(): boolean {
@@ -74,10 +77,11 @@ export function SplitDialog({
           key: i,
           categoryId: p.categoryId,
           text: fieldText(new Decimal(p.amount.amount).abs(), currency, comma),
+          exact: null,
         }))
       : [
-          { key: 0, categoryId: "", text: "" },
-          { key: 1, categoryId: "", text: "" },
+          { key: 0, categoryId: "", text: "", exact: null },
+          { key: 1, categoryId: "", text: "", exact: null },
         ],
   );
   const [start, setStart] = useState(existing?.parts[0]?.month ?? transaction.date.slice(0, 7));
@@ -97,7 +101,7 @@ export function SplitDialog({
     return () => opener?.focus();
   }, []);
 
-  const values = rows.map((r) => evaluate(r.text, comma));
+  const values = rows.map((r) => r.exact ?? evaluate(r.text, comma));
   const parts = roundParts(
     values.map((v) => v ?? new Decimal("0")),
     total,
@@ -120,6 +124,7 @@ export function SplitDialog({
       reasonParams = { amount: money(total) };
     }
   } else if (!monthsOk) reason = "tx.split.reason.months";
+  else if (!/^\d{4}-\d{2}$/.test(start)) reason = "tx.split.reason.start";
   else if (shares === null) reason = "tx.split.reason.tooSmall";
   else if (monthCategory === "") reason = "tx.split.reason.monthCategory";
 
@@ -140,9 +145,26 @@ export function SplitDialog({
 
   const setRow = (key: number, change: Partial<Row>) =>
     setRows((old) => old.map((r) => (r.key === key ? { ...r, ...change } : r)));
+  // «=», Enter or leaving the field: the field shows its rounded amount, the exact value is kept, so the rounding
+  // remainder of all parts goes to the first part (FR 6), whose field then shows it.
   const settle = (row: Row) => {
     const v = evaluate(row.text, comma);
-    if (v !== null) setRow(row.key, { text: fieldText(v.abs(), currency, comma) });
+    if (v === null) return;
+    setRows((old) => {
+      const next = old.map((r) => (r.key === row.key ? { ...r, exact: v.abs() } : r));
+      const exact = next.map((r) => r.exact ?? evaluate(r.text, comma));
+      const rounded = roundParts(
+        exact.map((x) => x ?? new Decimal("0")),
+        total,
+        currency,
+      );
+      const own0 = exact[0]?.toDecimalPlaces(minorUnits(currency), Decimal.ROUND_HALF_UP);
+      return next.map((r, i) =>
+        r.key === row.key || (i === 0 && own0 !== undefined && !own0.eq(rounded[0]!))
+          ? { ...r, text: fieldText(rounded[i]!, currency, comma) }
+          : r,
+      );
+    });
   };
 
   // Escape closes; Tab stays inside the dialog (aria-modal).
@@ -249,8 +271,9 @@ export function SplitDialog({
                         aria-label={t("tx.split.part.amount", { n: String(i + 1) })}
                         aria-describedby={`${titleId}-calc`}
                         aria-invalid={(row.text !== "" && values[i] === null) || undefined}
+                        maxLength={EXPRESSION_MAX_LENGTH}
                         value={row.text}
-                        onChange={(e) => setRow(row.key, { text: e.target.value })}
+                        onChange={(e) => setRow(row.key, { text: e.target.value, exact: null })}
                         onBlur={() => settle(row)}
                         onKeyDown={(e) => {
                           if (e.key === "=" || e.key === "Enter") {
@@ -283,7 +306,10 @@ export function SplitDialog({
                 className="tx-link-button"
                 disabled={rows.length >= PARTS_MAX}
                 onClick={() =>
-                  setRows((old) => [...old, { key: nextKey.current++, categoryId: "", text: "" }])
+                  setRows((old) => [
+                    ...old,
+                    { key: nextKey.current++, categoryId: "", text: "", exact: null },
+                  ])
                 }
               >
                 <Icon name="plus" size={16} />

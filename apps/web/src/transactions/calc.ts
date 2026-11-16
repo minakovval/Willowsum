@@ -45,7 +45,11 @@ function tokens(text: string, decimalComma: boolean): Token[] | null {
 }
 
 /** The value of `text`, or null. */
+/** Longer input is rejected: the parser recurses per bracket, so a pasted 200k-char «((((» must not crash the render. */
+export const EXPRESSION_MAX_LENGTH = 200;
+
 export function evaluate(text: string, decimalComma = true): Decimal | null {
+  if (text.length > EXPRESSION_MAX_LENGTH) return null;
   const found = tokens(text, decimalComma);
   if (!found || found.length === 0) return null;
   const list: readonly Token[] = found;

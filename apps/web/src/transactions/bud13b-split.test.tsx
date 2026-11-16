@@ -251,6 +251,14 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     expect(css).toMatch(/\.tx-schedule \{[^}]*min-height:/);
   });
 
+  it("BUD-13@PoC FR 6: clearing «Починаючи з» says the start month is missing, not that the amount is too small", () => {
+    renderDialog(tx({ amount: { amount: "-1200.00", currency: "EUR" } }));
+    fireEvent.click(screen.getByRole("radio", { name: "На кілька місяців" }));
+    fireEvent.change(screen.getByLabelText(/^Починаючи з/), { target: { value: "" } });
+    expect(saveButton().getAttribute("aria-disabled")).toBe("true");
+    expect(description(saveButton())).toBe("Оберіть місяць початку.");
+  });
+
   it("BUD-13@PoC AC2: «На кілька місяців» from March for 6 months is sent as one split on the API, and the saved transaction is handed back", async () => {
     const insurance = tx({ amount: { amount: "-1200.00", currency: "EUR" } });
     const saved = {
@@ -339,6 +347,28 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     for (let i = 0; i < 18; i++) fireEvent.click(add);
     expect(screen.getAllByRole("combobox")).toHaveLength(20);
     expect((add as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("BUD-13@PoC FR 6: «100/3» in three parts, each field left — the 0,01 € remainder goes to part 1 and «Зберегти» is allowed", () => {
+    const onSave = vi.fn().mockResolvedValue({ ok: true, data: tx() });
+    renderDialog(tx({ amount: { amount: "-100.00", currency: "EUR" } }), onSave);
+    fireEvent.click(screen.getByRole("button", { name: "Додати частину" }));
+    [CAT.food, CAT.home, CAT.pharmacy].forEach((id, i) => {
+      fireEvent.change(categoryField(i + 1), { target: { value: id } });
+      fireEvent.change(amountField(i + 1), { target: { value: "100/3" } });
+      fireEvent.blur(amountField(i + 1));
+    });
+    expect(value(amountField(1))).toBe("33,34");
+    expect(saveButton().hasAttribute("aria-disabled")).toBe(false);
+    fireEvent.click(saveButton());
+    expect(onSave).toHaveBeenCalledWith({
+      mode: "categories",
+      parts: [
+        { categoryId: CAT.food, amount: "-33.34" },
+        { categoryId: CAT.home, amount: "-33.33" },
+        { categoryId: CAT.pharmacy, amount: "-33.33" },
+      ],
+    });
   });
 });
 

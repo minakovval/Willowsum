@@ -545,6 +545,7 @@ export const uk = {
   "tx.split.reason.amount": "Вкажіть суму кожної частини.",
   "tx.split.reason.sum": "Сума частин має дорівнювати {amount}.",
   "tx.split.reason.months": "Вкажіть від 2 до 60 місяців.",
+  "tx.split.reason.start": "Оберіть місяць початку.",
   "tx.split.reason.tooSmall": "Сума замала для стількох місяців.",
   "tx.split.reason.monthCategory": "Оберіть категорію.",
   "tx.split.error": "Не вдалося розділити транзакцію.",

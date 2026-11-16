@@ -547,6 +547,7 @@ export const en: Messages = {
   "tx.split.reason.amount": "Enter the amount of each part.",
   "tx.split.reason.sum": "The parts must add up to {amount}.",
   "tx.split.reason.months": "Enter 2 to 60 months.",
+  "tx.split.reason.start": "Choose the start month.",
   "tx.split.reason.tooSmall": "The amount is too small for that many months.",
   "tx.split.reason.monthCategory": "Choose a category.",
   "tx.split.error": "Could not split the transaction.",

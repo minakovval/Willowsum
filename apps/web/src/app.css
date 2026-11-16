@@ -1300,7 +1300,7 @@ code {
   flex-direction: column;
   width: min(640px, 100%);
   max-height: min(624px, 100%);
-  overflow: auto;
+  overflow: hidden;
   border-radius: var(--ws-radius-xl);
   background: var(--ws-surface-200);
   box-shadow: var(--ws-shadow-dialog);
@@ -1315,8 +1315,11 @@ code {
 
 .tx-dialog-body {
   display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto; /* only the body scrolls (many parts); the foot with «Зберегти» and the reason stays in view */
   flex-direction: column;
-  gap: var(--ws-space-4);
+  gap: var(--ws-space-3);
   padding: calc(var(--ws-space-5) + var(--ws-space-1)) var(--ws-space-6) var(--ws-space-5);
 }
 
@@ -1350,7 +1353,8 @@ code {
   display: flex;
   flex-direction: column;
   gap: var(--ws-space-2);
-  padding: var(--ws-space-5) var(--ws-space-6);
+  flex: 0 0 auto;
+  padding: var(--ws-space-4) var(--ws-space-6);
   border-block-start: 1px solid var(--ws-surface-300);
   background: var(--ws-surface-inset);
 }
