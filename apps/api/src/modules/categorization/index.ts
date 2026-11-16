@@ -102,6 +102,27 @@ export function createCategorizationRecovery(
   };
 }
 
+/**
+ * The categories of transactions as module budget counts them (BUD-02@PoC FR 9, FR 12): the category of each of `ids`
+ * that has one; an absent id is «Без категорії». Read only; every call is bound to one space.
+ */
+export interface TransactionCategories {
+  categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+}
+
+/** `db` is the categorization module's own database (`ModuleDatabases.for("categorization")`). */
+export function createTransactionCategories(db: ModuleDatabase): TransactionCategories {
+  return {
+    categoriesOf: (householdId, ids) =>
+      db.inHousehold(householdId, async (q) => {
+        const rows = await categorizationTx(q).read(householdId, ids);
+        const out = new Map<string, string>();
+        for (const [id, row] of rows) if (row.categoryId !== null) out.set(id, row.categoryId);
+        return out;
+      }),
+  };
+}
+
 /** Erasure of a space's categorization (NFR-12@PoC FR 3): the owner's erasure script only (module data-erasure). */
 export interface CategorizationErasure {
   eraseHousehold(

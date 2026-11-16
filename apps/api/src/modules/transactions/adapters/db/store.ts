@@ -610,6 +610,68 @@ export async function categoriesInParts(
 }
 
 /**
+ * What module budget counts of the space's transactions in a period (BUD-02@PoC FR 12): the transactions of these
+ * accounts dated in [from, to] — pending ones too; not hidden, not a merged duplicate, not a side of a transfer between
+ * own accounts — with the parts of a split one; a split «На кілька місяців» by the months of its parts, whatever its
+ * date. Read only; amounts signed, in their own currency.
+ */
+export async function budgetRows(
+  q: ModuleQueryRunner,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+): Promise<
+  {
+    id: string;
+    accountId: string;
+    amount: Money;
+    date: string;
+    parts: { categoryId: string; month: string | null; amount: Money }[] | null;
+  }[]
+> {
+  if (accountIds.length === 0) return [];
+  const { rows } = await q.query<{
+    id: string;
+    account_id: string;
+    amount: string;
+    currency: string;
+    date: string;
+    split_mode: string | null;
+    parts: { categoryId: string; month: string | null; amount: string }[] | null;
+  }>(
+    `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, to_char(t.occurred_on, 'YYYY-MM-DD') AS date,
+            t.split_mode,
+            (SELECT json_agg(json_build_object('categoryId', p.category_id, 'month', to_char(p.month, 'YYYY-MM-DD'),
+                                               'amount', p.amount::text) ORDER BY p.position)
+               FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
+       FROM transactions t
+      WHERE t.household_id = $1 AND t.account_id = ANY($2::uuid[]) AND NOT t.hidden AND t.merged_into IS NULL
+        AND t.transfer_id IS NULL
+        AND (t.occurred_on BETWEEN $3::date AND $4::date
+             OR (t.split_mode = 'months' AND EXISTS (SELECT 1 FROM transaction_parts p
+                   WHERE p.household_id = t.household_id AND p.transaction_id = t.id
+                     AND p.month BETWEEN $3::date AND $4::date)))
+      ORDER BY t.occurred_on, t.id`,
+    [householdId, [...accountIds], from, to],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    accountId: r.account_id,
+    amount: Money.of(r.amount, r.currency),
+    date: r.date,
+    parts:
+      r.split_mode === null || !r.parts
+        ? null
+        : r.parts.map((p) => ({
+            categoryId: p.categoryId,
+            month: p.month,
+            amount: Money.of(p.amount, r.currency),
+          })),
+  }));
+}
+
+/**
  * What module categorization asks of the space's transactions before it changes one's category (BUD-01@PoC FR 5, FR 6;
  * FIN-03 FR 7, FR 11): whether each of `ids` exists (hidden too), is a side of a transfer, is split or is a merged
  * duplicate. Missing ids are absent from the map.
