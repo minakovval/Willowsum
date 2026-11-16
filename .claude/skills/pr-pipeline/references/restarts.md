@@ -28,7 +28,9 @@ set by the owner in Settings); the lead does not stop the session. «Lead state�
 after every 3 merges, whenever an owner question changes and, from the 350 k stop, before each long step, so the
 compaction loses little. After it the `SessionStart` hook (`.claude/settings.json`, matcher `compact`) reminds the
 agent; the lead then, in the same session:
-1. re-reads «Lead state» (#179) and the `pr-pipeline` skill, then the sources above as needed;
+1. re-reads «Lead state» (#179), the `pr-pipeline` skill and [lead-communication.md](lead-communication.md) («Ukrainian
+   only» and the rest; owner, 2026-11-16, `docs/decisions/log/2026-11-16-owner-sensitive-sync-language-card.md`: after
+   a compaction the lead twice wrote to the owner in English), then the sources above as needed;
 2. becomes lead N+1 — the numbering continues, it does not restart — and renames the session with
    `set_session_title` to `Willowsum · ведучий N+1 · <з чого продовжує>`;
 3. posts the retrospective of the finished segment (lead N; [token economy](token-economy.md), «Session

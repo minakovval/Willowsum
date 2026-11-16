@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-11, П-17, П-18, П-24, П-25, П-26, CMP-72, DS-23
 - Сценарії: UC-BUD-07, UC-BUD-08, UC-BUD-09, UC-BUD-11, UC-BUD-12, UC-BUD-13, UC-BUD-113, UC-BUD-114, UC-BUD-120, UC-BUD-10
 - Модуль: budget
-- Перевіряється: —
+- Перевіряється: `apps/api/src/modules/budget/domain/bud02-budget.test.ts`, `apps/api/test/bud02-budget.it.test.ts`
 
 **Мета.** Як власник бюджету, я хочу задати план доходу і ліміти витрат на місяць або свій період, щоб бачити, чи вкладаюся в план.
 

@@ -3,6 +3,7 @@ export { eraseHouseholdTransactions } from "./db/erasure.ts";
 export { requeueDeadHandOffs, transactionRows, transactionsWorkerQueue } from "./queue/hand-off.ts";
 export { HAND_OFF_JOB } from "./queue/job.ts";
 export {
+  budgetRows,
   duplicateCandidates,
   categoriesInParts,
   categorizableFacts,

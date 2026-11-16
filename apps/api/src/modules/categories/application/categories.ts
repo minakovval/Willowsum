@@ -68,8 +68,8 @@ export interface CategoriesTx {
   ): Promise<number>;
   /** System groups by key (after a seed, with this space's ids). */
   groups(householdId: string): Promise<StoredGroup[]>;
-  /** Every category but those out of use. */
-  categories(householdId: string): Promise<StoredCategory[]>;
+  /** Every category but those out of use; `withRetired` — those merged away too (the budget follows `mergedInto`). */
+  categories(householdId: string, options?: { readonly withRetired?: boolean }): Promise<StoredCategory[]>;
   group(householdId: string, id: string, lock?: boolean): Promise<StoredGroup | null>;
   category(householdId: string, id: string, lock?: boolean): Promise<StoredCategory | null>;
   bySystemKey(householdId: string, key: string): Promise<StoredCategory | null>;
