@@ -89,8 +89,9 @@ BUD-07@PoC b1) (рядок 26, перша частина): п. 8 (зіставл
   серіалізує блокування його рядка; транзакцію, зараховану користувачем, бере одне списання простору (унікальний індекс
   `charge_marks_by_transaction`). Помилки 409 `RECURRING_CHARGE_STATE` (списання чи платіж не в потрібному статусі) і
   `RECURRING_TRANSACTION_TAKEN` (транзакція вже оплачує списання або не того типу); нічого не записано.
-  Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає (мерчант став платежем, серію відхилено або транзакції
-  змінилися); нічого не записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
+  Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає, а рішення щодо її мерчанта простір ухвалював (мерчант став
+  платежем, серію відхилено); ключ, якого простір не знає (в тому числі ключ іншого простору), — 404 (AC9); нічого не
+  записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
   (`pg_advisory_xact_lock`), а унікальний індекс `payments_by_merchant` — друга лінія.
 - `createRecurringServices({ history, merchants, accounts, categories, transactionCategories, fx, audit, clock, newId })`
   → `RecurringServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionHistory` модуля
@@ -109,7 +110,7 @@ BUD-07@PoC b1) (рядок 26, перша частина): п. 8 (зіставл
 - `trackPayment(input)` (п. 8–12, 20, 21: списання платежу з їх статусами, очікувана сума і стан платежу), `pays`,
   `CHARGE_STATUSES`, `PAYMENT_STATES`; типи `Candidate`, `ChargeMark`, `TrackedCharge`, `Tracking`.
 - `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `isFresh(lastDate,
-  frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
+frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
   (розклад: місяці від дати прив'язки, день, якого в місяці немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`;
   типи `Charge`, `Series`, `Frequency`.
 

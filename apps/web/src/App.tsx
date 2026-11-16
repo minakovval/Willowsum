@@ -5,6 +5,7 @@ import { CheckEmailPage } from "./auth/CheckEmailPage.tsx";
 import { SignInPage } from "./auth/SignInPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
+import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
@@ -12,7 +13,15 @@ import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
 import { RecurringPage } from "./recurring/RecurringPage.tsx";
-import { canonicalPath, RECURRING, resolveRoute, type AuthScreen, type Route } from "./routing/routes.ts";
+import {
+  canonicalPath,
+  DEBTS,
+  RECURRING,
+  resolveRoute,
+  type AuthScreen,
+  type ChildId,
+  type Route,
+} from "./routing/routes.ts";
 import { initialLocale } from "./i18n/languages.ts";
 import { recordVisit, rememberPage } from "./routing/session.ts";
 import { hrefFor, useHashPath } from "./routing/useHashPath.ts";
@@ -56,12 +65,16 @@ function Router() {
 function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
+      if (route.page.id === DEBTS.id) return <DebtsScreen tab="list" />;
       // BUD-07@PoC c): S-141 «Регулярні платежі».
       if (route.page.id === RECURRING.id) return <RecurringPage />;
       return <SectionPage section={route.section} page={route.page} />;
-    case "child":
+    case "child": {
+      const tab = DEBT_TABS[route.child.id];
+      if (tab) return <DebtsScreen tab={tab} />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       return <ChildPage section={route.section} child={route.child} />;
+    }
     case "settings":
       return <SettingsPage />;
     case "importWizard":
@@ -72,6 +85,13 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       return <NotFoundPage />;
   }
 }
+
+/** BUD-19@PoC FR 11: the tabs of «Борги» below the page. */
+const DEBT_TABS: Partial<Record<ChildId, DebtsTab>> = {
+  debtsPlan: "plan",
+  debtsStrategy: "strategy",
+  debtsProgress: "progress",
+};
 
 function authPage(screen: AuthScreen) {
   switch (screen) {

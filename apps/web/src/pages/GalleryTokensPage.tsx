@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { useI18n, type MessageKey } from "@willowsum/i18n";
 import {
+  PageTabs,
   Amount,
   breakpoints,
   CHART_FILL_STEPS,
@@ -42,6 +43,8 @@ import {
   type WidthClass,
 } from "@willowsum/ui";
 import { offeredLanguages } from "../i18n/languages.ts";
+import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
+import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
@@ -377,6 +380,21 @@ export function GalleryTokensPage() {
 
       <Section id="g-progress" title={t("gallery.progress.title")}>
         <ProgressDemo />
+      </Section>
+
+      <Section id="g-tabs" title={t("gallery.tabs.title")}>
+        <PageTabs
+          label={t("gallery.tabs.title")}
+          panelId="g-tabs-panel"
+          selected="list"
+          tabs={(["list", "plan", "strategy", "progress"] as const).map((id) => ({
+            id,
+            label: t(`debts.tab.${id}`),
+            href: hrefFor(GALLERY_TOKENS_PATH),
+          }))}
+        >
+          <p className="ws-muted">{t("gallery.tabs.panel")}</p>
+        </PageTabs>
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
