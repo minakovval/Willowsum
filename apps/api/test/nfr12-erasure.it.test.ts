@@ -113,10 +113,17 @@ describe("NFR-12@PoC FR 3: erasure on the person's request, through the product 
       "budget.records",
       "accounts.records",
       "liabilities.records",
-    ])
-      expect(await audit.platformEntriesFor({ type, id: person.householdId }), type).toMatchObject([
-        { action: "delete", changes: [{ field: "reason", after: "erasure-request" }] },
-      ]);
+    ]) {
+      // The consumers of the queues are swept once more after the key (#296 no. 11, #306 no. 4).
+      const swept = type === "categorization.records" || type === "goals.records";
+      expect(
+        (await audit.platformEntriesFor({ type, id: person.householdId })).map((e) => [
+          e.action,
+          e.changes[0]!.after,
+        ]),
+        type,
+      ).toEqual([["delete", "erasure-request"], ...(swept ? [["delete", "erasure-sweep"]] : [])]);
+    }
     const requestEntries = await audit.platformEntriesFor({
       type: "data-erasure.request",
       id: request.requestId,

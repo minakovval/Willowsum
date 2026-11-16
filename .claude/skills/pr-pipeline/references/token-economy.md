@@ -40,13 +40,11 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 7. Resume an implementing agent at most 2 times (owner, 2026-11-13, #178). A third round of fixes goes to a
    fresh agent with a short brief: the diff, the findings, the patch. Every resume re-reads the agent's whole
    context (#180, lead session 1).
-8. **Workflow experiment** (owner, 2026-11-14, #178): 2 more trial runs of a Workflow «супровідник», each taking
-   one PR without `sensitive` (rows `R`) from implementation to ready-to-merge; the runs may go in parallel.
-   Compare their tokens (agents) and the number of lead turns with #180 (the first run and the rows of similar
-   PRs) and report to the owner before making it a rule.
-9. Not adopted (owner, 2026-11-14): (3) the lead confirming code-PR syncs itself — the lead may update a branch
-   itself ([merge checklist](merge-checklist.md)), but the confirmation of a code PR's sync stays with an agent;
-   (6) a cap on the number of parallel code PRs.
+8. Workflow «супровідник» experiment: closed, not adopted (owner, 2026-11-16: «6 ок»; [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md)).
+9. Not adopted (owner, 2026-11-14): (6) a cap on the number of parallel code PRs. (3) the lead confirming code-PR
+   syncs itself was not adopted then and is adopted in a narrow form (owner, 2026-11-16, «1 а»;
+   [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md)); the rule: [merge checklist](merge-checklist.md),
+   «Code PR after a sync, lead confirms».
 10. Rate limit at session start: [restarts](restarts.md), «Session names».
 11. Cost of rounds (owner, 2026-11-14, #178): one confirmation agent for both verdicts of a `sensitive` PR saves
     ≈ 80–90 k context per sync; the rules for it, the sync by the fix agent, cheap reviewer tests and splitting
@@ -87,12 +85,22 @@ node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|п�
   --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
 node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
 node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]
+node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>
 ```
 Per-model split (owner, 2026-11-15, #178): after the row, `pr` prints one line per model (model, model calls,
 cache read, cache creation, input, output), and the row's «Примітка» gets `моделі: opus 4,1 млн / fable 1,2 млн
 cache read`; the row columns are unchanged. `session` prints the same lines after the total. The #180 PR rows note
 the per-model split. Paste only the row line into #180. The row's «Примітка» is at most one line (owner, 2026-11-15,
 #178): detail stays in the agent logs and the PR comments.
+
+Size of the #180 body (owner, 2026-11-16, #178; GitHub allows 65 536 characters): `pr` no longer puts the per-agent
+list «автор 293 276, рецензія …» into the note (the numbers stay in the agent logs; `--note` and «журнал втрачено» stay),
+and `append` refuses (exit 1) a row whose «Примітка» is longer than 120 characters (`--note` counts). When the body
+after appending would exceed 55 000 characters, `append` fails and the lead moves the «PR» table to an archive
+issue: `archive --body <file> --out <archive.md>` writes all rows of the «PR» table (with its header) to `<archive.md>`,
+leaves in the body the table header and the line «Архів рядків PR: <посилання>», and keeps every other byte; the lead
+creates the archive issue from `<archive.md>`, puts its link into that line and PATCHes the body. New rows then go
+under the header as before. Decision: `docs/decisions/log/2026-11-16-owner-180-size.md`.
 Roles: `author` and `fix` add to «Час автора», `review`, `security` and `confirm` to «Час рецензій». It prints the
 row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Агенти: cache read, млн | Агенти: output, тис. |
 Час автора, хв | Час рецензій, хв | CI, хв | Примітка); `--note` adds to the note. CI minutes are the sum of

@@ -1,6 +1,6 @@
 # Merge conditions and owner approval (AGENTS.md step 7, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when you merge a PR, write an «Owner decision» section, or a PR acts on the cloud or production.
 
@@ -32,4 +32,6 @@ Read when you merge a PR, write an «Owner decision» section, or a PR acts on t
    that commit, as above). Exception for a merge from `main` (owner, 2026-11-13, #178): a docs-only PR not
    labelled `sensitive` whose files `main`'s changes do not touch needs no confirmation agent, but the lead's
    check and PR review ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md), «Docs-only PR
-   after a sync»). Any other later commit still needs a re-review.
+   after a sync»); likewise a code PR without `sensitive` whose diff against its merge-base is byte-identical
+   before and after the sync, with green CI on the new head ([merge checklist](../skills/pr-pipeline/references/merge-checklist.md),
+   «Code PR after a sync, lead confirms»; owner, 2026-11-16). Any other later commit still needs a re-review.

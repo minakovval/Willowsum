@@ -1,6 +1,6 @@
 # Reviewer confirmation after a merge (full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Moved out of `sync-branch` SKILL.md (owner, 2026-11-13); docs-only exception added (owner, 2026-11-13, #178). Read when you request the reviewers' confirmation after a merge.
 
@@ -23,6 +23,9 @@ verdict needs a confirmation on the new head SHA:
   not touch needs no confirmation agent; the lead checks it with one command and posts the result as a review
   ending in `Verdict: Ready` on the new head ([merge checklist](../../pr-pipeline/references/merge-checklist.md)).
   Report both SHAs to the lead.
+- exception (owner, 2026-11-16): a code PR without `sensitive` whose diff is byte-identical before and after the sync, with green CI,
+  is confirmed by the lead without an agent: [merge checklist](../../pr-pipeline/references/merge-checklist.md),
+  «Code PR after a sync, lead confirms».
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit

@@ -67,9 +67,9 @@ BUD-05@PoC b) (рядок 28 — серверна частина): п. 8 («Ви
 - `createGoalSpends(db)` → `GoalSpends.spent(householdId, transactionIds)` — які транзакції списано з цілі (і закритої),
   з ціллю й сумою: для «Можна витратити» (BUD-03) і позначки «з цілі» (BUD-06).
 - `goalsSubscriptions` — підписка на `ledger.entry-recorded` v1 задачею `goals.entry-recorded` (`src/wiring.ts`).
-- `createGoalsWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createGoalsHandOffRecovery(db, households)` —
-  щоденне повернення задач `dead` обох видів (`goals.hand-off-recovery`, до очищення черги; WARN
-  `goals.hand_off_requeued`); `HAND_OFF_JOB`, `ENTRY_RECORDED_JOB`.
+- `createGoalsWorkerQueue(db, audit, ledger)` → `WorkerQueue` (`src/wiring.ts`); `createGoalsHandOffRecovery(db, households)` —
+  щоденне повернення задач `dead` усіх трьох видів (`goals.hand-off-recovery`, до очищення черги; WARN
+  `goals.hand_off_requeued`); `HAND_OFF_JOB`, `ENTRY_RECORDED_JOB`, `SPEND_CHECK_JOB` (перевірка проводки нової витрати, ставиться разом із витратою: страховка, якщо скасування після коміту запиту втрачено).
 - `createGoalsErasure(db)` → `eraseHousehold(householdId)` → `{ goals, contributions, spends, jobs }` — лише для `data-erasure`
   (крок `goals.records`).
 - `GOAL_TEMPLATES`, `PART_KINDS`, `EMERGENCY_MONTHS_DEFAULT` і типи.
