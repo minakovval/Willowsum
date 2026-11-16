@@ -514,6 +514,39 @@ describe("DAT-03@PoC FR 2: «Змінити категорію» of the selectio
     for (const id of ids.slice(0, 2)) expect((await categoryOf(space, id)).categoryId).toBe(groceries.id);
   });
 
+  it("DAT-03@PoC FR 5 (#296 item 6): a transaction with the category of a rule is «Зміниться» (its source becomes «вручну», as a single change does), one already «вручну» is «без змін»", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    const byRule = await purchase(space, account, "Синтетичний ринок");
+    const byHand = await purchase(space, account, "Синтетичний ринок");
+    for (const id of [byRule, byHand])
+      expect((await setCategory(space, id, groceries.id)).statusCode).toBe(200);
+    await db.owner.query(
+      `UPDATE categorization.transaction_categories SET source = 'rule' WHERE household_id = $1 AND transaction_id = $2`,
+      [space.householdId, byRule],
+    );
+    const body = {
+      action: "transactions.set-category",
+      selection: { kind: "ids", ids: [byRule, byHand] },
+      params: { categoryId: groceries.id },
+    };
+    const preview = await call(space, "POST", "/v1/bulk-actions/preview", body);
+    expect(preview.json()).toMatchObject({ count: 2, changes: 1, skipped: { unchanged: 1 } });
+    const started = await call(space, "POST", "/v1/bulk-actions", body);
+    expect(started.json()).toMatchObject({ status: "completed", changed: 1 });
+    expect(await categoryOf(space, byRule)).toMatchObject({ categoryId: groceries.id, source: "manual" });
+    // The same as the single change of a rule's category to itself.
+    const single = await purchase(space, account, "Синтетичний ринок");
+    expect((await setCategory(space, single, groceries.id)).statusCode).toBe(200);
+    await db.owner.query(
+      `UPDATE categorization.transaction_categories SET source = 'rule' WHERE household_id = $1 AND transaction_id = $2`,
+      [space.householdId, single],
+    );
+    expect((await setCategory(space, single, groceries.id)).statusCode).toBe(200);
+    expect(await categoryOf(space, single)).toMatchObject({ categoryId: groceries.id, source: "manual" });
+  });
+
   it("DAT-03@PoC FR 2: «Вибрати всі M за фільтром» on the list's filter; a split transaction and another space's are skipped; a category outside the tree is invalid for all", async () => {
     const space = await newSpace();
     const other = await newSpace();
@@ -616,6 +649,51 @@ describe("ARC-04@PoC FR 2–4: the audit hand-off of a change, its dead job and 
     await runWorker(space.householdId);
     await runWorker(space.householdId);
     expect(await audit.entriesFor(space.householdId, { type: ENTITY, id: t })).toHaveLength(1);
+  });
+
+  it("ARC-04@PoC FR 4 (#296 item 7): the merge's job in state dead goes back with the daily recovery and moves the transactions", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const coffee = await addCategory(space, "Синтетична кава");
+    const cafes = await category(space, "Кафе і ресторани");
+    const t = await purchase(space, account, "Синтетична кав'ярня");
+    expect((await setCategory(space, t, coffee.id)).statusCode).toBe(200);
+    expect(
+      (await call(space, "POST", `/v1/categories/${coffee.id}/merge`, { targetId: cafes.id })).statusCode,
+    ).toBe(200);
+    // The event becomes a categorization job (the module's jobs not taken meanwhile); the job gives up (dead).
+    const worker = createWorker({
+      ...workerQueues(db.databases),
+      households: async () => [space.householdId],
+      moduleAvailable: async (module) => module !== "categorization",
+    });
+    await worker.tick();
+    await worker.idle();
+    await worker.stop();
+    await db.owner.query(
+      `UPDATE categorization.jobs SET state = 'dead', attempts = 8
+        WHERE household_id = $1 AND name = 'categorization.category-merged' AND state = 'queued'`,
+      [space.householdId],
+    );
+    expect(
+      (
+        await db.owner.query(
+          `SELECT count(*)::int AS n FROM categorization.jobs WHERE household_id = $1 AND state = 'dead'`,
+          [space.householdId],
+        )
+      ).rows[0].n,
+    ).toBe(1);
+    await runWorker(space.householdId);
+    expect((await categoryOf(space, t)).categoryId).toBe(coffee.id);
+    const tasks = schedulerDailyTasks({
+      databases: db.databases,
+      audit,
+      spaces: { spaceIds: async () => [space.householdId], membershipOf: spaces.membershipOf },
+      now: () => NOW,
+    });
+    await tasks.find((task) => task.name === "categorization.recovery")!.run();
+    await runWorker(space.householdId);
+    expect((await categoryOf(space, t)).categoryId).toBe(cafes.id);
   });
 
   it("NFR-12@PoC FR 3: the space's erasure takes the transactions' categories and the queue rows", async () => {

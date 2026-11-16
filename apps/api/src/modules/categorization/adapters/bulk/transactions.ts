@@ -106,7 +106,7 @@ export function transactionsCategoryTarget(deps: {
 
 /**
  * «Змінити категорію» (DAT-03 FR 2, AC1): the chosen category «вручну» for every selected transaction; one that already
- * has it is «без змін»; a transfer side, a split transaction or a merged duplicate is «невалідний». A category outside
+ * has it «вручну» is «без змін» (the same category from a rule, a merchant or the bank becomes «вручну», as in a single change); a transfer side, a split transaction or a merged duplicate is «невалідний». A category outside
  * the space's tree (BUD-01 FR 9) makes every record «невалідний».
  */
 export function setCategoryAction(deps: {
@@ -132,7 +132,9 @@ export function setCategoryAction(deps: {
         const f = facts.get(r.id);
         const issue = f ? refusal(f) : null;
         if (issue !== null) plans.set(r.id, { kind: "invalid", issue: `transaction.${issue}` });
-        else if (r.values[FIELD_CATEGORY] === categoryId) plans.set(r.id, { kind: "unchanged" });
+        // As a single change (FR 5): the same category from a rule, a merchant or the bank still becomes «вручну».
+        else if (r.values[FIELD_CATEGORY] === categoryId && r.values[FIELD_SOURCE] === "manual")
+          plans.set(r.id, { kind: "unchanged" });
         else plans.set(r.id, { kind: "change", after: valuesOf({ categoryId, source: "manual" }) });
       }
       return plans;

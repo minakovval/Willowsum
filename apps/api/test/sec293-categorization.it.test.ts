@@ -358,6 +358,21 @@ describe("security review #293: the bulk target re-checks at write time (TOCTOU 
     });
     expect(await target.select({ ...caller, scoped: true }, [], [], 100)).toEqual({ ids: [], count: 0 });
   });
+
+  it("DAT-03@PoC FR 2 (#296 item 15, M27): «Вибрати всі за фільтром» without a state filter leaves out the hidden transactions, with `hidden.eq:true` it takes them", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const shown = await purchase(space, account, "Синтетична крамниця");
+    const hidden = await purchase(space, account, "Синтетична крамниця");
+    await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = $2`,
+      [space.householdId, hidden],
+    );
+    const target = bulk().targets[0]!;
+    const caller = { householdId: space.householdId, actorId: space.accountId, scoped: false };
+    expect(await target.select(caller, [], [], 100)).toEqual({ ids: [shown], count: 1 });
+    expect(await target.select(caller, ["hidden.eq:true"], [], 100)).toEqual({ ids: [hidden], count: 1 });
+  });
 });
 
 describe("security review #293: «categories.merged» moves only the merged category's transactions (BUD-01 FR 8)", () => {
