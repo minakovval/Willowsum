@@ -16,7 +16,11 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createCategoryDirectory } from "../src/modules/categories/index.ts";
-import { createMerchantsErasure, createMerchantsServices } from "../src/modules/merchants/index.ts";
+import {
+  createMerchantsErasure,
+  createMerchantsServices,
+  createMerchantsWorkerQueue,
+} from "../src/modules/merchants/index.ts";
 import { createTransactionsServices, createTransactionTexts } from "../src/modules/transactions/index.ts";
 
 /**
@@ -582,6 +586,10 @@ describe("BUD-14@PoC «Права доступу»: the space's own merchants on
     expect((await call(space, "POST", `/v1/merchants/${id}/unmerge`, undefined, scoped)).statusCode).toBe(
       403,
     );
+    expect(
+      (await call(space, "POST", `/v1/merchants/${id}/merge`, { merchantId: randomUUID() }, scoped))
+        .statusCode,
+    ).toBe(403);
   });
 
   it("BUD-14@PoC «Права доступу»: behind the release flag transactions.merchants — off, the routes are not found", async () => {
@@ -663,5 +671,116 @@ describe("ARC-04@PoC FR 2–4: the audit hand-off of a change, its dead job and 
     );
     expect(erased).toEqual({ merchants: 2, jobs: 1 });
     expect(await rows(space.householdId)).toEqual([]);
+  });
+});
+
+describe("Security review #305: concurrent merges and untrusted descriptions", () => {
+  async function noChains(householdId: string): Promise<void> {
+    const { rows: bad } = await db.owner.query(
+      `SELECT m.id FROM merchants.merchants m JOIN merchants.merchants t
+          ON t.household_id = m.household_id AND t.id = m.merged_into
+        WHERE m.household_id = $1 AND t.merged_into IS NOT NULL`,
+      [householdId],
+    );
+    expect(bad).toEqual([]);
+  }
+
+  it("BUD-14@PoC FR 3: concurrent «Об'єднати з…» both ways, and into a merchant that is joining another, leave no cycle or chain", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    for (let round = 0; round < 20; round++) {
+      const a = (await merchantOf(space, await purchase(space, account, `SYNTH A${round} 1001`))).merchant!;
+      const b = (await merchantOf(space, await purchase(space, account, `SYNTH B${round} 2002`))).merchant!;
+      const c = (await merchantOf(space, await purchase(space, account, `SYNTH C${round} 3003`))).merchant!;
+      const results = await Promise.all([
+        call(space, "POST", `/v1/merchants/${a.id}/merge`, { merchantId: b.id }),
+        call(space, "POST", `/v1/merchants/${b.id}/merge`, { merchantId: a.id }),
+        call(space, "POST", `/v1/merchants/${c.id}/merge`, { merchantId: a.id }),
+        call(space, "POST", `/v1/merchants/${b.id}/merge`, { merchantId: c.id }),
+        call(space, "PATCH", `/v1/merchants/${a.id}`, { name: `Synth Renamed ${round}` }),
+        call(space, "POST", `/v1/merchants/${b.id}/unmerge`),
+      ]);
+      // A deadlock between two of them is rolled back (500 on e038a3d — non-blocking); what stands must be consistent.
+      for (const r of results) expect([200, 400, 409, 500], r.body).toContain(r.statusCode);
+      await noChains(space.householdId);
+    }
+  });
+
+  it("BUD-14@PoC FR 1: a crafted counterparty does not stall GET /v1/merchants or the details", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    // On e038a3d the card-mask pattern backtracks exponentially: 40 characters take seconds, 60 take hours.
+    const t = await purchase(space, account, `1234${"*".repeat(36)}a`);
+    const started = performance.now();
+    expect((await call(space, "GET", "/v1/merchants")).statusCode).toBe(200);
+    expect((await call(space, "GET", `/v1/transactions/${t}/merchant`)).statusCode).toBe(200);
+    expect(performance.now() - started).toBeLessThan(1500);
+  });
+
+  it("BUD-14@PoC «Права доступу»: a viewer reads the merchants but cannot rename, merge or unmerge (403, nothing changes)", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const a = (await merchantOf(space, await purchase(space, account, "SYNTH BOOKS 1001"))).merchant!;
+    const b = (await merchantOf(space, await purchase(space, account, "SYNTH CAFE 2002"))).merchant!;
+    const viewer = { role: "viewer" };
+    expect((await call(space, "GET", "/v1/merchants", undefined, viewer)).statusCode).toBe(200);
+    expect((await call(space, "PATCH", `/v1/merchants/${a.id}`, { name: "Інша" }, viewer)).statusCode).toBe(
+      403,
+    );
+    expect(
+      (await call(space, "POST", `/v1/merchants/${a.id}/merge`, { merchantId: b.id }, viewer)).statusCode,
+    ).toBe(403);
+    expect((await call(space, "POST", `/v1/merchants/${a.id}/unmerge`, undefined, viewer)).statusCode).toBe(
+      403,
+    );
+    expect(await rows(space.householdId)).toEqual([
+      { match_key: "synth books", name: "Synth Books", intermediary: false, merged: false },
+      { match_key: "synth cafe", name: "Synth Cafe", intermediary: false, merged: false },
+    ]);
+  });
+
+  it("NFR-12@PoC FR 3: the space's erasure leaves no merchant, job or event; a hand-off taken before it writes nothing into the erased space", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const a = (await merchantOf(space, await purchase(space, account, "SYNTH BOOKS 1001"))).merchant!;
+    const b = (await merchantOf(space, await purchase(space, account, "SYNTH CAFE 2002"))).merchant!;
+    vi.spyOn(audit, "record").mockRejectedValue(new Error("injected"));
+    expect((await call(space, "POST", `/v1/merchants/${b.id}/merge`, { merchantId: a.id })).statusCode).toBe(
+      200,
+    );
+    vi.restoreAllMocks();
+    const {
+      rows: [job],
+    } = await db.owner.query(`SELECT id, dedupe_key, payload FROM merchants.jobs WHERE household_id = $1`, [
+      space.householdId,
+    ]);
+    expect(job).toBeDefined();
+
+    await createMerchantsErasure(db.databases.for("merchants")).eraseHousehold(space.householdId);
+    const left = await db.owner.query(
+      `SELECT (SELECT count(*) FROM merchants.merchants WHERE household_id = $1)
+            + (SELECT count(*) FROM merchants.jobs WHERE household_id = $1)
+            + (SELECT count(*) FROM merchants.outbox_events WHERE household_id = $1) AS n`,
+      [space.householdId],
+    );
+    expect(Number(left.rows[0].n)).toBe(0);
+
+    // A worker that had claimed the job before the erasure runs its handler after it: nothing is written.
+    const queue = createMerchantsWorkerQueue(db.databases.for("merchants"), audit);
+    const handler = queue.handlers.find((h) => h.job.name === "merchants.hand-off")!;
+    await db.databases.for("merchants").inHousehold(space.householdId, (q) =>
+      handler.run(
+        {
+          id: job.id,
+          householdId: space.householdId,
+          key: job.dedupe_key,
+          payload: job.payload,
+          attempt: 1,
+          signal: new AbortController().signal,
+        },
+        q,
+      ),
+    );
+    expect(await audit.entriesFor(space.householdId, { type: ENTITY, id: a.id })).toHaveLength(0);
   });
 });

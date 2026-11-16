@@ -44,8 +44,13 @@ const STAR_PREFIX = /^(?:SUMUP|SUM UP|SQ|SQU|ZETTLE|IZ|IZETTLE|SP|TST|PY|CKO|DRI
 /** A word prefix of a card payment («POS», «Покупка», «Оплата карткою»…), followed by a space or «:». */
 const WORD_PREFIX =
   /^(?:POS|PURCHASE|CARD\s+PURCHASE|CARD\s+PAYMENT|PAYMENT|APPLE\s+PAY|GOOGLE\s+PAY|ПОКУПКА|ОПЛАТА(?:\s+КАРТКОЮ)?|ОПЛАТА\s+ТОВАРІВ(?:\s+І\s+ПОСЛУГ)?|ПЛАТІЖ)\s*[:-]?\s+/iu;
-/** Card masks: «**1234», «XXXX1234», «4441 11** **** 1234», «444111******1234». */
-const CARD_MASK = /(?<![\p{L}\p{N}])(?:\d{4,6}[\s-]?)?(?:[*Xx•]{2,}[\s-]?)+\d{2,4}(?![\p{L}\p{N}])/gu;
+/**
+ * Card masks: «**1234», «XXXX1234», «4441 11** **** 1234», «444111******1234». Runs of mask characters are separated by
+ * exactly one space or dash, so a run splits one way only: a crafted description («1234****…a») cannot make the match
+ * backtrack exponentially (the pattern `(?:[*Xx•]{2,}[\s-]?)+` did — security review of #305).
+ */
+const CARD_MASK =
+  /(?<![\p{L}\p{N}])(?:\d{4,6}[\s-]?)?[*Xx•]{2,}(?:[\s-][*Xx•]{2,})*[\s-]?\d{2,4}(?![\p{L}\p{N}])/gu;
 /** Legal forms dropped at either end of the name (case-insensitive, whole words). */
 const LEGAL_FORMS = new Set([
   "тов",
