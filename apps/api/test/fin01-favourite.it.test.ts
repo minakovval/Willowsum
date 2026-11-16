@@ -207,7 +207,8 @@ describe("FIN-01@PoC FR 20: «Обране» on an account", () => {
     const id = await createAccount(space, "Щоденний", "4417.00");
     for (const principal of [
       { role: "viewer", scoped: false },
-      { role: "owner", scoped: true },
+      { role: "editor", scoped: true },
+      { role: "viewer", scoped: true },
     ]) {
       const res = await display(space, id, { favourite: true }, principal);
       expect([principal, res.statusCode]).toEqual([principal, 403]);
