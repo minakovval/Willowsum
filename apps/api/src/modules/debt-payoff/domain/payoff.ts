@@ -1,4 +1,4 @@
-import { currencyInfo, Decimal, Money } from "@willowsum/domain-kernel";
+import { AmountOutOfRangeError, currencyInfo, Decimal, Money } from "@willowsum/domain-kernel";
 
 /**
  * Debt payoff (BUD-19@PoC FR 3, FR 4, FR 6, FR 7; wave 2 row 33): the month-by-month calculation of one debt and of all
@@ -71,8 +71,25 @@ export interface PayoffResult {
   readonly cappedOneOffs: readonly number[];
 }
 
+/**
+ * Edge case 6: amounts the calculation cannot hold (NUMERIC(38,18): a balance with its interest, the payments' sum or
+ * the interest over the term past 20 integer digits) are «Розрахунок перевищує 100 років — збільште платіж», not a 500.
+ */
+function bounded<T>(run: () => Outcome<T>): Outcome<T> {
+  try {
+    return run();
+  } catch (error) {
+    if (error instanceof AmountOutOfRangeError) return { kind: "over-limit" };
+    throw error;
+  }
+}
+
 /** One debt month by month (FR 3, FR 4). */
 export function simulate(a: Assumptions): Outcome<PayoffResult> {
+  return bounded(() => simulateUnbounded(a));
+}
+
+function simulateUnbounded(a: Assumptions): Outcome<PayoffResult> {
   let balance = a.balance;
   const currency = balance.currency;
   if (!positive(balance))
@@ -122,6 +139,14 @@ export interface StrategyResult {
  * total, so it passes to the next one. `total` must cover the minimums (the caller checks it).
  */
 export function simulateStrategy(
+  debts: readonly StrategyDebt[],
+  total: Money,
+  strategy: Strategy,
+): Outcome<StrategyResult> {
+  return bounded(() => simulateStrategyUnbounded(debts, total, strategy));
+}
+
+function simulateStrategyUnbounded(
   debts: readonly StrategyDebt[],
   total: Money,
   strategy: Strategy,
