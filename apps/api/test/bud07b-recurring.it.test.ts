@@ -561,7 +561,15 @@ describe("BUD-07@PoC «Права доступу»: the statuses and actions of 
     ] as const) {
       const res = await call(stranger, method, url, body);
       expect(res.statusCode, url).toBe(404);
-      expect(res.body).not.toContain("300");
+      const problem = res.json() as Record<string, unknown>;
+      expect(String(problem.type), url).toContain("not-found");
+      // Check the values, not the raw body: ids/trace/instance are random and may contain any digits.
+      for (const value of Object.values(problem)) {
+        const text = typeof value === "string" ? value : JSON.stringify(value);
+        expect(text, url).not.toContain("300.00");
+        expect(text, url).not.toContain("Садочок");
+        expect(text, url).not.toContain("SADOCHOK");
+      }
     }
     expect(await n("recurring.charge_marks WHERE household_id = $1", owner.householdId)).toBe(0);
     expect(charge(await chargesOf(owner, id), "2026-10-05").status).toBe("overdue");
