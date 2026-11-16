@@ -121,8 +121,7 @@ the issue): write the text to your scratchpad file and run
 `gh api repos/{owner}/{repo}/pulls/<n>/reviews -f commit_id=<head SHA> -f event=COMMENT -F body=@<file>`
 (`-F`, so the file's text is sent). The same for every confirmation round.
 
-**Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR, reviewed head SHA (full), verdict, blocking items with file:line, owner questions. Details go in the PR body
-or the review, not in the report. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Verdict: Ready` or `Verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (non-blocking items, the coverage table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
 **At most two rounds** (owner, 2026-11-12). If something blocking remains after round 2, give a ready fix
 with a test in the review (a patch or exact code) and the verdict `Changes requested`; after the author

@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.18"
   },
   "scripts": {
     "build": "pnpm -r run build",
@@ -28,6 +28,7 @@
     "local:reset": "node tools/local-env/index.mjs reset",
     "local:status": "node tools/local-env/index.mjs status",
     "local:smoke": "node tools/local-env/index.mjs smoke",
+    "local:dev": "node tools/local-env/index.mjs dev",
     "db:test": "node tools/local-env/index.mjs db-test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
