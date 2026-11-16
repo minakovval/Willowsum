@@ -50,6 +50,9 @@ entry to the log first.
 
 ## Security detail of an unfixed defect (`pr-pipeline/SKILL.md`, step 7)
 
+**Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the detail goes into the issue or PR as usual and the steps
+below are not followed; from the start of MVP planning they are in force.
+
 Applies to a finding that stays open in `main` after the merge (a «Follow-ups» item), when its probe, test or
 description would let a reader reproduce the bypass, leak or loss. A finding fixed in the same PR is not covered.
 

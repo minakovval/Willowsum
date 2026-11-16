@@ -102,7 +102,8 @@ proposals: [lead communication](references/lead-communication.md).
    characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
    never posted in an issue or a PR — one line in the issue (module, rule broken), the detail (the reviewer's
    `keep/` file) in a draft security advisory ([how](../../references/process-limits.md)); if that fails, tell the
-   owner at once (§2, urgent).
+   owner at once (§2, urgent). **This exception applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the probes and details go
+   into the issue as usual; from the start of MVP planning the rule is in force.
    **Token and time accounting** (mandatory): in the same turn as the merge, before the agent logs can vanish, add
    the PR's row to the **body** of #180 ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.

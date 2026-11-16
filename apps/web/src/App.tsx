@@ -8,6 +8,7 @@ import { SessionKeeper } from "./auth/session.ts";
 import { SignInPage } from "./auth/SignInPage.tsx";
 import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
+import { AccountsPage } from "./accounts/AccountsPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
@@ -19,6 +20,7 @@ import { ProfilePage } from "./settings/ProfilePage.tsx";
 import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import {
+  ACCOUNTS,
   canonicalPath,
   DEBTS,
   RECURRING,
@@ -77,6 +79,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
       if (route.page.id === DEBTS.id) return <DebtsScreen tab="list" />;
+      // FIN-01@PoC c), GRID-02@PoC FR 1: S-050 «Рахунки».
+      if (route.page.id === ACCOUNTS.id) return <AccountsPage />;
       // BUD-07@PoC c): S-141 «Регулярні платежі».
       if (route.page.id === RECURRING.id) return <RecurringPage />;
       return <SectionPage section={route.section} page={route.page} />;
