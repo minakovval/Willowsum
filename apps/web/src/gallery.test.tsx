@@ -121,7 +121,7 @@ describe("/gallery/tokens (DS-22)", () => {
     const { container } = render(<App />);
     const section = container.querySelector("#g-icon-buttons")!.parentElement as HTMLElement;
     const buttons = within(section).getAllByRole("button");
-    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
+    expect(buttons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
       "Параметри",
       "Колонки",
       "Сортувати",
@@ -228,6 +228,32 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(norm(within(live).getByRole("status").textContent)).toBe("Готово, 6 файлів");
     act(() => within(live).getByRole("button", { name: "Почати знову" }).click());
     expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("CMP-03@PoC gallery: the Select section shows the native list in every state, «з пошуком» and the list buttons", () => {
+    const { container } = render(<App />);
+    const section = container.querySelector("#g-select")!.closest("section")!;
+    expect(container.querySelector("#g-select")!.textContent).toBe("Список вибору");
+    const at = (c: string) => section.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(within(at("default")).getByRole("combobox", { name: "Валюта" })).toBeTruthy();
+    expect(at("long").querySelector("select")!.value).toBe("USD");
+    expect(at("empty").querySelector(".ws-select-control--empty")).not.toBeNull();
+    expect(within(at("error")).getByRole("alert").textContent).toContain("Помилка. Оберіть валюту рахунку.");
+    expect((at("disabled").querySelector("select") as HTMLSelectElement).disabled).toBe(true);
+    expect(at("disabled").textContent).toContain("Банк не змінюється після підключення рахунку.");
+    expect(at("loading").querySelector(".ws-skeleton--field")).not.toBeNull();
+    expect(within(at("categories")).getByRole("button", { name: /Категорія/ }).textContent).toContain(
+      "Продукти",
+    );
+    expect(within(at("accounts")).getByRole("button", { name: /Рахунок/ }).textContent).toContain(
+      "Поточний ··4417",
+    );
+    const buttons = within(at("list-buttons")).getAllByRole("button");
+    expect(buttons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
+      "Категорія: Усі",
+      "Порівняти з: Середнє за 3 міс.",
+      "Вигляд: Повний",
+    ]);
   });
 
   it("CMP-01@PoC gallery: the Button section shows each variant at rest, with an icon, disabled with its reason and loading; sizes, icon-only, a row and a live case", () => {
