@@ -120,6 +120,14 @@ export const FLAGS = {
     description:
       "Розділення транзакції (BUD-13@PoC, FIN-03@PoC b): за категоріями і на кілька місяців; /v1/transactions/{id}/split",
   },
+  "transactions.review": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-16",
+    requires: "transactions.manual",
+    description:
+      "Розбір транзакцій (BUD-12@PoC a): черга «До розбору», «Підтвердити» і «Відмінити», лічильник; /v1/transaction-review, /v1/transactions/{id}/review/confirm, /reopen, масова дія «Підтвердити категорії»",
+  },
   "categories.tree": {
     kind: "release",
     owner: "product-owner",

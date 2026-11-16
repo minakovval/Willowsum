@@ -57,6 +57,7 @@ import {
 import {
   createTransactionLookup,
   createTransactionRuleInputs,
+  createTransactionReviewBulkActions,
   createTransactionTagBulkActions,
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
@@ -81,7 +82,7 @@ import { randomUUID } from "node:crypto";
  * entity's target and each action come from the module that owns the fields, through its public interface.
  * «Змінити категорію» — categorization (BUD-01 b, wave 2 row 20; #272 item 1) on the target «transactions» (module
  * transactions' lookup). «Додати теги» (BUD-13 a, row 21) — transactions on its target «transaction-tags».
- * «Підтвердити категорії» (BUD-12 a, row 24) comes with its field; until then it is an unknown action.
+ * «Підтвердити категорії» (BUD-12 a, row 24) — transactions on its target «transaction-review».
  */
 export function bulkActionsServicesFor(
   audit: Pick<AuditLog, "record">,
@@ -102,9 +103,13 @@ export function bulkActionsServicesFor(
     newId: randomUUID,
     ...(flags ? { flags } : {}),
   });
+  const review = createTransactionReviewBulkActions({
+    db: databases.for("transactions"),
+    ...(flags ? { flags } : {}),
+  });
   return createBulkActionsServices({
-    targets: [...categories.targets, ...tags.targets],
-    actions: [...categories.actions, ...tags.actions],
+    targets: [...categories.targets, ...tags.targets, ...review.targets],
+    actions: [...categories.actions, ...tags.actions, ...review.actions],
     audit,
     clock,
     newId: randomUUID,

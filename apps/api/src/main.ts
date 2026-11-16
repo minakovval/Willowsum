@@ -255,6 +255,8 @@ const server = buildServer({
                 ),
               // FIN-03 FR 18: only a «Можливий дубль» is hidden, by duplicate-matching's rule.
               duplicates: createDuplicateCheck(),
+              // BUD-12 FR 7: «Підтвердити» on a card whose category was changed elsewhere is refused.
+              categoryOf: createTransactionCategories(databases.for("categorization")),
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({
