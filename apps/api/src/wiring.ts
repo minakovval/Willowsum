@@ -31,6 +31,7 @@ import {
   createLedgerIntegrityCheck,
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
+import { createBudgetHandOffRecovery, createBudgetWorkerQueue } from "./modules/budget/index.ts";
 import {
   createGoalsHandOffRecovery,
   createGoalsWorkerQueue,
@@ -207,6 +208,9 @@ export function schedulerDailyTasks(deps: {
     deps.spaces.spaceIds(),
   );
   const goalsRecovery = createGoalsHandOffRecovery(deps.databases.for("goals"), () => deps.spaces.spaceIds());
+  const budgetRecovery = createBudgetHandOffRecovery(deps.databases.for("budget"), () =>
+    deps.spaces.spaceIds(),
+  );
   const recurringRecovery = createRecurringRecovery(deps.databases.for("recurring"), () =>
     deps.spaces.spaceIds(),
   );
@@ -268,6 +272,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await goalsRecovery.run();
         if (requeued > 0) logEvent("goals.hand_off_requeued", "warn", { "ws.module": "goals" });
+      },
+    },
+    // The same for the budget queue (ARC-04, ADR-0015, #249): the audit entry of a budget, a limit, a budget account.
+    {
+      name: "budget.hand-off-recovery",
+      run: async () => {
+        const requeued = await budgetRecovery.run();
+        if (requeued > 0) logEvent("budget.hand_off_requeued", "warn", { "ws.module": "budget" });
       },
     },
     // The same for the debt-payoff queue (ARC-04, ADR-0015, #249): a saved or deleted plan's audit entry.
@@ -372,6 +384,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       createDebtPayoffWorkerQueue(databases.for("debt-payoff"), audit),
       // BUD-14 a: the audit entries of merchants' renames, merges and «Роз'єднати» (ADR-0015).
       createMerchantsWorkerQueue(databases.for("merchants"), audit),
+      // BUD-02 a: the audit entries of the budget, its limits and its accounts (ADR-0015).
+      createBudgetWorkerQueue(databases.for("budget"), audit),
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
     ],
