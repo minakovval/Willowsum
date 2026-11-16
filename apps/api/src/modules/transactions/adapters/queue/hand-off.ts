@@ -7,7 +7,7 @@ import {
 } from "../../../../platform/queue/index.ts";
 import { applyHandOff, type HandOffDeps, type TransactionRows } from "../../application/index.ts";
 import { transactionsTx } from "../db/store.ts";
-import { HAND_OFF_JOB } from "./job.ts";
+import { HAND_OFF_JOB, TAG_AUDIT_JOB } from "./job.ts";
 
 /**
  * The transaction's row locked, in a transactions transaction: the worker's own (the job's), or — right after the
@@ -51,15 +51,24 @@ export function transactionsWorkerQueue(db: ModuleDatabase, deps: HandOffDeps): 
             job.payload,
           ),
       }),
+      // BUD-13 FR 2: a tag's audit entry, by its key (written once).
+      defineJobHandler({
+        job: TAG_AUDIT_JOB,
+        run: (job) => deps.audit.tagChanged(job.householdId, job.payload),
+      }),
     ],
   };
 }
 
 /**
  * The scheduler's daily recovery (src/wiring.ts, `transactions.hand-off-recovery`; as accounts', ADR-0015): the space's
- * dead hand-off jobs go back in the queue before the retention cleanup, so no transaction stays without its journal
+ * dead hand-off jobs (and tag audit jobs) go back in the queue before the retention cleanup, so no transaction stays without its journal
  * event and audit entry for good. Every step is idempotent, so trying again writes nothing twice.
  */
-export function requeueDeadHandOffs(db: ModuleDatabase, householdId: string): Promise<number> {
-  return requeueDeadJobs(db, householdId, HAND_OFF_JOB.name);
+export async function requeueDeadHandOffs(db: ModuleDatabase, householdId: string): Promise<number> {
+  return (
+    (await requeueDeadJobs(db, householdId, HAND_OFF_JOB.name)) +
+    // BUD-13 FR 2: the audit entries of tag changes, the same way.
+    (await requeueDeadJobs(db, householdId, TAG_AUDIT_JOB.name))
+  );
 }

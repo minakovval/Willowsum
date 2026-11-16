@@ -1,7 +1,7 @@
 import { exchangeRate, Money } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 import { filterValue } from "../../../../platform/http/list-query.ts";
-import { defineList } from "../../../../platform/lists/list-engine.ts";
+import { defineList, type AmountGroup } from "../../../../platform/lists/list-engine.ts";
 import { z } from "zod";
 import type { StoredTransaction, TransactionsTx } from "../../application/index.ts";
 import {
@@ -33,6 +33,8 @@ interface Row {
   split_needs_review: boolean;
   transfer_id: string | null;
   merged_into: string | null;
+  note: string | null;
+  tag_ids: string[];
   version: number;
   created_at: Date;
 }
@@ -69,8 +71,8 @@ interface PartRow {
 
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
-  counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, version,
-  created_at`;
+  counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
+  tag_ids::text[] AS tag_ids, version, created_at`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -175,6 +177,8 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     split: splitOf(r.split_mode, r.split_needs_review, parts),
     transfer,
     mergedInto: r.merged_into,
+    note: r.note,
+    tagIds: r.tag_ids,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
     createdAt: r.created_at.toISOString(),
@@ -223,8 +227,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     async insert(householdId, t) {
       const row = await one(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
-                                   counterparty, description, status, source, version)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING ${COLUMNS}`,
+                                   counterparty, description, status, source, version, note, tag_ids)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[]) RETURNING ${COLUMNS}`,
         [
           householdId,
           t.id,
@@ -238,6 +242,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.status,
           t.source,
           t.version,
+          t.note,
+          [...t.tagIds],
         ],
       );
       return row!;
@@ -256,7 +262,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
         `UPDATE transactions
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
-                split_needs_review = $14, transfer_id = $15, merged_into = $16, updated_at = now()
+                split_needs_review = $14, transfer_id = $15, merged_into = $16, note = $17,
+                tag_ids = $18::uuid[], updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -275,6 +282,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.split?.needsReview ?? false,
           t.transfer?.id ?? null,
           t.mergedInto,
+          t.note,
+          [...t.tagIds],
         ],
       );
       return row!;
@@ -381,8 +390,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
  * The list «Транзакції» on the universal list engine (DAT-01@PoC; FIN-03 FR 13, FR 22): whitelisted filters and sorts,
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
- * («Розділені»), `transfer` («Переказ») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only). The filters of
- * tags, categories and merchants come with the parts that bring them (BUD-01, BUD-13).
+ * («Розділені»), `transfer` («Переказ») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only);
+ * «Теги» — `tag` (BUD-13 FR 2). The filters of categories and merchants come with the parts that bring them (BUD-01, BUD-14).
  */
 export const transactionsList = defineList({
   table: "transactions",
@@ -401,6 +410,8 @@ export const transactionsList = defineList({
     splitNeedsReview: "split_needs_review",
     transferId: "transfer_id",
     mergedInto: "merged_into",
+    note: "note",
+    tagIds: "tag_ids",
     createdAt: "created_at",
   },
   tieBreaker: "id",
@@ -430,6 +441,8 @@ export const transactionsList = defineList({
     hidden: { column: "hidden", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Стан: переказ» (FR 22) — `transfer.eq:true`; budgets and reports leave transfers out with `false` (FR 7). */
     transfer: { column: "is_transfer", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
+    /** «Теги» (BUD-13 FR 2, FR 5): `tag.eq:<id>` — has the tag, `tag.in:<id>,<id>` — any of them. */
+    tag: { column: "tag_ids", cast: "uuid", value: filterValue.uuid(), operators: ["eq", "in"], array: true },
   },
   // «Дата і час» (FR 13, AC13): the date, then within a day the time it was recorded (`recordedAt`, see the route).
   sorts: { date: "occurred_on", recordedAt: "created_at", amount: "amount", counterparty: "counterparty" },
@@ -724,4 +737,28 @@ export async function subaccountsInUse(
     [householdId, ids],
   );
   return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * BUD-13@PoC FR 9 («Вибрано N · Сума ±X €»): the amounts of the selected transactions `ids` of the space by currency
+ * and date, for the total at the official rate of each transaction's date (`ListTotals`). Ids of another space or of
+ * none are simply not there.
+ */
+export async function selectionGroups(
+  q: ModuleQueryRunner,
+  householdId: string,
+  ids: readonly string[],
+): Promise<AmountGroup[]> {
+  const { rows } = await q.query<{ currency: string; date: string; sum: string; count: number }>(
+    `SELECT currency, occurred_on::text AS date, sum(amount)::text AS sum, count(*)::int AS count
+       FROM transactions WHERE household_id = $1 AND id = ANY($2::uuid[])
+      GROUP BY currency, occurred_on ORDER BY occurred_on, currency`,
+    [householdId, [...ids]],
+  );
+  return rows.map((r) => ({
+    currency: r.currency,
+    date: r.date,
+    sum: Money.of(r.sum, r.currency),
+    count: r.count,
+  }));
 }

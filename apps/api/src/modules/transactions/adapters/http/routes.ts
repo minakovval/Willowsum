@@ -49,6 +49,7 @@ import {
   transfersOf,
   type TransferView,
 } from "../db/store.ts";
+import { tagsTx } from "../db/tags.ts";
 import { transactionRows } from "../queue/hand-off.ts";
 import { DUPLICATES_FLAG, STATES_FLAG, TRANSFERS_FLAG, transactionsServices } from "./services.ts";
 
@@ -61,9 +62,9 @@ import { DUPLICATES_FLAG, STATES_FLAG, TRANSFERS_FLAG, transactionsServices } fr
  * `transactions.manual` (ships off) under the feature key of the same name; no plan limit.
  */
 const MODULE = "transactions";
-const FEATURE = "transactions.manual";
+export const FEATURE = "transactions.manual";
 /** BUD-13: «атрибути транзакцій» — here «Розділити» (FR 6–8); its own key and flag, which requires `transactions.manual`. */
-const ATTRIBUTES = "transactions.attributes";
+export const ATTRIBUTES = "transactions.attributes";
 
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const moneyInput = z
@@ -115,7 +116,7 @@ const transferSchema = z.object({
   rate: z.object({ rate: z.string(), date: z.string(), source: z.string() }).nullable(),
 });
 
-const transactionSchema = z.object({
+export const transactionSchema = z.object({
   id: z.uuid(),
   accountId: z.uuid(),
   /** Signed, in the account's currency (FR 2). */
@@ -144,6 +145,10 @@ const transactionSchema = z.object({
   mergedInto: z.uuid().nullable(),
   /** FR 11: the duplicates merged into this one — «Об'єднано» and «Роз'єднати» when there are any. */
   mergedDuplicates: z.array(z.uuid()),
+  /** BUD-13 FR 1: «Нотатка» (up to 2 000 characters); null — none. The row shows its icon (FIN-03 FR 23). */
+  note: z.string().nullable(),
+  /** BUD-13 FR 2: «Теги» — the space's tags of the transaction, in the order given; the row's icon lists them. */
+  tags: z.array(z.object({ id: z.uuid(), name: z.string() })),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
 });
@@ -178,10 +183,15 @@ function transferOut(id: string, view: TransferView | undefined): z.input<typeof
   };
 }
 
+/** BUD-13 FR 2: the tags by name; an id that is no tag of the space any more is left out. */
+const tagsOut = (ids: readonly string[], names: ReadonlyMap<string, string>) =>
+  ids.filter((id) => names.has(id)).map((id) => ({ id, name: names.get(id)! }));
+
 function present(
   t: StoredTransaction,
   view: TransferView | undefined,
   duplicates: readonly string[],
+  names: ReadonlyMap<string, string>,
 ): z.input<typeof transactionSchema> {
   return {
     id: t.id,
@@ -198,6 +208,8 @@ function present(
     transfer: t.transfer ? transferOut(t.id, view) : null,
     mergedInto: t.mergedInto,
     mergedDuplicates: [...duplicates],
+    note: t.note,
+    tags: tagsOut(t.tagIds, names),
     recordedAt: t.createdAt,
   };
 }
@@ -206,27 +218,28 @@ function present(
  * The transaction as the API shows it: with its transfer (FR 7) and the duplicates merged into it (FR 11) read in the
  * space's transactions.
  */
-async function shown(
+export async function shown(
   ctx: ProtectedContext,
   t: StoredTransaction,
 ): Promise<z.input<typeof transactionSchema>> {
   const householdId = ctx.principal.householdId;
   const transferId = t.transfer?.id;
-  const { views, merged } = await ctx.inHousehold(async (q) => ({
+  const { views, merged, names } = await ctx.inHousehold(async (q) => ({
     views: transferId ? await transfersOf(q, householdId, [transferId]) : new Map<string, TransferView>(),
     merged: t.mergedInto === null ? await mergedOf(q, householdId, [t.id]) : new Map<string, string[]>(),
+    names: await tagsTx(q).names(householdId, t.tagIds),
   }));
-  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? []);
+  return present(t, transferId ? views.get(transferId) : undefined, merged.get(t.id) ?? [], names);
 }
 
 /** Where the form is wrong: the field and an issue code, never the value sent. */
-function invalid(issues: readonly FieldIssue[]): ApiProblem {
+export function invalid(issues: readonly FieldIssue[]): ApiProblem {
   return new ApiProblem("VALIDATION_FAILED", {
     errors: issues.map((i) => ({ in: "body" as const, path: i.field, issue: i.issue })),
   });
 }
 
-function outcome(
+export function outcome(
   result:
     | TransactionResult
     | TransferResult
@@ -260,7 +273,7 @@ function outcome(
  * released, or a retry would create a second transaction). Logged as `transactions.hand_off_deferred` (WARN, the error
  * class only).
  */
-async function handOffNow(
+export async function handOffNow(
   ctx: ProtectedContext,
   deps: HandOffDeps,
   handOff: TransactionHandOff | readonly TransactionHandOff[] | null,
@@ -284,16 +297,16 @@ async function handOffNow(
 }
 
 /** Scoped members: «Транзакції» are closed by the visibility policy's default (00-general «Область доступу»). */
-function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
+export function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
-const caller = (ctx: { principal: { householdId: string; userId: string } }) => ({
+export const caller = (ctx: { principal: { householdId: string; userId: string } }) => ({
   householdId: ctx.principal.householdId,
   accountId: ctx.principal.userId,
 });
 
-const params = z.object({ transactionId: z.uuid() });
+export const params = z.object({ transactionId: z.uuid() });
 
 export const createTransactionRoute = defineRoute({
   module: MODULE,
@@ -460,6 +473,7 @@ function listItem(
   parts: Awaited<ReturnType<typeof partsOf>>,
   transfers: ReadonlyMap<string, TransferView>,
   merged: ReadonlyMap<string, string[]>,
+  names: ReadonlyMap<string, string>,
 ): z.input<typeof transactionSchema> {
   const amount = Money.of(String(row["amount"]), String(row["currency"]));
   const recorded = row["createdAt"];
@@ -481,9 +495,14 @@ function listItem(
         : transferOut(String(row["id"]), transfers.get(String(row["transferId"]))),
     mergedInto: (row["mergedInto"] as string | null) ?? null,
     mergedDuplicates: merged.get(String(row["id"])) ?? [],
+    note: (row["note"] as string | null) ?? null,
+    tags: tagsOut(rowTags(row), names),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
   };
 }
+
+const rowTags = (row: Record<string, unknown>): string[] =>
+  Array.isArray(row["tagIds"]) ? (row["tagIds"] as unknown[]).map(String) : [];
 
 /**
  * «Дата і час» (FR 13, AC13) is the date and, under it, the time: within one date the newer record comes first, so
@@ -539,7 +558,7 @@ export const listTransactionsRoute = defineRoute({
   handler: async ({ query }, ctx) => {
     refuseScoped(ctx);
     const { totals, reportingCurrency } = transactionsServices(ctx);
-    const { page, parts, transfers, merged } = await ctx.inHousehold(async (q) => {
+    const { page, parts, transfers, merged, names } = await ctx.inHousehold(async (q) => {
       const page = await transactionsList.run(q, {
         ...query,
         filter: shownUnlessAsked(query.filter),
@@ -558,6 +577,7 @@ export const listTransactionsRoute = defineRoute({
           ctx.principal.householdId,
           page.items.map((r) => String(r["id"])),
         ),
+        names: await tagsTx(q).names(ctx.principal.householdId, [...new Set(page.items.flatMap(rowTags))]),
       };
     });
     const of = (sign: AmountGroup["sign"]) => page.groups.filter((g) => g.sign === sign);
@@ -567,7 +587,7 @@ export const listTransactionsRoute = defineRoute({
       totals.total(page.groups, reportingCurrency),
     ]);
     return {
-      items: page.items.map((row) => listItem(row, parts, transfers, merged)),
+      items: page.items.map((row) => listItem(row, parts, transfers, merged, names)),
       page: page.page,
       pageSize: page.pageSize,
       count: page.count,

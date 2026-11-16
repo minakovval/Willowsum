@@ -9,6 +9,7 @@ import {
   type TransferLink,
 } from "../domain/index.ts";
 import type { StoredTransaction } from "./stored.ts";
+import type { TagAudit } from "./attributes.ts";
 
 /**
  * The hand-off of a transactions change to the journal and the audit log (ARC-04 FR 2, FR 3; ADR-0015; issue #240
@@ -87,6 +88,8 @@ export interface TransactionAudit {
     values: readonly TransactionAuditValue[],
     key: string,
   ): Promise<void>;
+  /** BUD-13 FR 2: a tag renamed, merged or deleted (entity `transactions.tag`), by the entry's key. */
+  tagChanged(householdId: string, entry: TagAudit): Promise<void>;
 }
 
 /** What the hand-off needs of the transactions module itself. */
@@ -118,7 +121,7 @@ export const SOURCE_MODULE = "transactions";
 export const EVENT = "transaction";
 
 const FIELDS = ["accountId", "amount", "currency", "date", "counterparty", "description", "status"] as const;
-const SENSITIVE: ReadonlySet<string> = new Set(["counterparty", "description"]);
+const SENSITIVE: ReadonlySet<string> = new Set(["counterparty", "description", "note"]);
 
 /** The row's audited fields: the form's, then «прихована» once it was hidden, then the split's (domain/splits.ts). */
 function fieldsOf(t: StoredTransaction | null): Map<string, string | null> {
@@ -141,6 +144,9 @@ function fieldsOf(t: StoredTransaction | null): Map<string, string | null> {
     if (r) fields.set("transfer.rate", `${r.rate.toString()} ${r.base}/${r.quote} ${r.date} ${r.source}`);
   }
   for (const [field, value] of splitAuditFields(t?.split ?? null)) fields.set(field, value);
+  // BUD-13 FR 1, FR 2: «Нотатка» (free text: masked) and the tags — their ids, never their names (free text too).
+  if (t?.note) fields.set("note", t.note);
+  if (t && t.tagIds.length > 0) fields.set("tags", t.tagIds.join(","));
   return fields;
 }
 
