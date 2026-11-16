@@ -47,14 +47,13 @@ export interface TrackingDeps {
     categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   };
   /**
-   * FR 12: an amount in another currency at the rate of `date` (module fx-rates): `approximate` — the nearest earlier
-   * rate; null — no rate at all.
+   * FR 12: amounts in another currency at the rate of each one's date (module fx-rates), in the order given — every rate
+   * read in one query, however many amounts: `approximate` — the nearest earlier rate; null — no rate at all.
    */
   readonly convert: (
-    amount: Money,
+    amounts: readonly { readonly amount: Money; readonly date: string }[],
     currency: string,
-    date: string,
-  ) => Promise<{ readonly value: Money; readonly approximate: boolean } | null>;
+  ) => Promise<readonly ({ readonly value: Money; readonly approximate: boolean } | null)[]>;
   readonly today: () => string;
   readonly newId: () => string;
 }
@@ -111,7 +110,20 @@ export async function trackSpace(
       a.createdOn.localeCompare(b.createdOn) ||
       a.id.localeCompare(b.id),
   );
+  // FR 8: a transaction of a payment's merchant is that payment's — never another payment's by the category.
+  const paymentMerchants = new Set(payments.flatMap((p) => (p.merchantId === null ? [] : [p.merchantId])));
+  // FR 12: every transaction in another currency than a payment's, converted once per currency of a payment — one
+  // call (one query of rates) per currency, never one per transaction.
   const converted = new Map<string, { value: Money; approximate: boolean } | null>();
+  for (const currency of new Set(payments.map((p) => p.expected.currency))) {
+    const foreign = found.filter((h) => h.currency !== currency);
+    if (foreign.length === 0) continue;
+    const values = await deps.convert(
+      foreign.map((h) => ({ amount: Money.of(h.amount.replace(/^-/, ""), h.currency), date: h.date })),
+      currency,
+    );
+    foreign.forEach((h, i) => converted.set(`${h.id}:${currency}`, values[i] ?? null));
+  }
   const byPayment = new Map<string, Tracking>();
   const used = new Map<string, string>();
   for (const p of order) {
@@ -123,19 +135,20 @@ export async function trackSpace(
     const candidates: Candidate[] = [];
     for (const h of found) {
       if (typeOf(h) !== p.type) continue;
-      const merchant =
-        p.merchantId !== null &&
-        h.counterparty !== null &&
-        merchants.get(h.counterparty)?.id === p.merchantId;
-      const category = p.categoryId !== null && categories.get(h.id) === p.categoryId;
+      const ofMerchant: string | undefined =
+        h.counterparty === null ? undefined : merchants.get(h.counterparty)?.id;
+      const merchant = p.merchantId !== null && ofMerchant === p.merchantId;
+      const category =
+        !merchant &&
+        (ofMerchant === undefined || !paymentMerchants.has(ofMerchant)) &&
+        p.categoryId !== null &&
+        categories.get(h.id) === p.categoryId;
       if (!settled.has(h.id) && (taken.has(h.id) || (!merchant && !category))) continue;
       const amount = Money.of(h.amount.replace(/^-/, ""), h.currency);
       let value: Money | null = amount;
       let approximate = false;
       if (h.currency !== currency) {
-        const key = `${h.id}:${currency}`;
-        if (!converted.has(key)) converted.set(key, await deps.convert(amount, currency, h.date));
-        const c = converted.get(key)!;
+        const c = converted.get(`${h.id}:${currency}`) ?? null;
         value = c?.value ?? null;
         approximate = c?.approximate ?? false;
       }

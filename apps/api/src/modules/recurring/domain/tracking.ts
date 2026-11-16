@@ -1,7 +1,7 @@
 import { currencyInfo, Decimal, Money } from "@willowsum/domain-kernel";
 import { VARIABLE_AVERAGE_OF } from "./detect.ts";
 import type { PaymentType } from "./payments.ts";
-import { addDays, daysBetween, scheduleDate, type Frequency } from "./schedule.ts";
+import { addDays, daysBetween, FREQUENCY_RULES, scheduleDate, type Frequency } from "./schedule.ts";
 
 /**
  * The statuses of a regular payment's charges (BUD-07@PoC FR 8–12, FR 17, FR 20, FR 21; wave 2 row 26 — part b1). A
@@ -167,7 +167,10 @@ export function pays(c: Candidate, expected: Money, late: boolean): boolean {
 
 /** The schedule's dates from `from` on, through the first one after today (and never after the end date). */
 function slots(input: TrackInput): Slot[] {
-  let k = 0;
+  // Near the first date by arithmetic, then exact by steps: an anchor centuries away costs no more than one near today.
+  const step = FREQUENCY_RULES[input.frequency].step;
+  const stepDays = "days" in step ? step.days : step.months * 30.4375;
+  let k = Math.round(daysBetween(input.anchorDate, input.from) / stepDays);
   while (scheduleDate(input.anchorDate, input.frequency, k - 1) >= input.from) k -= 1;
   while (scheduleDate(input.anchorDate, input.frequency, k) < input.from) k += 1;
   const out: Slot[] = [];
@@ -286,10 +289,11 @@ export function trackPayment(input: TrackInput): Tracking {
       for (const c of free.values()) {
         if (c.date > input.today || distance(c, slot.dueOn) > WINDOW_DAYS) continue;
         if (!pays(c, slot.expected, false)) continue;
+        // FR 8 «а без збігу мерчанта — тієї ж категорії»: the merchant's transaction first, then the closest.
         if (
           !best ||
-          distance(c, slot.dueOn) < distance(best, slot.dueOn) ||
-          (distance(c, slot.dueOn) === distance(best, slot.dueOn) && c.merchant && !best.merchant)
+          (c.merchant && !best.merchant) ||
+          (c.merchant === best.merchant && distance(c, slot.dueOn) < distance(best, slot.dueOn))
         )
           best = c;
       }

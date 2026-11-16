@@ -61,7 +61,7 @@ export function createRecurringServices(options: {
   /** Module categorization's `TransactionCategories`: the category of a transaction (FR 8, row 26). */
   readonly transactionCategories: TrackingDeps["categories"];
   /** Module fx-rates' `FxReporting`: a charge in another currency at the rate of its date (FR 12, row 26). */
-  readonly fx: Pick<FxReporting, "toReporting">;
+  readonly fx: Pick<FxReporting, "total">;
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
@@ -101,13 +101,13 @@ export function createRecurringServices(options: {
       history: options.history,
       merchants: options.merchants,
       categories: options.transactionCategories,
-      async convert(amount, currency, date) {
-        const reported = await options.fx.toReporting({ amount, date }, currency);
-        if (reported.kind === "rate-unavailable") return null;
-        return {
-          value: reported.value,
-          approximate: reported.kind === "converted" && reported.conversion.approximate,
-        };
+      async convert(amounts, currency) {
+        const reported = await options.fx.total(amounts, currency);
+        return reported.items.map((item) =>
+          item.kind === "rate-unavailable"
+            ? null
+            : { value: item.value, approximate: item.kind === "converted" && item.conversion.approximate },
+        );
       },
       today,
       newId: options.newId,
