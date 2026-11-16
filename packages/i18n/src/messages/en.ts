@@ -805,6 +805,7 @@ export const en: Messages = {
   "select.account.masked": "{name} ··{last4}",
   "select.account.new": "New account",
   "select.account.search": "Search accounts",
+  "date.none": "No date",
   "date.todaySuffix": "· today",
   "date.dialog": "Choose a date",
   "date.prevMonth": "Previous month",

@@ -805,6 +805,7 @@ export const uk = {
   "select.account.masked": "{name} ··{last4}",
   "select.account.new": "Новий рахунок",
   "select.account.search": "Пошук рахунку",
+  "date.none": "Без дати",
   "date.todaySuffix": "· сьогодні",
   "date.dialog": "Оберіть дату",
   "date.prevMonth": "Попередній місяць",

@@ -2126,6 +2126,11 @@
   font-weight: 600;
 }
 
+.ws-calendar-navs {
+  display: flex;
+  gap: var(--ws-space-1);
+}
+
 .ws-calendar-nav,
 .ws-calendar-day,
 .ws-calendar-chip {
