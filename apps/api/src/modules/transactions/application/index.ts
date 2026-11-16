@@ -5,3 +5,4 @@ export * from "./hand-off.ts";
 export * from "./splits.ts";
 export * from "./transfers.ts";
 export * from "./duplicates.ts";
+export * from "./attributes.ts";

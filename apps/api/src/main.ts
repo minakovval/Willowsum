@@ -10,14 +10,17 @@ import { randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
 import {
   createAccountDirectory,
+  createAccountList,
   createAccountsServices,
   createCreditAccounts,
 } from "./modules/accounts/index.ts";
+import { createBudgetCategoryUsage, createBudgetServices } from "./modules/budget/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
   createCategorizationServices,
+  createTransactionCategories,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
@@ -39,6 +42,7 @@ import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
+  createBudgetTransactions,
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionHistory,
@@ -263,7 +267,7 @@ const server = buildServer({
                 ),
             }),
             // DAT-03: bulk actions of the selection panels, with the same targets and actions as the worker's.
-            bulkActions: bulkActionsServicesFor(audit, databases),
+            bulkActions: bulkActionsServicesFor(audit, databases, systemClock, flags),
             // BUD-01 b: a transaction's category and its source, changed by hand (categorization).
             categorization: createCategorizationServices({
               transactions: createTransactionLookup(databases.for("transactions")),
@@ -287,8 +291,25 @@ const server = buildServer({
                   databases.for("categorization"),
                   createTransactionLookup(databases.for("transactions")),
                 ),
+                createBudgetCategoryUsage(databases.for("budget")),
                 createRecurringCategoryUsage(databases.for("recurring")),
               ],
+            }),
+            // BUD-02 a: the space's budget over the category tree, the accounts, the period's transactions with their
+            // categories, each converted at the NBU rate of its date (fx-rates).
+            budget: createBudgetServices({
+              categories: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
+              accounts: createAccountList(databases.for("accounts")),
+              transactions: createBudgetTransactions(databases.for("transactions")),
+              categorization: createTransactionCategories(databases.for("categorization")),
+              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
             merchants: createMerchantsServices({

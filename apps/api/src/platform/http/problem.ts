@@ -149,6 +149,10 @@ export const PROBLEMS = {
    */
   GOAL_OWN_ACCOUNT: { status: 409, title: "Add a transfer to the goal's account instead" },
   GOAL_SPEND_OVER_COLLECTED: { status: 409, title: "The transactions take more than the goal holds" },
+  /** «Бюджет уже існує» (BUD-02@PoC FR 1, edge case 6): the space has its one budget; nothing was written. */
+  BUDGET_EXISTS: { status: 409, title: "The space already has a budget" },
+  /** «Бюджет ще не існував на цю дату» (BUD-02@PoC edge case 5): the period is before the budget's first one. */
+  BUDGET_PERIOD_BEFORE_START: { status: 404, title: "The budget did not exist yet in this period" },
   /** «За цих умов борг не зменшується» (BUD-19@PoC FR 3, AC4): a plan that never pays the debt off is not saved. */
   DEBT_NOT_DECREASING: { status: 409, title: "Under these terms the debt does not decrease" },
   /** «Розрахунок перевищує 100 років — збільште платіж» (BUD-19@PoC edge case 6): the plan is not saved. */

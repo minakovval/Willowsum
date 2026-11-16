@@ -31,6 +31,7 @@ import {
   createLedgerIntegrityCheck,
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
+import { createBudgetHandOffRecovery, createBudgetWorkerQueue } from "./modules/budget/index.ts";
 import {
   createGoalsHandOffRecovery,
   createGoalsWorkerQueue,
@@ -50,6 +51,7 @@ import {
 } from "./modules/liabilities/index.ts";
 import {
   createTransactionLookup,
+  createTransactionTagBulkActions,
   createTransactionsHandOffRecovery,
   createTransactionsWorkerQueue,
 } from "./modules/transactions/index.ts";
@@ -72,22 +74,31 @@ import { randomUUID } from "node:crypto";
  * The bulk actions of the selection panels (DAT-03@PoC FR 2), the same for the API (main.ts) and the worker: each
  * entity's target and each action come from the module that owns the fields, through its public interface.
  * «Змінити категорію» — categorization (BUD-01 b, wave 2 row 20; #272 item 1) on the target «transactions» (module
- * transactions' lookup). «Додати теги» (BUD-13 a, row 21) and «Підтвердити категорії» (BUD-12 a, row 24) come with
- * their fields; until then they are unknown actions.
+ * transactions' lookup). «Додати теги» (BUD-13 a, row 21) — transactions on its target «transaction-tags».
+ * «Підтвердити категорії» (BUD-12 a, row 24) comes with its field; until then it is an unknown action.
  */
 export function bulkActionsServicesFor(
   audit: Pick<AuditLog, "record">,
   databases: Pick<ModuleDatabases, "for">,
   clock: { now(): number } = systemClock,
+  /** The flag runtime: an action behind its own flag (e.g. «Додати теги») is unknown without it. */
+  flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
 ): BulkActionsServices {
   const categories = createCategoryBulkActions({
     db: databases.for("categorization"),
     transactions: createTransactionLookup(databases.for("transactions")),
     categories: createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
   });
+  // «Додати теги» (BUD-13 a, row 21): module transactions' own field on its own target.
+  const tags = createTransactionTagBulkActions({
+    db: databases.for("transactions"),
+    accounts: createAccountDirectory(databases.for("accounts")),
+    newId: randomUUID,
+    ...(flags ? { flags } : {}),
+  });
   return createBulkActionsServices({
-    targets: [...categories.targets],
-    actions: [...categories.actions],
+    targets: [...categories.targets, ...tags.targets],
+    actions: [...categories.actions, ...tags.actions],
     audit,
     clock,
     newId: randomUUID,
@@ -197,6 +208,9 @@ export function schedulerDailyTasks(deps: {
     deps.spaces.spaceIds(),
   );
   const goalsRecovery = createGoalsHandOffRecovery(deps.databases.for("goals"), () => deps.spaces.spaceIds());
+  const budgetRecovery = createBudgetHandOffRecovery(deps.databases.for("budget"), () =>
+    deps.spaces.spaceIds(),
+  );
   const recurringRecovery = createRecurringRecovery(deps.databases.for("recurring"), () =>
     deps.spaces.spaceIds(),
   );
@@ -258,6 +272,14 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await goalsRecovery.run();
         if (requeued > 0) logEvent("goals.hand_off_requeued", "warn", { "ws.module": "goals" });
+      },
+    },
+    // The same for the budget queue (ARC-04, ADR-0015, #249): the audit entry of a budget, a limit, a budget account.
+    {
+      name: "budget.hand-off-recovery",
+      run: async () => {
+        const requeued = await budgetRecovery.run();
+        if (requeued > 0) logEvent("budget.hand_off_requeued", "warn", { "ws.module": "budget" });
       },
     },
     // The same for the debt-payoff queue (ARC-04, ADR-0015, #249): a saved or deleted plan's audit entry.
@@ -362,6 +384,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       createDebtPayoffWorkerQueue(databases.for("debt-payoff"), audit),
       // BUD-14 a: the audit entries of merchants' renames, merges and «Роз'єднати» (ADR-0015).
       createMerchantsWorkerQueue(databases.for("merchants"), audit),
+      // BUD-02 a: the audit entries of the budget, its limits and its accounts (ADR-0015).
+      createBudgetWorkerQueue(databases.for("budget"), audit),
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
     ],
