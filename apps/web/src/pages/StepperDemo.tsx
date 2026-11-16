@@ -6,7 +6,7 @@ const TODAY = "2026-11-02";
 const ROWS: readonly (readonly StepState[])[] = [
   ["current", "unavailable", "unavailable"],
   ["done", "current", "available"],
-  ["error", "current", "unavailable"],
+  ["attention", "current", "unavailable"],
 ];
 
 /**

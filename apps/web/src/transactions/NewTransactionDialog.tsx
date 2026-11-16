@@ -134,7 +134,7 @@ function NewTransactionForm({
   };
   const stepState = (index: number): StepState => {
     if (index === step) return "current";
-    if (index === 0) return valid ? "done" : "error";
+    if (index === 0) return valid ? "done" : "attention";
     if (!valid) return "unavailable";
     return visited.has(index) ? "done" : "available";
   };

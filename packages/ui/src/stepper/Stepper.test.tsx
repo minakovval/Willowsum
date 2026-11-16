@@ -67,11 +67,15 @@ describe("CMP-14@PoC Stepper", () => {
 
   it("CMP-14@PoC AC5: a passed step whose required field became empty has «!» on tint-warning and its name ends «— є помилка»", () => {
     render(
-      <Stepper label="Кроки форми" steps={steps("error", "current", "unavailable")} onSelect={() => {}} />,
+      <Stepper
+        label="Кроки форми"
+        steps={steps("attention", "current", "unavailable")}
+        onSelect={() => {}}
+      />,
     );
     const one = screen.getByRole("button", { name: "Крок 1: Основне — є помилка" });
     expect(one.querySelector(".ws-stepper-mark")!.textContent).toBe("!");
-    expect(rule('.ws-stepper-step[data-state="error"] .ws-stepper-mark')).toMatch(
+    expect(rule('.ws-stepper-step[data-state="attention"] .ws-stepper-mark')).toMatch(
       /background: var\(--ws-tint-warning\)/,
     );
   });

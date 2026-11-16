@@ -4,8 +4,10 @@ import { Icon } from "../icons/Icon.tsx";
 /**
  * The state of one step (CMP-14@PoC «Стани»): the current one, a passed one («✓», can be pressed), one not opened yet
  * that can be reached, one that cannot be reached yet (`aria-disabled`), and a passed one that has an error again («!»).
+ * That last one is `attention` in code: CMP-14 paints it with the warning tints, and DS-06 AC9 keeps those off
+ * anything named an error.
  */
-export type StepState = "current" | "done" | "available" | "unavailable" | "error";
+export type StepState = "current" | "done" | "available" | "unavailable" | "attention";
 
 export interface StepperStep {
   label: string;
@@ -25,13 +27,13 @@ const NAME_KEY = {
   available: "stepper.step",
   done: "stepper.step.done",
   unavailable: "stepper.step.unavailable",
-  error: "stepper.step.error",
+  attention: "stepper.step.error",
 } as const;
 
 /**
  * CMP-14@PoC Stepper, size `dialog`: «1 Основне · 2 … · 3 …» above a form with steps (CMP-21@PoC FR 7). The current step
  * is a pill on `tint-info` with its number on `brand` and `aria-current="step"`; a passed one has «✓» on `gain`; an
- * available one its number on `surface-300`; an unavailable one is grey (`disabled-ink` on `disabled-bg`) and does
+ * available one its number in `ink` on `surface-300` (DS-06 AC6; CMP-14 says `ink-muted`); an unavailable one is grey (`disabled-ink` on `disabled-bg`) and does
  * nothing on a press or Enter; a passed one with an error has «!» on `tint-warning`. Each step reads its number, name
  * and state.
  */
@@ -60,7 +62,7 @@ export function Stepper({ label, steps, onSelect }: StepperProps) {
               <span className="ws-stepper-mark" aria-hidden="true">
                 {step.state === "done" ? (
                   <Icon name="check" size={16} />
-                ) : step.state === "error" ? (
+                ) : step.state === "attention" ? (
                   t("stepper.errorMark")
                 ) : (
                   number

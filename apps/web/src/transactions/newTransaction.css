@@ -38,7 +38,7 @@
   block-size: var(--ws-space-5);
   border-radius: var(--ws-radius-pill);
   background: var(--ws-surface-300);
-  color: var(--ws-ink-muted);
+  color: var(--ws-ink);
   font-size: var(--ws-text-badge-size);
   font-weight: 600;
 }

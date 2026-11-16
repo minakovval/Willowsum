@@ -2149,7 +2149,7 @@
   block-size: calc(var(--ws-space-5) - var(--ws-space-1));
   border-radius: var(--ws-radius-pill);
   background: var(--ws-surface-300);
-  color: var(--ws-ink-muted);
+  color: var(--ws-ink);
   font-size: var(--ws-text-badge-size);
   font-weight: 700;
 }
@@ -2172,10 +2172,10 @@
 
 .ws-stepper-step[data-state="done"] .ws-stepper-mark {
   background: var(--ws-gain);
-  color: var(--ws-on-brand);
+  color: var(--ws-surface-200);
 }
 
-.ws-stepper-step[data-state="error"] .ws-stepper-mark {
+.ws-stepper-step[data-state="attention"] .ws-stepper-mark {
   background: var(--ws-tint-warning);
   color: var(--ws-on-warning);
 }
