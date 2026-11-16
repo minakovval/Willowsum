@@ -5,7 +5,7 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { EventSubscription, WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
-import { entryRecorded } from "../ledger/index.ts";
+import { entryRecorded, type Ledger } from "../ledger/index.ts";
 import {
   ENTRY_RECORDED_JOB,
   eraseHouseholdGoals,
@@ -15,6 +15,7 @@ import {
   goalsWorkerQueue,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
+  SPEND_CHECK_JOB,
 } from "./adapters/index.ts";
 
 export const goalsModule = defineModule({
@@ -32,14 +33,18 @@ export type { GoalTemplate, PartKind } from "./domain/index.ts";
  * The goals queue's jobs (ARC-04): the audit entry of a goal's change, a contribution or a spend; and «Проводку
  * записано» of the ledger, whose reversal of a transaction's event cancels the spends made on it (AC5).
  */
-export { ENTRY_RECORDED_JOB, HAND_OFF_JOB };
+export { ENTRY_RECORDED_JOB, HAND_OFF_JOB, SPEND_CHECK_JOB };
 
 /**
  * The worker's goals queue (ARC-04 FR 2, FR 3; src/wiring.ts): the hand-off jobs, written with the routes' audit log,
  * and the ledger's events (`goalsSubscriptions`).
  */
-export function createGoalsWorkerQueue(db: ModuleDatabase, audit: Pick<AuditLog, "record">): WorkerQueue {
-  return goalsWorkerQueue(db, goalsAudit(audit), randomUUID);
+export function createGoalsWorkerQueue(
+  db: ModuleDatabase,
+  audit: Pick<AuditLog, "record">,
+  ledger: Pick<Ledger, "liveEntries">,
+): WorkerQueue {
+  return goalsWorkerQueue(db, goalsAudit(audit), randomUUID, ledger);
 }
 
 /** AC5, edge case 5: module ledger's «Проводку записано» becomes a goals job (src/wiring.ts). */

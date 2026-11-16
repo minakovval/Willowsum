@@ -150,6 +150,12 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     await deps.spaces.eraseSpace(householdId);
     // The daily key task may have written into the space's log between the two steps above (a rewrap or a
     // provisioning records itself there). With the record gone nothing new arrives; sweep what did.
+    // The same for the consumers of the queues (#296 item 11, #306 item 4): a worker pass that read its job before the
+    // erasure of its module may write after it — sweep them once more, then the log, which their late writes reach.
+    await deps.platformAudit.spaceStep(householdId, "categorization.records", "erasure-sweep");
+    await deps.categorization.eraseHousehold(householdId);
+    await deps.platformAudit.spaceStep(householdId, "goals.records", "erasure-sweep");
+    await deps.goals.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log", "erasure-sweep");
     await deps.audit.eraseHousehold(householdId);
   }

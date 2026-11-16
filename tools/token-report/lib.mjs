@@ -1,6 +1,7 @@
 // Створено: 2026-11-14 · Оновлено: 2026-11-15
 // Token and time accounting for the issue «Облік токенів» (#180); owner, 2026-11-14 (#178, comment 6873950124, item 5).
 // Per-model split added (owner, 2026-11-15, #178, comment 6894721169); `append` (owner, 2026-11-15, #178, comment 6899108018).
+// Note cap and body size cap with `archive` (owner, 2026-11-16, #178, comment 6904503474, proposal 2).
 // Pure functions plus `main` with injected I/O, so the tests need no network. Zero dependencies, Node 22.
 import fs from "node:fs";
 
@@ -183,14 +184,11 @@ export const oneDecimal = (n) => {
   return `${grouped(Number(whole))},${frac}`;
 };
 
-/** The row of the table «PR» in #180. */
+/** The row of the table «PR» in #180. The per-agent `subagent_tokens` list is not in the note (owner, 2026-11-16, #178): it stays in the agent logs. */
 export function formatRow({ pr, type, rounds, runs, usage, ci, note }) {
   const minutes = (column) =>
     runs.filter((r) => ROLES[r.role].column === column).reduce((a, r) => a + r.ms, 0) / 60000;
   const tokens = runs.reduce((a, r) => a + r.tokens, 0);
-  const byRole = new Map();
-  for (const r of runs) byRole.set(r.role, [...(byRole.get(r.role) ?? []), grouped(r.tokens)]);
-  const auto = [...byRole].map(([role, list]) => `${ROLES[role].label} ${list.join(" + ")}`).join(", ");
   const cells = [
     `#${String(pr).replace(/^#/, "")}`,
     type,
@@ -201,7 +199,7 @@ export function formatRow({ pr, type, rounds, runs, usage, ci, note }) {
     oneDecimal(minutes("author")),
     oneDecimal(minutes("review")),
     grouped(ci),
-    [auto, note].filter(Boolean).join("; "),
+    note || "—",
   ];
   return `| ${cells.join(" | ")} |`;
 }
@@ -233,6 +231,53 @@ export function appendRow(body, row, { table = "pr" } = {}) {
   if (/[\r\n]/.test(line) || !line.startsWith("|") || !line.endsWith("|")) {
     throw new UsageError("--row must be one table line «| … |» (the first line that `pr` prints)");
   }
+  const { lines, header, last } = locateTable(body, t);
+  const width = tableCells(lines[header]).length;
+  const rowCells = tableCells(line);
+  if (rowCells.length !== width) {
+    throw new UsageError(`the row has ${rowCells.length} cells, the table ${t.name} has ${width}`);
+  }
+  const noteAt = tableCells(lines[header]).findIndex((c) => c === "Примітка");
+  const note = noteAt >= 0 ? rowCells[noteAt] : undefined;
+  if (note !== undefined && [...note].length > MAX_NOTE) {
+    throw new UsageError(
+      `the «Примітка» cell is ${[...note].length} characters, the limit is ${MAX_NOTE} (owner, 2026-11-16, #178): ` +
+        "shorten --note; detail stays in the agent logs and the PR comments",
+    );
+  }
+  const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
+  for (let i = header + 2; i <= last; i++) {
+    if (key(tableCells(lines[i])[0]) === key(rowCells[0])) {
+      throw new UsageError(`the table ${t.name} already has a row «${rowCells[0]}» (line ${i + 1})`);
+    }
+  }
+  const eol = lines[last].endsWith("\r") ? "\r" : "";
+  lines.splice(last + 1, 0, line + eol);
+  const updated = lines.join("\n");
+  if ([...updated].length > MAX_BODY) {
+    throw new UsageError(
+      `the body would be ${[...updated].length} characters, over ${MAX_BODY} (GitHub allows ${GITHUB_BODY_LIMIT}; ` +
+        "owner, 2026-11-16, #178): lead, move the «PR» table to an archive issue first: " +
+        "`node tools/token-report/index.mjs archive --body <file> --out <archive.md>`, then fill the link " +
+        "in the line «Архів рядків PR: <посилання>» and append again",
+    );
+  }
+  return updated;
+}
+
+/** Longest «Примітка» cell and longest #180 body, in characters (owner, 2026-11-16, #178, comment 6904503474). */
+export const MAX_NOTE = 120;
+export const MAX_BODY = 55_000;
+/** GitHub's own limit for an issue body. */
+export const GITHUB_BODY_LIMIT = 65_536;
+/** The line `archive` leaves in the body for the lead to fill with the link. */
+export const ARCHIVE_LINE = "Архів рядків PR: <посилання>";
+
+/**
+ * Locates the table of `t`: { lines, header, last } — the index of its header line and of its last row.
+ * Throws UsageError when the section, the table or the separator is missing.
+ */
+function locateTable(body, t) {
   const lines = body.split("\n");
   const start = lines.findIndex((l) => t.heading.test(l));
   if (start < 0) throw new UsageError(`the body has no section of the table ${t.name}`);
@@ -246,20 +291,25 @@ export function appendRow(body, row, { table = "pr" } = {}) {
   }
   let last = header + 1;
   while (last + 1 < lines.length && lines[last + 1].startsWith("|")) last++;
-  const width = tableCells(lines[header]).length;
-  const rowCells = tableCells(line);
-  if (rowCells.length !== width) {
-    throw new UsageError(`the row has ${rowCells.length} cells, the table ${t.name} has ${width}`);
-  }
-  const key = (c) => c.replace(/^\[([^\]]*)\]\([^)]*\)$/, "$1");
-  for (let i = header + 2; i <= last; i++) {
-    if (key(tableCells(lines[i])[0]) === key(rowCells[0])) {
-      throw new UsageError(`the table ${t.name} already has a row «${rowCells[0]}» (line ${i + 1})`);
-    }
-  }
+  return { lines, header, last };
+}
+
+/**
+ * Moves every row of the table «PR» to a separate markdown (a new archive issue) and leaves the header, the
+ * separator and, after a blank line, ARCHIVE_LINE in the body; every other byte stays (owner, 2026-11-16, #178).
+ * @returns {{ body: string, archive: string, rows: number }}
+ */
+export function archivePrRows(body) {
+  const t = TABLES.pr;
+  const { lines, header, last } = locateTable(body, t);
+  const rows = lines.slice(header + 2, last + 1);
+  if (rows.length === 0) throw new UsageError(`the table ${t.name} has no rows to archive`);
   const eol = lines[last].endsWith("\r") ? "\r" : "";
-  lines.splice(last + 1, 0, line + eol);
-  return lines.join("\n");
+  const clean = (l) => l.replace(/\r$/, "");
+  const archive =
+    ["# Архів рядків PR (облік токенів, #180)", "", clean(lines[header]), clean(lines[header + 1]), ...rows.map(clean)].join("\n") + "\n";
+  lines.splice(header + 2, rows.length, "" + eol, ARCHIVE_LINE + eol);
+  return { body: lines.join("\n"), archive, rows: rows.length };
 }
 
 const USAGE = `usage:
@@ -267,7 +317,8 @@ const USAGE = `usage:
       --run role=<author|fix|review|security|confirm>,log=<agent log>,ms=<duration_ms>,tokens=<subagent_tokens> [--run …]
       (--ci-runs <runs.json> | --branch <PR branch>) [--note <text>]
   node tools/token-report/index.mjs session <transcript.jsonl> [--since <ISO time>] [--until <ISO time>]
-  node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]`;
+  node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]
+  node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>`;
 
 /** Flags without a value. */
 const SWITCHES = new Set(["sessions"]);
@@ -340,6 +391,19 @@ export function main(argv, io) {
       writeFile(opts.body, updated);
       io.stderr(
         `appended to the table ${opts.sessions ? "«Сесії»" : "«PR»"} in ${opts.body}; now: ` +
+          "gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@" + opts.body,
+      );
+      return 0;
+    }
+    if (mode === "archive") {
+      if (!opts.body || !opts.out) throw new UsageError(`--body and --out are required\n${USAGE}`);
+      const { body, archive, rows } = archivePrRows(readFile(opts.body));
+      const writeFile = io.writeFile ?? ((p, text) => fs.writeFileSync(p, text, "utf8"));
+      writeFile(opts.out, archive);
+      writeFile(opts.body, body);
+      io.stderr(
+        `moved ${rows} rows of the table «PR» to ${opts.out}; the body ${opts.body} keeps the header and the line ` +
+          `«${ARCHIVE_LINE}»: create the archive issue from ${opts.out}, put its link into that line, then ` +
           "gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@" + opts.body,
       );
       return 0;
