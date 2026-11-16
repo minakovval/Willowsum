@@ -1,28 +1,80 @@
 # Модуль debt-payoff
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-19@PoC a: борги, сценарій, стратегії, збережені плани, прогрес)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
 ## Призначення
 
-Калькулятор погашення боргів.
+Калькулятор погашення боргів: борги простору (кредитні картки й кредити з «Гроші») з розрахунком за їхніми умовами,
+сценарій з додатковим і разовими платежами, стратегії Avalanche і Snowball, збережені плани і прогрес. Розрахунок не
+змінює зобов'язання і не виконує платежів; кожен результат — розрахунок за введеними даними, не порада.
 
 Домен каталогу ARC-01: Бюджет. Реліз, з якого модуль у каталозі: PoC.
 
-Каркас без функцій (ARC-01@PoC, хвиля 2, рядок 1): публічний інтерфейс лише описує модуль; таблиць, маршрутів і подій ще немає.
-
 ## Вимоги
 
-Зрізи PoC, що називають модуль: BUD-19@PoC, FLW-44@PoC. Функції додають PR цих зрізів.
+BUD-19@PoC a) (хвиля 2, рядок 33 — серверна частина): п. 1 (дані екрана «План погашення»), 2, 3, 4, 5 (збереження,
+«Додати до запланованих витрат» як інтерфейс для бюджету), 6, 7 (серверна частина «Прогресу»), 11 (перелік боргів);
+AC1–AC8 (серверні частини), граничні випадки 1, 2, 5, 6. Далі: п. 9 (змінна ставка з приміткою; борг в іншій валюті з
+підсумком у валюті звітності), п. 12 (поділ платежу на відсотки й тіло), UI (рядок 131: S-143…S-146, AC9–AC11).
 
 ## Публічний інтерфейс
 
-`index.ts`: `debtPayoffModule`.
+`index.ts`:
+
+- `debtPayoffModule` — опис модуля з маршрутами (прапорець випуску і ключ функції `debts.payoff`; простір — лише сесії;
+  борг іншого простору — як неіснуючий, AC7; читання — `household.data.read`, зміни — `household.data.write`; учасник з
+  областю: «бюджет і цілі» закриті політикою видимості за замовчуванням — 404 на читання, 403 на зміни; ліміту плану немає):
+  - `GET /v1/debts` (`listDebts`) — борги в порядку додавання (порожньо — «Боргів не додано»): `accountId`, `kind`
+    (`credit-card`, `loan`), `name`, `balance` (додатний борг), `annualRate`, `monthlyPayment`, `termsMissing` («Вкажіть
+    ставку і платіж», AC5), `base` — розрахунок за умовами зобов'язання (`status`: `paid`, `not-decreasing`, `over-limit`;
+    `months`, `payoffMonth`, `totalInterest`, `schedule` — залишок на кінець кожного місяця, `cappedOneOffs`), `progress`
+    (`paidPercent` вниз до цілого, `remainingMonths`, `plan.status`: `ahead`, `on-track`, `behind`, `none` і `amount`),
+    `plan` — збережений план або null.
+  - `POST /v1/debts/{accountId}/scenario` (`calculateDebtScenario`) — перевизначення `balance`, `annualRate`,
+    `monthlyPayment`, `extraMonthly`, `oneOffs` (`month` пізніше поточного, `amount` > 0; до 24) у валюті боргу →
+    `base`, `scenario`, `saving` («На N міс. раніше, економія X»). Нічого не записує. Без ставки чи платежу — 400
+    `annualRate`/`monthlyPayment: required`.
+  - `PUT /v1/debts/{accountId}/plan` (`saveDebtPlan`) — «Зберегти план»: ті самі поля і `addToPlannedExpenses`; один план
+    на борг, повторне збереження замінює його (`version` + 1), ті самі значення — нічого не записано. План, що не
+    погашає борг, — 409 `DEBT_NOT_DECREASING` або `DEBT_OVER_LIMIT`. → 200 план.
+  - `DELETE /v1/debts/{accountId}/plan` (`deleteDebtPlan`) — «Плану немає» після нього; немає плану — 404.
+  - `POST /v1/debts/strategy` (`compareDebtStrategies`) — `total` («Усього на борги / міс.»), `debts` — перевизначення
+    `minimumPayment`, `annualRate` → `avalanche`, `snowball` (`months`, `payoffMonth`, `totalInterest`, `debts` — місяць
+    закриття кожного), `included`, `excluded` (`terms-missing`, `currency` — інша валюта, ніж `total`, `paid-off`).
+    Сума менша за мінімальні платежі — 400 `total: below_minimums`. Позначки «рекомендовано» немає.
+- `createDebtPayoffServices({ accounts, liabilities, ledger, audit, clock, newId })` → `DebtPayoffServices` — порти
+  маршрутів (`src/api.ts`, `main.ts`): `CreditAccounts` модуля `accounts`, `Liabilities.forAccount` (ставка, платіж),
+  `Ledger.balanceAt` (борг — природний залишок гаманця зобов'язання); «сьогодні» — дата за Києвом.
+- `createDebtPlannedExpenses(db)` → `DebtPlannedExpenses.inMonth(householdId, month)` — додаткові платежі планів з
+  «Додати до запланованих витрат» як заплановані витрати місяця (з місяця після збереження до місяця погашення) для
+  «Можна витратити» (BUD-03) і «План» (BUD-17), без категорії бюджету.
+- `createDebtPayoffWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createDebtPayoffHandOffRecovery(db,
+  households)` — щоденне повернення задач `dead` (`debt-payoff.hand-off-recovery`, до очищення черги; WARN
+  `debt_payoff.hand_off_requeued`); `HAND_OFF_JOB`.
+- `createDebtPayoffErasure(db)` → `eraseHousehold(householdId)` → `{ plans, jobs }` — лише для `data-erasure` (крок
+  `debt-payoff.records`).
+- `MONTHS_MAX`, `STRATEGIES`, тип `Strategy`.
+
+Розрахунок (`domain/payoff.ts`): місяць 1 — наступний після поточного; щомісяця відсотки = залишок × ставка ÷ 1200,
+округлені до мінорної одиниці валюти «половина вгору», потім платіж (останній — залишок з відсотками), потім разові
+платежі місяця (більший за залишок обмежується ним). Платіж, що не перевищує відсотків першого місяця, — `not-decreasing`;
+понад 1200 місяців — `over-limit`. Стратегія: відсотки кожного боргу, мінімальні платежі, решта суми — одному боргу (вища
+ставка або менший поточний залишок; рівні — у порядку додавання), звільнений мінімум лишається в сумі.
+
+## Передача аудиту (ARC-04 п. 2–4, ADR-0015)
+
+Збереження (`debt-payoff.plan`: `create`, `update` — лише змінені поля) і видалення (`delete` — усі поля «до») плану
+пишуть рядок і задачу `debt-payoff.hand-off` в одній транзакції модуля під блокуванням боргу (`pg_advisory_xact_lock`,
+також коли плану ще немає). Запис аудиту — після коміту: одразу тим самим запитом, а якщо не вдалося (WARN
+`debt_payoff.hand_off_deferred`, лише клас помилки; запит не падає) — воркером. Ключ задачі й запису —
+`debt-payoff.plan:<дія>:<план>:<зміна>`. Задача несе значення запису (ідентифікатори, місяці, ставки й суми десятковими
+рядками). Задача `dead` після 8 спроб щодня повертається в чергу. Обробник тримає блокування рядка задачі.
 
 ## Залежності
 
-Шар: process. Модулі: — (`apps/api/module-rules.json`).
+Шар: process. Модулі: accounts, audit, ledger, liabilities (`apps/api/module-rules.json`). Платформа: черга задач (ARC-04).
 
 ## Події
 
@@ -36,4 +88,11 @@
 
 ## Власні таблиці
 
-Схема `debt_payoff`; міграції — `adapters/db/migrations/NNNN_slug.sql`.
+Схема `debt_payoff`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Усі під політикою простору.
+
+| Таблиця | Що |
+| --- | --- |
+| `plans` | Збережений план (`0001_plans.sql`): борг (`account_id` — непрозорий ідентифікатор рахунку `accounts`, один план на борг), валюта, місяць збереження, припущення (`balance`, `annual_rate`, `monthly_payment`, `extra_monthly`, `one_offs` — jsonb `[{ month, amount }]`, до 24), результат (`months`, `total_interest`, `payoff_month`), `add_to_planned_expenses`, версія. Видалений план видаляється; історія — у журналі аудиту |
+| `outbox_events`, `jobs` | Черга модуля (`0002_queue.sql`, таблиці платформи дослівно): задачі `debt-payoff.hand-off`; подій модуль не публікує |
+
+Синтетичні дані: `synthetic.ts` (1 план на простір, виконана задача передачі).

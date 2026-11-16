@@ -30,6 +30,7 @@ export interface ErasureDeps {
   readonly merchants: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly goals: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly budget: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly debtPayoff: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly audit: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -48,6 +49,7 @@ export interface ErasureDeps {
         | "categories.records"
         | "goals.records"
         | "budget.records"
+        | "debt-payoff.records"
         | "accounts.records"
         | "liabilities.records"
         | "ledger.journal"
@@ -144,6 +146,9 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // worker writes only audit entries (swept with the log below), so it needs no second pass.
     await deps.platformAudit.spaceStep(householdId, "budget.records");
     await deps.budget.eraseHousehold(householdId);
+    // Debt payoff plans (BUD-19): they name the accounts by id only; the module publishes and consumes no events.
+    await deps.platformAudit.spaceStep(householdId, "debt-payoff.records");
+    await deps.debtPayoff.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log");
     await deps.audit.eraseHousehold(householdId);
     // Last: the key, with the space's record, in one locked transaction.

@@ -21,7 +21,6 @@ import { createTestDatabase } from "./db.ts";
 // events to one of these modules). Removing that module here is not weakening the test.
 const SKELETONS = [
   "cashflow",
-  "debt-payoff",
   "reports",
   "import-sessions",
   "file-parsers",

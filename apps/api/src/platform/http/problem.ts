@@ -145,6 +145,10 @@ export const PROBLEMS = {
   BUDGET_EXISTS: { status: 409, title: "The space already has a budget" },
   /** «Бюджет ще не існував на цю дату» (BUD-02@PoC edge case 5): the period is before the budget's first one. */
   BUDGET_PERIOD_BEFORE_START: { status: 404, title: "The budget did not exist yet in this period" },
+  /** «За цих умов борг не зменшується» (BUD-19@PoC FR 3, AC4): a plan that never pays the debt off is not saved. */
+  DEBT_NOT_DECREASING: { status: 409, title: "Under these terms the debt does not decrease" },
+  /** «Розрахунок перевищує 100 років — збільште платіж» (BUD-19@PoC edge case 6): the plan is not saved. */
+  DEBT_OVER_LIMIT: { status: 409, title: "The calculation exceeds 100 years — increase the payment" },
   /**
    * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
    * written.

@@ -39,6 +39,7 @@ function fakeDeps(calls: string[]): ErasureDeps {
     merchants: erase("merchants"),
     goals: erase("goals"),
     budget: erase("budget"),
+    debtPayoff: erase("debt-payoff"),
     liabilities: erase("liabilities"),
     ledger: erase("ledger"),
     audit: erase("audit"),

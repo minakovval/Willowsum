@@ -187,6 +187,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(budgetSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off jobs of saved debt payoff plans (BUD-19 a, ARC-04 FR 2, ADR-0015).
+    const debtPayoffSql = readFileSync(
+      `${apiDir}/src/modules/debt-payoff/adapters/db/migrations/0002_queue.sql`,
+      "utf8",
+    );
+    expect(debtPayoffSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     const tables = await rows<{ schema: string; table: string; rls: boolean; forced: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -199,6 +205,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "bulk_actions",
         "categories",
         "categorization",
+        "debt_payoff",
         "goals",
         "ledger",
         "liabilities",

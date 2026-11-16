@@ -164,6 +164,13 @@ export const FLAGS = {
     description:
       "Бюджет періоду (BUD-02@PoC a): один бюджет простору, ліміти, «Поза планом», рахунки бюджету, знімок завершеного періоду; маршрути /v1/budget",
   },
+  "debts.payoff": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    description:
+      "Погашення боргів (BUD-19@PoC a): борги з розрахунком, сценарій з додатковим і разовим платежем, Avalanche / Snowball, збережені плани, прогрес; маршрути /v1/debts",
+  },
 } as const satisfies Record<string, FlagDefinition>;
 
 export type FlagKey = keyof typeof FLAGS;

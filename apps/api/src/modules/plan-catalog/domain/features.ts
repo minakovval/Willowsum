@@ -33,6 +33,8 @@ export const FEATURES = {
     "Цілі накопичення: ціль з однією частиною, «Внести», потрібний щомісячний внесок, прогрес і темп (BUD-05@PoC)",
   "budget.period":
     "Бюджет періоду: план доходу, ліміти категорій, «Поза планом», рахунки бюджету, знімок завершеного періоду (BUD-02@PoC)",
+  "debts.payoff":
+    "Погашення боргів: калькулятор погашення, сценарії з додатковим і разовим платежем, стратегії Avalanche і Snowball, збережені плани, прогрес (BUD-19@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;

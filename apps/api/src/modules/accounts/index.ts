@@ -204,3 +204,56 @@ export function createAccountList(db: ModuleDatabase): AccountList {
       ),
   };
 }
+
+/**
+ * A debt as «Борги» reads it (BUD-19@PoC FR 11; module debt-payoff): an active credit card or loan of the space with
+ * its name and each wallet with its journal account and the date of its opening balance. Read only; the debt itself is
+ * the journal's balance, the rate and the payment are module liabilities'.
+ */
+export interface CreditAccount {
+  readonly accountId: string;
+  readonly kind: "credit-card" | "loan";
+  readonly name: string;
+  readonly subaccounts: readonly {
+    readonly currency: string;
+    readonly ledgerAccountId: string;
+    readonly balanceDate: string;
+  }[];
+}
+
+export interface CreditAccounts {
+  /** The space's active credit cards and loans, in the order they were added. */
+  list(householdId: string): Promise<readonly CreditAccount[]>;
+}
+
+/** `db` is the accounts module's own database (`ModuleDatabases.for("accounts")`). */
+export function createCreditAccounts(db: ModuleDatabase): CreditAccounts {
+  return {
+    list: (householdId) =>
+      db.inHousehold(householdId, async (q) => {
+        const tx = accountsListTx(q);
+        const accounts = await tx.listAccounts(householdId, {
+          includeClosed: false,
+          kinds: ["credit-card", "loan"],
+          after: null,
+          limit: null,
+        });
+        const subaccounts = await tx.subaccountsOf(
+          householdId,
+          accounts.map((a) => a.id),
+        );
+        return accounts.map((a) => ({
+          accountId: a.id,
+          kind: a.kind === "loan" ? "loan" : "credit-card",
+          name: a.name,
+          subaccounts: subaccounts
+            .filter((s) => s.accountId === a.id)
+            .map((s) => ({
+              currency: s.currency,
+              ledgerAccountId: s.ledgerAccountId,
+              balanceDate: s.balanceDate,
+            })),
+        }));
+      }),
+  };
+}

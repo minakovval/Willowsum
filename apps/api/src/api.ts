@@ -8,6 +8,7 @@ import { checkPermission, PERMISSION_KEYS } from "./modules/access-scope/index.t
 import type { AccountsServices } from "./modules/accounts/index.ts";
 import type { BulkActionsServices } from "./modules/bulk-actions/index.ts";
 import type { CategoriesServices } from "./modules/categories/index.ts";
+import type { DebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { BudgetServices } from "./modules/budget/index.ts";
 import type { CategorizationServices } from "./modules/categorization/index.ts";
@@ -68,6 +69,8 @@ export interface ApiWiring {
   readonly goals?: GoalsServices;
   /** The budget module's ports (BUD-02: categories, accounts, transactions, categorization, rates, audit log, clock). */
   readonly budget?: BudgetServices;
+  /** The debt-payoff module's ports (BUD-19: the credit accounts, liabilities, the journal, audit log, clock). */
+  readonly debtPayoff?: DebtPayoffServices;
   /**
    * The categorization module's ports (BUD-01 b: the transactions lookup, the category directory, the audit log).
    * Omitted: its routes answer 500.
@@ -138,13 +141,15 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                         ? wiring.duplicateMatching
                         : module === "goals"
                           ? wiring.goals
-                          : module === "merchants"
-                            ? wiring.merchants
-                            : module === "recurring"
-                              ? wiring.recurring
-                              : module === "budget"
-                                ? wiring.budget
-                                : undefined,
+                          : module === "debt-payoff"
+                            ? wiring.debtPayoff
+                            : module === "merchants"
+                              ? wiring.merchants
+                              : module === "recurring"
+                                ? wiring.recurring
+                                : module === "budget"
+                                  ? wiring.budget
+                                  : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
