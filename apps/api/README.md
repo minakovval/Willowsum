@@ -52,6 +52,7 @@
 | Змінна | Що | Типово |
 | --- | --- | --- |
 | `WS_PORT` | Порт HTTP (API або лише перевірки `/health/live`, `/health/ready`) | 8080 |
+| `WS_HOST` | Адреса, на якій слухає HTTP: `0.0.0.0` (усі інтерфейси, контейнер) або `127.0.0.1` (лише ця машина; так запускає `pnpm local:dev`) | `0.0.0.0` |
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005). У `staging`/`production` ролі `api` (ACC-01 п. 12) і `scheduler` (VAL-05 п. 3, 4: курси НБУ, листи-алерти) стартують лише з `live` | `test` |

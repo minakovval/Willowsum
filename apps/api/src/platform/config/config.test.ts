@@ -193,6 +193,15 @@ describe("ARC-02 FR 3 / CICD-12 FR 3: configuration checked by a schema at start
       expect(text).not.toContain(value);
   });
 
+  it("CICD-04: listens on every interface by default and only on 127.0.0.1 when WS_HOST says so", () => {
+    const modules = ["ledger", "bank-monobank"];
+    expect(loadConfig(base, "api", modules).host).toBe("0.0.0.0");
+    expect(loadConfig({ ...base, WS_HOST: "127.0.0.1" }, "worker", modules).host).toBe("127.0.0.1");
+    expect(errorOf(() => loadConfig({ ...base, WS_HOST: "example.org" }, "api", modules)).variables).toEqual([
+      "WS_HOST",
+    ]);
+  });
+
   it("refuses an unknown role", () => {
     expect(errorOf(() => loadConfig(base, "cron", ["ledger", "bank-monobank"])).variables).toEqual([
       "--role (api | worker | scheduler)",
