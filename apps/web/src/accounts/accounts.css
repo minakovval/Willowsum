@@ -180,6 +180,7 @@
 }
 
 .accounts-group {
+  overflow: hidden;
   padding: 0;
 }
 
@@ -199,6 +200,32 @@
 .accounts-strong {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* The columns of both groups line up (one fixed layout); the name takes what is left. */
+.accounts-table {
+  table-layout: fixed;
+}
+
+.accounts-table th:nth-child(2) {
+  width: 16%;
+}
+
+.accounts-table th:nth-child(3) {
+  width: 12%;
+}
+
+.accounts-table th:nth-child(4) {
+  width: 14%;
+}
+
+.accounts-table th:nth-child(5) {
+  width: 18%;
+}
+
+.accounts-table th:nth-child(6) {
+  width: var(--ws-touch-target);
+  padding-inline: 0;
 }
 
 .accounts-table td {
@@ -237,8 +264,8 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: var(--ws-space-7);
-  height: var(--ws-space-7);
+  width: var(--ws-space-6);
+  height: var(--ws-space-6);
   border: 1px solid var(--ws-line);
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-100);
@@ -247,7 +274,7 @@
 }
 
 .accounts-more {
-  width: var(--ws-touch-target);
+  padding-inline: 0;
   text-align: end;
 }
 
@@ -256,7 +283,7 @@
 }
 
 .accounts-subrow td:first-child {
-  padding-inline-start: calc(var(--ws-space-7) + var(--ws-space-6));
+  padding-inline-start: calc(var(--ws-space-6) + var(--ws-space-6));
 }
 
 .accounts-row--closed .accounts-name strong {
@@ -339,8 +366,8 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: var(--ws-space-8);
-  height: var(--ws-space-8);
+  width: calc(var(--ws-space-6) + var(--ws-space-2));
+  height: calc(var(--ws-space-6) + var(--ws-space-2));
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-300);
 }
