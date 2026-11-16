@@ -280,6 +280,26 @@ describe("ACC-05@PoC FR 5 password change with step-up (S-032)", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Змінити пароль" }));
   });
 
+  it("NFR-01@PoC AC7: focus is already on «Змінити пароль» in the commit that shows «Пароль змінено», not in a later effect", async () => {
+    await openProfile({
+      "POST /v1/session/step-up": ok({ stepUpToken: TOKEN, expiresInS: 300 }),
+      "POST /v1/profile/password": ok({ status: "password-changed" }),
+    });
+    await startPasswordChange();
+    // A MutationObserver callback runs right after the commit that adds the status, before any passive effect.
+    const focusWhenShown = new Promise<Element | null>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (screen.queryByText(/Пароль змінено/)) {
+          observer.disconnect();
+          resolve(document.activeElement);
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    });
+    confirmWith("old-password-123");
+    expect(await focusWhenShown).toBe(screen.getByRole("button", { name: "Змінити пароль" }));
+  });
+
   it("NFR-01@PoC AC6: a wrong current password says only «Пароль неправильний»; the field is cleared and nothing changes", async () => {
     const { calls } = await openProfile({
       "POST /v1/session/step-up": problem(403, "STEP_UP_PASSWORD_INVALID"),
