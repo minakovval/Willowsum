@@ -5,11 +5,13 @@ import { buildServer } from "../../platform/process/server.ts";
 import { setupRealModules, realModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { principalHeader, testAuthenticate } from "../../../test/http.ts";
 import { createAuditLog } from "../audit/index.ts";
+import { FLAG_KEY_MAX_LENGTH, FLAG_KEY_PATTERN } from "./domain/index.ts";
 import {
   AUDIT_ENTITY,
   bucketOf,
   createFlagAdminFor,
   createFlagRuntimeFor,
+  FLAG_KEYS,
   REFRESH_MS,
   type FlagAdmin,
   type FlagRuntime,
@@ -184,5 +186,55 @@ describe("CICD-06: every change of a flag, a kill switch or a test space is in t
         WHERE table_schema = 'feature_flags' AND column_name = 'household_id'`,
     );
     expect(rows.map((r) => r.table)).toEqual(["test_households"]);
+  });
+});
+
+describe("CICD-06 FR 1: every flag of the catalogue can be stored and rolled out to all", () => {
+  // Flag keys are plan-catalog feature keys from the requirements (e.g. `data.bulk_actions`, DAT-03@PoC); the
+  // stored key's CHECK once rejected «_», so that flag could never be switched on.
+  it("each key in FLAGS is accepted by the flags table at «test», «share» and «all», then back to «off»", async () => {
+    for (const key of FLAG_KEYS) {
+      await admin.setRollout(staff, key, { stage: "test" });
+      await admin.setRollout(staff, key, { stage: "share", percent: 50 });
+      await admin.setRollout(staff, key, { stage: "all" });
+    }
+    later();
+    for (const key of FLAG_KEYS) expect(await runtime.isEnabledForAll(key), key).toBe(true);
+    const { rows } = await db.owner.query<{ key: string }>(
+      "SELECT key FROM feature_flags.flags WHERE stage = 'all' ORDER BY key",
+    );
+    expect(rows.map((r) => r.key)).toEqual(expect.arrayContaining([...FLAG_KEYS]));
+    for (const key of FLAG_KEYS)
+      if (key !== "household.core") await admin.setRollout(staff, key, { stage: "off" });
+  });
+
+  it("the table's key CHECK and FLAG_KEY_PATTERN (check:flags) accept and reject the same keys", async () => {
+    const samples = [
+      "sample.bulk_actions",
+      "a.b-c_d.e9",
+      "a",
+      "_a.b",
+      "a._b",
+      "A.b",
+      "a..b",
+      "a.b.",
+      "a.b c",
+      "a.b/c",
+      `a.${"x".repeat(98)}`,
+      `a.${"x".repeat(99)}`,
+    ];
+    for (const key of samples) {
+      const accepted = await db.owner
+        .query("INSERT INTO feature_flags.flags (key, stage, percent) VALUES ($1, 'off', 0)", [key])
+        .then(
+          () => true,
+          (e: { code?: string }) => (e.code === "23514" ? false : Promise.reject(e)),
+        );
+      expect(accepted, key).toBe(FLAG_KEY_PATTERN.test(key) && key.length <= FLAG_KEY_MAX_LENGTH);
+    }
+    await db.owner.query("DELETE FROM feature_flags.flags WHERE key = ANY($1) AND key <> ALL($2)", [
+      samples,
+      [...FLAG_KEYS],
+    ]);
   });
 });

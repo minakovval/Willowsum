@@ -1,4 +1,10 @@
-import { FULL_ROLLOUT_MAX_DAYS, flagDefinition, type FlagDefinition } from "./catalogue.ts";
+import {
+  FLAG_KEY_MAX_LENGTH,
+  FLAG_KEY_PATTERN,
+  FULL_ROLLOUT_MAX_DAYS,
+  flagDefinition,
+  type FlagDefinition,
+} from "./catalogue.ts";
 
 const DAY_MS = 86_400_000;
 
@@ -16,7 +22,8 @@ export function utcDay(now: Date): string {
 
 /**
  * What `check:flags` reports (CICD-06 FR 2): a flag without a valid owner or review date, a flag past its
- * review date, and a release flag fully enabled for more than 30 days (it must be removed from the code).
+ * review date, a release flag fully enabled for more than 30 days (it must be removed from the code), and a key
+ * the flags table would reject (FLAG_KEY_PATTERN), which could never be rolled out.
  * `knownFeatures` (the plan-catalog keys) must match the flags exactly: every function has a key in the
  * feature catalogue and a flag (ARC-01 FR 7), and no flag exists without its function.
  */
@@ -27,6 +34,10 @@ export function flagReviewProblems(
 ): string[] {
   const problems: string[] = [];
   for (const [key, raw] of Object.entries(flags)) {
+    if (!FLAG_KEY_PATTERN.test(key) || key.length > FLAG_KEY_MAX_LENGTH)
+      problems.push(
+        `${key}: the flags table cannot store this key (lowercase dot-separated parts of [a-z0-9_-], ≤ ${FLAG_KEY_MAX_LENGTH} characters)`,
+      );
     const parsed = flagDefinition.safeParse(raw);
     if (!parsed.success) {
       const fields = [...new Set(parsed.error.issues.map((i) => i.path.join(".") || "flag"))];
