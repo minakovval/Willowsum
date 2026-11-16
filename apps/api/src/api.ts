@@ -10,6 +10,7 @@ import type { BulkActionsServices } from "./modules/bulk-actions/index.ts";
 import type { CategoriesServices } from "./modules/categories/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { CategorizationServices } from "./modules/categorization/index.ts";
+import type { MerchantsServices } from "./modules/merchants/index.ts";
 import { FLAG_KEYS, FLAGS, type FlagRuntime } from "./modules/feature-flags/index.ts";
 import type { HouseholdServices, HouseholdSpaces } from "./modules/household/index.ts";
 import type { TransactionsServices } from "./modules/transactions/index.ts";
@@ -68,6 +69,8 @@ export interface ApiWiring {
    * Omitted: its routes answer 500.
    */
   readonly categorization?: CategorizationServices;
+  /** The merchants module's ports (BUD-14 a: the transactions' texts, the audit log). Omitted: its routes answer 500. */
+  readonly merchants?: MerchantsServices;
   /**
    * The bulk-actions module's ports (DAT-03: the targets and actions of the selection panels, the audit log, clock).
    * Omitted: its routes answer 500.
@@ -126,7 +129,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                         ? wiring.duplicateMatching
                         : module === "goals"
                           ? wiring.goals
-                          : undefined,
+                          : module === "merchants"
+                            ? wiring.merchants
+                            : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

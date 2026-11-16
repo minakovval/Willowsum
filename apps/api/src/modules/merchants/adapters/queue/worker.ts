@@ -1,0 +1,42 @@
+import type { ModuleDatabase } from "../../../../platform/db/module-db.ts";
+import {
+  defineJobHandler,
+  postgresJobStore,
+  requeueDeadJobs,
+  type WorkerQueue,
+} from "../../../../platform/queue/index.ts";
+import { applyHandOff, type MerchantAudit } from "../../application/index.ts";
+import { HAND_OFF_JOB } from "./job.ts";
+
+/**
+ * The worker's merchants queue (src/wiring.ts): the store in the merchants schema and the hand-off's handler (the audit
+ * entry through the audit log's public interface, ADR-0015, holding the job's row lock).
+ */
+export function merchantsWorkerQueue(db: ModuleDatabase, audit: MerchantAudit): WorkerQueue {
+  return {
+    store: postgresJobStore(db),
+    handlers: [
+      defineJobHandler({
+        job: HAND_OFF_JOB,
+        run: async (job, q) => {
+          // As categorization's: the space's erasure, which deletes the queue rows, waits for this lock, and a job whose
+          // row it took already writes nothing into the erased space.
+          const { rowCount } = await q.query(
+            `SELECT 1 FROM jobs WHERE household_id = $1 AND id = $2 FOR UPDATE`,
+            [job.householdId, job.id],
+          );
+          if (!rowCount) return;
+          await applyHandOff(audit, job.householdId, job.payload);
+        },
+      }),
+    ],
+  };
+}
+
+/**
+ * The scheduler's daily recovery (src/wiring.ts, `merchants.recovery`; ADR-0015, #249): the space's dead hand-offs go
+ * back in the queue before the retention cleanup. Idempotent (a keyed entry).
+ */
+export async function requeueDeadJobsOf(db: ModuleDatabase, householdId: string): Promise<number> {
+  return requeueDeadJobs(db, householdId, HAND_OFF_JOB.name);
+}

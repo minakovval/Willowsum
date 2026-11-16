@@ -169,6 +169,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(categorizationSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off of a merchant's rename, merge and «Роз'єднати» (BUD-14 a, ADR-0015).
+    const merchantsSql = readFileSync(
+      `${apiDir}/src/modules/merchants/adapters/db/migrations/0002_queue.sql`,
+      "utf8",
+    );
+    expect(merchantsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     // The audit hand-off jobs of goals (BUD-05, ARC-04 FR 2, ADR-0015).
     const goalsSql = readFileSync(
       `${apiDir}/src/modules/goals/adapters/db/migrations/0003_queue.sql`,
@@ -189,6 +195,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "goals",
         "ledger",
         "liabilities",
+        "merchants",
         "queue_consumer",
         "queue_producer",
         "transactions",

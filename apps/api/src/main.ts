@@ -17,6 +17,7 @@ import {
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
+import { createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -35,6 +36,7 @@ import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionLookup,
+  createTransactionTexts,
   createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
@@ -279,6 +281,11 @@ const server = buildServer({
                   createTransactionLookup(databases.for("transactions")),
                 ),
               ],
+            }),
+            // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
+            merchants: createMerchantsServices({
+              transactions: createTransactionTexts(databases.for("transactions")),
+              audit,
             }),
             // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts).
             goals: createGoalsServices({

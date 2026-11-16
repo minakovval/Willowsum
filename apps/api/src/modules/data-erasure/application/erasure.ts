@@ -27,6 +27,7 @@ export interface ErasureDeps {
   readonly bulkActions: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly categories: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly merchants: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly goals: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -42,6 +43,7 @@ export interface ErasureDeps {
         | "bulk-actions.records"
         | "transactions.records"
         | "categorization.records"
+        | "merchants.records"
         | "categories.records"
         | "goals.records"
         | "accounts.records"
@@ -121,6 +123,10 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // into a queue already erased.
     await deps.platformAudit.spaceStep(householdId, "categorization.records");
     await deps.categorization.eraseHousehold(householdId);
+    // The merchants (BUD-14 a): born from the transactions' descriptions, which went above; the module publishes and
+    // consumes no events, so its place among the consumers is free — after categorization.
+    await deps.platformAudit.spaceStep(householdId, "merchants.records");
+    await deps.merchants.eraseHousehold(householdId);
     // Goals (BUD-05): they name accounts by id only, so before or after them alike.
     await deps.platformAudit.spaceStep(householdId, "goals.records");
     await deps.goals.eraseHousehold(householdId);
