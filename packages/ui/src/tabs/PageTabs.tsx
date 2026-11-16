@@ -50,7 +50,7 @@ export function PageTabs({
     e.preventDefault();
     const target = list.current?.querySelectorAll<HTMLAnchorElement>('[role="tab"]')[next];
     target?.focus();
-    target?.click();
+    window.location.assign(tabs[next]!.href);
   };
 
   return (

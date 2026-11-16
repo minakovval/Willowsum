@@ -69,7 +69,8 @@ describe("UX-09@PoC navigation", () => {
     expect(within(nav()).queryByRole("link", { name: /Чи можу я дозволити/ })).toBeNull();
     follow(navLink("Борги"));
     expect(h1()).toBe("Борги");
-    expect(screen.getByText("Тут поки нічого немає")).toBeTruthy();
+    // BUD-19@PoC FR 11: the page «Борги» itself (S-143) with its tabs, not the empty page of a missing screen.
+    expect(screen.getByRole("tablist", { name: "Розділи боргів" })).toBeTruthy();
   });
 
   it("UX-09 AC7 (structure): «Гроші» shows only «Транзакції» and «Рахунки»; no «До розбору», «Пари», «Підключення» items", () => {

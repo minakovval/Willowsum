@@ -366,6 +366,8 @@ export const uk = {
   "gallery.progress.statement": "Виписка PDF",
   "gallery.progress.transactions": "транзакцій",
   "gallery.progress.pagesUnit": "сторінок",
+  "gallery.tabs.title": "Вкладки сторінки",
+  "gallery.tabs.panel": "Вміст обраної вкладки",
   "gallery.progress.retry": "Спробувати ще раз",
   "gallery.progress.live": "Зміна стану",
   "gallery.progress.liveLabel": "Завантаження файлів",

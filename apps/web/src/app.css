@@ -209,7 +209,7 @@
 
 .debts-badge--muted {
   background: var(--ws-surface-300);
-  color: var(--ws-ink-muted);
+  color: var(--ws-ink);
 }
 
 .debts-plan--better {

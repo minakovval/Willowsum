@@ -366,6 +366,8 @@ export const en: Messages = {
   "gallery.progress.statement": "PDF statement",
   "gallery.progress.transactions": "transactions",
   "gallery.progress.pagesUnit": "pages",
+  "gallery.tabs.title": "Page tabs",
+  "gallery.tabs.panel": "The content of the selected tab",
   "gallery.progress.retry": "Try again",
   "gallery.progress.live": "State changes",
   "gallery.progress.liveLabel": "File upload",
