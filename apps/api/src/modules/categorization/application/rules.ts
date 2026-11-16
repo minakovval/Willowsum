@@ -153,8 +153,19 @@ export type RuleResult =
   | { readonly kind: "limit" }
   | { readonly kind: "invalid"; readonly path: string; readonly issue: "out_of_range" };
 
+/** The conditions and accounts as written (a change of the text's case is a change, unlike `conditionKey`). */
+const written = (rule: RuleMatcher) =>
+  JSON.stringify([
+    rule.conditions.map((c) =>
+      c.field === "amount"
+        ? [c.field, c.operator, c.value.toDecimalString(), c.value.currency]
+        : [c.field, c.operator, c.value],
+    ),
+    [...rule.accountIds].sort(),
+  ]);
+
 const conditionsAudit = (before: RuleMatcher | null, after: RuleMatcher) =>
-  before === null || conditionKey(before) !== conditionKey(after)
+  before === null || written(before) !== written(after)
     ? [{ field: "conditions", before: before === null ? null : CHANGED, after: CHANGED, sensitive: true }]
     : [];
 
@@ -294,11 +305,34 @@ export interface ListedRule {
   readonly appliedCount: number;
 }
 
+/** The lookups of other modules once per category and account within one call. */
+function memoized(
+  deps: Pick<RuleDeps, "categories" | "accounts">,
+): Pick<RuleDeps, "categories" | "accounts"> {
+  const categories = new Map<string, ReturnType<RuleDeps["categories"]["category"]>>();
+  const accounts = new Map<string, Promise<boolean>>();
+  return {
+    categories: {
+      category: (householdId, id) => {
+        if (!categories.has(id)) categories.set(id, deps.categories.category(householdId, id));
+        return categories.get(id)!;
+      },
+    },
+    accounts: {
+      exists: (householdId, id) => {
+        if (!accounts.has(id)) accounts.set(id, deps.accounts.exists(householdId, id));
+        return accounts.get(id)!;
+      },
+    },
+  };
+}
+
 export async function listRules(
   tx: RulesTx,
-  deps: Pick<RuleDeps, "categories" | "accounts">,
+  rawDeps: Pick<RuleDeps, "categories" | "accounts">,
   householdId: string,
 ): Promise<ListedRule[]> {
+  const deps = memoized(rawDeps);
   const rules = await tx.rules(householdId);
   const counts = await tx.appliedCounts(householdId);
   const listed: ListedRule[] = [];
@@ -385,7 +419,8 @@ export async function applyRulesToNew(
   const rules = (await rulesTx.rules(householdId)).filter((r) => r.enabled);
   if (rules.length === 0) return "none";
   const subject = subjectOf(row, await namesOf(deps, householdId, [row]));
-  const rule = await firstRule(rules, subject, (r) => attentionOf(deps, householdId, r));
+  const lookups = memoized(deps);
+  const rule = await firstRule(rules, subject, (r) => attentionOf(lookups, householdId, r));
   if (rule === null) return "none";
   const next: TransactionCategory & { ruleId: string } = {
     categoryId: rule.categoryId,
