@@ -1462,6 +1462,36 @@ code {
   inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
 }
 
+/* CMP-03@PoC gallery: Select in every state, «з пошуком» and the list buttons. */
+.gallery-select {
+  display: grid;
+  gap: var(--ws-space-5);
+}
+
+.gallery-select p.ws-muted {
+  margin: 0;
+}
+
+.gallery-select figure {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.gallery-select__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-5) var(--ws-space-4);
+}
+
+.gallery-select__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
 /* CMP-21@PoC Dialog in the gallery: the buttons that open each case and the synthetic content. */
 .gallery-dialog__openers {
   display: flex;
@@ -1492,6 +1522,40 @@ code {
 .gallery-dialog__rows {
   display: flex;
   flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* CMP-13@PoC gallery: Pagination in its states and a live list. */
+.gallery-pagination {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-pagination p {
+  margin: 0;
+}
+
+.gallery-pagination__grid {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-pagination__case {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.gallery-pagination__list {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.gallery-pagination__rows {
+  display: grid;
   gap: var(--ws-space-2);
   margin: 0;
   padding: 0;

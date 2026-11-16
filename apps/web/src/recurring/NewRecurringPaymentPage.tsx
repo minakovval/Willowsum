@@ -18,6 +18,7 @@ import {
   type Frequency,
 } from "./data.ts";
 import { FREQUENCY_KEYS } from "./format.ts";
+import { LoadError } from "./LoadError.tsx";
 
 /**
  * BUD-07@PoC FR 6, S-141 «Додати вручну»: name, amount, frequency, anchor date, category, account, end date, type,
@@ -89,13 +90,15 @@ export function NewRecurringPaymentPage({ child, today = kyivToday() }: { child:
   const { t } = useI18n();
   const title = t(child.title);
   useDocumentTitle(title);
-  const { result } = useLoad(loadFormChoices);
+  const { result, reload } = useLoad(loadFormChoices);
   return (
     <AppLayout sectionId={RECURRING.sectionId} pageId={RECURRING.id}>
       <ChildHeader child={child} title={title} />
       <section className="ws-card rec-card rec-form-card">
         {result.state === "ready" ? (
           <PaymentForm today={today} choices={result.data} />
+        ) : result.state === "error" ? (
+          <LoadError failure={result.failure} onRetry={reload} />
         ) : (
           <Skeleton variant="text" lines={6} />
         )}

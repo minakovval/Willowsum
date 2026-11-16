@@ -48,8 +48,10 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { DialogDemo } from "./DialogDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
+import { PaginationDemo } from "./PaginationDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
+import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -400,12 +402,20 @@ export function GalleryTokensPage() {
         </PageTabs>
       </Section>
 
+      <Section id="g-select" title={t("gallery.select.title")}>
+        <SelectDemo />
+      </Section>
+
       <Section id="g-dialog" title={t("gallery.dialog.title")}>
         <DialogDemo />
       </Section>
 
       <Section id="g-button" title={t("gallery.button.title")}>
         <ButtonDemo />
+      </Section>
+
+      <Section id="g-pagination" title={t("gallery.pagination.title")}>
+        <PaginationDemo />
       </Section>
 
       <Section id="g-field" title={t("gallery.field.title")}>
