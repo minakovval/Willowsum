@@ -29,6 +29,7 @@ export interface ErasureDeps {
   readonly categorization: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly merchants: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly goals: { eraseHousehold(householdId: string): Promise<unknown> };
+  readonly debtPayoff: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly liabilities: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly ledger: { eraseHousehold(householdId: string): Promise<unknown> };
   readonly audit: { eraseHousehold(householdId: string): Promise<unknown> };
@@ -46,6 +47,7 @@ export interface ErasureDeps {
         | "merchants.records"
         | "categories.records"
         | "goals.records"
+        | "debt-payoff.records"
         | "accounts.records"
         | "liabilities.records"
         | "ledger.journal"
@@ -138,6 +140,9 @@ async function eraseTargets(deps: ErasureDeps, request: RequestState): Promise<v
     // They name accounts and transactions by id only.
     await deps.platformAudit.spaceStep(householdId, "goals.records");
     await deps.goals.eraseHousehold(householdId);
+    // Debt payoff plans (BUD-19): they name the accounts by id only; the module publishes and consumes no events.
+    await deps.platformAudit.spaceStep(householdId, "debt-payoff.records");
+    await deps.debtPayoff.eraseHousehold(householdId);
     await deps.platformAudit.spaceStep(householdId, "audit.log");
     await deps.audit.eraseHousehold(householdId);
     // Last: the key, with the space's record, in one locked transaction.
