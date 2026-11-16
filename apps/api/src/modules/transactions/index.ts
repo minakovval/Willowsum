@@ -288,3 +288,10 @@ export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
     used: (householdId, ids) => db.inHousehold(householdId, (q) => subaccountsInUse(q, householdId, ids)),
   };
 }
+
+/**
+ * DAT-03@PoC FR 2, BUD-13@PoC FR 2 (src/wiring.ts `bulkActionsServicesFor`): «Додати теги» — the target
+ * `transaction-tags` and the action `transactions.add-tags` for module bulk-actions. `db` is the transactions module's
+ * own database; `accounts` the accounts module's directory (a closed account's transactions are read only).
+ */
+export { createTagBulkActions as createTransactionTagBulkActions } from "./adapters/bulk/tags.ts";
