@@ -153,7 +153,7 @@ Up to 7 branches at a time (AGENTS.md «Parallel branches»; owner, 2026-11-16, 
 **At most 10 agents at once** (owner, 2026-11-16; was 7, before that 3–4), authors, reviewers and fix agents together; more wait in a queue.
 Slots count agents, not branches: give each agent a slot `k` (1–10) in its brief and keep a table slot → agent →
 branch → worktree: its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on
-`WS_PORT=808k` (k = 1–9; for k = 10: web 5180, preview 4180, API 8090), its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
+`WS_PORT=808k` (k = 1–9; k = 10: see `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and its own worktree; it stops only the
 processes it started, by PID (the skills that start servers or databases say how). Choose parts that touch
 different modules; two PRs that change the same files go one after the other. Integration tests on one
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
