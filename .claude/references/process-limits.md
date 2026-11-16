@@ -9,14 +9,15 @@ in each heading; this file only says how to apply them.
 ## Is a process review due? (`pr-pipeline/references/restarts.md`, «Process review»)
 
 ```bash
-# 1. when the previous review was posted (its comment on #180 starts with «## Огляд процесу» or «## Перегляд процесу»)
+# 1. when the previous review was posted (its comment on #180 starts with «## Огляд процесу» or «### Перегляд процесу»)
 gh api 'repos/{owner}/{repo}/issues/180/comments?per_page=100' --paginate \
-  --jq '[.[] | select(.body | test("^## (Огляд|Перегляд) процесу"))] | last | .created_at'
+  --jq '.[] | select(.body | test("^##+ (Огляд|Перегляд) процесу")) | .created_at' | tail -1
 # 2. PRs merged since then (put the time from step 1 in place of <T>, e.g. 2026-11-16T15:35:41Z)
 gh api 'search/issues?q=repo:minakovval/Willowsum+is:pr+is:merged+merged:>'<T> --jq .total_count
 ```
 
-Due only when step 2 gives 40 or more **and** `<T>` is at least 24 hours ago. Not due → no review, no comment;
+Step 1 prints nothing (no previous review found) → the review is due; skip step 2. Otherwise due only when step 2
+gives 40 or more **and** `<T>` is at least 24 hours ago. Not due → no review, no comment;
 write «огляд процесу: не настав (N PR, H год)» in «Lead state». Due → the review comes before new tasks, and its
 comment starts with `## Огляд процесу ведучого N`, so the next check finds it. More than 3 proposals → the 3 with
 the largest expected saving go to the owner, the rest are listed in #178 under «Чекає наступного огляду».
@@ -29,7 +30,9 @@ gh api 'search/issues?q=repo:minakovval/Willowsum+is:issue+is:open+in:title+foll
 
 Run it before taking a new plan row. A follow-up issue is one whose title has «Follow-ups» or «follow-ups»; the lead
 names every such issue that way. More than 40 → the next free author slot gets row `R` (modules with no open PR,
-security items first) and new rows wait for the slots after it; the rows already in work continue. A security
+security items first) and new rows wait for the slots after it; the rows already in work continue. This applies from
+the end of stage 1 (Рахунки) of `docs/plans/poc-wave-2.md`, «Порядок етапів»; until then, while more than 40 are
+open, one author slot, no more, stays on row `R`. A security
 follow-up that two sweeps left open: add a row for it to the wave plan in the next plan-status PR and link the
 issue from the row.
 
@@ -52,7 +55,8 @@ description would let a reader reproduce the bypass, leak or loss. A finding fix
 
 1. The follow-up issue gets one line: module and the rule broken (e.g. «accounts: закриття рахунку не чекає
    проводок у черзі»), no steps, inputs or code.
-2. The detail goes to a draft security advisory, visible only to the owner:
+2. The detail — the probe, test and patch the reviewer kept in the scratchpad `keep/` and named in its report to
+   the lead (`review-pr` §5, `security-review` §6) — goes to a draft security advisory, visible only to the owner:
    ```bash
    # body.json: {"summary": "<same line>", "description": "<probe, steps, patch>", "severity": "medium",
    #             "vulnerabilities": [{"package": {"ecosystem": "other", "name": "willowsum"}}]}
@@ -66,4 +70,4 @@ description would let a reader reproduce the bypass, leak or loss. A finding fix
 
 The owner switches it on with [browser task 02](../../docs/ops/browser-tasks/02-main-protection.md). After that a
 direct push or a merge with a red required check is refused by GitHub; the lead's merge steps do not change. If a
-required check never starts on a PR, treat it as «CI cannot run» (`pr-pipeline/references/stacked-and-blocked.md`).
+required check never starts on a PR, treat it as «CI cannot run» ([stacked PRs and CI that cannot run](stacked-and-blocked.md)).

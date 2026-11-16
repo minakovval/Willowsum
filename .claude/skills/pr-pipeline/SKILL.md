@@ -18,9 +18,10 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
   with the reason);
-- (d) the end of a lead segment: the short retrospective (the handover table goes to #179; owner, 2026-11-16, #178);
+- (d) the end of a lead segment: the short retrospective (the handover table goes to #179:
+  [handover confirmation](../../references/handover-confirmation.md));
   at the end of a session also the item-by-item handover confirmation and the start message
-  ([new session](references/new-session.md));
+  ([new session](../../references/new-lead-session.md));
 - (e) the end of each stage of `docs/plans/poc-wave-2.md` and once a day: the number of PRs merged in the period,
   what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
   rows of #180), and the UI texts marked «варіант від агента, потребує погодження» (`docs/design/ARTIFACTS.md`,
@@ -99,24 +100,26 @@ proposals: [lead communication](references/lead-communication.md).
    «Follow-ups» go to one follow-up PR (lighter model) or an issue each, linked from the merged PR. Unmerged
    **reviewer probes and tests** are posted at once on that issue inside `<details>`, split if over 65 000
    characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
-   never posted in an issue or a PR — one line in the issue (module, rule broken), the detail in a draft security
-   advisory ([how](../../references/process-limits.md)); if that fails, tell the owner at once (§2, urgent).
+   never posted in an issue or a PR — one line in the issue (module, rule broken), the detail (the reviewer's
+   `keep/` file) in a draft security advisory ([how](../../references/process-limits.md)); if that fails, tell the
+   owner at once (§2, urgent).
    **Token and time accounting** (mandatory): in the same turn as the merge, before the agent logs can vanish, add
    the PR's row to the **body** of #180 ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.
 9. **Follow-up sweep**: after every 8–10 merged PRs, one PR (row `R`, lighter model) closes the small open
    follow-ups (issues and the «Follow-ups» of merged PRs), security items first, only in modules with no open PR.
    Larger items get a plan row. **Limit:** while more than 40 follow-up issues are open, the next free author slot
-   goes to row `R` before any new plan row; a security follow-up left open by 2 sweeps gets its own plan row.
+   goes to row `R` before any new plan row, from the end of stage 1 of `docs/plans/poc-wave-2.md` (until then: one
+   author slot, no more, stays on row `R`); a security follow-up left open by 2 sweeps gets its own plan row.
    Count: [process limits](../../references/process-limits.md). Small process changes:
    [lead communication](references/lead-communication.md), «Batching process changes».
 
-Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
+Rare cases — [stacked PRs and CI that cannot run](../../references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
 **Lead sessions** — [restarts](references/restarts.md) (read at the start, after a restart or an agent cut off by a
 limit, at ~350 k tokens and after a compaction); a new session, the automatic restart and the start message:
-[new session](references/new-session.md). Model by risk (Fable included), briefs, resumes, token accounting and the
+[new session](../../references/new-lead-session.md). Model by risk (Fable included), briefs, resumes, token accounting and the
 retrospective: [token economy](references/token-economy.md) (read when you choose a model or write a brief).
 
 ## 2. Owner
