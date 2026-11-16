@@ -1056,3 +1056,198 @@
   color: var(--ws-disabled-ink);
   cursor: not-allowed;
 }
+
+/*
+ * CMP-21@PoC Dialog: a modal <dialog> in the top layer over the `scrim` with a 2 px blur; 16 px radius,
+ * `surface-200`, `shadow-dialog`; at most 560 px wide (640 / 900 only for the named content) and the window
+ * height minus 2 × 48 px. Only the body scrolls when content is taller: the action bar stays in place.
+ */
+.ws-dialog {
+  box-sizing: border-box;
+  width: min(var(--ws-dialog-width), calc(100% - 2 * var(--ws-space-4)));
+  max-width: none;
+  max-height: calc(100% - 2 * var(--ws-space-7));
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-dialog);
+  color: var(--ws-ink);
+}
+
+.ws-dialog[data-size="split"] {
+  width: min(var(--ws-dialog-width-split), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[data-size="wide"] {
+  width: min(var(--ws-dialog-width-wide), calc(100% - 2 * var(--ws-space-4)));
+}
+
+.ws-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No slide or scale on appearing (CMP-21 «Зменшений рух»): the dialog and its scrim simply appear. */
+.ws-dialog::backdrop {
+  background: var(--ws-scrim);
+  backdrop-filter: blur(var(--ws-scrim-blur));
+}
+
+.ws-dialog-box {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* «✕»: a 36 px circle 12 px from the top right corner; the hit area stays 44 × 44 px. */
+.ws-dialog-close.ws-icon-button {
+  position: absolute;
+  inset-block-start: var(--ws-space-3);
+  inset-inline-end: var(--ws-space-3);
+  z-index: var(--ws-layer-local-1);
+  min-width: calc(var(--ws-space-6) + var(--ws-space-1));
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+}
+
+.ws-dialog-close.ws-icon-button::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-space-6) + var(--ws-space-1) - var(--ws-touch-target)) / 2);
+}
+
+.ws-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--ws-space-5);
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--ws-space-6);
+}
+
+/* The scrolling body is a Tab stop; its ring is drawn inside, where the dialog's rounded clip cannot cut it. */
+.ws-dialog-body:focus-visible {
+  outline-offset: calc(-1 * var(--ws-focus-ring-width));
+}
+
+.ws-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog[data-align="center"] .ws-dialog-head {
+  align-items: center;
+  padding-inline: var(--ws-space-5);
+  text-align: center;
+}
+
+.ws-dialog[data-align="start"] .ws-dialog-head {
+  align-items: flex-start;
+  padding-inline-end: var(--ws-space-5);
+  text-align: start;
+}
+
+/* The icon tile: 56 × 56 px, radius 16 px, the soft tint of the dialog's tone with a 24 px icon in its colour. */
+.ws-dialog-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--ws-space-7) + var(--ws-space-2));
+  height: calc(var(--ws-space-7) + var(--ws-space-2));
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-tint-info);
+  color: var(--ws-link);
+}
+
+.ws-dialog-icon[data-tone="warning"] {
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.ws-dialog-icon[data-tone="danger"] {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.ws-dialog-title {
+  margin: 0;
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  letter-spacing: var(--ws-text-heading-2-tracking);
+}
+
+.ws-dialog-text {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-action-size);
+  line-height: calc(var(--ws-space-5) - var(--ws-space-1) / 2);
+}
+
+.ws-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  text-align: start;
+}
+
+/* A failed action: the message starts with «Помилка»; the dialog stays open. */
+.ws-dialog-error {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-negative);
+  color: var(--ws-ink);
+  text-align: start;
+}
+
+/* The action bar: `surface-inset`, a 1 px `surface-300` line on top, 20 × 32 px. */
+.ws-dialog-foot {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: calc(var(--ws-space-4) + var(--ws-space-1)) var(--ws-space-6);
+  border-block-start: 1px solid var(--ws-surface-300);
+  background: var(--ws-surface-inset);
+}
+
+.ws-dialog-note {
+  margin: 0;
+}
+
+/* Equal buttons of one size in one row, 12 px apart; a full-width column (primary on top) when they do not fit. */
+.ws-dialog-actions {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-dialog-actions[data-layout="column"] {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ws-dialog-action {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.ws-dialog-action[data-variant="danger"]:not([aria-disabled="true"]) {
+  border: 1.5px solid var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+/* The running main action keeps its look and shows its busy label. */
+.ws-dialog-action[aria-busy="true"] {
+  cursor: progress;
+}
