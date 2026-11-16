@@ -1,6 +1,6 @@
 # Модуль accounts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-19@PoC a: `createCreditAccounts` для `debt-payoff`; BUD-05: `PostingAccount.kind` для `goals`; IMP-02@PoC a: «+ додати ще валюту» і прибрати валюту наявного рахунку; ARC-04: передача керування рахунком і аудиту «Основне»/«Реквізити», #252 п. 3; передача створення і зміни типу через задачу `accounts.hand-off`, #210; FIN-12@PoC a: закриття, повторне відкриття, «Оновити залишок»; FIN-12@PoC b: перейменування і зміна типу в межах групи — серверна частина; FIN-03@PoC a: `createAccountDirectory` для транзакцій; FIN-12@PoC b: «Реквізити» — серверна частина)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -158,6 +158,9 @@ FIN-12@PoC e) (хвиля 2, рядок 18b; #244 п. 7): у «Реквізит�
   `kind` — вид рахунку (цілі BUD-05 тримають гроші лише на готівковому), `status`, `subaccounts`: `subaccountId`, `currency`, `ledgerAccountId`) або null — рахунок, на який інший модуль
   проводить гроші (модулі `transactions`, FIN-03@PoC п. 2, граничний випадок 2, і `goals` — залишок частини цілі, BUD-05@PoC п. 2, 3); лише читання; рахунок іншого простору —
   null, як неіснуючий.
+- `createCreditAccounts(db)` → `CreditAccounts.list(householdId)` → `CreditAccount[]` (`accountId`, `kind` — `credit-card`
+  або `loan`, `name`, `subaccounts`: `currency`, `ledgerAccountId`, `balanceDate`) — активні кредитні картки й кредити
+  простору в порядку додавання для «Борги» (модуль `debt-payoff`, BUD-19@PoC п. 11); лише читання.
 - `ACCOUNT_KINDS`, `groupOf`, `maskedNumber`, `parseAccountNumber`, `depositAccrual`, типи `AccountKind`, `AccountGroup`,
   `AccountView`, `DepositAccrual`.
 

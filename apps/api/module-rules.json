@@ -41,6 +41,7 @@
         "bulk-actions",
         "categories",
         "categorization",
+        "debt-payoff",
         "goals",
         "household",
         "identity",
@@ -53,7 +54,7 @@
     },
     "debt-payoff": {
       "layer": "process",
-      "dependsOn": []
+      "dependsOn": ["accounts", "audit", "ledger", "liabilities"]
     },
     "duplicate-matching": {
       "layer": "subject",
