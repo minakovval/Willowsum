@@ -31,7 +31,11 @@ import {
   createLedgerIntegrityCheck,
   type LedgerIntegrityAlerts,
 } from "./modules/ledger/index.ts";
-import { createGoalsHandOffRecovery, createGoalsWorkerQueue } from "./modules/goals/index.ts";
+import {
+  createGoalsHandOffRecovery,
+  createGoalsWorkerQueue,
+  goalsSubscriptions,
+} from "./modules/goals/index.ts";
 import {
   createLiabilities,
   createLiabilitiesHandOffRecovery,
@@ -272,8 +276,8 @@ export function schedulerDailyTasks(deps: {
 /**
  * The worker role's queues (ARC-04): each module that publishes events or runs jobs adds its store
  * (`postgresJobStore(databases.for(<module>))`) and handlers here, and each consumer of an event its subscription.
- * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); no
- * module consumes it yet, so the worker marks its events dispatched and hands them to no one (ADR-0014). `accounts`
+ * The scheduler's retention cleanup goes over the same stores. `ledger` publishes «проводку записано» (ARC-11); goals
+ * consumes it (BUD-05 AC5: a reversed transaction event cancels the spends made on it). `accounts`
  * runs its hand-off jobs (ARC-04 FR 2, #210): the ledger accounts and opening balances, the liability and the audit
  * entries of a create or a kind change, after the accounts transaction committed. `transactions` runs its hand-off jobs
  * the same way (ADR-0015): a transaction's journal event made to match its row, and its audit entry. `liabilities` runs
@@ -310,9 +314,10 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       // DAT-03: the parts of background bulk actions, undos and their group audit entries (ARC-04).
       createBulkActionsWorkerQueue(databases.for("bulk-actions"), bulkActionsServicesFor(audit, databases)),
       createLiabilitiesWorkerQueue(databases.for("liabilities"), audit),
-      // BUD-05: the audit entries of goals and contributions, after the goals transaction committed (ADR-0015).
+      // BUD-05: the audit entries of goals, contributions and spends, after the goals transaction committed (ADR-0015),
+      // and the ledger's reversals of spent transactions (AC5).
       createGoalsWorkerQueue(databases.for("goals"), audit),
     ],
-    subscriptions: [...categorizationSubscriptions],
+    subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions],
   };
 }

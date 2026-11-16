@@ -140,6 +140,7 @@ export const PROBLEMS = {
    * nothing was written.
    */
   GOAL_OWN_ACCOUNT: { status: 409, title: "Add a transfer to the goal's account instead" },
+  GOAL_SPEND_OVER_COLLECTED: { status: 409, title: "The transactions take more than the goal holds" },
   /**
    * «Інша масова дія ще виконується» (DAT-03@PoC FR 6, AC7): the account already has a bulk action running; nothing was
    * written.

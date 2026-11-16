@@ -4,10 +4,13 @@ import { kyivToday } from "../../../../platform/lists/list-total.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import { groupOf, type AccountDirectory } from "../../../accounts/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
-import type { Ledger } from "../../../ledger/index.ts";
+import { Money } from "@willowsum/domain-kernel";
+import type { Entry, Ledger } from "../../../ledger/index.ts";
+import type { TransactionLookup } from "../../../transactions/index.ts";
 import {
   applyHandOff,
   type AccountBalances,
+  type SpendableTransactions,
   type GoalHandOff,
   type GoalsAudit,
   type GoalsDeps,
@@ -43,13 +46,61 @@ export function accountBalances(
   };
 }
 
+/** The source of a transaction's journal event (module `transactions`, FIN-03 FR 1) and its event type. */
+const TRANSACTION_EVENT = "transaction" as const;
+const sourceOf = (transactionId: string) => ({ module: "transactions", id: transactionId });
+
+/** What the entry moves on the ledger account, signed from its side (positive into it). */
+function signedOn(entry: Entry, ledgerAccountId: string, currency: string): Money {
+  let sum = Money.zero(currency);
+  for (const p of entry.postings) {
+    if (p.amount.currency !== currency) continue;
+    if (p.debitAccountId === ledgerAccountId) sum = sum.plus(p.amount);
+    if (p.creditAccountId === ledgerAccountId) sum = sum.minus(p.amount);
+  }
+  return sum;
+}
+
+/**
+ * «Витратити» (FR 8) over the public interfaces of `transactions` (the transaction and its marks), `accounts` (the
+ * account's wallet in the currency) and `ledger` (the transaction's event in effect and what it took from the wallet).
+ */
+export function spendableTransactions(
+  transactions: Pick<TransactionLookup, "facts">,
+  accounts: Pick<AccountDirectory, "postingAccount">,
+  ledger: Pick<Ledger, "liveEntries">,
+): SpendableTransactions {
+  return {
+    async outflow(householdId, transactionId, accountId, currency) {
+      const facts = (await transactions.facts(householdId, [transactionId])).get(transactionId);
+      if (!facts) return "not-found";
+      if (facts.transfer) return "transfer";
+      const account = await accounts.postingAccount(householdId, accountId);
+      if (!account) return "not-found";
+      const entry = (await ledger.liveEntries(householdId, sourceOf(transactionId), TRANSACTION_EVENT)).at(
+        -1,
+      );
+      if (facts.merged || !entry) return "not-posted";
+      const wallet = account.subaccounts.find((w) => w.currency === currency);
+      const moved = wallet ? signedOn(entry, wallet.ledgerAccountId, currency) : null;
+      if (moved === null || !moved.isNegative()) return "not-outflow";
+      return { entryId: entry.id, amount: moved.negated(), date: entry.operationDate };
+    },
+    async inEffect(householdId, transactionId, entryId) {
+      const live = await ledger.liveEntries(householdId, sourceOf(transactionId), TRANSACTION_EVENT);
+      return live.some((e) => e.id === entryId);
+    },
+  };
+}
+
 /** The goals' entries in the space's own log (BUD-05 «Права доступу», П-10): who, when, each field before and after. */
 export function goalsAudit(audit: Pick<AuditLog, "record">): GoalsAudit {
   return {
     async record(householdId, handOff, key) {
       await audit.record(householdId, {
-        actor: { kind: "user", id: handOff.actorAccountId },
-        channel: "web",
+        actor:
+          handOff.actorAccountId === null ? { kind: "system" } : { kind: "user", id: handOff.actorAccountId },
+        channel: handOff.actorAccountId === null ? "system" : "web",
         entity: { type: handOff.entity, id: handOff.entityId },
         action: handOff.action,
         changes: handOff.changes.map((c) => ({ ...c, sensitive: false })),
@@ -61,10 +112,12 @@ export function goalsAudit(audit: Pick<AuditLog, "record">): GoalsAudit {
 
 export function createGoalsServices(options: {
   readonly accounts: Pick<AccountDirectory, "postingAccount">;
-  readonly ledger: Pick<Ledger, "balanceAt">;
+  readonly ledger: Pick<Ledger, "balanceAt" | "liveEntries">;
   readonly audit: Pick<AuditLog, "record">;
   readonly clock: { now(): number };
   readonly newId: () => string;
+  /** Module transactions' lookup, for «Витратити» (FR 8); without it «Витратити» answers 500. */
+  readonly transactions?: Pick<TransactionLookup, "facts">;
 }): GoalsServices {
   return {
     [BRAND]: true,
@@ -73,6 +126,9 @@ export function createGoalsServices(options: {
       // «Сьогодні» — the Kyiv date, as the transactions' (the profile's time zone is not known to this module yet).
       today: () => kyivToday(options.clock.now()),
       balances: accountBalances(options.accounts, options.ledger),
+      transactions: options.transactions
+        ? spendableTransactions(options.transactions, options.accounts, options.ledger)
+        : null,
     },
     audit: goalsAudit(options.audit),
   };
@@ -92,11 +148,10 @@ export function goalsServices(ctx: ProtectedContext): GoalsServices {
 export async function handOffNow(
   audit: GoalsAudit,
   householdId: string,
-  handOff: GoalHandOff | null,
+  handOffs: readonly GoalHandOff[],
 ): Promise<void> {
-  if (handOff === null) return;
   try {
-    await applyHandOff(audit, householdId, handOff);
+    for (const handOff of handOffs) await applyHandOff(audit, householdId, handOff);
   } catch (error) {
     logEvent("goals.hand_off_deferred", "warn", {
       "ws.module": "goals",

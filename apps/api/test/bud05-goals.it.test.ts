@@ -226,7 +226,9 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("300") });
     expect(await n("goals.goals WHERE household_id = $1", space.householdId)).toBe(1);
-    expect(await n("goals.jobs WHERE household_id = $1", space.householdId)).toBe(1);
+    expect(await n("goals.jobs WHERE household_id = $1 AND name = 'goals.hand-off'", space.householdId)).toBe(
+      1,
+    );
     // FR 3: a mark on an envelope reserves more of the account — the same rule.
     const over = await call(space, "POST", `/v1/goals/${first.id}/contributions`, { amount: eur("500.01") });
     expect(over.json()).toMatchObject({ code: "GOAL_ENVELOPES_OVER_BALANCE", excess: eur("0.01") });
@@ -671,7 +673,7 @@ describe("BUD-05@PoC «Кожна зміна, внесок … пишуться 
     const g = await goal(space, travel());
     await call(space, "POST", `/v1/goals/${g.id}/contributions`, { amount: eur("10.00") });
     const erased = await createGoalsErasure(db.databases.for("goals")).eraseHousehold(space.householdId);
-    expect(erased).toEqual({ goals: 1, contributions: 1, jobs: 2 });
+    expect(erased).toEqual({ goals: 1, contributions: 1, spends: 0, jobs: 2 });
     expect(await n("goals.jobs WHERE household_id = $1", space.householdId)).toBe(0);
   });
 });

@@ -3,9 +3,15 @@ import type { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
 import {
+  cancelSpend,
+  cancelSpendsOfEntries,
+  closeGoal,
   contribute,
   createGoal,
   deleteGoal,
+  resolveSpend,
+  SPEND_MAX,
+  spendFromGoal,
   mergeGoal,
   partBalance,
   updateGoal,
@@ -22,7 +28,8 @@ import { goalsServices, handOffNow } from "./services.ts";
 /**
  * Savings goals of a space (BUD-05@PoC FR 2–7, FR 11–13, edge cases 2–4; wave 2 row 27): create, change and delete a
  * goal with its one part, «Внести», and what the list and the card show — collected, progress, the required monthly
- * contribution, the pace and the forecast date. «Витратити» and closing are row 28. The space is the session's (П-5):
+ * contribution, the pace and the forecast date; «Витратити», «Скасувати витрату» and closing a goal (FR 8, FR 9, FR 13,
+ * AC2, AC5; row 28). The space is the session's (П-5):
  * a goal of another space is «not found». A scoped member: «бюджет і цілі» are closed by the visibility policy's default
  * (00-general «Область доступу») — not found on reads, and changes need `household.data.write`, which a scoped member
  * never has. Behind the release flag `goals.savings` (ships off) under the feature key of the same name; no plan limit
@@ -69,6 +76,17 @@ const goalFields = {
 
 const contributionSchema = z.object({ id: z.uuid(), amount: moneySchema, date: z.string() });
 
+/** A transaction written off from the goal (FR 8): «з цілі»; «Скасувати витрату» cancels it. */
+const spendSchema = z.object({
+  id: z.uuid(),
+  transactionId: z.uuid(),
+  accountId: z.uuid(),
+  /** What the transaction took from its account, positive, in the goal's currency. */
+  amount: moneySchema,
+  /** The transaction's date. */
+  date: z.string(),
+});
+
 const goalSchema = z.object({
   id: z.uuid(),
   template: z.enum(GOAL_TEMPLATES),
@@ -106,6 +124,8 @@ const goalSchema = z.object({
   canContribute: z.boolean(),
   /** «Історія внесків», newest first; none for an own account. */
   contributions: z.array(contributionSchema),
+  /** «Витратити» (FR 8): the transactions written off from the goal, newest first; collected is less by them. */
+  spends: z.array(spendSchema),
   createdOn: z.string(),
   version: z.number().int(),
 });
@@ -139,6 +159,13 @@ function present(v: GoalView): z.input<typeof goalSchema> {
     contributedThisMonth: money(v.contributedThisMonth),
     canContribute: g.partKind !== "account",
     contributions: v.contributions.map((c) => ({ id: c.id, amount: money(c.amount), date: c.date })),
+    spends: v.spends.map((x) => ({
+      id: x.id,
+      transactionId: x.transactionId,
+      accountId: x.accountId,
+      amount: money(x.amount),
+      date: x.date,
+    })),
     createdOn: g.createdOn,
     version: g.version,
   };
@@ -169,6 +196,8 @@ function value<T>(result: Result<T>): T {
       throw new ApiProblem("GOAL_ENVELOPES_OVER_BALANCE", { extensions: { excess: result.excess.toJSON() } });
     case "own-account":
       throw new ApiProblem("GOAL_OWN_ACCOUNT");
+    case "spend-over-collected":
+      throw new ApiProblem("GOAL_SPEND_OVER_COLLECTED", { extensions: { excess: result.excess.toJSON() } });
     case "conflict":
       throw new Retry(result.version);
   }
@@ -188,18 +217,17 @@ const caller = (ctx: ProtectedContext) => ({
 async function views(ctx: ProtectedContext): Promise<GoalView[]> {
   const { deps } = goalsServices(ctx);
   const householdId = ctx.principal.householdId;
-  const { goals, contributions } = await ctx.inHousehold(async (q) => {
+  const { goals, contributions, spends } = await ctx.inHousehold(async (q) => {
     const tx = goalsTx(q);
     const goals = await tx.goals(householdId);
+    const ids = goals.map((g) => g.id);
     return {
       goals,
-      contributions: await tx.contributions(
-        householdId,
-        goals.map((g) => g.id),
-      ),
+      contributions: await tx.contributions(householdId, ids),
+      spends: await tx.spends(householdId, ids),
     };
   });
-  return viewGoals(deps, householdId, goals, contributions);
+  return viewGoals(deps, householdId, goals, contributions, spends);
 }
 
 async function view(ctx: ProtectedContext, id: string): Promise<z.input<typeof goalSchema>> {
@@ -223,8 +251,8 @@ async function handed<T>(
   for (let i = 0; i < 3; i++) {
     const stored = await ctx.inHousehold((q) => goalsTx(q).goal(ctx.principal.householdId, id));
     if (!stored) throw new ApiProblem("NOT_FOUND");
-    const { result, handOff } = await attempt(stored);
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    const { result, handOffs } = await attempt(stored);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     try {
       return value(result);
     } catch (error) {
@@ -290,10 +318,10 @@ export const createGoalRoute = defineRoute({
     const balance = value(
       await partBalance(deps, ctx.principal.householdId, { ...fields, currency: fields.target.currency }),
     );
-    const { result, handOff } = await ctx.inHousehold((q) =>
+    const { result, handOffs } = await ctx.inHousehold((q) =>
       createGoal(deps, goalsTx(q), caller(ctx), fields, balance),
     );
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     return view(ctx, value(result).id);
   },
 });
@@ -316,13 +344,13 @@ export const updateGoalRoute = defineRoute({
       ctx,
       async (stored) => {
         const merged = mergeGoal(stored, body, deps.today());
-        if (merged.kind === "invalid") return { result: merged, handOff: null };
+        if (merged.kind === "invalid") return { result: merged, handOffs: [] };
         const fields = merged.fields;
         const balance = await partBalance(deps, ctx.principal.householdId, {
           ...fields,
           currency: fields.target.currency,
         });
-        if (balance.kind !== "ok") return { result: balance, handOff: null };
+        if (balance.kind !== "ok") return { result: balance, handOffs: [] };
         return ctx.inHousehold((q) =>
           updateGoal(deps, goalsTx(q), caller(ctx), stored.id, stored.version, fields, balance.value),
         );
@@ -346,10 +374,10 @@ export const deleteGoalRoute = defineRoute({
   handler: async ({ params }, ctx) => {
     refuseScoped(ctx);
     const { deps, audit } = goalsServices(ctx);
-    const { result, handOff } = await ctx.inHousehold((q) =>
+    const { result, handOffs } = await ctx.inHousehold((q) =>
       deleteGoal(deps, goalsTx(q), caller(ctx), params.goalId),
     );
-    await handOffNow(audit, ctx.principal.householdId, handOff);
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
     value(result);
     return { deleted: true as const };
   },
@@ -391,7 +419,7 @@ export const contributeRoute = defineRoute({
                 currency: stored.target.currency,
               })
             : ({ kind: "ok", value: null } as const);
-        if (balance.kind !== "ok") return { result: balance, handOff: null };
+        if (balance.kind !== "ok") return { result: balance, handOffs: [] };
         return ctx.inHousehold((q) =>
           contribute(deps, goalsTx(q), caller(ctx), stored.id, stored.version, body, balance.value),
         );
@@ -402,6 +430,109 @@ export const contributeRoute = defineRoute({
   },
 });
 
+export const spendRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/goals/{goalId}/spends",
+  operationId: "spendFromGoal",
+  summary:
+    "«Витратити»: outgoing transactions written off from the goal — no longer in «Можна витратити», «з цілі» (FR 8)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  create: true,
+  bodyLimitBytes: BODY_LIMIT,
+  problems: ["GOAL_SPEND_OVER_COLLECTED", "VERSION_CONFLICT"],
+  request: {
+    params: goalParams,
+    body: z
+      .object({
+        /**
+         * The chosen outgoing transactions with their accounts (as the list «Транзакції» gives them): on the part's
+         * account, or on any account of the space for a goal of marks only; in the goal's currency.
+         */
+        transactions: z
+          .array(z.object({ transactionId: z.uuid(), accountId: z.uuid() }).strict())
+          .min(1)
+          .max(SPEND_MAX),
+      })
+      .strict(),
+  },
+  response: { status: 201, description: "The goal with the spends", schema: goalSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps, audit } = goalsServices(ctx);
+    const spendable = deps.transactions;
+    if (!spendable) throw new ApiProblem("INTERNAL");
+    const householdId = ctx.principal.householdId;
+    const spends = await handed(
+      ctx,
+      async (stored) => {
+        const resolved = await resolveSpend(spendable, householdId, stored, body.transactions);
+        if (resolved.kind !== "ok") return { result: resolved, handOffs: [] };
+        return ctx.inHousehold((q) =>
+          spendFromGoal(deps, goalsTx(q), caller(ctx), stored.id, stored.version, resolved.value),
+        );
+      },
+      params.goalId,
+    );
+    // AC5: a transaction changed or deleted between the read of its event and the commit — the ledger's reversal may
+    // have reached the goals queue before the spend existed — is cancelled now, as the queue would have.
+    const reversed: string[] = [];
+    for (const s of spends)
+      if (!(await spendable.inEffect(householdId, s.transactionId, s.entryId))) reversed.push(s.entryId);
+    if (reversed.length > 0) {
+      const handOffs = await ctx.inHousehold((q) =>
+        cancelSpendsOfEntries(deps, goalsTx(q), householdId, reversed),
+      );
+      await handOffNow(audit, householdId, handOffs);
+    }
+    return view(ctx, params.goalId);
+  },
+});
+
+export const cancelSpendRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/goals/{goalId}/spends/{spendId}",
+  operationId: "cancelGoalSpend",
+  summary:
+    "«Скасувати витрату»: the spend is cancelled, the transaction stays; its amount goes back to the goal (FR 8)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  request: { params: z.object({ goalId: z.uuid(), spendId: z.uuid() }) },
+  response: { status: 200, description: "The goal after the cancel", schema: goalSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps, audit } = goalsServices(ctx);
+    const { result, handOffs } = await ctx.inHousehold((q) =>
+      cancelSpend(deps, goalsTx(q), caller(ctx), params.goalId, params.spendId),
+    );
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
+    value(result);
+    return view(ctx, params.goalId);
+  },
+});
+
+export const closeGoalRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/goals/{goalId}/close",
+  operationId: "closeGoal",
+  summary:
+    "«Закрити ціль» / «Закрити без витрати»: also when not collected; it leaves the list, no archive (FR 9, FR 12, FR 13)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  request: { params: goalParams },
+  response: { status: 200, description: "Closed", schema: z.object({ closed: z.literal(true) }) },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { deps, audit } = goalsServices(ctx);
+    const { result, handOffs } = await ctx.inHousehold((q) =>
+      closeGoal(deps, goalsTx(q), caller(ctx), params.goalId),
+    );
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
+    value(result);
+    return { closed: true as const };
+  },
+});
+
 export const goalsRoutes = [
   listGoalsRoute,
   getGoalRoute,
@@ -409,4 +540,7 @@ export const goalsRoutes = [
   updateGoalRoute,
   deleteGoalRoute,
   contributeRoute,
+  spendRoute,
+  cancelSpendRoute,
+  closeGoalRoute,
 ];

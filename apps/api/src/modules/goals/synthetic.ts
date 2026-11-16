@@ -1,5 +1,6 @@
 // Synthetic goals (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
-// Goals «без рахунку — лише позначки» (marks only) with manual contributions to the first goal; every goal's hand-off
+// Goals «без рахунку — лише позначки» (marks only) with manual contributions to the first goal and a spend of the
+// second; every goal's hand-off
 // job (its audit entry, ARC-04) is done; the module publishes no events: outbox_events gets one dispatched row for the
 // isolation check.
 import { createHash } from "node:crypto";
@@ -48,6 +49,25 @@ export const synthetic = [
           amount: "334",
           currency: "EUR",
           contributed_on: "2026-10-15",
+        };
+    },
+  }),
+  defineSyntheticTable({
+    table: "goals.spends",
+    perHousehold: 1,
+    *rows({ household, rng, count }) {
+      // «Витратити» (FR 8): a synthetic transaction of the second goal (it holds 1 000 €), by opaque ids only.
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: rng.uuid(),
+          goal_id: key(household.id, "goal", 1),
+          transaction_id: rng.uuid(),
+          account_id: rng.uuid(),
+          entry_id: rng.uuid(),
+          amount: "250",
+          currency: "EUR",
+          spent_on: "2026-10-12",
         };
     },
   }),
