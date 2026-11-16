@@ -5,7 +5,7 @@ description: Change Willowsum requirements, screens or shared П-rules without c
 
 # Change a requirement
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
 
 Input: a requested change to requirements, screens or shared П-rules (PRC-02), usually a batch of them. Output:
 one docs-only PR for the whole batch, in which every dependent artifact is updated or explicitly listed as a
@@ -115,8 +115,7 @@ Exit 0 required; tick «Sensitive areas touched» if it lists `sensitive`; recor
 GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).
 
-**Report to the lead** (owner, 2026-11-13): 10–15 lines, no narrative — PR URL, head SHA (full), result (CI, the batch's changes in one line each), blockers, owner questions. Details go in the PR body
-(Follow-ups: the lead opens the issue), not in the report.
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <CI; the batch's changes, counted>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (each change, follow-ups: the lead opens the issues) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
 ## 8. Review (lighter rule, owner, 2026-11-12)
 
