@@ -1,6 +1,6 @@
 # Модуль goals
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (BUD-05@PoC a: ціль, внески, потрібний внесок, прогрес, темп)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (BUD-05@PoC b: «Витратити», «Скасувати витрату», автоскасування, закриття цілі)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -18,8 +18,9 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
 на рахунку не більше однієї цілі «Окремий рахунок цілі»), 3 (конверти не перевищують залишку рахунку; вільний
 залишок), 4 (прогрес, «Досягнуто», «понад ціль» — серверна частина), 5 (потрібний внесок; «уже внесене цього місяця»
 для BUD-03), 6 («Внести», понад ціль теж; у цілі з окремим рахунком — ні), 7 (темп за ≤ 3 міс., прогноз дати), 11, 12
-(`overdue`), 14; AC1, AC7, AC10, AC15 (серверні частини), AC4, AC6, AC9; граничні випадки 2–4. Далі: «Витратити»,
-закриття і автоскасування списання (рядок 28: п. 8, 9, AC2, AC5, гр. вип. 5), середні витрати й щоквартальний
+(`overdue`), 14; AC1, AC7, AC10, AC15 (серверні частини), AC4, AC6, AC9; граничні випадки 2–4.
+BUD-05@PoC b) (рядок 28 — серверна частина): п. 8 («Витратити», «Скасувати витрату», автоскасування), 9 і 13 (закриття,
+«Закрити без витрати», видалення зі списаннями); AC2 (серверна частина), AC5; граничний випадок 5. Далі: середні витрати й щоквартальний
 перерахунок «Подушки безпеки» (п. 10, AC3), вибір цілі при нестачі залишку (гр. вип. 1), UI (рядки 128, 129).
 
 ## Публічний інтерфейс
@@ -33,26 +34,43 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
     `emergencyMonths`, `part` (`kind`, `accountId`, `startAmount`, `freeBalance` конверта: залишок − усі конверти
     рахунку, від'ємний — нестача), `collected`, `progressPercent` (вниз до 0,1), `achieved`, `overTarget`,
     `requiredMonthly` (вгору до цілої одиниці; null без дати чи після неї), `overdue`, `pace`, `forecastDate`,
-    `contributedThisMonth`, `canContribute`, `contributions` (найновіші спершу), `createdOn`, `version`.
+    `contributedThisMonth`, `canContribute`, `contributions` (найновіші спершу), `spends` (найновіші спершу: `id`,
+    `transactionId`, `accountId`, `amount`, `date`), `createdOn`, `version`. Закритої цілі немає (404).
   - `POST /v1/goals` (`createGoal`, `Idempotency-Key`) — `template`, `name` (1–60), `target`, `targetDate`,
     `emergencyMonths` (лише «Подушка безпеки», 1–120, типово 3), `part` (`kind`, `accountId`, `startAmount`); без `part`
     — «лише позначки» зі стартом 0. Рахунок частини — готівковий рахунок простору, відкритий, з гаманцем у валюті цілі
     (інакше 400 `part.accountId: not_found | closed | currency`). → 201 ціль.
   - `PATCH /v1/goals/{goalId}` (`updateGoal`) — ті самі поля, кожне необов'язкове; валюта не змінюється (400
     `target.currency: fixed`); минула дата може лишитися, нова — не раніше сьогодні. → 200 ціль.
-  - `DELETE /v1/goals/{goalId}` (`deleteGoal`) — з внесками; конверт звільняється. → `{ deleted: true }`.
+  - `DELETE /v1/goals/{goalId}` (`deleteGoal`) — з внесками і списаннями (їхні транзакції знову звичайні витрати);
+    конверт звільняється. → `{ deleted: true }`.
+  - `POST /v1/goals/{goalId}/spends` (`spendFromGoal`, `Idempotency-Key`) — `transactions`: 1–50 `{ transactionId,
+    accountId }`: вихідна транзакція у валюті цілі з подією в журналі — з рахунку частини, для цілі «лише позначки» з
+    будь-якого рахунку простору; кожна один раз і з однієї цілі (400 `transactions.<i>`: `not_found`, `transfer`,
+    `not_posted`, `not_outflow`, `not_goal_account`, `duplicate`, `spent`). Позначки й конверт віддають не більше
+    зібраного. Транзакцію, змінену між читанням і комітом, скасовано одразу після коміту. → 201 ціль.
+  - `DELETE /v1/goals/{goalId}/spends/{spendId}` (`cancelGoalSpend`) — «Скасувати витрату», транзакція не змінюється.
+    → 200 ціль.
+  - `POST /v1/goals/{goalId}/close` (`closeGoal`) — «Закрити ціль» / «Закрити без витрати», і незібрану; ціль зникає
+    зі списку, нічого не резервує, її списання лишаються. → `{ closed: true }`.
   - `POST /v1/goals/{goalId}/contributions` (`contributeToGoal`, `Idempotency-Key`) — `amount` у валюті цілі, `date`
     (сьогодні або раніше, не раніше створення цілі). → 201 ціль.
   Помилки 409: `GOAL_ACCOUNT_TAKEN` (рахунок — окремий рахунок іншої цілі, або окремий рахунок поруч із конвертами),
   `GOAL_ENVELOPES_OVER_BALANCE` (`excess` — на скільки конверти перевищили б залишок), `GOAL_OWN_ACCOUNT` («Внести» для
-  окремого рахунку), `VERSION_CONFLICT` (ціль змінювалася тричі поспіль під час запиту).
-- `createGoalsServices({ accounts, ledger, audit, clock, newId })` → `GoalsServices` — порти маршрутів (`src/api.ts` →
-  `ctx.services`; `main.ts`): `AccountDirectory.postingAccount` модуля `accounts` (вид, стан, гаманці) і
-  `Ledger.balanceAt` — залишок гаманця у валюті цілі; «сьогодні» — дата за Києвом.
+  окремого рахунку), `GOAL_SPEND_OVER_COLLECTED` (`excess`), `VERSION_CONFLICT` (ціль змінювалася тричі поспіль під час
+  запиту).
+- `createGoalsServices({ accounts, ledger, audit, clock, newId, transactions? })` → `GoalsServices` — порти маршрутів
+  (`src/api.ts` → `ctx.services`; `main.ts`): `AccountDirectory.postingAccount` модуля `accounts` (вид, стан, гаманці),
+  `Ledger.balanceAt` — залишок гаманця у валюті цілі, `Ledger.liveEntries` — подія транзакції в силі і що вона забрала з
+  гаманця, `TransactionLookup.facts` модуля `transactions` — транзакція простору, переказ, об'єднана (без нього
+  «Витратити» — 500); «сьогодні» — дата за Києвом.
+- `createGoalSpends(db)` → `GoalSpends.spent(householdId, transactionIds)` — які транзакції списано з цілі (і закритої),
+  з ціллю й сумою: для «Можна витратити» (BUD-03) і позначки «з цілі» (BUD-06).
+- `goalsSubscriptions` — підписка на `ledger.entry-recorded` v1 задачею `goals.entry-recorded` (`src/wiring.ts`).
 - `createGoalsWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createGoalsHandOffRecovery(db, households)` —
-  щоденне повернення задач `dead` (`goals.hand-off-recovery`, до очищення черги; WARN `goals.hand_off_requeued`);
-  `HAND_OFF_JOB`.
-- `createGoalsErasure(db)` → `eraseHousehold(householdId)` → `{ goals, contributions, jobs }` — лише для `data-erasure`
+  щоденне повернення задач `dead` обох видів (`goals.hand-off-recovery`, до очищення черги; WARN
+  `goals.hand_off_requeued`); `HAND_OFF_JOB`, `ENTRY_RECORDED_JOB`.
+- `createGoalsErasure(db)` → `eraseHousehold(householdId)` → `{ goals, contributions, spends, jobs }` — лише для `data-erasure`
   (крок `goals.records`).
 - `GOAL_TEMPLATES`, `PART_KINDS`, `EMERGENCY_MONTHS_DEFAULT` і типи.
 
@@ -62,8 +80,9 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
 
 ## Передача аудиту (ARC-04 п. 2–4, ADR-0015)
 
-Кожна зміна цілі (`goals.goal`: `create`, `update` — лише змінені поля, `delete` — усі поля «до») і кожен внесок
-(`goals.contribution`/`create`) пишуть рядок і задачу `goals.hand-off` в одній транзакції модуля. Запис аудиту — після
+Кожна зміна цілі (`goals.goal`: `create`, `update` — лише змінені поля, закриття — `closedOn`, `delete` — усі поля
+«до»), кожен внесок (`goals.contribution`/`create`) і кожне списання (`goals.spend`: `create`; `delete` з полем `reason`
+— `manual`, `goal-deleted`, а `transaction-changed` від імені системи, канал `system`) пишуть рядок і задачу `goals.hand-off` в одній транзакції модуля. Запис аудиту — після
 коміту: одразу тим самим запитом, а якщо не вдалося (WARN `goals.hand_off_deferred`, лише клас помилки; запит не падає) —
 воркером. Ключ задачі й запису — `<сутність>:<дія>:<ідентифікатор>:<зміна>`. Задача несе значення запису (ідентифікатори,
 коди, дати, суми десятковими рядками і назву цілі — журнал простору показує назву як є, як назви категорій). Задача
@@ -71,7 +90,7 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
 
 ## Залежності
 
-Шар: process. Модулі: accounts, audit, ledger (`apps/api/module-rules.json`). Платформа: черга задач (ARC-04).
+Шар: process. Модулі: accounts, audit, ledger, transactions (`apps/api/module-rules.json`). Платформа: черга задач (ARC-04).
 
 ## Події
 
@@ -81,7 +100,7 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
-| — | | |
+| `ledger.entry-recorded` | 1 | AC5, гр. вип. 5: сторно події транзакції (`reversal`, джерело `transactions`) скасовує списання, зроблені на цій події; кожна подія журналу — легка задача `goals.entry-recorded` |
 
 ## Власні таблиці
 
@@ -90,6 +109,7 @@ BUD-05@PoC a) (хвиля 2, рядок 27 — серверна частина):
 | Таблиця | Що |
 | --- | --- |
 | `goals` | Ціль: шаблон, назва, ціль і її валюта, дата, `emergency_months`, частина (`part_kind`, `account_id` — непрозорий ідентифікатор рахунку `accounts`, `start_amount` у валюті цілі), `created_on`, версія. CHECK: рахунок є лише в окремого рахунку й конверта; в окремого рахунку старт 0; одна ціль «Окремий рахунок цілі» на рахунок (`0001_goals.sql`) |
+| `spends` | «Витратити»: транзакція (`transaction_id`, одна на простір), її рахунок, подія журналу в силі (`entry_id`), сума > 0 у валюті цілі, дата; скасоване списання видаляється (`0004_spends_and_close.sql`). У `goals` — `closed_on`: закрита ціль поза списком; одна відкрита ціль «Окремий рахунок цілі» на рахунок |
 | `contributions` | Позначки «Внести»: сума > 0 у валюті цілі, день; видаляються з ціллю (`0001_goals.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `goals.hand-off`; подій модуль не публікує |

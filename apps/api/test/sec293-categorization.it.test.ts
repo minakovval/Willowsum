@@ -458,7 +458,7 @@ describe("security review #293: completeness of the space's erasure (NFR-12 FR 3
   // record goes last, so no worker or retention pass ever visits that household again.
   it("SEC-293: one worker pass at any moment of the erasure leaves no categorization job of the erased space (publisher before consumer)", async () => {
     // The always-running worker makes one pass just before the step of `at` (the erasure's first use of its pool).
-    for (const at of ["transactions", "categorization", "categories", "accounts"]) {
+    for (const at of ["transactions", "categorization", "categories", "accounts", "goals"]) {
       const person = await personWithSpace(db, `sec293-${at}`); // seeds a pending categories.merged in the categories outbox
       let passes = 0;
       const real = db.databases.for(at as never);

@@ -76,7 +76,7 @@
     },
     "goals": {
       "layer": "process",
-      "dependsOn": ["accounts", "audit", "ledger"]
+      "dependsOn": ["accounts", "audit", "ledger", "transactions"]
     },
     "household": {
       "layer": "platform",

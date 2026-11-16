@@ -1,6 +1,6 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
-import type { GoalsTx, StoredContribution, StoredGoal } from "../../application/index.ts";
+import type { GoalsTx, StoredContribution, StoredGoal, StoredSpend } from "../../application/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The goals schema through the module's own role (migrations/0001_goals.sql). The row policy binds the space; SQL filters it too. */
@@ -37,18 +37,42 @@ const goal = (r: GoalRow): StoredGoal => ({
   version: r.version,
 });
 
+const SPEND_COLUMNS = `id, goal_id, transaction_id, account_id, entry_id, amount::text AS amount, currency,
+  to_char(spent_on, 'YYYY-MM-DD') AS date`;
+
+interface SpendRow {
+  id: string;
+  goal_id: string;
+  transaction_id: string;
+  account_id: string;
+  entry_id: string;
+  amount: string;
+  currency: string;
+  date: string;
+}
+
+const spend = (r: SpendRow): StoredSpend => ({
+  id: r.id,
+  goalId: r.goal_id,
+  transactionId: r.transaction_id,
+  accountId: r.account_id,
+  entryId: r.entry_id,
+  amount: Money.of(r.amount, r.currency),
+  date: r.date,
+});
+
 export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
   return {
     async goals(householdId) {
       const { rows } = await q.query<GoalRow>(
-        `SELECT ${GOAL_COLUMNS} FROM goals WHERE household_id = $1 ORDER BY created_at, id`,
+        `SELECT ${GOAL_COLUMNS} FROM goals WHERE household_id = $1 AND closed_on IS NULL ORDER BY created_at, id`,
         [householdId],
       );
       return rows.map(goal);
     },
     async goal(householdId, id, lock = false) {
       const { rows } = await q.query<GoalRow>(
-        `SELECT ${GOAL_COLUMNS} FROM goals WHERE household_id = $1 AND id = $2${lock ? " FOR UPDATE" : ""}`,
+        `SELECT ${GOAL_COLUMNS} FROM goals WHERE household_id = $1 AND id = $2 AND closed_on IS NULL${lock ? " FOR UPDATE" : ""}`,
         [householdId, id],
       );
       return rows[0] ? goal(rows[0]) : null;
@@ -78,7 +102,7 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
       const { rows } = await q.query<GoalRow>(
         `UPDATE goals SET template = $3, name = $4, target_amount = $5, target_date = $6, emergency_months = $7,
            part_kind = $8, account_id = $9, start_amount = $10, version = version + 1, updated_at = now()
-         WHERE household_id = $1 AND id = $2 RETURNING ${GOAL_COLUMNS}`,
+         WHERE household_id = $1 AND id = $2 AND closed_on IS NULL RETURNING ${GOAL_COLUMNS}`,
         [
           householdId,
           g.id,
@@ -96,7 +120,64 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
     },
     async deleteGoal(householdId, id) {
       await q.query(`DELETE FROM contributions WHERE household_id = $1 AND goal_id = $2`, [householdId, id]);
+      await q.query(`DELETE FROM spends WHERE household_id = $1 AND goal_id = $2`, [householdId, id]);
       await q.query(`DELETE FROM goals WHERE household_id = $1 AND id = $2`, [householdId, id]);
+    },
+    async closeGoal(householdId, id, closedOn) {
+      await q.query(
+        `UPDATE goals SET closed_on = $3, version = version + 1, updated_at = now()
+          WHERE household_id = $1 AND id = $2 AND closed_on IS NULL`,
+        [householdId, id, closedOn],
+      );
+    },
+    async spends(householdId, goalIds) {
+      if (goalIds.length === 0) return [];
+      const { rows } = await q.query<SpendRow>(
+        `SELECT ${SPEND_COLUMNS} FROM spends WHERE household_id = $1 AND goal_id = ANY($2::uuid[])
+          ORDER BY spent_on DESC, created_at DESC, id`,
+        [householdId, goalIds],
+      );
+      return rows.map(spend);
+    },
+    async spendsOfTransactions(householdId, transactionIds) {
+      if (transactionIds.length === 0) return [];
+      const { rows } = await q.query<SpendRow>(
+        `SELECT ${SPEND_COLUMNS} FROM spends WHERE household_id = $1 AND transaction_id = ANY($2::uuid[])`,
+        [householdId, transactionIds],
+      );
+      return rows.map(spend);
+    },
+    async insertSpend(householdId, s) {
+      await q.query(
+        `INSERT INTO spends (household_id, id, goal_id, transaction_id, account_id, entry_id, amount, currency, spent_on)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          householdId,
+          s.id,
+          s.goalId,
+          s.transactionId,
+          s.accountId,
+          s.entryId,
+          s.amount.toDecimalString(),
+          s.amount.currency,
+          s.date,
+        ],
+      );
+    },
+    async deleteSpend(householdId, goalId, id) {
+      const { rows } = await q.query<SpendRow>(
+        `DELETE FROM spends WHERE household_id = $1 AND goal_id = $2 AND id = $3 RETURNING ${SPEND_COLUMNS}`,
+        [householdId, goalId, id],
+      );
+      return rows[0] ? spend(rows[0]) : null;
+    },
+    async deleteSpendsOfEntries(householdId, entryIds) {
+      if (entryIds.length === 0) return [];
+      const { rows } = await q.query<SpendRow>(
+        `DELETE FROM spends WHERE household_id = $1 AND entry_id = ANY($2::uuid[]) RETURNING ${SPEND_COLUMNS}`,
+        [householdId, entryIds],
+      );
+      return rows.map(spend);
     },
     async contributions(householdId, goalIds) {
       if (goalIds.length === 0) return [];
@@ -127,6 +208,14 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
         [householdId, c.id, c.goalId, c.amount.toDecimalString(), c.amount.currency, c.date],
       );
     },
+    async lockTransactions(householdId, transactionIds) {
+      // In the ids' order, so two spends of overlapping transactions never wait on each other in a cycle.
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('goals.spend:' || $1 || ':' || t, 0))
+           FROM (SELECT DISTINCT unnest($2::uuid[])::text AS t ORDER BY 1) ids`,
+        [householdId, transactionIds],
+      );
+    },
     async lockAccount(householdId, accountId) {
       await q.query(
         `SELECT pg_advisory_xact_lock(hashtextextended('goals.account:' || $1 || ':' || $2, 0))`,
@@ -136,7 +225,8 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
     async goalsOnAccount(householdId, accountId, exceptGoalId) {
       const { rows } = await q.query<GoalRow>(
         `SELECT ${GOAL_COLUMNS} FROM goals
-          WHERE household_id = $1 AND account_id = $2 AND ($3::uuid IS NULL OR id <> $3::uuid)`,
+          WHERE household_id = $1 AND account_id = $2 AND closed_on IS NULL
+            AND ($3::uuid IS NULL OR id <> $3::uuid)`,
         [householdId, accountId, exceptGoalId],
       );
       return rows.map(goal);

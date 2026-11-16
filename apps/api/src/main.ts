@@ -287,10 +287,12 @@ const server = buildServer({
               transactions: createTransactionTexts(databases.for("transactions")),
               audit,
             }),
-            // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts).
+            // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
+            // «Витратити» reads the transaction (transactions) and its journal event (ledger).
             goals: createGoalsServices({
               accounts: createAccountDirectory(databases.for("accounts")),
               ledger: createLedger(databases.for("ledger")),
+              transactions: createTransactionLookup(databases.for("transactions")),
               audit,
               clock: systemClock,
               newId: randomUUID,

@@ -284,6 +284,7 @@ describe("PR #295 security: the goals schema", () => {
       "idempotency_keys",
       "jobs",
       "outbox_events",
+      "spends",
     ]);
     for (const r of rows) expect(r, r.table).toMatchObject({ rls: true, forced: true, policies: 1 });
     // No other module's role has any privilege on the goals tables.
