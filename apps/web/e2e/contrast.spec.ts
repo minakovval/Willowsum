@@ -51,6 +51,23 @@ test.describe("DS-06@PoC AC2: contrast of every route, light theme, 1280 px", ()
     });
   }
 
+  test("DS-06@PoC AC2: «Розділити транзакцію» (S-049) in both modes and the attributes (S-047), gallery", async ({
+    page,
+  }) => {
+    await page.goto(`/#${GALLERY_TOKENS_PATH}`);
+    await page.getByRole("button", { name: "+ Тег" }).click();
+    await page.getByRole("combobox", { name: "Новий тег" }).fill("ремонт-кухні");
+    await page.keyboard.press("Enter");
+    await expectNoContrastProblems(page);
+    await page.getByRole("button", { name: "Розділити", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Розділити транзакцію" });
+    await expect(dialog).toBeVisible();
+    await expectNoContrastProblems(page);
+    await dialog.getByRole("radio", { name: "На кілька місяців" }).check();
+    await expect(dialog.getByText(/частин(и)? по/).first()).toBeVisible();
+    await expectNoContrastProblems(page);
+  });
+
   test("DS-06@PoC AC2: sign-up with every field's error shown", async ({ page }) => {
     await page.goto("/#/signup");
     // The button is inactive (`aria-disabled`) but still answers a press by showing every field's reason.

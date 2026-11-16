@@ -459,7 +459,7 @@ describe("BUD-13@PoC b): attributes in the details (S-047)", () => {
   it("NFR-08@PoC: the text pairs of S-047 and S-049 meet 4.5 : 1 in the light theme", () => {
     const pairs = [
       ["ink-muted", "surface-200"],
-      ["ink-muted", "surface-300"],
+      ["ink", "surface-300"],
       ["ink-muted", "surface-inset"],
       ["ink", "surface-inset"],
       ["link", "surface-200"],

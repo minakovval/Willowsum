@@ -110,7 +110,7 @@ export function TransactionAttributes({
         <span className="tx-attr-label" id={`${id}-tags`}>
           {t("tx.tags")}
         </span>
-        <div className="tx-attr-value">
+        <div className="tx-attr-value tx-tag-value">
           <ul className="tx-tags" aria-labelledby={`${id}-tags`}>
             {tags.map((name) => (
               <li key={name} className="tx-tag">

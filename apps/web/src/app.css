@@ -1186,7 +1186,7 @@ code {
   min-height: var(--ws-touch-target);
   padding: 0 var(--ws-space-3);
   border-radius: calc(var(--ws-radius-md) - 2px);
-  color: var(--ws-ink-muted);
+  color: var(--ws-ink);
   font-size: var(--ws-text-label-size);
   font-weight: 500;
   cursor: pointer;
@@ -1419,6 +1419,18 @@ code {
   margin: 0;
 }
 
+/* Chips, «Додайте тег» and «+ Тег» on one line, as on the board; the new tag field and the error below. */
+.tx-tag-value {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.tx-tag-value > .tx-tag-add,
+.tx-tag-value > .auth-field-error {
+  flex-basis: 100%;
+}
+
 .tx-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1437,7 +1449,7 @@ code {
   padding: 0 calc(var(--ws-space-1) * 1.5);
   border-radius: var(--ws-radius-sm);
   background: var(--ws-surface-300);
-  color: var(--ws-ink-muted);
+  color: var(--ws-ink);
   font-family: var(--ws-text-badge-family);
   font-size: var(--ws-text-badge-size);
   line-height: var(--ws-text-badge-line);
