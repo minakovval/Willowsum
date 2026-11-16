@@ -322,9 +322,12 @@ export function main(argv = process.argv.slice(2), log = console.log) {
       existing = parsed.entries;
     }
     const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
-    const { entries, written, removed } = updateFingerprints(f, existing, cov.covered, opts.fingerprintItems);
+    const { entries, written, removed, changed } = updateFingerprints(f, existing, cov.covered, opts.fingerprintItems);
     write(opts.root, rel, renderFingerprints(entries));
-    log(`req-check: ${rel}: ${written.length} fingerprints written${written.length ? ` (${written.join(', ')})` : ''}${removed.length ? `, ${removed.length} removed (${removed.join(', ')})` : ''}. The PR body says why the tests and code still match the text when the PR changes no tests or code.`);
+    log(`req-check: ${rel}: ${written.length} fingerprints written${written.length ? ` (${written.join(', ')})` : ''}${removed.length ? `, ${removed.length} removed (${removed.join(', ')})` : ''}.`);
+    // Without items every changed item of the requirement is accepted at once: list them, so none goes unnoticed.
+    log(changed.length ? `req-check: ${changed.length} items whose text had changed are now marked re-checked: ${changed.join(', ')}. Make sure their tests and code were checked against the new text.` : 'req-check: no item whose text had changed was updated.');
+    log('req-check: a PR that changes no test or code naming this requirement says why they still match under «## Why the tests and code still match».');
     return 0;
   }
 

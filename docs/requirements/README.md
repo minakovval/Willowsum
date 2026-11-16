@@ -175,7 +175,7 @@ header below, then the selected lines. Apart from line 2, a view is byte for byt
 | `node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]` | Move items (numbered as in the `--from` view, default the first) so that they start in the target release: changes the tags of the item and its continuation lines, regenerates the views, prints the changed views, the dependents (`--impact` of each changed slice), the mentions of the items' «…» phrases elsewhere and any item now beside a variant of itself. It also warns about the items whose number changed in a view and every citation of such a number (`FR 15`, `AC 3`) in the same source and in tests and docs (`BUD-12@PoC FR 15`), and about the moved items' phrases still used in other items of the same source; fix each in the same PR. The target view must exist; add a new release by hand first («Зрізи», the card's «Реліз» line and table, the release and «Розширює» lines of the slice text) |
 | `node tools/req-check/index.mjs --coverage` | Per-item and per-release coverage: tests named by item (`ACC-01 FR 12`, `UX-09@PoC AC7`, `BUD-16 EC2`; `item n` = FR, `criterion n` = AC) are mapped to items of the views. An item of a source is one source line, so a test of PoC FR 3 also covers that item in every later view that keeps the line, whatever its number there. A plain ID means the release named for it elsewhere in the test file, else its first slice. Without a «Функціональні вимоги» label, FR n is item n of the first numbered list |
 | `node tools/req-check/index.mjs --check-fingerprints [--require-fingerprints]` | Fail when an item's text changed since its fingerprint was written (see «Text fingerprints» below), naming the requirement, the item (at its source line), the tests in its view's «Перевіряється» and the tests that name it. Also fails on an entry for an item the views no longer have and on a malformed fingerprints file. An item without an entry is not an error; with `--require-fingerprints` an item a test names without one is (CI turns this on with the initial fingerprints, owner decision item 9) |
-| `node tools/req-check/index.mjs --update-fingerprints <ID> [items…]` | After re-checking the tests and code against the text, rewrite `<ID>.fingerprints.json`. Items: `"PoC/FR 3"` (one view) or `FR3` (every view that has it), each written even when no test names it. Without items: every item a test names plus every item that already has an entry; entries of items the views no longer have are removed |
+| `node tools/req-check/index.mjs --update-fingerprints <ID> [items…]` | After re-checking the tests and code against the text, rewrite `<ID>.fingerprints.json`. Items: `"PoC/FR 3"` (one view) or `FR3` (every view that has it), each written even when no test names it. Without items: every item a test names plus every item that already has an entry, so every changed item of the requirement is accepted at once; entries of items the views no longer have are removed. It prints the items whose text had changed and that it now marks re-checked: check that list against what you re-checked |
 
 **Text fingerprints** (owner decision 2026-11-16, items 6–8). `<ID>.fingerprints.json` next to the source
 `<ID>.md` (one file per requirement, so parallel branches rarely conflict) maps each item key to the hash of the
@@ -198,9 +198,10 @@ item's text when its tests and code were last checked against it:
   retagging a line changes nothing; a change of words, numbers or punctuation does. A renumbered item has a new
   key, so its old and new numbers both need a re-check.
 - Only requirements with release views have fingerprints (plain, not yet migrated files are not checked).
-- CI (job `requirements`) runs `--check-fingerprints`. A PR that changes fingerprints files and no tests or code
-  (nothing under `apps/`, `packages/`, `tools/`, `infra/` apart from Markdown) needs the body section
-  `## Why the tests and code still match` (the description check); a fingerprints file alone needs no owner
+- CI (job `requirements`) runs `--check-fingerprints`. A PR that changes a requirement's fingerprints needs the
+  body section `## Why the tests and code still match` (the description check) unless, for each such
+  requirement, a changed test or code file (under `apps/`, `packages/`, `tools/`, `infra/`, Markdown aside)
+  names its ID in the diff; an unrelated code change does not count. A fingerprints file alone needs no owner
   decision.
 
 **Rollback.** The last commit in the card plus slice files format is on branch

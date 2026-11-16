@@ -176,9 +176,16 @@ function changedMessage(id, it, covered) {
  * New entries of a requirement after a re-check. `items` empty: every item a test names, plus every item that
  * already has an entry; entries of items the views no longer have are dropped. `items` given (`PoC/FR 3`, or
  * `FR 3` for every view that has it): only those are written; a named key the views no longer have is removed.
- * @returns {{entries: Map<string, string>, written: string[], removed: string[]}}
+ * @returns {{entries: Map<string, string>, written: string[], removed: string[], changed: string[]}}  `changed`: the
+ *   written keys whose stored hash was different (the items whose new text this update accepts as re-checked)
  */
 export function updateFingerprints(feature, existing, covered, items = []) {
+  const r = writeEntries(feature, existing, covered, items);
+  r.changed = r.written.filter((k) => existing.has(k) && existing.get(k) !== r.entries.get(k));
+  return r;
+}
+
+function writeEntries(feature, existing, covered, items) {
   const current = currentItems(feature);
   const entries = new Map(existing);
   const written = [];

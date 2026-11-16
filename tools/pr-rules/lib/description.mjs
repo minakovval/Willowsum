@@ -117,14 +117,19 @@ export const FINGERPRINT_SECTION = 'Why the tests and code still match';
 const isTestOrCode = (name) => /^(apps|packages|tools|infra)\//.test(name) && !/\.md$/i.test(name);
 
 /**
- * A PR that updates text fingerprints (`--update-fingerprints`) and changes no tests or code has re-checked them
- * against the text by reading only: its body says why they still match the requirement (owner decision 2026-11-16,
- * item 8). The diff of a PR that changes tests or code shows the re-check itself.
+ * A PR that updates text fingerprints (`--update-fingerprints`) and changes no test or code naming that requirement
+ * has re-checked them by reading only: its body says why they still match the requirement (owner decision
+ * 2026-11-16, item 8). The diff of a PR whose tests or code name each such requirement shows the re-check itself.
  */
 function fingerprintProblems(files, secs) {
   if (!files) return [];
   const names = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
-  if (!names.some(isFingerprintFile) || names.some(isTestOrCode)) return [];
+  const ids = [...new Set(names.filter(isFingerprintFile).map((n) => /([A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?)\.fingerprints\.json$/.exec(n)[1]))];
+  if (!ids.length) return [];
+  // The diff shows the re-check only when a changed test or code file names each re-checked requirement; an
+  // unrelated tool or code change does not stand in for it.
+  const recheck = files.filter((f) => [f.filename, f.previous_filename].some((n) => n && isTestOrCode(n)));
+  if (ids.every((id) => recheck.some((f) => new RegExp(`\\b${id}\\b`).test(f.patch ?? '')))) return [];
   if (!secs.has(FINGERPRINT_SECTION)) {
     return [`The PR changes only text fingerprints (*.fingerprints.json) and no tests or code: add «## ${FINGERPRINT_SECTION}» saying, per changed item, why its tests and code still match the new text (owner decision 2026-11-16, item 8).`];
   }

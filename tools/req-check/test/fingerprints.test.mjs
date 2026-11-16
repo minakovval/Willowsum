@@ -106,6 +106,7 @@ test('--update-fingerprints without items writes every item a test names; --chec
 
   r = run(root, ['--update-fingerprints', 'TST-16']);
   assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /no item whose text had changed was updated/);
   const text = read(FP);
   // FR 2 and AC 1 of PoC are named by a test; PoC v2 keeps the same lines, so its FR 2 and AC 1 are the same items.
   assert.deepEqual(Object.keys(JSON.parse(text)), ['PoC/FR 2', 'PoC/AC 1', 'PoC v2/FR 2', 'PoC v2/AC 1']);
@@ -140,8 +141,11 @@ test('--check-fingerprints fails on a changed item, naming the requirement, the 
   const line = Number(/TST-16\.md:(\d+)/.exec(errors[0])[1]);
   assert.match(read('docs/requirements/tst/TST-16.md').split('\n')[line - 1], /^#\. Друга вимога/);
 
-  // Updating only the PoC item leaves the PoC v2 one failing; updating it too passes.
-  assert.equal(run(root, ['--update-fingerprints', 'TST-16', 'PoC/FR2']).code, 0);
+  // Updating only the PoC item leaves the PoC v2 one failing; updating it too passes. Each update lists the
+  // changed items it marks re-checked.
+  const u = run(root, ['--update-fingerprints', 'TST-16', 'PoC/FR2']);
+  assert.equal(u.code, 0);
+  assert.match(u.out, /1 items whose text had changed are now marked re-checked: PoC\/FR 2\./);
   assert.equal(run(root, ['--check-fingerprints']).code, 1);
   assert.equal(run(root, ['--update-fingerprints', 'TST-16', 'PoC v2/FR 2']).code, 0);
   assert.equal(run(root, ['--check-fingerprints']).code, 0);
@@ -206,4 +210,15 @@ test('arguments: --update-fingerprints takes an ID and the items after it', () =
   assert.equal(o.quiet, true);
   assert.throws(() => parseArgs(['--update-fingerprints']), /needs a value/);
   assert.equal(parseArgs(['--check-fingerprints']).checkFingerprints, true);
+});
+
+test('--update-fingerprints without items lists every changed item it marks re-checked', () => {
+  const { root, put } = fixture();
+  run(root, ['--update-fingerprints', 'TST-16']);
+  put('docs/requirements/tst/TST-16.md', SOURCE.replace('з продовженням.', 'з іншим продовженням.').replace('умова А', 'умова Б'));
+  run(root, ['--views']);
+  const r = run(root, ['--update-fingerprints', 'TST-16']);
+  assert.equal(r.code, 0);
+  assert.match(r.out, /4 items whose text had changed are now marked re-checked: PoC\/FR 2, PoC\/AC 1, PoC v2\/FR 2, PoC v2\/AC 1\./);
+  fs.rmSync(root, { recursive: true, force: true });
 });

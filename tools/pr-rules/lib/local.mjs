@@ -4,7 +4,7 @@
 // Same functions as CI (description.mjs, paths.mjs), so the two cannot disagree; only the file list comes from git.
 import { execFileSync } from 'node:child_process';
 import { PATHS_MODULE } from './fetch.mjs';
-import { classifyFiles, ownerApprovalNeeded, ownerDecisionFiles, unionClassification } from './paths.mjs';
+import { classifyFiles, isFingerprintFile, ownerApprovalNeeded, ownerDecisionFiles, unionClassification } from './paths.mjs';
 
 /**
  * Parse `git diff --name-status -z -M` output into the API's shape: `{ filename, previous_filename?, status }`.
@@ -37,8 +37,12 @@ const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'ut
 export function changedFilesLocal(root, base) {
   const range = `${base}...HEAD`;
   const files = parseNameStatus(git(root, ['diff', '--name-status', '-z', '-M', range]));
+  // With a fingerprints file, the description check reads which requirements the test and code patches name.
+  const fingerprints = files.some((f) => [f.filename, f.previous_filename].some((n) => n && isFingerprintFile(n)));
   for (const f of files) {
-    const needsPatch = /^(AGENTS\.md|CLAUDE\.md|\.claude\/|docs\/requirements\/|\.github\/workflows\/|infra\/)/.test(f.filename);
+    const needsPatch =
+      /^(AGENTS\.md|CLAUDE\.md|\.claude\/|docs\/requirements\/|\.github\/workflows\/|infra\/)/.test(f.filename) ||
+      (fingerprints && /^(apps|packages|tools)\//.test(f.filename));
     if (!needsPatch) continue;
     f.patch = git(root, ['diff', range, '--', ...[f.previous_filename, f.filename].filter(Boolean)]);
     if (f.filename.startsWith('.github/workflows/') && f.status !== 'removed') {
