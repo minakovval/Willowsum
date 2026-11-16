@@ -309,13 +309,15 @@ export function formatDelta(locale: Locale, input: DeltaInput): FormattedDelta {
 
 /**
  * DS-04 FR 13: the mask of an account, card or document number — two middle dots (U+00B7) and the
- * last 4 digits, no space: «··4417». Spaces and dashes in the number are ignored; nothing else is
- * shown, whatever the number's length.
+ * last 4 characters, no space: «··4417». An IBAN-like number may end in letters: «··AB12» (the
+ * characters as they are; owner decision docs/decisions/log/2026-11-16-owner-answers-387-388-381.md).
+ * Spaces and dashes in the number are ignored; nothing else is shown, whatever the number's length.
  */
 export function maskNumber(number: string): string {
-  const digits = number.replace(/[\s-]/g, "");
-  if (!/^\d{4,}$/.test(digits)) throw new RangeError("A masked number needs at least 4 digits");
-  return `\u00B7\u00B7${digits.slice(-4)}`;
+  const chars = number.replace(/[\s-]/g, "");
+  if (!/^[0-9A-Za-z]{4,}$/.test(chars))
+    throw new RangeError("A masked number needs at least 4 letters or digits");
+  return `\u00B7\u00B7${chars.slice(-4)}`;
 }
 
 /**
