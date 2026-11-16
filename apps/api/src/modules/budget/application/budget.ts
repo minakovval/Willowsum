@@ -182,9 +182,12 @@ function checkLimits(
   const seen = new Set<string>();
   inputs.forEach((l, i) => {
     const field = `limits.${i}`;
-    const problem = seen.has(l.categoryId) ? "duplicate" : limitIssue(categories.get(l.categoryId));
+    const duplicate = seen.has(l.categoryId);
+    const problem = duplicate ? "duplicate" : limitIssue(categories.get(l.categoryId));
     seen.add(l.categoryId);
-    if (problem && l.amount !== null) return issues.push({ field: `${field}.categoryId`, issue: problem });
+    // A category twice is refused also when one of them removes the limit: the audit's «before» stays true.
+    if (problem && (duplicate || l.amount !== null))
+      return issues.push({ field: `${field}.categoryId`, issue: problem });
     if (l.amount === null) return limits.push({ categoryId: l.categoryId, amount: null });
     const amount = parseBudgetAmount(`${field}.amount`, l.amount, currency);
     if (amount instanceof Money) limits.push({ categoryId: l.categoryId, amount });

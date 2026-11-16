@@ -523,6 +523,37 @@ describe("BUD-02@PoC: what the period counts", () => {
     expect(view.outsidePlan.categories).toEqual([{ categoryId: household, spent: eur("36") }]);
   });
 
+  it("BUD-02@PoC FR 9, FR 12: a split part of a category merged into another counts in the target (lead decision: merged into the target)", async () => {
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    const tree = (await call(space, "GET", "/v1/categories")).json() as {
+      groups: { id: string; categories: { id: string }[] }[];
+    };
+    const groupId = tree.groups.find((g) => g.categories.some((c) => c.id === groceries))!.id;
+    const added = await call(space, "POST", "/v1/categories", { groupId, name: "Синтетична кава" });
+    expect(added.statusCode, added.body).toBe(201);
+    const coffee = added.json().id as string;
+    await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("600.00") }] });
+    const acc = await account(space);
+    const split = await spend(space, acc, "-186.00", "2026-11-06", null);
+    const parts = await call(space, "POST", `/v1/transactions/${split}/split`, {
+      mode: "categories",
+      parts: [
+        { categoryId: groceries, amount: "-136.00" },
+        { categoryId: coffee, amount: "-50.00" },
+      ],
+    });
+    expect(parts.statusCode, parts.body).toBe(200);
+    const merged = await call(space, "POST", `/v1/categories/${coffee}/merge`, { targetId: groceries });
+    expect(merged.statusCode, merged.body).toBe(200);
+    expect(merged.json().sourceState).toBe("retired");
+    await runWorker(space.householdId);
+    const view = await period(space, "2026-11");
+    // 136 + 50: all of it in «Продукти»; nothing «Без категорії» in «Поза планом».
+    expect(line(view, groceries)).toMatchObject({ spent: eur("186"), remaining: eur("414") });
+    expect(view.outsidePlan).toEqual({ categories: [], total: eur("0") });
+  });
+
   it("BUD-02@PoC AC3: 2 000 грн in a EUR budget without the date's rate counts at the nearest 40,00 — 50,00 € «приблизно»; with the date's rate it is exact", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
