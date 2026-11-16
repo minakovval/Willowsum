@@ -6,7 +6,7 @@ import { enqueueHandOff } from "../queue/job.ts";
 
 /** The budget schema through the module's own role (migrations/0001_budget.sql). The row policy binds the space; SQL filters it too. */
 const BUDGET_COLUMNS = `id, currency, to_char(first_period, 'YYYY-MM') AS first_period, income_plan::text AS income_plan,
-  to_char(created_on, 'YYYY-MM-DD') AS created_on, version`;
+  to_char(created_on, 'YYYY-MM-DD') AS created_on, version, to_char(first_day, 'YYYY-MM-DD') AS first_day`;
 
 interface BudgetRow {
   id: string;
@@ -15,6 +15,7 @@ interface BudgetRow {
   income_plan: string;
   created_on: string;
   version: number;
+  first_day: string | null;
 }
 
 const budget = (r: BudgetRow): StoredBudget => ({
@@ -24,6 +25,7 @@ const budget = (r: BudgetRow): StoredBudget => ({
   incomePlan: Money.of(r.income_plan, r.currency),
   createdOn: r.created_on,
   version: r.version,
+  firstDay: r.first_day,
 });
 
 const month = (period: string) => `${period}-01`;
@@ -39,9 +41,17 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
     },
     async insertBudget(householdId, b) {
       const { rowCount } = await q.query(
-        `INSERT INTO budgets (household_id, id, currency, first_period, income_plan, created_on)
-         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (household_id) DO NOTHING`,
-        [householdId, b.id, b.currency, month(b.firstPeriod), b.incomePlan.toDecimalString(), b.createdOn],
+        `INSERT INTO budgets (household_id, id, currency, first_period, income_plan, created_on, first_day)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (household_id) DO NOTHING`,
+        [
+          householdId,
+          b.id,
+          b.currency,
+          month(b.firstPeriod),
+          b.incomePlan.toDecimalString(),
+          b.createdOn,
+          b.firstDay,
+        ],
       );
       return rowCount === 1;
     },

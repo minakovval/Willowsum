@@ -159,9 +159,11 @@ different modules; two PRs that change the same files go one after the other. In
 cluster queue through `pnpm db:test run -- …` (roles are cluster-wide). Repeated or load runs of integration
 tests (hunting a flaky test, a probe on thousands of rows) run only as `pnpm db:test run -- …`, each on its own
 database under the cluster lock, never on a hand-made database (owner, 2026-11-15, #178, #226).
-**UI in parallel** (owner, 2026-11-16): UI rows whose server part is already merged (wave 2: 117, 123–125, 130, 131
-of `docs/plans/poc-wave-2.md`) may run alongside the server rows, 1–2 UI authors at once, in `apps/web`; they count
-within the limits above (branches, agents, slots). Pick them in step 1 together with the server rows.
+**UI in parallel** (owner, 2026-11-16; list and limit changed by `docs/decisions/log/2026-11-16-owner-wave2-order.md`): UI rows whose server part is already merged (wave 2: 109–116, 118, 119, the rest of 117;
+after #340 and #339 merge, also 120 and 121 of `docs/plans/poc-wave-2.md`) may run alongside the server rows,
+3–4 UI authors at once on stages 1–3 (owner, 2026-11-16), in `apps/web`; they count within the limits above
+(branches, agents, slots). Pause: «Планування» UI (122–131) is not taken until stage 2 is done. Pick them in step 1
+together with the server rows.
 
 ## 4. Restarts and token economy
 
