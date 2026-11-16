@@ -41,7 +41,7 @@ BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина,
     `two-weeks`, `month`, `quarter`, `year`), `variable`, `expectedAmount` (додатна, у валюті списань), `nextDate`
     (наступна дата розкладу від останнього списання — не раніше сьогодні й після нього), `lastDate`, `accountId`
     (рахунок останнього списання), `transactionIds` (списання серії, від старшого); за `nextDate`, далі назвою. `more` —
-    у вікні було понад 20 000 транзакцій (найновіші не прочитано).
+    у вікні було понад 20 000 транзакцій (найстаріші не прочитано).
 - `createRecurringServices({ history, merchants, accounts, clock })` → `RecurringServices` — порти маршруту (`src/api.ts`
   → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions, `MerchantDirectory` модуля merchants,
   `AccountDirectory` модуля accounts (вид рахунку), годинник («сьогодні» — дата Києва).

@@ -197,7 +197,7 @@ export function createTransactionTexts(db: ModuleDatabase): TransactionTexts {
 
 /**
  * The transactions module as module recurring reads it (BUD-07@PoC FR 1; wave 2 row 25): the space's shown transactions
- * with a counterparty in a period — no side of a transfer, merged into none — oldest first, at most `limit`. `amount` is
+ * with a counterparty in a period — no side of a transfer, merged into none — newest first, at most `limit`. `amount` is
  * signed in `currency` (minus — an expense). Read only; every call is bound to one space.
  */
 export interface TransactionHistory {

@@ -9,7 +9,7 @@ import { addDays, detectSeries, nextDate, type Charge, type Frequency } from "..
 
 /** FR 1: the days of transactions the analysis reads, today included. */
 export const HISTORY_DAYS = 430;
-/** The most transactions one analysis reads (oldest first); `more` tells the window had others. */
+/** The most transactions one analysis reads (newest first); `more` tells the window had older ones. */
 export const HISTORY_MAX = 20_000;
 
 export interface HistoryCharge {

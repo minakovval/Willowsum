@@ -666,7 +666,7 @@ export async function counterpartyCounts(
 /**
  * What module recurring reads of the space's transactions (BUD-07@PoC FR 1): the shown transactions with a counterparty
  * dated `from`…`to` (both included) that are no side of a transfer and were merged into none — either status, entered
- * by hand or imported — oldest first, at most `limit`. Read only.
+ * by hand or imported — newest first, at most `limit`. Read only.
  */
 export async function recurringHistory(
   q: ModuleQueryRunner,
@@ -695,7 +695,7 @@ export async function recurringHistory(
        FROM transactions
       WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date
         AND counterparty IS NOT NULL AND NOT hidden AND transfer_id IS NULL AND merged_into IS NULL
-      ORDER BY occurred_on, id
+      ORDER BY occurred_on DESC, id DESC
       LIMIT $4`,
     [householdId, query.from, query.to, query.limit],
   );

@@ -48,21 +48,20 @@ function bounds(charges: readonly Charge[]): { readonly min: Decimal; readonly m
   return { min, max };
 }
 
-/** The median amount (of an even count, the average of the two middle ones). */
-function median(charges: readonly Charge[]): Decimal {
-  const sorted = charges.map((c) => c.amount.amount).sort((x, y) => x.comparedTo(y));
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 1 ? sorted[mid]! : sorted[mid - 1]!.plus(sorted[mid]!).div(2);
+/** FR 2: amounts in ascending order are one price — each within ± 10 % of their median (of an even count, the average
+ * of the two middle ones). */
+function fitsSorted(amounts: readonly Decimal[]): boolean {
+  const mid = Math.floor(amounts.length / 2);
+  const median = amounts.length % 2 === 1 ? amounts[mid]! : amounts[mid - 1]!.plus(amounts[mid]!).div(2);
+  return (
+    amounts[0]!.greaterThanOrEqualTo(median.times(FIXED_TOLERANCE.low)) &&
+    amounts.at(-1)!.lessThanOrEqualTo(median.times(FIXED_TOLERANCE.high))
+  );
 }
 
 /** FR 2: the amounts are one price — each within ± 10 % of their median. */
 export function withinTolerance(charges: readonly Charge[]): boolean {
-  const { min, max } = bounds(charges);
-  const m = median(charges);
-  return (
-    min.greaterThanOrEqualTo(m.times(FIXED_TOLERANCE.low)) &&
-    max.lessThanOrEqualTo(m.times(FIXED_TOLERANCE.high))
-  );
+  return fitsSorted(charges.map((c) => c.amount.amount).sort((x, y) => x.comparedTo(y)));
 }
 
 /** FR 3: the amounts may vary as a variable series' do. */
@@ -113,13 +112,17 @@ function bestRun(charges: readonly Charge[], accept: (run: readonly Charge[]) =>
 /** FR 3: the charges by price — runs of the amounts in order that stay within ± 10 % of their median. */
 function priceGroups(charges: readonly Charge[]): Charge[][] {
   const sorted = [...charges].sort((a, b) => a.amount.amount.comparedTo(b.amount.amount) || byDate(a, b));
-  const groups: Charge[][] = [];
+  const groups: { charges: Charge[]; amounts: Decimal[] }[] = [];
   for (const c of sorted) {
     const last = groups.at(-1);
-    if (last && withinTolerance([...last, c])) last.push(c);
-    else groups.push([c]);
+    last?.amounts.push(c.amount.amount);
+    if (last && fitsSorted(last.amounts)) last.charges.push(c);
+    else {
+      last?.amounts.pop();
+      groups.push({ charges: [c], amounts: [c.amount.amount] });
+    }
   }
-  return groups.map((g) => g.sort(byDate));
+  return groups.map((g) => g.charges.sort(byDate));
 }
 
 const overlap = (a: Run, b: Run) =>

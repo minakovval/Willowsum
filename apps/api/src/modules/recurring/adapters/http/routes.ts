@@ -65,7 +65,7 @@ export const listRecurringProposalsRoute = defineRoute({
     description: "The proposals by next date; analysed anew on every read",
     schema: z.object({
       items: z.array(proposalSchema),
-      /** The window had more transactions than one analysis reads; the latest ones were left out. */
+      /** The window had more transactions than one analysis reads; the oldest ones were left out. */
       more: z.boolean(),
     }),
   },

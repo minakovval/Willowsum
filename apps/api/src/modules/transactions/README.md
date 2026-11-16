@@ -151,7 +151,7 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
   різний контрагент показаних транзакцій простору і їхня кількість.
 - `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
-  і не злиті, будь-якого стану, від старшої, не більше `limit`; сума зі знаком у валюті транзакції.
+  і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
 - `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
