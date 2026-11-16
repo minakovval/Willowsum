@@ -199,11 +199,12 @@ async function lockHolder(): Promise<LockHolder | undefined> {
 
 /** Takes the cluster lock; while it waits, says who holds it and what to do (once, and again when that changes). */
 async function takeClusterLock(): Promise<() => Promise<void>> {
-  let said: number | undefined;
+  let said: number | undefined | null = null; // null: nothing said yet
   const say = async () => {
     const holder = await lockHolder();
-    if (holder && holder.pid !== said) {
-      said = holder.pid;
+    // The first time always (even when the holder could not be read), then whenever the holder changes.
+    if (said === null || (holder && holder.pid !== said)) {
+      said = holder?.pid;
       console.log(lockHolderMessage(holder));
     }
   };
