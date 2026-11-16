@@ -763,3 +763,356 @@
 .ws-page-tabpanel {
   margin-block-start: var(--ws-space-5);
 }
+
+/*
+ * CMP-03@PoC Select. The label 13/16 500 in ordinary case above the field (6 px apart); the control 40 px visible
+ * with a 44 px hit area, 12 px left and 40 px right padding (room for the 16 px chevron 12 px from the edge), a 1 px
+ * `border-control` border, radius 8, `surface-200`, 14/20 `ink`; a long value is cut with an ellipsis.
+ */
+.ws-select {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.ws-select-label {
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ws-select-required {
+  margin-inline-start: var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  font-weight: 400;
+}
+
+.ws-select-box {
+  position: relative;
+  display: block;
+  inline-size: 100%;
+}
+
+.ws-select-box::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) / -2);
+}
+
+/* The control sits above the 2 px strips of the hit area; a press on a strip opens it (Select.tsx). */
+.ws-select-control {
+  position: relative;
+  z-index: var(--ws-layer-local-1);
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  margin: 0;
+  padding-block: 0;
+  padding-inline: var(--ws-space-3) calc(var(--ws-space-6) + var(--ws-space-2));
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-select-control:hover {
+  border-color: var(--ws-ink);
+}
+
+.ws-select-control:focus-visible {
+  border-color: var(--ws-ink);
+}
+
+.ws-select-control--empty {
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-control option {
+  color: var(--ws-ink);
+}
+
+.ws-select-control[aria-invalid="true"] {
+  border-color: var(--ws-loss);
+}
+
+.ws-select-control:disabled,
+.ws-select-control:disabled:hover {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-select-value {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-select-chevron {
+  position: absolute;
+  inset-inline-end: var(--ws-space-3);
+  inset-block-start: 50%;
+  display: inline-flex;
+  z-index: var(--ws-layer-local-2);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.ws-select-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+/* CMP-02 «Помилка»: 14/20 500 `loss`, a marker and the word «Помилка» first; it replaces the hint. */
+.ws-select-error {
+  display: flex;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  margin: 0;
+  color: var(--ws-loss);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+}
+
+/* The menu panel: as wide as the field (or under the list button), `surface-200`, 1 px `line`, radius 8, popover shadow. */
+.ws-select-panel {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: calc(100% + var(--ws-space-1));
+  z-index: var(--ws-layer-tooltip);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  box-sizing: border-box;
+  max-block-size: calc(var(--ws-space-8) * 5);
+  padding: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+/* The search field of the panel: 36 px with a 16 px magnifier. */
+.ws-select-search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ws-space-2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.ws-select-search:focus-within {
+  border-color: var(--ws-ink);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: calc(var(--ws-focus-ring-offset) * -1 - var(--ws-focus-ring-width));
+}
+
+.ws-select-search input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  outline: none;
+}
+
+.ws-select-search input::placeholder {
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-list {
+  overflow-y: auto;
+}
+
+.ws-select-list:focus-visible {
+  outline-offset: calc(var(--ws-focus-ring-width) * -1);
+}
+
+.ws-select-group-title {
+  padding: var(--ws-space-2) calc(var(--ws-space-2) + var(--ws-space-1) / 2) var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Options show their full text: never cut (AC1). The current one has a check, not only a colour. */
+.ws-select-option {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  min-block-size: calc(var(--ws-touch-target) - var(--ws-space-1) - var(--ws-space-1) / 2);
+  padding: var(--ws-space-1) calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-sm);
+  color: var(--ws-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.ws-select-option--active {
+  background: var(--ws-surface-300);
+}
+
+.ws-select-option[aria-disabled="true"] {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-select-option--create {
+  margin-block-start: var(--ws-space-1);
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+  box-shadow: 0 -1px 0 var(--ws-line);
+}
+
+.ws-select-option__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.ws-select-option__secondary {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-chart-axis-size);
+  line-height: var(--ws-text-chart-axis-line);
+}
+
+.ws-select-option__check {
+  display: inline-flex;
+  color: var(--ws-brand);
+}
+
+.ws-select-nothing {
+  margin: 0;
+  padding: var(--ws-space-2) calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  color: var(--ws-ink-muted);
+}
+
+.ws-select-nothing:empty {
+  display: none;
+}
+
+/* The category circle (its colour comes with the category) and the 24 px institution logo. */
+.ws-select-dot {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  border-radius: var(--ws-radius-pill);
+  color: var(--ws-surface-200);
+}
+
+.ws-select-logo {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  overflow: hidden;
+  border-radius: var(--ws-radius-sm);
+}
+
+/*
+ * CMP-03@PoC «кнопка-список з підписом»: 36 px (44 px hit area), 0 × 12 px, 1 px `border-control`, radius 8,
+ * `surface-200`; the label with its colon 13/18 `ink-muted`, the value 13/18 500 `ink`, the chevron 16 px.
+ */
+.ws-list-button-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.ws-list-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
+}
+
+.ws-list-button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) * -1);
+}
+
+.ws-list-button:hover,
+.ws-list-button:focus-visible {
+  border-color: var(--ws-ink);
+}
+
+.ws-list-button:disabled {
+  border-color: transparent;
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-list-button__label {
+  color: var(--ws-ink-muted);
+}
+
+.ws-list-button:disabled .ws-list-button__label {
+  color: inherit;
+}
+
+.ws-list-button__value {
+  font-weight: 500;
+}
+
+.ws-list-button__panel {
+  inset-inline-end: auto;
+  min-inline-size: 100%;
+  inline-size: max-content;
+  max-inline-size: calc(var(--ws-space-8) * 6);
+}

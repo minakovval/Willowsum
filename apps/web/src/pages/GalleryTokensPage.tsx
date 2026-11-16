@@ -47,6 +47,7 @@ import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
+import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -395,6 +396,10 @@ export function GalleryTokensPage() {
         >
           <p className="ws-muted">{t("gallery.tabs.panel")}</p>
         </PageTabs>
+      </Section>
+
+      <Section id="g-select" title={t("gallery.select.title")}>
+        <SelectDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
