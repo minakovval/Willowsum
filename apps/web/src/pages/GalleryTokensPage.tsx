@@ -51,6 +51,7 @@ import { ButtonDemo } from "./ButtonDemo.tsx";
 import { PaginationDemo } from "./PaginationDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
+import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -399,6 +400,10 @@ export function GalleryTokensPage() {
         >
           <p className="ws-muted">{t("gallery.tabs.panel")}</p>
         </PageTabs>
+      </Section>
+
+      <Section id="g-select" title={t("gallery.select.title")}>
+        <SelectDemo />
       </Section>
 
       <Section id="g-dialog" title={t("gallery.dialog.title")}>
