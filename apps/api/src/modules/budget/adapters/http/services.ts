@@ -42,9 +42,12 @@ export function budgetReads(options: {
   return {
     categories: async (householdId) => [...(await options.categories.categories(householdId))],
     accounts: async (householdId) => [...(await options.accounts.accounts(householdId))],
-    async amounts(householdId, accountIds, period, currency) {
+    async amounts(householdId, accountIds, period, currency, since) {
       const { from, to } = periodDays(period);
-      const rows = await options.transactions.inPeriod(householdId, accountIds, from, to);
+      // FR 14: a proportional first period counts from its first day; a share «На кілька місяців» is the whole month's.
+      const rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
+        (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
+      );
       const own = await options.categorization.categoriesOf(
         householdId,
         rows.filter((r) => r.parts === null).map((r) => r.id),
@@ -56,7 +59,10 @@ export function budgetReads(options: {
         else
           for (const p of r.parts)
             // A share «На кілька місяців» counts in its month; a part of a split by categories on the date.
-            if (periodOf(p.month ?? r.date) === period)
+            if (
+              periodOf(p.month ?? r.date) === period &&
+              (p.month !== null || since === undefined || r.date >= since)
+            )
               counted.push({ categoryId: p.categoryId, amount: p.amount, date: r.date });
       }
       const total = await options.fx.total(
