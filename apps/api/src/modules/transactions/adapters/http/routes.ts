@@ -30,6 +30,7 @@ import {
   CATEGORY_PARTS_MAX,
   COUNTERPARTY_MAX,
   DESCRIPTION_MAX,
+  REVIEW_STATES,
   SPLIT_MODES,
   SPLIT_MONTHS_MAX,
   SPLIT_MONTHS_MIN,
@@ -149,6 +150,13 @@ export const transactionSchema = z.object({
   note: z.string().nullable(),
   /** BUD-13 FR 2: «Теги» — the space's tags of the transaction, in the order given; the row's icon lists them. */
   tags: z.array(z.object({ id: z.uuid(), name: z.string() })),
+  /**
+   * BUD-12 FR 4, FR 8: «До розбору» — `queued` (in the queue), `confirmed` (its category confirmed), null (never in
+   * the queue: entered by hand).
+   */
+  review: z.enum(REVIEW_STATES).nullable().meta({ "x-extensible-enum": true }),
+  /** One more with each change: the card's «Підтвердити» sends it back (BUD-12 FR 7). */
+  version: z.number().int(),
   /** «Дата і час»: when it was recorded (ISO 8601 UTC); the form has a date only. */
   recordedAt: z.string(),
 });
@@ -210,6 +218,8 @@ function present(
     mergedDuplicates: [...duplicates],
     note: t.note,
     tags: tagsOut(t.tagIds, names),
+    review: t.review,
+    version: t.version,
     recordedAt: t.createdAt,
   };
 }
@@ -497,6 +507,8 @@ function listItem(
     mergedDuplicates: merged.get(String(row["id"])) ?? [],
     note: (row["note"] as string | null) ?? null,
     tags: tagsOut(rowTags(row), names),
+    review: (row["review"] as StoredTransaction["review"]) ?? null,
+    version: Number(row["version"]),
     recordedAt: recorded instanceof Date ? recorded.toISOString() : String(recorded),
   };
 }
