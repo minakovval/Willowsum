@@ -28,6 +28,19 @@ export {
   type RecurringAudit,
   type RecurringHandOff,
   type RecurringTx,
+  type StoredMark,
   type StoredPayment,
   type StoredRejection,
 } from "./payments.ts";
+export {
+  currentAmount,
+  keepPayment,
+  recordAmounts,
+  settleCharge,
+  skipCharge,
+  trackSpace,
+  type ChargeOutcome,
+  type MatchingCharge,
+  type SpaceTracking,
+  type TrackingDeps,
+} from "./tracking.ts";

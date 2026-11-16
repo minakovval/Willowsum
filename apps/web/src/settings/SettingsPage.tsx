@@ -4,6 +4,7 @@ import { Skeleton } from "@willowsum/ui";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { IMPORT_WIZARD_PATH, PROFILE_PATH, SETTINGS_PATH, SPACE_SETTINGS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
+import { useSpaceName } from "../space/api.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { useProfile } from "./api.ts";
 import { ProfileLoadError } from "./parts.tsx";
@@ -19,6 +20,8 @@ export function SettingsPage() {
   const t = useT();
   const title = t("shell.settings");
   useDocumentTitle(title);
+  // ACC-08@PoC FR 2: the space's name, shared with the profile in the shell (one request); empty until known.
+  const spaceName = useSpaceName() ?? undefined;
   return (
     <AppLayout sectionId={null} pageId={null}>
       <h1>{title}</h1>
@@ -27,7 +30,7 @@ export function SettingsPage() {
         <div className="settings-form">
           <ProfileSection />
           <Section id="settings-space" title={t("settings.space")}>
-            <Row label={t("settings.row.spaceName")}>
+            <Row label={t("settings.row.spaceName")} value={spaceName}>
               <ActionLink
                 href={SPACE_SETTINGS_PATH}
                 action={t("settings.action.rename")}
@@ -117,7 +120,15 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
-function Row({ label, value, children }: { label: string; value?: string; children?: ReactNode }) {
+function Row({
+  label,
+  value,
+  children,
+}: {
+  label: string;
+  value?: string | undefined;
+  children?: ReactNode;
+}) {
   return (
     <div className="settings-row">
       <span className="settings-row-label">{label}</span>

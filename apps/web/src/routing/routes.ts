@@ -78,7 +78,7 @@ export const START_PATH = BUDGET.path;
 export const SETTINGS_PATH = "/settings";
 /** ACC-05@PoC FR 1: «Налаштування → Профіль» (S-187). */
 export const PROFILE_PATH = "/settings/profile";
-/** ACC-08@PoC FR 5: «Налаштування → Простір» (S-200); its screen is wave 2 row 111. */
+/** ACC-08@PoC FR 5, ACC-06@PoC FR 1: «Налаштування → Простір» (S-200). */
 export const SPACE_SETTINGS_PATH = "/settings/household";
 /** UX-09@PoC item 14: the statement import wizard (focus mode). */
 export const IMPORT_WIZARD_PATH = "/import";
@@ -144,6 +144,7 @@ export type Route =
   | { kind: "child"; section: SectionDef; child: ChildDef }
   | { kind: "settings" }
   | { kind: "profile" }
+  | { kind: "spaceSettings" }
   | { kind: "importWizard" }
   | { kind: "gallery" }
   | { kind: "auth"; screen: AuthScreen }
@@ -171,6 +172,7 @@ export function resolveRoute(path: string): Route {
   if (path === GALLERY_TOKENS_PATH) return { kind: "gallery" };
   if (path === SETTINGS_PATH) return { kind: "settings" };
   if (path === PROFILE_PATH) return { kind: "profile" };
+  if (path === SPACE_SETTINGS_PATH) return { kind: "spaceSettings" };
   if (path === IMPORT_WIZARD_PATH) return { kind: "importWizard" };
   const auth = AUTH_PATHS[path];
   if (auth) return { kind: "auth", screen: auth };

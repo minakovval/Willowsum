@@ -147,6 +147,6 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 ## 8. Clean up
 
 Remove your worktree (`git worktree remove --force <path>`), drop your databases (`pnpm db:test list`,
-`pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Return a short report
-to the lead: 10–15 lines, no narrative (owner, 2026-11-13) — PR, reviewed head SHA (full), security verdict,
-blocking items with file:line, output file paths, owner questions. Details stay in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
+`pnpm db:test drop <name>`), and make sure no mutant was committed or pushed. Then report.
+
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Security verdict: Ready` or `Security verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (output file paths, the mutant table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).

@@ -1,12 +1,36 @@
 // Synthetic regular payments (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
 // Each space gets payments added by hand and confirmed from proposals, and one rejected series; every hand-off job (the
 // audit entry, ARC-04) is done; the module publishes no events: outbox_events gets one dispatched row for the isolation
-// check.
+// check. Tables load in name order (charge_marks before payments) in one transaction; the key of a mark to its payment
+// is checked at commit. Payment n has the id `key(household, "payment", n)`; the first one has its October charge
+// marked «Пропущено» (BUD-07 FR 21).
+import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
+
+function key(householdId: string, table: string, n: number): string {
+  const h = createHash("sha256").update(`${householdId}/${table}/${n}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 const NAMES = ["Синтетична оренда", "Синтетичний стрімінг", "Синтетична зарплата"] as const;
 
 export const synthetic = [
+  defineSyntheticTable({
+    table: "recurring.charge_marks",
+    perHousehold: 1,
+    *rows({ household, rng, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: rng.uuid(),
+          payment_id: key(household.id, "payment", i),
+          due_on: "2026-10-05",
+          kind: "skipped",
+          transaction_id: null,
+          marked_on: "2026-11-01",
+        };
+    },
+  }),
   defineSyntheticTable({
     table: "recurring.payments",
     perHousehold: NAMES.length,
@@ -15,7 +39,7 @@ export const synthetic = [
         const manual = i % 3 === 0;
         yield {
           household_id: household.id,
-          id: rng.uuid(),
+          id: key(household.id, "payment", i),
           name: `${NAMES[i % 3]} ${i + 1}`,
           type: i % 3 === 2 ? "income" : "expense",
           frequency: "month",
