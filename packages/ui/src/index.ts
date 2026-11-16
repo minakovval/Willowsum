@@ -52,6 +52,14 @@ export { Progress } from "./progress/Progress.tsx";
 export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";
 export { PageTabs } from "./tabs/PageTabs.tsx";
 export type { PageTab } from "./tabs/PageTabs.tsx";
+export { Dialog } from "./dialog/Dialog.tsx";
+export type {
+  DialogAction,
+  DialogActionVariant,
+  DialogProps,
+  DialogSize,
+  DialogTone,
+} from "./dialog/Dialog.tsx";
 export { AmountField, Field } from "./field/Field.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";

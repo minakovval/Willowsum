@@ -162,6 +162,9 @@
   --ws-focus-ring-width: 3px;
   --ws-focus-ring-offset: 2px;
   --ws-table-stack-below: 520px;
+  --ws-dialog-width: 560px;
+  --ws-dialog-width-split: 640px;
+  --ws-dialog-width-wide: 900px;
   --ws-chart-area-opacity: 0.14;
   --ws-scrim-blur: 2px;
   --ws-columns: 4;

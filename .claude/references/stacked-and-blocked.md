@@ -1,6 +1,6 @@
 # Stacked PRs and CI that cannot run
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when a PR depends on another open PR, or CI cannot run (billing, outage).
 
@@ -8,7 +8,7 @@ Read when a PR depends on another open PR, or CI cannot run (billing, outage).
 parent's branch and say in its body which PR it waits for; it is merged only after the parent. After the
 parent squash-merges, bring the child up to date with `sync-branch` (merge `origin/main`, never rebase): its
 diff against `main` becomes its own commits only. Then get a merge-only confirmation from its reviewers on
-the new head (`review-pr` «6. Confirmation rounds») before step 6.
+the new head (`review-pr` «6. Confirmation rounds») before `pr-pipeline` step 6.
 
 **CI cannot run** (owner, 2026-11-13; e.g. GitHub Actions blocked by billing or an outage, the run's
 annotations say so): stop merging. Local runs never replace CI and never count as green. Report it to the
