@@ -1,6 +1,6 @@
 # Restarts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
 finishes.
@@ -34,7 +34,10 @@ agent; the lead then, in the same session:
 3. posts the retrospective of the finished segment (lead N; [token economy](token-economy.md), «Session
    retrospective») and adds its «Сесії» row to #180, then records the new segment's start in #180 («Token
    accounting» item 1);
-4. continues the pipeline. A lead number that is a multiple of 3 starts with the process review («Process review»
+4. posts the handover table on #179 («Handover template» below; owner, 2026-11-16, #178: «ні, таблиця потрібна для
+   відстеження історії» — the table stays at every handover, a compaction included): «Передано» is «Lead state»
+   as kept current, «Прийнято» is what lead N+1 re-read and did; the chat gets only the short retrospective (step 3);
+5. continues the pipeline. A lead number that is a multiple of 3 starts with the process review («Process review»
    below), whether it began after a compaction or in a new session.
 
 **New lead session** (owner, 2026-11-15, #178): only when the container is lost or the compaction did not happen
@@ -98,11 +101,13 @@ before new pipeline tasks; it costs ≈ 100–150 k tokens of context, so the re
 4. **Result.** A report to the owner as a comment on #180: conclusions and proposals, each with its risks, downsides
    and mitigations. Proposals go to «Черга змін процесу» (#178); the lead changes no rule without an owner decision.
 
-**Handover confirmation** (owner, 2026-11-13/14): every handover between lead sessions is confirmed to the owner in
-chat in full (and always as the table on #179, «Handover template» below), item by item — the finishing lead for
-what it hands over, the new lead for what it took over. For each item: what was done with it and where it is
-recorded (skill or instruction file, PR or issue, with a link). An item not acted on is marked «не виконано» with
-the reason. A shortened summary does not count.
+**Handover confirmation** (owner, 2026-11-13/14): every handover between lead sessions is confirmed item by item — the
+finishing lead for what it hands over, the new lead for what it took over — always as the table on #179
+(«Handover template» below). At a new session the confirmation is also given to the owner in chat in full; at a
+compaction the chat gets only the short retrospective and the table stays on #179 (SKILL.md «Мовчання в чаті» (d);
+owner, 2026-11-16, #178). For each item: what was done with it and where it is recorded (skill or instruction
+file, PR or issue, with a link). An item not acted on is marked «не виконано» with the reason. In the places where
+the confirmation is required in full, a shortened summary does not count.
 
 **Handover template** (owner, 2026-11-15, #178,
 [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): the confirmation
@@ -111,6 +116,9 @@ is always the table below on #179 — at every handover — with the fixed items
 kept at a compaction too (lead N → N+1 in one session), its «Передано» being «Lead state» kept current from the
 350 k stop; because a compaction changes the lead number like any handover. An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries
 «перенесено N разів»: the number of handovers it has passed without being done, one more than in the previous table.
+An item carried over **≥ 3 handovers** goes to the owner with options (owner, 2026-11-16, #178): do it in the next 2
+plan rows / move it to `docs/plans/owner-questions-later.md` / close it; the lead puts the question into the next
+batch of owner questions and does not carry the item further until the owner answers.
 Before the handover, every file in the scratchpad `keep/` goes to a branch or an issue (linked in item 7); nothing is
 handed over in the scratchpad alone. Test database names are not handed over: they do not survive a new container.
 ```markdown
