@@ -1,0 +1,353 @@
+/* S-050 «Рахунки», S-051 «Додати рахунок» (canvas PocMoneyAccounts, PocMoneyAccountsStale, PocMoneyAddAcc). Tokens only. */
+
+.accounts-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ws-space-4);
+  margin-block-end: var(--ws-space-4);
+}
+
+.accounts-head p {
+  margin: var(--ws-space-1) 0 0;
+}
+
+.accounts-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+/*
+ * GRID-02@PoC FR 1: header | «Гроші разом» 8 + «Джерела даних» 4 | «Готівкові» | «Кредитні» (12 each) on the 12-column
+ * grid of Expanded; on the narrower classes (not in PoC, П-25) every block takes the whole width.
+ */
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  gap: var(--ws-gutter);
+  align-items: start;
+}
+
+.accounts-grid > * {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .accounts-grid > .accounts-money {
+    grid-column: span 8;
+    align-self: stretch;
+  }
+
+  .accounts-grid > .accounts-sources {
+    grid-column: span 4;
+    align-self: stretch;
+  }
+}
+
+.accounts-grid p,
+.accounts-grid h2,
+.accounts-grid h3 {
+  margin: 0;
+}
+
+.accounts-caption,
+.accounts-small {
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.accounts-grid .accounts-total {
+  margin-block: var(--ws-space-3);
+  font-family: var(--ws-text-amount-xl-family);
+  font-size: var(--ws-text-amount-xl-size);
+  line-height: var(--ws-text-amount-xl-line);
+  font-weight: var(--ws-text-amount-xl-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-grid .accounts-breakdown-title {
+  margin-block-end: var(--ws-space-2);
+}
+
+/* «За валютами»: one bar with a segment per currency; the legend repeats every value in text (NFR-08 FR 4). */
+.accounts-bar {
+  display: flex;
+  gap: var(--ws-space-1);
+  height: var(--ws-space-2);
+  overflow: hidden;
+  border-radius: var(--ws-radius-pill);
+}
+
+.accounts-bar-part {
+  flex-basis: 0;
+}
+
+.accounts-series-1 {
+  background: var(--ws-chart-1);
+}
+
+.accounts-series-2 {
+  background: var(--ws-chart-2);
+}
+
+.accounts-series-3 {
+  background: var(--ws-chart-3);
+}
+
+.accounts-series-4 {
+  background: var(--ws-chart-4);
+}
+
+.accounts-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3) var(--ws-space-6);
+  margin: var(--ws-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accounts-legend-item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ws-space-2);
+}
+
+.accounts-legend-main,
+.accounts-legend-under {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-legend-under {
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.accounts-dot {
+  flex: none;
+  width: var(--ws-space-2);
+  height: var(--ws-space-2);
+  border-radius: var(--ws-radius-sm);
+}
+
+.accounts-sources-list {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: var(--ws-space-3) 0 0;
+}
+
+.accounts-sources-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.accounts-sources-list dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* GRID-02@PoC FR 9: the list toolbar — «Параметри» at its end. */
+.accounts-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.accounts-toolbar .ws-menu-root {
+  width: auto;
+}
+
+.accounts-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-warning-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.accounts-banner > div {
+  flex: 1;
+}
+
+.accounts-banner-title {
+  font-weight: 600;
+}
+
+.accounts-group {
+  padding: 0;
+}
+
+.accounts-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.accounts-group-sum {
+  text-align: end;
+}
+
+.accounts-strong {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-table td {
+  vertical-align: middle;
+}
+
+.accounts-table tr:last-child td {
+  border-block-end: 0;
+}
+
+.ws-table .accounts-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.accounts-stack {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.accounts-name-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.accounts-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-1) var(--ws-space-2);
+}
+
+.accounts-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ws-space-7);
+  height: var(--ws-space-7);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 600;
+}
+
+.accounts-more {
+  width: var(--ws-touch-target);
+  text-align: end;
+}
+
+.accounts-subrow td {
+  background: var(--ws-surface-100);
+}
+
+.accounts-subrow td:first-child {
+  padding-inline-start: calc(var(--ws-space-7) + var(--ws-space-6));
+}
+
+.accounts-row--closed .accounts-name strong {
+  color: var(--ws-ink-muted);
+}
+
+.accounts-note {
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.accounts-loading,
+.accounts-error,
+.accounts-empty {
+  margin-block-start: var(--ws-space-2);
+}
+
+.accounts-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+}
+
+.accounts-error p {
+  margin: 0;
+}
+
+.accounts-error-title {
+  color: var(--ws-loss);
+  font-weight: 600;
+}
+
+.accounts-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--ws-space-3);
+  padding-block: var(--ws-space-7);
+  text-align: center;
+}
+
+.accounts-empty p {
+  max-width: 60ch;
+  margin: 0;
+}
+
+/* S-051: the two ways, each one link card with an icon tile, the text and «›». */
+.accounts-ways {
+  display: grid;
+  gap: var(--ws-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accounts-way {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-4);
+  min-height: var(--ws-touch-target);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  color: var(--ws-ink);
+  text-decoration: none;
+}
+
+.accounts-way:hover {
+  background: var(--ws-surface-100);
+}
+
+.accounts-way:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.accounts-way > .accounts-stack {
+  flex: 1;
+}
+
+.accounts-way-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ws-space-8);
+  height: var(--ws-space-8);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+}
+
+.accounts-way-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
