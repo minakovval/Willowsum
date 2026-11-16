@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { colors, contrastRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
 import {
@@ -303,7 +304,7 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     expect(screen.getByRole("button", { name: "Не регулярний: Megogo" })).toBeTruthy();
   });
 
-  it("BUD-07@PoC FR 7 (part): «Підписки», other payments and income, each by the next date, with frequency, account and amount", async () => {
+  it("BUD-07@PoC S-141 list (the list part of the seventh item; calendar and totals wait for row 26): «Підписки», other payments and income, each by the next date, with frequency, account and amount", async () => {
     renderAt(PAGE, api().client);
     const table = await screen.findByRole("table");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Регулярні платежі");
@@ -333,7 +334,7 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     expect(screen.getByRole("link", { name: "Додати вручну" }).getAttribute("href")).toBe(FORM);
   });
 
-  it("BUD-07@PoC FR 7 (part): without account and category names (their lists failed) the payments still show", async () => {
+  it("BUD-07@PoC S-141 list (the list part of the seventh item; calendar and totals wait for row 26): without account and category names (their lists failed) the payments still show", async () => {
     renderAt(
       PAGE,
       api({ "GET /v1/accounts": problem(500, "INTERNAL"), "GET /v1/categories": "network" }).client,
@@ -511,5 +512,22 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     await waitFor(() => expect(keys.length).toBe(3));
     expect(keys[0]).toBe(keys[1]);
     expect(keys[2]).not.toBe(keys[0]);
+  });
+
+  it("NFR-08@PoC: the text pairs of the screen keep 4.5 : 1 in the light theme; actions are buttons and links by name", async () => {
+    const pairs: [keyof typeof colors, keyof typeof colors][] = [
+      ["ink", "surface-200"],
+      ["ink-muted", "surface-200"],
+      ["ink-muted", "surface-100"],
+      ["ink", "surface-300"],
+      ["loss", "surface-200"],
+    ];
+    for (const [fg, bg] of pairs)
+      expect(contrastRatio(colors[fg].light, colors[bg].light), `${fg}/${bg}`).toBeGreaterThanOrEqual(4.5);
+    renderAt(PAGE, api().client);
+    await screen.findByRole("table");
+    for (const b of screen.getAllByRole("button", { name: /Megogo/ })) expect(b.tagName).toBe("BUTTON");
+    // The initials tile is decorative: the name is read once, from the text.
+    expect(rowOf("^YouTube").querySelector(".rec-tile")!.getAttribute("aria-hidden")).toBe("true");
   });
 });

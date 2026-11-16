@@ -999,7 +999,7 @@ code {
   font-weight: 500;
 }
 
-.rec-proposals .rec-hint:last-child {
+.rec-proposals > .rec-hint {
   padding: var(--ws-space-2) var(--ws-space-4) var(--ws-space-3);
 }
 
@@ -1018,8 +1018,15 @@ code {
   padding-inline-end: var(--ws-space-4);
 }
 
+/* A row's name cell is a row header for screen readers; it reads as body text, not as a column label. */
 .rec-table tbody th[scope="row"] {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
   font-weight: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--ws-ink);
 }
 
 .rec-group th {
@@ -1038,10 +1045,6 @@ code {
 
 .rec-account {
   color: var(--ws-ink-muted);
-}
-
-.rec-num {
-  text-align: end;
 }
 
 .ws-table .rec-num {
