@@ -264,7 +264,7 @@ describe("BUD-07@PoC FR 1, FR 2, FR 4: a series of one merchant's charges is pro
     ]);
   });
 
-  it("BUD-07@PoC FR 6: a regular income is proposed as «дохід»", async () => {
+  it("BUD-07@PoC FR 1: a regular income is proposed too — type «дохід»", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     for (const date of ["2026-08-10", "2026-09-10", "2026-10-09", "2026-11-10"])

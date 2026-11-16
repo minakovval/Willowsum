@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -149,6 +149,9 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 - `createTransactionTexts(db)` → `TransactionTexts` для `merchants` (BUD-14 a), лише читання: `counterparties(householdId,
   ids)` — контрагент кожної наявної транзакції (приховані теж; null — немає); `counterpartyCounts(householdId)` — кожен
   різний контрагент показаних транзакцій простору і їхня кількість.
+- `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
+  { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
+  і не злиті, будь-якого стану, від старшої, не більше `limit`; сума зі знаком у валюті транзакції.
 - `createTransferCandidates(db)` → `TransferCandidates.candidatePairs(householdId, { windowDays, sameCurrencyMinShare,
   limit })` — пари-кандидати для `transfer-matching` (лише читання; правило вирішує той модуль).
 - `createDuplicateCandidates(db)` → `DuplicateCandidates.candidatePairs(householdId, { windowDays, limit })` — пари
