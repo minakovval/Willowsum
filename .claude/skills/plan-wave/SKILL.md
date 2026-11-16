@@ -53,7 +53,7 @@ code. Plans are the lead's working notes: `docs/plans/**` needs no owner decisio
 - Mark each PR **Ч** when it touches auth, permissions, encryption, money, schema, pipeline or infrastructure
   (`tools/pr-rules/lib/paths.mjs`); it needs a security review.
 - Parts that do not depend on each other go into separate sections (A, B, C …) that can run as parallel
-  branches (at most 5, `pr-pipeline` §3; owner, 2026-11-16); two PRs that change the same files go one after the
+  branches (limits and UI rows of merged server parts in parallel: `pr-pipeline` §3; owner, 2026-11-16); two PRs that change the same files go one after the
   other.
 - **Requirements sweep before each section** (owner, 2026-11-13): a section that builds a product area (money,
   import, planning, screens) starts with a row `<X>0` — one `change-requirement` PR that removes the

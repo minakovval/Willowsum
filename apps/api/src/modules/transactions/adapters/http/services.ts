@@ -113,5 +113,15 @@ export function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAu
         key,
       });
     },
+    async tagChanged(householdId, entry) {
+      await audit.record(householdId, {
+        actor: { kind: "user", id: entry.actorAccountId },
+        channel: "web",
+        entity: { type: "transactions.tag", id: entry.tagId },
+        action: entry.action,
+        changes: entry.changes.map((c) => ({ ...c })),
+        key: entry.key,
+      });
+    },
   };
 }

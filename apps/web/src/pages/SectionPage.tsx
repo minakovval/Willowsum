@@ -5,6 +5,7 @@ import {
   childPath,
   IMPORT_WIZARD_PATH,
   rootOf,
+  sectionOf,
   TRANSACTIONS,
   type ChildDef,
   type PageDef,
@@ -70,13 +71,12 @@ function PageHeader({ title, actions }: { title: string; actions?: ReactNode }) 
   );
 }
 
-/** A page below an L2 page; breadcrumbs follow the hierarchy (UX-09@PoC item 8). */
-export function ChildPage({ section, child }: { section: SectionDef; child: ChildDef }) {
+/** The breadcrumbs and the heading of a page below an L2 page (UX-09@PoC item 8). */
+export function ChildHeader({ child, title }: { child: ChildDef; title: string }) {
   const t = useT();
-  const title = t(child.title);
-  useDocumentTitle(title);
+  const section = sectionOf(child.parent);
   return (
-    <AppLayout sectionId={section.id} pageId={child.parent.id}>
+    <>
       <nav className="ws-breadcrumbs" aria-label={t("shell.breadcrumbs")}>
         <ol>
           <li>
@@ -89,6 +89,18 @@ export function ChildPage({ section, child }: { section: SectionDef; child: Chil
         </ol>
       </nav>
       <PageHeader title={title} />
+    </>
+  );
+}
+
+/** A page below an L2 page; breadcrumbs follow the hierarchy (UX-09@PoC item 8). */
+export function ChildPage({ section, child }: { section: SectionDef; child: ChildDef }) {
+  const t = useT();
+  const title = t(child.title);
+  useDocumentTitle(title);
+  return (
+    <AppLayout sectionId={section.id} pageId={child.parent.id}>
+      <ChildHeader child={child} title={title} />
       {child.id === "newTransaction" ? (
         <p>
           <ImportStatementLink />
