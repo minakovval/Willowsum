@@ -2695,6 +2695,15 @@
       "x": 9520,
       "y": 12190
     },
+    "PocMoneyTxTexts.dc.html": {
+      "h": 640,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · Тексти",
+      "w": 1280,
+      "x": 16320,
+      "y": 12190
+    },
     "PocMoneyTxToast.dc.html": {
       "h": 1180,
       "is_interactive": true,
@@ -4356,7 +4365,8 @@
     "PocDataImport2.dc.html",
     "PocDataImport3.dc.html",
     "PocDataImport4.dc.html",
-    "PocDataImport5.dc.html"
+    "PocDataImport5.dc.html",
+    "PocMoneyTxTexts.dc.html"
   ],
   "pages": [
     {
