@@ -30,7 +30,8 @@ them). On a PR without the label
 you check the hard rules in full («3. Check the hard rules»).
 
 **Re-review** (owner, 2026-11-12): check only the fixes and your own previous findings — the diff since the
-head you last reviewed — not the whole PR again. There are at most two rounds; see «5. Report» and
+head you last reviewed — not the whole PR again. When only the fixes changed, the lead resumes your session for it
+(owner, 2026-11-16, «2 а»; `pr-pipeline` token economy, item 2). There are at most two rounds; see «5. Report» and
 «6. Confirmation rounds».
 
 Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
@@ -61,6 +62,12 @@ for cloud or production** (checked here, also on `sensitive` PRs; lead, follow-u
 or weakened, requirement changes (`--impact`, sources only, views regenerated, traceability files never
 committed), new dependencies justified.
 
+**UI texts** (PR that changes `packages/i18n/src/messages/uk.ts`, `apps/web` or `packages/ui`; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-requirements-and-texts.md))): each
+new or changed `uk.ts` string equals, word for word, the chosen text of its screen's «Тексти» block on the canvas
+(live, or the snapshot the PR body names); a text the author added there as «варіант від агента, потребує
+погодження» is listed in the PR body; `en.ts` translates `uk.ts`; the PR adds no UI text to requirement sources.
+A mismatch breaks the shared rule (`docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело») and is
+blocking. A screen with no «Тексти» block yet: the author moves the texts there in this PR (same rule).
 
 
 ## 4. Verify, do not speculate
@@ -87,8 +94,9 @@ your own PIDs — [own ports](../../references/own-ports.md) (read when you star
 Post one PR review:
 - **Blocking** — only as defined in «3. Check the hard rules»; each with file:line and the failing path.
 - **Non-blocking** — everything else. The author lists them under «Follow-ups» in the PR body; the lead opens
-  the issue; they never start a new round by themselves. You may mark an item «cheap and safe to fold in»; the
-  lead decides whether it goes in before merge (AGENTS.md step 7, owner, 2026-11-13).
+  the issue; they never start a new round by themselves. Only in the tier Фундамент you may mark an item «cheap
+  and safe to fold in»; the lead decides whether it goes in before merge (AGENTS.md step 7, owner, 2026-11-13;
+  tiers: [merge rules](../../references/merge-rules.md), «Review tiers»).
 - A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
@@ -131,7 +139,8 @@ The lead merges (AGENTS.md step 7, owner, 2026-11-13) only after «Ready» given
 it compares the SHA your review names with the PR head, and any later commit needs a re-review of that
 commit (owner, 2026-11-12), except a docs-only sync that leaves the PR's diff unchanged: the lead's own check
 and review stand in for it (owner, 2026-11-13; [merge rules](../../references/merge-rules.md)); the same for a
-code PR without `sensitive` with a byte-identical diff and green CI (owner, 2026-11-16; merge rules). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
+code PR without `sensitive` with a byte-identical diff and green CI (owner, 2026-11-16; merge rules) and for a
+`sensitive` PR whose sync is mechanical and brought no foundation file (owner, 2026-11-16, «1 б»; merge rules). Once the merge conditions in AGENTS.md step 7 hold, the lead does not ask the
 owner to confirm the merge; it merges at once and tells the owner. A PR labelled `sensitive` (CI sets it from file paths) also needs
 a separate security review — say so if it has not had one; other PRs need none (owner, 2026-11-12).
 

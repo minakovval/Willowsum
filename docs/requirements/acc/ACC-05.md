@@ -40,7 +40,7 @@
 - [MVP] Спільні правила: П-8, П-10, П-15, NFR-01
 - [MVP] Сценарії: UC-ACC-25, UC-ACC-27, UC-ACC-28, UC-ACC-29, UC-ACC-30, UC-L10N-01, UC-L10N-02, UC-L10N-03, UC-L10N-04
 - Модуль: identity
-- [лише PoC] Перевіряється: apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts, apps/web/src/settings/acc05b-settings.test.tsx, apps/web/src/settings/acc05b-step-up-secrets.test.tsx, apps/web/e2e/contrast.spec.ts
 - [PoC v2] Перевіряється: —
 
 [лише PoC] **Мета.** Як користувач, я хочу керувати своїм профілем і паролем, щоб зміна пароля не відкривала шлях для захоплення акаунта.

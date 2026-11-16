@@ -29,6 +29,14 @@ fails CI (`view-stale`).
 2. One batch = one PR. Do not open a PR per item; do not mix in changes nobody decided.
 3. Target release of scope removed from PoC: PoC v2 by default (AGENTS.md). Any other target (MVP, later)
    needs the owner's explicit choice; if it is not given, ask before editing.
+4. Until stages 1–3 are done, no new PoC requirement or wider PoC scope: `pr-pipeline` §2, «PoC requirements
+   freeze» (lead, 2026-11-16). Detail only the current release: `docs/requirements/README.md`, «Detail only the
+   current release».
+5. **UI texts are not edited here.** A change of a UI text goes through the canvas: edit the screen's «Тексти»
+   block in the live canvas (read it first), then one PR updates the snapshot `design/canvas/` and
+   `uk.ts`/`en.ts`; a requirement says only what the text conveys and where («кнопка підтвердження на S-050 (текст
+   — канва)») — `docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело» (Рішення ведучого
+   (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-requirements-and-texts.md))).
 
 ## 2. Impact
 

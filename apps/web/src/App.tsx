@@ -13,9 +13,10 @@ import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
-import { SettingsPage } from "./pages/SettingsPage.tsx";
 import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
 import { RecurringPage } from "./recurring/RecurringPage.tsx";
+import { ProfilePage } from "./settings/ProfilePage.tsx";
+import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import {
   canonicalPath,
@@ -87,6 +88,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
     }
     case "settings":
       return <SettingsPage />;
+    case "profile":
+      return <ProfilePage />;
     case "spaceSettings":
       return <SpaceSettingsPage />;
     case "importWizard":
