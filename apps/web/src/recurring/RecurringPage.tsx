@@ -1,0 +1,363 @@
+import { useState } from "react";
+import { newIdempotencyKey } from "@willowsum/api-contract";
+import { useI18n, type MessageKey } from "@willowsum/i18n";
+import { Icon, Skeleton } from "@willowsum/ui";
+import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
+import { failureOf } from "../auth/failure.ts";
+import { AppLayout } from "../pages/AppLayout.tsx";
+import { childPath, RECURRING } from "../routing/routes.ts";
+import { hrefFor } from "../routing/useHashPath.ts";
+import { useDocumentTitle } from "../useDocumentTitle.ts";
+import {
+  kyivToday,
+  loadRecurring,
+  useLoad,
+  type Payment,
+  type Proposal,
+  type RecurringData,
+} from "./data.ts";
+import { counted, expectedText, FREQUENCY_KEYS, monthTitle, shortDate } from "./format.ts";
+
+/**
+ * BUD-07@PoC c), S-141 «Регулярні платежі» (boards PocPlanRecurring, PocPlanRecurringEmpty): the proposals found in
+ * the transactions with «Не регулярний» and «Підтвердити» (FR 4), the payments by group (FR 7: «Підписки», other
+ * payments, income) with their next date, account and amount, «Додати вручну» (FR 6) and the states of the view.
+ * The calendar, the totals, the statuses of charges and the payment details wait for their API (wave 2, row 26).
+ */
+export function RecurringPage({ today = kyivToday() }: { today?: string }) {
+  const { t } = useI18n();
+  const title = t(RECURRING.label);
+  useDocumentTitle(title);
+  const { result, reload } = useLoad(loadRecurring);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const decided = (message: string) => {
+    setNotice(message);
+    reload();
+  };
+
+  return (
+    <AppLayout sectionId={RECURRING.sectionId} pageId={RECURRING.id}>
+      <Header title={title} today={today} data={result.state === "ready" ? result.data : null} />
+      <p className="rec-notice" role="status" id="rec-notice">
+        {notice}
+      </p>
+      {result.state === "loading" ? (
+        <section className="ws-card rec-card" aria-label={title}>
+          <Skeleton variant="row" lines={6} />
+        </section>
+      ) : result.state === "error" ? (
+        <LoadError failure={result.failure} onRetry={reload} />
+      ) : result.data.payments.length === 0 ? (
+        <section className="ws-card rec-card rec-empty" aria-labelledby="rec-empty-title">
+          <div className="rec-empty-body">
+            <span className="rec-empty-icon">
+              <Icon name="recurring" size={24} />
+            </span>
+            <h2 id="rec-empty-title" className="ws-text-heading-3">
+              {t("recurring.empty.title")}
+            </h2>
+            <p className="ws-muted">{t("recurring.empty.body")}</p>
+            <AddLink />
+          </div>
+          <Proposals data={result.data} onDecided={decided} />
+        </section>
+      ) : (
+        <>
+          {result.data.proposals.length > 0 ? (
+            <section className="ws-card rec-card" aria-labelledby="rec-proposals-title">
+              <Proposals data={result.data} onDecided={decided} />
+            </section>
+          ) : null}
+          <PaymentsTable data={result.data} />
+        </>
+      )}
+    </AppLayout>
+  );
+}
+
+function Header({ title, today, data }: { title: string; today: string; data: RecurringData | null }) {
+  const { t, locale } = useI18n();
+  const month = monthTitle(locale, today);
+  const subtitle =
+    data && data.payments.length > 0
+      ? t("recurring.subtitle", { count: counted(t, locale, "recurring.count", data.payments.length), month })
+      : t("recurring.subtitle.month", { month });
+  return (
+    <div className="app-page-head rec-head">
+      <div className="rec-head-text">
+        <h1>{title}</h1>
+        <p className="ws-muted">{subtitle}</p>
+      </div>
+      {data && data.payments.length > 0 ? <AddLink /> : null}
+    </div>
+  );
+}
+
+function AddLink() {
+  const { t } = useI18n();
+  return (
+    <a className="ws-button ws-button-primary" href={hrefFor(childPath("newRecurring"))}>
+      <Icon name="plus" size={16} />
+      <span>{t("recurring.add")}</span>
+    </a>
+  );
+}
+
+/** «Стани інтерфейсу»: «Не вдалося завантажити регулярні платежі», «Спробувати ще раз» and the code (ARC-09 FR 3). */
+function LoadError({
+  failure,
+  onRetry,
+}: {
+  failure: Exclude<Outcome<unknown>, { ok: true }>;
+  onRetry: () => void;
+}) {
+  const { t } = useI18n();
+  const reason = failureOf(failure);
+  return (
+    <section className="ws-card rec-card rec-error" role="alert" aria-labelledby="rec-error-title">
+      <h2 id="rec-error-title" className="ws-text-heading-3">
+        <Icon name="close" size={16} />
+        <span>{t("recurring.error.title")}</span>
+      </h2>
+      <p className="ws-muted">{t(reason.key)}</p>
+      <p>
+        <button type="button" className="ws-button" onClick={onRetry}>
+          {t("recurring.error.retry")}
+        </button>
+      </p>
+      {reason.code ? (
+        <p className="ws-muted rec-code">{t("recurring.error.code", { code: reason.code })}</p>
+      ) : null}
+    </section>
+  );
+}
+
+const initials = (name: string): string =>
+  name
+    .split(/[\s·]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => [...w][0]?.toLocaleUpperCase() ?? "")
+    .join("");
+
+function Tile({ name }: { name: string }) {
+  return (
+    <span className="rec-tile" aria-hidden="true">
+      {initials(name)}
+    </span>
+  );
+}
+
+type Decision = "confirm" | "reject";
+
+/** FR 4: a proposal shows its frequency, expected amount and date; «Підтвердити» or «Не регулярний». */
+function Proposals({ data, onDecided }: { data: RecurringData; onDecided: (message: string) => void }) {
+  const { t, locale } = useI18n();
+  const api = useAuthApi();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<{ key: MessageKey; code?: string | undefined } | null>(null);
+  if (data.proposals.length === 0) return null;
+
+  const decide = async (p: Proposal, decision: Decision) => {
+    if (busy) return;
+    setBusy(p.key);
+    setError(null);
+    const init = { params: { header: { "Idempotency-Key": newIdempotencyKey() } }, body: { key: p.key } };
+    const o: Outcome<unknown> =
+      decision === "confirm"
+        ? await outcome(api.POST("/v1/recurring/proposals/confirm", init))
+        : await outcome(api.POST("/v1/recurring/proposals/reject", init));
+    setBusy(null);
+    const name = p.merchant.name;
+    if (o.ok) {
+      onDecided(
+        t(decision === "confirm" ? "recurring.proposal.confirmed" : "recurring.proposal.rejected", { name }),
+      );
+    } else if (o.kind === "problem" && o.problem.code === "RECURRING_PROPOSAL_GONE") {
+      onDecided(t("recurring.proposal.gone"));
+    } else {
+      setError({ key: failureOf(o).key, code: failureOf(o).code });
+    }
+  };
+
+  return (
+    <div className="rec-proposals">
+      <div className="rec-section-head">
+        <h2 id="rec-proposals-title" className="rec-label">
+          {t("recurring.proposals.title")}
+        </h2>
+        <p className="ws-muted rec-hint">
+          {t("recurring.proposals.hint", {
+            count: counted(t, locale, "recurring.proposals.count", data.proposals.length),
+          })}
+        </p>
+      </div>
+      {error ? (
+        <p className="rec-action-error" role="alert">
+          <Icon name="warning" size={16} />
+          <span>
+            {t("recurring.action.error")} {t(error.key)}
+            {error.code ? ` ${t("recurring.error.code", { code: error.code })}` : ""}
+          </span>
+        </p>
+      ) : null}
+      <ul className="rec-proposal-list" aria-labelledby="rec-proposals-title">
+        {data.proposals.map((p) => {
+          const account = data.accounts.get(p.accountId)?.label;
+          const meta = [
+            t(FREQUENCY_KEYS[p.frequency]),
+            p.variable ? t("recurring.variable") : null,
+            t("recurring.proposal.next", { date: shortDate(locale, p.nextDate) }),
+            account ?? null,
+            counted(t, locale, "recurring.proposal.charges", p.transactionIds.length),
+          ].filter((x): x is string => x !== null);
+          const pending = busy === p.key;
+          return (
+            <li key={p.key} className="rec-proposal">
+              <Tile name={p.merchant.name} />
+              <span className="rec-proposal-text">
+                <b>{p.merchant.name}</b>
+                <span className="ws-muted rec-meta">{meta.join(" · ")}</span>
+              </span>
+              <span className="rec-amount">
+                {expectedText(t, locale, p.expectedAmount, p.type, p.variable)}
+              </span>
+              <button
+                type="button"
+                className="ws-button"
+                aria-label={t("recurring.reject.named", { name: p.merchant.name })}
+                aria-disabled={busy !== null || undefined}
+                onClick={() => void decide(p, "reject")}
+              >
+                {t("recurring.reject")}
+              </button>
+              <button
+                type="button"
+                className="ws-button"
+                aria-label={t("recurring.confirm.named", { name: p.merchant.name })}
+                aria-disabled={busy !== null || undefined}
+                aria-busy={pending || undefined}
+                onClick={() => void decide(p, "confirm")}
+              >
+                <Icon name="check" size={16} />
+                <span>{t("recurring.confirm")}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      {data.more ? <p className="ws-muted rec-hint">{t("recurring.proposals.more")}</p> : null}
+    </div>
+  );
+}
+
+const byNext = (a: Payment, b: Payment): number => {
+  if (a.nextDate !== b.nextDate) {
+    if (a.nextDate === null) return 1;
+    if (b.nextDate === null) return -1;
+    return a.nextDate < b.nextDate ? -1 : 1;
+  }
+  return a.name.localeCompare(b.name);
+};
+
+/** FR 7 (part): «Підписки», the other payments and the income, each by the next date. */
+function PaymentsTable({ data }: { data: RecurringData }) {
+  const { t } = useI18n();
+  const sorted = [...data.payments].sort(byNext);
+  const groups: { id: string; key: MessageKey; items: Payment[] }[] = [
+    {
+      id: "subscriptions",
+      key: "recurring.group.subscriptions",
+      items: sorted.filter((p) => p.type === "expense" && p.subscription),
+    },
+    {
+      id: "other",
+      key: "recurring.group.other",
+      items: sorted.filter((p) => p.type === "expense" && !p.subscription),
+    },
+    { id: "income", key: "recurring.group.income", items: sorted.filter((p) => p.type === "income") },
+  ];
+  const columns: MessageKey[] = [
+    "recurring.column.payment",
+    "recurring.column.frequency",
+    "recurring.column.next",
+    "recurring.column.account",
+    "recurring.column.amount",
+  ];
+  return (
+    <section className="ws-card rec-card rec-all" aria-labelledby="rec-all-title">
+      <div className="rec-section-head">
+        <h2 id="rec-all-title" className="rec-label">
+          {t("recurring.all.title")}
+        </h2>
+        <p className="ws-muted rec-hint">{t("recurring.all.hint")}</p>
+      </div>
+      <div className="ws-table-wrap">
+        <table className="ws-table rec-table">
+          <thead>
+            <tr>
+              {columns.map((c) => (
+                <th key={c} scope="col" className={c === "recurring.column.amount" ? "rec-num" : undefined}>
+                  {t(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          {groups
+            .filter((g) => g.items.length > 0)
+            .map((g) => (
+              <tbody key={g.id}>
+                <tr className="rec-group">
+                  <th scope="colgroup" colSpan={columns.length}>
+                    {t(g.key, { count: g.items.length })}
+                  </th>
+                </tr>
+                {g.items.map((p) => (
+                  <PaymentRow key={p.id} payment={p} data={data} columns={columns.map((c) => t(c))} />
+                ))}
+              </tbody>
+            ))}
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function PaymentRow({
+  payment: p,
+  data,
+  columns,
+}: {
+  payment: Payment;
+  data: RecurringData;
+  columns: string[];
+}) {
+  const { t, locale } = useI18n();
+  const category = p.categoryId ? data.categories.get(p.categoryId)?.name : undefined;
+  const under = [category ?? t("recurring.noCategory"), p.variable ? t("recurring.variableAmount") : null]
+    .filter((x): x is string => x !== null)
+    .join(" · ");
+  const account = p.accountId ? data.accounts.get(p.accountId)?.label : undefined;
+  return (
+    <tr>
+      <th scope="row" data-label={columns[0]}>
+        <span className="rec-payment">
+          <Tile name={p.name} />
+          <span className="rec-payment-text">
+            <span className="rec-payment-name">{p.name}</span>
+            <span className="ws-muted rec-meta">{under}</span>
+          </span>
+        </span>
+      </th>
+      <td data-label={columns[1]}>{t(FREQUENCY_KEYS[p.frequency])}</td>
+      <td data-label={columns[2]}>{p.nextDate ? shortDate(locale, p.nextDate) : t("recurring.ended")}</td>
+      <td data-label={columns[3]} className="rec-account">
+        {account ?? t("recurring.noAccount")}
+      </td>
+      <td data-label={columns[4]} className="rec-num rec-amount">
+        {expectedText(t, locale, p.expectedAmount, p.type, p.variable)}
+      </td>
+    </tr>
+  );
+}
