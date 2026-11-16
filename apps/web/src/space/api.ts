@@ -13,6 +13,8 @@ export type Space = paths["/v1/space"]["get"]["responses"]["200"]["content"]["ap
 interface Store {
   space: Space | null;
   asked: boolean;
+  /** Bumped by `forgetSpace`: an answer to a request sent under an earlier generation belongs to the previous session. */
+  generation: number;
   readonly listeners: Set<() => void>;
 }
 const stores = new WeakMap<ApiClient, Store>();
@@ -20,7 +22,7 @@ const stores = new WeakMap<ApiClient, Store>();
 function storeOf(api: ApiClient): Store {
   let store = stores.get(api);
   if (!store) {
-    store = { space: null, asked: false, listeners: new Set() };
+    store = { space: null, asked: false, generation: 0, listeners: new Set() };
     stores.set(api, store);
   }
   return store;
@@ -42,6 +44,7 @@ export function forgetSpace(api: ApiClient): void {
   const store = storeOf(api);
   store.space = null;
   store.asked = false;
+  store.generation += 1;
   for (const listener of store.listeners) listener();
 }
 
@@ -71,10 +74,14 @@ function claim(api: ApiClient): boolean {
 
 function askOnce(api: ApiClient): void {
   if (!claim(api)) return;
+  const store = storeOf(api);
+  const generation = store.generation;
   void outcome(api.GET("/v1/space")).then((o) => {
+    // A sign-in since the request left: the answer is the previous session's, drop it (success or failure).
+    if (store.generation !== generation) return;
     if (o.ok) publishSpace(api, o.data);
     // No session yet (401) or another failure: ask again on the next view instead of keeping the placeholder.
-    else storeOf(api).asked = false;
+    else store.asked = false;
   });
 }
 
@@ -97,10 +104,11 @@ export function useSpace(): { state: SpaceState; retry: () => void } {
     let live = true;
     // The page asks itself; the profile does not ask again.
     claim(api);
+    const generation = storeOf(api).generation;
     void outcome(api.GET("/v1/space")).then((o) => {
       if (!live) return;
       if (o.ok) {
-        publishSpace(api, o.data);
+        if (storeOf(api).generation === generation) publishSpace(api, o.data);
         setState({ kind: "ready", space: o.data });
       } else if (isUnavailable(o)) setState({ kind: "off" });
       else

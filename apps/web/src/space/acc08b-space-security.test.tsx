@@ -78,4 +78,35 @@ describe("sec probes PR359", () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(within(nav()).queryByText("Space A")).toBeNull();
   });
+
+  it("a late GET of user A's session cannot fill the store after B signed in", async () => {
+    let releaseA: () => void = () => {};
+    const heldA = new Promise<void>((r) => (releaseA = r));
+    let gets = 0;
+    const { client } = fakeApi({
+      "POST /v1/sessions": { status: 200, body: { status: "signed-in" } },
+      "GET /v1/space": async () => {
+        gets += 1;
+        if (gets === 1) {
+          await heldA; // A's request, sent with A's cookie, answered after B signed in
+          return { status: 200, body: { ...SPACE, name: "Space A" } };
+        }
+        return { status: 200, body: { ...SPACE, name: "Space B" } };
+      },
+    });
+    renderAt("#/planning/budget", client);
+    await waitFor(() => expect(gets).toBe(1));
+    window.location.hash = "#/login";
+    await screen.findByRole("button", { name: /^Увійти/ });
+    fireEvent.change(screen.getByRole("textbox", { name: /^Email/ }), { target: { value: "b@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Пароль/, { selector: "input" }), {
+      target: { value: "pw pw pw pw" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Увійти/ }));
+    await waitFor(() => expect(within(nav()).getByText("Space B")).toBeTruthy());
+    releaseA();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(within(nav()).queryByText("Space A")).toBeNull();
+    expect(within(nav()).getByText("Space B")).toBeTruthy();
+  });
 });
