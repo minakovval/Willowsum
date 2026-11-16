@@ -3,6 +3,7 @@ import type { Money } from "@willowsum/domain-kernel";
 import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
+import type { CreditAccounts } from "../accounts/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import {
   debtPayoffRoutes,
@@ -40,7 +41,8 @@ export function createDebtPayoffWorkerQueue(
 /**
  * «Додати до запланованих витрат» (BUD-19@PoC FR 5) as the budget reads it — «Можна витратити» (BUD-03) and «План»
  * (BUD-17): the extra payments of the saved plans that are planned expenses in a month (YYYY-MM), by debt. Read only;
- * every call is bound to one space. Without a category of the budget (BUD-19 «Припущення»).
+ * every call is bound to one space. Without a category of the budget (BUD-19 «Припущення»). Plans of closed credit
+ * accounts are left out (#325 item 1).
  */
 export interface DebtPlannedExpenses {
   inMonth(
@@ -49,11 +51,22 @@ export interface DebtPlannedExpenses {
   ): Promise<readonly { readonly accountId: string; readonly amount: Money }[]>;
 }
 
-/** `db` is the debt-payoff module's own database (`ModuleDatabases.for("debt-payoff")`). */
-export function createDebtPlannedExpenses(db: ModuleDatabase): DebtPlannedExpenses {
+/**
+ * `db` is the debt-payoff module's own database (`ModuleDatabases.for("debt-payoff")`); `accounts` lists the space's
+ * active credit cards and loans, so a closed account's plan adds nothing.
+ */
+export function createDebtPlannedExpenses(
+  db: ModuleDatabase,
+  accounts: Pick<CreditAccounts, "list">,
+): DebtPlannedExpenses {
   return {
-    inMonth: (householdId, month) =>
-      db.inHousehold(householdId, async (q) => plannedExpensesIn(await plansTx(q).plans(householdId), month)),
+    async inMonth(householdId, month) {
+      const active = new Set((await accounts.list(householdId)).map((a) => a.accountId));
+      const planned = await db.inHousehold(householdId, async (q) =>
+        plannedExpensesIn(await plansTx(q).plans(householdId), month),
+      );
+      return planned.filter((p) => active.has(p.accountId));
+    },
   };
 }
 
