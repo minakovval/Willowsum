@@ -83,7 +83,7 @@ export function tagsTx(q: ModuleQueryRunner): TagsTx {
                     FROM unnest(array_replace(t.tag_ids, $2::uuid, $3::uuid)) WITH ORDINALITY AS r(id, n)
                    WHERE r.id IS NOT NULL ORDER BY r.id, r.n) x ORDER BY x.n),
                 version = t.version + 1, updated_at = now()
-          WHERE t.household_id = $1 AND $2::uuid = ANY(t.tag_ids)`,
+          WHERE t.household_id = $1 AND t.tag_ids @> ARRAY[$2::uuid]`,
         [householdId, fromId, toId],
       );
       return rowCount ?? 0;
@@ -102,7 +102,7 @@ export async function tagsWithCounts(
 ): Promise<{ readonly id: string; readonly name: string; readonly count: number }[]> {
   const { rows } = await q.query<{ id: string; name: string; count: number }>(
     `SELECT g.id, g.name,
-            (SELECT count(*)::int FROM transactions t WHERE t.household_id = g.household_id AND g.id = ANY(t.tag_ids))
+            (SELECT count(*)::int FROM transactions t WHERE t.household_id = g.household_id AND t.tag_ids @> ARRAY[g.id])
               AS count
        FROM tags g WHERE g.household_id = $1 ORDER BY g.name_key, g.id`,
     [householdId],

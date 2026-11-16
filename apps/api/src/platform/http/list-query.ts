@@ -264,7 +264,8 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
           conditions.push(`${target} ILIKE ${placeholder}::text ESCAPE '\\'`);
         } else if (field.array) {
           params.push(parseValue(field, text));
-          conditions.push(`${placeholder}::${field.cast} = ANY(${target})`);
+          // Containment, so a GIN index on the array serves it.
+          conditions.push(`${target} @> ARRAY[${placeholder}::${field.cast}]`);
         } else {
           params.push(parseValue(field, text));
           conditions.push(

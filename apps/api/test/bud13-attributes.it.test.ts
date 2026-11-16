@@ -683,6 +683,28 @@ describe("sensitive: two requests at once", () => {
   });
 });
 
+describe("sensitive: two tag changes at once", () => {
+  it("BUD-13@PoC FR 2: two tags renamed onto each other's names at once — one tag left, on every transaction once, no 500", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const a = await add(space, account, "-1.00");
+    const b = await add(space, account, "-2.00");
+    await attributes(space, a.id, { tags: ["альфа", "бета"] });
+    await attributes(space, b.id, { tags: ["бета"] });
+    const [alpha, beta] = await tagsOf(space);
+    const [r1, r2] = await Promise.all([
+      call(space, "PATCH", `/v1/transaction-tags/${alpha!.id}`, { name: "бета" }),
+      call(space, "PATCH", `/v1/transaction-tags/${beta!.id}`, { name: "альфа" }),
+    ]);
+    expect([r1.statusCode, r2.statusCode]).toEqual([200, 200]);
+    const left = await tagsOf(space);
+    expect(left).toHaveLength(1);
+    expect(left[0]!.count).toBe(2);
+    expect((await get(space, a.id)).tags).toEqual([{ id: left[0]!.id, name: left[0]!.name }]);
+    expect((await get(space, b.id)).tags).toEqual([{ id: left[0]!.id, name: left[0]!.name }]);
+  });
+});
+
 describe("ARC-04@PoC FR 2–4: a tag change's audit entry follows the commit, from the worker if need be", () => {
   it("ARC-04@PoC FR 4: a tag's audit job the worker gave up on (dead) goes back with the daily recovery and is written once", async () => {
     const space = await newSpace();
