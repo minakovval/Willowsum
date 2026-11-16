@@ -116,7 +116,7 @@
     },
     "recurring": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["accounts", "merchants", "transactions"]
     },
     "reports": {
       "layer": "process",
