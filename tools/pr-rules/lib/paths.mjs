@@ -189,13 +189,21 @@ const onlyTestPathsLine = (patch) =>
     .every((l) => TESTS_LINE_RE.test(l));
 
 /**
+ * A requirement's text fingerprints (`docs/requirements/<area>/<ID>.fingerprints.json`; owner decision 2026-11-16,
+ * items 6–8). They record when tests and code were last checked against the text, not the text itself, so they
+ * need no owner decision; a PR that changes them without tests or code explains the re-check (description.mjs).
+ */
+export const isFingerprintFile = (name) => /^docs\/requirements\/[^/]+\/[A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?\.fingerprints\.json$/.test(name);
+
+/**
  * Changed rule or requirement files that need a recorded owner decision. `files`: `{ filename,
- * previous_filename?, patch? }`; a requirement file whose patch only touches «Перевіряється» does not count.
+ * previous_filename?, patch? }`; a requirement file whose patch only touches «Перевіряється» does not count, nor
+ * does a fingerprints file.
  */
 export function ownerDecisionFiles(files) {
   const out = [];
   for (const f of files) {
-    const names = [f.filename, f.previous_filename].filter(Boolean).filter(OWNER_DECISION);
+    const names = [f.filename, f.previous_filename].filter(Boolean).filter(OWNER_DECISION).filter((n) => !isFingerprintFile(n));
     if (!names.length) continue;
     if (names.every((n) => n.startsWith('docs/requirements/')) && !f.previous_filename && onlyTestPathsLine(f.patch)) continue;
     out.push(...names);

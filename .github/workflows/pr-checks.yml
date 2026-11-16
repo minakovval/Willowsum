@@ -93,6 +93,11 @@ jobs:
       # FR 1–3) makes coverage silently wrong: fail, with an annotation on the file and line of each.
       - name: Tests name only items that exist
         run: node tools/req-check/index.mjs --quiet --check-mentions
+      # Requirement text fingerprints (owner decision 2026-11-16, items 6–8): an item whose text changed since its
+      # fingerprint (<ID>.fingerprints.json next to the source) fails, naming the item and its tests; after the
+      # re-check, --update-fingerprints rewrites it. Items without a fingerprint pass until the initial ones are set.
+      - name: Requirement items match their text fingerprints
+        run: node tools/req-check/index.mjs --quiet --check-fingerprints
       # The migrated list (tools/req-check/migrated.json) only grows: an ID removed from it in the same PR as its
       # source section would hide that deletion from source-missing. Compare with the list on the base branch.
       - name: Base version of the migrated list
