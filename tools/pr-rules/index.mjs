@@ -95,12 +95,14 @@ async function label() {
 async function description() {
   const pr = pullRequestEvent();
   const gh = client();
-  const { result: sensitive } = await classifyPr(gh, pr);
+  const { files, result: sensitive } = await classifyPr(gh, pr);
   const problems = checkDescription({
     title: pr.title,
     body: pr.body,
     ids: requirementIds(path.join(ROOT, 'docs/requirements')),
     sensitive,
+    // The fingerprint rule reads the changed files (owner decision 2026-11-16, item 8).
+    files,
   });
   if (!problems.length) {
     console.log('PR title and description follow CICD-01 FR 2.');
@@ -200,7 +202,7 @@ async function local() {
   if (approval.required) {
     console.log(`Acts on the cloud or production — the owner's approval is needed on the PR: ${safeName(approval.reasons.join('; '))}`);
   }
-  const problems = checkDescription({ title, body, ids: requirementIds(path.join(root, 'docs/requirements')), sensitive });
+  const problems = checkDescription({ title, body, ids: requirementIds(path.join(root, 'docs/requirements')), sensitive, files });
   if (!problems.length) {
     console.log('PR title and description follow CICD-01 FR 2 (the CI job `traceability` will pass on them).');
     return;
