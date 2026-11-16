@@ -1,7 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
-import type { Split, TransactionStatus, TransferLink } from "../domain/index.ts";
+import type { ReviewState, Split, TransactionStatus, TransferLink } from "../domain/index.ts";
 
-/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql). */
+/** A transaction as the module stores it (migrations/0001_transactions.sql, 0004_states_and_splits.sql, 0007_attributes.sql, 0008_review.sql). */
 export interface StoredTransaction {
   readonly id: string;
   readonly accountId: string;
@@ -29,6 +29,8 @@ export interface StoredTransaction {
   readonly note: string | null;
   /** BUD-13 FR 2: the space's tags of the transaction (`tags`), in the order given; at most 20. */
   readonly tagIds: readonly string[];
+  /** BUD-12 FR 4, FR 8: «До розбору» — `queued`, its category `confirmed`, or null: never in the queue. */
+  readonly review: ReviewState | null;
   readonly version: number;
   /** ISO 8601 UTC; set by the database. */
   readonly createdAt: string;

@@ -4,6 +4,7 @@ import {
   counterpartyText,
   descriptionText,
   parseSignedAmount,
+  reviewOnCreate,
   subaccountFor,
   type FieldIssue,
   type PostingAccount,
@@ -275,6 +276,8 @@ export async function createTransaction(
     mergedInto: null,
     note: null,
     tagIds: [],
+    // BUD-12 FR 8: a transaction entered by hand never goes into «До розбору».
+    review: reviewOnCreate({ importedFromStatement: false }),
     version: 1,
   });
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
@@ -359,6 +362,8 @@ export async function updateTransaction(
     mergedInto: current.mergedInto,
     note: current.note,
     tagIds: current.tagIds,
+    // BUD-12: a change after the confirmation does not put it back into the queue (business rules).
+    review: current.review,
     version: current.version + 1,
   });
   const updated = await handOff(tx, caller, "update", current, next);
