@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { test as base, expect, type Page } from "@playwright/test";
 import { clearSignUpLimits, confirmationLinkFor, spacesOf } from "../../api/test/e2e-support.ts";
 
@@ -27,13 +27,29 @@ export interface Stack {
   spaces(email: string): Promise<{ readonly name: string; readonly role: string }[]>;
 }
 
+/**
+ * A synthetic client address of its own for each test run (IPv6 documentation range, RFC 3849; one /64 per test,
+ * the key of the API's per-address limits). The e2e API trusts the one proxy hop in front of it (e2e-support.ts),
+ * so the NFR-14 limits keep their product values and still never count one test's requests against another's —
+ * or Chromium's against WebKit's, which run in the same API process.
+ */
+function clientAddress(testId: string, repeat: number, retry: number): string {
+  const h = createHash("sha256").update(`${testId}/${repeat}/${retry}`).digest("hex");
+  return `2001:db8:${h.slice(0, 4)}:${h.slice(4, 8)}::1`;
+}
+
 export const test = base.extend<{ stack: Stack }>({
   // Playwright reads fixture dependencies from the destructuring pattern; this one has none.
   // eslint-disable-next-line no-empty-pattern
   baseURL: async ({}, provide) => provide(env("WS_E2E_BASE_URL")),
+  extraHTTPHeaders: async ({ extraHTTPHeaders }, provide, info) =>
+    provide({
+      ...extraHTTPHeaders,
+      "X-Forwarded-For": clientAddress(info.testId, info.repeatEachIndex, info.retry),
+    }),
   stack: async ({ baseURL }, provide) => {
     const databaseUrl = env("WS_E2E_DATABASE_URL");
-    // One client address for every test: the per-address sign-up limit must not decide the outcome.
+    // The sign-up and letter limits live in the database, also per account: cleared, so they never decide the outcome.
     await clearSignUpLimits(databaseUrl);
     await provide({
       person: () => ({

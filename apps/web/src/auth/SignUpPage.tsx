@@ -6,17 +6,10 @@ import { AuthLayout, LinkLine, Notice, SubmitButton } from "./AuthLayout.tsx";
 import { Captcha } from "./captcha/Captcha.tsx";
 import type { CaptchaConfig } from "./captcha/config.ts";
 import { failureOf, type Failure } from "./failure.ts";
-import { PasswordField, TextField, useFieldError } from "./fields.tsx";
+import { PasswordField, StrengthMeter, TextField, useFieldError } from "./fields.tsx";
 import { CHECK_EMAIL_PATH, navigate, SIGN_IN_PATH } from "./navigation.ts";
 import { signUpDraft, startRegistration } from "./registration.ts";
-import {
-  emailError,
-  EMAIL_MAX_LENGTH,
-  nameError,
-  newPasswordError,
-  PASSWORD_MIN_LENGTH,
-  passwordStrength,
-} from "./rules.ts";
+import { emailError, EMAIL_MAX_LENGTH, nameError, newPasswordError, PASSWORD_MIN_LENGTH } from "./rules.ts";
 import { deadlineIn } from "./useCountdown.ts";
 
 /**
@@ -59,8 +52,6 @@ export function SignUpPage({ captcha }: { readonly captcha?: CaptchaConfig | und
       : captchaToken === null
         ? t("auth.signUp.fixCaptcha")
         : null;
-
-  const strength = passwordStrength(password);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -139,18 +130,7 @@ export function SignUpPage({ captcha }: { readonly captcha?: CaptchaConfig | und
           required
           autoComplete="new-password"
           hideSignal={hideSignal}
-          after={
-            password !== "" && (
-              <span className="auth-strength" data-level={strength}>
-                <span className="auth-strength-bar" aria-hidden="true">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                <span>{t("auth.password.strength", { level: t(`auth.password.strength.${strength}`) })}</span>
-              </span>
-            )
-          }
+          after={<StrengthMeter password={password} />}
         />
         <Captcha onToken={setCaptchaToken} resetSignal={captchaReset} action="sign-up" config={captcha} />
         {summary && (
