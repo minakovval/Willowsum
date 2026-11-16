@@ -4,7 +4,7 @@ import type { RecurringTx, StoredPayment, StoredRejection } from "../../applicat
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The recurring schema through the module's own role (migrations/0001_payments.sql). The row policy binds the space; SQL filters it too. */
-const PAYMENT_COLUMNS = `id, name, type, frequency, expected_amount::text AS expected_amount, currency,
+const PAYMENT_COLUMNS = `id, name, type, frequency, expected_amount::text AS expected_amount, expected_currency AS currency,
   to_char(anchor_date, 'YYYY-MM-DD') AS anchor_date, to_char(end_date, 'YYYY-MM-DD') AS end_date, category_id,
   account_id, subscription, variable, merchant_id, source, to_char(created_on, 'YYYY-MM-DD') AS created_on, version`;
 
@@ -75,7 +75,7 @@ export function recurringTx(q: HouseholdQueryRunner): RecurringTx {
     },
     async insertPayment(householdId, p) {
       await q.query(
-        `INSERT INTO payments (household_id, id, name, type, frequency, expected_amount, currency, anchor_date, end_date,
+        `INSERT INTO payments (household_id, id, name, type, frequency, expected_amount, expected_currency, anchor_date, end_date,
            category_id, account_id, subscription, variable, merchant_id, source, created_on)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
@@ -104,7 +104,7 @@ export function recurringTx(q: HouseholdQueryRunner): RecurringTx {
         [householdId],
       );
       const { rows } = await q.query<RejectionRow>(
-        `SELECT id, merchant_id, type, frequency, variable, expected_amount::text AS expected_amount, currency,
+        `SELECT id, merchant_id, type, frequency, variable, expected_amount::text AS expected_amount, expected_currency AS currency,
            transaction_ids::text[] AS transaction_ids, to_char(created_on, 'YYYY-MM-DD') AS created_on
          FROM rejections WHERE household_id = $1`,
         [householdId],
@@ -131,7 +131,7 @@ export function recurringTx(q: HouseholdQueryRunner): RecurringTx {
     },
     async insertRejection(householdId, r) {
       await q.query(
-        `INSERT INTO rejections (household_id, id, merchant_id, type, frequency, variable, expected_amount, currency,
+        `INSERT INTO rejections (household_id, id, merchant_id, type, frequency, variable, expected_amount, expected_currency,
            transaction_ids, created_on)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid[], $10)`,
         [

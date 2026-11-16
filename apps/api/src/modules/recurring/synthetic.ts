@@ -20,7 +20,7 @@ export const synthetic = [
           type: i % 3 === 2 ? "income" : "expense",
           frequency: "month",
           expected_amount: i % 3 === 0 ? "650" : i % 3 === 1 ? "11.99" : "2400",
-          currency: "EUR",
+          expected_currency: "EUR",
           anchor_date: "2026-10-05",
           end_date: null,
           category_id: null,
@@ -47,7 +47,7 @@ export const synthetic = [
           frequency: "week",
           variable: "false",
           expected_amount: "4.5",
-          currency: "EUR",
+          expected_currency: "EUR",
           transaction_ids: `{${rng.uuid()},${rng.uuid()},${rng.uuid()}}`,
           created_on: "2026-11-02",
         };

@@ -11,7 +11,7 @@ CREATE TABLE payments (
   frequency text NOT NULL CHECK (frequency IN ('week', 'two-weeks', 'month', 'quarter', 'year')),
   -- The expected amount, positive; the type gives its direction.
   expected_amount numeric(38, 18) NOT NULL CHECK (expected_amount > 0),
-  currency text NOT NULL CHECK (currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
+  expected_currency text NOT NULL CHECK (expected_currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
   -- «Дата прив'язки»: the schedule is counted from it (a day the month lacks is its last day).
   anchor_date date NOT NULL,
   end_date date CHECK (end_date IS NULL OR end_date >= anchor_date),
@@ -36,7 +36,7 @@ CREATE INDEX payments_by_category ON payments (household_id, category_id) WHERE 
 
 -- FR 4 «Не регулярний»: a series the user rejected is not proposed again. Matched by the merchant, type, currency and
 -- frequency and either a charge in common (`transaction_ids`, module transactions) or the same kind of amount — not by
--- the proposal's key, which changes once the series' first charge leaves the 430 days (#315 item 8).
+-- the proposal's key, which changes once the series' first charge leaves the 430 days (#315, п. 8).
 CREATE TABLE rejections (
   household_id uuid NOT NULL,
   id uuid NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE rejections (
   frequency text NOT NULL CHECK (frequency IN ('week', 'two-weeks', 'month', 'quarter', 'year')),
   variable boolean NOT NULL,
   expected_amount numeric(38, 18) NOT NULL CHECK (expected_amount > 0),
-  currency text NOT NULL CHECK (currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
+  expected_currency text NOT NULL CHECK (expected_currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
   transaction_ids uuid[] NOT NULL CHECK (cardinality(transaction_ids) BETWEEN 1 AND 500),
   created_on date NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
