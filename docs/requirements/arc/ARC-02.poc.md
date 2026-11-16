@@ -7,7 +7,7 @@
 - Розширює: —
 - Залежить від: —
 - Дизайн: —
-- Спільні правила: П-24, ARC-01, CICD-05
+- Спільні правила: П-24, ARC-01
 - Сценарії: —
 - Модуль: —
 - Перевіряється: apps/api/src/platform/config/config.test.ts, apps/api/src/platform/process/lifecycle.test.ts, apps/api/test/process.it.test.ts, apps/api/test/arc02-roles.it.test.ts, apps/api/test/arc04-queue.it.test.ts, apps/api/src/platform/queue/queue.test.ts
