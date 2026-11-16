@@ -48,6 +48,12 @@ export function findMentions(files) {
   return out;
 }
 
+/** The coverage key of an item of an explicit slice: its source line for a generated view, else slice + item. */
+export function itemCoverageKey(s, it) {
+  const g = s.doc.generated;
+  return g ? `${g.sourceRel}:${g.lineMap[it.index] + 1}` : `${s.sid}:${it.kind}${it.n}`;
+}
+
 /**
  * Map mentions to items and count coverage per release.
  * @param {ReturnType<import('./model.mjs').buildModel>} model
@@ -58,10 +64,9 @@ export function computeCoverage(model, mentions) {
   const sliceItems = new Map();
   for (const s of model.slices.values()) {
     if (!s.explicit) continue;
-    const g = s.doc.generated;
     sliceItems.set(
       s.sid,
-      itemsOf(s.doc.lines).map((it) => ({ ...it, key: g ? `${g.sourceRel}:${g.lineMap[it.index] + 1}` : `${s.sid}:${it.kind}${it.n}` })),
+      itemsOf(s.doc.lines).map((it) => ({ ...it, key: itemCoverageKey(s, it) })),
     );
   }
   const covered = new Map();
@@ -91,7 +96,7 @@ export function computeCoverage(model, mentions) {
     rows.push({ sid, id: s.id, release: s.release, FR: count('FR'), AC: count('AC'), EC: count('EC') });
   }
   rows.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : releaseIndex(a.release) - releaseIndex(b.release)));
-  return { rows, unresolved, mentions: mentions.length, items: covered.size };
+  return { rows, unresolved, covered, mentions: mentions.length, items: covered.size };
 }
 
 /**

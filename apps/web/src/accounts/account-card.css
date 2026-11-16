@@ -1,0 +1,117 @@
+/* S-053 «Картка рахунку» (canvas PocMoneyAccount). Tokens only; shares the heading, captions and errors of accounts.css. */
+
+/*
+ * GRID-02@PoC FR 2: header | «Баланс» 8 + «Інформація» 4 | «Транзакції» 8 + «Регулярні платежі» 4 on the 12 columns of
+ * Expanded; on the narrower classes (not in PoC, П-25) every card takes the whole width.
+ */
+.acard-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  gap: var(--ws-gutter);
+  align-items: start;
+}
+
+.acard-grid > * {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .acard-grid > .acard-balance,
+  .acard-grid > .acard-tx {
+    grid-column: span 8;
+  }
+
+  .acard-grid > .acard-info,
+  .acard-grid > .acard-recurring {
+    grid-column: span 4;
+  }
+
+  .acard-grid > .acard-balance,
+  .acard-grid > .acard-info {
+    align-self: stretch;
+  }
+}
+
+.acard-grid p,
+.acard-grid h2 {
+  margin: 0;
+}
+
+.acard-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.acard-grid .accounts-total {
+  margin-block: var(--ws-space-3) 0;
+  font-family: var(--ws-text-amount-xl-family);
+  font-size: var(--ws-text-amount-xl-size);
+  line-height: var(--ws-text-amount-xl-line);
+  font-weight: var(--ws-text-amount-xl-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.acard-currencies {
+  display: grid;
+  gap: var(--ws-space-1);
+  margin: var(--ws-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acard-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  margin-block-end: var(--ws-space-2);
+}
+
+/* «Інформація» and the payments: a label on the left, the value on the right, a hairline between rows. */
+.acard-facts {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acard-facts > div,
+.acard-facts > li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding-block: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.acard-facts > li:last-child {
+  border-block-end: 0;
+}
+
+.acard-facts dd {
+  margin: 0;
+  text-align: end;
+}
+
+.acard-rows {
+  display: grid;
+}
+
+.acard-all {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--ws-space-2);
+  padding-block-start: var(--ws-space-2);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.acard-empty {
+  padding-block: var(--ws-space-4);
+}
+
+.acard-error {
+  margin-block-start: var(--ws-space-2);
+}
