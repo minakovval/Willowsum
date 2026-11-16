@@ -168,7 +168,8 @@
   white-space: nowrap;
 }
 
-.debts-table .ws-table th.debts-num {
+.debts-table .ws-table th.debts-num,
+.debts-table .ws-table td.debts-num {
   text-align: end;
 }
 
