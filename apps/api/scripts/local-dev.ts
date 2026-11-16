@@ -56,6 +56,7 @@ import {
   parseLocalDevArgs,
   parsePidsFile,
   parsePrompt,
+  assertFreshAllowed,
   pickRolePorts,
   processIdentity,
   readinessTimeoutMessage,
@@ -150,6 +151,7 @@ async function withClient<T>(url: string, fn: (c: pg.Client) => Promise<T>): Pro
 /** Creates (or with --fresh recreates) the development database; true when it is new and needs bootstrap. */
 async function ensureDatabase(): Promise<boolean> {
   const name = settings.database;
+  assertFreshAllowed(name, options.fresh);
   return withClient(adminUrl!, async (admin) => {
     if (options.fresh) await admin.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
     const { rowCount } = await admin.query("SELECT 1 FROM pg_database WHERE datname = $1", [name]);
@@ -178,7 +180,7 @@ async function prepareDatabase(created: boolean, password: string): Promise<void
         .query(
           `INSERT INTO feature_flags.flags (key, stage, percent, fully_enabled_at) VALUES ($1, 'all', 100, now())
            ON CONFLICT (key) DO UPDATE SET stage = 'all', percent = 100,
-             fully_enabled_at = COALESCE(feature_flags.flags.fully_enabled_at, now())`,
+             fully_enabled_at = COALESCE(feature_flags.flags.fully_enabled_at, now()), changed_at = now()`,
           [key],
         )
         .catch((error: Error) => console.log(`Flag ${key} is not turned on: ${error.message}`));

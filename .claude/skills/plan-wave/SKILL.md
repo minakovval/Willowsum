@@ -10,8 +10,10 @@ description: Plan the next Willowsum delivery wave — take the PoC slices that 
 Input: `main` after the previous wave (or most of it) merged. Output: one docs-only PR with
 `docs/plans/poc-wave-N.md` (N = the next free number), in Ukrainian, in the format of
 `docs/plans/poc-wave-1.md`. You plan; you do not change requirements (that is `change-requirement`) or write
-code. Plans are the lead's working notes: `docs/plans/**` needs no owner decision (`tools/pr-rules`,
-`OWNER_DECISION_PATHS`), but every owner question is marked in the plan.
+code. Planning runs on Fable: the lead gives this skill to a Fable agent (owner, 2026-11-16, Ultra, item 2,
+[log](../../../docs/decisions/log/2026-11-16-owner-ultra-fable-fingerprints.md);
+[token economy](../pr-pipeline/references/token-economy.md)). Plans are the lead's working notes: `docs/plans/**`
+needs no owner decision (`tools/pr-rules`, `OWNER_DECISION_PATHS`), but every owner question is marked in the plan.
 
 ## 1. What is left
 

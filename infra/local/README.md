@@ -71,11 +71,11 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
 - **Data is kept** between runs (`ws_dev`). `pnpm local:dev --fresh` drops it and starts empty; `pnpm local:reset`
   deletes all local data.
 - **Ctrl+C or closing the window** stops every process. A process whose `pnpm local:dev` is gone (killed, or the
-  window closed before it could stop them) stops by itself within a second or two.
+  window closed before it could stop them) stops by itself within a second or two. Open the app in Chrome: the session cookie is always `Secure`, which Chrome accepts
+  on `http://localhost` and Safari may not.
 - **Leftovers.** The pids of a run are kept in `infra/local/.state/dev/pids.json` (git-ignored). The next start
   stops the processes listed there that are still the same processes (same pid, start time and command line), so a
-  number the system has since given to another program is never touched. Open the app in Chrome: the session cookie is always `Secure`, which Chrome accepts
-  on `http://localhost` and Safari may not.
+  number the system has since given to another program is never touched.
 - **Cluster lock.** Module roles belong to the whole PostgreSQL cluster and this command sets their passwords, so it
   holds the cluster lock while it runs: `pnpm test:integration` and `pnpm db:test run` on the same server wait until
   it stops. If it has to wait itself, it says who holds the lock: another `pnpm local:dev` (from another copy of the

@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 describe("security ARC-05 r3: the database host does not switch off the loopback-only lookup", () => {
-  // BLOCKING, fixed: CI's job `api` sets DATABASE_URL=postgres://…@localhost:5432/… (.github/workflows/pr-checks.yml),
+  // BLOCKING, fixed: CI's jobs `api-parts` set DATABASE_URL=postgres://…@localhost:5432/… (.github/workflows/pr-checks.yml),
   // so «localhost» is in the database-host set, which skips the loopback-only lookup (no-network.mjs,
   // needsLoopbackLookup). During the integration run a custom lookup sends «localhost» anywhere (TCP and UDP).
   it("with DATABASE_URL on localhost, «localhost» must still resolve to loopback (TCP and UDP)", async () => {

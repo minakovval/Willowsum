@@ -89,6 +89,7 @@ export type ChildId =
   | "newTransaction"
   | "newAccount"
   | "newGoal"
+  | "account"
   | "accountSettings"
   | "debtsPlan"
   | "debtsStrategy"
@@ -124,7 +125,21 @@ export const CHILDREN: readonly ChildDef[] = [
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 
-/** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is wave 2 row 113. */
+/** S-053 «Картка рахунку» (`/money/accounts/:id`, FIN-12@PoC c), GRID-02@PoC FR 2): a row of S-050 opens it. */
+const ACCOUNT: ChildDef = {
+  id: "account",
+  parent: ACCOUNTS,
+  path: `${ACCOUNTS.path}/:id`,
+  title: "page.account",
+};
+const ACCOUNT_PATH = /^\/money\/accounts\/([0-9a-fA-F-]{36})$/;
+/** S-053 of one account. */
+export const accountPath = (accountId: string): string =>
+  ACCOUNT.path.replace(":id", encodeURIComponent(accountId));
+/** The account of an S-053 path, or `null` for any other path. */
+export const accountIdOf = (path: string): string | null => ACCOUNT_PATH.exec(path)?.[1] ?? null;
+
+/** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is the dependent part of wave 2 row 113. */
 const ACCOUNT_SETTINGS: ChildDef = {
   id: "accountSettings",
   parent: ACCOUNTS,
@@ -187,7 +202,8 @@ export function resolveRoute(path: string): Route {
   }
   const child =
     CHILDREN.find((c) => c.path === path) ??
-    (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined);
+    (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined) ??
+    (ACCOUNT_PATH.test(path) ? ACCOUNT : undefined);
   if (child) return { kind: "child", section: sectionOf(child.parent), child };
   return { kind: "notFound" };
 }
