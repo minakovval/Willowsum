@@ -10,8 +10,10 @@ ALTER TABLE payments ADD COLUMN kept_on date;
 -- Its currency is the payment's (a charge in another currency changes nothing, FR 12).
 ALTER TABLE payments
   ADD COLUMN current_amount numeric(38, 18) CHECK (current_amount IS NULL OR current_amount > 0),
-  ADD COLUMN current_currency text CHECK (current_currency IS NULL OR current_currency = expected_currency),
-  ADD CHECK ((current_amount IS NULL) = (current_currency IS NULL));
+  ADD COLUMN current_currency text CHECK (
+    (current_currency IS NULL) = (current_amount IS NULL)
+    AND (current_currency IS NULL OR current_currency = expected_currency)
+  );
 
 -- FR 21 «Позначити пропущеним» (`skipped`) and FR 20 «Зарахувати за <місяць>» (`settled`, with the user's transaction of
 -- module transactions, by its opaque id): one mark per charge, the charge named by its date in the schedule.
