@@ -22,6 +22,9 @@ function ended(reason: string): Reply {
 
 const refreshes = (calls: readonly { method: string; path: string }[]) =>
   calls.filter((c) => c.method === "POST" && c.path === "/v1/session/refresh").length;
+// The shell also reads the space's name (ACC-08@PoC FR 2): only the session reads count here.
+const sessionReads = (calls: readonly { method: string; path: string }[]) =>
+  calls.filter((c) => c.method === "GET" && c.path === "/v1/session").length;
 const heading = () => screen.getByRole("heading", { level: 1 }).textContent;
 
 beforeEach(() => {
@@ -39,7 +42,7 @@ describe("ACC-04@PoC web session", () => {
       "POST /v1/session/refresh": ended("idle"),
     });
     renderAt("#/planning/budget", client);
-    await waitFor(() => expect(calls.length).toBe(1));
+    await waitFor(() => expect(sessionReads(calls)).toBe(1));
     // Nothing on the page counts down or warns before the end (FR 1: «без попередження з відліком»).
     expect(screen.queryByRole("timer")).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
@@ -130,7 +133,7 @@ describe("ACC-04@PoC web session", () => {
       "POST /v1/session/refresh": REFRESHED,
     });
     renderAt("#/planning/budget", client);
-    await waitFor(() => expect(calls.length).toBe(1));
+    await waitFor(() => expect(sessionReads(calls)).toBe(1));
     await act(async () => {
       await Promise.resolve();
     });
@@ -143,7 +146,7 @@ describe("ACC-04@PoC web session", () => {
   it("ACC-04@PoC FR 1: without a session nothing is sent for actions", async () => {
     const { client, calls } = fakeApi({ "GET /v1/session": problem(401, "UNAUTHENTICATED") });
     renderAt("#/planning/budget", client);
-    await waitFor(() => expect(calls.length).toBe(1));
+    await waitFor(() => expect(sessionReads(calls)).toBe(1));
     await act(async () => {
       await Promise.resolve();
     });
@@ -193,7 +196,7 @@ describe("ACC-04@PoC web session", () => {
   it("ACC-04@PoC FR 3, AC3: the end reached in another tab of the browser opens «Вхід» here at once", async () => {
     const { client, calls } = fakeApi({ "GET /v1/session": SESSION_OK });
     renderAt("#/planning/budget", client);
-    await waitFor(() => expect(calls.length).toBe(1));
+    await waitFor(() => expect(sessionReads(calls)).toBe(1));
     act(() => {
       window.dispatchEvent(
         new StorageEvent("storage", {
@@ -217,7 +220,7 @@ describe("ACC-04@PoC web session", () => {
   it("ACC-04@PoC FR 3, AC3: activity in another tab is not overruled here — only the server ends the shared session", async () => {
     const { client, calls } = fakeApi({ "GET /v1/session": SESSION_OK });
     renderAt("#/planning/budget", client);
-    await waitFor(() => expect(calls.length).toBe(1));
+    await waitFor(() => expect(sessionReads(calls)).toBe(1));
     // The page is shown again after a long time; the server says the session lives (another tab was active).
     act(() => {
       document.dispatchEvent(new Event("visibilitychange"));
