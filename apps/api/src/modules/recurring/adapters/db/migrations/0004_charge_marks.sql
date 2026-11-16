@@ -30,7 +30,9 @@ CREATE TABLE charge_marks (
   PRIMARY KEY (household_id, id),
   UNIQUE (household_id, payment_id, due_on),
   CHECK ((kind = 'settled') = (transaction_id IS NOT NULL)),
+  -- Checked at commit (DEFERRABLE): rows of one transaction may come in any order (the synthetic loader, ARC-03 FR 6).
   FOREIGN KEY (household_id, payment_id) REFERENCES payments (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED
 );
 -- FR 8 «Кожна транзакція оплачує одне списання»: a transaction settles one charge of the space.
 CREATE UNIQUE INDEX charge_marks_by_transaction ON charge_marks (household_id, transaction_id)
