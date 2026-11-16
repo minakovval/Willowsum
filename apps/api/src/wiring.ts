@@ -36,6 +36,11 @@ import {
   createGoalsWorkerQueue,
   goalsSubscriptions,
 } from "./modules/goals/index.ts";
+import {
+  createRecurringRecovery,
+  createRecurringWorkerQueue,
+  recurringSubscriptions,
+} from "./modules/recurring/index.ts";
 import { createMerchantsRecovery, createMerchantsWorkerQueue } from "./modules/merchants/index.ts";
 import {
   createLiabilities,
@@ -191,6 +196,9 @@ export function schedulerDailyTasks(deps: {
     deps.spaces.spaceIds(),
   );
   const goalsRecovery = createGoalsHandOffRecovery(deps.databases.for("goals"), () => deps.spaces.spaceIds());
+  const recurringRecovery = createRecurringRecovery(deps.databases.for("recurring"), () =>
+    deps.spaces.spaceIds(),
+  );
   const merchantsRecovery = createMerchantsRecovery(deps.databases.for("merchants"), () =>
     deps.spaces.spaceIds(),
   );
@@ -256,6 +264,15 @@ export function schedulerDailyTasks(deps: {
         if (requeued > 0) logEvent("merchants.jobs_requeued", "warn", { "ws.module": "merchants" });
       },
     },
+    // The same for the recurring queue (ARC-04, ADR-0015, #249): a payment's or a rejection's audit entry and the
+    // category merges (BUD-07, BUD-01 FR 8).
+    {
+      name: "recurring.hand-off-recovery",
+      run: async () => {
+        const requeued = await recurringRecovery.run();
+        if (requeued > 0) logEvent("recurring.hand_off_requeued", "warn", { "ws.module": "recurring" });
+      },
+    },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
     // queue's working copies go; the changes they report stay in the modules' own tables.
     {
@@ -309,8 +326,8 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         liabilities: createLiabilities(databases.for("liabilities"), audit),
         audit,
       }),
-      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); categorization consumes it (below), budget and
-      // recurring subscribe in the parts that bring them.
+      // `categories` publishes «категорію об'єднано» (BUD-01 FR 8); categorization and recurring consume it
+      // (below), budget subscribes in the part that brings it.
       { store: postgresJobStore(databases.for("categories")), handlers: [] },
       // BUD-01 b: the audit entries of a transaction's category and the merges of categories (ADR-0015).
       createCategorizationWorkerQueue(
@@ -331,7 +348,9 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
       createGoalsWorkerQueue(databases.for("goals"), audit),
       // BUD-14 a: the audit entries of merchants' renames, merges and «Роз'єднати» (ADR-0015).
       createMerchantsWorkerQueue(databases.for("merchants"), audit),
+      // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
+      createRecurringWorkerQueue(databases.for("recurring"), audit),
     ],
-    subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions],
+    subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions, ...recurringSubscriptions],
   };
 }

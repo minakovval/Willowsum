@@ -47,6 +47,7 @@
         "ledger",
         "liabilities",
         "merchants",
+        "recurring",
         "transactions"
       ]
     },
@@ -116,7 +117,7 @@
     },
     "recurring": {
       "layer": "subject",
-      "dependsOn": ["accounts", "merchants", "transactions"]
+      "dependsOn": ["accounts", "audit", "categories", "merchants", "transactions"]
     },
     "reports": {
       "layer": "process",

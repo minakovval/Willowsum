@@ -128,6 +128,14 @@ export const PROBLEMS = {
     status: 409,
     title: "A category with transactions, rules or limits cannot be deleted — hide or merge it",
   },
+  /**
+   * BUD-07@PoC FR 4: the proposal is not offered any more — its merchant became a regular payment, the series was
+   * rejected «Не регулярний», or the transactions changed and the analysis no longer finds it; nothing was written.
+   */
+  RECURRING_PROPOSAL_GONE: {
+    status: 409,
+    title: "The proposal is no longer offered; read the proposals again",
+  },
   /** BUD-05@PoC FR 2: the account is another goal's own account, or has envelopes beside one; nothing was written. */
   GOAL_ACCOUNT_TAKEN: {
     status: 409,

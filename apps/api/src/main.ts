@@ -18,7 +18,7 @@ import {
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
-import { createRecurringServices } from "./modules/recurring/index.ts";
+import { createRecurringCategoryUsage, createRecurringServices } from "./modules/recurring/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -271,7 +271,7 @@ const server = buildServer({
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the
-            // split parts of transactions; categorization, budget and recurring add theirs with their tables).
+            // split parts of transactions, the categorization's and the regular payments'; budget adds its own).
             categories: createCategoriesServices({
               audit,
               clock: systemClock,
@@ -282,6 +282,7 @@ const server = buildServer({
                   databases.for("categorization"),
                   createTransactionLookup(databases.for("transactions")),
                 ),
+                createRecurringCategoryUsage(databases.for("recurring")),
               ],
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
@@ -289,13 +290,21 @@ const server = buildServer({
               transactions: createTransactionTexts(databases.for("transactions")),
               audit,
             }),
-            // BUD-07 a1: proposals of regular payments from the transactions (transactions), grouped by merchant
-            // (merchants), none from a loan account (accounts).
+            // BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant
+            // (merchants), none from a loan account (accounts); payments confirmed or added by hand name a category
+            // (categories) and an account (accounts).
             recurring: createRecurringServices({
               history: createTransactionHistory(databases.for("transactions")),
               merchants: createMerchantDirectory(databases.for("merchants")),
               accounts: createAccountDirectory(databases.for("accounts")),
+              categories: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
+              audit,
               clock: systemClock,
+              newId: randomUUID,
             }),
             // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
             // «Витратити» reads the transaction (transactions) and its journal event (ledger).
