@@ -58,6 +58,16 @@ export const uk = {
 
   "button.busy": "Виконується",
 
+  "pagination.label": "Сторінки списку",
+  "pagination.pageSize": "Рядків на сторінці",
+  "pagination.range": "{from}–{to} з {total}",
+  "pagination.shown": "Показано {from}–{to} з {total}",
+  "pagination.previous": "Попередня сторінка",
+  "pagination.next": "Наступна сторінка",
+  "pagination.reason.first": "Це перша сторінка",
+  "pagination.reason.last": "Це остання сторінка",
+  "pagination.reason.loading": "Сторінка завантажується",
+
   "skeleton.loading": "Завантаження",
   "skeleton.slow": "Ще завантажується…",
 

@@ -57,6 +57,16 @@ export const en: Messages = {
 
   "button.busy": "In progress",
 
+  "pagination.label": "List pages",
+  "pagination.pageSize": "Rows per page",
+  "pagination.range": "{from}–{to} of {total}",
+  "pagination.shown": "Showing {from}–{to} of {total}",
+  "pagination.previous": "Previous page",
+  "pagination.next": "Next page",
+  "pagination.reason.first": "This is the first page",
+  "pagination.reason.last": "This is the last page",
+  "pagination.reason.loading": "The page is loading",
+
   "skeleton.loading": "Loading",
   "skeleton.slow": "Still loading…",
 
