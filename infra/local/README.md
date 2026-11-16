@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-14
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (`pnpm local:dev`)
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -22,6 +22,36 @@ Requires Docker with the compose plugin and Node 22. From the repository root:
 | `pnpm local:smoke` | End-to-end check: SQL query, mail over SMTP, S3 put/get, and refusal without credentials. |
 | `pnpm local:down` | Stops; data is kept. |
 | `pnpm local:reset` | Stops, deletes all local data (volumes), starts empty. |
+| `pnpm local:dev` | The whole app to click through: the services above, then the API, worker, scheduler and web app (below). |
+
+## The whole app (`pnpm local:dev`)
+
+One command for a person who wants to use the app locally, not only run tests:
+
+```bash
+pnpm local:dev
+```
+
+It starts the services (`local:up`), then on the database `ws_dev` of the same PostgreSQL: `db:bootstrap` the
+first time, the migrations on every start, a login for every module role with a password made for this run (never
+printed or written), every release flag on (CICD-06; operational flags keep their state). Then the processes
+`api` (port 8080), `worker` (8081) and `scheduler` (8082) (ARC-02), and the web dev server on
+`http://localhost:5173` with `/v1` passed to the API. Providers are synthetic (`WS_PROVIDER_MODE=test`): no
+CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machine. Process output goes to
+`infra/local/.state/dev/<process>.log` (git-ignored).
+
+- **Confirming an email.** The synthetic mail adapter keeps letters inside the API process. After signing up, type
+  the email in the terminal and press Enter: it prints the confirmation link. `limits` clears the sign-up limits.
+- **Data is kept** between runs (`ws_dev`). `pnpm local:dev --fresh` drops it and starts empty; `pnpm local:reset`
+  deletes all local data.
+- **Ctrl+C** stops every process. Open the app in Chrome: the session cookie is always `Secure`, which Chrome accepts
+  on `http://localhost` and Safari may not.
+- **Cluster lock.** Module roles belong to the whole PostgreSQL cluster and this command sets their passwords, so it
+  holds the cluster lock while it runs: `pnpm test:integration` and `pnpm db:test run` on the same server wait until
+  it stops.
+- Without Docker: `WS_TEST_PG_ADMIN_URL=<superuser URL> pnpm local:dev` uses that server instead (same variable as
+  `pnpm db:test`).
+- Ports 8080–8082 and 5173 must be free; the command stops with the log of the process that could not start.
 
 ## Test database per agent (`pnpm db:test`)
 
