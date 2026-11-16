@@ -387,6 +387,7 @@ describe("/gallery/tokens (DS-22)", () => {
       "Сума",
     ]);
     expect(at("tx-loading").querySelector('[aria-busy="true"]')).not.toBeNull();
+    vi.useRealTimers();
   });
 
   it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
