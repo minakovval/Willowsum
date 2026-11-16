@@ -1508,12 +1508,20 @@
       "x": 10880,
       "y": 25230
     },
+    "PocMoneyAccBalanceTexts.dc.html": {
+      "h": 1060,
+      "page": "poc",
+      "title": "S-055a Оновити залишок · Тексти",
+      "w": 1280,
+      "x": 12240,
+      "y": 25230
+    },
     "PocMoneyAccBalanceBank.dc.html": {
       "h": 800,
       "page": "poc",
       "title": "Рахунок · оновити залишок з банера про розбіжність",
       "w": 1280,
-      "x": 12240,
+      "x": 13600,
       "y": 25230
     },
     "PocMoneyAccSettings.dc.html": {
@@ -1628,6 +1636,14 @@
       "title": "S-055 Закрити рахунок · що зробити із залишком",
       "w": 1280,
       "x": 0,
+      "y": 29380
+    },
+    "PocMoneyCloseAccTexts.dc.html": {
+      "h": 1180,
+      "page": "poc",
+      "title": "S-055 Закрити рахунок · Тексти",
+      "w": 2640,
+      "x": 1360,
       "y": 29380
     },
     "PocMoneyConnections.dc.html": {
@@ -2751,7 +2767,7 @@
       "page": "poc",
       "title": "S-050 Рахунки · частина даних не оновлена",
       "w": 1280,
-      "x": 13600,
+      "x": 14960,
       "y": 25230
     },
     "PocMoneyAccountMismatch.dc.html": {
@@ -2760,7 +2776,7 @@
       "page": "poc",
       "title": "S-053 Рахунок · залишки не збігаються",
       "w": 1280,
-      "x": 14960,
+      "x": 16320,
       "y": 25230
     },
     "PlanBudgetMethodExitStep2.dc.html": {
@@ -4279,6 +4295,7 @@
     "PocMoneyAccountTexts.dc.html",
     "PocMoneyAccSettings.dc.html",
     "PocMoneyAccBalance.dc.html",
+    "PocMoneyAccBalanceTexts.dc.html",
     "PocMoneyAccBalanceBank.dc.html",
     "PocMoneyAddAcc.dc.html",
     "PocMoneyAddAccTexts.dc.html",
@@ -4286,6 +4303,7 @@
     "PocMoneyNewAccTexts.dc.html",
     "PocMoneyNewAccStep3.dc.html",
     "PocMoneyCloseAcc.dc.html",
+    "PocMoneyCloseAccTexts.dc.html",
     "PocMoneyMergeAcc.dc.html",
     "PocMoneyImport1.dc.html",
     "PocMoneyImport2.dc.html",

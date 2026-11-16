@@ -397,6 +397,22 @@ button.ws-menu-item {
   background: var(--ws-surface-300);
 }
 
+/* A dangerous item (CMP-61@PoC «Стани пункту»): `loss` text and icon, after a 1 px `line` separator. */
+.ws-menu-item[data-tone="danger"] {
+  color: var(--ws-loss);
+}
+
+.ws-menu-separator {
+  height: 1px;
+  margin: var(--ws-space-1) var(--ws-space-2);
+  background: var(--ws-line);
+}
+
+/* An open «…» button (CMP-61@PoC «Кнопка «…»»): `surface-300`. */
+.ws-icon-button[aria-haspopup="menu"][aria-expanded="true"] {
+  background: var(--ws-surface-300);
+}
+
 .ws-menu-shortcut {
   margin-inline-start: auto;
   color: var(--ws-ink-muted);
