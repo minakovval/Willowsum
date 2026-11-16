@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useT } from "@willowsum/i18n";
 import { START_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
+import { forgetSpace } from "../space/api.ts";
 import { outcome, useAuthApi } from "./api.ts";
 import { AuthLayout, LinkLine, Notice, SubmitButton } from "./AuthLayout.tsx";
 import { Captcha } from "./captcha/Captcha.tsx";
@@ -72,6 +73,7 @@ export function SignInPage({ captcha }: { readonly captcha?: CaptchaConfig | und
     }
     if (result.ok) {
       if (result.data.status === "signed-in") {
+        forgetSpace(api);
         navigate(START_PATH);
         return;
       }

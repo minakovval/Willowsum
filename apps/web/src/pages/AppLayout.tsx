@@ -13,6 +13,7 @@ import {
 import { lastPageOf } from "../routing/session.ts";
 import { useGoShortcuts } from "../routing/useGoShortcuts.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
+import { useSpaceName } from "../space/api.ts";
 
 /**
  * The PoC user shell (UX-09@PoC, CMP-69@PoC): L1 «Гроші» and «Планування» with the L2 pages of the
@@ -30,6 +31,8 @@ export function AppLayout({
 }) {
   const t = useT();
   const path = useHashPath();
+  // ACC-08@PoC FR 2: the space's name in the profile; the placeholder until it is known.
+  const spaceName = useSpaceName();
   useGoShortcuts();
 
   const sections: NavSection[] = SECTIONS.map((s) => {
@@ -77,7 +80,7 @@ export function AppLayout({
       add={{ label: t("shell.add"), items: addItems }}
       profile={{
         name: t("shell.profile.name"),
-        space: t("shell.profile.space"),
+        space: spaceName ?? t("shell.profile.space"),
         menuLabel: t("shell.profile.menu"),
         items: [
           { id: "settings", label: t("shell.settings"), icon: "settings", href: hrefFor(SETTINGS_PATH) },
