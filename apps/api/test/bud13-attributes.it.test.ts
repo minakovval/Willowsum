@@ -14,7 +14,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
-import { createCategoryDirectory } from "../src/modules/categories/index.ts";
+import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import { createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 
@@ -191,6 +191,14 @@ beforeAll(async () => {
           }),
           flags: { isEnabled },
           duplicates: createDuplicateCheck(),
+          rates: (requests) =>
+            createFxRates({ db: db.databases.for("fx-rates"), now: () => NOW }).rates(requests),
+        }),
+        categories: createCategoriesServices({
+          audit,
+          clock: { now: () => NOW },
+          newId: randomUUID,
+          usage: [],
         }),
         bulkActions: bulkActionsServicesFor(audit, db.databases, { now: () => NOW }),
         allowedOrigins: new Set([WEB]),
@@ -400,6 +408,29 @@ describe("BUD-13@PoC FR 2: renaming, merging and deleting a tag", () => {
     expect((await call(space, "DELETE", `/v1/transaction-tags/${tag!.id}`)).json().removed).toBe(1);
     expect((await get(space, copy.id)).tags).toEqual([]);
     expect((await get(space, first.id)).tags).toEqual([]);
+  });
+});
+
+describe("BUD-13@PoC EC6: a transfer between own accounts", () => {
+  it("BUD-13@PoC EC6: a side of a transfer is not split; its note and tags may change", async () => {
+    const space = await newSpace();
+    const out = await add(space, await createAccount(space), "-100.00");
+    const into = await add(space, await createAccount(space), "100.00");
+    const marked = await call(space, "POST", `/v1/transactions/${out.id}/transfer`, {
+      counterpartId: into.id,
+    });
+    expect(marked.statusCode, marked.body).toBe(200);
+    const category = (await call(space, "GET", "/v1/categories")).json().groups[0].categories[0].id as string;
+    const split = await call(space, "POST", `/v1/transactions/${out.id}/split`, {
+      mode: "months",
+      startMonth: "2026-10",
+      months: 2,
+      categoryId: category,
+    });
+    expect(split.statusCode).toBe(409);
+    expect(split.json().code).toBe("TRANSACTION_IN_TRANSFER");
+    expect((await get(space, out.id)).split).toBeNull();
+    expect((await attributes(space, out.id, { note: "між своїми", tags: ["переказ"] })).statusCode).toBe(200);
   });
 });
 
