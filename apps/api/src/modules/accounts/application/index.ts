@@ -36,6 +36,7 @@ export {
   balanceNow,
   closeAccount,
   closingPreview,
+  settlePending,
   deleteAdjustment,
   reconcileStatement,
   reopenAccount,
