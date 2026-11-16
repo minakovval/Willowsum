@@ -5,6 +5,7 @@ import {
   checkReferences,
   confirmProposal,
   createPayment,
+  type Decisions,
   GONE,
   listProposals,
   nextPaymentDate,
@@ -189,17 +190,32 @@ async function fieldsOf(ctx: ProtectedContext, input: PaymentInput): Promise<Pay
 }
 
 /** FR 1–4: the proposals offered now — the analysis filtered by the space's payments and rejected series. */
-async function offered(ctx: ProtectedContext): Promise<{ items: readonly Proposal[]; more: boolean }> {
+async function offered(
+  ctx: ProtectedContext,
+  decided?: Decisions,
+): Promise<{ items: readonly Proposal[]; more: boolean }> {
   const { deps } = recurringServices(ctx);
   const householdId = ctx.principal.householdId;
-  const decided = await ctx.inHousehold((q) => recurringTx(q).decisions(householdId));
-  return listProposals(deps, householdId, decided);
+  return listProposals(
+    deps,
+    householdId,
+    decided ?? (await ctx.inHousehold((q) => recurringTx(q).decisions(householdId))),
+  );
 }
 
+/**
+ * A key offered now. Not offered: «не знайдено» (BUD-07 AC9, #328 item 2) when the space never decided on its merchant
+ * — another space's key reads the same as an unknown one — else 409 `RECURRING_PROPOSAL_GONE` (decided or changed).
+ */
 async function proposalOf(ctx: ProtectedContext, key: string): Promise<Proposal> {
-  const found = (await offered(ctx)).items.find((p) => p.key === key);
-  if (!found) throw new ApiProblem("RECURRING_PROPOSAL_GONE");
-  return found;
+  const householdId = ctx.principal.householdId;
+  const decided = await ctx.inHousehold((q) => recurringTx(q).decisions(householdId));
+  const found = (await offered(ctx, decided)).items.find((p) => p.key === key);
+  if (found) return found;
+  const merchantId = key.split(":", 1)[0] ?? "";
+  const known =
+    decided.merchantIds.has(merchantId) || decided.rejections.some((r) => r.merchantId === merchantId);
+  throw new ApiProblem(known ? "RECURRING_PROPOSAL_GONE" : "NOT_FOUND");
 }
 
 export const listRecurringProposalsRoute = defineRoute({
@@ -262,13 +278,19 @@ export const confirmRecurringProposalRoute = defineRoute({
     const { payments, audit } = recurringServices(ctx);
     const proposal = await proposalOf(ctx, body.key);
     const edits = Object.entries(body).filter(([k, v]) => k !== "key" && v !== undefined);
+    // The latest charge's account is only a default: a closed one (or a loan) is not offered, the payment gets none.
+    let defaultAccount: string | null = proposal.accountId;
+    if (body.accountId === undefined) {
+      const latest = await payments.references.account(ctx.principal.householdId, proposal.accountId);
+      if (!latest || latest.closed || latest.kind === "loan") defaultAccount = null;
+    }
     const fields = await fieldsOf(ctx, {
       // The merchant's shown name, cut to the payment's 60 characters.
       name: [...proposal.merchant.name].slice(0, NAME_MAX).join(""),
       amount: proposal.expectedAmount.toJSON(),
       frequency: proposal.frequency,
       anchorDate: proposal.anchorDate,
-      accountId: proposal.accountId,
+      accountId: defaultAccount,
       type: proposal.type,
       variable: proposal.variable,
       ...Object.fromEntries(edits),

@@ -272,6 +272,7 @@ export const MAX_BODY = 55_000;
 export const GITHUB_BODY_LIMIT = 65_536;
 /** The line `archive` leaves in the body for the lead to fill with the link. */
 export const ARCHIVE_LINE = "Архів рядків PR: <посилання>";
+const ARCHIVE_PREFIX = /^Архів рядків PR:\s*/;
 
 /**
  * Locates the table of `t`: { lines, header, last } — the index of its header line and of its last row.
@@ -308,7 +309,17 @@ export function archivePrRows(body) {
   const clean = (l) => l.replace(/\r$/, "");
   const archive =
     ["# Архів рядків PR (облік токенів, #180)", "", clean(lines[header]), clean(lines[header + 1]), ...rows.map(clean)].join("\n") + "\n";
-  lines.splice(header + 2, rows.length, "" + eol, ARCHIVE_LINE + eol);
+  // A second run (rows added after the first archive) keeps one line: the earlier one is replaced, its link kept (#319).
+  let line = ARCHIVE_LINE;
+  const at = lines.findIndex((l, i) => i > last && ARCHIVE_PREFIX.test(l));
+  if (at >= 0) {
+    const old = clean(lines[at]).replace(ARCHIVE_PREFIX, "").trim();
+    if (old && old !== "<посилання>" && !old.startsWith("<посилання>")) line = `${ARCHIVE_LINE}; раніше: ${old}`;
+    else if (old.startsWith("<посилання>")) line = `${ARCHIVE_LINE}${old.slice("<посилання>".length)}`;
+    const blankBefore = at === last + 2 && clean(lines[last + 1]) === "";
+    lines.splice(blankBefore ? last + 1 : at, blankBefore ? 2 : 1);
+  }
+  lines.splice(header + 2, rows.length, "" + eol, line + eol);
   return { body: lines.join("\n"), archive, rows: rows.length };
 }
 

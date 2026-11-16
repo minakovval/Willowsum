@@ -1,4 +1,4 @@
-import { Money } from "@willowsum/domain-kernel";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import { parseAnnualRate, parseTypedAmount } from "../../liabilities/index.ts";
 import {
   addMonths,
@@ -76,7 +76,12 @@ export function assumptionsOf(debt: Debt, input: ScenarioInput, month: Month): R
     if (m === null || (positive && m.isZero())) issues.push({ field, issue: "invalid" });
     return m;
   };
-  const balance = amount("balance", input.balance, debt.balance);
+  // A negative journal balance (an overpaid liability) is no debt: clamped to zero, as the plans' check `balance >= 0` needs (#325 item 3).
+  const balance = amount(
+    "balance",
+    input.balance,
+    debt.balance.isNegative() ? Money.zero(debt.currency) : debt.balance,
+  );
   const monthlyPayment = amount("monthlyPayment", input.monthlyPayment, debt.monthlyPayment, true);
   const extraMonthly = amount("extraMonthly", input.extraMonthly, Money.zero(debt.currency));
   let annualRate = debt.annualRate;
@@ -256,8 +261,9 @@ export function strategyOf(debts: readonly Debt[], input: StrategyInput): Result
     }
     included.push({ id: d.accountId, balance: d.balance, annualRate: rate, minimumPayment: min });
   }
-  const minimums = included.reduce((s, d) => s.plus(d.minimumPayment), Money.zero(input.total.currency));
-  if (issues.length === 0 && input.total.compare(minimums) < 0)
+  // The minimums' sum is compared without Money: past NUMERIC(38,18) it is still only larger than any total.
+  const minimums = included.reduce((s, d) => s.plus(d.minimumPayment.amount), new Decimal("0"));
+  if (issues.length === 0 && input.total.amount.lessThan(minimums))
     issues.push({ field: "total", issue: "below_minimums" });
   if (issues.length > 0) return { kind: "invalid", issues };
   return {

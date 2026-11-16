@@ -56,9 +56,12 @@ export const SPEND_CHECK_JOB = defineJob({
 /** Enqueues the spend's check in the caller's goals transaction; the same entry twice is one job. */
 export async function enqueueSpendCheck(
   q: HouseholdQueryRunner,
-  check: { readonly transactionId: string; readonly entryId: string },
+  check: { readonly spendId: string; readonly transactionId: string; readonly entryId: string },
 ): Promise<void> {
-  await enqueueJob(q, SPEND_CHECK_JOB, `spend-check:${check.entryId}`, check);
+  await enqueueJob(q, SPEND_CHECK_JOB, `spend-check:${check.spendId}`, {
+    transactionId: check.transactionId,
+    entryId: check.entryId,
+  });
 }
 
 /** Enqueues the hand-off in the caller's goals transaction; the same change twice is one job. */

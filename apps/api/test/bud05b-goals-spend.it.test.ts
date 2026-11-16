@@ -438,6 +438,28 @@ describe("BUD-05@PoC AC5, EC5: a spent transaction changed or deleted — the sp
     await runWorker(space.householdId);
     expect((await getGoal(space, g.id)).spends).toEqual([]);
   });
+
+  it("ARC-04@PoC FR 4 (#318 item 1): a spend cancelled by hand and made again on the same entry gets its own check — the lost cancel is still repaired", async () => {
+    const { space, savings, g, hotel } = await vacation();
+    const first = (await spend(space, g.id, [[hotel, savings]])).json() as GoalJson;
+    await runWorker(space.householdId);
+    expect((await call(space, "DELETE", `/v1/goals/${g.id}/spends/${first.spends[0]!.id}`)).statusCode).toBe(
+      200,
+    );
+    await runWorker(space.householdId);
+    afterLiveEntries = async () => {
+      expect(
+        (await call(space, "PATCH", `/v1/transactions/${hotel}`, { amount: eur("-1700.00") })).statusCode,
+      ).toBe(200);
+      await runWorker(space.householdId);
+    };
+    liveEntriesCalls = 0;
+    failLiveEntriesOn = 2;
+    expect((await spend(space, g.id, [[hotel, savings]])).statusCode).toBe(500);
+    failLiveEntriesOn = undefined;
+    await runWorker(space.householdId);
+    expect((await getGoal(space, g.id)).spends).toEqual([]);
+  });
 });
 
 describe("BUD-05@PoC FR 9, FR 13: closing and deleting a goal", () => {
