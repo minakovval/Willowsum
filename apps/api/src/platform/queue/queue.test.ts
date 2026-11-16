@@ -217,14 +217,14 @@ describe("ARC-02@PoC FR 2 / ARC-04@PoC: a failure in one space does not stop the
       ],
       households: async () => ["h1", "h2", "h3"],
     });
-    // The first pass starts with h1: reports fails on h2 (claim), ledger fails on h1 (dispatch).
-    expect(await worker.tick()).toBe(4);
+    // The first pass starts with h1: reports fails on h2 (claim), ledger fails on h1 (its outbox) — h1's ledger
+    // jobs are still taken, since the outbox and the job queue are separate steps.
+    expect(await worker.tick()).toBe(5);
     await worker.idle();
-    expect(seen.sort()).toEqual(["ledger/h2", "ledger/h3", "reports/h1", "reports/h3"]);
+    expect(seen.sort()).toEqual(["ledger/h1", "ledger/h2", "ledger/h3", "reports/h1", "reports/h3"]);
     expect(reports.jobs.get("h2/reports.sum/a")!.state).toBe("queued");
-    expect(ledger.jobs.get("h1/ledger.post/a")!.state).toBe("queued");
 
-    // One warning per failed module × space pair: the module and the error class — never the space or the message.
+    // One warning per failed step: the module and the error class — never the space or the message.
     const failed = telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed");
     expect(failed.map((r) => [r.severityText, r.attributes])).toEqual([
       ["WARN", { "ws.module": "reports", "error.type": "StoreUnavailableError" }],
@@ -234,14 +234,51 @@ describe("ARC-02@PoC FR 2 / ARC-04@PoC: a failure in one space does not stop the
     expect(text).not.toContain("household h");
   });
 
-  it("ARC-02@PoC FR 2: when every module × space pair fails, the pass fails as a whole (a systematic failure is not hidden)", async () => {
+  it("ARC-02@PoC FR 2: when every step fails (the database is away), the pass fails as a whole (a systematic failure is not hidden)", async () => {
     const store = memoryStore("reports");
-    for (const h of ["h1", "h2"]) failFor(store, "claim", h);
+    for (const h of ["h1", "h2"]) {
+      failFor(store, "pendingEvents", h);
+      failFor(store, "claim", h);
+    }
     const worker = createWorker({
       queues: [{ store, handlers: [defineJobHandler({ job: sum, run: async () => undefined })] }],
       households: async () => ["h1", "h2"],
     });
     await expect(worker.tick()).rejects.toBeInstanceOf(StoreUnavailableError);
-    expect(telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed")).toHaveLength(2);
+    expect(telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed")).toHaveLength(4);
+  });
+
+  it("ARC-02@PoC FR 2: a module whose kill switch cannot be read takes no jobs; the next module is still served", async () => {
+    const reports = memoryStore("reports");
+    const ledger = memoryStore("ledger");
+    const posting = defineJob({ name: "ledger.post", schema: z.object({ n: z.number().int() }) });
+    const seen: string[] = [];
+    await reports.enqueue("h1", job("a"));
+    await ledger.enqueue("h1", { ...job("a"), name: posting.name });
+    const worker = createWorker({
+      queues: [
+        {
+          store: reports,
+          handlers: [defineJobHandler({ job: sum, run: async () => void seen.push("reports") })],
+        },
+        {
+          store: ledger,
+          handlers: [defineJobHandler({ job: posting, run: async () => void seen.push("ledger") })],
+        },
+      ],
+      households: async () => ["h1"],
+      moduleAvailable: async (module) => {
+        if (module === "reports") throw new StoreUnavailableError("flags table unavailable");
+        return true;
+      },
+    });
+    expect(await worker.tick()).toBe(1);
+    await worker.idle();
+    expect(seen).toEqual(["ledger"]);
+    expect(reports.jobs.get("h1/reports.sum/a")!.state).toBe("queued");
+    const failed = telemetry.memory.logRecords().filter((r) => r.body === "worker.module_failed");
+    expect(failed.map((r) => r.attributes)).toEqual([
+      { "ws.module": "reports", "error.type": "StoreUnavailableError" },
+    ]);
   });
 });
