@@ -13,7 +13,7 @@ synthetic data.
 
 ## Commands
 
-Requires Docker with the compose plugin and Node 22. From the repository root:
+Requires Docker with the compose plugin and Node 22.18 or newer (macOS or Linux; Windows is not supported). From the repository root:
 
 | Command | What it does |
 | --- | --- |
@@ -26,11 +26,33 @@ Requires Docker with the compose plugin and Node 22. From the repository root:
 
 ## The whole app (`pnpm local:dev`)
 
-One command for a person who wants to use the app locally, not only run tests:
+One command for a person who wants to use the app locally, not only run tests. **Windows is not supported**; the
+steps below are for macOS (Terminal app).
+
+**Once, to set up**
+
+1. Install [Node.js](https://nodejs.org) 22.18 or newer (the LTS installer is fine). Check: `node -v` prints `v22.18`
+   or higher.
+2. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and open it. (Without Docker: a local
+   PostgreSQL 16 or newer and its superuser URL, see «Without Docker» below.)
+3. Get the code: `git clone https://github.com/minakovval/Willowsum.git`, then `cd Willowsum`.
+4. `corepack enable` (makes the `pnpm` command available; if macOS says permission denied, run
+   `sudo corepack enable`), then `pnpm install`.
+
+**Every time**
+
+1. Open Docker Desktop and wait until it says it is running (not needed with your own PostgreSQL).
+2. In the repository folder run:
 
 ```bash
 pnpm local:dev
 ```
+
+3. Wait for «Willowsum is running», then open `http://localhost:5173` in Chrome and sign up.
+4. Letters are not sent. Type the email you signed up with in the Terminal window and press Enter: it prints a
+   confirmation link; open it in Chrome.
+5. Ctrl+C in the Terminal stops everything; your data is kept. `pnpm local:dev --fresh` starts with an empty
+   database.
 
 It starts the services (`local:up`), then on the database `ws_dev` of the same PostgreSQL: `db:bootstrap` the
 first time, the migrations on every start, a login for every module role with a password made for this run (never
@@ -49,9 +71,12 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
 - **Cluster lock.** Module roles belong to the whole PostgreSQL cluster and this command sets their passwords, so it
   holds the cluster lock while it runs: `pnpm test:integration` and `pnpm db:test run` on the same server wait until
   it stops.
-- Without Docker: `WS_TEST_PG_ADMIN_URL=<superuser URL> pnpm local:dev` uses that server instead (same variable as
-  `pnpm db:test`).
-- Ports 8080–8082 and 5173 must be free; the command stops with the log of the process that could not start.
+- Without Docker: `WS_TEST_PG_ADMIN_URL=postgres://<superuser>@127.0.0.1:5432/postgres pnpm local:dev` uses your own
+  PostgreSQL 16 or newer instead (same variable as `pnpm db:test`). Only a server on this machine (`127.0.0.1`, `::1`,
+  `localhost` or a Unix socket) is accepted: the command resets role passwords and may drop `ws_dev`.
+- The web dev server gets only `PATH`, `HOME` and the API address, not the rest of your environment.
+- Ports 8080–8082 and 5173 must be free: the command checks them first and names the busy port (usually an earlier
+  run still open in another window). If a process fails to start, the command stops and names its log.
 
 ## Test database per agent (`pnpm db:test`)
 

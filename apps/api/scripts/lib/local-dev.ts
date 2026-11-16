@@ -3,6 +3,7 @@
  * database name, the ports and environment of each process, the flags it turns on and the confirmation link.
  * The script itself is scripts/local-dev.ts.
  */
+import { createServer } from "node:net";
 import type { FlagKind } from "../../src/modules/feature-flags/index.ts";
 import { modulePasswordVariable } from "../../src/platform/config/config.ts";
 
@@ -95,4 +96,52 @@ export function parsePrompt(line: string): PromptCommand {
   if (!input) return { kind: "none" };
   if (input === "limits") return { kind: "limits" };
   return { kind: "confirm", email: input };
+}
+
+/** `pnpm local:dev` resets cluster-wide role passwords and may drop ws_dev: only a server on this machine. */
+export function assertLocalServer(adminUrl: string): void {
+  const u = new URL(adminUrl);
+  const host = u.hostname.replace(/^\[|\]$/g, "");
+  const socket = new URLSearchParams(u.search).get("host") ?? "";
+  const local = host === "" ? socket.startsWith("/") : ["127.0.0.1", "::1", "localhost"].includes(host);
+  if (!local)
+    throw new Error(`not a local PostgreSQL (${host || socket}); pnpm local:dev runs only on this machine`);
+}
+
+/** The ports `pnpm local:dev` listens on: the three roles and the web dev server. */
+export const LOCAL_DEV_PORTS: readonly number[] = [...Object.values(ROLE_PORTS), WEB_PORT];
+
+/** True when nothing listens on the port (on every address, so a program bound to 0.0.0.0 or localhost counts). */
+export function isPortFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = createServer();
+    probe.once("error", (error: NodeJS.ErrnoException) => resolve(error.code !== "EADDRINUSE"));
+    probe.listen(port, () => probe.close(() => resolve(true)));
+  });
+}
+
+/** The plain message for a busy port; empty when all are free. `free` is injectable for the test. */
+export async function busyPortsMessage(
+  ports: readonly number[] = LOCAL_DEV_PORTS,
+  free: (port: number) => Promise<boolean> = isPortFree,
+): Promise<string> {
+  const lines: string[] = [];
+  for (const port of ports) {
+    if (!(await free(port))) {
+      lines.push(
+        `Port ${port} is in use by another program. Close it (an earlier \`pnpm local:dev\` still running in another terminal window?) and run again. ` +
+          `On macOS \`lsof -nP -iTCP:${port} -sTCP:LISTEN\` shows which program it is.`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
+/**
+ * One stop for the whole run: the first caller starts it, every later caller gets the same promise, so a failed
+ * start that calls stop() while a stop is under way still waits for it and never goes on to «running».
+ */
+export function makeStopper(doStop: (code: number) => Promise<void>): (code: number) => Promise<void> {
+  let stopping: Promise<void> | undefined;
+  return (code) => (stopping ??= doStop(code));
 }

@@ -24,8 +24,9 @@ written). The PoC shell code already in `main` (PRs #46, #47, #52, #54, #55) is 
   latest run of the workflow «Requirements traceability» on `main` (artifact `traceability`).
 - Pre-commit hook: `pnpm install` sets `core.hooksPath` to `.githooks`; on `git commit` it runs Prettier and ESLint on
   the staged files only (`tools/pr-rules/lib/pre-commit.mjs`).
-- Run the whole app locally (Docker, Node 22): `pnpm install`, then `pnpm local:dev` and open
-  `http://localhost:5173` in Chrome — [infra/local/README.md](infra/local/README.md#the-whole-app-pnpm-localdev).
+- Run the whole app locally (macOS; Windows is not supported): install Node 22.18 or newer, then in a clone run
+  `corepack enable`, `pnpm install`, start Docker Desktop and run `pnpm local:dev`; open `http://localhost:5173` in
+  Chrome — step by step in [infra/local/README.md](infra/local/README.md#the-whole-app-pnpm-localdev).
 - Agent skills: `.claude/skills/implement-requirement`, `.claude/skills/review-pr`.
 
 ## Suggested order of work

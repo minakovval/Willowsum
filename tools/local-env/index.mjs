@@ -17,7 +17,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable } from './lib/docker.mjs';
+import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable, dockerRunning } from './lib/docker.mjs';
 import { ensureBucket, ensureWritable } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
@@ -45,6 +45,7 @@ function fail(message) {
 
 function requireDocker() {
   if (!dockerAvailable()) fail('Docker with the compose plugin is required (docker compose version failed).');
+  if (!dockerRunning()) fail('Docker is installed but not running. Open Docker Desktop, wait until it says it is running, then run this command again.');
 }
 
 async function up() {

@@ -37,8 +37,11 @@ import {
   ROLE_PORTS,
   WEB_ORIGIN,
   WEB_PORT,
+  assertLocalServer,
+  busyPortsMessage,
   confirmationLink,
   databaseUrlFor,
+  makeStopper,
   parseLocalDevArgs,
   parsePrompt,
   releaseFlagKeys,
@@ -60,6 +63,18 @@ try {
 const adminUrl = process.env["DATABASE_URL"];
 if (!adminUrl) {
   console.error("DATABASE_URL (a superuser URL of the local PostgreSQL) is not set; run `pnpm local:dev`.");
+  process.exit(2);
+}
+try {
+  assertLocalServer(adminUrl);
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(2);
+}
+
+const busy = await busyPortsMessage();
+if (busy) {
+  console.error(busy);
   process.exit(2);
 }
 
@@ -135,7 +150,7 @@ function start(name: string, command: string, args: string[], cwd: string, env: 
   const entry: Running = { name, child, log, exited: false };
   child.on("exit", (code) => {
     entry.exited = true;
-    if (!stopping) {
+    if (!stopRequested) {
       console.error(`\n${name} stopped (exit ${code}); see ${path.relative(repoDir, log)}`);
       void stop(1);
     }
@@ -159,11 +174,10 @@ async function waitReady(url: string, entry: Running, timeoutMs = 60_000): Promi
   }
 }
 
-let stopping = false;
+let stopRequested = false;
 let releaseLock: () => Promise<void> = async () => {};
-async function stop(code: number): Promise<void> {
-  if (stopping) return;
-  stopping = true;
+async function doStop(code: number): Promise<void> {
+  stopRequested = true;
   console.log("\nStopping… (data is kept; `pnpm local:dev --fresh` starts empty)");
   for (const r of running.reverse()) {
     if (r.exited) continue;
@@ -178,6 +192,7 @@ async function stop(code: number): Promise<void> {
   await releaseLock().catch(() => undefined);
   process.exit(code);
 }
+const stop = makeStopper(doStop);
 process.on("SIGINT", () => void stop(0));
 process.on("SIGTERM", () => void stop(0));
 
@@ -204,6 +219,7 @@ try {
     databaseUrl: adminUrl,
     holderPid: undefined,
     applicationName: "ws-local-dev",
+    log: () => console.log("Waiting for another local run / tests to finish…"),
   });
   const created = await ensureDatabase();
   const password = randomBytes(24).toString("hex");
@@ -219,7 +235,11 @@ try {
     "pnpm",
     ["exec", "vite", "--port", String(WEB_PORT), "--strictPort"],
     path.join(repoDir, "apps/web"),
-    { ...process.env, WS_API_ORIGIN: `http://127.0.0.1:${ROLE_PORTS.api}` },
+    {
+      PATH: process.env["PATH"] ?? "",
+      HOME: process.env["HOME"] ?? "",
+      WS_API_ORIGIN: `http://127.0.0.1:${ROLE_PORTS.api}`,
+    },
   );
   await waitReady(`${WEB_ORIGIN}/v1/meta`, web);
 } catch (error) {
