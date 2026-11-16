@@ -1392,3 +1392,7 @@ code {
 .gallery-rows__empty {
   padding: var(--ws-space-4);
 }
+
+.gallery-rows__narrow {
+  max-inline-size: calc(var(--ws-space-8) * 7);
+}

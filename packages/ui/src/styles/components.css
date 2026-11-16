@@ -1229,8 +1229,18 @@
 }
 
 .ws-row-money-main {
+  position: relative;
   max-inline-size: 100%;
   min-inline-size: 0;
+}
+
+/* Keeps the box at the width of the full value (see RowAmount); takes no height and is never seen. */
+.ws-row-money-sizer {
+  display: block;
+  block-size: 0;
+  overflow: hidden;
+  visibility: hidden;
+  white-space: nowrap;
 }
 
 .ws-row-money button,

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useI18n, type MessageKey } from "@willowsum/i18n";
+import { useI18n } from "@willowsum/i18n";
 import { Icon, ListRow, type IconName } from "@willowsum/ui";
 
 /**
@@ -7,10 +7,10 @@ import { Icon, ListRow, type IconName } from "@willowsum/ui";
  * debt (a real minus), a selectable row, an archived record, a long name and the loading skeleton. Hover, pressed
  * and focus are shown by pointing at, pressing and tabbing to the rows.
  */
-const row = (cls: string, caption: MessageKey, children: ReactNode) => (
+const row = (cls: string, caption: string, children: ReactNode, narrow = false) => (
   <figure className="gallery-rows__case" data-case={`list-row-${cls}`} key={cls}>
     <figcaption className="ws-text-label ws-muted">{caption}</figcaption>
-    <div className="ws-card gallery-rows__list">{children}</div>
+    <div className={`ws-card gallery-rows__list${narrow ? " gallery-rows__narrow" : ""}`}>{children}</div>
   </figure>
 );
 
@@ -26,7 +26,7 @@ export function ListRowDemo() {
       <p className="ws-muted">{t("gallery.listRow.intro")}</p>
       {row(
         "account",
-        "gallery.listRow.account",
+        t("gallery.listRow.account"),
         <ListRow
           leading={leading("accounts")}
           title={t("gallery.listRow.accountName")}
@@ -39,7 +39,7 @@ export function ListRowDemo() {
       )}
       {row(
         "debt",
-        "gallery.listRow.debt",
+        t("gallery.listRow.debt"),
         <ListRow
           leading={leading("mortgage")}
           title={t("gallery.listRow.mortgage")}
@@ -51,7 +51,7 @@ export function ListRowDemo() {
       )}
       {row(
         "selected",
-        "gallery.listRow.selected",
+        t("gallery.listRow.selected"),
         <ListRow
           leading={leading("card")}
           title={t("gallery.listRow.card")}
@@ -64,7 +64,7 @@ export function ListRowDemo() {
       )}
       {row(
         "archived",
-        "gallery.listRow.archived",
+        t("gallery.listRow.archived"),
         <ListRow
           leading={leading("accounts")}
           title={t("gallery.listRow.savings")}
@@ -76,7 +76,7 @@ export function ListRowDemo() {
       )}
       {row(
         "long",
-        "gallery.listRow.long",
+        t("gallery.listRow.long"),
         <ListRow
           leading={leading("accounts")}
           title={t("gallery.listRow.longName")}
@@ -85,8 +85,9 @@ export function ListRowDemo() {
           amount={{ value: "1234567890.55", currency: "UAH" }}
           onOpen={open("long")}
         />,
+        true,
       )}
-      {row("loading", "gallery.listRow.loading", <ListRow title="" loading />)}
+      {row("loading", t("gallery.listRow.loading"), <ListRow title="" loading />)}
       <p className="ws-muted" aria-live="polite" data-case="list-row-opened">
         {opened ? t("gallery.listRow.opened", { name: opened }) : ""}
       </p>

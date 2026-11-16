@@ -1,6 +1,7 @@
 import {
   formatDelta,
   formatMoney,
+  keepNumbersTogether,
   speakMoney,
   useI18n,
   type DeltaInput,
@@ -8,6 +9,7 @@ import {
   type Translate,
 } from "@willowsum/i18n";
 import { useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
+import { useHideAmounts } from "../privacy/HideAmounts.tsx";
 import { FitAmount } from "../amount/FitAmount.tsx";
 import { formatCompactAmount } from "../amount/compact.ts";
 import { useTooltip } from "../tooltip/Tooltip.tsx";
@@ -52,11 +54,19 @@ export function spokenDelta(locale: Locale, t: Translate, hidden: boolean, delta
  */
 export function RowAmount({ amount, children }: { amount: RowMoney; children?: ReactNode }) {
   const { locale } = useI18n();
+  const { hidden } = useHideAmounts();
   const full = formatMoney(locale, amount.value, amount.currency);
   const compact = formatCompactAmount({ value: amount.value, currency: amount.currency, locale });
   return (
     <span className="ws-row-money">
       <span className="ws-row-money-main">
+        {/* The box the fit is measured against must not shrink with the shrunk amount (it would never grow back), so an
+            invisible copy of the full value keeps its width; while amounts are hidden the value is not in the DOM. */}
+        {!hidden && (
+          <span className="ws-row-money-sizer ws-text-amount-s ws-tabular" aria-hidden="true">
+            {keepNumbersTogether(full)}
+          </span>
+        )}
         <FitAmount value={full} compact={compact} size="amount-s" />
       </span>
       {children}
