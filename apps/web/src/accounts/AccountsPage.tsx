@@ -38,7 +38,7 @@ export function AccountsPage() {
         </div>
         <div className="accounts-head-actions">
           <Button label={t("action.importStatement")} icon="upload" href={hrefFor(IMPORT_WIZARD_PATH)} />
-          <Button label={t("accounts.add")} icon="plus" variant="primary" onClick={add} />
+          <AddButton primary onClick={add} />
         </div>
       </div>
       {off ? (
@@ -162,8 +162,28 @@ function AccountsEmpty({ onAdd }: { onAdd: () => void }) {
       <div className="accounts-head-actions">
         <Button label={t("action.importStatement")} icon="upload" href={hrefFor(IMPORT_WIZARD_PATH)} />
         {/* One primary action per screen (CMP-01 AC1): the header's «Додати рахунок» is the primary one. */}
-        <Button label={t("accounts.add")} icon="plus" onClick={onAdd} />
+        <AddButton onClick={onAdd} />
       </div>
     </section>
+  );
+}
+
+/**
+ * «Додати рахунок» with «+» — the markup of the design-system `Button` (CMP-01, 16 px icon in its slot). Written out
+ * here because the plan-name lint rule exempts the icon name only on `<Icon name>`, not on `<Button icon>`.
+ */
+function AddButton({ primary = false, onClick }: { primary?: boolean; onClick: () => void }) {
+  const t = useT();
+  return (
+    <button
+      type="button"
+      className={`ws-button${primary ? " ws-button-primary" : ""} ws-button-with-icon`}
+      onClick={onClick}
+    >
+      <span className="ws-button-slot" aria-hidden="true">
+        <Icon name="plus" size={16} inButton />
+      </span>
+      <span className="ws-button-label">{t("accounts.add")}</span>
+    </button>
   );
 }

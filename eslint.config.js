@@ -62,9 +62,8 @@ const PLAN_MESSAGE =
   "No plan names in code: check entitlements with the requirement's feature key (NFR-06, AGENTS.md «Plans»).";
 const NO_PLAN_NAMES = [
   {
-    // The only exemption: an icon name, e.g. <Icon name="plus" /> or <Button icon="plus" /> (the icon registry has
-    // its own override).
-    selector: `Literal[value=${PLAN_NAME}]:not(JSXAttribute[name.name=/^(name|icon)$/] > Literal)`,
+    // The only exemption: an icon name, e.g. <Icon name="plus" /> (the icon registry has its own override).
+    selector: `Literal[value=${PLAN_NAME}]:not(JSXAttribute[name.name='name'] > Literal)`,
     message: PLAN_MESSAGE,
   },
   {
