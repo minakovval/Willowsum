@@ -66,13 +66,12 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("BUD-07@PoC non-numeric account number and failed loads", () => {
-  it("DS-04@PoC FR 13: an account whose last 4 characters hold a letter is named without a mask, the list still shows", async () => {
+  it("DS-04@PoC FR 13: an account whose last 4 characters hold a letter is shown with the mask and those 4 characters as they are, the list still shows", async () => {
     renderAt(PAGE, api({ items: [account("12AB")], nextCursor: null }).client);
     await screen.findByRole("table");
     const row = screen.getByRole("rowheader", { name: /YouTube/ }).closest("tr")!;
     const text = plain(row.textContent);
-    expect(text).toContain("Рахунок IBAN");
-    expect(text).not.toContain("··");
+    expect(text).toContain("Рахунок IBAN ··12AB");
   });
 
   it("DS-04@PoC FR 13: a numeric number keeps the mask «··4417»", async () => {
