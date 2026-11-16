@@ -23,7 +23,7 @@ verdict needs a confirmation on the new head SHA:
   not touch needs no confirmation agent; the lead checks it with one command and posts the result as a review
   ending in `Verdict: Ready` on the new head ([merge checklist](../../pr-pipeline/references/merge-checklist.md)).
   Report both SHAs to the lead.
-- exception (owner, 2026-11-16): a code PR whose diff is byte-identical before and after the sync, with green CI,
+- exception (owner, 2026-11-16): a code PR without `sensitive` whose diff is byte-identical before and after the sync, with green CI,
   is confirmed by the lead without an agent: [merge checklist](../../pr-pipeline/references/merge-checklist.md),
   «Code PR after a sync, lead confirms».
 

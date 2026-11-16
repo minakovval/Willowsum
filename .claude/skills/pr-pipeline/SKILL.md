@@ -164,5 +164,5 @@ database under the cluster lock, never on a hand-made database (owner, 2026-11-1
 
 - After a restart, or when an agent is cut off by a limit or a restart: [restarts](references/restarts.md)
   (read when you resume).
-- Model by risk (Fable included), briefs, the resume limit, the Workflow experiment, token accounting:
+- Model by risk (Fable included), briefs, the resume limit, token accounting:
   [token economy](references/token-economy.md) (read when you choose a model or write a brief).

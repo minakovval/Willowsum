@@ -109,7 +109,7 @@ happens: retry with backoff; check that a review, comment, issue or PR did not l
 
 Every merge into a PR with a verdict needs a confirmation on the new head SHA (a tree comparison when the merge
 only brought in files outside the PR; none for a docs-only PR not labelled `sensitive` that does not overlap `main`, owner 2026-11-13) —
-[what to ask for](references/confirmation.md) (read after every merge). A code PR whose diff is byte-identical
+[what to ask for](references/confirmation.md) (read after every merge). A code PR without `sensitive` whose diff is byte-identical
 before and after the sync, with green CI, is confirmed by the lead, not an agent: [merge checklist](../pr-pipeline/references/merge-checklist.md), «Code PR after a sync, lead confirms» (owner, 2026-11-16).
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
