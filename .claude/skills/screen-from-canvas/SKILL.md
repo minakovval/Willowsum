@@ -5,7 +5,7 @@ description: Build one Willowsum design-system component or screen (DS-*, CMP-*,
 
 # Build a component or screen from the canvas
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Input: one requirement ID (or a small group, e.g. `CMP-33 / DS-12`) and the target release (PoC now).
 Output: one PR whose title starts with the ID, CI green, every criterion of the view covered by a test, the
@@ -149,6 +149,8 @@ PR with the template, title `<ID>: <component>`, and add to the body:
 Then the lead (`pr-pipeline`) starts a `review-pr` session in a **different** session with: the PR number,
 the view path, the board names and the card name, so the reviewer can repeat the screenshot check. Fixes go
 through `fix-review-findings`; merge rules are AGENTS.md steps 5 and 7.
+
+**Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url>`, `Head: <full SHA>`, `Result: <CI, criteria and states covered or left, screenshot differences counted>`, `Blockers: <… or —>`, `Owner questions: <… or —>`. Everything else (the checklist above, follow-ups) goes in the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
 GitHub 502 / 503 / «token store unavailable» → [retry rules](../../references/github-errors.md) (read when it
 happens: retry with backoff; check that a review, comment, issue or PR did not land before posting it again).

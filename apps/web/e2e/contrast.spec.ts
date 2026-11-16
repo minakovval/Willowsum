@@ -7,6 +7,7 @@ import {
   IMPORT_WIZARD_PATH,
   SECTIONS,
   SETTINGS_PATH,
+  SPACE_SETTINGS_PATH,
 } from "../src/routing/routes.ts";
 import { findContrastProblems, type ContrastProblem } from "./contrast.ts";
 import { expect, h1, signIn, signUp, test } from "./fixtures.ts";
@@ -23,6 +24,7 @@ const routes: readonly string[] = [
   ...SECTIONS.flatMap((s) => s.pages.map((p) => p.path)),
   ...CHILDREN.map((c) => c.path),
   SETTINGS_PATH,
+  SPACE_SETTINGS_PATH,
   IMPORT_WIZARD_PATH,
   GALLERY_TOKENS_PATH,
   // «/signup/check-email» needs a sign-up in progress: checked below after a real one.
@@ -102,4 +104,54 @@ test.describe("DS-06@PoC AC2: contrast of the CMP-21 dialogs in the gallery, lig
       await expectNoContrastProblems(page);
     });
   }
+});
+
+/**
+ * DS-06@PoC AC2 on «Налаштування → Простір» (S-200, ACC-08@PoC FR 5) in the states the route table alone does not
+ * reach: the flag `household.space-settings` ships off, so the space is answered here in the browser (synthetic).
+ */
+test.describe("DS-06@PoC AC2: «Простір» (S-200) in its states", () => {
+  test("DS-06@PoC AC2: «Простір» with its name, an invalid name, a saved name and a failed save", async ({
+    page,
+  }) => {
+    let failSave = false;
+    await page.route("**/v1/space", async (route) => {
+      const request = route.request();
+      if (request.method() === "PATCH" && failSave)
+        return route.fulfill({
+          status: 500,
+          contentType: "application/problem+json",
+          body: JSON.stringify({ type: "about:blank", title: "INTERNAL", status: 500, code: "INTERNAL" }),
+        });
+      const name =
+        request.method() === "PATCH"
+          ? (JSON.parse(request.postData() ?? "{}") as { name: string }).name
+          : "Родина Коваль";
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ name, dataRegion: "eu", reportingCurrency: "EUR" }),
+      });
+    });
+    await page.goto(`/#${SPACE_SETTINGS_PATH}`);
+    const field = page.getByRole("textbox", { name: /Назва простору/ });
+    await expect(field).toHaveValue("Родина Коваль");
+    await expectNoContrastProblems(page);
+
+    await field.fill("");
+    await page.getByRole("button", { name: "Зберегти" }).click();
+    await expect(page.getByText("Введіть назву простору.")).toBeVisible();
+    await expectNoContrastProblems(page);
+
+    await field.fill("Коваль і батьки");
+    await page.getByRole("button", { name: "Зберегти" }).click();
+    await expect(page.getByText("Назву збережено")).toBeVisible();
+    await expectNoContrastProblems(page);
+
+    failSave = true;
+    await field.fill("Інша назва");
+    await page.getByRole("button", { name: "Зберегти" }).click();
+    await expect(page.getByRole("alert")).toContainText("Не вдалося виконати дію. Спробуйте ще раз");
+    await expectNoContrastProblems(page);
+  });
 });
