@@ -344,6 +344,17 @@ export async function updateTransaction(
     (await tx.duplicatesOf(householdId, id)).length > 0
   )
     return { kind: "has-duplicates" };
+  // BUD-01 FR 6: the parts have the transaction's currency and sign. A new currency or sign would leave them of the old
+  // one, so the edit is refused until «Об'єднати назад» (lead decision, 2026-11-16; owner question in the PR); nothing
+  // was written.
+  if (current.split) {
+    if (checked.amount.currency !== current.amount.currency) {
+      const field = checked.account.accountId !== current.accountId ? "accountId" : "amount";
+      return { kind: "invalid", issues: [{ field, issue: "split" }] };
+    }
+    if (checked.amount.isNegative() !== current.amount.isNegative())
+      return { kind: "invalid", issues: [{ field: "amount", issue: "split" }] };
+  }
   // BUD-01 FR 6: a split outlives a change of the amount, marked «потребує перегляду».
   const split =
     current.split && !checked.amount.equals(current.amount)

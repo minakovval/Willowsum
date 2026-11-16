@@ -483,6 +483,77 @@ describe("BUD-13@PoC FR 6, FR 8 / BUD-01@PoC FR 6: «Розділити» is the
     expect(cancelled.json().split).toBeNull();
   });
 
+  it("BUD-01@PoC FR 6: a split never outlives a change of the transaction's currency — the edit is refused, nothing is written", async () => {
+    const space = await newSpace();
+    const eur = await createAccount(space, "500.00");
+    const usd = await createAccount(space, "500.00", "USD");
+    const c = await pick(space);
+    const t = await add(space, tx(eur, "-186.00"));
+    const saved = await call(space, "POST", `/v1/transactions/${t.id}/split`, {
+      mode: "categories",
+      parts: [
+        { categoryId: c.food, amount: "-120.00" },
+        { categoryId: c.home, amount: "-66.00" },
+      ],
+    });
+    expect(saved.statusCode, saved.body).toBe(200);
+    const before = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
+    const moved = await call(space, "PATCH", `/v1/transactions/${t.id}`, {
+      accountId: usd,
+      amount: { amount: "-186.00", currency: "USD" },
+    });
+    expect(moved.statusCode, moved.body).toBe(400);
+    expect(moved.json().errors).toEqual([{ in: "body", path: "accountId", issue: "split" }]);
+    const after = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
+    expect(after).toEqual(before);
+    for (const part of after.split.parts) expect(part.amount.currency).toBe(after.amount.currency);
+    expect(await balance(space, eur)).toBe("314");
+    expect(await balance(space, usd)).toBe("500");
+    // Once «Об'єднати назад», the transaction moves as usual.
+    expect((await call(space, "DELETE", `/v1/transactions/${t.id}/split`)).statusCode).toBe(200);
+    const free = await call(space, "PATCH", `/v1/transactions/${t.id}`, {
+      accountId: usd,
+      amount: { amount: "-186.00", currency: "USD" },
+    });
+    expect(free.statusCode, free.body).toBe(200);
+  });
+
+  it("BUD-01@PoC FR 6: a split never outlives a change of the amount's sign — the edit is refused, nothing is written", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space, "500.00");
+    const c = await pick(space);
+    for (const input of [
+      {
+        mode: "categories",
+        parts: [
+          { categoryId: c.food, amount: "-120.00" },
+          { categoryId: c.home, amount: "-66.00" },
+        ],
+      },
+      { mode: "months", startMonth: "2026-10", months: 3, categoryId: c.food },
+    ]) {
+      const t = await add(space, tx(account, "-186.00"));
+      const saved = await call(space, "POST", `/v1/transactions/${t.id}/split`, input);
+      expect(saved.statusCode, saved.body).toBe(200);
+      const before = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
+      const flipped = await call(space, "PATCH", `/v1/transactions/${t.id}`, {
+        amount: { amount: "186.00", currency: "EUR" },
+      });
+      expect(flipped.statusCode, flipped.body).toBe(400);
+      expect(flipped.json().errors).toEqual([{ in: "body", path: "amount", issue: "split" }]);
+      const after = (await call(space, "GET", `/v1/transactions/${t.id}`)).json();
+      expect(after).toEqual(before);
+      for (const part of after.split.parts) expect(part.amount.amount.startsWith("-")).toBe(true);
+      // The same sign keeps the split, «потребує перегляду» (FR 6).
+      const smaller = await call(space, "PATCH", `/v1/transactions/${t.id}`, {
+        amount: { amount: "-150.00", currency: "EUR" },
+      });
+      expect(smaller.statusCode, smaller.body).toBe(200);
+      expect(smaller.json().split.needsReview).toBe(true);
+    }
+    expect(await balance(space, account)).toBe("200");
+  });
+
   it("BUD-01@PoC FR 6: a part's category is of the space's tree, not a service one, and of the transaction's type", async () => {
     const space = await newSpace();
     const other = await newSpace();
