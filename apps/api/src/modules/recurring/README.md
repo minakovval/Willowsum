@@ -1,6 +1,6 @@
 # Модуль recurring
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-07 a2: підтвердження, «Не регулярний», ручне додавання, таблиці, аудит, черга)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-07 b1: статуси списань, «Позначити пропущеним», «Зарахувати», «Залишити», оновлення очікуваної суми; раніше — a2: підтвердження, «Не регулярний», ручне додавання, таблиці, аудит, черга)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -15,6 +15,10 @@
 читанні. Зберігаються лише рішення користувача: регулярні платежі (підтверджені й додані вручну) і відхилені серії — вони
 фільтрують той самий аналіз.
 
+Так само списання платежу (b1) — проєкція його розкладу (FR 17), а не запис: при кожному читанні статусів його зіставлено з
+транзакціями простору за 430 днів, якими вони є зараз. Зберігаються лише позначки користувача (`charge_marks`),
+«Залишити» (`kept_on`) і очікувана сума, яку змінили списання (`current_amount` — з записом аудиту від системи).
+
 ## Вимоги
 
 BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина, перша частина): п. 1 (транзакції за 430 днів, сьогодні включно:
@@ -28,8 +32,14 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 3 дні — рішення власника 2026-11-16), 4 (підтвердження з правками і «Не регулярний»; після них серія не пропонується;
 жодної пропозиції для мерчанта, що вже є регулярним платежем; відхилену серію впізнано не лише за ключем — #315, п. 8),
 6 (ручне додавання), «Права доступу» (журнал аудиту з передачею через чергу), граничний випадок 3; відповідь
-`CategoryUsage` модулю `categories` (BUD-01 п. 12) і перенесення платежів об'єднаної категорії (BUD-01 п. 8). Далі —
-рядок 26 (статуси, календар, підписки), UI — рядок 130.
+`CategoryUsage` модулю `categories` (BUD-01 п. 12) і перенесення платежів об'єднаної категорії (BUD-01 п. 8). 
+BUD-07@PoC b1) (рядок 26, перша частина): п. 8 (зіставлення ± 3 дні: мерчант 0,5–2 очікуваної, без мерчанта — категорія
+± 10 %; одна транзакція — одне найближче списання; оплата прострочених із запізненням), 9 (статуси списання і зміна
+суми), 10 («Можливо, скасований», «Залишити»), 11 (оновлення очікуваної суми, «змінна» — середня за 3), 12 (інша
+валюта — за курсом дати транзакції, «приблизно»), 17 (проєкції), 20 («Зарахувати за <місяць>»), 21 («Позначити
+пропущеним»); AC3–AC5, AC7, AC10–AC16, граничні випадки 2, 4, 5. Далі — b2 (календар і підсумки за місяць і рік, група
+«Підписки», призупинення і «Позначити скасованим», платежі за кредитами, картка бюджету, частка в «Можна витратити»), UI —
+рядок 130.
 
 ## Публічний інтерфейс
 
@@ -59,11 +69,33 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
     (`getRecurringPayment`) — платіж: поля вище, `expectedAmount`, `nextDate` (наступна дата розкладу не раніше
     сьогодні; null після дати завершення), `merchantId` (лише підтвердженої пропозиції), `source` (`proposal` /
     `manual`), `createdOn`, `version`.
+  - `GET /v1/recurring/statuses` (`listRecurringStatuses`, b1) → `items` (у порядку платежів): `paymentId`, `state`
+    (`active` / `possibly-cancelled` — «Можливо, скасований»), `expectedAmount` (зараз, FR 11), `amountChange`
+    (`from`, `to`, `on`, `transactionId` — «▲»/«▼» останнього сплаченого списання, або null), `missesInRow`,
+    `approximate` (FR 12), `lastCharge` (останнє списання з датою не пізніше сьогодні), `nextCharge`.
+  - `GET /v1/recurring/payments/{paymentId}/charges` (`listRecurringCharges`) → статус платежу і `items` — списання від
+    найновішого: `dueOn` (дата за розкладом — ім'я списання в діях), `expectedAmount`, `status` (`paid`, `paid-late`,
+    `expected`, `overdue`, `skipped`), `transactionId`, `paidOn`, `amount` (як списано), `overdueDays`, `markedOn`,
+    `approximate`, `amountChange`. Списання до дати додавання без оплати не показано (граничний випадок 4).
+  - `POST /v1/recurring/payments/{paymentId}/charges/{dueOn}/skip` (`skipRecurringCharge`) — «Позначити пропущеним»:
+    лише `overdue` → 200 списання `skipped`.
+  - `POST /v1/recurring/payments/{paymentId}/charges/{dueOn}/settle` (`settleRecurringCharge`) — «Зарахувати за
+    <місяць>»: `transactionId` (транзакція типу платежу за 430 днів, яка не оплачує жодного списання) для `overdue` чи
+    `skipped` → 200 списання `paid-late`.
+  - `POST /v1/recurring/payments/{paymentId}/keep` (`keepRecurringPayment`) — «Залишити»: лише `possibly-cancelled` →
+    200 платіж (`version` + 1).
+  Читання статусів пише очікувану суму, яку змінили списання (порівняння й заміна; із записом аудиту від системи), тож
+  `expectedAmount` платежу в `GET /v1/recurring/payments` — та, яку знайшло останнє читання статусів. Дії над платежем
+  серіалізує блокування його рядка; транзакцію, зараховану користувачем, бере одне списання простору (унікальний індекс
+  `charge_marks_by_transaction`). Помилки 409 `RECURRING_CHARGE_STATE` (списання чи платіж не в потрібному статусі) і
+  `RECURRING_TRANSACTION_TAKEN` (транзакція вже оплачує списання або не того типу); нічого не записано.
   Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає (мерчант став платежем, серію відхилено або транзакції
   змінилися); нічого не записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
   (`pg_advisory_xact_lock`), а унікальний індекс `payments_by_merchant` — друга лінія.
-- `createRecurringServices({ history, merchants, accounts, categories, audit, clock, newId })` → `RecurringServices` —
-  порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions,
+- `createRecurringServices({ history, merchants, accounts, categories, transactionCategories, fx, audit, clock, newId })`
+  → `RecurringServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionHistory` модуля
+  transactions (`charges` для пропозицій, `matching` — з контрагентом і без — для статусів), `TransactionCategories`
+  модуля categorization (категорія транзакції, FR 8), `FxReporting` модуля fx-rates (курс дати транзакції, FR 12),
   `MerchantDirectory` модуля merchants, `AccountDirectory` модуля accounts (вид і стан рахунку), `CategoryDirectory`
   модуля categories, журнал аудиту, годинник («сьогодні» — дата Києва).
 - `createRecurringCategoryUsage(db)` → `CategoryUsage` (`used(householdId, ids)` — категорії, що їх має регулярний
@@ -74,6 +106,8 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
   `recurring.hand_off_requeued`); `HAND_OFF_JOB`, `CATEGORY_MERGED_JOB`.
 - `createRecurringErasure(db)` → `eraseHousehold(householdId)` → `{ payments, rejections, jobs }` — лише для
   `data-erasure` (крок `recurring.records`).
+- `trackPayment(input)` (п. 8–12, 20, 21: списання платежу з їх статусами, очікувана сума і стан платежу), `pays`,
+  `CHARGE_STATUSES`, `PAYMENT_STATES`; типи `Candidate`, `ChargeMark`, `TrackedCharge`, `Tracking`.
 - `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `isFresh(lastDate,
   frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
   (розклад: місяці від дати прив'язки, день, якого в місяці немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`;
@@ -81,8 +115,10 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 
 ## Передача аудиту (ARC-04 п. 2–4, ADR-0015)
 
-Платіж (`recurring.payment`/`create` — усі поля; `update` — `categoryId` після об'єднання категорії, від імені системи,
-канал `system`) і відхилена серія (`recurring.rejection`/`create`) пишуть рядок і задачу `recurring.hand-off` в одній
+Платіж (`recurring.payment`/`create` — усі поля; `update` — `categoryId` після об'єднання категорії і `expectedAmount`,
+яку змінили списання, — від імені системи, канал `system`; `keptOn` — «Залишити»), відхилена серія
+(`recurring.rejection`/`create`) і позначка списання (`recurring.charge`/`create` — `paymentId`, `dueOn`, `status`,
+`transactionId`; `update` — «Зарахувати» замість «Пропущено») пишуть рядок і задачу `recurring.hand-off` в одній
 транзакції модуля. Запис аудиту — після коміту: одразу тим самим запитом, а якщо не вдалося (WARN
 `recurring.hand_off_deferred`, лише клас помилки; запит не падає) — воркером. Ключ задачі й запису —
 `<сутність>:<дія>:<ідентифікатор>:<зміна>`. Задача несе значення запису (ідентифікатори, коди, дати, суми десятковими
@@ -91,7 +127,7 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 
 ## Залежності
 
-Шар: subject. Модулі: accounts, audit, categories, merchants, transactions (`apps/api/module-rules.json`). Платформа: черга
+Шар: subject. Модулі: accounts, audit, categories, fx-rates, merchants, transactions (`apps/api/module-rules.json`). Платформа: черга
 задач (ARC-04).
 
 ## Події
@@ -110,7 +146,8 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 
 | Таблиця | Що |
 | --- | --- |
-| `payments` | Регулярний платіж: назва, тип, частота, очікувана сума і валюта, дата прив'язки, дата завершення, `category_id`, `account_id`, `merchant_id` (непрозорі ідентифікатори інших модулів), «Підписка», «Змінна сума», `source`, `created_on`, версія. Один підтверджений платіж на мерчанта (`0001_payments.sql`) |
+| `payments` | Регулярний платіж: назва, тип, частота, очікувана сума і валюта, дата прив'язки, дата завершення, `category_id`, `account_id`, `merchant_id` (непрозорі ідентифікатори інших модулів), «Підписка», «Змінна сума», `source`, `created_on`, версія. Один підтверджений платіж на мерчанта (`0001_payments.sql`); `kept_on` («Залишити»), `current_amount` і `current_currency` (очікувана сума, яку змінили списання; `0004_charge_marks.sql`) |
+| `charge_marks` | Позначка списання за його датою (`due_on`): `skipped` («Позначити пропущеним») або `settled` («Зарахувати за <місяць>», `transaction_id` — непрозорий ідентифікатор модуля transactions, одна транзакція на простір), `marked_on` (`0004_charge_marks.sql`) |
 | `rejections` | «Не регулярний»: мерчант, тип, частота, «змінна», очікувана сума й валюта, списання серії (`transaction_ids`) (`0001_payments.sql`) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `recurring.hand-off`, `recurring.category-merged`; подій модуль не публікує |

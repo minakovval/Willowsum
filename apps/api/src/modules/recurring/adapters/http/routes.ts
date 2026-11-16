@@ -5,16 +5,30 @@ import {
   checkReferences,
   confirmProposal,
   createPayment,
+  currentAmount,
   GONE,
+  keepPayment,
   listProposals,
   nextPaymentDate,
+  recordAmounts,
   rejectProposal,
+  settleCharge,
+  skipCharge,
+  trackSpace,
+  type ChargeOutcome,
   type Proposal,
+  type RecurringHandOff,
+  type SpaceTracking,
   type StoredPayment,
 } from "../../application/index.ts";
 import {
+  CHARGE_STATUSES,
   checkPayment,
   FREQUENCIES,
+  PAYMENT_STATES,
+  type AmountChange,
+  type TrackedCharge,
+  type Tracking,
   NAME_MAX,
   PAYMENT_TYPES,
   type PaymentFields,
@@ -136,7 +150,7 @@ const presentPayment = (p: StoredPayment, today: string): z.input<typeof payment
   name: p.name,
   type: p.type,
   frequency: p.frequency,
-  expectedAmount: p.expected.toJSON(),
+  expectedAmount: currentAmount(p).toJSON(),
   anchorDate: p.anchorDate,
   nextDate: nextPaymentDate(p, today),
   endDate: p.endDate,
@@ -380,6 +394,253 @@ export const getRecurringPaymentRoute = defineRoute({
   },
 });
 
+/** FR 9, FR 11: a change of the expected amount — «11,99 € ▲ 2,00 €», «Сума зросла з 9,99 € (30 жовт.)». */
+const amountChangeSchema = z.object({
+  from: moneySchema,
+  to: moneySchema,
+  /** The date of the charge that changed it. */
+  on: z.string(),
+  transactionId: z.uuid(),
+});
+
+const presentChange = (c: AmountChange | null): z.input<typeof amountChangeSchema> | null =>
+  c === null ? null : { from: c.from.toJSON(), to: c.to.toJSON(), on: c.on, transactionId: c.transactionId };
+
+/** FR 9: one charge of the schedule and its status. */
+const chargeSchema = z.object({
+  /** The charge's date in the schedule (`YYYY-MM-DD`): it names the charge in the actions. */
+  dueOn: z.string(),
+  /** The amount expected for this charge, positive. */
+  expectedAmount: moneySchema,
+  /**
+   * `paid` «✓ Сплачено <дата>» («Отримано»); `paid-late` «✓ Сплачено із запізненням · <дата>»; `expected` «• Очікується»;
+   * `overdue` «! Прострочено на N дн.» («Дохід не надійшов · N дн.»); `skipped` «! Пропущено».
+   */
+  status: z.enum(CHARGE_STATUSES),
+  /** The transaction that paid it. */
+  transactionId: z.uuid().nullable(),
+  paidOn: z.string().nullable(),
+  /** The transaction's amount as charged (positive, in its currency). */
+  amount: moneySchema.nullable(),
+  /** «Прострочено на N дн.»: days from `dueOn` to today. */
+  overdueDays: z.number().int().nullable(),
+  /** The day the user marked it (FR 20 «Зарахувати», FR 21 «Позначити пропущеним»). */
+  markedOn: z.string().nullable(),
+  /** FR 12: paid in another currency at the nearest earlier rate — «приблизно». */
+  approximate: z.boolean(),
+  /** This charge changed the expected amount. */
+  amountChange: amountChangeSchema.nullable(),
+});
+
+const presentCharge = (c: TrackedCharge): z.input<typeof chargeSchema> => ({
+  dueOn: c.dueOn,
+  expectedAmount: c.expected.toJSON(),
+  status: c.status,
+  transactionId: c.transactionId,
+  paidOn: c.paidOn,
+  amount: c.amount?.toJSON() ?? null,
+  overdueDays: c.overdueDays,
+  markedOn: c.markedOn,
+  approximate: c.approximate,
+  amountChange: presentChange(c.amountChange),
+});
+
+/** FR 9, FR 10: a payment's status — its state, the expected amount now, the latest and the next charge. */
+const statusSchema = z.object({
+  paymentId: z.uuid(),
+  /** `possibly-cancelled` — «Можливо, скасований» (FR 10): no more in «Можна витратити» until «Залишити». */
+  state: z.enum(PAYMENT_STATES),
+  /** FR 11: the expected amount now. */
+  expectedAmount: moneySchema,
+  /** FR 9: the change the latest paid charge made to the expected amount («▲» / «▼»); null — none. */
+  amountChange: amountChangeSchema.nullable(),
+  /** FR 10: charges without a payment in a row, since the payment was added or «Залишити». */
+  missesInRow: z.number().int(),
+  /** FR 12: some charge was converted at the nearest earlier rate — «приблизно». */
+  approximate: z.boolean(),
+  /** «Останнє списання»: the latest charge due on or before today; null — none yet. */
+  lastCharge: chargeSchema.nullable(),
+  /** The next charge after today; null — none (the end date has passed). */
+  nextCharge: chargeSchema.nullable(),
+});
+
+function presentStatus(paymentId: string, t: Tracking, today: string): z.input<typeof statusSchema> {
+  const last = [...t.charges].reverse().find((c) => c.dueOn <= today);
+  const next = t.charges.find((c) => c.dueOn > today);
+  return {
+    paymentId,
+    state: t.state,
+    expectedAmount: t.expected.toJSON(),
+    amountChange: presentChange(t.amountChange),
+    missesInRow: t.missesInRow,
+    approximate: t.approximate,
+    lastCharge: last ? presentCharge(last) : null,
+    nextCharge: next ? presentCharge(next) : null,
+  };
+}
+
+/**
+ * The space's payments tracked as they are now (FR 8–12, FR 17); FR 11: an expected amount the charges changed is
+ * written with its audit entry from the system (П-10 «автоматичне оновлення … без автора»).
+ */
+async function tracked(
+  ctx: ProtectedContext,
+): Promise<{ payments: StoredPayment[]; tracking: SpaceTracking }> {
+  const { tracking: deps, audit } = recurringServices(ctx);
+  const householdId = ctx.principal.householdId;
+  const { payments, marks } = await ctx.inHousehold(async (q) => ({
+    payments: await recurringTx(q).payments(householdId),
+    marks: await recurringTx(q).marks(householdId),
+  }));
+  const tracking = await trackSpace(deps, householdId, payments, marks);
+  const handOffs = await ctx.inHousehold((q) =>
+    recordAmounts(deps, recurringTx(q), householdId, payments, tracking),
+  );
+  await handOffNow(audit, householdId, handOffs);
+  return { payments, tracking };
+}
+
+function outcome<R>(o: ChargeOutcome<R>): { result: R; handOffs: readonly RecurringHandOff[] } {
+  if (o.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+  if (o.kind === "state") throw new ApiProblem("RECURRING_CHARGE_STATE");
+  if (o.kind === "taken") throw new ApiProblem("RECURRING_TRANSACTION_TAKEN");
+  return { result: o.result, handOffs: o.handOffs };
+}
+
+const paymentParams = z.object({ paymentId: z.uuid() });
+const chargeParams = z.object({ paymentId: z.uuid(), dueOn: isoDate });
+
+export const listRecurringStatusesRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/recurring/statuses",
+  operationId: "listRecurringStatuses",
+  summary:
+    "The status of each regular payment: «Можливо, скасований», the expected amount now and its change, the latest and the next charge (BUD-07 FR 8–12)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  response: {
+    status: 200,
+    description:
+      "One status per payment, in the payments' order; the charges matched anew on every read to the last 430 days of transactions",
+    schema: z.object({ items: z.array(statusSchema) }),
+  },
+  handler: async (_input, ctx) => {
+    refuseScoped(ctx);
+    const { payments: deps } = recurringServices(ctx);
+    const { payments, tracking } = await tracked(ctx);
+    const today = deps.today();
+    return {
+      items: payments.map((p) => presentStatus(p.id, tracking.byPayment.get(p.id)!, today)),
+    };
+  },
+});
+
+export const listRecurringChargesRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/recurring/payments/{paymentId}/charges",
+  operationId: "listRecurringCharges",
+  summary:
+    "A regular payment's charges with their statuses, newest first, through the next one (BUD-07 FR 8–12, FR 20, FR 21)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  request: { params: paymentParams },
+  response: {
+    status: 200,
+    description: "The payment's status and its charges within the last 430 days, newest first",
+    schema: statusSchema.extend({ items: z.array(chargeSchema) }),
+  },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { payments: deps } = recurringServices(ctx);
+    const { tracking } = await tracked(ctx);
+    const t = tracking.byPayment.get(params.paymentId);
+    if (!t) throw new ApiProblem("NOT_FOUND");
+    return {
+      ...presentStatus(params.paymentId, t, deps.today()),
+      items: [...t.charges].reverse().map(presentCharge),
+    };
+  },
+});
+
+export const skipRecurringChargeRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/charges/{dueOn}/skip",
+  operationId: "skipRecurringCharge",
+  summary:
+    "«Позначити пропущеним»: an overdue charge becomes «Пропущено» and is no longer matched by itself (BUD-07 FR 21, AC16)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["RECURRING_CHARGE_STATE"],
+  request: { params: chargeParams },
+  response: { status: 200, description: "The charge, «Пропущено»", schema: chargeSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { tracking: deps, audit } = recurringServices(ctx);
+    const { result, handOffs } = outcome(
+      await ctx.inHousehold((q) =>
+        skipCharge(deps, recurringTx(q), caller(ctx), params.paymentId, params.dueOn),
+      ),
+    );
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
+    return presentCharge(result);
+  },
+});
+
+export const settleRecurringChargeRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/charges/{dueOn}/settle",
+  operationId: "settleRecurringCharge",
+  summary:
+    "«Зарахувати за <місяць>»: a transaction no charge took pays an overdue or skipped charge — «Сплачено із запізненням» (BUD-07 FR 20, AC14)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 1024,
+  problems: ["RECURRING_CHARGE_STATE", "RECURRING_TRANSACTION_TAKEN"],
+  request: {
+    params: chargeParams,
+    body: z
+      .object({
+        /** A transaction of the payment's type within the last 430 days that pays no charge. */
+        transactionId: z.uuid(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The charge, «Сплачено із запізненням»", schema: chargeSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { tracking: deps, audit } = recurringServices(ctx);
+    const { result, handOffs } = outcome(
+      await ctx.inHousehold((q) =>
+        settleCharge(deps, recurringTx(q), caller(ctx), params.paymentId, params.dueOn, body.transactionId),
+      ),
+    );
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
+    return presentCharge(result);
+  },
+});
+
+export const keepRecurringPaymentRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/recurring/payments/{paymentId}/keep",
+  operationId: "keepRecurringPayment",
+  summary:
+    "«Залишити»: a payment «Можливо, скасований» stays; its misses are counted anew from today (BUD-07 FR 10, AC4)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  problems: ["RECURRING_CHARGE_STATE"],
+  request: { params: paymentParams },
+  response: { status: 200, description: "The payment", schema: paymentSchema },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { tracking: deps, payments, audit } = recurringServices(ctx);
+    const { result, handOffs } = outcome(
+      await ctx.inHousehold((q) => keepPayment(deps, recurringTx(q), caller(ctx), params.paymentId)),
+    );
+    await handOffNow(audit, ctx.principal.householdId, handOffs);
+    return presentPayment(result, payments.today());
+  },
+});
+
 export const recurringRoutes = [
   listRecurringProposalsRoute,
   confirmRecurringProposalRoute,
@@ -387,4 +648,9 @@ export const recurringRoutes = [
   createRecurringPaymentRoute,
   listRecurringPaymentsRoute,
   getRecurringPaymentRoute,
+  listRecurringStatusesRoute,
+  listRecurringChargesRoute,
+  skipRecurringChargeRoute,
+  settleRecurringChargeRoute,
+  keepRecurringPaymentRoute,
 ];

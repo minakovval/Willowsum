@@ -136,6 +136,23 @@ export const PROBLEMS = {
     status: 409,
     title: "The proposal is no longer offered; read the proposals again",
   },
+  /**
+   * BUD-07@PoC FR 20, FR 21: the charge is not in the status the action needs — «Позначити пропущеним» only an overdue
+   * charge, «Зарахувати за <місяць>» only an overdue or skipped one (it was paid or marked meanwhile); nothing was
+   * written. FR 10: «Залишити» only a payment that is «Можливо, скасований».
+   */
+  RECURRING_CHARGE_STATE: {
+    status: 409,
+    title: "The charge or the payment is not in the status this action needs; read it again",
+  },
+  /**
+   * BUD-07@PoC FR 8, FR 20: the transaction already pays a charge of a regular payment (matched, or settled by the user),
+   * or is not one of the payment's type within the transactions analysed; nothing was written.
+   */
+  RECURRING_TRANSACTION_TAKEN: {
+    status: 409,
+    title: "The transaction already pays a charge, or cannot pay this one",
+  },
   /** BUD-05@PoC FR 2: the account is another goal's own account, or has envelopes beside one; nothing was written. */
   GOAL_ACCOUNT_TAKEN: {
     status: 409,
