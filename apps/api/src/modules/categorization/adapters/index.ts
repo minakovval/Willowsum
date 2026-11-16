@@ -6,6 +6,7 @@ export {
   transactionsCategoryTarget,
 } from "./bulk/transactions.ts";
 export { eraseHouseholdCategorization } from "./db/erasure.ts";
+export { rulesTx } from "./db/rules.ts";
 export { categorizationTx } from "./db/store.ts";
 export { categorizationRoutes } from "./http/routes.ts";
 export {
@@ -13,5 +14,6 @@ export {
   createCategorizationServices,
   type CategorizationServices,
 } from "./http/services.ts";
-export { CATEGORY_MERGED_JOB, HAND_OFF_JOB } from "./queue/job.ts";
+export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB } from "./queue/job.ts";
+export { RULE_SCAN_MAX } from "./http/services.ts";
 export { categorizationWorkerQueue, requeueDeadJobsOf } from "./queue/worker.ts";

@@ -1278,6 +1278,90 @@ code {
   min-height: var(--ws-touch-target);
 }
 
+/* CMP-01@PoC: the Button section of the gallery — a table of variants × states, then sizes, icon-only, a row. */
+.gallery-button {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-button p {
+  margin: 0;
+}
+
+.gallery-button__states {
+  border-collapse: separate;
+  border-spacing: var(--ws-space-4) var(--ws-space-3);
+  margin-inline: calc(var(--ws-space-4) * -1);
+}
+
+.gallery-button__states th,
+.gallery-button__states td {
+  text-align: start;
+  vertical-align: top;
+}
+
+.gallery-button__states thead th {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 500;
+}
+
+.gallery-button__disabled {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-1);
+}
+
+.gallery-button__grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ws-space-5);
+}
+
+.gallery-button__case {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.gallery-button__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-4);
+}
+
+/* CMP-02@PoC gallery: Field in every state. */
+.gallery-field {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-field p {
+  margin: 0;
+}
+
+.gallery-field__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-field__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+/* AC3: the amount field 120 px wide. */
+.gallery-field__narrow {
+  inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+}
+
 /* CMP-03@PoC gallery: Select in every state, «з пошуком» and the list buttons. */
 .gallery-select {
   display: grid;

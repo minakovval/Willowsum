@@ -76,12 +76,17 @@ errors) lives only in `packages/domain-kernel`.
    permissions, encryption, money, schema, pipeline, infrastructure) also `security-review`. Every review
    names the full head SHA it reviewed and ends with a line of its own: `Verdict: Ready` or
    `Verdict: Changes requested`, and `Security verdict: Ready` or `Security verdict: Changes requested` (the
-   daily check, ADR-0008, reads exactly these lines; owner, 2026-11-12). Review rounds (owner, 2026-11-12):
+   daily check, ADR-0008, reads exactly these lines; owner, 2026-11-12). Which reviews a PR gets depends on its
+   tier — Фундамент, Функціональність, Локальні інструменти, Документи (lead's proposal on the owner's decision of 2026-11-16):
+   [merge rules](.claude/references/merge-rules.md), «Review tiers». Review rounds (owner, 2026-11-12):
    - Only a security bypass, data loss or leak, or a violation of the claimed requirement (FR/AC or shared
-     rule) blocks. Everything else goes to «Follow-ups» (the lead opens the issue) and never starts a round by itself.
-   - A re-review checks only the fixes and its own previous findings. At most two rounds; after that the
-     reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
-   - Mutation testing only for critical modules: data isolation, money, authentication, encryption.
+     rule) blocks. Everything else goes to «Follow-ups» (the lead opens the issue) and never starts a round or a
+     commit before the merge by itself (merge rules, «Merge on Ready, follow up separately»).
+   - A re-review checks only the fixes and its own previous findings, in the same reviewer session when only the
+     fixes changed (owner, 2026-11-16, «2 а»; `pr-pipeline` token economy, item 2). At most two rounds; after that
+     the reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
+   - Mutation testing only for critical modules: data isolation, money, authentication, encryption (tier
+     Фундамент).
    - A recurring finding becomes a CI check or a test. Before pushing, run the local check for
      secret-shaped literals (CI job `secrets`) and, before pushing or setting a PR body,
      `git fetch origin main` and `node tools/pr-rules/index.mjs local --title "<title>" --body-file <file>`
@@ -92,8 +97,10 @@ errors) lives only in `packages/domain-kernel`.
    a job its path filter skips counts as passed — [CI minutes](.claude/references/ci-minutes.md), read when you
    change a workflow). Never skip, disable or weaken a test to get green.
 7. The lead merges (squash) only when CI is green on the latest commit and both verdicts are Ready **on that
-   exact head SHA**; any later commit needs a re-review (a docs-only sync, or a sync of a code PR without `sensitive` with a byte-identical diff and green CI, that
-   leaves the PR's diff unchanged: the lead's check and review, merge rules). PRs that change requirements, AGENTS.md or skills
+   exact head SHA**; any later commit needs a re-review (a sync that leaves the PR's diff unchanged — docs-only, a
+   code PR without `sensitive` with a byte-identical diff and green CI, or a `sensitive` PR whose sync is mechanical and brought no
+   foundation file (owner, 2026-11-16, «1 б») — gets the lead's check and review instead, merge rules). A PR is
+   synced with `main` only when needed (`pr-pipeline` merge checklist, «Sync only when needed»). PRs that change requirements, AGENTS.md or skills
    (label `owner-decision`) need the owner's decision recorded in the body and the decision log. Only what
    acts on the cloud or production (`tofu apply`, deploy or release, the workflows and trust settings that do
    it, production DNS) needs the owner's approval on the PR. Agents never write «Схвалюю» or «Approved», and

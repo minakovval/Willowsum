@@ -17,6 +17,7 @@ import {
   type BulkActionsServices,
 } from "./modules/bulk-actions/index.ts";
 import {
+  categorizationRulePorts,
   categorizationSubscriptions,
   createCategorizationRecovery,
   createCategorizationWorkerQueue,
@@ -43,7 +44,11 @@ import {
   recurringSubscriptions,
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
-import { createMerchantsRecovery, createMerchantsWorkerQueue } from "./modules/merchants/index.ts";
+import {
+  createMerchantDirectory,
+  createMerchantsRecovery,
+  createMerchantsWorkerQueue,
+} from "./modules/merchants/index.ts";
 import {
   createLiabilities,
   createLiabilitiesHandOffRecovery,
@@ -51,6 +56,7 @@ import {
 } from "./modules/liabilities/index.ts";
 import {
   createTransactionLookup,
+  createTransactionRuleInputs,
   createTransactionReviewBulkActions,
   createTransactionTagBulkActions,
   createTransactionsHandOffRecovery,
@@ -351,7 +357,11 @@ export function schedulerDailyTasks(deps: {
  * the same way (ADR-0015): a transaction's journal event made to match its row, and its audit entry. `liabilities` runs
  * the audit entries of a registered liability and of a kind change, after the liabilities transaction committed.
  */
-export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
+export function workerQueues(
+  databases: Pick<ModuleDatabases, "for">,
+  /** The flag runtime: the rules of a new transaction (BUD-14) are off without it. */
+  flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
+): {
   readonly queues: readonly WorkerQueue[];
   readonly subscriptions: readonly EventSubscription[];
 } {
@@ -373,6 +383,12 @@ export function workerQueues(databases: Pick<ModuleDatabases, "for">): {
         databases.for("categorization"),
         audit,
         createCategoryDirectory({ db: databases.for("categories"), audit, newId: randomUUID }),
+        categorizationRulePorts({
+          accounts: createAccountDirectory(databases.for("accounts")),
+          merchants: createMerchantDirectory(databases.for("merchants")),
+          inputs: createTransactionRuleInputs(databases.for("transactions")),
+        }),
+        flags,
       ),
       createTransactionsWorkerQueue(databases.for("transactions"), {
         accounts: createAccountDirectory(databases.for("accounts")),

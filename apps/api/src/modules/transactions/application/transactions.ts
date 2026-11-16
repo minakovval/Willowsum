@@ -71,6 +71,8 @@ export interface TransactionsTx {
   pairsOfHidden(householdId: string, id: string, windowDays: number): Promise<readonly DuplicatePairSides[]>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
+  /** BUD-14 FR 8: «Нова транзакція» (`transactions.created`) in the outbox, in this transaction. */
+  publishCreated(householdId: string, transactionId: string): Promise<void>;
 }
 
 export interface TransactionsDeps extends HandOffDeps {
@@ -280,6 +282,7 @@ export async function createTransaction(
     review: reviewOnCreate({ importedFromStatement: false }),
     version: 1,
   });
+  await tx.publishCreated(caller.householdId, id);
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
 }
 

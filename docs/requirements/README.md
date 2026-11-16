@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -68,6 +68,28 @@ A card's link header has only «Зрізи» (its slices, in release order, matc
 
 **Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
 slice stays self-contained: no other requirement IDs (the checker enforces it).
+
+## Detail only the current release
+
+Owner, 2026-11-16 (relayed from the audit session): «Агенти витрачають токени на читання - значить мають читати лише
+ту версію, до якої відносяться», «Тексти інтерфейсу живуть у двох місцях - треба узгодженний сорс оф трус»
+([log](../decisions/log/2026-11-16-owner-requirements-and-texts.md)). Рішення ведучого (2026-11-16; власник не
+схвалював; same log): the rules below; why: agents read only what their release needs, and UI texts have one home.
+
+- Full detail (FR, AC, EC, states) only for the **current release** (now PoC). A later release gets 1–2 sentences:
+  what and why; no FR, AC, states or texts.
+- A release is detailed when it becomes current, in one batch PR (`change-requirement`) before `plan-wave` plans its
+  first wave.
+- Details of later releases already written are not deleted or rewritten, only not maintained; where one
+  contradicts the current release, mark it «переглянути при деталізації».
+- Agents read only the view of their release; another release only through a direct link the task gives.
+- **No UI texts in requirements.** A requirement states the behaviour and points to the screen or element
+  («кнопка підтвердження на S-050 (текст — канва)»); for a legal or product text it says that such a text must exist
+  and what it conveys. The wording lives on the canvas: `docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва —
+  єдине джерело». Texts already in requirements move to the canvas when a PR first touches their screen (no mass
+  move).
+- Until stages 1–3 are done, no new PoC requirement: `.claude/skills/pr-pipeline/SKILL.md` §2, «PoC requirements
+  freeze».
 
 ## Source and generated release views
 
