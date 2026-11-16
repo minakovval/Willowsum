@@ -42,7 +42,9 @@ CREATE TABLE budget_accounts (
   budget_id uuid NOT NULL,
   included boolean NOT NULL,
   PRIMARY KEY (household_id, account_id),
+  -- Checked at commit: a load of whole tables in name order (the synthetic data) writes this table before budgets.
   FOREIGN KEY (household_id, budget_id) REFERENCES budgets (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED
 );
 
 -- FR 11: the plan of a finished period — the limits with «обов'язкова», the income plan and the planned savings —
