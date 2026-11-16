@@ -106,17 +106,20 @@
 }
 
 /*
- * CMP-01 (canvas P0): 40 px visible, radius 8, 14/20 px 600. Secondary is white with a 1 px
- * border-control border (3:1, DS-14) and ink text; the hit area stays 44 px (an invisible extension).
+ * CMP-01@PoC Button. md: 40 px visible, radius 8, 14/20 px 600, one line; the hit area stays 44 px (an
+ * invisible extension). The default (secondary) is white with a 1 px border-control border (3:1, DS-14) and
+ * ink text, 14 px side padding (`--ws-button-pad`; primary 16, quiet 12, sm 12).
  */
 .ws-button {
+  --ws-button-pad: calc(var(--ws-space-4) - var(--ws-space-1) / 2);
   position: relative;
   display: inline-flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   gap: var(--ws-space-2);
   min-height: calc(var(--ws-touch-target) - var(--ws-space-1));
-  padding: 0 calc(var(--ws-space-4) - var(--ws-space-1) / 2);
+  padding: 0 var(--ws-button-pad);
   border: 1px solid var(--ws-border-control);
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-200);
@@ -125,16 +128,24 @@
   font-size: var(--ws-text-body-sm-size);
   line-height: var(--ws-text-body-sm-line);
   font-weight: 600;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
   transition: background-color var(--ws-duration-interaction) var(--ws-easing-out);
 }
 
+/*
+ * The hit area: at least 44 × 44 px around the centre, whatever the visible size and border (the box is laid
+ * out on the padding box, so a fixed inset would fall short by the border).
+ */
 .ws-button::after {
   content: "";
   position: absolute;
-  inset-inline: 0;
-  inset-block: calc(var(--ws-space-1) / -2);
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--ws-touch-target));
+  height: max(100%, var(--ws-touch-target));
+  transform: translate(-50%, -50%);
 }
 
 .ws-button:hover {
@@ -146,7 +157,7 @@
 }
 
 .ws-button-primary {
-  padding: 0 var(--ws-space-4);
+  --ws-button-pad: var(--ws-space-4);
   border-color: var(--ws-brand);
   background: var(--ws-brand);
   color: var(--ws-on-brand);
@@ -161,6 +172,90 @@
 .ws-button-primary:active {
   border-color: var(--ws-brand-pressed);
   background: var(--ws-brand-pressed);
+}
+
+/* CMP-01 `quiet`: no fill, no border, link text; hover fills surface-300 and underlines the label. */
+.ws-button-quiet {
+  --ws-button-pad: var(--ws-space-3);
+  border-color: transparent;
+  background: transparent;
+  color: var(--ws-link);
+}
+
+.ws-button-quiet:hover {
+  background: var(--ws-surface-300);
+  text-decoration: underline;
+}
+
+.ws-button-quiet:active {
+  background: var(--ws-line);
+}
+
+/* CMP-01 `danger` (deletes data): surface-200 fill, a 1.5 px loss border and loss text; hover tint-negative. */
+.ws-button-danger {
+  border: calc(var(--ws-space-1) * 3 / 8) solid var(--ws-loss);
+  color: var(--ws-loss);
+}
+
+.ws-button-danger:hover,
+.ws-button-danger:active {
+  background: var(--ws-tint-negative);
+}
+
+/* CMP-01 `sm`: 32 px visible, 13/20 px text, 12 px padding; the hit area still reaches 44 px (`::after`). */
+.ws-button-sm {
+  --ws-button-pad: var(--ws-space-3);
+  min-height: var(--ws-space-6);
+  font-size: var(--ws-text-label-size);
+}
+
+/* CMP-01 AC7: an icon-only button is square (40 or 32 px); `::after` takes it to 44 × 44 px. */
+.ws-button-icon-only {
+  --ws-button-pad: 0;
+  min-width: calc(var(--ws-touch-target) - var(--ws-space-1));
+}
+
+.ws-button-sm.ws-button-icon-only {
+  min-width: var(--ws-space-6);
+}
+
+/* The 16 px icon slot; while loading it holds the spinner instead of the icon. */
+.ws-button-slot {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--ws-space-4);
+  height: var(--ws-space-4);
+}
+
+/* CMP-01 «Будова»: a 14 × 14 px spinner, 2 px rim in the text colour with one side clear, 1 turn in 0.8 s. */
+.ws-button-spinner {
+  width: calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  height: calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border: calc(var(--ws-space-1) / 2) solid currentcolor;
+  border-inline-end-color: transparent;
+}
+
+/*
+ * CMP-01 AC4: while loading the width does not change. With an icon the spinner takes the icon's slot; without
+ * one the slot (16 px) and its 8 px gap come out of the side padding, 12 px a side.
+ */
+.ws-button[aria-busy="true"] {
+  cursor: progress;
+}
+
+.ws-button[aria-busy="true"]:not(.ws-button-with-icon) {
+  padding-inline: calc(var(--ws-button-pad) - (var(--ws-space-4) + var(--ws-space-2)) / 2);
+}
+
+/* CMP-01 «Адаптивність»: a row of buttons wraps 16 px apart, the main action on the right. */
+.ws-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--ws-space-4);
 }
 
 /*

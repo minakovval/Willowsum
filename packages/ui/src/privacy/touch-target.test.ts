@@ -27,7 +27,11 @@ describe("button size and hit area", () => {
     expect(button).toMatch(/border:\s*1px solid var\(--ws-border-control\)/);
   });
 
-  it("extends the hit area by 2 px above and below to 44 px", () => {
-    expect(rule(".ws-button::after")).toMatch(/inset-block:\s*calc\(var\(--ws-space-1\) \/ -2\)/);
+  it("extends the hit area to at least 44 × 44 px around its centre, whatever the border", () => {
+    // A fixed 2 px inset fell 2 px short: the box is laid out on the padding box, inside the 1 px border.
+    const after = rule(".ws-button::after");
+    expect(after).toMatch(/width:\s*max\(100%, var\(--ws-touch-target\)\)/);
+    expect(after).toMatch(/height:\s*max\(100%, var\(--ws-touch-target\)\)/);
+    expect(after).toMatch(/transform:\s*translate\(-50%, -50%\)/);
   });
 });

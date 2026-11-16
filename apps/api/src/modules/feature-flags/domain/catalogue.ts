@@ -20,6 +20,14 @@ export type FlagKind = (typeof FLAG_KINDS)[number];
 /** Days a release flag may stay fully enabled before it must be removed from the code (CICD-06 FR 2). */
 export const FULL_ROLLOUT_MAX_DAYS = 30;
 
+/**
+ * The shape of a stored flag key: the CHECK on `feature_flags.flags.key` (migration 0002_flag_key_underscore.sql).
+ * Keys are the plan-catalog feature keys from the requirements, dot-separated parts that may contain «-» and «_»
+ * (`data.bulk_actions`). `check:flags` fails for a flag whose key the table would reject.
+ */
+export const FLAG_KEY_PATTERN = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$/;
+export const FLAG_KEY_MAX_LENGTH = 100;
+
 const isoDate = z.iso.date();
 
 export const flagDefinition = z

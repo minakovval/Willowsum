@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`; BUD-14 b1: `categorization.rules`; BUD-12 a: `transactions.review`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (DAT-03: ключ прапорця може містити «_», `FLAG_KEY_PATTERN`; FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`; BUD-14 b1: `categorization.rules`; BUD-12 a: `transactions.review`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -43,7 +43,7 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
   пулу `ws_context` (`src/wiring.ts`). Запит «чи тестовий простір» чекає ≤ `LOAD_WAIT_MS`, потім — «ні» для цього запиту.
 - Прапорець підфункції має в каталозі `requires` (прапорець її функції): ввімкнений лише разом із ним. Маршрут із власним
   `access.flag` вимагає, щоб `requires` цього прапорця дорівнював ключу функції маршруту (`assertRoutes`).
-- `flagReviewProblems(flags, today, featureKeys)`, `utcDay` — правила `pnpm check:flags`; `bucketOf(flag, householdId)`
+- `flagReviewProblems(flags, today, featureKeys)`, `utcDay` — правила `pnpm check:flags` (зокрема ключ, який таблиця `flags` не прийме: `FLAG_KEY_PATTERN`); `bucketOf(flag, householdId)`
   — кошик 0–99 (FNV-1a від «<ключ>:<простір>»).
 - Типи `FlagRuntime`, `FlagAdmin`, `FlagActor`, `FlagSnapshot`, `FlagDefinition`, `FlagKey`, `FlagKind`, `Rollout`,
   `RolloutStage`; константи `REFRESH_MS`, `LOAD_WAIT_MS`, `KILL_SWITCH_MAX_DELAY_MS`, `FULL_ROLLOUT_MAX_DAYS`, `ROLLOUT_STAGES`.
@@ -106,7 +106,7 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 
 | Таблиця | Що | Дані клієнтів |
 | --- | --- | --- |
-| `flags` | Стан випуску прапорця: `key`, `stage`, `percent` (0 / 1–99 / 100), `fully_enabled_at`, `changed_at` | Ні (виняток у `schema-exemptions.json`) |
+| `flags` | Стан випуску прапорця: `key` (частини через крапку з `[a-z0-9_-]`, ≤ 100 символів — `FLAG_KEY_PATTERN`, `0002_flag_key_underscore.sql`), `stage`, `percent` (0 / 1–99 / 100), `fully_enabled_at`, `changed_at` | Ні (виняток у `schema-exemptions.json`) |
 | `kill_switches` | Вимикач модуля: `module`, `disabled`, `changed_at` | Ні (виняток у `schema-exemptions.json`) |
 | `test_households` | Позначки тестових просторів з історією: `household_id`, `marked_at`, `unmarked_at` (поточна — `unmarked_at IS NULL`, одна на простір) | Так: політика рядків простору |
 
