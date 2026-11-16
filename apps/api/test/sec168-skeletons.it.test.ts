@@ -23,7 +23,6 @@ const SKELETONS = [
   "budget",
   "recurring",
   "cashflow",
-  "debt-payoff",
   "reports",
   "import-sessions",
   "file-parsers",
