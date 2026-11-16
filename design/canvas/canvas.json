@@ -1483,6 +1483,14 @@
       "x": 0,
       "y": 1260
     },
+    "PocAddTexts.dc.html": {
+      "h": 520,
+      "page": "poc",
+      "title": "S-025 Меню «+ Додати» · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 1260
+    },
     "PocCheckEmail.dc.html": {
       "h": 700,
       "is_interactive": true,
@@ -1747,6 +1755,14 @@
       "x": 0,
       "y": 14970
     },
+    "PocMoneyNewTxTexts.dc.html": {
+      "h": 3600,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 14970
+    },
     "PocMoneyNewTxAcc.dc.html": {
       "h": 900,
       "is_interactive": true,
@@ -1789,7 +1805,7 @@
       "page": "poc",
       "title": "Нова транзакція · крок 2 · Контрагент і категорія",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 14970
     },
     "PocMoneyNewTxStep3.dc.html": {
@@ -1798,7 +1814,7 @@
       "page": "poc",
       "title": "Нова транзакція · крок 3 · Додатково",
       "w": 1280,
-      "x": 2720,
+      "x": 4080,
       "y": 14970
     },
     "PocMoneyPairManual.dc.html": {
@@ -4235,6 +4251,7 @@
     "PocShell.dc.html",
     "PocShellCollapsed.dc.html",
     "PocAdd.dc.html",
+    "PocAddTexts.dc.html",
     "PocProfile.dc.html",
     "PocNotFound.dc.html",
     "PocStepUp.dc.html",
@@ -4254,6 +4271,7 @@
     "PocMoneyReview.dc.html",
     "PocMoneyReviewDone.dc.html",
     "PocMoneyNewTx.dc.html",
+    "PocMoneyNewTxTexts.dc.html",
     "PocMoneyNewTxStep2.dc.html",
     "PocMoneyNewTxStep3.dc.html",
     "PocMoneyNewTxCat.dc.html",

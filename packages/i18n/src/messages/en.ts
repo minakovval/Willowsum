@@ -604,6 +604,10 @@ export const en: Messages = {
   "gallery.progress.fail": "Stop with an error",
   "gallery.progress.reset": "Start again",
   "gallery.field.title": "Field",
+  "gallery.stepper.title": "Stepper and date field",
+  "gallery.stepper.intro":
+    "The steps of a form in every state and the “Date” field with its calendar: today, an empty required one with its error, a disabled one with its reason.",
+  "gallery.stepper.disabledReason": "The account sets the date",
   "gallery.field.intro":
     "Point at a field to see the hover border; Tab shows the focus ring around the field. In «Amount» enter «12.345» and leave the field to see the error.",
   "gallery.field.case.empty": "Empty: placeholder and hint",

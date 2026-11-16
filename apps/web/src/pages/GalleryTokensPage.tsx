@@ -54,6 +54,7 @@ import { ListRowDemo } from "./ListRowDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
+import { StepperDemo } from "./StepperDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -422,6 +423,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-field" title={t("gallery.field.title")}>
         <FieldDemo />
+      </Section>
+
+      <Section id="g-stepper" title={t("gallery.stepper.title")}>
+        <StepperDemo />
       </Section>
 
       <Section id="g-list-row" title={t("gallery.listRow.title")}>
