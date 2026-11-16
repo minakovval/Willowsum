@@ -1,4 +1,4 @@
-// Створено: 2026-11-14 · Оновлено: 2026-11-15
+// Створено: 2026-11-14 · Оновлено: 2026-11-16
 // Token and time accounting for the issue «Облік токенів» (#180): owner, 2026-11-14, #178 comments 6873950124 (5),
 // 6873807074 and 6866721229. Synthetic fixtures only; no network (`--branch` is tested with a fake `gh`).
 // Run: node --test tools/token-report
@@ -7,7 +7,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import { describe, it } from "node:test";
 import { fileURLToPath } from "node:url";
-import { addUpByModel, appendRow, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
+import { addUpByModel, appendRow, archivePrRows, ARCHIVE_LINE, MAX_BODY, collectUsage, ciMinutes, formatRow, main, modelNote, parseRun, sumUsage, UsageError } from "../lib.mjs";
 
 const fx = (name) => fileURLToPath(new URL(`fixtures/${name}`, import.meta.url));
 const read = (name) => fs.readFileSync(fx(name), "utf8");
@@ -128,7 +128,7 @@ describe("formatRow: the row of the table «PR» in #180", () => {
     });
     assert.equal(
       row,
-      "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431, виправлення 105 870, рецензія 154 132 |",
+      "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | — |",
     );
   });
 });
@@ -151,7 +151,7 @@ describe("CLI", () => {
   ];
   // The existing columns are unchanged; the note gains the per-model split (the fixtures carry no model).
   const row =
-    "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | автор 204 431, виправлення 105 870, рецензія 154 132; моделі: unknown 8,0 млн cache read |";
+    "| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | моделі: unknown 8,0 млн cache read |";
 
   it("pr: prints the ready row from agent logs and a runs file", () => {
     const r = run([...pr, "--ci-runs", fx("runs.json")]);
@@ -308,7 +308,7 @@ describe("per-model split (owner, 2026-11-15, #178, comment 6894721169)", () => 
     );
     assert.equal(r.code, 0, r.err);
     const [row, ...lines] = r.out.split("\n");
-    assert.equal(row, "| #7 | код | 1 | 5 | 5,3 | 0 | 1,0 | 0,0 | 10 | автор 5; моделі: opus 4,1 млн / fable 1,2 млн cache read |");
+    assert.equal(row, "| #7 | код | 1 | 5 | 5,3 | 0 | 1,0 | 0,0 | 10 | моделі: opus 4,1 млн / fable 1,2 млн cache read |");
     assert.equal(lines.length, 2);
     assert.match(lines[0], /^ {2}модель claude-opus-5-5: 1 model calls, cache read 4 100 000, cache creation 10, input 1, output 100$/);
     assert.match(lines[1], /модель claude-fable-5-2: 1 model calls, cache read 1 200 000, .*output 60$/);
@@ -391,5 +391,108 @@ describe("append: a row into the body of #180 (owner, 2026-11-15, #178, comment 
     assert.equal(again.code, 1);
     assert.equal(fs.readFileSync(file, "utf8"), appendRow(body, prRow));
     assert.match(run(["append", "--body", file]).err, /--body and --row are required/);
+  });
+});
+
+describe("note cap, body cap and archive (owner, 2026-11-16, #178, comment 6904503474)", () => {
+  const body = read("body180.md");
+  const prRow = (note) => `| #195 | процес | 1 | 464 433 | 8,0 | 5 | 12,0 | 3,0 | 10 | ${note} |`;
+
+  it("append accepts a note of 120 characters and refuses one of 121 (exit 1, file untouched)", () => {
+    assert.doesNotThrow(() => appendRow(body, prRow("н".repeat(120))));
+    assert.throws(() => appendRow(body, prRow("н".repeat(121))), /121 characters, the limit is 120/);
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const file = `${dir}/body.md`;
+    fs.writeFileSync(file, body);
+    const r = run(["append", "--body", file, "--row", prRow("н".repeat(121))]);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /«Примітка» cell is 121/);
+    assert.equal(fs.readFileSync(file, "utf8"), body);
+  });
+
+  it("the note cap applies to the «Сесії» table too", () => {
+    const row = `| ведучий 2 | 2026-11-14 | 1 | 1 | 1 | 1 | 1 | 1 | ${"x".repeat(121)} |`;
+    assert.throws(() => appendRow(body, row, { table: "sessions" }), /limit is 120/);
+  });
+
+  it("pr: a typical row (three agent runs, two models, long --note within reason) passes the cap; the per-agent list is gone", () => {
+    const r = run([
+      "pr", "--pr", "195", "--type", "процес", "--rounds", "1",
+      "--run", `role=author,log=${fx("author.jsonl")},ms=600000,tokens=204431`,
+      "--run", `role=fix,log=${fx("fix.jsonl")},ms=120000,tokens=105870`,
+      "--run", `role=review,log=${fx("review.jsonl")},ms=180000,tokens=154132`,
+      "--ci-runs", fx("runs.json"), "--note", "1 синхронізація",
+    ]);
+    assert.equal(r.code, 0, r.err);
+    const row = r.out.split("\n")[0];
+    assert.doesNotMatch(row, /автор 204 431|рецензія 154 132/);
+    assert.match(row, /\| 1 синхронізація; моделі: unknown 8,0 млн cache read \|$/);
+    assert.doesNotThrow(() => appendRow(body, row));
+  });
+
+  it("--note text counts: a long --note makes the row from `pr` fail on append", () => {
+    const r = run([
+      "pr", "--pr", "7", "--type", "код", "--rounds", "1", "--run", `role=author,log=${fx("author.jsonl")},ms=60000,tokens=5`,
+      "--ci-runs", fx("runs.json"), "--note", "д".repeat(100),
+    ]);
+    assert.equal(r.code, 0, r.err);
+    assert.throws(() => appendRow(body, r.out.split("\n")[0]), /limit is 120/);
+  });
+
+  it("append refuses when the body would exceed 55 000 characters, naming `archive`; exactly 55 000 passes", () => {
+    const row = prRow("x");
+    const base = appendRow(body, row).length - body.length; // growth of one append
+    const pad = (n) => body + "я".repeat(n);
+    const fits = pad(MAX_BODY - body.length - base);
+    assert.equal(appendRow(fits, row).length, MAX_BODY);
+    const over = pad(MAX_BODY - body.length - base + 1);
+    assert.throws(() => appendRow(over, row), (e) => e instanceof UsageError && /archive --body/.test(e.message) && /55000/.test(e.message));
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const file = `${dir}/body.md`;
+    fs.writeFileSync(file, over);
+    const r = run(["append", "--body", file, "--row", row]);
+    assert.equal(r.code, 1);
+    assert.match(r.err, /archive issue/);
+    assert.equal(fs.readFileSync(file, "utf8"), over);
+  });
+
+  it("archivePrRows: moves the rows, keeps header, separator, placeholder line and every other byte", () => {
+    const { body: out, archive, rows } = archivePrRows(body);
+    assert.equal(rows, 2);
+    assert.ok(archive.includes("| #101 | код |") && archive.includes("| #102 | процес |"));
+    assert.match(archive, /^# Архів/);
+    assert.ok(archive.includes("| PR | Тип |") && archive.includes("| --- | --- | ---: |"));
+    assert.ok(!out.includes("| #101 |") && !out.includes("| #102 |"));
+    assert.ok(out.includes(`\n\n${ARCHIVE_LINE}\n`));
+    // putting the rows back reproduces the original body byte for byte
+    const rowsText = body.split("\n").filter((l) => /^\| #10[12] /.test(l)).join("\n");
+    const restored = out.replace(`\n\n${ARCHIVE_LINE}\n`, `\n${rowsText}\n`);
+    assert.equal(restored, body);
+    // the table «Сесії» and the text after the tables are untouched
+    assert.ok(out.startsWith(body.slice(0, body.indexOf("| #101 |"))));
+    assert.ok(out.endsWith(body.slice(body.indexOf("\n\n\n**Токени агентів."))));
+  });
+
+  it("archivePrRows: refuses a table with no rows; a later append lands right after the separator", () => {
+    const { body: out } = archivePrRows(body);
+    assert.throws(() => archivePrRows(out), /no rows to archive/);
+    const again = appendRow(out, prRow("x"));
+    assert.ok(again.includes(`--- |\n${prRow("x")}\n\n${ARCHIVE_LINE}`));
+    assert.throws(() => archivePrRows("текст\n"), /no section of the table «PR»/);
+  });
+
+  it("CLI archive: writes --out and the body; without --out it fails and writes nothing", () => {
+    const dir = fs.mkdtempSync(`${process.env.TMPDIR ?? "/tmp"}/tr-`);
+    const file = `${dir}/body.md`;
+    const out = `${dir}/archive.md`;
+    fs.writeFileSync(file, body);
+    const bad = spawnSync(process.execPath, [INDEX, "archive", "--body", file], { encoding: "utf8" });
+    assert.equal(bad.status, 1);
+    assert.equal(fs.readFileSync(file, "utf8"), body);
+    const res = spawnSync(process.execPath, [INDEX, "archive", "--body", file, "--out", out], { encoding: "utf8" });
+    assert.equal(res.status, 0, res.stderr);
+    assert.equal(fs.readFileSync(file, "utf8"), archivePrRows(body).body);
+    assert.equal(fs.readFileSync(out, "utf8"), archivePrRows(body).archive);
+    assert.match(res.stderr, /Архів рядків PR: <посилання>/);
   });
 });
