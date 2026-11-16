@@ -56,4 +56,5 @@
 | Завдання | Що робить | Де |
 | --- | --- | --- |
 | browser-task-01 | Resend (ключ для вже підтвердженого домену, EU) і віджет Cloudflare Turnstile «Willowsum» для `willowsum.mina.yachts` | [`browser-tasks/01-mail-captcha.md`](browser-tasks/01-mail-captcha.md) |
+| browser-task-02 | Захист гілки `main` на GitHub: зміни лише через PR, без force push, обов'язкові перевірки `changes`, `requirements`, `secrets`, `traceability` | [`browser-tasks/02-main-protection.md`](browser-tasks/02-main-protection.md) |
 | OCI account | Обліковий запис OCI, MFA, бюджет, другий регіон (інструкція для власника, створена до рішення 2026-11-12) | [`infra/start/owner-setup.md`](../../infra/start/owner-setup.md) |

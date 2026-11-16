@@ -42,7 +42,7 @@ agent; the lead then, in the same session:
 4. posts the handover table on #179 («Handover template»; the table stays at every handover, a compaction
    included: owner, 2026-11-16, #178, «ні, таблиця потрібна для відстеження історії»): «Передано» is «Lead state»
    as kept current, «Прийнято» is what lead N+1 re-read and did; the chat gets only the short retrospective;
-5. continues the pipeline. A lead number that is a multiple of 3 starts with the «Process review» below.
+5. continues the pipeline; when a «Process review» is due (below), it comes first.
 
 **Session names** (owner, 2026-11-13, #178): every lead is `Willowsum · ведучий N · <з чого починає>`, e.g.
 `Willowsum · ведучий 2 · хвиля 2 з рядка 3`; N is one more than the previous lead's, whether it ended in a
@@ -54,16 +54,18 @@ commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178). **After a
 2026-11-15, #178): `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that scheduled task
 (`delete_trigger`) after the wake-up.
 
-**Process review** (owner, 2026-11-15, #178): «кожна третя сесія при запуску має ретроспективно передивитись всі
-покращення і зміни в процесах». A lead whose number is a multiple of 3 (from lead 9; after a compaction, the new
-number) does it after the start steps, before new tasks (≈ 100–150 k tokens, 1–2 PRs fewer), and reviews:
-1. every accepted process change since session 1 (#178, `docs/decisions/log/`, AGENTS.md, the skills) — rational,
-   needed, useful, optimal? — on the data of #180 (tokens, time, rounds);
+**Process review.** Due when **both** hold: at least 40 PRs were merged and at least 24 hours passed since the
+previous review's comment on #180 (commands: [process limits](../../../references/process-limits.md)). The lead
+that starts a segment checks it after the start steps; when due, the review comes before new tasks. It reviews:
+1. every accepted process change since the previous review (#178, `docs/decisions/log/`, AGENTS.md, the skills) —
+   rational, needed, useful, optimal? — on the data of #180 (tokens, time, rounds);
 2. the current instructions (AGENTS.md, `pr-pipeline` and `references/`, the other skills, `.claude/references/`):
    contradictions, duplication, outdated or unneeded text, what to simplify or shorten;
-3. the handovers of the last 5 leads: what «Lead state», start messages and confirmations lost or got wrong.
-Result: a comment on #180 with conclusions and proposals (each with risks, downsides, mitigations); the proposals go
-to «Черга змін процесу» (#178); no rule changes without an owner decision.
+3. the handovers since the previous review: what «Lead state» and the confirmations lost or got wrong.
+Result: a comment on #180 with conclusions and **at most 3 proposals**, ranked by expected saving (each with risks,
+downsides, mitigations); the rest waits in «Черга змін процесу» (#178) for the next review. No rule changes without
+an owner decision; between reviews only what [lead communication](lead-communication.md), «Batching process
+changes», allows as a separate PR.
 
 **Handover confirmation** (owner, 2026-11-13/14/15/16, #178,
 [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): every handover

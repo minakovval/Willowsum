@@ -30,6 +30,5 @@ owner in one code block, ready to copy without edits whenever the owner starts t
 token accounting (#180) and to work by `.claude/skills/pr-pipeline`; lists the start steps (rename, starting
 snapshot in #180, item-by-item handover confirmation with links, on #179 too after an automatic restart); names the
 first tasks and any open owner question; for an automatic restart states its count («1-й автоматичний перезапуск
-із 2»); for a number that is a multiple of 3 says the session starts with the process review ([restarts](restarts.md),
-«Process review»); and always includes the line «Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в
-чаті»).» The owner should not have to write or edit anything.
+із 2»); says the session starts with the process review when one is due ([restarts](restarts.md)); and always
+includes «Технічних повідомлень у чаті не пиши (pr-pipeline, «Мовчання в чаті»).» The owner edits nothing.

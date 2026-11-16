@@ -97,14 +97,18 @@ proposals: [lead communication](references/lead-communication.md).
 7. **After merge**: unsubscribe; the branch is deleted; reset the worktree to the new `main`
    (`git fetch origin main && git reset --hard origin/main`) or remove it; drop its test databases. The PR's
    «Follow-ups» go to one follow-up PR (lighter model) or an issue each, linked from the merged PR. Unmerged
-   **reviewer probes and tests** are posted at once on that follow-up issue inside `<details>`, split if over
-   65 000 characters (owner, 2026-11-15, #178). **Token and time accounting** (owner, 2026-11-13/14, mandatory):
-   in the same turn as the merge, before the agent logs can vanish, add the PR's row to the **body** of #180
-   ([token economy](references/token-economy.md), «Token accounting»).
+   **reviewer probes and tests** are posted at once on that issue inside `<details>`, split if over 65 000
+   characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
+   never posted in an issue or a PR — one line in the issue (module, rule broken), the detail in a draft security
+   advisory ([how](../../references/process-limits.md)); if that fails, tell the owner at once (§2, urgent).
+   **Token and time accounting** (mandatory): in the same turn as the merge, before the agent logs can vanish, add
+   the PR's row to the **body** of #180 ([token economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.
-9. **Follow-up sweep** (owner, 2026-11-13/14, #178): after every 8–10 merged PRs, one PR (row `R`, lighter model)
-   closes the small open follow-ups (issues and the «Follow-ups» of merged PRs), security items first, only in
-   modules with no open PR; run it more often rather than less. Larger items get a plan row. Small process changes:
+9. **Follow-up sweep**: after every 8–10 merged PRs, one PR (row `R`, lighter model) closes the small open
+   follow-ups (issues and the «Follow-ups» of merged PRs), security items first, only in modules with no open PR.
+   Larger items get a plan row. **Limit:** while more than 40 follow-up issues are open, the next free author slot
+   goes to row `R` before any new plan row; a security follow-up left open by 2 sweeps gets its own plan row.
+   Count: [process limits](../../references/process-limits.md). Small process changes:
    [lead communication](references/lead-communication.md), «Batching process changes».
 
 Rare cases — [stacked PRs and CI that cannot run](references/stacked-and-blocked.md) (read when a PR depends on
