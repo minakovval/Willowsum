@@ -40,13 +40,11 @@ Owner request 2026-11-12. Each item carries its source: most are owner decisions
 7. Resume an implementing agent at most 2 times (owner, 2026-11-13, #178). A third round of fixes goes to a
    fresh agent with a short brief: the diff, the findings, the patch. Every resume re-reads the agent's whole
    context (#180, lead session 1).
-8. **Workflow experiment** (owner, 2026-11-14, #178): 2 more trial runs of a Workflow «супровідник», each taking
-   one PR without `sensitive` (rows `R`) from implementation to ready-to-merge; the runs may go in parallel.
-   Compare their tokens (agents) and the number of lead turns with #180 (the first run and the rows of similar
-   PRs) and report to the owner before making it a rule.
-9. Not adopted (owner, 2026-11-14): (3) the lead confirming code-PR syncs itself — the lead may update a branch
-   itself ([merge checklist](merge-checklist.md)), but the confirmation of a code PR's sync stays with an agent;
-   (6) a cap on the number of parallel code PRs.
+8. Workflow «супровідник» experiment: closed, not adopted (owner, 2026-11-16: «6 ок»; [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md)).
+9. Not adopted (owner, 2026-11-14): (6) a cap on the number of parallel code PRs. (3) the lead confirming code-PR
+   syncs itself is adopted in a narrow form (owner, 2026-11-16, «1 а»; [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md)): the rule is in the
+   [merge checklist](merge-checklist.md), «Up to date»; otherwise the confirmation of a code PR's sync stays with an
+   agent.
 10. Rate limit at session start: [restarts](restarts.md), «Session names».
 11. Cost of rounds (owner, 2026-11-14, #178): one confirmation agent for both verdicts of a `sensitive` PR saves
     ≈ 80–90 k context per sync; the rules for it, the sync by the fix agent, cheap reviewer tests and splitting

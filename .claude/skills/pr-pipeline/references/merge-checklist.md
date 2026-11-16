@@ -1,6 +1,6 @@
 # Merge checklist (step 6, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-15
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
 Read when you are about to merge. The merge conditions and approvals themselves: AGENTS.md step 7 and
 [merge rules](../../../references/merge-rules.md) (including «Merge on Ready, follow up separately»).
@@ -47,6 +47,11 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    (as with #255 and #256), then the usual confirmation; otherwise an agent does it (owner, 2026-11-15, #178). When
    a fix round is due anyway, the fix agent does the sync (SKILL.md step 4). A confirmation of a `sensitive` PR
    goes to one agent for both verdicts (SKILL.md step 5).
+   **Code PR after a sync, lead confirms** (owner, 2026-11-16, «1 а»; [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md)): the lead confirms a code PR's
+   sync itself, with no agent, when the PR's diff against its merge-base is byte-identical before and after the sync
+   (the command in the next paragraph) and CI on the new head is green. When the diff changed or there were
+   conflicts, an agent confirms. The lead posts the result as a review with the same content as for a docs-only PR
+   (below). A `sensitive` PR whose verdict is not Ready on the old head is not covered.
    **Docs-only PR after a sync** (owner, 2026-11-13, #178): a PR whose every file is docs-only (`isDocsOnly`,
    [token economy](token-economy.md) item 1: `docs/`, `design/`, `.claude/`, root `*.md`) and not labelled
    `sensitive` needs no confirmation agent when `main`'s changes do not touch its files. The lead checks it
