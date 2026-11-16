@@ -455,6 +455,17 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     expect(await screen.findByText("Закритих рахунків немає")).toBeTruthy();
   });
 
+  it("FIN-01@PoC FR 22: when every account is closed, «Параметри» → «Показати закриті» still reaches them", async () => {
+    renderAt("#/money/accounts", api([closed], summary({ total: null, breakdown: [], rate: null })).client);
+    await waitFor(() => expect(document.querySelector(".accounts-loading")).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Показати закриті" }));
+    expect(await screen.findByText("Старий")).toBeTruthy();
+    expect(within(rowOf("Старий")).getByText("Закритий")).toBeTruthy();
+    // Closed accounts are not «no accounts yet».
+    expect(screen.queryByText("Ще немає рахунків")).toBeNull();
+  });
+
   it("FIN-01@PoC «Стани інтерфейсу»: loading shows the skeleton of the list", () => {
     renderAt("#/money/accounts", fakeApi({ "GET /v1/accounts": () => new Promise<Reply>(() => {}) }).client);
     expect(document.querySelector(".accounts-loading [aria-busy='true']")).not.toBeNull();

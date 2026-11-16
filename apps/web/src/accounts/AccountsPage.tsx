@@ -48,7 +48,11 @@ export function AccountsPage() {
       ) : accounts.state.kind === "error" ? (
         <AccountsError supportId={accounts.state.supportId} retry={accounts.retry} />
       ) : none ? (
-        <AccountsEmpty onAdd={add} />
+        <div className="accounts-grid">
+          {/* FR 22: closed accounts stay reachable through «Показати закриті» even when no account is active. */}
+          <Toolbar showClosed={showClosed} onShowClosed={setShowClosed} />
+          <AccountsEmpty onAdd={add} />
+        </div>
       ) : accounts.state.kind === "ready" ? (
         <div className="accounts-grid">
           {summary.state.kind === "ready" && summary.state.data.moneyTogether.staleRateCount > 0 ? (
