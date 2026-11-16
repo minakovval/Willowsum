@@ -38,6 +38,7 @@ function fakeDeps(calls: string[]): ErasureDeps {
     categorization: erase("categorization"),
     merchants: erase("merchants"),
     goals: erase("goals"),
+    budget: erase("budget"),
     liabilities: erase("liabilities"),
     ledger: erase("ledger"),
     audit: erase("audit"),
