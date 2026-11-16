@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-12, SCR-02
 - Сценарії: UC-BUD-02, UC-BUD-64, UC-BUD-75, UC-BUD-76, UC-BUD-77, UC-BUD-78, UC-BUD-79, UC-BUD-81, UC-FIN-35, UC-FIN-36
 - Модуль: categorization, merchants
-- Перевіряється: —
+- Перевіряється: apps/api/test/bud14-merchants.it.test.ts
 
 **Мета.** Як Owner, Admin або Editor, я хочу один раз налаштувати правила, щоб нові транзакції одразу мали правильні назви, категорії й теги.
 

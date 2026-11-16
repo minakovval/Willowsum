@@ -9,6 +9,8 @@ import { ApiProblem } from "../../platform/http/problem.ts";
 import {
   categoriesInParts,
   categorizableFacts,
+  counterpartiesOf,
+  counterpartyCounts,
   subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
@@ -167,6 +169,29 @@ export interface TransactionLookup {
     excluded: readonly string[],
     limit: number,
   ): Promise<{ readonly ids: readonly string[]; readonly count: number } | { readonly invalid: true }>;
+}
+
+/**
+ * The transactions module as module merchants reads it (BUD-14@PoC a; wave 2 row 22): the counterparty — the bank's
+ * description — is the source of a transaction's merchant. Read only; every call is bound to one space.
+ */
+export interface TransactionTexts {
+  /** The counterparty of each existing transaction of `ids` (hidden ones too; null — none); the others are absent. */
+  counterparties(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string | null>>;
+  /** Every distinct counterparty of the space's shown transactions and how many have it. */
+  counterpartyCounts(
+    householdId: string,
+  ): Promise<readonly { readonly counterparty: string; readonly count: number }[]>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransactionTexts(db: ModuleDatabase): TransactionTexts {
+  return {
+    counterparties: (householdId, ids) =>
+      db.inHousehold(householdId, (q) => counterpartiesOf(q, householdId, ids)),
+    counterpartyCounts: (householdId) =>
+      db.inHousehold(householdId, (q) => counterpartyCounts(q, householdId)),
+  };
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
