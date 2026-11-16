@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: packages/ui/src/list/TransactionRow.test.tsx, packages/ui/src/list/Rows.css.test.ts, apps/web/src/gallery.test.tsx
+- Перевіряється: packages/ui/src/list/TransactionRow.test.tsx, packages/ui/src/list/Rows.css.test.ts, apps/web/src/gallery.test.tsx, apps/web/e2e/rows.spec.ts
 
 **Мета.** Як користувач, я хочу бачити кожну транзакцію з мерчантом, датою, категорією і сумою, а ті, що потребують розбору, — з помітною позначкою і швидкими діями, щоб швидко тримати облік у порядку.
 
