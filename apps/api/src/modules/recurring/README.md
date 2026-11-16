@@ -46,7 +46,7 @@ BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина,
   → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions, `MerchantDirectory` модуля merchants,
   `AccountDirectory` модуля accounts (вид рахунку), годинник («сьогодні» — дата Києва).
 - `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `nextDate(anchor,
-  frequency, from)` і `scheduleDate(anchor, frequency, k)` (розклад: місяці від дати прив'язки, день, якого в місяці
+frequency, from)` і `scheduleDate(anchor, frequency, k)` (розклад: місяці від дати прив'язки, день, якого в місяці
   немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`; типи `Charge`, `Series`, `Frequency`.
 
 ## Залежності
@@ -56,12 +56,12 @@ BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина,
 ## Події
 
 | Публікує | Версія | Коли |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ---- |
+| —        |        |      |
 
 | Споживає | Версія | Навіщо |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ------ |
+| —        |        |        |
 
 ## Власні таблиці
 
