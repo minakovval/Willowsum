@@ -35,6 +35,7 @@ const row = (id: string): NewStoredTransaction => ({
   mergedInto: null,
   note: null,
   tagIds: [],
+  review: null,
   version: 1,
 });
 

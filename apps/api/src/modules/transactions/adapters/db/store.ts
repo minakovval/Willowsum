@@ -5,7 +5,9 @@ import { defineList, type AmountGroup } from "../../../../platform/lists/list-en
 import { z } from "zod";
 import type { StoredTransaction, TransactionsTx } from "../../application/index.ts";
 import {
+  REVIEW_STATES,
   TRANSACTION_STATUSES,
+  type ReviewState,
   type Split,
   type SplitMode,
   type TransactionStatus,
@@ -35,6 +37,7 @@ interface Row {
   merged_into: string | null;
   note: string | null;
   tag_ids: string[];
+  review: ReviewState | null;
   version: number;
   created_at: Date;
 }
@@ -72,7 +75,7 @@ interface PartRow {
 // The date as text, so no time zone of the driver touches it.
 const COLUMNS = `id, account_id, subaccount_id, amount::text AS amount, currency, occurred_on::text AS occurred_on,
   counterparty, description, status, source, hidden, split_mode, split_needs_review, transfer_id, merged_into, note,
-  tag_ids::text[] AS tag_ids, version, created_at`;
+  tag_ids::text[] AS tag_ids, review, version, created_at`;
 
 /** The transfers `ids` (FR 7), read with their two sides (the rate's currencies, the date and the fee). */
 export async function transfersOf(
@@ -179,6 +182,7 @@ function stored(r: Row, parts: readonly PartRow[], transfer: TransferLink | null
     mergedInto: r.merged_into,
     note: r.note,
     tagIds: r.tag_ids,
+    review: r.review,
     version: r.version,
     // As the list engine returns it (the driver's instant, milliseconds), so a row reads the same in both.
     createdAt: r.created_at.toISOString(),
@@ -227,8 +231,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     async insert(householdId, t) {
       const row = await one(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
-                                   counterparty, description, status, source, version, note, tag_ids)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[]) RETURNING ${COLUMNS}`,
+                                   counterparty, description, status, source, version, note, tag_ids, review)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15) RETURNING ${COLUMNS}`,
         [
           householdId,
           t.id,
@@ -244,6 +248,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.version,
           t.note,
           [...t.tagIds],
+          t.review,
         ],
       );
       return row!;
@@ -263,7 +268,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
             SET account_id = $3, subaccount_id = $4, amount = $5, currency = $6, occurred_on = $7, counterparty = $8,
                 description = $9, version = $10, status = $11, hidden = $12, split_mode = $13,
                 split_needs_review = $14, transfer_id = $15, merged_into = $16, note = $17,
-                tag_ids = $18::uuid[], updated_at = now()
+                tag_ids = $18::uuid[], review = $19, updated_at = now()
           WHERE household_id = $1 AND id = $2 RETURNING ${COLUMNS}`,
         [
           householdId,
@@ -391,7 +396,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
  * numbered pages of 25, 50 or 100, and the amounts by currency, date and sign for the totals of income, expenses and
  * the difference at the official rate of each transaction's date. «Стан» (FR 22): `status` («Очікує»), `split`
  * («Розділені»), `transfer` («Переказ») and `hidden` («Приховані»; without a `hidden` filter the route lists the shown ones only);
- * «Теги» — `tag` (BUD-13 FR 2). The filters of categories and merchants come with the parts that bring them (BUD-01, BUD-14).
+ * «Теги» — `tag` (BUD-13 FR 2); «До розбору» — `review` (BUD-12 FR 2). The filters of categories and merchants come with the parts that bring them (BUD-01, BUD-14).
  */
 export const transactionsList = defineList({
   table: "transactions",
@@ -412,6 +417,8 @@ export const transactionsList = defineList({
     mergedInto: "merged_into",
     note: "note",
     tagIds: "tag_ids",
+    review: "review",
+    version: "version",
     createdAt: "created_at",
   },
   tieBreaker: "id",
@@ -443,6 +450,8 @@ export const transactionsList = defineList({
     transfer: { column: "is_transfer", cast: "boolean", value: filterValue.boolean(), operators: ["eq"] },
     /** «Теги» (BUD-13 FR 2, FR 5): `tag.eq:<id>` — has the tag, `tag.in:<id>,<id>` — any of them. */
     tag: { column: "tag_ids", cast: "uuid", value: filterValue.uuid(), operators: ["eq", "in"], array: true },
+    /** «До розбору» (BUD-12 FR 2): `review.eq:queued` with `sort=date` — the queue, oldest first. */
+    review: { column: "review", cast: "text", value: z.enum(REVIEW_STATES), operators: ["eq", "in"] },
   },
   // «Дата і час» (FR 13, AC13): the date, then within a day the time it was recorded (`recordedAt`, see the route).
   sorts: { date: "occurred_on", recordedAt: "created_at", amount: "amount", counterparty: "counterparty" },
@@ -823,4 +832,16 @@ export async function selectionGroups(
     sum: Money.of(r.sum, r.currency),
     count: r.count,
   }));
+}
+
+/**
+ * BUD-12 FR 2, AC9: how many transactions are in the space's «До розбору» — the counter of «Транзакції» in the side menu
+ * and of the tab; shown ones only (a hidden or merged duplicate leaves the queue).
+ */
+export async function reviewQueueCount(q: ModuleQueryRunner, householdId: string): Promise<number> {
+  const { rows } = await q.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM transactions WHERE household_id = $1 AND review = 'queued' AND NOT hidden`,
+    [householdId],
+  );
+  return rows[0]?.n ?? 0;
 }

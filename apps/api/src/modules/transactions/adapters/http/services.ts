@@ -20,6 +20,9 @@ export const TRANSFERS_FLAG = "transactions.transfers";
 /** The release flag and feature key of «Об'єднати», «Роз'єднати» and «Не дубль» (FIN-03 b, wave 2 row 16c). */
 export const DUPLICATES_FLAG = "transactions.duplicates";
 
+/** The release flag and feature key of «До розбору» (BUD-12 a, wave 2 row 24); requires `transactions.manual`. */
+export const REVIEW_FLAG = "transactions.review";
+
 const BRAND = Symbol("willowsum-transactions-services");
 
 /**

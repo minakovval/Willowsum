@@ -215,6 +215,14 @@ export const PROBLEMS = {
     status: 409,
     title: "Only a duplicate or a technical record can be hidden",
   },
+  /**
+   * BUD-12@PoC FR 8: «Підтвердити» and its «Відмінити» are for the transactions of «До розбору»; one entered by hand was
+   * never there; nothing was written.
+   */
+  TRANSACTION_NOT_IN_REVIEW: {
+    status: 409,
+    title: "The transaction is not in the review queue",
+  },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
