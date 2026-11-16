@@ -41,7 +41,14 @@ export function parseAmountInput(text: string, locale: Locale, places: number): 
   const { decimal, group } = separatorsOf(locale);
   let s = text.replace(SPACES, "").replace(new RegExp(`[${MINUS}\u2012\u2013]`, "g"), "-");
   if (s === "") return { value: null, problem: null };
-  if (group !== decimal && !SPACE.test(group)) s = s.split(group).join("");
+  if (group !== decimal && !SPACE.test(group) && s.includes(group)) {
+    // «1,234.5» in en; «12,50» or «1,2,3» is not a grouped number and never becomes 1250 or 123.
+    const [whole = "", ...fraction] = s.split(decimal);
+    const g = group.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (fraction.some((f) => f.includes(group)) || !new RegExp(`^-?\\d{1,3}(?:${g}\\d{3})+$`).test(whole))
+      return { value: null, problem: "invalid" };
+    s = s.split(group).join("");
+  }
   if (decimal !== ".") s = s.split(decimal).join(".");
   const m = /^(-?)(\d+)(?:\.(\d*))?$/.exec(s) ?? /^(-?)()\.(\d+)$/.exec(s);
   if (!m) return { value: null, problem: "invalid" };

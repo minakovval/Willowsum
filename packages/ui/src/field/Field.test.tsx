@@ -69,7 +69,7 @@ function widths(inputWidth: number) {
     } as DOMRect;
   });
   vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
-    return this.tagName === "INPUT" ? inputWidth : 0;
+    return this.tagName === "INPUT" || this.classList.contains("ws-field-box") ? inputWidth : 0;
   });
 }
 
@@ -141,6 +141,52 @@ describe("CMP-02@PoC Field", () => {
     fireEvent.blur(input);
     expect(norm(input.value)).toBe("4,51 млрд");
     expect(screen.getByTestId("state").textContent).toBe("4512300000.00");
+  });
+
+  it("CMP-02@PoC AC3: an abbreviated amount is shown whole again once its field is wide enough", () => {
+    let room = 120;
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const w = this.classList.contains("ws-field-probe") ? (this.textContent ?? "").length * 8 : 0;
+      return {
+        width: w,
+        height: 0,
+        top: 0,
+        left: 0,
+        right: w,
+        bottom: 0,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+    // The abbreviated input shrinks to its text (`field-sizing: content`); only the box keeps the room.
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("ws-field-box")) return room;
+      if (this.tagName === "INPUT") return this.dataset.abbreviated ? 72 : room;
+      return 0;
+    });
+    const observers: (() => void)[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        readonly cb: () => void;
+        constructor(cb: () => void) {
+          this.cb = cb;
+        }
+        observe() {
+          observers.push(this.cb);
+        }
+        disconnect() {}
+      },
+    );
+    render(wrap(<Amount label="Сума" currency="EUR" initial="4512300000.00" />));
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    expect(norm(input.value)).toBe("4,51 млрд");
+    room = 400;
+    act(() => observers.forEach((cb) => cb()));
+    expect(norm(input.value)).toBe("4 512 300 000,00");
+    expect(input.dataset.abbreviated).toBeUndefined();
+    vi.unstubAllGlobals();
   });
 
   it("CMP-02@PoC AC4: a field in error is announced with its label, value and error text", () => {

@@ -61,6 +61,20 @@ interface ViewProps extends Omit<FieldProps, "value" | "onChange" | "onBlur"> {
   numeric?: boolean | undefined;
 }
 
+/**
+ * The width the input may take in its box. An abbreviated amount shrinks the input to its own text
+ * (`field-sizing: content`), so its width alone no longer says how much room there is: it is read with the
+ * abbreviated style taken off for that one synchronous layout and put back at once.
+ */
+function roomOf(el: HTMLInputElement): number {
+  const abbreviated = el.dataset["abbreviated"];
+  if (abbreviated === undefined) return el.clientWidth;
+  delete el.dataset["abbreviated"];
+  const room = el.clientWidth;
+  el.dataset["abbreviated"] = abbreviated;
+  return room;
+}
+
 const ids = (...list: (string | false | null | undefined)[]) => list.filter(Boolean).join(" ") || undefined;
 
 /**
@@ -78,13 +92,13 @@ function useFits(text: string, enabled: boolean) {
     if (!enabled || !el || !p) return;
     const measure = () => {
       p.textContent = text;
-      const fits = p.getBoundingClientRect().width <= el.clientWidth + 0.5;
+      const fits = p.getBoundingClientRect().width <= roomOf(el) + 0.5;
       setFit((prev) => (prev.text === text && prev.fits === fits ? prev : { text, fits }));
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
-    ro.observe(el);
+    ro.observe(el.parentElement ?? el);
     return () => ro.disconnect();
   }, [text, enabled]);
 
@@ -224,7 +238,7 @@ function FieldView({
           </span>
         )}
       </div>
-      {/* The error is announced as soon as it appears; the region exists before it is filled. */}
+      {/* The error is announced at once when it appears; the region exists before it is filled. */}
       <div className="ws-field-live" aria-live="assertive">
         {invalid && (
           <span className="ws-field-error" id={messageId}>

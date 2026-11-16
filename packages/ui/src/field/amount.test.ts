@@ -51,4 +51,11 @@ describe("CMP-02@PoC amount text", () => {
     expect(editAmount("uk", "0.3333", 2)).toBe("0,3333");
     expect(norm(editAmount("uk", "123456789012345678.00", 2))).toBe("123 456 789 012 345 678,00");
   });
+
+  it("CMP-02@PoC FR «Вміст»: a group separator out of place is not a number, never a larger amount", () => {
+    expect(parseAmountInput("12,50", "en", 2)).toEqual({ value: null, problem: "invalid" });
+    expect(parseAmountInput("1,2,3", "en", 2)).toEqual({ value: null, problem: "invalid" });
+    expect(parseAmountInput("1,234.5", "en", 2)).toEqual({ value: "1234.50", problem: null });
+    expect(parseAmountInput("-12,345,678.90", "en", 2)).toEqual({ value: "-12345678.90", problem: null });
+  });
 });
