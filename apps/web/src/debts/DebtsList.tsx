@@ -3,7 +3,7 @@ import { Icon, Tooltip } from "@willowsum/ui";
 import { accountSettingsPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import type { Debt } from "./api.ts";
-import { formatMonth, laterMonth, money, totalsByCurrency } from "./format.ts";
+import { formatMonth, laterMonth, money } from "./format.ts";
 import { DebtName, Disclaimer, PaidBar, tabPath } from "./parts.tsx";
 
 /**
@@ -117,12 +117,12 @@ function Payoff({ debt }: { debt: Debt }) {
   );
 }
 
-/** «Загальний борг», «Платежі на місяць» and «Без боргів»; totals stay per currency until FR 9. */
+/**
+ * The number of debts and «Без боргів». «Загальний борг» and «Платежі на місяць» of the board need a total in the
+ * reporting currency (FR 9), which the API does not return yet: no sum is made in the browser.
+ */
 function Summary({ debts }: { debts: readonly Debt[] }) {
   const { t, locale } = useI18n();
-  const join = (values: ReturnType<typeof totalsByCurrency>) =>
-    values.length === 0 ? "—" : values.map((v) => money(locale, v)).join(" · ");
-  const payments = debts.flatMap((d) => (d.monthlyPayment ? [d.monthlyPayment] : []));
   let lastMonth: string | null = null;
   let maxMonths = 0;
   const except: string[] = [];
@@ -142,16 +142,8 @@ function Summary({ debts }: { debts: readonly Debt[] }) {
     <section className="ws-card debts-summary" aria-label={t("debts.summary.label")}>
       <dl>
         <div>
-          <dt>{t("debts.summary.total")}</dt>
-          <dd className="debts-figure">{join(totalsByCurrency(debts.map((d) => d.balance)))}</dd>
-          <dd className="ws-muted debts-small">
-            {t("debts.summary.count", { count: formatNumber(locale, String(debts.length)) })}
-          </dd>
-        </div>
-        <div>
-          <dt>{t("debts.summary.payments")}</dt>
-          <dd className="debts-figure">{join(totalsByCurrency(payments))}</dd>
-          <dd className="ws-muted debts-small">{t("debts.summary.paymentsHint")}</dd>
+          <dt>{t("debts.summary.debts")}</dt>
+          <dd className="debts-figure">{formatNumber(locale, String(debts.length))}</dd>
         </div>
         <div>
           <dt>{t("debts.summary.debtFree")}</dt>

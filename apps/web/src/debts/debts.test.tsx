@@ -138,8 +138,7 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
     expect(plain(within(loanRow).getByText(/через/).textContent)).toBe("через 15 міс.");
     expect(within(loanRow).getByText(/лют\. 2028/)).toBeTruthy();
     const summary = screen.getByRole("region", { name: "Підсумок боргів" });
-    expect(plain(within(summary).getByText(/4 700,00/).textContent)).toBe("4 700,00 €");
-    expect(plain(within(summary).getByText(/^310,00/).textContent)).toBe("310,00 €");
+    expect(within(summary).getByText("Боргів").nextElementSibling?.textContent).toBe("2");
     expect(within(summary).getByText(/лютий 2028/)).toBeTruthy();
     expect(plain(within(summary).getByText(/крім/).textContent)).toBe(
       "через 15 міс. · крім: Позика від батьків",
