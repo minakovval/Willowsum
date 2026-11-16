@@ -149,6 +149,10 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 - `createTransactionTexts(db)` → `TransactionTexts` для `merchants` (BUD-14 a), лише читання: `counterparties(householdId,
   ids)` — контрагент кожної наявної транзакції (приховані теж; null — немає); `counterpartyCounts(householdId)` — кожен
   різний контрагент показаних транзакцій простору і їхня кількість.
+- `createTransactionRuleInputs(db)` → `TransactionRuleInputs` для правил категорій `categorization` (BUD-14 b1), лише
+  читання: `inputs(householdId, ids)` — рахунок, сума зі знаком і валюта, дата, контрагент і `eligible` (показана, не
+  сторона переказу, не розділена, не злита) кожної наявної транзакції; `candidates(householdId, limit)` — такі
+  транзакції від новішої (дата, потім ідентифікатор), не більше `limit`, і `more`. `transactionCreated` — подія.
 - `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
   і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.
@@ -204,7 +208,7 @@ FIN-03@PoC b) (хвиля 2, рядок 16c — серверна частина)
 
 | Публікує | Версія | Коли |
 | --- | --- | --- |
-| — | | |
+| `transactions.created` | 1 | «Нова транзакція»: у транзакції створення, лише ідентифікатор (BUD-14 п. 8 — правила категорій `categorization`) |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
