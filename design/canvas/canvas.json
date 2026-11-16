@@ -2936,6 +2936,14 @@
       "w": 1280,
       "x": 8160,
       "y": 33220
+    },
+    "PocMoneyTxTexts.dc.html": {
+      "h": 1360,
+      "page": "poc",
+      "title": "S-046 Транзакції · Тексти",
+      "w": 1280,
+      "x": 16320,
+      "y": 12190
     }
   },
   "createdOnFiles": {
@@ -4356,7 +4364,8 @@
     "PocDataImport2.dc.html",
     "PocDataImport3.dc.html",
     "PocDataImport4.dc.html",
-    "PocDataImport5.dc.html"
+    "PocDataImport5.dc.html",
+    "PocMoneyTxTexts.dc.html"
   ],
   "pages": [
     {
