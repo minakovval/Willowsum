@@ -345,11 +345,11 @@ describe("BUD-12@PoC FR 2: the queue «До розбору» and its counter", (
     expect((await confirm(other, t!)).statusCode).toBe(404);
     expect((await get(space, t!.id)).review).toBe("queued");
     const scoped = await call(space, "GET", "/v1/transaction-review", undefined, {
-      role: "member",
+      role: "editor",
       scoped: true,
     });
     expect(scoped.statusCode).toBe(404);
-    expect((await confirm(space, t!, { role: "member", scoped: true })).statusCode).toBe(403);
+    expect((await confirm(space, t!, { role: "editor", scoped: true })).statusCode).toBe(403);
     expect((await get(space, t!.id)).review).toBe("queued");
   });
 
@@ -389,7 +389,7 @@ describe("BUD-12@PoC FR 4–7: «Підтвердити», «Пропустит�
       actorKind: "user",
       actorId: space.accountId,
       action: "update",
-      changes: [{ field: "review", before: "queued", after: "confirmed", sensitive: false }],
+      changes: [{ field: "review", before: "queued", after: "confirmed" }],
     });
     expect(Date.parse(entry!.occurredAt)).not.toBeNaN();
     // The journal is not touched: the balance is the same.
@@ -519,7 +519,8 @@ describe("BUD-12@PoC FR 12, FR 14: «Підтвердити категорії»
     expect(await counter(space)).toBe(0);
     for (const t of added) expect((await get(space, t.id)).review).toBe("confirmed");
     expect((await get(space, manual.id)).review).toBeNull();
-    // One group entry with each record's value before and after; no entry per transaction.
+    // One group entry with each record's value before and after (written by its job); no entry per transaction.
+    await runWorker(space.householdId);
     const group = await audit.entriesFor(space.householdId, {
       type: "bulk-actions.action",
       id: started.json().id,
