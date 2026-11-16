@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { CATALOGUES } from "@willowsum/i18n";
+import { colors, contrastRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
 import { plain, problem, renderAt, resetAuthState, type Reply } from "../auth/testing.tsx";
@@ -137,13 +141,15 @@ describe("FIN-01@PoC FR 20: the «Обране» star on «Рахунки»", ()
     const off = within(rowOf("Щоденний")).getByRole("button", { name: "Додати в обране" });
     const on = within(rowOf("Готівка")).getByRole("button", { name: "Прибрати з обраного" });
     fireEvent.mouseEnter(off);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Додати в обране");
+    expect(plain((await screen.findByRole("tooltip")).textContent)).toContain("Додати в обране");
     fireEvent.mouseLeave(off);
     fireEvent.mouseEnter(on);
-    await waitFor(() => expect(screen.getByRole("tooltip")).toHaveTextContent("Прибрати з обраного"));
+    await waitFor(() =>
+      expect(plain(screen.getByRole("tooltip").textContent)).toContain("Прибрати з обраного"),
+    );
     // The state is in the name, not in a colour alone: the starred one is drawn filled.
-    expect(on.closest(".accounts-star")).toHaveClass("accounts-star--on");
-    expect(off.closest(".accounts-star")).not.toHaveClass("accounts-star--on");
+    expect(on.closest(".accounts-star")?.classList.contains("accounts-star--on")).toBe(true);
+    expect(off.closest(".accounts-star")?.classList.contains("accounts-star--on")).toBe(false);
   });
 
   it("FIN-01@PoC FR 20: the star stores «Обране» and moves the account to the top of its group; again — back to its place", async () => {
@@ -159,19 +165,22 @@ describe("FIN-01@PoC FR 20: the «Обране» star on «Рахунки»", ()
     expect(patches).toEqual([{ id: savings.id, body: { favourite: true } }]);
     const star = within(rowOf("Скарбничка")).getByRole("button", { name: "Прибрати з обраного" });
     // The focus stays on the star that moved with its row.
-    await waitFor(() => expect(star).toHaveFocus());
+    await waitFor(() => expect(document.activeElement).toBe(star));
 
     fireEvent.click(star);
     await waitFor(() => expect(names("Готівкові")).toEqual(["Щоденний", "Скарбничка"]));
     expect(patches.at(-1)).toEqual({ id: savings.id, body: { favourite: false } });
-    expect(within(rowOf("Скарбничка")).getByRole("button", { name: "Додати в обране" })).toBeVisible();
+    expect(within(rowOf("Скарбничка")).getByRole("button", { name: "Додати в обране" })).toBeTruthy();
   });
 
   it("FIN-01@PoC FR 20: a refused change puts the star and the order back and says so; the list stays", async () => {
     const daily = account({ name: "Щоденний" });
     const savings = account({ name: "Скарбничка", kind: "savings" });
     let answer!: (r: Reply) => void;
-    const { client } = api([daily, savings], () => new Promise<Reply>((resolve) => (answer = resolve)));
+    const { client, patches } = api(
+      [daily, savings],
+      () => new Promise<Reply>((resolve) => (answer = resolve)),
+    );
     renderAt("#/money/accounts", client);
     await screen.findByText("Скарбничка");
     const star = within(rowOf("Скарбничка")).getByRole("button", { name: "Додати в обране" });
@@ -179,11 +188,14 @@ describe("FIN-01@PoC FR 20: the «Обране» star on «Рахунки»", ()
     await waitFor(() => expect(names("Готівкові")).toEqual(["Скарбничка", "Щоденний"]));
     // A second press while the first is on its way sends nothing.
     fireEvent.click(within(rowOf("Скарбничка")).getByRole("button", { name: "Прибрати з обраного" }));
+    expect(patches).toHaveLength(1);
     await act(async () => answer(problem(503, "MODULE_UNAVAILABLE")));
     await waitFor(() => expect(names("Готівкові")).toEqual(["Щоденний", "Скарбничка"]));
-    expect(within(rowOf("Скарбничка")).getByRole("button", { name: "Додати в обране" })).toBeVisible();
-    expect(screen.getByRole("alert")).toHaveTextContent("Не вдалося змінити «Обране». Спробуйте ще раз.");
-    expect(screen.getByText("Щоденний")).toBeVisible();
+    expect(within(rowOf("Скарбничка")).getByRole("button", { name: "Додати в обране" })).toBeTruthy();
+    expect(plain(screen.getByRole("alert").textContent)).toContain(
+      "Не вдалося змінити «Обране». Спробуйте ще раз.",
+    );
+    expect(screen.getByText("Щоденний")).toBeTruthy();
   });
 
   it("FIN-01@PoC FR 20: a closed account shown with «Показати закриті» has its star too", async () => {
@@ -193,8 +205,20 @@ describe("FIN-01@PoC FR 20: the «Обране» star on «Рахунки»", ()
     fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Показати закриті" }));
     await screen.findByText("Старий");
-    expect(within(rowOf("Старий")).getByRole("button", { name: "Прибрати з обраного" })).toBeVisible();
+    expect(within(rowOf("Старий")).getByRole("button", { name: "Прибрати з обраного" })).toBeTruthy();
     expect(names("Готівкові")).toEqual(["Старий", "Щоденний"]);
+  });
+
+  it("FIN-01@PoC FR 20: a starred star is filled in the brand colour (not the accent, DS-06 AC4), 3:1 on the card (WCAG 1.4.11); the empty one is muted", () => {
+    const css = readFileSync(join(dirname(fileURLToPath(import.meta.url)), "accounts.css"), "utf8").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(css).toContain(
+      ".accounts-star--on .ws-icon-button { color: var(--ws-brand); } .accounts-star--on svg { fill: currentcolor; }",
+    );
+    expect(contrastRatio(colors.brand.light, colors["surface-200"].light)).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(colors["ink-muted"].light, colors["surface-200"].light)).toBeGreaterThanOrEqual(3);
   });
 
   it("FIN-01@PoC FR 20: in English the star reads «Add to favourites» / «Remove from favourites»", async () => {

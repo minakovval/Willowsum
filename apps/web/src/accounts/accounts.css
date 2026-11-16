@@ -378,3 +378,21 @@
   align-items: center;
   gap: var(--ws-space-2);
 }
+
+/*
+ * FIN-01@PoC FR 20: the «Обране» star before the account's tile. The canvas draws a starred one in the accent, which the
+ * app may not paint (DS-06 AC4): it is filled in the brand colour instead, so the state is in the shape and 3:1 on the card.
+ */
+.accounts-star {
+  display: inline-flex;
+  flex: none;
+  margin-inline-start: calc(-1 * var(--ws-space-2));
+}
+
+.accounts-star--on .ws-icon-button {
+  color: var(--ws-brand);
+}
+
+.accounts-star--on svg {
+  fill: currentcolor;
+}
