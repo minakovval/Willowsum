@@ -566,6 +566,24 @@ describe("BUD-12@PoC FR 12, FR 14: «Підтвердити категорії»
     expect(await counter(space)).toBe(0);
   });
 
+  it("BUD-12@PoC FR 15: the progress counts transactions, not groups — a group of 3 confirmed out of 5 leaves 2", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const silpo: Tx[] = [];
+    for (let i = 0; i < 3; i++)
+      silpo.push(await add(space, account, `-${10 + i}.00`, { counterparty: "Сільпо" }));
+    const others = [await add(space, account, "-1.00"), await add(space, account, "-2.00")];
+    await queue(
+      space,
+      [...silpo, ...others].map((t) => t.id),
+    );
+    expect(await counter(space)).toBe(5);
+    await confirmAll(space, { kind: "ids", ids: silpo.map((t) => t.id) });
+    // «3 з 5 · лишилось 2»: the counter and the queue count transactions.
+    expect(await counter(space)).toBe(2);
+    expect((await queueList(space)).count).toBe(2);
+  });
+
   it("BUD-12@PoC FR 7: a card changed after the selection's read is not confirmed over the change (version check)", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
