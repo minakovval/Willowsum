@@ -214,14 +214,42 @@ export function createWorker(options: WorkerOptions): Worker {
     const start = passes++ % households.length;
     const ordered = [...households.slice(start), ...households.slice(0, start)];
     let handled = 0;
+    // A failure of one module × space step (its outbox, its job store) is logged and the pass goes on to the
+    // others (ARC-02 FR 2): one space cannot keep the rest of the system waiting. Only when every step failed —
+    // the database is away, not one space — does the pass fail as a whole, as before (`worker.pass_failed`).
+    let steps = 0;
+    let failures = 0;
+    let first: { error: unknown } | undefined;
+    const step = async (module: string, work: () => Promise<number>) => {
+      steps += 1;
+      try {
+        handled += await work();
+      } catch (error) {
+        failures += 1;
+        first ??= { error };
+        // The module and the error class only: never the space, the message or the job data.
+        logEvent("worker.space_failed", "warn", { "ws.module": module, "error.type": errorClass(error) });
+      }
+    };
     for (const { store, handlers } of byModule.values()) {
-      const available = options.moduleAvailable ? await options.moduleAvailable(store.module) : true;
+      let available: boolean;
+      try {
+        available = options.moduleAvailable ? await options.moduleAvailable(store.module) : true;
+      } catch (error) {
+        // The kill switch cannot be read: no job of the module is taken (the safe side); its events still go.
+        logEvent("worker.module_failed", "warn", {
+          "ws.module": store.module,
+          "error.type": errorClass(error),
+        });
+        available = false;
+      }
       for (const householdId of ordered) {
         if (stopped) return handled;
-        handled += await dispatch(store, householdId);
-        if (available) handled += await claimAndRun(store, handlers, householdId);
+        await step(store.module, () => dispatch(store, householdId));
+        if (available) await step(store.module, () => claimAndRun(store, handlers, householdId));
       }
     }
+    if (first && failures === steps) throw first.error;
     return handled;
   }
 
