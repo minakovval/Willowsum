@@ -23,8 +23,10 @@ which reviews a PR gets («Review tiers» below).
    that is only validated (infrastructure as code without apply, KMS and access rules described as code),
    CI check jobs and the local environment need no approval (owner, 2026-11-06). If the owner commented
    «stop» or asked a question on the PR, do not merge until they answer. Production releases still need the
-   owner's approval. Never push to `main` directly: the free GitHub plan cannot block it, so the process
-   is the protection.
+   owner's approval. Never push to `main` directly. The repository is public, so GitHub can enforce this (branch
+   protection: changes only through a PR, required checks); the owner switches it on
+   ([browser task 02](../../docs/ops/browser-tasks/02-main-protection.md)). Until then, and for whatever
+   the protection does not cover, the process is the protection.
    Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the
    owner it is merged. **Merge on Ready, follow up separately** (owner, 2026-11-13): when both verdicts are Ready
    and only non-blocking findings remain, the lead merges; those items go to a follow-up PR or issue, not into
