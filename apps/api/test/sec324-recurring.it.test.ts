@@ -6,6 +6,7 @@ import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { createTransactionCategories } from "../src/modules/categorization/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
@@ -213,6 +214,8 @@ beforeAll(async () => {
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
+          transactionCategories: createTransactionCategories(db.databases.for("categorization")),
+          fx: createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW }),
         }),
         allowedOrigins: new Set([WEB]),
       }),
@@ -454,6 +457,8 @@ describe("sec324: the merchant lock holds a second decision until the first comm
       audit,
       clock: { now: () => NOW },
       newId: randomUUID,
+      transactionCategories: createTransactionCategories(db.databases.for("categorization")),
+      fx: createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW }),
     });
     const {
       items: [proposal],
