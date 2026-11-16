@@ -27,6 +27,7 @@ CREATE TABLE limits (
   budget_id uuid NOT NULL,
   category_id uuid NOT NULL,
   amount numeric(38, 18) NOT NULL CHECK (amount >= 0),
+  currency text NOT NULL CHECK (currency ~ '^[A-Z][A-Z0-9]{2,9}$'),
   PRIMARY KEY (household_id, budget_id, category_id),
   FOREIGN KEY (household_id, budget_id) REFERENCES budgets (household_id, id) ON DELETE CASCADE
 );

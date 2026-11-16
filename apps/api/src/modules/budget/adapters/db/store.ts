@@ -59,9 +59,8 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
     },
     async limits(householdId, budgetId) {
       const { rows } = await q.query<{ category_id: string; amount: string; currency: string }>(
-        `SELECT l.category_id, l.amount::text AS amount, b.currency FROM limits l
-           JOIN budgets b ON b.household_id = l.household_id AND b.id = l.budget_id
-          WHERE l.household_id = $1 AND l.budget_id = $2 ORDER BY l.category_id`,
+        `SELECT category_id, amount::text AS amount, currency FROM limits
+          WHERE household_id = $1 AND budget_id = $2 ORDER BY category_id`,
         [householdId, budgetId],
       );
       return rows.map((r) => ({ categoryId: r.category_id, amount: Money.of(r.amount, r.currency) }));
@@ -75,9 +74,9 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
         ]);
       else
         await q.query(
-          `INSERT INTO limits (household_id, budget_id, category_id, amount) VALUES ($1, $2, $3, $4)
+          `INSERT INTO limits (household_id, budget_id, category_id, amount, currency) VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (household_id, budget_id, category_id) DO UPDATE SET amount = EXCLUDED.amount`,
-          [householdId, budgetId, categoryId, amount.toDecimalString()],
+          [householdId, budgetId, categoryId, amount.toDecimalString(), amount.currency],
         );
     },
     async accountChoices(householdId) {
