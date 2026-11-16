@@ -189,7 +189,7 @@ afterEach(() => {
 });
 
 describe("BUD-19@PoC: «Борги → План погашення»", () => {
-  it("BUD-19@PoC AC1: «Visa» 5 000 € at 24 % with 250 € — «Погашення через 26 міс.» with its month, 1 449,37 € of interest, from the liability", async () => {
+  it("BUD-19@PoC AC1, FR 1 (server part): «Visa» 5 000 € at 24 % with 250 € — «Погашення через 26 міс.» with its month, 1 449,37 € of interest, from the liability", async () => {
     const space = await newSpace();
     const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
     const [d] = await debts(space);
@@ -322,7 +322,7 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
     expect((await debts(space))[0]).toMatchObject({ termsMissing: true, monthlyPayment: null });
   });
 
-  it("BUD-19@PoC AC6: a plan at 20 % instead of 24 % keeps 24 % in the liability; the plan keeps 20 % and its result; audited", async () => {
+  it("BUD-19@PoC AC6, FR 2: a plan at 20 % instead of 24 % keeps 24 % in the liability; the plan keeps 20 % and its result; audited", async () => {
     const space = await newSpace();
     const visa = await loan(space, "Visa", "5000.00", "24", "250.00");
     const res = await call(space, "PUT", `/v1/debts/${visa}/plan`, { annualRate: "20" });
