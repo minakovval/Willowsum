@@ -31,6 +31,8 @@ import { writeCategory, type CategorizationTx, type CategoryFactsPort } from "./
 export interface StoredRule extends RankedRule {
   readonly position: number;
   readonly version: number;
+  /** When the rule was saved (UTC, microseconds, as `RuleInputRow.createdAt`); absent on a rule not read back yet. */
+  readonly createdAt?: string;
 }
 
 /** A rule as written: conditions, «Лише для рахунків», category, «Увімкнено». */
@@ -78,6 +80,8 @@ export interface RuleInputRow {
   readonly currency: string;
   readonly counterparty: string | null;
   readonly eligible: boolean;
+  /** When the transaction was saved (UTC, microseconds). */
+  readonly createdAt?: string;
 }
 
 export interface RuleDeps {
@@ -87,6 +91,8 @@ export interface RuleDeps {
   /** The shown merchant name of each counterparty that has one (module merchants' directory). */
   readonly merchants: {
     names(householdId: string, counterparties: readonly string[]): Promise<ReadonlyMap<string, string>>;
+    /** As `names`, read only: a description seen for the first time has no merchant yet and is absent. */
+    knownNames(householdId: string, counterparties: readonly string[]): Promise<ReadonlyMap<string, string>>;
   };
   readonly inputs: {
     inputs(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, RuleInputRow>>;
@@ -194,7 +200,11 @@ function ruleChanges(before: StoredRule | null, after: StoredRule): AuditHandOff
   return [...conditionsAudit(before, after), ...plain.filter((c) => c.before !== c.after)];
 }
 
-function ruleAudit(actorAccountId: string, before: StoredRule | null, after: StoredRule): AuditHandOff {
+function ruleAudit(
+  actorAccountId: string | null,
+  before: StoredRule | null,
+  after: StoredRule,
+): AuditHandOff {
   return {
     key: `categorization.rule:${after.id}:${after.version}`,
     actorAccountId,
@@ -203,6 +213,30 @@ function ruleAudit(actorAccountId: string, before: StoredRule | null, after: Sto
     action: before === null ? "create" : "update",
     changes: ruleChanges(before, after),
   };
+}
+
+/**
+ * FR 10 («Категорію об'єднано»): the rules of `sourceId` take `targetId`, under the space's rules lock (a change by
+ * hand then reads the version after this one), and each rewritten rule has a system entry in the audit log
+ * (`actorAccountId` null). Returns how many.
+ */
+export async function moveRulesToCategory(
+  tx: Pick<RulesTx, "lockRules" | "rules" | "moveRules" | "enqueueAudit">,
+  householdId: string,
+  sourceId: string,
+  targetId: string,
+): Promise<number> {
+  await tx.lockRules(householdId);
+  const before = new Map(
+    (await tx.rules(householdId)).filter((r) => r.categoryId === sourceId).map((r) => [r.id, r]),
+  );
+  if (before.size === 0) return 0;
+  const moved = await tx.moveRules(householdId, sourceId, targetId);
+  for (const after of await tx.rules(householdId)) {
+    const was = before.get(after.id);
+    if (was && after.version !== was.version) await tx.enqueueAudit(householdId, ruleAudit(null, was, after));
+  }
+  return moved;
 }
 
 /** «Нове правило» (FR 4): the lowest priority — the last position; at most `RULES_MAX` in a space. */
@@ -356,11 +390,14 @@ async function namesOf(
   deps: Pick<RuleDeps, "merchants">,
   householdId: string,
   rows: readonly RuleInputRow[],
+  readOnly = false,
 ) {
   const counterparties = [...new Set(rows.flatMap((r) => (r.counterparty === null ? [] : [r.counterparty])))];
   return counterparties.length === 0
     ? new Map<string, string>()
-    : deps.merchants.names(householdId, counterparties);
+    : readOnly
+      ? deps.merchants.knownNames(householdId, counterparties)
+      : deps.merchants.names(householdId, counterparties);
 }
 
 /** «Показати» (FR 7, AC2, AC12): at most this many of the matching transactions are listed, newest first. */
@@ -386,7 +423,8 @@ export async function matchingTransactions(
   scanMax: number,
 ): Promise<Matches> {
   const { items, more } = await deps.inputs.candidates(householdId, scanMax);
-  const names = await namesOf(deps, householdId, items);
+  // Read permission: no merchant is born here; a merchant not known yet matches no condition on a merchant.
+  const names = await namesOf(deps, householdId, items, true);
   const matching = items.filter((row) => ruleMatches(matcher, subjectOf(row, names)));
   const totals = new Map<string, Money>();
   for (const row of matching) {
@@ -416,7 +454,12 @@ export async function applyRulesToNew(
 ): Promise<"applied" | "none" | "conflict"> {
   const row = (await deps.inputs.inputs(householdId, [transactionId])).get(transactionId);
   if (!row || !row.eligible) return "none";
-  const rules = (await rulesTx.rules(householdId)).filter((r) => r.enabled);
+  // FR 7: a rule saved after the transaction is not its rule, even when this job runs late (a retry, the daily
+  // recovery of a dead job): past transactions change only through «Застосувати до N наявних…».
+  const rules = (await rulesTx.rules(householdId)).filter(
+    (r) =>
+      r.enabled && (r.createdAt === undefined || row.createdAt === undefined || r.createdAt <= row.createdAt),
+  );
   if (rules.length === 0) return "none";
   const subject = subjectOf(row, await namesOf(deps, householdId, [row]));
   const lookups = memoized(deps);

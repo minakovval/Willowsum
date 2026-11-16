@@ -51,6 +51,7 @@ let spaces: HouseholdSpaces;
 let audit: AuditLog;
 let app: ReturnType<typeof buildServer>;
 const off = new Set<string>();
+const isEnabled = async (_householdId: string, flag: string) => !off.has(flag);
 
 interface Space {
   readonly accountId: string;
@@ -168,10 +169,26 @@ async function createRule(space: Space, body: Record<string, unknown>): Promise<
   return res.json() as RuleBody;
 }
 
+async function auditCount(space: Space, type: string, id: string): Promise<number> {
+  return (await audit.entriesFor(space.householdId, { type, id })).length;
+}
+
 async function listRules(space: Space): Promise<RuleBody[]> {
   const res = await call(space, "GET", "/v1/category-rules");
   expect(res.statusCode, res.body).toBe(200);
   return res.json().items as RuleBody[];
+}
+
+/** The merchants of the space's descriptions are born where the space reads them (the job, the list); «Показати» only reads. */
+async function knowMerchants(space: Space): Promise<void> {
+  const { rows } = await db.owner.query<{ counterparty: string }>(
+    `SELECT DISTINCT counterparty FROM transactions.transactions WHERE household_id = $1 AND counterparty IS NOT NULL`,
+    [space.householdId],
+  );
+  await createMerchantDirectory(db.databases.for("merchants")).shownMerchants(
+    space.householdId,
+    rows.map((r) => r.counterparty),
+  );
 }
 
 async function matches(space: Space, body: Record<string, unknown>) {
@@ -195,7 +212,10 @@ async function runWorker(householdId: string): Promise<void> {
       [householdId],
     );
     if (Number(rows[0].n) === 0) return;
-    const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
+    const worker = createWorker({
+      ...workerQueues(db.databases, { isEnabled }),
+      households: async () => [householdId],
+    });
     try {
       await worker.tick();
       await worker.idle();
@@ -226,7 +246,6 @@ beforeAll(async () => {
   const lookup = createTransactionLookup(db.databases.for("transactions"));
   const ledger = createLedger(db.databases.for("ledger"));
   const base = fakeFlags();
-  const isEnabled = async (_householdId: string, flag: string) => !off.has(flag);
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>
@@ -434,6 +453,7 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
       `SELECT count(*) AS n FROM categorization.transaction_categories WHERE household_id = $1`,
       [space.householdId],
     );
+    await knowMerchants(space);
     const found = await matches(space, {
       conditions: [merchantIs("Adobe"), amountOver("50")],
       accountIds: [],
@@ -463,6 +483,7 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
     const account = await createAccount(space);
     const t = await purchase(space, account, "SYNTH STREAMING 4411", "-12.00");
     await copies(space.householdId, t, 1199);
+    await knowMerchants(space);
     const many = await matches(space, { conditions: [merchantIs("Synth Streaming")] });
     expect(many).toMatchObject({
       count: SCAN_MAX,
@@ -478,10 +499,34 @@ describe("BUD-14@PoC FR 7: «Показати» — the existing transactions a 
       await purchase(small, smallAccount, "SYNTH STREAMING 4411", "-12.00"),
       899,
     );
+    await knowMerchants(small);
     expect(await matches(small, { conditions: [merchantIs("Synth Streaming")] })).toMatchObject({
       count: 900,
       truncated: false,
     });
+  });
+
+  it("BUD-14@PoC FR 7, SEC: «Показати» needs only read permission and so creates no merchant; an unknown merchant is no match", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    const count = async () =>
+      Number(
+        (
+          await db.owner.query(`SELECT count(*) AS n FROM merchants.merchants WHERE household_id = $1`, [
+            space.householdId,
+          ])
+        ).rows[0].n,
+      );
+    const before = await count();
+    const found = await matches(space, { conditions: [merchantIs("Adobe")] });
+    expect(found.count).toBe(0);
+    // The description is matched as it is, and still nothing is born.
+    expect(
+      (await matches(space, { conditions: [{ field: "description", operator: "contains", value: "ADOBE" }] }))
+        .count,
+    ).toBe(1);
+    expect(await count()).toBe(before);
   });
 });
 
@@ -607,6 +652,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     // Enabling changes no past transaction (FR 7); «Показати» lists the one it would.
     await runWorker(space.householdId);
     expect(await categoryOf(space, t)).toMatchObject({ source: "none" });
+    await knowMerchants(space);
     const found = await matches(space, { conditions: [merchantIs("Netflix")] });
     expect(found.items.map((i) => i.transactionId)).toEqual([t]);
   });
@@ -636,6 +682,31 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     const t = await purchase(other, await createAccount(other), "ADOBE *CREATIVE CLOUD");
     await runWorker(other.householdId);
     expect(await categoryOf(other, t)).toMatchObject({ categoryId: null, source: "none" });
+  });
+  it("BUD-14@PoC FR 7: a rule created after a transaction is never applied to it, even when its job runs late (retry, daily recovery)", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const subscriptions = await category(space, "Підписки");
+    // The transaction exists before the rule; its `transactions.created` job has not run yet (worker down, retry).
+    const past = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    await createRule(space, { conditions: [merchantIs("Adobe")], categoryId: subscriptions });
+    await runWorker(space.householdId);
+    expect(await categoryOf(space, past)).toMatchObject({ categoryId: null, source: "none" });
+    const fresh = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    await runWorker(space.householdId);
+    expect(await categoryOf(space, fresh)).toMatchObject({ categoryId: subscriptions, source: "rule" });
+  });
+
+  it("BUD-14@PoC FR 8, CICD-06: with the release flag off the job of a new transaction applies no rule", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const subscriptions = await category(space, "Підписки");
+    await createRule(space, { conditions: [merchantIs("Adobe")], categoryId: subscriptions });
+    const t = await purchase(space, account, "ADOBE *CREATIVE CLOUD");
+    off.add(FLAG);
+    await runWorker(space.householdId);
+    expect(await categoryOf(space, t)).toMatchObject({ categoryId: null, source: "none" });
+    expect(await auditCount(space, "categorization.transaction-category", t)).toBe(0);
   });
 });
 
@@ -677,6 +748,44 @@ describe("BUD-14@PoC FR 10: «Потребує уваги» and a merge of categ
     expect(await listRules(space)).toEqual([
       expect.objectContaining({ id: rule.id, categoryId: cafes, needsAttention: null }),
     ]);
+  });
+  it("BUD-14@PoC FR 10, SEC: a merge of categories takes the rules lock and writes a system audit entry for each rewritten rule", async () => {
+    const space = await newSpace();
+    const coffee = await addCategory(space, "Кава синт.");
+    const cafes = await category(space, "Кафе і ресторани");
+    const rule = await createRule(space, { conditions: [merchantIs("Synth Coffee")], categoryId: coffee });
+    const merged = await call(space, "POST", `/v1/categories/${coffee}/merge`, { targetId: cafes });
+    expect(merged.statusCode, merged.body).toBe(200);
+    // A change of the space's rules is in progress (it holds the lock): the merge's rewrite waits for it.
+    await db.owner.query("BEGIN");
+    try {
+      await db.owner.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('categorization.rules:' || $1, 0))`,
+        [space.householdId],
+      );
+      const running = runWorker(space.householdId);
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      const { rows } = await db.owner.query(
+        `SELECT category_id, version FROM categorization.rules WHERE id = $1`,
+        [rule.id],
+      );
+      expect(rows[0]).toMatchObject({ category_id: coffee, version: 1 });
+      await db.owner.query("COMMIT");
+      await running;
+    } catch (error) {
+      await db.owner.query("ROLLBACK");
+      throw error;
+    }
+    const entries = await audit.entriesFor(space.householdId, { type: "categorization.rule", id: rule.id });
+    expect(entries.map((e) => e.action)).toEqual(["create", "update"]);
+    expect(entries[1]).toMatchObject({ actorKind: "system" });
+    expect(entries[1]!.changes).toEqual([
+      expect.objectContaining({ field: "categoryId", before: coffee, after: cafes }),
+    ]);
+    await runWorker(space.householdId);
+    expect(
+      (await audit.entriesFor(space.householdId, { type: "categorization.rule", id: rule.id })).length,
+    ).toBe(2);
   });
 });
 

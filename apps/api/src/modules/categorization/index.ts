@@ -70,6 +70,10 @@ export function categorizationRulePorts(deps: {
         const shown = await deps.merchants.shownMerchants(householdId, counterparties);
         return new Map([...shown].map(([counterparty, m]) => [counterparty, m.name]));
       },
+      async knownNames(householdId, counterparties) {
+        const known = await deps.merchants.knownMerchants(householdId, counterparties);
+        return new Map([...known].map(([counterparty, m]) => [counterparty, m.name]));
+      },
     },
     inputs: deps.inputs,
   };
@@ -118,10 +122,13 @@ export function createCategorizationWorkerQueue(
   audit: Pick<AuditLog, "record">,
   categories: Pick<CategoryDirectory, "category">,
   rules: CategorizationRulePorts,
+  /** The flag runtime (CICD-06): without it the rules apply to no new transaction (fails closed). */
+  flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
 ): WorkerQueue {
   return categorizationWorkerQueue(db, categorizationAudit(audit), categories, {
     deps: { ...rules, categories },
     audit,
+    enabled: async (householdId) => (flags ? flags.isEnabled(householdId, "categorization.rules") : false),
   });
 }
 

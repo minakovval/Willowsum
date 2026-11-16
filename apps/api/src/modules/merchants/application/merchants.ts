@@ -106,13 +106,39 @@ export async function shownMerchants(
   }
   const born = new Map([...normalized.values()].map((n) => [n.key, n]));
   await tx.ensure(householdId, [...born.values()]);
-  const byKey = await tx.byKeys(householdId, [...born.keys()]);
+  return shownOf(tx, householdId, normalized);
+}
+
+/**
+ * As `shownMerchants`, but only reads: a description seen for the first time has no merchant and is absent (for a
+ * read behind a read permission, BUD-14 FR 7 «Показати»).
+ */
+export async function knownMerchants(
+  tx: MerchantsTx,
+  householdId: string,
+  counterparties: readonly string[],
+): Promise<ReadonlyMap<string, Merchant>> {
+  const normalized = new Map<string, NormalizedMerchant>();
+  for (const counterparty of new Set(counterparties)) {
+    const n = normalizeDescription(counterparty);
+    if (n !== null) normalized.set(counterparty, n);
+  }
+  return shownOf(tx, householdId, normalized);
+}
+
+async function shownOf(
+  tx: MerchantsTx,
+  householdId: string,
+  normalized: ReadonlyMap<string, NormalizedMerchant>,
+): Promise<ReadonlyMap<string, Merchant>> {
+  const byKey = await tx.byKeys(householdId, [...new Set([...normalized.values()].map((n) => n.key))]);
   const roots = await tx.byIds(householdId, [
     ...new Set([...byKey.values()].flatMap((m) => (m.mergedInto === null ? [] : [m.mergedInto]))),
   ]);
   const shown = new Map<string, Merchant>();
   for (const [counterparty, n] of normalized) {
-    const own = byKey.get(n.key)!;
+    const own = byKey.get(n.key);
+    if (own === undefined) continue;
     shown.set(counterparty, own.mergedInto === null ? own : (roots.get(own.mergedInto) ?? own));
   }
   return shown;

@@ -387,7 +387,7 @@ lifecycle.onStop(() => server.close());
 // It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
 if (config.role === "worker") {
   const worker = createWorker({
-    ...workerQueues(databases),
+    ...workerQueues(databases, flags),
     households: () => spaces.spaceIds(),
     moduleAvailable: (module) => flags.isModuleAvailable(module),
   });

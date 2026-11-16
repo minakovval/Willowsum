@@ -26,6 +26,7 @@ export {
   listRules,
   matchingTransactions,
   moveRule,
+  moveRulesToCategory,
   updateRule,
   MATCHES_LISTED,
   type AuditHandOff,

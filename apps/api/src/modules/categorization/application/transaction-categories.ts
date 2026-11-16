@@ -184,7 +184,8 @@ export async function applyMerge(
 ): Promise<number> {
   const source = await categories.category(householdId, event.sourceId);
   const target = source?.mergedInto ?? event.targetId;
-  // BUD-14 FR 10: the rules of the merged category are rewritten to the target too.
+  // BUD-14 FR 10: the rules of the merged category are rewritten to the target too
+  // (`moveRulesToCategory`: under the rules lock, with an audit entry per rule).
   await rules?.moveRules(householdId, event.sourceId, target);
   return tx.move(householdId, event.sourceId, target);
 }

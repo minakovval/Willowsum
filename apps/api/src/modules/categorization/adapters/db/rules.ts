@@ -23,6 +23,7 @@ interface Row {
   category_id: string;
   enabled: boolean;
   version: number;
+  created_at: string;
 }
 
 const toJson = (conditions: readonly RuleCondition[]): StoredCondition[] =>
@@ -49,6 +50,7 @@ const stored = (r: Row): StoredRule => ({
   categoryId: r.category_id,
   enabled: r.enabled,
   version: r.version,
+  createdAt: r.created_at,
 });
 
 export function rulesTx(q: HouseholdQueryRunner): RulesTx {
@@ -60,7 +62,8 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     },
     async rules(householdId) {
       const { rows } = await q.query<Row>(
-        `SELECT id, position, conditions, account_ids, category_id, enabled, version FROM rules
+        `SELECT id, position, conditions, account_ids, category_id, enabled, version,
+                to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at FROM rules
           WHERE household_id = $1 ORDER BY position`,
         [householdId],
       );

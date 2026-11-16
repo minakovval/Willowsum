@@ -10,6 +10,7 @@ import {
   applyHandOff,
   applyMerge,
   applyRulesToNew,
+  moveRulesToCategory,
   type CategoryAudit,
   type CategoryFactsPort,
   type RuleDeps,
@@ -41,7 +42,12 @@ export function categorizationWorkerQueue(
   db: ModuleDatabase,
   audit: CategoryAudit,
   categories: CategoryFactsPort,
-  rules: { readonly deps: RuleDeps; readonly audit: RulesAuditLog },
+  rules: {
+    readonly deps: RuleDeps;
+    readonly audit: RulesAuditLog;
+    /** The release flag of the rules (CICD-06): off — a new transaction takes nothing from a rule. */
+    readonly enabled: (householdId: string) => Promise<boolean>;
+  },
 ): WorkerQueue {
   return {
     store: postgresJobStore(db),
@@ -56,12 +62,17 @@ export function categorizationWorkerQueue(
       defineJobHandler({
         job: CATEGORY_MERGED_JOB,
         run: async (job, q) => {
-          await applyMerge(categorizationTx(q), categories, job.householdId, job.payload, rulesTx(q));
+          await applyMerge(categorizationTx(q), categories, job.householdId, job.payload, {
+            moveRules: (householdId, sourceId, targetId) =>
+              moveRulesToCategory(rulesTx(q), householdId, sourceId, targetId),
+          });
         },
       }),
       defineJobHandler({
         job: TRANSACTION_CREATED_JOB,
         run: async (job, q) => {
+          // The routes answer 404 with the flag off, so nobody could switch a rule off: no rule applies either.
+          if (!(await rules.enabled(job.householdId))) return;
           const outcome = await applyRulesToNew(
             categorizationTx(q),
             rulesTx(q),
