@@ -22,9 +22,9 @@ import { createTransferMatchingServices } from "../src/modules/transfer-matching
 /**
  * FIN-03@PoC FR 1, FR 28 (issue #437), through the real API on a real PostgreSQL: «Переказ між рахунками» of «Нова
  * транзакція» — a transfer between two own accounts in one request (`POST /v1/transactions/transfers`): both legs and
- * one journal event or nothing, in one currency and in two (the official rate of the date, FR 8), idempotent
- * (ARC-07 FR 4), audited (FR 20), the space's own (AC11) and never on a closed account. Every name and amount is
- * synthetic; the session is the test's principal header; the clock is fixed.
+ * one journal event or nothing, in one currency and in two (the official rate of the date, FR 8), audited (FR 20),
+ * the space's own (AC11) and never on a closed account; idempotent by the Idempotency-Key (ARC-07@PoC FR 4). Every
+ * name and amount is synthetic; the session is the test's principal header; the clock is fixed.
  */
 const WEB = "http://localhost:5173";
 const TODAY = "2026-10-17";
