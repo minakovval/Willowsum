@@ -38,6 +38,7 @@ function fakeDeps(calls: string[]): ErasureDeps {
     categorization: erase("categorization"),
     merchants: erase("merchants"),
     goals: erase("goals"),
+    recurring: erase("recurring"),
     debtPayoff: erase("debt-payoff"),
     liabilities: erase("liabilities"),
     ledger: erase("ledger"),
@@ -53,7 +54,7 @@ function fakeDeps(calls: string[]): ErasureDeps {
 }
 
 describe("NFR-12@PoC FR 3 (#296 no. 11, #306 no. 4): the queue consumers are swept after the last step", () => {
-  it("NFR-12@PoC FR 3: after the space's key the consumers of the queues (categorization, goals) are erased once more, the log last", async () => {
+  it("NFR-12@PoC FR 3: after the space's key the consumers of the queues (categorization, goals, recurring) are erased once more, the log last", async () => {
     const calls: string[] = [];
     await runErasure(fakeDeps(calls), "00000000-0000-4000-8000-0000000000cc");
     const after = calls.slice(calls.indexOf("space") + 1);
@@ -62,6 +63,8 @@ describe("NFR-12@PoC FR 3 (#296 no. 11, #306 no. 4): the queue consumers are swe
       "categorization",
       "step:goals.records:erasure-sweep",
       "goals",
+      "step:recurring.records:erasure-sweep",
+      "recurring",
       "step:audit.log:erasure-sweep",
       "audit",
     ]);
