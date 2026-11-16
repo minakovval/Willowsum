@@ -38,9 +38,9 @@ const categorySchema = z.object({
   source: z.enum(CATEGORY_SOURCES),
   /**
    * BUD-14 FR 8, FR 13: «за правилом №…» — the rule that set the category (`source` «rule») and its place in the order
-   * now; null — no rule (or it is no longer there).
+   * now; absent — no rule (or it is no longer there).
    */
-  rule: z.object({ id: z.uuid(), position: z.number().int() }).nullable(),
+  rule: z.object({ id: z.uuid(), position: z.number().int() }).optional(),
 });
 
 const present = (
@@ -50,7 +50,7 @@ const present = (
   transactionId: row.transactionId,
   categoryId: row.categoryId,
   source: row.source,
-  rule: row.ruleId !== null && position !== null ? { id: row.ruleId, position } : null,
+  ...(row.ruleId !== null && position !== null ? { rule: { id: row.ruleId, position } } : {}),
 });
 
 /** Scoped members: «Транзакції» are closed by the visibility policy's default (00-general «Область доступу»). */

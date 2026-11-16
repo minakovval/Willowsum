@@ -14447,11 +14447,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
-                        rule: {
+                        rule?: {
                             /** Format: uuid */
                             id: string;
                             position: number;
-                        } | null;
+                        };
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */
@@ -14560,11 +14560,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
-                        rule: {
+                        rule?: {
                             /** Format: uuid */
                             id: string;
                             position: number;
-                        } | null;
+                        };
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */

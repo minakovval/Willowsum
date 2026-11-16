@@ -52,7 +52,7 @@ BUD-14@PoC b1) (хвиля 2, рядок 23 — серверна частина,
     `TRANSACTION_IN_TRANSFER`, розділена — 409 `TRANSACTION_SPLIT`, злитий дубль — 409 `TRANSACTION_MERGED`; рядок
     вставив одночасно інший запит — 409 `VERSION_CONFLICT`. Без змін — нічого.
   - `GET /v1/transactions/{transactionId}/category` також повертає `rule` (BUD-14 п. 13: `{ id, position }` правила, що
-    задало категорію зі джерелом `rule`; інакше null).
+    задало категорію зі джерелом `rule`; інакше поля немає).
 - Правила категорій (BUD-14 b1; прапорець випуску і ключ функції `categorization.rules` «правила», потребує
   `transactions.merchants`; дозвіл читання `household.data.read`, зміни — `household.data.write`; учасник з областю —
   404; правило, категорія чи рахунок іншого простору — як неіснуючі). Правило: `id`, `position` (1 — найвищий

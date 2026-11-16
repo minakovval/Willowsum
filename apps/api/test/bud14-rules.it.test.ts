@@ -151,7 +151,7 @@ async function categoryOf(space: Space, transactionId: string) {
   return res.json() as {
     categoryId: string | null;
     source: string;
-    rule: { id: string; position: number } | null;
+    rule?: { id: string; position: number };
   };
 }
 
@@ -504,7 +504,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     const rule = await createRule(space, { conditions: [merchantIs("Adobe")], categoryId: subscriptions });
     await runWorker(space.householdId);
     for (const t of past)
-      expect(await categoryOf(space, t)).toMatchObject({ categoryId: other, source: "manual", rule: null });
+      expect(await categoryOf(space, t)).toMatchObject({ categoryId: other, source: "manual" });
     expect(await categoryOf(space, uncategorized)).toMatchObject({ categoryId: null, source: "none" });
 
     const fresh = await purchase(space, account, "ADOBE *CREATIVE CLOUD", "-59.99", "2026-10-16");
@@ -601,7 +601,7 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
     });
     const t = await purchase(space, account, "NETFLIX.COM 866-579", "-13.99");
     await runWorker(space.householdId);
-    expect(await categoryOf(space, t)).toMatchObject({ categoryId: null, source: "none", rule: null });
+    expect(await categoryOf(space, t)).toMatchObject({ categoryId: null, source: "none" });
     const on = await call(space, "PATCH", `/v1/category-rules/${r2.id}`, { enabled: true });
     expect(on.statusCode, on.body).toBe(200);
     // Enabling changes no past transaction (FR 7); «Показати» lists the one it would.
@@ -622,7 +622,8 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
       (await call(space, "PUT", `/v1/transactions/${t}/category`, { categoryId: groceries })).statusCode,
     ).toBe(200);
     await runWorker(space.householdId);
-    expect(await categoryOf(space, t)).toMatchObject({ categoryId: groceries, source: "manual", rule: null });
+    expect(await categoryOf(space, t)).toMatchObject({ categoryId: groceries, source: "manual" });
+    expect((await categoryOf(space, t)).rule).toBeUndefined();
   });
 
   it("BUD-14@PoC FR 8: a rule is never applied to a transaction of another space", async () => {
