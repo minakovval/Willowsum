@@ -59,9 +59,10 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
     (`getRecurringPayment`) — платіж: поля вище, `expectedAmount`, `nextDate` (наступна дата розкладу не раніше
     сьогодні; null після дати завершення), `merchantId` (лише підтвердженої пропозиції), `source` (`proposal` /
     `manual`), `createdOn`, `version`.
-  Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає (мерчант став платежем, серію відхилено або транзакції
-  змінилися); нічого не записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
-  (`pg_advisory_xact_lock`), а унікальний індекс `payments_by_merchant` — друга лінія.
+    Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає, а рішення щодо її мерчанта простір ухвалював (мерчант став
+    платежем, серію відхилено); ключ, якого простір не знає (в тому числі ключ іншого простору), — 404 (AC9); нічого не
+    записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
+    (`pg_advisory_xact_lock`), а унікальний індекс `payments_by_merchant` — друга лінія.
 - `createRecurringServices({ history, merchants, accounts, categories, audit, clock, newId })` → `RecurringServices` —
   порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions,
   `MerchantDirectory` модуля merchants, `AccountDirectory` модуля accounts (вид і стан рахунку), `CategoryDirectory`
@@ -75,7 +76,7 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 - `createRecurringErasure(db)` → `eraseHousehold(householdId)` → `{ payments, rejections, jobs }` — лише для
   `data-erasure` (крок `recurring.records`).
 - `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `isFresh(lastDate,
-  frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
+frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
   (розклад: місяці від дати прив'язки, день, якого в місяці немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`;
   типи `Charge`, `Series`, `Frequency`.
 
@@ -108,12 +109,12 @@ BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропон
 
 Схема `recurring`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Усі під політикою простору.
 
-| Таблиця | Що |
-| --- | --- |
-| `payments` | Регулярний платіж: назва, тип, частота, очікувана сума і валюта, дата прив'язки, дата завершення, `category_id`, `account_id`, `merchant_id` (непрозорі ідентифікатори інших модулів), «Підписка», «Змінна сума», `source`, `created_on`, версія. Один підтверджений платіж на мерчанта (`0001_payments.sql`) |
-| `rejections` | «Не регулярний»: мерчант, тип, частота, «змінна», очікувана сума й валюта, списання серії (`transaction_ids`) (`0001_payments.sql`) |
-| `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
-| `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `recurring.hand-off`, `recurring.category-merged`; подій модуль не публікує |
+| Таблиця                 | Що                                                                                                                                                                                                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `payments`              | Регулярний платіж: назва, тип, частота, очікувана сума і валюта, дата прив'язки, дата завершення, `category_id`, `account_id`, `merchant_id` (непрозорі ідентифікатори інших модулів), «Підписка», «Змінна сума», `source`, `created_on`, версія. Один підтверджений платіж на мерчанта (`0001_payments.sql`) |
+| `rejections`            | «Не регулярний»: мерчант, тип, частота, «змінна», очікувана сума й валюта, списання серії (`transaction_ids`) (`0001_payments.sql`)                                                                                                                                                                           |
+| `idempotency_keys`      | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно)                                                                                                                                                                                                                          |
+| `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `recurring.hand-off`, `recurring.category-merged`; подій модуль не публікує                                                                                                                                                               |
 
 Синтетичні дані: `synthetic.ts` (3 платежі на простір — вручну і з пропозицій, одна відхилена серія, виконана задача
 передачі).

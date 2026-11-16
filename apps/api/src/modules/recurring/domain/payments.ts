@@ -88,7 +88,7 @@ export function checkPayment(
   const issues: PaymentIssue[] = [];
   const name = input.name.trim();
   if (name.length === 0) issues.push({ field: "name", issue: "required" });
-  else if ([...name].length > NAME_MAX || /[\r\n]/.test(name))
+  else if ([...name].length > NAME_MAX || /[\p{Cc}\u2028\u2029]/u.test(name))
     issues.push({ field: "name", issue: "too_long" });
   const expected = parsePositiveAmount(input.amount.amount, input.amount.currency);
   if (expected === null) issues.push({ field: "amount", issue: "invalid" });
