@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ROLES, confirmationLink, parseLocalDevArgs, roleEnv } from "./local-dev.ts";
+import {
+  ROLES,
+  assertLocalServer,
+  confirmationLink,
+  parseLocalDevArgs,
+  roleEnv,
+  webEnv,
+} from "./local-dev.ts";
 
 const PW = "0123456789abcdef0123456789abcdef0123456789abcdef";
 const ADMIN = "postgres://admin:supersecret@127.0.0.1:5432/ws_dev";
@@ -57,5 +64,36 @@ describe("CICD-04 security: pnpm local:dev touches only a local server", () => {
       "postgres://u:p@0.0.0.0/x",
     ])
       expect(() => assertLocal!(bad)).toThrow(/not a local/);
+  });
+});
+
+describe("CICD-04 security: the guard looks at where pg really connects", () => {
+  it("rejects a host or hostaddr query that overrides the authority, and unsafe socket forms", () => {
+    for (const bad of [
+      "postgres://u:p@127.0.0.1/x?host=evil.example.com",
+      "postgres://u:p@127.0.0.1/x?hostaddr=10.0.0.5",
+      "postgres://u@localhost/x?host=/tmp",
+      "postgres:///x?host=evil.example.com",
+      "postgres:///x?host=/tmp,evil",
+      "postgres:///x?host=/tmp&hostaddr=10.0.0.5",
+      "postgres:///x",
+    ])
+      expect(() => assertLocalServer(bad), bad).toThrow(/not a local/);
+  });
+
+  it("accepts a Unix socket directory", () => {
+    expect(() => assertLocalServer("postgres:///x?host=/tmp")).not.toThrow();
+    expect(() => assertLocalServer("postgres:///x?host=/var/run/postgresql")).not.toThrow();
+  });
+
+  it("the web process gets only PATH, HOME and the API origin", () => {
+    const env = webEnv({
+      PATH: "/bin",
+      HOME: "/h",
+      DATABASE_URL: "postgres://a:b@x/y",
+      WS_DB_PASSWORD: "s",
+      AWS_SECRET: "z",
+    });
+    expect(env).toEqual({ PATH: "/bin", HOME: "/h", WS_API_ORIGIN: "http://127.0.0.1:8080" });
   });
 });

@@ -46,6 +46,7 @@ import {
   parsePrompt,
   releaseFlagKeys,
   roleEnv,
+  webEnv,
   type LocalDevOptions,
 } from "./lib/local-dev.ts";
 
@@ -235,11 +236,7 @@ try {
     "pnpm",
     ["exec", "vite", "--port", String(WEB_PORT), "--strictPort"],
     path.join(repoDir, "apps/web"),
-    {
-      PATH: process.env["PATH"] ?? "",
-      HOME: process.env["HOME"] ?? "",
-      WS_API_ORIGIN: `http://127.0.0.1:${ROLE_PORTS.api}`,
-    },
+    webEnv(process.env),
   );
   await waitReady(`${WEB_ORIGIN}/v1/meta`, web);
 } catch (error) {

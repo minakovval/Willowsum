@@ -13,7 +13,7 @@ synthetic data.
 
 ## Commands
 
-Requires Docker with the compose plugin and Node 22.18 or newer (macOS or Linux; Windows is not supported). From the repository root:
+Requires Docker with the compose plugin and Node 22.18 or newer, 22 or 24 LTS (macOS or Linux; Windows is not supported). From the repository root:
 
 | Command | What it does |
 | --- | --- |
@@ -31,7 +31,7 @@ steps below are for macOS (Terminal app).
 
 **Once, to set up**
 
-1. Install [Node.js](https://nodejs.org) 22.18 or newer (the LTS installer is fine). Check: `node -v` prints `v22.18`
+1. Install [Node.js](https://nodejs.org) 22.18 or newer, **22 or 24 LTS** (the LTS installer is fine; Node 25 and newer do not bring `corepack`: then run `npm install -g corepack` first). Check: `node -v` prints `v22.18`
    or higher.
 2. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) and open it. (Without Docker: a local
    PostgreSQL 16 or newer and its superuser URL, see «Without Docker» below.)

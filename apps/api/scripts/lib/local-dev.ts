@@ -102,10 +102,27 @@ export function parsePrompt(line: string): PromptCommand {
 export function assertLocalServer(adminUrl: string): void {
   const u = new URL(adminUrl);
   const host = u.hostname.replace(/^\[|\]$/g, "");
-  const socket = new URLSearchParams(u.search).get("host") ?? "";
-  const local = host === "" ? socket.startsWith("/") : ["127.0.0.1", "::1", "localhost"].includes(host);
-  if (!local)
-    throw new Error(`not a local PostgreSQL (${host || socket}); pnpm local:dev runs only on this machine`);
+  const params = new URLSearchParams(u.search);
+  const socket = params.get("host") ?? "";
+  const refuse = (where: string): never => {
+    throw new Error(`not a local PostgreSQL (${where}); pnpm local:dev runs only on this machine`);
+  };
+  if (host !== "") {
+    // libpq lets ?host= / ?hostaddr= override the authority: with either present the real target is not `host`.
+    if (params.has("host") || params.has("hostaddr")) refuse(`${host} with ${socket || "hostaddr"}`);
+    if (!["127.0.0.1", "::1", "localhost"].includes(host)) refuse(host);
+    return;
+  }
+  if (params.has("hostaddr") || !socket.startsWith("/") || socket.includes(",")) refuse(socket || "no host");
+}
+
+/** Environment of the web dev server: only what Vite needs and the API address, not the whole process.env. */
+export function webEnv(env: Readonly<Record<string, string | undefined>>): Record<string, string> {
+  return {
+    PATH: env["PATH"] ?? "",
+    HOME: env["HOME"] ?? "",
+    WS_API_ORIGIN: `http://127.0.0.1:${ROLE_PORTS.api}`,
+  };
 }
 
 /** The ports `pnpm local:dev` listens on: the three roles and the web dev server. */
