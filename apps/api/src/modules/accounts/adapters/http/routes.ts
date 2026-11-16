@@ -21,6 +21,7 @@ import {
   findDuplicate,
   reopenAccount,
   updateAccountDetails,
+  updateAccountDisplay,
   updateAccountSettings,
   updateBalance,
   type AccountListItem,
@@ -106,6 +107,8 @@ const accountSchema = z.object({
   /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
   closedOn: z.string().nullable(),
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group. */
+  favourite: z.boolean(),
   openedOn: z.string(),
   owners: z.array(ownerSchema),
   /** Per currency: today's balance from the ledger in the subaccount's currency; a debt is negative. */
@@ -453,6 +456,8 @@ const listItemSchema = z.object({
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
   /** «Дата останнього оновлення»: the latest balance date of the account. */
   updatedOn: z.string(),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group; the list keeps the order of adding. */
+  favourite: z.boolean(),
   /** The account in the profile currency (a debt negative); a multi-currency account is one row (FR 13). */
   inProfileCurrency: reportedSumSchema,
   /** Each subaccount in its own currency and in the profile currency. */
@@ -826,6 +831,40 @@ export const updateAccountRoute = defineRoute({
   },
 });
 
+export const updateAccountDisplayRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/accounts/{accountId}/display",
+  operationId: "updateAccountDisplay",
+  summary:
+    "«Обране»: set or clear the star of the account, a display flag — also on a closed account (FIN-01 FR 20, FIN-12 FR 8)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 1024,
+  request: {
+    params: accountParams,
+    // An unknown field is 400; more display flags («Враховувати в net worth», FIN-12 FR 4) join this body later.
+    body: z
+      .object({
+        /** true puts the account in «Обране», false takes it out. */
+        favourite: z.boolean(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account after the change", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      updateAccountDisplay(deps, accountsTx(q), caller, params.accountId, body),
+    );
+    if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+    // The audit entry, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
+    if (result.kind === "updated") await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
+  },
+});
+
 export const updateAccountDetailsRoute = defineRoute({
   module: MODULE,
   method: "PATCH",
@@ -1006,6 +1045,7 @@ export const accountsRoutes = [
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
   updateAccountDetailsRoute,
+  updateAccountDisplayRoute,
   addAccountWalletRoute,
   removeAccountWalletRoute,
 ];
