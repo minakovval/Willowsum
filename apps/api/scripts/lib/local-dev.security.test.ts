@@ -77,6 +77,10 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
       "postgres:///x?host=/tmp,evil",
       "postgres:///x?host=/tmp&hostaddr=10.0.0.5",
       "postgres:///x",
+      "postgres:///x?host=/tmp&host=evil.example.com",
+      "postgres:///x?host=evil.example.com&host=/tmp",
+      " postgres://127.0.0.1/x",
+      "postgres://127.0.0.1/x ",
     ])
       expect(() => assertLocalServer(bad), bad).toThrow(/not a local/);
   });

@@ -100,19 +100,24 @@ export function parsePrompt(line: string): PromptCommand {
 
 /** `pnpm local:dev` resets cluster-wide role passwords and may drop ws_dev: only a server on this machine. */
 export function assertLocalServer(adminUrl: string): void {
+  const refuse = (where: string): never => {
+    throw new Error(`not a local PostgreSQL (${where}); pnpm local:dev runs only on this machine`);
+  };
+  // pg parses a URL with a leading space differently (host `base`): refuse it before reading anything.
+  if (adminUrl !== adminUrl.trim()) refuse("the URL has leading or trailing spaces");
   const u = new URL(adminUrl);
   const host = u.hostname.replace(/^\[|\]$/g, "");
   const params = new URLSearchParams(u.search);
   const socket = params.get("host") ?? "";
-  const refuse = (where: string): never => {
-    throw new Error(`not a local PostgreSQL (${where}); pnpm local:dev runs only on this machine`);
-  };
   if (host !== "") {
     // libpq lets ?host= / ?hostaddr= override the authority: with either present the real target is not `host`.
     if (params.has("host") || params.has("hostaddr")) refuse(`${host} with ${socket || "hostaddr"}`);
     if (!["127.0.0.1", "::1", "localhost"].includes(host)) refuse(host);
     return;
   }
+  // pg uses the last value of a repeated parameter, so more than one is never accepted.
+  if (params.getAll("host").length > 1) refuse("host given more than once");
+  if (params.getAll("hostaddr").length > 1) refuse("hostaddr given more than once");
   if (params.has("hostaddr") || !socket.startsWith("/") || socket.includes(",")) refuse(socket || "no host");
 }
 
