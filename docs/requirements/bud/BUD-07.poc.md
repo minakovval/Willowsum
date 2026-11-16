@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-17, П-18, П-24, П-25, П-26, DS-23
 - Сценарії: UC-BUD-34, UC-BUD-35, UC-BUD-36, UC-BUD-37, UC-BUD-38, UC-BUD-39, UC-BUD-40, UC-BUD-117
 - Модуль: recurring
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/recurring/domain/bud07-recurring.test.ts, apps/api/src/modules/recurring/application/bud07-proposals.test.ts, apps/api/test/bud07-recurring.it.test.ts
 
 **Мета.** Як власник бюджету, я хочу бачити всі регулярні списання і найближчі платежі, щоб не забути про них і помічати зайві підписки чи підвищення цін.
 

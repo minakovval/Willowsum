@@ -113,4 +113,4 @@ only brought in files outside the PR; none for a docs-only PR not labelled `sens
 
 Report to the lead in 10–15 lines, no narrative (owner, 2026-11-13): PR, the new head SHA (full), result (what
 the merge changed in the branch's code, checks), blockers, owner questions. Details go in the merge commit
-message or the PR body.
+message or the PR body. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
