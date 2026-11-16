@@ -64,7 +64,7 @@ FLW-34@PoC лише читає дерево («типові групи без с
   `ctx.services`; `main.ts`). `usage` (обов'язковий) — `CategoryUsage[]`: кожен модуль, що зберігає ідентифікатори
   категорій, відповідає `used(householdId, ids)` → які з них використовують його записи простору (п. 12). Сьогодні —
   `createTransactionCategoryUsage` модуля `transactions` (частини розділених) і `createCategorizationCategoryUsage`
-  модуля `categorization` (категорія транзакції, BUD-01 b). **Модуль, що починає зберігати
+  модуля `categorization` (категорія транзакції, BUD-01 b), `createRecurringCategoryUsage` модуля `recurring` (регулярні платежі, BUD-07 a2). **Модуль, що починає зберігати
   категорію (`categorization` — категорія транзакції й правила, `budget` — ліміти й клітинки «План», `recurring` —
   регулярні платежі), додає свою відповідь у `src/main.ts` у тому ж PR**, інакше категорію з його записами можна
   буде видалити.
@@ -93,7 +93,7 @@ FLW-34@PoC лише читає дерево («типові групи без с
 
 | Публікує | Версія | Коли |
 | --- | --- | --- |
-| `categories.merged` | 1 | Категорію об'єднано (`sourceId`, `targetId`, `kind`, `mergedAt`): `categorization` переносить транзакції, частини розділених і правила, `budget` — ліміт з періоду `mergedAt`, `recurring` — регулярні платежі. Споживає `categorization` (транзакції, BUD-01 b); `budget` і `recurring` — у своїх частинах |
+| `categories.merged` | 1 | Категорію об'єднано (`sourceId`, `targetId`, `kind`, `mergedAt`): `categorization` переносить транзакції, частини розділених і правила, `budget` — ліміт з періоду `mergedAt`, `recurring` — регулярні платежі. Споживають `categorization` (транзакції, BUD-01 b) і `recurring` (BUD-07 a2); `budget` — у своїй частині |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |

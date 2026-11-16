@@ -1,6 +1,6 @@
 # Модуль recurring
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-07 a1: пропозиції регулярних платежів, наступна дата)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (BUD-07 a2: підтвердження, «Не регулярний», ручне додавання, таблиці, аудит, черга)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -12,7 +12,8 @@
 
 Пропозиції не зберігаються: аналіз виконується при кожному читанні з транзакцій простору, якими вони є зараз (як
 «Можливий дубль» модуля `duplicate-matching`), тож нова, змінена, прихована чи видалена транзакція — уже в наступному
-читанні. Таблиць, черги й подій модуль ще не має.
+читанні. Зберігаються лише рішення користувача: регулярні платежі (підтверджені й додані вручну) і відхилені серії — вони
+фільтрують той самий аналіз.
 
 ## Вимоги
 
@@ -23,35 +24,75 @@ BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина,
 сума, дата — наступна за розкладом; без пропозицій з рахунку типу «Кредит»), 5 (аналіз при відкритті екрана — при
 кожному читанні); AC1 (виявлення), AC6, AC9 (читання), граничний випадок «Сума змінна» (у пропозиції).
 
-Далі (a2, той самий рядок 25): підтвердження пропозиції з коригуванням і «Не регулярний» (п. 4: серія більше не
-пропонується; без пропозицій для мерчанта, що вже є регулярним платежем), ручне додавання (п. 6), таблиці, журнал
-аудиту, черга передачі, щоденне повернення, крок видалення простору, відповідь `CategoryUsage` модулю `categories`
-(`used(householdId, ids)`, з'єднати в `src/main.ts` — `createCategoriesServices({ usage })`; BUD-01@PoC п. 12). Рядок 26
-— статуси, календар, підписки.
+BUD-07@PoC a2) (той самий рядок 25): п. 2 (серія пропонується, лише якщо її останнє списання не давніше за один інтервал +
+3 дні — рішення власника 2026-11-16), 4 (підтвердження з правками і «Не регулярний»; після них серія не пропонується;
+жодної пропозиції для мерчанта, що вже є регулярним платежем; відхилену серію впізнано не лише за ключем — #315, п. 8),
+6 (ручне додавання), «Права доступу» (журнал аудиту з передачею через чергу), граничний випадок 3; відповідь
+`CategoryUsage` модулю `categories` (BUD-01 п. 12) і перенесення платежів об'єднаної категорії (BUD-01 п. 8). Далі —
+рядок 26 (статуси, календар, підписки), UI — рядок 130.
 
 ## Публічний інтерфейс
 
 `index.ts`:
 
 - `recurringModule` — маршрути (прапорець випуску і ключ функції `recurring.payments`, потребує `transactions.manual`;
-  дозвіл `household.data.read`; простір — лише сесії; учасник з областю — 404, бо «Транзакції», з яких зроблено
-  пропозиції, закриті політикою видимості за замовчуванням).
+  читання — `household.data.read`, зміни — `household.data.write`; простір — лише сесії; запис іншого простору — як
+  неіснуючий; учасник з областю — 404, бо «Транзакції», з яких зроблено пропозиції, закриті політикою видимості за
+  замовчуванням; ліміту плану немає):
   - `GET /v1/recurring/proposals` (`listRecurringProposals`) → `items`: `key` (мерчант, тип, валюта, частота, перше
     списання серії), `merchant` (`id`, `name` — показаний мерчант), `type` (`expense` / `income`), `frequency` (`week`,
     `two-weeks`, `month`, `quarter`, `year`), `variable`, `expectedAmount` (додатна, у валюті списань), `nextDate`
-    (наступна дата розкладу від останнього списання, з днем місяця серії — не раніше сьогодні й після нього), `lastDate`, `accountId`
-    (рахунок останнього списання), `transactionIds` (списання серії, від старшого); за `nextDate`, далі назвою. `more` —
-    у вікні було понад 20 000 транзакцій (найстаріші не прочитано).
-- `createRecurringServices({ history, merchants, accounts, clock })` → `RecurringServices` — порти маршруту (`src/api.ts`
-  → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions, `MerchantDirectory` модуля merchants,
-  `AccountDirectory` модуля accounts (вид рахунку), годинник («сьогодні» — дата Києва).
-- `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `nextDate(anchor,
-frequency, from)` і `scheduleDate(anchor, frequency, k)` (розклад: місяці від дати прив'язки, день, якого в місяці
-  немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`; типи `Charge`, `Series`, `Frequency`.
+    (наступна дата розкладу від останнього списання, з днем місяця серії — не раніше сьогодні й після нього),
+    `anchorDate` (дата прив'язки розкладу — типова для підтвердження), `lastDate`, `accountId` (рахунок останнього
+    списання), `transactionIds` (списання серії, від старшого); за `nextDate`, далі назвою. Без серій, чиє останнє
+    списання давніше за інтервал + 3 дні, без мерчантів, що вже є платежем, і без відхилених серій. `more` — у вікні
+    було понад 20 000 транзакцій (найстаріші не прочитано).
+  - `POST /v1/recurring/proposals/confirm` (`confirmRecurringProposal`, `Idempotency-Key`) — `key` і будь-яке з полів
+    платежу (типово — з пропозиції: назва мерчанта, частота, очікувана сума, дата прив'язки, рахунок, тип, «змінна»)
+    → 201 платіж.
+  - `POST /v1/recurring/proposals/reject` (`rejectRecurringProposal`, `Idempotency-Key`) — `key` → 201 відхилена серія.
+  - `POST /v1/recurring/payments` (`createRecurringPayment`, `Idempotency-Key`) — «Додати вручну»: `name` (1–60),
+    `amount` (додатна), `frequency`, `anchorDate`, `type`; необов'язкові `categoryId` (категорія дерева простору того
+    самого типу; об'єднана — `merged`, іншого типу — `kind`), `accountId` (рахунок простору, не закритий, не «Кредит» —
+    `closed`, `loan`), `endDate` (не раніше дати прив'язки), `subscription`, `variable` → 201 платіж.
+  - `GET /v1/recurring/payments` (`listRecurringPayments`), `GET /v1/recurring/payments/{paymentId}`
+    (`getRecurringPayment`) — платіж: поля вище, `expectedAmount`, `nextDate` (наступна дата розкладу не раніше
+    сьогодні; null після дати завершення), `merchantId` (лише підтвердженої пропозиції), `source` (`proposal` /
+    `manual`), `createdOn`, `version`.
+  Помилка 409 `RECURRING_PROPOSAL_GONE`: пропозиції вже немає (мерчант став платежем, серію відхилено або транзакції
+  змінилися); нічого не записано. Два одночасні рішення щодо одного мерчанта серіалізує блокування мерчанта
+  (`pg_advisory_xact_lock`), а унікальний індекс `payments_by_merchant` — друга лінія.
+- `createRecurringServices({ history, merchants, accounts, categories, audit, clock, newId })` → `RecurringServices` —
+  порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `TransactionHistory` модуля transactions,
+  `MerchantDirectory` модуля merchants, `AccountDirectory` модуля accounts (вид і стан рахунку), `CategoryDirectory`
+  модуля categories, журнал аудиту, годинник («сьогодні» — дата Києва).
+- `createRecurringCategoryUsage(db)` → `CategoryUsage` (`used(householdId, ids)` — категорії, що їх має регулярний
+  платіж простору; `src/main.ts`, `createCategoriesServices({ usage })`; BUD-01 п. 12).
+- `recurringSubscriptions` — підписка на `categories.merged` v1 задачею `recurring.category-merged` (`src/wiring.ts`).
+- `createRecurringWorkerQueue(db, audit)` → `WorkerQueue` (`src/wiring.ts`); `createRecurringRecovery(db, households)` —
+  щоденне повернення задач `dead` обох видів (`recurring.hand-off-recovery`, до очищення черги; WARN
+  `recurring.hand_off_requeued`); `HAND_OFF_JOB`, `CATEGORY_MERGED_JOB`.
+- `createRecurringErasure(db)` → `eraseHousehold(householdId)` → `{ payments, rejections, jobs }` — лише для
+  `data-erasure` (крок `recurring.records`).
+- `detectSeries(charges)` (п. 2, 3: серії списань одного мерчанта, одного типу й однієї валюти), `isFresh(lastDate,
+  frequency, today)` (п. 2: свіжість серії), `nextDate(anchor, frequency, from)` і `scheduleDate(anchor, frequency, k)`
+  (розклад: місяці від дати прив'язки, день, якого в місяці немає, — останній день), `FREQUENCIES`, `HISTORY_DAYS`;
+  типи `Charge`, `Series`, `Frequency`.
+
+## Передача аудиту (ARC-04 п. 2–4, ADR-0015)
+
+Платіж (`recurring.payment`/`create` — усі поля; `update` — `categoryId` після об'єднання категорії, від імені системи,
+канал `system`) і відхилена серія (`recurring.rejection`/`create`) пишуть рядок і задачу `recurring.hand-off` в одній
+транзакції модуля. Запис аудиту — після коміту: одразу тим самим запитом, а якщо не вдалося (WARN
+`recurring.hand_off_deferred`, лише клас помилки; запит не падає) — воркером. Ключ задачі й запису —
+`<сутність>:<дія>:<ідентифікатор>:<зміна>`. Задача несе значення запису (ідентифікатори, коди, дати, суми десятковими
+рядками і назву платежу — журнал простору показує її як є, як назви цілей). Задача `dead` після 8 спроб щодня
+повертається в чергу. Обробник тримає блокування рядка задачі (стирання простору чекає).
 
 ## Залежності
 
-Шар: subject. Модулі: accounts, merchants, transactions (`apps/api/module-rules.json`).
+Шар: subject. Модулі: accounts, audit, categories, merchants, transactions (`apps/api/module-rules.json`). Платформа: черга
+задач (ARC-04).
 
 ## Події
 
@@ -65,4 +106,14 @@ frequency, from)` і `scheduleDate(anchor, frequency, k)` (розклад: мі�
 
 ## Власні таблиці
 
-Схема `recurring`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Таблиць ще немає (a1 нічого не зберігає).
+Схема `recurring`; міграції — `adapters/db/migrations/NNNN_slug.sql`. Усі під політикою простору.
+
+| Таблиця | Що |
+| --- | --- |
+| `payments` | Регулярний платіж: назва, тип, частота, очікувана сума і валюта, дата прив'язки, дата завершення, `category_id`, `account_id`, `merchant_id` (непрозорі ідентифікатори інших модулів), «Підписка», «Змінна сума», `source`, `created_on`, версія. Один підтверджений платіж на мерчанта (`0001_payments.sql`) |
+| `rejections` | «Не регулярний»: мерчант, тип, частота, «змінна», очікувана сума й валюта, списання серії (`transaction_ids`) (`0001_payments.sql`) |
+| `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
+| `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `recurring.hand-off`, `recurring.category-merged`; подій модуль не публікує |
+
+Синтетичні дані: `synthetic.ts` (3 платежі на простір — вручну і з пропозицій, одна відхилена серія, виконана задача
+передачі).

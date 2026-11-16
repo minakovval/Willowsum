@@ -34,7 +34,7 @@ describe("BUD-07@PoC FR 2, EC3: a series whose latest charge is older than one i
     expect((await listProposals(deps(history, "2026-10-14"), "h1")).items).toEqual([]);
   });
 
-  it("BUD-07@PoC FR 2: two old series of one merchant at different prices, charged at the same time, are not proposed (#315 item 9)", async () => {
+  it("BUD-07@PoC FR 2: two old series of one merchant at different prices, charged at the same time, are not proposed (#315, п. 9)", async () => {
     const history = [
       ...charges("Synth Apps", "-0.99", ["2026-02-01", "2026-03-03", "2026-04-02"]),
       ...charges("Synth Apps", "-9.99", ["2026-02-15", "2026-03-17", "2026-04-16"]).map((h) => ({

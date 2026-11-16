@@ -36,7 +36,7 @@ describe("BUD-07@PoC FR 2: a series is proposed only while its latest charge is 
   });
 });
 
-describe("BUD-07@PoC FR 4: the schedule across a leap year (#315 item 13)", () => {
+describe("BUD-07@PoC FR 4: the schedule across a leap year (#315, п. 13)", () => {
   it("BUD-07@PoC FR 4: anchored at 29 February — 28 February in common years, 29 February again in a leap year", () => {
     expect([1, 2, 3, 4].map((k) => scheduleDate("2024-02-29", "year", k))).toEqual([
       "2025-02-28",
@@ -135,7 +135,7 @@ const found = (extra: Partial<FoundSeries> = {}): FoundSeries => ({
   ...extra,
 });
 
-describe("BUD-07@PoC FR 4: «Не регулярний» — the series is not proposed again, matched by more than its key (#315 item 8)", () => {
+describe("BUD-07@PoC FR 4: «Не регулярний» — the series is not proposed again, matched by more than its key (#315, п. 8)", () => {
   it("BUD-07@PoC FR 4: a charge in common is the same series, whatever its price now", () => {
     expect(
       isRejected(found({ transactionIds: ["t3", "t4"], expected: Money.of("12.99", "EUR") }), rejected),

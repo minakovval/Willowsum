@@ -238,7 +238,7 @@ export async function confirmProposal(
   return insertWithHandOff(deps, tx, caller, newPayment(deps, fields, proposal.merchant.id));
 }
 
-/** FR 4 «Не регулярний»: the series is not proposed again — matched by more than its key (#315 item 8). */
+/** FR 4 «Не регулярний»: the series is not proposed again — matched by more than its key (#315, п. 8). */
 export async function rejectProposal(
   deps: PaymentDeps,
   tx: RecurringTx,

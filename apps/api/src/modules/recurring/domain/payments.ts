@@ -139,7 +139,7 @@ export interface FoundSeries {
 }
 
 /**
- * FR 4 «після відхилення ця серія більше не пропонується» (#315 item 8): not by the proposal's key alone, which holds the
+ * FR 4 «після відхилення ця серія більше не пропонується» (#315, п. 8): not by the proposal's key alone, which holds the
  * series' first charge and changes once that charge leaves the 430 days. The same merchant, type, currency and
  * frequency, and either a charge in common with the rejected series, or the same kind of amount — both variable, or
  * both fixed with the amount within ± 10 % of the rejected one (another price of the same merchant is another series,

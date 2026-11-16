@@ -303,7 +303,7 @@ describe("BUD-07@PoC FR 4, AC1: the user confirms a proposal (fields may be edit
     });
   });
 
-  it("BUD-07@PoC FR 4: «Не регулярний» — the series is not proposed again, also once its key changed (#315 item 8)", async () => {
+  it("BUD-07@PoC FR 4: «Не регулярний» — the series is not proposed again, also once its key changed (#315, п. 8)", async () => {
     const space = await newSpace();
     const account = await createAccount(space);
     const ids = await streaming(space, account);
