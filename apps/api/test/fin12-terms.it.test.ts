@@ -429,3 +429,27 @@ describe("FIN-12@PoC FR 5 (#289 item 3): old code + new schema — a kind change
     ]);
   });
 });
+
+describe("FIN-12@PoC AC10 (#301 item 4): a type change resets the terms, the old ones stay in the history", () => {
+  it("FIN-12@PoC AC10: a loan with a rate becomes a credit card — the loan's terms stay in `liability_terms`, on the day before the change they are still the loan's", async () => {
+    now = Date.parse(`${DAY1}T10:00:00Z`);
+    const space = await newSpace();
+    const id = await newLoan(space);
+    expect((await details(space, id, { annualRate: "8.5" })).statusCode).toBe(200);
+    now = Date.parse(`${DAY2}T09:00:00Z`);
+    expect((await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "credit-card" })).statusCode).toBe(200);
+    const history = await liabilities.termsHistory(space.householdId, id);
+    expect(history?.map((p) => [p.validFrom, p.terms.kind])).toEqual([
+      [null, "loan"],
+      [DAY1, "loan"],
+      [DAY2, "credit-card"],
+    ]);
+    expect((await liabilities.termsOn(space.householdId, id, DAY1))?.kind).toBe("loan");
+    expect((await liabilities.termsOn(space.householdId, id, DAY2))?.kind).toBe("credit-card");
+    const rows = await db.owner.query(
+      `SELECT count(*)::int AS n FROM liabilities.liability_terms WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(rows.rows[0].n).toBe(3);
+  });
+});

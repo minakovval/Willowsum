@@ -1,7 +1,7 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { GoalsTx, StoredContribution, StoredGoal, StoredSpend } from "../../application/index.ts";
-import { enqueueHandOff } from "../queue/job.ts";
+import { enqueueHandOff, enqueueSpendCheck } from "../queue/job.ts";
 
 /** The goals schema through the module's own role (migrations/0001_goals.sql). The row policy binds the space; SQL filters it too. */
 const GOAL_COLUMNS = `id, template, name, target_currency AS currency, target_amount::text AS target_amount,
@@ -232,5 +232,6 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
       return rows.map(goal);
     },
     enqueueHandOff: (handOff) => enqueueHandOff(q, handOff),
+    enqueueSpendCheck: (check) => enqueueSpendCheck(q, check),
   };
 }

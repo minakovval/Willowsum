@@ -34,6 +34,9 @@ let audit: AuditLog;
 let app: ReturnType<typeof buildServer>;
 /** Runs once after the next read of a transaction's journal events by goals — a change by another request meanwhile. */
 let afterLiveEntries: (() => Promise<unknown>) | undefined;
+/** Makes the N-th read of a transaction's journal events by goals throw (the first one is the spend's own read). */
+let failLiveEntriesOn: number | undefined;
+let liveEntriesCalls = 0;
 
 interface Space {
   readonly accountId: string;
@@ -177,6 +180,8 @@ beforeAll(async () => {
           ledger: {
             ...ledger,
             liveEntries: async (...args: Parameters<typeof ledger.liveEntries>) => {
+              if (failLiveEntriesOn !== undefined && ++liveEntriesCalls === failLiveEntriesOn)
+                throw new Error("the journal is not reachable");
               const live = await ledger.liveEntries(...args);
               const hook = afterLiveEntries;
               afterLiveEntries = undefined;
@@ -203,6 +208,8 @@ afterAll(async () => {
 afterEach(() => {
   vi.restoreAllMocks();
   afterLiveEntries = undefined;
+  failLiveEntriesOn = undefined;
+  liveEntriesCalls = 0;
 });
 
 /** AC2's space: «Відпустка» with 4 000 € in an envelope on savings, the hotel 1 800 € and the flights 1 100 € paid from it. */
@@ -385,6 +392,51 @@ describe("BUD-05@PoC AC5, EC5: a spent transaction changed or deleted — the sp
     expect(res.statusCode, res.body).toBe(201);
     expect(res.json()).toMatchObject({ collected: eur("4000"), spends: [] });
     expect(await spendAudit(space.householdId, "delete", "system")).toBe(1);
+  });
+
+  /** A spend whose transaction was changed (and the reversal's job already ran) while it was saved; the cancel then fails. */
+  async function lostCancel() {
+    const { space, savings, g, hotel } = await vacation();
+    afterLiveEntries = async () => {
+      expect(
+        (await call(space, "PATCH", `/v1/transactions/${hotel}`, { amount: eur("-1700.00") })).statusCode,
+      ).toBe(200);
+      await runWorker(space.householdId);
+    };
+    failLiveEntriesOn = 2;
+    const res = await spend(space, g.id, [[hotel, savings]]);
+    expect(res.statusCode).toBe(500);
+    failLiveEntriesOn = undefined;
+    expect(await n("goals.spends WHERE household_id = $1", space.householdId)).toBe(1);
+    return { space, g };
+  }
+
+  it("BUD-05@PoC AC5 (#306 item 2): the cancel after the commit is lost (the request fails) — the goals queue cancels the spend", async () => {
+    const { space, g } = await lostCancel();
+    await runWorker(space.householdId);
+    expect((await getGoal(space, g.id)).spends).toEqual([]);
+    expect(await spendAudit(space.householdId, "delete", "system")).toBe(1);
+  });
+
+  it("ARC-04@PoC FR 4 (#306 item 2): the spend's check job in state dead goes back with the daily recovery and cancels the spend", async () => {
+    const { space, g } = await lostCancel();
+    await db.owner.query(
+      `UPDATE goals.jobs SET state = 'dead', attempts = 8
+        WHERE household_id = $1 AND name = 'goals.spend-check' AND state = 'queued'`,
+      [space.householdId],
+    );
+    expect(await n("goals.jobs WHERE household_id = $1 AND state = 'dead'", space.householdId)).toBe(1);
+    await runWorker(space.householdId);
+    expect((await getGoal(space, g.id)).spends).toHaveLength(1);
+    const tasks = schedulerDailyTasks({
+      databases: db.databases,
+      audit,
+      spaces: { spaceIds: async () => [space.householdId], membershipOf: spaces.membershipOf },
+      now: clock.now,
+    });
+    await tasks.find((t) => t.name === "goals.hand-off-recovery")!.run();
+    await runWorker(space.householdId);
+    expect((await getGoal(space, g.id)).spends).toEqual([]);
   });
 });
 
