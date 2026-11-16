@@ -984,6 +984,74 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurring/payments/{paymentId}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A regular payment's charges with their statuses, newest first, through the next one (BUD-07 FR 8–12, FR 20, FR 21) */
+        get: operations["listRecurringCharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/charges/{dueOn}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Зарахувати за <місяць>»: a transaction no charge took pays an overdue or skipped charge — «Сплачено із запізненням» (BUD-07 FR 20, AC14) */
+        post: operations["settleRecurringCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/charges/{dueOn}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Позначити пропущеним»: an overdue charge becomes «Пропущено» and is no longer matched by itself (BUD-07 FR 21, AC16) */
+        post: operations["skipRecurringCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Залишити»: a payment «Можливо, скасований» stays; its misses are counted anew from today (BUD-07 FR 10, AC4) */
+        post: operations["keepRecurringPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recurring/proposals": {
         parameters: {
             query?: never;
@@ -1029,6 +1097,23 @@ export type paths = {
         put?: never;
         /** «Не регулярний»: the series is not proposed again (BUD-07 FR 4) */
         post: operations["rejectRecurringProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The status of each regular payment: «Можливо, скасований», the expected amount now and its change, the latest and the next charge (BUD-07 FR 8–12) */
+        get: operations["listRecurringStatuses"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1499,7 +1584,7 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
             /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
             currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT: the current version of the record */
@@ -11160,6 +11245,629 @@ export interface operations {
             };
         };
     };
+    listRecurringCharges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment's status and its charges within the last 430 days, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        items: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        }[];
+                        lastCharge: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        } | null;
+                        missesInRow: number;
+                        nextCharge: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @enum {string} */
+                        state: "active" | "possibly-cancelled";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settleRecurringCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description YYYY-MM-DD */
+                dueOn: string;
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    transactionId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The charge, «Сплачено із запізненням» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        dueOn: string;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        markedOn: string | null;
+                        overdueDays: number | null;
+                        paidOn: string | null;
+                        /** @enum {string} */
+                        status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                        transactionId: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE); The transaction already pays a charge, or cannot pay this one (RECURRING_TRANSACTION_TAKEN) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    skipRecurringCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description YYYY-MM-DD */
+                dueOn: string;
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The charge, «Пропущено» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        dueOn: string;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        markedOn: string | null;
+                        overdueDays: number | null;
+                        paidOn: string | null;
+                        /** @enum {string} */
+                        status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                        transactionId: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    keepRecurringPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        anchorDate: string;
+                        categoryId: string | null;
+                        createdOn: string;
+                        endDate: string | null;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        /** @enum {string} */
+                        frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        /** Format: uuid */
+                        id: string;
+                        merchantId: string | null;
+                        name: string;
+                        nextDate: string | null;
+                        /** @enum {string} */
+                        source: "proposal" | "manual";
+                        subscription: boolean;
+                        /** @enum {string} */
+                        type: "expense" | "income";
+                        variable: boolean;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listRecurringProposals: {
         parameters: {
             query?: never;
@@ -11527,6 +12235,188 @@ export interface operations {
             };
             /** @description The idempotency key was used for another request, or that request is still running; The proposal is no longer offered; read the proposals again (RECURRING_PROPOSAL_GONE) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listRecurringStatuses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One status per payment, in the payments' order; the charges matched anew on every read to the last 430 days of transactions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            lastCharge: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                amountChange: {
+                                    from: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    on: string;
+                                    to: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    transactionId: string;
+                                } | null;
+                                approximate: boolean;
+                                dueOn: string;
+                                expectedAmount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                markedOn: string | null;
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                                transactionId: string | null;
+                            } | null;
+                            missesInRow: number;
+                            nextCharge: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                amountChange: {
+                                    from: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    on: string;
+                                    to: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    transactionId: string;
+                                } | null;
+                                approximate: boolean;
+                                dueOn: string;
+                                expectedAmount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                markedOn: string | null;
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                                transactionId: string | null;
+                            } | null;
+                            /** Format: uuid */
+                            paymentId: string;
+                            /** @enum {string} */
+                            state: "active" | "possibly-cancelled";
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
