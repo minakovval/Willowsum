@@ -39,7 +39,7 @@ BUD-07@PoC a1) (хвиля 2, рядок 25 — серверна частина,
   - `GET /v1/recurring/proposals` (`listRecurringProposals`) → `items`: `key` (мерчант, тип, валюта, частота, перше
     списання серії), `merchant` (`id`, `name` — показаний мерчант), `type` (`expense` / `income`), `frequency` (`week`,
     `two-weeks`, `month`, `quarter`, `year`), `variable`, `expectedAmount` (додатна, у валюті списань), `nextDate`
-    (наступна дата розкладу від останнього списання — не раніше сьогодні й після нього), `lastDate`, `accountId`
+    (наступна дата розкладу від останнього списання, з днем місяця серії — не раніше сьогодні й після нього), `lastDate`, `accountId`
     (рахунок останнього списання), `transactionIds` (списання серії, від старшого); за `nextDate`, далі назвою. `more` —
     у вікні було понад 20 000 транзакцій (найстаріші не прочитано).
 - `createRecurringServices({ history, merchants, accounts, clock })` → `RecurringServices` — порти маршруту (`src/api.ts`

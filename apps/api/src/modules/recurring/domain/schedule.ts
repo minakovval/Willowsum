@@ -65,6 +65,22 @@ export function nextDate(anchor: string, frequency: Frequency, from: string): st
   return scheduleDate(anchor, frequency, k);
 }
 
+/**
+ * FR 4 «дату»: the anchor of a found series' schedule — its latest charge, unless that charge fell on the last day of a
+ * month shorter than the series' day (31 January, then 28 February; 31 August, then 30 September): then the latest
+ * charge on the series' latest day of the month, so the schedule keeps that day (28 February → 31 March, not 28 March).
+ * `dates` — the series' charges, oldest first.
+ */
+export function scheduleAnchor(dates: readonly string[], frequency: Frequency): string {
+  const last = dates.at(-1)!;
+  if ("days" in FREQUENCY_RULES[frequency].step) return last;
+  if (addDays(last, 1).slice(5, 7) === last.slice(5, 7)) return last;
+  const day = (d: string) => Number(d.slice(8, 10));
+  const top = Math.max(...dates.map(day));
+  for (let i = dates.length - 1; i >= 0; i -= 1) if (day(dates[i]!) === top) return dates[i]!;
+  return last;
+}
+
 /** FR 2: whether the interval between two charges fits a frequency. */
 export function intervalFits(from: string, to: string, frequency: Frequency): boolean {
   const days = daysBetween(from, to);

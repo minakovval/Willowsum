@@ -17,6 +17,7 @@ export {
   FREQUENCY_RULES,
   intervalFits,
   nextDate,
+  scheduleAnchor,
   scheduleDate,
   type Frequency,
 } from "./schedule.ts";

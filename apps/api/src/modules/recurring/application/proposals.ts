@@ -1,5 +1,12 @@
 import { Money } from "@willowsum/domain-kernel";
-import { addDays, detectSeries, nextDate, type Charge, type Frequency } from "../domain/index.ts";
+import {
+  addDays,
+  detectSeries,
+  nextDate,
+  scheduleAnchor,
+  type Charge,
+  type Frequency,
+} from "../domain/index.ts";
 
 /**
  * The proposals of regular payments (BUD-07@PoC FR 1–5, AC1, AC6; wave 2 row 25 — part a1): the series found each time
@@ -121,7 +128,14 @@ export async function listProposals(
         frequency: series.frequency,
         variable: series.variable,
         expectedAmount: series.expected,
-        nextDate: nextDate(last.date, series.frequency, today > last.date ? today : addDays(last.date, 1)),
+        nextDate: nextDate(
+          scheduleAnchor(
+            series.charges.map((c) => c.date),
+            series.frequency,
+          ),
+          series.frequency,
+          today > last.date ? today : addDays(last.date, 1),
+        ),
         lastDate: last.date,
         accountId: byId.get(last.id)!.accountId,
         transactionIds: series.charges.map((c) => c.id),

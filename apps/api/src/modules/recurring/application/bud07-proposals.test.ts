@@ -45,3 +45,16 @@ describe("BUD-07@PoC FR 1: the analysis reads the last 430 days, today included"
     expect((await listProposals(deps(many, []), "h1")).more).toBe(true);
   });
 });
+
+describe("BUD-07@PoC FR 4: the date of a proposal keeps the series' day of the month", () => {
+  it("BUD-07@PoC FR 4: charged on the 31st, the latest on 28 February — the next date is 31 March, not 28 March", async () => {
+    const dated = (dates: readonly string[]) => dates.map((d, i) => charge(i, d)).reverse();
+    const at = async (dates: readonly string[], today: string) => {
+      const d = { ...deps(dated(dates), []), today: () => today };
+      return (await listProposals(d, "h1")).items.map((p) => p.nextDate);
+    };
+    expect(await at(["2025-12-31", "2026-01-31", "2026-02-28"], "2026-03-01")).toEqual(["2026-03-31"]);
+    expect(await at(["2026-07-31", "2026-08-31", "2026-09-30"], "2026-10-01")).toEqual(["2026-10-31"]);
+    expect(await at(["2026-08-28", "2026-09-28", "2026-10-28"], "2026-11-16")).toEqual(["2026-11-28"]);
+  });
+});
