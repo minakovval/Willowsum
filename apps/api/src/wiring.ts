@@ -75,6 +75,8 @@ export function bulkActionsServicesFor(
   audit: Pick<AuditLog, "record">,
   databases: Pick<ModuleDatabases, "for">,
   clock: { now(): number } = systemClock,
+  /** The flag runtime: an action behind its own flag (e.g. «Додати теги») is unknown without it. */
+  flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
 ): BulkActionsServices {
   const categories = createCategoryBulkActions({
     db: databases.for("categorization"),
@@ -86,6 +88,7 @@ export function bulkActionsServicesFor(
     db: databases.for("transactions"),
     accounts: createAccountDirectory(databases.for("accounts")),
     newId: randomUUID,
+    ...(flags ? { flags } : {}),
   });
   return createBulkActionsServices({
     targets: [...categories.targets, ...tags.targets],

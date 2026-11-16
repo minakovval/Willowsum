@@ -200,7 +200,7 @@ beforeAll(async () => {
           newId: randomUUID,
           usage: [],
         }),
-        bulkActions: bulkActionsServicesFor(audit, db.databases, { now: () => NOW }),
+        bulkActions: bulkActionsServicesFor(audit, db.databases, { now: () => NOW }, { isEnabled }),
         allowedOrigins: new Set([WEB]),
       }),
   });
@@ -737,5 +737,48 @@ describe("ARC-04@PoC FR 2–4: a tag change's audit entry follows the commit, fr
     expect(await audit.entriesFor(space.householdId, { type: "transactions.tag", id: tag!.id })).toHaveLength(
       1,
     );
+  });
+});
+
+describe("sensitive: a tag created or renamed onto a name another rename takes at once", () => {
+  it("BUD-13@PoC FR 2: two tags renamed onto the same new name at once — merged, no 500", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const codes: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      const a = await add(space, account, "-1.00");
+      const b = await add(space, account, "-2.00");
+      await attributes(space, a.id, { tags: [`a${i}`] });
+      await attributes(space, b.id, { tags: [`b${i}`] });
+      const all = await tagsOf(space);
+      const ta = all.find((t) => t.name === `a${i}`)!;
+      const tb = all.find((t) => t.name === `b${i}`)!;
+      const [r1, r2] = await Promise.all([
+        call(space, "PATCH", `/v1/transaction-tags/${ta.id}`, { name: `c${i}` }),
+        call(space, "PATCH", `/v1/transaction-tags/${tb.id}`, { name: `C${i}` }),
+      ]);
+      codes.push(r1.statusCode, r2.statusCode);
+      if (r1.statusCode === 200 && r2.statusCode === 200)
+        expect((await tagsOf(space)).filter((t) => t.name.toLowerCase() === `c${i}`)).toHaveLength(1);
+    }
+    expect(codes.filter((c) => c !== 200)).toEqual([]);
+  });
+
+  it("BUD-13@PoC FR 2: a tag created on a transaction while another is renamed onto its name — merged, no 500", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const codes: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      const a = await add(space, account, "-1.00");
+      const b = await add(space, account, "-2.00");
+      await attributes(space, a.id, { tags: [`old${i}`] });
+      const old = (await tagsOf(space)).find((t) => t.name === `old${i}`)!;
+      const [r1, r2] = await Promise.all([
+        call(space, "PATCH", `/v1/transaction-tags/${old.id}`, { name: `new${i}` }),
+        attributes(space, b.id, { tags: [`new${i}`] }),
+      ]);
+      codes.push(r1.statusCode, r2.statusCode);
+    }
+    expect(codes.filter((c) => c !== 200)).toEqual([]);
   });
 });

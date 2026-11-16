@@ -133,7 +133,9 @@ export async function renameTag(tags: TagsTx, caller: Caller, id: string, text: 
   const locked = await tags.lockTags(caller.householdId, other && other.id !== id ? [id, other.id] : [id]);
   const tag = locked.get(id);
   if (!tag) return { kind: "not-found" };
-  const target = other && other.id !== id ? locked.get(other.id) : undefined;
+  // The other tag, if it still has the name now that it is locked (it may have been renamed away meanwhile).
+  const lockedOther = other && other.id !== id ? locked.get(other.id) : undefined;
+  const target = lockedOther && tagKey(lockedOther.name) === tagKey(name) ? lockedOther : undefined;
   const actorAccountId = caller.accountId;
   if (!target) {
     // The other tag went meanwhile, or none has the name: a rename (the case may change, FR 2).

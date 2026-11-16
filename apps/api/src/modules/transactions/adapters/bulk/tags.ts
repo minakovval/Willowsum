@@ -25,6 +25,8 @@ export const TAGS_ENTITY = "transaction-tags";
 export const ADD_TAGS_ACTION = "transactions.add-tags";
 
 const FIELD = "tags";
+/** BUD-13: «атрибути транзакцій» (adapters/http/routes.ts `ATTRIBUTES`). */
+const ATTRIBUTES_FEATURE = "transactions.attributes";
 
 const namesOf = (values: BulkValues): string[] | null => {
   try {
@@ -42,6 +44,8 @@ export function createTagBulkActions(deps: {
     postingAccount(householdId: string, accountId: string): Promise<{ status: string } | null>;
   };
   readonly newId: () => string;
+  /** The flag runtime (feature-flags): «Додати теги» is behind `transactions.attributes`; without it — off. */
+  readonly flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> };
 }): { readonly targets: readonly BulkTarget[]; readonly actions: readonly BulkActionHandler[] } {
   const { db } = deps;
   const target: BulkTarget = {
@@ -123,6 +127,8 @@ export function createTagBulkActions(deps: {
         .max(TAGS_PER_TRANSACTION_MAX),
     }),
     sensitiveFields: [FIELD],
+    enabled: (caller) =>
+      deps.flags ? deps.flags.isEnabled(caller.householdId, ATTRIBUTES_FEATURE) : Promise.resolve(false),
     async plan(caller, records, params) {
       const plans = new Map<string, PlannedChange>();
       const added = tagNames((params as { tags: string[] }).tags);

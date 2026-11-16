@@ -123,6 +123,25 @@ export const listTagsRoute = defineRoute({
 
 const tagParams = z.object({ tagId: z.uuid() });
 
+/** The unique index of a tag's key in its space (migrations/0007_attributes.sql). */
+const TAG_KEY_UNIQUE = "tags_household_id_name_key_key";
+
+/**
+ * FR 2: a rename onto a name that another request gave a tag meanwhile (a new tag of a transaction, or another rename)
+ * meets the unique index of the key. Its transaction is rolled back whole; tried again, the name is there and the two
+ * tags are merged, as a rename onto an existing name is.
+ */
+async function renameRetried<T>(work: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await work();
+    } catch (error) {
+      const pg = error as { code?: string; constraint?: string };
+      if (attempt >= 3 || pg.code !== "23505" || pg.constraint !== TAG_KEY_UNIQUE) throw error;
+    }
+  }
+}
+
 export const renameTagRoute = defineRoute({
   module: MODULE,
   method: "PATCH",
@@ -140,7 +159,9 @@ export const renameTagRoute = defineRoute({
   handler: async ({ params, body }, ctx) => {
     refuseScoped(ctx);
     const { deps } = transactionsServices(ctx);
-    const result = await ctx.inHousehold((q) => renameTag(tagsTx(q), caller(ctx), params.tagId, body.name));
+    const result = await renameRetried(() =>
+      ctx.inHousehold((q) => renameTag(tagsTx(q), caller(ctx), params.tagId, body.name)),
+    );
     if (result.kind === "invalid") throw invalid(result.issues);
     if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
     await tagAuditNow(ctx, deps, result.audit);
