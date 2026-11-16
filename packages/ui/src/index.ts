@@ -54,3 +54,5 @@ export { PageTabs } from "./tabs/PageTabs.tsx";
 export type { PageTab } from "./tabs/PageTabs.tsx";
 export { AmountField, Field } from "./field/Field.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
+export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
+export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/Button.tsx";

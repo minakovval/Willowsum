@@ -1278,6 +1278,61 @@ code {
   min-height: var(--ws-touch-target);
 }
 
+/* CMP-01@PoC: the Button section of the gallery — a table of variants × states, then sizes, icon-only, a row. */
+.gallery-button {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-button p {
+  margin: 0;
+}
+
+.gallery-button__states {
+  border-collapse: separate;
+  border-spacing: var(--ws-space-4) var(--ws-space-3);
+  margin-inline: calc(var(--ws-space-4) * -1);
+}
+
+.gallery-button__states th,
+.gallery-button__states td {
+  text-align: start;
+  vertical-align: top;
+}
+
+.gallery-button__states thead th {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 500;
+}
+
+.gallery-button__disabled {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-1);
+}
+
+.gallery-button__grid {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ws-space-5);
+}
+
+.gallery-button__case {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.gallery-button__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-4);
+}
+
 /* CMP-02@PoC gallery: Field in every state. */
 .gallery-field {
   display: grid;

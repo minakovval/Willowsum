@@ -230,6 +230,43 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
   });
 
+  it("CMP-01@PoC gallery: the Button section shows each variant at rest, with an icon, disabled with its reason and loading; sizes, icon-only, a row and a live case", () => {
+    vi.useFakeTimers();
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-button")!.textContent).toBe("Кнопка");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    for (const [variant, name] of [
+      ["primary", "Імпортувати виписку"],
+      ["secondary", "Нова транзакція"],
+      ["quiet", "Історія імпорту"],
+      ["danger", "Видалити рахунок"],
+    ] as const) {
+      const buttons = within(at(`button-${variant}`)).getAllByRole("button", { name });
+      expect(buttons, variant).toHaveLength(4);
+      expect(buttons[1]!.querySelector(".ws-icon")).not.toBeNull();
+      expect(buttons[2]!.getAttribute("aria-disabled")).toBe("true");
+      expect(within(at(`button-${variant}`)).getByText("Заповніть назву цілі").id).toBe(
+        buttons[2]!.getAttribute("aria-describedby"),
+      );
+      expect(buttons[3]!.getAttribute("aria-busy")).toBe("true");
+    }
+    expect(at("button-sizes").querySelectorAll(".ws-button-sm")).toHaveLength(3);
+    expect(within(at("button-icon-only")).getByRole("button", { name: "Фільтр" }).textContent).toBe("");
+    expect(at("button-row").querySelectorAll(".ws-button-primary")).toHaveLength(1);
+
+    const live = at("button-live");
+    const save = within(live).getByRole("button", { name: "Зберегти" });
+    act(() => save.click());
+    act(() => save.click());
+    expect(live.querySelector("[data-saves]")!.textContent).toBe("Збережень: 1");
+    expect(save.getAttribute("aria-busy")).toBe("true");
+    act(() => vi.advanceTimersByTime(2000));
+    expect(save.hasAttribute("aria-busy")).toBe(false);
+    act(() => save.click());
+    expect(live.querySelector("[data-saves]")!.textContent).toBe("Збережень: 2");
+    vi.useRealTimers();
+  });
+
   it("CMP-02@PoC gallery: the Field section shows empty, required with counter, error, disabled, read-only, search and the amount cases", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-field")!.textContent).toBe("Поле введення");
