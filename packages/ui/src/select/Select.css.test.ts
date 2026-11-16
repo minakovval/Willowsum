@@ -133,8 +133,23 @@ describe("CMP-03@PoC Select styles", () => {
       pair("brand", bg, CONTRAST_MINIMUM.ui);
     }
     pair("loss", "surface-200", CONTRAST_MINIMUM.text);
+    pair("focus", "surface-200", CONTRAST_MINIMUM.ui);
+    pair("focus", "surface-300", CONTRAST_MINIMUM.ui);
     pair("loss", "surface-100", CONTRAST_MINIMUM.text);
     pair("border-control", "surface-200", CONTRAST_MINIMUM.ui);
     pair("border-control", "surface-100", CONTRAST_MINIMUM.ui);
+  });
+
+  it("CMP-03@PoC required: the «*» mark is `loss`", () => {
+    expect(rule(components, ".ws-select-required-mark")).toContain("color: var(--ws-loss);");
+  });
+
+  it("CMP-03@PoC AC3: the active option has an inset 2 px `focus` ring; the search field ring sits 2 px outside it", () => {
+    expect(rule(components, ".ws-select-option--active")).toContain(
+      "box-shadow: inset 0 0 0 2px var(--ws-focus);",
+    );
+    expect(rule(components, ".ws-select-search:focus-within")).toContain(
+      "outline-offset: var(--ws-focus-ring-offset);",
+    );
   });
 });

@@ -174,6 +174,9 @@ describe("CMP-03@PoC Select — native", () => {
   it("CMP-03@PoC required: the label says «обов’язкове» in words, not only a mark", () => {
     render(<Select label="Валюта" options={CURRENCIES} value="" onChange={() => undefined} required />);
     expect(screen.getByText("обов’язкове")).toBeTruthy();
+    const mark = document.querySelector(".ws-select-required-mark");
+    expect(mark?.textContent?.trim()).toBe("*");
+    expect(mark?.getAttribute("aria-hidden")).toBe("true");
   });
 });
 

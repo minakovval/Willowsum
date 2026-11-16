@@ -221,7 +221,14 @@ export function SelectFrame({
     <div className={["ws-select", className].filter(Boolean).join(" ")}>
       <label id={ids.label} htmlFor={ids.control} className="ws-select-label">
         {label}
-        {required ? <span className="ws-select-required">{t("select.required")}</span> : null}
+        {required ? (
+          <>
+            <span className="ws-select-required-mark" aria-hidden="true">
+              {" *"}
+            </span>
+            <span className="ws-select-required">{t("select.required")}</span>
+          </>
+        ) : null}
       </label>
       {loading ? (
         <Skeleton variant="block" field />

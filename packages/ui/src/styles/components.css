@@ -786,6 +786,10 @@
   text-transform: none;
 }
 
+.ws-select-required-mark {
+  color: var(--ws-loss);
+}
+
 .ws-select-required {
   margin-inline-start: var(--ws-space-1);
   color: var(--ws-ink-muted);
@@ -936,7 +940,7 @@
 .ws-select-search:focus-within {
   border-color: var(--ws-ink);
   outline: var(--ws-focus-ring-width) solid var(--ws-focus);
-  outline-offset: calc(var(--ws-focus-ring-offset) * -1 - var(--ws-focus-ring-width));
+  outline-offset: var(--ws-focus-ring-offset);
 }
 
 .ws-select-search input {
@@ -988,6 +992,7 @@
 
 .ws-select-option--active {
   background: var(--ws-surface-300);
+  box-shadow: inset 0 0 0 2px var(--ws-focus);
 }
 
 .ws-select-option[aria-disabled="true"] {
