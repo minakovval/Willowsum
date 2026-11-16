@@ -61,6 +61,11 @@ export interface BulkActionHandler {
   readonly params: z.ZodType;
   /** Fields whose values are free text: masked in the audit entry (П-10). */
   readonly sensitiveFields?: readonly string[];
+  /**
+   * The action's own release flag and feature key (e.g. `transactions.attributes` of «Додати теги»), checked before
+   * the summary and the run: off — the action is unknown, as before it shipped.
+   */
+  enabled?(caller: BulkCaller): Promise<boolean>;
   plan(
     caller: BulkCaller,
     records: readonly BulkRecord[],

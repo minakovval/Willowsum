@@ -107,10 +107,10 @@ no technical messages — `pr-pipeline`, «Мовчання в чаті» (owner
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
 
-**Parallel branches** (owner, 2026-11-12; 2026-11-16): up to 5 working branches at a time — `claude/adoring-cray-feh4dh`
+**Parallel branches** (owner, 2026-11-12; 2026-11-16): up to 7 working branches at a time — `claude/adoring-cray-feh4dh`
 and `claude/adoring-cray-feh4dh-<task>` — each in its own worktree with its own PR, test database
 (`pnpm db:test`; integration tests as `pnpm db:test run -- pnpm test:integration`, roles are cluster-wide) and
-the same rules; a branch is deleted after its PR is merged. How many agents run at once, and their slots: `pr-pipeline` §3
+the same rules; a branch is deleted after its PR is merged. How many agents run at once (up to 10), their slots and ports, and UI rows in parallel: `pr-pipeline` §3
 (owner, 2026-11-16).
 
 **Skills** (`.claude/skills/`): `implement-requirement`, `review-pr`, `security-review`, `fix-review-findings`,
