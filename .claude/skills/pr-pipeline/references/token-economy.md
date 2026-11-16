@@ -87,12 +87,22 @@ node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|п�
   --branch <PR branch>   # or --ci-runs <file> with the JSON of the runs API
 node tools/token-report/index.mjs session ~/.claude/projects/<dir>/<session id>.jsonl [--since <ISO>]
 node tools/token-report/index.mjs append --body <#180 body file> --row "<| … |>" [--sessions]
+node tools/token-report/index.mjs archive --body <#180 body file> --out <archive.md>
 ```
 Per-model split (owner, 2026-11-15, #178): after the row, `pr` prints one line per model (model, model calls,
 cache read, cache creation, input, output), and the row's «Примітка» gets `моделі: opus 4,1 млн / fable 1,2 млн
 cache read`; the row columns are unchanged. `session` prints the same lines after the total. The #180 PR rows note
 the per-model split. Paste only the row line into #180. The row's «Примітка» is at most one line (owner, 2026-11-15,
 #178): detail stays in the agent logs and the PR comments.
+
+Size of the #180 body (owner, 2026-11-16, #178; GitHub allows 65 536 characters): `pr` no longer puts the per-agent
+list «автор 293 276, рецензія …» into the note (the numbers stay in the agent logs; `--note` and «журнал втрачено» stay),
+and `append` refuses (exit 1) a row whose «Примітка» is longer than 120 characters (`--note` counts). When the body
+after appending would exceed 55 000 characters, `append` fails and the lead moves the «PR» table to an archive
+issue: `archive --body <file> --out <archive.md>` writes all rows of the «PR» table (with its header) to `<archive.md>`,
+leaves in the body the table header and the line «Архів рядків PR: <посилання>», and keeps every other byte; the lead
+creates the archive issue from `<archive.md>`, puts its link into that line and PATCHes the body. New rows then go
+under the header as before. Decision: `docs/decisions/log/2026-11-16-owner-180-size.md`.
 Roles: `author` and `fix` add to «Час автора», `review`, `security` and `confirm` to «Час рецензій». It prints the
 row of the table «PR» (PR | Тип | Раунди | subagent_tokens | Агенти: cache read, млн | Агенти: output, тис. |
 Час автора, хв | Час рецензій, хв | CI, хв | Примітка); `--note` adds to the note. CI minutes are the sum of
