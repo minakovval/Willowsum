@@ -7,7 +7,7 @@ import {
 } from "../domain/index.ts";
 import type { FxClock, FxRateFeed, FxRateStore, FxRefreshEvent, FxStaleAlert } from "./ports.ts";
 
-/** The first attempt waits a minute after the start: a crash loop never calls the provider on every start. */
+/** The first attempt waits a minute after the start, and only when the last success is 24 h old or more (FR 2). */
 export const FIRST_ATTEMPT_DELAY_MS = 60 * 1000;
 
 export interface FxRefreshDeps {
@@ -90,10 +90,10 @@ export function startFxRefresh(
   /** When the 24 h of FR 4 run out in the current period without success; a retry is never armed past it. */
   let staleAt: number | undefined;
 
-  const arm = (delay: number) => {
+  const arm = (delay: number, first = false) => {
     if (stopped) return;
     timer = deps.clock.setTimeout(() => {
-      void attempt();
+      void (first ? due() : attempt());
     }, delay);
     (timer as { unref?: () => void } | undefined)?.unref?.();
   };
@@ -139,7 +139,23 @@ export function startFxRefresh(
     return running;
   };
 
-  arm(options.firstDelayMs ?? FIRST_ATTEMPT_DELAY_MS);
+  /**
+   * A timer fired (VAL-05 FR 2, owner decision 2026-11-16): the NBU is asked at most once a day, so a start less than 24 h
+   * after the last successful update waits for the rest of the 24 h instead of asking. Retries and the daily
+   * timer armed after an attempt are not held back: they follow a failure or a success of this process.
+   */
+  const due = async (): Promise<void> => {
+    if (stopped) return;
+    const last = await deps.store.lastSuccessAt().catch(() => null);
+    const wait = last === null ? 0 : last + REFRESH_INTERVAL_MS - deps.clock.now();
+    if (wait > 0) {
+      arm(wait, true);
+      return;
+    }
+    await attempt();
+  };
+
+  arm(options.firstDelayMs ?? FIRST_ATTEMPT_DELAY_MS, true);
   return {
     attempt,
     async stop() {
