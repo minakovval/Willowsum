@@ -289,6 +289,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.mergedInto,
           t.note,
           [...t.tagIds],
+          t.review,
         ],
       );
       return row!;
