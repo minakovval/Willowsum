@@ -559,7 +559,7 @@ describe("BUD-07@PoC AC9, «Права доступу»: the space's boundary", 
     expect(
       (await call(space, "POST", "/v1/recurring/payments", rent, { role: "editor", scoped: true }))
         .statusCode,
-    ).toBe(404);
+    ).toBe(403);
     expect((await call(space, "POST", "/v1/recurring/payments", rent, { role: "viewer" })).statusCode).toBe(
       403,
     );

@@ -212,6 +212,7 @@ describe("BUD-07@PoC FR 1, FR 2, FR 4: a series of one merchant's charges is pro
         variable: false,
         expectedAmount: { amount: "16.2", currency: "EUR" },
         nextDate: "2026-12-13",
+        anchorDate: "2026-10-13",
         lastDate: "2026-10-13",
         accountId: account,
         transactionIds: ids,
