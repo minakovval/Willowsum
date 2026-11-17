@@ -26,6 +26,12 @@
   min-inline-size: 0;
 }
 
+/* The menu «…» keeps the size of its button (the shell's menu root takes the whole width). */
+.txd-head > .ws-menu-root {
+  flex: none;
+  width: auto;
+}
+
 .txd-name {
   overflow-wrap: anywhere;
 }
@@ -109,4 +115,9 @@
 
 .txd-history-head {
   font-weight: 600;
+}
+
+/* The board's menu keeps each item on one line («Приховати транзакцію»). */
+.txd-head .ws-menu-label {
+  white-space: nowrap;
 }
