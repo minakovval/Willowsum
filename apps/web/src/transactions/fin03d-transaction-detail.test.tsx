@@ -20,6 +20,21 @@ const FOOD = "00000000-0000-4000-8000-0000000000c1";
 const TX = "00000000-0000-4000-8000-0000000000aa";
 const OTHER = "00000000-0000-4000-8000-0000000000bb";
 const DETAIL = `#/money/transactions/${TX}`;
+const HISTORY = `${DETAIL}/history`;
+
+/**
+ * «Історія змін» is a page of its own (CMP-21@PoC «Призначення»: much content is a separate page; a modal never
+ * scrolls): no dialog, its own heading, breadcrumbs up to the transaction and a link back to it.
+ */
+async function historyPage() {
+  await pick("Історія змін");
+  await waitFor(() => expect(window.location.hash).toBe(HISTORY));
+  await waitFor(() => expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Історія змін"));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  const crumbs = screen.getByRole("navigation", { name: "Хлібні крихти" });
+  expect(within(crumbs).getByRole("link", { name: "Сільпо" }).getAttribute("href")).toBe(DETAIL);
+  return screen.getByRole("heading", { level: 1 }).closest<HTMLElement>("section")!;
+}
 
 function tx(over: Record<string, unknown> = {}) {
   return {
@@ -274,6 +289,7 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     await pick("Видалити");
     const confirm = screen.getByRole("alertdialog", { name: "Видалити транзакцію?" });
     expect(confirm.textContent).toContain("залишок рахунку повернеться до попереднього значення");
+    expect(api.calls.some((c) => c.method === "DELETE")).toBe(false);
     // The safe way out has the focus, never the dangerous action (CMP-21@PoC AC1).
     expect(document.activeElement?.textContent).toBe("Скасувати");
     await act(async () => within(confirm).getByRole("button", { name: "Видалити транзакцію" }).click());
@@ -290,6 +306,8 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     const confirm = screen.getByRole("alertdialog", { name: "Видалити транзакцію?" });
     await act(async () => within(confirm).getByRole("button", { name: "Видалити транзакцію" }).click());
     await waitFor(() => expect(confirm.textContent).toContain("Не вдалося виконати дію"));
+    // CMP-21@PoC «Стани»: a failed action inside the dialog says «Помилка».
+    expect(plain(confirm.textContent)).toContain("Помилка. Не вдалося виконати дію. Спробуйте ще раз.");
     expect(confirm.textContent).toContain(`Код: ${SUPPORT_ID}`);
     expect(window.location.hash).toBe(DETAIL);
   });
@@ -307,6 +325,9 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     );
     await loaded();
     expect(card().querySelector(".txd-marks")?.textContent).toContain("Об’єднано");
+    // The server refuses to delete a record with merged duplicates (TRANSACTION_MERGED): «Видалити» is not offered.
+    expect(labels(await menuItems())).toEqual(["Історія змін"]);
+    await act(async () => more().click());
     await act(async () => within(card()).getByRole("button", { name: "Роз’єднати" }).click());
     await waitFor(() => expect(within(card()).queryByRole("button", { name: "Роз’єднати" })).toBeNull());
     expect(api.calls.some((c) => c.method === "DELETE" && c.path.endsWith("/merge"))).toBe(true);
@@ -356,8 +377,7 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     };
     open(handlers({ [`GET /v1/transactions/${TX}/history`]: { status: 200, body: history } }));
     await loaded();
-    await pick("Історія змін");
-    const dialog = screen.getByRole("dialog", { name: "Історія змін" });
+    const dialog = await historyPage();
     await waitFor(() => expect(dialog.querySelectorAll(".txd-history > li").length).toBe(3));
     const entries = [...dialog.querySelectorAll(".txd-history > li")].map((li) => ({
       head: plain(li.querySelector(".txd-history-head")?.textContent),
@@ -388,16 +408,16 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     let answer: unknown = { items: [entry(1), entry(2)], truncated: true };
     open(handlers({ [`GET /v1/transactions/${TX}/history`]: () => ({ status: 200, body: answer }) }));
     await loaded();
-    await pick("Історія змін");
-    let dialog = screen.getByRole("dialog", { name: "Історія змін" });
+    let dialog = await historyPage();
     await waitFor(() => expect(plain(dialog.textContent)).toContain("Показано лише останні 2 змін."));
     expect(plain(dialog.querySelector(".txd-history ul")?.textContent)).toMatch(
       /^Дата: 1 лист\. 2026.* → 2 лист\. 2026/,
     );
-    await act(async () => within(dialog).getAllByRole("button", { name: "Закрити" }).at(-1)!.click());
     answer = { items: [], truncated: false };
-    await pick("Історія змін");
-    dialog = screen.getByRole("dialog", { name: "Історія змін" });
+    await act(async () => within(dialog).getByRole("link", { name: "Назад до транзакції" }).click());
+    await waitFor(() => expect(window.location.hash).toBe(DETAIL));
+    await loaded();
+    dialog = await historyPage();
     await waitFor(() => expect(dialog.textContent).toContain("Змін ще немає."));
   });
 
@@ -410,8 +430,7 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
       }),
     );
     await loaded();
-    await pick("Історія змін");
-    const dialog = screen.getByRole("dialog", { name: "Історія змін" });
+    const dialog = await historyPage();
     const alert = await within(dialog).findByRole("alert");
     expect(alert.textContent).toContain("Не вдалося завантажити історію змін.");
     expect(alert.textContent).toContain(`Код: ${SUPPORT_ID}`);
@@ -465,7 +484,12 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     await loaded();
     await pick("Приховати транзакцію");
     const alert = await within(card()).findByRole("alert");
+    expect(alert.textContent).toContain("✕ Помилка");
     expect(alert.textContent).toContain("Не вдалося виконати дію. Спробуйте ще раз.");
     expect(alert.textContent).toContain(`Код: ${SUPPORT_ID}`);
+    // The hide error is the page's own; the delete confirmation opens clean.
+    await pick("Видалити");
+    const confirm = screen.getByRole("alertdialog", { name: "Видалити транзакцію?" });
+    expect(confirm.textContent).not.toContain("Не вдалося виконати дію");
   });
 });

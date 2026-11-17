@@ -21,6 +21,7 @@ import { ProfilePage } from "./settings/ProfilePage.tsx";
 import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx";
+import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
 import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
 import {
   ACCOUNTS,
@@ -100,6 +101,7 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): S-047 «Деталь транзакції».
       if (route.child.id === "transaction") return <TransactionDetailPage />;
+      if (route.child.id === "transactionHistory") return <TransactionHistoryPage />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
       if (route.child.id === "newTransaction") return <TransactionsPage newTransaction />;
       // FIN-03@PoC FR 21: the tabs «До розбору» and «Пари» (their screens are later rows: the empty state until then).

@@ -267,6 +267,7 @@ export const uk = {
   "txDetail.delete.text": "Транзакцію буде видалено, а залишок рахунку повернеться до попереднього значення.",
   "txDetail.delete.confirm": "Видалити транзакцію",
   "txDetail.delete.busy": "Видаляємо…",
+  "txHistory.back": "Назад до транзакції",
   "txHistory.empty": "Змін ще немає.",
   "txHistory.truncated": "Показано лише останні {count} змін.",
   "txHistory.error": "Не вдалося завантажити історію змін.",

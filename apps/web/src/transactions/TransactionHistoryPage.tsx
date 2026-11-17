@@ -8,8 +8,15 @@ import {
   type MessageKey,
   type Translate,
 } from "@willowsum/i18n";
-import { Button, Dialog, Skeleton } from "@willowsum/ui";
-import { loadHistory, useLoaded, type DetailData, type HistoryEntry } from "./detail.ts";
+import { Skeleton } from "@willowsum/ui";
+import { AppLayout } from "../pages/AppLayout.tsx";
+import { NotFoundPage } from "../pages/NotFoundPage.tsx";
+import { TRANSACTIONS, transactionHistoryIdOf, transactionPath } from "../routing/routes.ts";
+import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
+import { useDocumentTitle } from "../useDocumentTitle.ts";
+import { loadDetail, loadHistory, useLoaded, type DetailData, type HistoryEntry } from "./detail.ts";
+import { counterpartyOf, Crumbs, LoadError } from "./TransactionDetailPage.tsx";
+import "./transactionDetail.css";
 
 /** The label of each audited field (the hand-off's and the category's, `apps/api` domain/history.ts). */
 const FIELD_KEYS: Readonly<Record<string, MessageKey>> = {
@@ -127,92 +134,99 @@ function changeLines(t: Translate, locale: Locale, data: DetailData, entry: Hist
 }
 
 /**
- * «Історія змін» from the menu «…» of S-047 (FIN-03@PoC FR 20, FR 27; leader's decisions of 2026-11-17 in
- * docs/decisions/log/2026-11-17-fin03-tx-history.md): what the space's audit log recorded about the transaction and its
- * category, oldest first; who — relative to the reader; free text never shown (П-10). A bulk action is not in it
+ * «Історія змін» of S-047 at `/money/transactions/:id/history`, opened from the menu «…» (FIN-03@PoC FR 20, FR 27;
+ * leader's decisions of 2026-11-17 in docs/decisions/log/2026-11-17-fin03-tx-history.md). A page, not a dialog:
+ * CMP-21@PoC «Призначення» sends much content to a separate page, and a modal never scrolls
+ * (docs/decisions/log/2026-11-17-s047-tx-detail.md). What the space's audit log recorded about the transaction and
+ * its category, oldest first; who — relative to the reader; free text never shown (П-10). A bulk action is not in it
  * (DAT-03@PoC edge case 3: the server leaves it out). Over 500 entries the server sends the newest and `truncated`.
+ * Another space's or a deleted transaction is «Не знайдено» (FIN-03@PoC AC12).
  */
-export function TransactionHistoryDialog({ data, onClose }: { data: DetailData; onClose: () => void }) {
-  const { t, locale } = useI18n();
-  const { state, retry } = useLoaded(data.transaction.id, loadHistory);
-  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+export function TransactionHistoryPage() {
+  const transactionId = transactionHistoryIdOf(useHashPath()) ?? "";
+  return <HistoryPage key={transactionId} transactionId={transactionId} />;
+}
+
+function HistoryPage({ transactionId }: { transactionId: string }) {
+  const t = useT();
+  const { state, retry } = useLoaded(transactionId, loadDetail);
+  const title = t("txDetail.menu.history");
+  useDocumentTitle(title);
+  if (state.kind === "missing") return <NotFoundPage />;
+  const back = hrefFor(transactionPath(transactionId));
+  const counterparty = state.kind === "ready" ? counterpartyOf(t, state.data) : t("page.transaction");
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title={t("txDetail.menu.history")}
-      closeLabel={t("shell.close")}
-      align="start"
-      actions={[{ label: t("shell.close"), onClick: onClose }]}
-    >
-      {state.kind === "loading" ? (
-        <div aria-busy="true">
-          <Skeleton variant="row" lines={3} />
+    <AppLayout sectionId="money" pageId={TRANSACTIONS.id}>
+      <Crumbs trail={[{ label: counterparty, href: back }]} current={title} />
+      <section className="ws-card txd">
+        <div className="txd-page-head">
+          <h1 className="ws-text-heading-2 txd-name">{title}</h1>
+          <a href={back}>{t("txHistory.back")}</a>
         </div>
-      ) : state.kind === "ready" ? (
-        state.data.items.length === 0 ? (
-          <p className="ws-muted">{t("txHistory.empty")}</p>
+        {state.kind === "loading" ? (
+          <div aria-busy="true">
+            <Skeleton variant="row" lines={3} />
+          </div>
+        ) : state.kind === "error" ? (
+          <LoadError body={t("txDetail.error.body")} supportId={state.supportId} retry={retry} />
         ) : (
-          <>
-            {state.data.truncated ? (
-              <p className="ws-muted">{t("txHistory.truncated", { count: state.data.items.length })}</p>
-            ) : null}
-            <ol className="txd-history">
-              {state.data.items.map((entry) => {
-                const lines = changeLines(t, locale, data, entry);
-                return (
-                  <li key={entry.id}>
-                    <p className="txd-history-head">
-                      {[
-                        whenOf(locale, entry.occurredAt, zone),
-                        t(ACTOR_KEYS[entry.actor]),
-                        t(ACTION_KEYS[entry.action]),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    {lines.length > 0 ? (
-                      <ul>
-                        {lines.map((l) => (
-                          <li key={l}>{l}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ol>
-          </>
-        )
-      ) : (
-        // `missing`: the transaction went away while the dialog opened (404) — the same error with its retry.
-        <LoadError
-          body={t("txHistory.error")}
-          supportId={state.kind === "error" ? state.supportId : undefined}
-          retry={retry}
-        />
-      )}
-    </Dialog>
+          <Entries data={state.data} />
+        )}
+      </section>
+    </AppLayout>
   );
 }
 
-/** «✕ Помилка», what failed, «Спробувати ще раз» and «Код: …» (canvas PocStates). */
-export function LoadError({
-  body,
-  supportId,
-  retry,
-}: {
-  body: string;
-  supportId: string | undefined;
-  retry: () => void;
-}) {
-  const t = useT();
+function Entries({ data }: { data: DetailData }) {
+  const { t, locale } = useI18n();
+  const { state, retry } = useLoaded(data.transaction.id, loadHistory);
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (state.kind === "loading")
+    return (
+      <div aria-busy="true">
+        <Skeleton variant="row" lines={3} />
+      </div>
+    );
+  if (state.kind !== "ready")
+    // `missing`: the transaction went away while the page loaded (404) — the same error with its retry.
+    return (
+      <LoadError
+        body={t("txHistory.error")}
+        supportId={state.kind === "error" ? state.supportId : undefined}
+        retry={retry}
+      />
+    );
+  if (state.data.items.length === 0) return <p className="ws-muted">{t("txHistory.empty")}</p>;
   return (
-    <div className="txd-state" role="alert">
-      <p className="txd-error-title">{t("tx.error.title")}</p>
-      <p>{body}</p>
-      <Button label={t("tx.error.retry")} onClick={retry} />
-      {supportId ? <p className="ws-muted">{t("tx.error.code", { code: supportId })}</p> : null}
-    </div>
+    <>
+      {state.data.truncated ? (
+        <p className="ws-muted">{t("txHistory.truncated", { count: state.data.items.length })}</p>
+      ) : null}
+      <ol className="txd-history">
+        {state.data.items.map((entry) => {
+          const lines = changeLines(t, locale, data, entry);
+          return (
+            <li key={entry.id}>
+              <p className="txd-history-head">
+                {[
+                  whenOf(locale, entry.occurredAt, zone),
+                  t(ACTOR_KEYS[entry.actor]),
+                  t(ACTION_KEYS[entry.action]),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+              {lines.length > 0 ? (
+                <ul>
+                  {lines.map((l) => (
+                    <li key={l}>{l}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }

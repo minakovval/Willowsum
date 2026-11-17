@@ -117,7 +117,20 @@
   font-weight: 600;
 }
 
-/* The board's menu keeps each item on one line («Приховати транзакцію»). */
+/* The board's menu keeps each item on one line («Приховати транзакцію») and grows to its longest item. */
+.txd-head .ws-menu {
+  width: max-content;
+}
+
 .txd-head .ws-menu-label {
   white-space: nowrap;
+}
+
+/* «Історія змін»: the heading with the link back to the transaction. */
+.txd-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
 }

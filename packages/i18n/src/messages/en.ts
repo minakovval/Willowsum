@@ -268,6 +268,7 @@ export const en: Messages = {
     "The transaction will be deleted and the account balance will return to its previous value.",
   "txDetail.delete.confirm": "Delete transaction",
   "txDetail.delete.busy": "Deleting…",
+  "txHistory.back": "Back to the transaction",
   "txHistory.empty": "No changes yet.",
   "txHistory.truncated": "Only the latest {count} changes are shown.",
   "txHistory.error": "Could not load the change history.",

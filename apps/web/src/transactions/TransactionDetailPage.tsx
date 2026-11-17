@@ -25,7 +25,13 @@ import {
 import { useAuthApi } from "../auth/api.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { NotFoundPage } from "../pages/NotFoundPage.tsx";
-import { rootOf, SECTIONS, TRANSACTIONS, transactionIdOf } from "../routing/routes.ts";
+import {
+  rootOf,
+  SECTIONS,
+  TRANSACTIONS,
+  transactionHistoryPath,
+  transactionIdOf,
+} from "../routing/routes.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import {
@@ -36,7 +42,6 @@ import {
   type DetailAction,
   type DetailData,
 } from "./detail.ts";
-import { LoadError, TransactionHistoryDialog } from "./TransactionHistoryDialog.tsx";
 import "./transactionDetail.css";
 
 const SOURCE_KEYS: Readonly<Record<Exclude<CategorySource, "none">, MessageKey>> = {
@@ -87,11 +92,17 @@ function Detail({ transactionId }: { transactionId: string }) {
   );
 }
 
-const counterpartyOf = (t: ReturnType<typeof useT>, d: DetailData) =>
+export const counterpartyOf = (t: ReturnType<typeof useT>, d: DetailData) =>
   d.transaction.counterparty ?? t("accountCard.tx.noCounterparty");
 
-/** UX-09@PoC item 8: «Гроші › Транзакції › <контрагент>». */
-function Crumbs({ current }: { current: string }) {
+/** UX-09@PoC item 8: «Гроші › Транзакції › <контрагент>»; «Історія змін» adds «› Історія змін» after the counterparty. */
+export function Crumbs({
+  current,
+  trail = [],
+}: {
+  current: string;
+  trail?: { label: string; href: string }[];
+}) {
   const t = useT();
   const money = SECTIONS.find((s) => s.id === "money")!;
   return (
@@ -103,6 +114,11 @@ function Crumbs({ current }: { current: string }) {
         <li>
           <a href={hrefFor(TRANSACTIONS.path)}>{t(TRANSACTIONS.label)}</a>
         </li>
+        {trail.map((c) => (
+          <li key={c.href}>
+            <a href={c.href}>{c.label}</a>
+          </li>
+        ))}
         <li aria-current="page">{current}</li>
       </ol>
     </nav>
@@ -120,7 +136,7 @@ function whenOf(locale: Locale, date: string, recordedAt: string): string {
   return `${day}, ${time}`;
 }
 
-type Open = "none" | "history" | "delete";
+type Open = "none" | "delete";
 
 function Card({ data, reload }: { data: DetailData; reload: () => void }) {
   const { t, locale } = useI18n();
@@ -187,7 +203,15 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
             spoken={speakMoney(locale, amount.amount, amount.currency)}
           />
         </p>
-        <MoreMenu data={data} onOpen={setOpen} onAction={(a) => void act(a)} />
+        <MoreMenu
+          data={data}
+          onDelete={() => {
+            // A failed hide stays the page's own error; the confirmation opens clean.
+            setFailure(null);
+            setOpen("delete");
+          }}
+          onAction={(a) => void act(a)}
+        />
         <Tooltip text={t("shell.close")}>
           <a className="ws-icon-button" href={hrefFor(TRANSACTIONS.path)} aria-label={t("shell.close")}>
             <Icon name="close" size={20} inButton />
@@ -196,6 +220,7 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
       </div>
       {failure && open === "none" ? (
         <div className="txd-error" role="alert">
+          <p className="txd-error-title">{t("tx.error.title")}</p>
           <p>{t("txDetail.action.error")}</p>
           {failure.supportId ? (
             <p className="ws-muted">{t("tx.error.code", { code: failure.supportId })}</p>
@@ -225,7 +250,6 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
           <Button label={t("txDetail.unmerge")} onClick={() => void act("unmerge")} />
         </div>
       ) : null}
-      {open === "history" ? <TransactionHistoryDialog data={data} onClose={() => setOpen("none")} /> : null}
       <ConfirmDialog
         open={open === "delete"}
         onClose={() => {
@@ -242,7 +266,8 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
         error={
           failure ? (
             <span>
-              {t("txDetail.action.error")}
+              {/* CMP-21@PoC «Стани»: a failed action inside the dialog starts with «Помилка». */}
+              <strong>{t("field.error.word")}</strong> {t("txDetail.action.error")}
               {failure.supportId ? ` ${t("tx.error.code", { code: failure.supportId })}` : ""}
             </span>
           ) : undefined
@@ -256,16 +281,17 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
 /**
  * «…» «Ще дії» (FIN-03@PoC FR 27; canvas PocMoneyTxDetail): «Приховати транзакцію» only for a «Можливий дубль» that is
  * no side of a transfer (FR 18) — «Показати транзакцію» once hidden (FR 16); «Історія змін»; «Видалити» for a transaction
- * entered by hand, last, after a separator. «Позначити як переказ» (S-059 «Поєднати вручну», wave 2 row 139) and
+ * entered by hand, last, after a separator — not while duplicates are merged into it (the server refuses with
+ * `TRANSACTION_MERGED`; «Роз'єднати» comes first). «Історія змін» opens its own page (CMP-21@PoC). «Позначити як переказ» (S-059 «Поєднати вручну», wave 2 row 139) and
  * «Об'єднати з іншою» come with their screens: the menu shows no item that does nothing (PR body).
  */
 function MoreMenu({
   data,
-  onOpen,
+  onDelete,
   onAction,
 }: {
   data: DetailData;
-  onOpen: (open: Open) => void;
+  onDelete: () => void;
   onAction: (action: DetailAction) => void;
 }) {
   const t = useT();
@@ -284,15 +310,15 @@ function MoreMenu({
     id: "history",
     label: t("txDetail.menu.history"),
     icon: "list",
-    onSelect: () => onOpen("history"),
+    href: hrefFor(transactionHistoryPath(tx.id)),
   });
-  if (tx.source === "manual")
+  if (tx.source === "manual" && tx.mergedDuplicates.length === 0)
     items.push({
       id: "delete",
       label: t("txDetail.menu.delete"),
       icon: "trash",
       danger: true,
-      onSelect: () => onOpen("delete"),
+      onSelect: onDelete,
     });
   return (
     <MenuButton
@@ -321,5 +347,26 @@ function CategoryChip({ category }: { category: TransactionCategory | null }) {
       </span>
       <span className="ws-tx-category-name">{category.name}</span>
     </span>
+  );
+}
+
+/** «✕ Помилка», what failed, «Спробувати ще раз» and «Код: …» (canvas PocStates). */
+export function LoadError({
+  body,
+  supportId,
+  retry,
+}: {
+  body: string;
+  supportId: string | undefined;
+  retry: () => void;
+}) {
+  const t = useT();
+  return (
+    <div className="txd-state" role="alert">
+      <p className="txd-error-title">{t("tx.error.title")}</p>
+      <p>{body}</p>
+      <Button label={t("tx.error.retry")} onClick={retry} />
+      {supportId ? <p className="ws-muted">{t("tx.error.code", { code: supportId })}</p> : null}
+    </div>
   );
 }
