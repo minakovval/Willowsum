@@ -37,7 +37,8 @@ describe("signed links (NFR-01@PoC FR 4, ARC-06@PoC FR 4)", () => {
     expect(verifyLink(key, householdId, otherFile, now)).toBeNull();
     const [v, id, expires, sig] = token.split(".");
     expect(verifyLink(key, householdId, `${v}.${id}.${Number(expires) + 1}.${sig}`, now)).toBeNull();
-    const flipped = sig!.slice(0, -1) + (sig!.endsWith("A") ? "B" : "A");
+    // The first character carries 6 bits of the signature, so changing it always changes the signed bytes.
+    const flipped = (sig!.startsWith("A") ? "B" : "A") + sig!.slice(1);
     expect(verifyLink(key, householdId, `${v}.${id}.${expires}.${flipped}`, now)).toBeNull();
     expect(verifyLink(linkKey(randomBytes(32)), householdId, token, now)).toBeNull();
     // Signed correctly for a whole day: still refused, a link may not live longer than 15 minutes.
@@ -47,6 +48,18 @@ describe("signed links (NFR-01@PoC FR 4, ARC-06@PoC FR 4)", () => {
       .digest("base64url");
     expect(verifyLink(key, householdId, `${v}.${id}.${day}.${daySig}`, now)).toBeNull();
     expect(verifyLink(key, householdId, "garbage", now)).toBeNull();
+  });
+
+  it("NFR-01@PoC FR 4: another spelling of the same signature (unused low bits of its last character) is refused", () => {
+    const { token } = signLink(key, { householdId, fileId }, now);
+    const [v, id, expires, sig] = token.split(".");
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const last = alphabet.indexOf(sig!.slice(-1));
+    const respelled = sig!.slice(0, -1) + alphabet[last ^ 1];
+    expect(respelled).not.toBe(sig);
+    expect(Buffer.from(respelled, "base64url")).toEqual(Buffer.from(sig!, "base64url"));
+    expect(verifyLink(key, householdId, `${v}.${id}.${expires}.${respelled}`, now)).toBeNull();
+    expect(verifyLink(key, householdId, token, now)).toBe(fileId);
   });
 
   it("NFR-01@PoC FR 4: the key of the signatures has at least 32 bytes", () => {

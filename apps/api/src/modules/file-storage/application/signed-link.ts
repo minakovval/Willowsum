@@ -49,8 +49,13 @@ export function verifyLink(key: LinkKey, householdId: string, token: string, now
   if (!m || !UUID_RE.test(householdId)) return null;
   const fileId = m[1]!;
   const expiresMs = Number(m[2]);
-  const given = Buffer.from(m[3]!, "base64url");
-  const expected = signature(key, householdId, fileId, expiresMs);
+  // The base64url text itself is compared, not its decoded bytes: the unused low bits of the last character would
+  // otherwise let several spellings of one signature verify.
+  const given = Buffer.from(m[3]!, "latin1");
+  const expected = Buffer.from(
+    signature(key, householdId, fileId, expiresMs).toString("base64url"),
+    "latin1",
+  );
   const valid = given.length === expected.length && timingSafeEqual(given, expected);
   if (!valid || !UUID_RE.test(fileId)) return null;
   const left = expiresMs - now.getTime();
