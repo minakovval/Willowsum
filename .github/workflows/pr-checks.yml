@@ -95,9 +95,9 @@ jobs:
         run: node tools/req-check/index.mjs --quiet --check-mentions
       # Requirement text fingerprints (owner decision 2026-11-16, items 6–8): an item whose text changed since its
       # fingerprint (<ID>.fingerprints.json next to the source) fails, naming the item and its tests; after the
-      # re-check, --update-fingerprints rewrites it. Items without a fingerprint pass until the initial ones are set.
+      # re-check, --update-fingerprints rewrites it. Since the initial fingerprints (item 9), an item a test names without one fails too.
       - name: Requirement items match their text fingerprints
-        run: node tools/req-check/index.mjs --quiet --check-fingerprints
+        run: node tools/req-check/index.mjs --quiet --check-fingerprints --require-fingerprints
       # The migrated list (tools/req-check/migrated.json) only grows: an ID removed from it in the same PR as its
       # source section would hide that deletion from source-missing. Compare with the list on the base branch.
       - name: Base version of the migrated list
