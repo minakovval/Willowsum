@@ -54,6 +54,19 @@ describe("Toast (BUD-12@PoC FR 6)", () => {
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
+  it("BUD-12@PoC FR 6: the focus inside the message stops the timer; it runs on when the focus leaves", () => {
+    vi.useFakeTimers();
+    const onDismiss = vi.fn();
+    render(<Toast text="Транзакцію пропущено" closeLabel="Закрити" onDismiss={onDismiss} />);
+    const close = screen.getByRole("button", { name: "Закрити" });
+    act(() => close.focus());
+    act(() => vi.advanceTimersByTime(motion["duration-toast"] * 2));
+    expect(onDismiss).not.toHaveBeenCalled();
+    act(() => close.blur());
+    act(() => vi.advanceTimersByTime(motion["duration-toast"]));
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
   it("BUD-12@PoC FR 6: without an action it closes after `duration-toast`; an error stays; Esc inside and «×» close it", () => {
     vi.useFakeTimers();
     const done = vi.fn();

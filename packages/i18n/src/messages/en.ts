@@ -1648,7 +1648,6 @@ export const en: Messages = {
   "review.group.confirm": "Confirm {count}",
   "review.group.mixed": "The group has different categories: “Confirm” sets “{category}” for all of them.",
   "review.group.truncated": "The group is not shown in full. Review it one by one.",
-  "review.group.busy": "Confirming…",
   "review.edit": "Change category",
   "review.card.label": "Transaction to review",
   "review.card.amount": "Amount",

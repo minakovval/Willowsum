@@ -1641,7 +1641,6 @@ export const uk = {
   "review.group.confirm": "Підтвердити {count}",
   "review.group.mixed": "У групі різні категорії: «Підтвердити» призначить усім «{category}».",
   "review.group.truncated": "Групу показано не повністю. Розберіть її по одній.",
-  "review.group.busy": "Підтверджуємо…",
   "review.edit": "Змінити категорію",
   "review.card.label": "Транзакція до розбору",
   "review.card.amount": "Сума",
