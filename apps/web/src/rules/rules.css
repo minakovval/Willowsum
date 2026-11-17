@@ -131,7 +131,8 @@
   vertical-align: middle;
 }
 
-.rules-row:focus-visible {
+/* The row is focused only by «Показати правило №N» (tabIndex -1): `:focus`, since a click before it hides `:focus-visible`. */
+.rules-row:focus {
   outline: 3px solid var(--ws-focus);
   outline-offset: -3px;
 }
