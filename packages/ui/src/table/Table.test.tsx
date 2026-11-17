@@ -192,9 +192,10 @@ describe("CMP-26@PoC Table", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
-  it("CMP-26@PoC FR «Стани»: empty shows the empty state (the consumer's, or the default text)", () => {
-    const { rerender } = render(ui({ state: "empty", rows: [] }));
-    expect(screen.getByText("Записів немає")).toBeTruthy();
+  it("CMP-26@PoC FR «Стани»: empty shows the shared EmptyState (CMP-23) with a title and a text, or the consumer's own", () => {
+    const { container, rerender } = render(ui({ state: "empty", rows: [] }));
+    expect(screen.getByRole("heading", { name: "Записів немає" })).toBeTruthy();
+    expect(container.querySelector('.ws-state[data-state="empty"][data-placement="block"]')).not.toBeNull();
     rerender(ui({ state: "empty", rows: [], empty: <p>Рахунків ще немає</p> }));
     expect(screen.getByText("Рахунків ще немає")).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
@@ -204,10 +205,40 @@ describe("CMP-26@PoC Table", () => {
     const onRetry = vi.fn();
     render(ui({ state: "error", error: { onRetry, code: "WS-4F2A" } }));
     const alert = screen.getByRole("alert");
-    expect(alert.textContent).toContain("✕ Помилка");
+    // The shared ErrorState (CMP-24): «✕» is decoration, the word «Помилка» is read.
+    expect(alert.getAttribute("data-state")).toBe("error");
+    expect(alert.querySelector("[aria-hidden='true']")!.textContent).toContain("✕");
+    expect(alert.querySelector(".ws-state-title")!.textContent).toContain("Помилка");
     expect(alert.textContent).toContain("Код: WS-4F2A");
     fireEvent.click(within(alert).getByRole("button", { name: "Спробувати ще раз" }));
     expect(onRetry).toHaveBeenCalledOnce();
+  });
+
+  it("CMP-26@PoC FR «Клавіатура і екранний читач»: the open row is named by the record, its box by its own «Вибрати …» name, never by the id", () => {
+    const rows: TableRow[] = [
+      { ...row("a", "Зарплатна ··4417"), selectLabel: "Вибрати Зарплатна ··4417" },
+      { id: "tech-77", cells: { name: "Гаманець" } },
+      { id: "tech-78", cells: { name: <b>Вузол</b> } },
+    ];
+    const { container } = render(
+      ui({ rows, onOpen: () => undefined, selection: { selected: new Set(), onChange: () => undefined } }),
+    );
+    const first = container.querySelector("tbody tr")!;
+    expect(first.getAttribute("aria-label")).toBe("Зарплатна ··4417");
+    expect(
+      within(first as HTMLElement).getByRole("checkbox", { name: "Вибрати Зарплатна ··4417" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Гаманець" })).toBeTruthy();
+    expect(screen.getByRole("checkbox", { name: "Вибір" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /tech-7/ })).toBeNull();
+  });
+
+  it("CMP-26@PoC FR «Клавіатура і екранний читач»: aria-sort is set only on a column that can be sorted here (a button and onSort)", () => {
+    const { rerender } = render(ui());
+    expect(screen.getAllByRole("columnheader").some((h) => h.hasAttribute("aria-sort"))).toBe(false);
+    rerender(ui({ onSort: () => undefined }));
+    expect(screen.getByRole("columnheader", { name: /Рахунок/ }).getAttribute("aria-sort")).toBe("none");
+    expect(screen.getByRole("columnheader", { name: "Тип" }).hasAttribute("aria-sort")).toBe(false);
   });
 
   it("CMP-26@PoC FR «Клавіатура і екранний читач»: a row that opens a record takes focus and Enter opens it", () => {

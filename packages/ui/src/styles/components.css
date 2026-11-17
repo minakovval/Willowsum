@@ -668,17 +668,6 @@
   margin: 0;
 }
 
-.ws-dtable-state--empty {
-  justify-items: center;
-  padding-block: var(--ws-space-6);
-  text-align: center;
-}
-
-.ws-dtable-error-title {
-  color: var(--ws-loss);
-  font-weight: 600;
-}
-
 .ws-dtable-footer {
   padding: var(--ws-space-3) var(--ws-space-4);
   border-block-start: 1px solid var(--ws-line);

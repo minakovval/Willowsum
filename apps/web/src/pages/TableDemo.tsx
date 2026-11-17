@@ -88,7 +88,8 @@ export function TableDemo() {
   ];
   const toRow = (s: Sample): TableRow => ({
     id: s.id,
-    label: t("gallery.table.rowLabel", { name: t(s.name) }),
+    label: t(s.name),
+    selectLabel: t("gallery.table.rowLabel", { name: t(s.name) }),
     cells: {
       name: t(s.name),
       type: t(s.type),

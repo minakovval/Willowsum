@@ -1,6 +1,7 @@
 import { type KeyboardEvent, type ReactNode } from "react";
 import { formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
-import { Button } from "../button/Button.tsx";
+import { EmptyState } from "../states/EmptyState.tsx";
+import { ErrorState } from "../states/ErrorState.tsx";
 import { Skeleton } from "../skeleton/Skeleton.tsx";
 import { TruncatedText } from "../tooltip/Tooltip.tsx";
 
@@ -27,8 +28,10 @@ export interface TableRow {
   id: string;
   /** A string is one line cut with «…» and a tooltip; a node (an amount, a badge) is drawn as it is. */
   cells: Readonly<Record<string, ReactNode>>;
-  /** The accessible name of the row's selection box and of the open action, e.g. «Вибрати Кредитна ··9021». */
+  /** The record's name: the accessible name of a row that opens («Кредитна ··9021»). */
   label?: string;
+  /** The accessible name of the row's selection box («Вибрати Кредитна ··9021»); by default `label`. */
+  selectLabel?: string;
 }
 
 export interface TableProps {
@@ -61,6 +64,15 @@ export interface TableProps {
   /** Pagination (CMP-13) or any footer under the table. */
   footer?: ReactNode;
   className?: string | undefined;
+}
+
+/** The text of the first cell that is a string: the last name a selection box can take. */
+function firstText(row: TableRow, columns: readonly TableColumn[]): string | undefined {
+  for (const c of columns) {
+    const cell = row.cells[c.key];
+    if (typeof cell === "string") return cell;
+  }
+  return undefined;
 }
 
 const FORMS = ["one", "few", "many", "other"] as const;
@@ -132,18 +144,17 @@ export function Table({
             <Skeleton variant="row" lines={5} />
           </div>
         )}
-        {state === "empty" && (
-          <div className="ws-dtable-state ws-dtable-state--empty">
-            {empty ?? <p className="ws-muted">{t("table.empty")}</p>}
-          </div>
-        )}
+        {state === "empty" &&
+          (empty ?? (
+            <EmptyState placement="block" title={t("table.empty.title")} text={t("table.empty.text")} />
+          ))}
         {state === "error" && (
-          <div className="ws-dtable-state" role="alert">
-            <p className="ws-dtable-error-title">{t("table.error.title")}</p>
-            <p>{t("table.error.body")}</p>
-            <Button label={t("table.error.retry")} onClick={() => error?.onRetry()} />
-            {error?.code ? <p className="ws-muted">{t("table.error.code", { code: error.code })}</p> : null}
-          </div>
+          <ErrorState
+            placement="block"
+            text={t("table.error.body")}
+            code={error?.code}
+            onRetry={() => error?.onRetry()}
+          />
         )}
         {state === "ready" && (
           <table className="ws-dtable" aria-label={caption}>
@@ -169,7 +180,7 @@ export function Table({
                       scope="col"
                       className={end ? "ws-dtable-end" : undefined}
                       aria-sort={
-                        c.sortable
+                        c.sortable && onSort
                           ? active === "asc"
                             ? "ascending"
                             : active === "desc"
@@ -225,7 +236,9 @@ export function Table({
                           type="checkbox"
                           className="ws-row-check"
                           checked={selected}
-                          aria-label={row.label ?? row.id}
+                          aria-label={
+                            row.selectLabel ?? row.label ?? firstText(row, shown) ?? t("table.select")
+                          }
                           onChange={(e) => selection.onChange(row.id, e.target.checked)}
                         />
                       </td>
