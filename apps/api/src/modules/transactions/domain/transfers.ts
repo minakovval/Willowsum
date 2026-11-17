@@ -1,4 +1,11 @@
-import { convert, currencyInfo, Decimal, Money, type ExchangeRate } from "@willowsum/domain-kernel";
+import {
+  convert,
+  currencyInfo,
+  Decimal,
+  DomainError,
+  Money,
+  type ExchangeRate,
+} from "@willowsum/domain-kernel";
 import type { FieldIssue, TransactionStatus } from "./transactions.ts";
 
 /**
@@ -111,11 +118,19 @@ export function transferReceived(
   }
   if (currency === sent.currency) return sent;
   if (forward === null) return "rate_unavailable";
-  const converted = convert(sent, forward, date).to;
-  const received = Money.of(
-    converted.amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
-    currency,
-  );
+  let received: Money;
+  try {
+    const converted = convert(sent, forward, date).to;
+    received = Money.of(
+      converted.amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
+      currency,
+    );
+  } catch (error) {
+    // The converted credit does not fit a stored amount (NUMERIC(38,18)): a field issue, never a 500.
+    if (error instanceof DomainError && error.code === "AMOUNT_OUT_OF_RANGE")
+      return { field: "amount", issue: "invalid" };
+    throw error;
+  }
   // Too small to reach the credit currency's minor unit: a transfer moves money (FR 2).
   return received.isZero() ? { field: "amount", issue: "zero" } : received;
 }

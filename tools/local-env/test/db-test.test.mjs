@@ -81,3 +81,14 @@ test('sec429: socket form — a host name, a repeated host and hostaddr are refu
   for (const bad of ['postgres:///x?host=db.example.com', 'postgres:///x?host=/tmp&host=db.example.com', 'postgres:///x?host=db.example.com&host=/tmp', 'postgres:///x?host=/tmp&hostaddr=10.0.0.5'])
     assert.equal(isLocalAdminUrl(bad), false, bad);
 });
+
+// #452: PGHOSTADDR / PGSERVICE in the environment send libpq to another host whatever the URL says.
+test('#452: PGHOSTADDR or PGSERVICE in the environment refuses an otherwise local URL', () => {
+  const url = 'postgres://u@127.0.0.1:5432/postgres';
+  assert.equal(isLocalAdminUrl(url, {}), true);
+  assert.equal(isLocalAdminUrl(url, { PGHOSTADDR: '10.0.0.5' }), false);
+  assert.equal(isLocalAdminUrl(url, { PGSERVICE: 'remote' }), false);
+  assert.equal(isLocalAdminUrl('postgres:///x?host=/tmp', { PGHOSTADDR: '10.0.0.5' }), false);
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url, PGSERVICE: 'remote' }, docker: false }).kind, 'none');
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url }, docker: false }).kind, 'url');
+});

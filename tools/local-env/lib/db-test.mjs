@@ -63,8 +63,10 @@ export function adminUrlFromState(values) {
  * Whether an admin URL points at this machine (the same rule as `assertLocalServer` of `pnpm local:dev`, #363): the
  * integration runs set role passwords and drop roles cluster-wide, so they must never reach another server.
  */
-export function isLocalAdminUrl(adminUrl) {
+export function isLocalAdminUrl(adminUrl, env = process.env) {
   if (adminUrl !== adminUrl.trim()) return false;
+  // PGHOSTADDR / PGSERVICE in the environment send libpq elsewhere whatever the URL says (#452).
+  if (env.PGHOSTADDR || env.PGSERVICE) return false;
   // libpq has no fragment: parameters behind a `#` still apply there, while `new URL` hides them.
   if (adminUrl.includes('#')) return false;
   let u;
@@ -89,7 +91,7 @@ export function resolveServer({ env, docker }) {
   const url = env.WS_TEST_PG_ADMIN_URL;
   if (url) {
     if (!/^postgres(ql)?:\/\//.test(url)) return { kind: 'none', message: 'WS_TEST_PG_ADMIN_URL must be a postgres:// URL.' };
-    if (!isLocalAdminUrl(url)) return { kind: 'none', message: 'WS_TEST_PG_ADMIN_URL must point at this machine (127.0.0.1, ::1, localhost or a socket directory).' };
+    if (!isLocalAdminUrl(url, env)) return { kind: 'none', message: 'WS_TEST_PG_ADMIN_URL must point at this machine (127.0.0.1, ::1, localhost or a socket directory), with no PGHOSTADDR or PGSERVICE in the environment.' };
     return { kind: 'url', url };
   }
   if (docker) return { kind: 'compose' };

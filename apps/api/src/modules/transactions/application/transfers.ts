@@ -263,6 +263,8 @@ export async function createTransfer(
     deps.accounts.postingAccount(householdId, input.toAccountId),
   ]);
   if (!from || !to) return { kind: "not-found" };
+  // A closed debit account is «closed» (409) whatever else is wrong with the form (#455).
+  if (from.status === "closed") return { kind: "closed" };
   // The debit: the form's checks of one transaction (date, texts, account, currency) on the negated amount.
   const outflow =
     isIssue(sent) || issues.length > 0

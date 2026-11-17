@@ -142,10 +142,15 @@ export function parsePrompt(line: string): PromptCommand {
 }
 
 /** `pnpm local:dev` resets cluster-wide role passwords and may drop ws_dev: only a server on this machine. */
-export function assertLocalServer(adminUrl: string): void {
+export function assertLocalServer(
+  adminUrl: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): void {
   const refuse = (where: string): never => {
     throw new Error(`not a local PostgreSQL (${where}); pnpm local:dev runs only on this machine`);
   };
+  // PGHOSTADDR / PGSERVICE in the environment send libpq elsewhere whatever the URL says (#452).
+  if (env["PGHOSTADDR"] || env["PGSERVICE"]) refuse("PGHOSTADDR or PGSERVICE is set");
   // pg parses a URL with a leading space differently (host `base`): refuse it before reading anything.
   if (adminUrl !== adminUrl.trim()) refuse("the URL has leading or trailing spaces");
   // libpq has no URL fragment: `…#?host=<other>` connects to <other> while `new URL` sees an empty query.
