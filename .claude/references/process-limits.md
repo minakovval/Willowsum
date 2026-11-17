@@ -31,7 +31,7 @@ only when the lead proposes it and the owner agrees.
 ## Size of the lead's rules (`pr-pipeline/references/lead-communication.md`, «Rule text»)
 
 ```bash
-cat .claude/skills/pr-pipeline/SKILL.md .claude/skills/pr-pipeline/references/*.md | wc -l   # at most 520
+cat .claude/skills/pr-pipeline/SKILL.md .claude/skills/pr-pipeline/references/*.md .claude/references/*.md | wc -l   # at most 1060
 ```
 
 The author of a PR that changes these files runs it before pushing; the reviewer repeats it. Over the limit → in the

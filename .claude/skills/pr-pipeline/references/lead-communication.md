@@ -26,5 +26,5 @@ change that blocks work or affects security, or that the owner asks for explicit
 - A rule states the norm only: what to do and when. Who decided it, when, and which PR or incident caused it live
   in the decision log (`docs/decisions/log/`). A PR that edits a rule paragraph removes that paragraph's inline
   history («owner, date», issue and PR numbers, quotes) once the log has it. Each rule lives in one place.
-- Size: `pr-pipeline/SKILL.md` with its `references/` stays within **520 lines**; a PR that would exceed it shortens
-  other text in the same PR. How to check and apply: [process limits](../../../references/process-limits.md).
+- Size: `pr-pipeline/SKILL.md` with its `references/` and `.claude/references/` together stay within **1 060 lines**;
+  a PR that would exceed it shortens other text in the same PR. How to check and apply: [process limits](../../../references/process-limits.md).
