@@ -91,7 +91,7 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
   const navLabels = () =>
     [...document.querySelectorAll(".ws-nav-page .ws-nav-label")].map((e) => e.textContent);
 
-  it("GRID-04@PoC FR 6, AC2, AC6: «Бюджет» is the root of «Планування»; «Борги» is in the menu, «Звіти» is not", () => {
+  it("GRID-04@PoC FR 6, AC2, AC5: «Бюджет» is the root of «Планування»; «Борги» is in the menu, «Звіти» is not", () => {
     renderAt("#/planning", fakeApi({}).client);
     expect(window.location.hash).toBe("#/planning/budget");
     const sections = [...document.querySelectorAll(".ws-nav-section > .ws-nav-item .ws-nav-label")].map(
@@ -102,13 +102,13 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     expect(navLabels()).not.toContain("Звіти");
   });
 
-  it("GRID-04@PoC AC6, EC3: without any debt «Борги» opens and shows its empty state", async () => {
+  it("GRID-04@PoC AC5, EC3: without any debt «Борги» opens and shows its empty state", async () => {
     renderAt("#/planning/debts", fakeApi({ "GET /v1/debts": { status: 200, body: { debts: [] } } }).client);
     expect(await screen.findByRole("heading", { name: "Боргів не додано" })).toBeTruthy();
     expect(navLabels()).toContain("Борги");
   });
 
-  it("GRID-04@PoC FR 7, AC3: every page of «Планування» opens; «Тільки бюджет» is not in the PoC shell", () => {
+  it("GRID-04@PoC AC5: every page of «Планування» opens and «Борги» is in the menu", () => {
     for (const hash of [
       "#/planning/budget",
       "#/planning/goals",

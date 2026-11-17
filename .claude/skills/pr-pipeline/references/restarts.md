@@ -17,7 +17,7 @@ commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task>
 and brief the next agent from it.
 
 **350 k**: from ~350 k tokens of context the lead only rewrites the #179 body before each long step; there is no stop
-on new tasks (trial for 3 segments, leads 20–22, below).
+on new tasks (below).
 
 **Lead state**: one place — the **body** of #179, rewritten in full
 each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a comment.
@@ -26,8 +26,7 @@ next plan rows, the next session or segment name, and a link to «Черга з�
 merges (with the #180 rows), whenever an owner question changes and, from ~350 k, before each long step. The handover
 tables stay comments on #179 — they are the history, not the state; at a compaction there is no table (below).
 
-**After compaction** (trial for 3 segments,
-leads 20–22): at ~400 k tokens
+**After compaction**: at ~400 k tokens
 the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner; the
 threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
 `compact`) reminds the agent; the lead then, in the same session:
@@ -40,8 +39,7 @@ threshold stays); the lead does not stop the session. The `SessionStart` hook (`
 
 At a compaction there is **no** retrospective and **no** handover table: the retrospective of the segments since the
 previous review goes with the process review (below). The handover table stays only for a new session
-([handover confirmation](../../../references/handover-confirmation.md)). After leads 20–22 the lead reports the
-merged PRs per segment before and after (leads 17–19 against 20–22) and the post-compaction errors; the owner decides.
+([handover confirmation](../../../references/handover-confirmation.md)).
 
 **External review channel.** Issue #480 is the external review session's channel; the lead reads it at the start of
 every segment and before every report to the owner. «Lead state» (#179) keeps a link to #480 and the number of the
