@@ -110,7 +110,7 @@ function call(
 
 /** Runs the worker until the categorization jobs and the events of the space are done (as bud14-rules.it.test.ts). */
 async function runWorker(householdId: string): Promise<void> {
-  for (let pass = 0; pass < 20; pass++) {
+  for (let pass = 0; pass < 50; pass++) {
     const { rows } = await db.owner.query(
       `SELECT (SELECT count(*) FROM categorization.jobs WHERE household_id = $1 AND state IN ('queued', 'running'))
             + (SELECT count(*) FROM transactions.outbox_events WHERE household_id = $1 AND dispatched_at IS NULL)
@@ -445,6 +445,8 @@ describe("BUD-12@PoC AC8, AC10, FR 15, FR 16 (server part): a group confirmed, �
     const others: string[] = [];
     for (let i = 0; i < 85; i++) others.push(await add(space, account, "-1.00", `Синтетичний ${i % 5}`));
     await queue(space, [...silpo, ...others]);
+    // The jobs of the 103 new transactions are done before the rule exists (as the import would have them).
+    await runWorker(space.householdId);
     const before = await groups(space);
     expect(before.transactionCount).toBe(103);
     const group = before.items.find((g) => g.merchant?.name === "Silpo")!;
