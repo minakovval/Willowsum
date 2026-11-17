@@ -47,7 +47,7 @@ export function AttributeRows({
   onSaved,
 }: {
   transaction: TransactionDetail;
-  /** A merged duplicate or a closed account: the server keeps the attributes as they are, so no editing. */
+  /** A merged duplicate: the server keeps its attributes as they are, so no editing (a closed account's refusal is shown). */
   locked: boolean;
   onSaved: (t: TransactionDetail) => void;
 }) {

@@ -209,6 +209,8 @@ describe("BUD-13@PoC b): attributes in S-047 «Деталь транзакції
     await act(async () => button("Додайте нотатку").click());
     const area = within(card()).getByRole("textbox", { name: "Нотатка" });
     expect(document.activeElement).toBe(area);
+    // BUD-13@PoC FR 1: «Нотатка» up to 2 000 characters.
+    expect(area.getAttribute("maxlength")).toBe("2000");
     fireEvent.change(area, { target: { value: "фарба і валики" } });
     await act(async () => button("Зберегти").click());
     await waitFor(() => expect(within(row("Нотатка")!).getByText("фарба і валики")).toBeTruthy());
@@ -223,6 +225,8 @@ describe("BUD-13@PoC b): attributes in S-047 «Деталь транзакції
     const options = [...card().querySelectorAll("datalist option")].map((o) => o.getAttribute("value"));
     expect(options).toEqual(["повернути"]);
     const input = within(card()).getByRole("combobox", { name: "Новий тег" });
+    // BUD-13@PoC FR 2: a tag is up to 60 characters.
+    expect(input.getAttribute("maxlength")).toBe("60");
     fireEvent.change(input, { target: { value: "повернути" } });
     await act(async () => fireEvent.keyDown(input, { key: "Enter" }));
     await waitFor(() =>
