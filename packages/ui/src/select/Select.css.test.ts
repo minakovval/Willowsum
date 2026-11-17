@@ -74,7 +74,7 @@ describe("CMP-03@PoC Select styles", () => {
 
   it("CMP-03@PoC AC3: in focus a 3 px `focus` ring with a 2 px offset is drawn and the border turns `ink`", () => {
     expect(rule(base, ":focus-visible")).toContain(
-      "outline: var(--ws-focus-ring-width) solid var(--ws-focus);",
+      "outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);",
     );
     expect(px("focus-ring-width")).toBe(3);
     expect(px("focus-ring-offset")).toBe(2);

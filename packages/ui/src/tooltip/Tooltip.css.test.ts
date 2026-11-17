@@ -71,7 +71,7 @@ describe("CMP-25@PoC Tooltip styles", () => {
 
   it("CMP-25@PoC FR «Стани»: the cut-off element keeps the 3 px focus ring with a 2 px offset (DS-14)", () => {
     expect(read("../styles/base.css")).toMatch(
-      /:focus-visible\s*\{\s*outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus\);\s*outline-offset:\s*var\(--ws-focus-ring-offset\)/,
+      /:focus-visible\s*\{\s*outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus-ring-color\);\s*outline-offset:\s*var\(--ws-focus-ring-offset\)/,
     );
     expect(css).not.toMatch(/\.ws-(truncate|amount-fit)[^{]*\{[^}]*outline:\s*(none|0)/);
   });

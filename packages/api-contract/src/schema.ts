@@ -1918,6 +1918,7 @@ export interface operations {
                                     amount: string;
                                     currency: string;
                                 };
+                                gracePeriodDays: number | null;
                             } | null;
                             currencies: {
                                 amount: {

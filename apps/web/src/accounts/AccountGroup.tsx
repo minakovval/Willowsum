@@ -266,8 +266,8 @@ function Terms({ account: a }: { account: Account }) {
           limit: money(locale, a.creditCard.creditLimit),
           available: money(locale, a.creditCard.available),
         })}
-        {a.creditCard.gracePeriodDays !== null && a.creditCard.gracePeriodDays !== undefined
-          ? ` · ${t("accounts.card.grace", { days: formatNumber(locale, a.creditCard.gracePeriodDays) })}`
+        {a.creditCard.gracePeriodDays !== null
+          ? ` · ${t("accounts.card.grace", { days: formatNumber(locale, String(a.creditCard.gracePeriodDays)) })}`
           : null}
       </span>
     );

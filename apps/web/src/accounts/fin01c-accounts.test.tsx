@@ -123,7 +123,12 @@ const card = account({
       restricted: false,
     },
   ],
-  creditCard: { creditLimit: eur("5000.00"), debt: eur("1200.00"), available: eur("3800.00") },
+  creditCard: {
+    creditLimit: eur("5000.00"),
+    debt: eur("1200.00"),
+    available: eur("3800.00"),
+    gracePeriodDays: null,
+  },
 });
 const mortgage = account({
   name: "Іпотека",
