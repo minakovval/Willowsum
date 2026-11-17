@@ -901,3 +901,166 @@ describe("ARC-04@PoC FR 2–4: a background part that dies and the daily recover
     }
   });
 });
+
+async function tagNamesOfSpace(space: Space): Promise<string[]> {
+  const res = await call(space, "GET", "/v1/transaction-tags");
+  expect(res.statusCode, res.body).toBe(200);
+  return (res.json().items as { name: string }[]).map((t) => t.name);
+}
+
+/** A custom category «name» in the group of «Продукти». */
+async function customCategory(space: Space, name: string): Promise<string> {
+  const groceries = await category(space, "Продукти");
+  const tree = await call(space, "GET", "/v1/categories");
+  const groupId = (tree.json().groups as { id: string; categories: { id: string }[] }[]).find((g) =>
+    g.categories.some((c) => c.id === groceries),
+  )!.id;
+  const made = await call(space, "POST", "/v1/categories", { groupId, name });
+  expect(made.statusCode, made.body).toBe(201);
+  return made.json().id as string;
+}
+
+describe("Review of #492: «Відмінити» and the background parts give only a category in use (BUD-01 FR 9, FR 12)", () => {
+  it("BUD-14@PoC FR 7, BUD-01@PoC FR 12: «Відмінити» does not put a transaction back into a category deleted since the run", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    const custom = await customCategory(space, "Синтетична кава");
+    const ids = [
+      await purchase(space, account, "SYNTH CAFE 1", "-3.00", "2026-10-14"),
+      await purchase(space, account, "SYNTH CAFE 2", "-4.00", "2026-10-15"),
+    ];
+    const first = await createRule(space, { conditions: [merchantIs("Synth Cafe")], categoryId: custom });
+    expect(await apply(space, first.id)).toMatchObject({ status: "completed", changed: 2 });
+    const second = await createRule(space, { conditions: [merchantIs("Synth Caf")], categoryId: groceries });
+    const report = await apply(space, second.id);
+    expect(report).toMatchObject({ status: "completed", changed: 2 });
+    // The custom category is empty now: the rule that named it and the category itself are deleted.
+    expect((await call(space, "DELETE", `/v1/category-rules/${first.id}`)).statusCode).toBe(200);
+    const gone = await call(space, "DELETE", `/v1/categories/${custom}`);
+    expect(gone.statusCode, gone.body).toBe(200);
+    const undone = await call(space, "POST", `/v1/category-rule-runs/${report.id}/undo`, {});
+    expect(undone.statusCode, undone.body).toBe(200);
+    expect(undone.json()).toMatchObject({ status: "undone", undo: { restored: 0, notRestored: 2 } });
+    for (const id of ids) expect((await categoryOf(space, id)).categoryId, id).toBe(groceries);
+  });
+
+  it("BUD-14@PoC FR 7, BUD-01@PoC FR 9: the rule's category merged away while the run is in the background — the records left take nothing", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    const custom = await customCategory(space, "Синтетичний ринок");
+    const seed = await purchase(space, account, "SYNTH MARKET", "-1.00", "2026-10-16");
+    await copies(space.householdId, seed, 599);
+    const rule = await createRule(space, { conditions: [merchantIs("Synth Market")], categoryId: custom });
+    const report = await apply(space, rule.id);
+    expect(report).toMatchObject({ status: "running", processed: 500 });
+    const merged = await call(space, "POST", `/v1/categories/${custom}/merge`, { targetId: groceries });
+    expect(merged.statusCode, merged.body).toBe(200);
+    await runWorker(space.householdId);
+    expect(await run(space, report.id)).toMatchObject({
+      status: "completed",
+      changed: 500,
+      skipped: { unavailable: 100 },
+    });
+    const left = await db.owner.query(
+      `SELECT count(*) AS n FROM categorization.transaction_categories WHERE household_id = $1 AND category_id = $2`,
+      [space.householdId, custom],
+    );
+    expect(Number(left.rows[0].n)).toBe(0);
+  });
+});
+
+describe("Review of #492: the background part checks each record again", () => {
+  it("BUD-14@PoC FR 15: the rule deleted while its run is in the background — the records left are not changed, the run ends", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const seed = await purchase(space, account, "SYNTH LATE 1", "-1.00", "2026-10-16");
+    await copies(space.householdId, seed, 599);
+    const rule = await createRule(space, {
+      conditions: [merchantIs("Synth Late")],
+      categoryId: await category(space, "Продукти"),
+    });
+    expect(await apply(space, rule.id)).toMatchObject({ status: "running", processed: 500 });
+    expect((await call(space, "DELETE", `/v1/category-rules/${rule.id}`)).statusCode).toBe(200);
+    await runWorker(space.householdId);
+    const runs = (await call(space, "GET", "/v1/category-rule-runs")).json().items as RunBody[];
+    expect(runs[0]).toMatchObject({ status: "completed", changed: 500, skipped: { unavailable: 100 } });
+  });
+
+  it("BUD-14@PoC FR 7, FR 8: a transaction hidden while the run is in the background takes no category from it", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const seed = await purchase(space, account, "SYNTH LATE 2", "-1.00", "2026-10-16");
+    await copies(space.householdId, seed, 599);
+    const rule = await createRule(space, {
+      conditions: [merchantIs("Synth Late")],
+      categoryId: await category(space, "Продукти"),
+    });
+    const report = await apply(space, rule.id);
+    expect(report).toMatchObject({ status: "running", processed: 500 });
+    const { rows } = await db.owner.query(
+      `SELECT transaction_id FROM categorization.rule_run_items WHERE run_id = $1 AND result = 'pending' LIMIT 1`,
+      [report.id],
+    );
+    const hidden = rows[0].transaction_id as string;
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hidden]);
+    await runWorker(space.householdId);
+    expect(await run(space, report.id)).toMatchObject({
+      status: "completed",
+      changed: 599,
+      skipped: { unavailable: 1 },
+    });
+    const left = await db.owner.query(
+      `SELECT count(*) AS n FROM categorization.transaction_categories WHERE transaction_id = $1`,
+      [hidden],
+    );
+    expect(Number(left.rows[0].n)).toBe(0);
+  });
+});
+
+describe("Review of #492: a rule's tags create a tag only for a change that is made", () => {
+  it("BUD-14@PoC FR 7, EC5: «Відмінити» does not create again a tag the user deleted since the run", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const id = await purchase(space, account, "SYNTH TAGGED", "-6.00");
+    const own = await call(space, "PATCH", `/v1/transactions/${id}/attributes`, { tags: ["моє-синтетичне"] });
+    expect(own.statusCode, own.body).toBe(200);
+    const rule = await createRule(space, {
+      conditions: [merchantIs("Synth Tagged")],
+      categoryId: await category(space, "Продукти"),
+      tags: ["софт"],
+    });
+    const report = await apply(space, rule.id);
+    expect(await tagsOf(space, id)).toEqual(["моє-синтетичне", "софт"]);
+    const tags = (await call(space, "GET", "/v1/transaction-tags")).json().items as {
+      id: string;
+      name: string;
+    }[];
+    const mine = tags.find((t) => t.name === "моє-синтетичне")!;
+    const removed = await call(space, "DELETE", `/v1/transaction-tags/${mine.id}`);
+    expect(removed.statusCode, removed.body).toBe(200);
+    const undone = await call(space, "POST", `/v1/category-rule-runs/${report.id}/undo`, {});
+    expect(undone.statusCode, undone.body).toBe(200);
+    expect(undone.json()).toMatchObject({ status: "undone", undo: { notRestored: 1 } });
+    expect(await tagNamesOfSpace(space)).not.toContain("моє-синтетичне");
+    expect(await tagsOf(space, id)).toEqual(["софт"]);
+  });
+
+  it("BUD-14@PoC FR 5: a transaction that already has 20 tags keeps them, and the rule's new tag is not created", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const id = await purchase(space, account, "SYNTH FULL", "-6.00");
+    const twenty = Array.from({ length: 20 }, (_, i) => `синт-${i + 1}`);
+    const own = await call(space, "PATCH", `/v1/transactions/${id}/attributes`, { tags: twenty });
+    expect(own.statusCode, own.body).toBe(200);
+    const rule = await createRule(space, {
+      conditions: [merchantIs("Synth Full")],
+      categoryId: await category(space, "Продукти"),
+      tags: ["зайвий-синтетичний"],
+    });
+    expect(await apply(space, rule.id)).toMatchObject({ status: "completed", changed: 1 });
+    expect(await tagsOf(space, id)).toEqual(twenty);
+    expect(await tagNamesOfSpace(space)).not.toContain("зайвий-синтетичний");
+  });
+});

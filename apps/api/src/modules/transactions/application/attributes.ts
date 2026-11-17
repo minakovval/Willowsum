@@ -241,6 +241,15 @@ export async function addRuleTags(
   if ("issue" in checked || checked.names.length === 0) return { kind: "refused" };
   const seen = await tx.find(caller.householdId, id);
   if (!seen || seen.mergedInto !== null) return { kind: "refused" };
+  // Only a change that will be made creates a missing tag (review of #492): not when the transaction has the rule's
+  // tags already, would pass 20 tags or is in a closed account. Read without the row's lock; under it, the change
+  // below decides again.
+  const have = new Set((await namesOf(tags, caller.householdId, seen.tagIds)).map(tagKey));
+  const missing = checked.names.filter((n) => !have.has(tagKey(n)));
+  if (missing.length === 0) return { kind: "unchanged" };
+  if (seen.tagIds.length + missing.length > TAGS_PER_TRANSACTION_MAX) return { kind: "refused" };
+  if ((await deps.accounts.postingAccount(caller.householdId, seen.accountId))?.status === "closed")
+    return { kind: "refused" };
   // The tags locked before the row (the order of every tag change, see above).
   const added = await resolveTags(tags, caller.householdId, checked.names, deps.newId);
   if (!Array.isArray(added)) return { kind: "refused" };
@@ -278,8 +287,13 @@ export async function restoreRuleTags(
 ): Promise<{ readonly kind: "restored" | "changed"; readonly handOff: TransactionHandOff | null }> {
   const seen = await tx.find(caller.householdId, id);
   if (!seen || seen.mergedInto !== null) return { kind: "changed", handOff: null };
-  const nextIds = await resolveTags(tags, caller.householdId, next, deps.newId);
-  if (!Array.isArray(nextIds)) return { kind: "changed", handOff: null };
+  // The tags given back are the space's tags still there: one deleted since the run is not created again, the record
+  // stays as it is (review of #492). Locked before the row, in the order of their ids (the order of every tag change).
+  const found = await Promise.all(next.map((n) => tags.byKey(caller.householdId, tagKey(n))));
+  if (found.some((t) => t === null)) return { kind: "changed", handOff: null };
+  const nextIds = found.map((t) => t!.id);
+  const locked = await tags.lockTags(caller.householdId, [...new Set(nextIds)].sort());
+  if (nextIds.some((t) => !locked.has(t))) return { kind: "changed", handOff: null };
   let stale = false;
   const result = await changeRow(deps, tx, caller, id, "update", async (current) => {
     if (!sameKeys(await namesOf(tags, caller.householdId, current.tagIds), expected)) {

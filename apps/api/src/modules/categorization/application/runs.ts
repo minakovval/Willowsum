@@ -1,4 +1,5 @@
 import {
+  categoryAllowed,
   RUN_FOREGROUND_MAX,
   RUN_UNDO_MS,
   UNCATEGORIZED,
@@ -83,7 +84,7 @@ export interface RunsTx {
   pending(householdId: string, id: string, limit: number): Promise<RunItem[]>;
   undoPending(householdId: string, id: string, limit: number): Promise<RunItem[]>;
   saveItem(householdId: string, id: string, item: RunItem): Promise<void>;
-  /** Every pending record of the run becomes «unavailable» (the rule was deleted meanwhile). */
+  /** Every pending record of the run becomes «unavailable» (the rule or its category is gone meanwhile). */
   dropPending(householdId: string, id: string): Promise<void>;
   saveUndo(householdId: string, id: string, ordinal: number, restored: boolean): Promise<void>;
   /**
@@ -96,7 +97,7 @@ export interface RunsTx {
   enqueuePart(householdId: string, id: string, status: RunStatus, step: number): Promise<void>;
 }
 
-export type RunDeps = Pick<RuleDeps, "inputs" | "tags">;
+export type RunDeps = Pick<RuleDeps, "inputs" | "tags" | "categories">;
 
 export interface RunReport {
   readonly run: RunRow;
@@ -253,6 +254,12 @@ async function undoItem(
   if (item.categoryChanged && item.before !== null) {
     const current = await tx.lock(householdId, item.transactionId);
     if (current === null || current.version !== item.afterVersion) restored = false;
+    // BUD-01 FR 9, FR 12: a category deleted or merged away since the run takes no transaction back.
+    else if (
+      item.before.categoryId !== null &&
+      !categoryAllowed(await deps.categories.category(householdId, item.before.categoryId))
+    )
+      restored = false;
     else {
       const back: NextCategory = {
         categoryId: item.before.categoryId,
@@ -300,10 +307,14 @@ export async function runPart(
   const run = await runsTx.lockRun(householdId, runId);
   if (!run || (run.status !== "running" && run.status !== "undoing")) return { done: true, audit: null };
   if (run.status === "running") {
-    // Under the rules lock: a rule deleted meanwhile changes no more transactions (FR 15).
+    // Under the rules lock: a rule deleted meanwhile changes no more transactions (FR 15), nor does a category deleted
+    // or merged away since the run began (BUD-01 FR 9, FR 12).
     await rulesTx.lockRules(householdId);
     const items = await runsTx.pending(householdId, runId, input.limit);
-    if (!(await rulesTx.rules(householdId)).some((r) => r.id === run.ruleId))
+    if (
+      !(await rulesTx.rules(householdId)).some((r) => r.id === run.ruleId) ||
+      !categoryAllowed(await deps.categories.category(householdId, run.categoryId))
+    )
       await runsTx.dropPending(householdId, runId);
     else if (items.length > 0) {
       const inputs = await deps.inputs.inputs(
