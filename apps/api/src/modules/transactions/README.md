@@ -180,10 +180,11 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   - `GET /v1/transactions/{transactionId}/history` (`getTransactionHistory`, `household.data.read`; прапорець і ключ
     `transactions.history`, потребує `transactions.manual`) — «Історія змін» деталі S-047 (FIN-03 п. 27, #439): записи
     журналу аудиту простору (п. 20) сутностей `transactions.transaction` і `categorization.transaction-category` цієї
-    транзакції, від найстарішого (`domain/history.ts`), не відтворені з рядка. → `items`: `id`, `occurredAt` (UTC),
+    транзакції, від найстарішого (`domain/history.ts`), не відтворені з рядка; не більше 500 найновіших (`HISTORY_MAX`), журнал
+    читається з `LIMIT`; `truncated: true` — давніші пропущено. → `items`: `id`, `occurredAt` (UTC),
     `actor` — відносно читача (`you`, `member`, `staff`, `system`; ідентифікатора акаунта немає), `channel`, `action`
     (`create` / `update` / `delete`), `changes` (`field`, `before`, `after`, `masked`; замасковані — контрагент, опис,
-    нотатка — лише `•••` або null, хай що збережено; зміни інших записів групового запису відкинуто). Транзакція іншого
+    нотатка — лише `•••` або null, хай що збережено і як позначено в журналі: маскування за назвою поля; зміни інших записів групового запису відкинуто). Транзакція іншого
     простору, невідома чи видалена — 404, журнал не читається; учасник з областю — 404.
 - `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags?, rates?, duplicates? })` →
   `TransactionsServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `AccountDirectory` модуля

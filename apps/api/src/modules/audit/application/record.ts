@@ -43,7 +43,8 @@ export interface AuditStore {
    * another entity or action is `AuditKeyConflict`.
    */
   append(householdId: string, row: NewAuditRow, key?: string | null): Promise<AuditEntry>;
-  forEntity(householdId: string, entityType: string, entityId: string): Promise<AuditEntry[]>;
+  /** Oldest first; with `limit`, the newest `limit` entries (still oldest first). */
+  forEntity(householdId: string, entityType: string, entityId: string, limit?: number): Promise<AuditEntry[]>;
   appendPlatform(row: NewAuditRow): Promise<PlatformAuditEntry>;
   platformForEntity(entityType: string, entityId: string): Promise<PlatformAuditEntry[]>;
 }

@@ -34,7 +34,7 @@ sensitive }`, необов'язково `record` — UUID запису груп�
     не пише (`dedupe_key`, `migrations/0004_dedupe_key.sql`), якщо це та сама сутність (`entity`) і дія (`action`); ключ
     наявного запису іншої сутності чи дії — помилка `AuditKeyConflict`, нічого не дописано (#252 п. 2). Журнал платформи
     ключів не має.
-  - `entriesFor(householdId, entity)` — записи однієї сутності в хронологічному порядку.
+  - `entriesFor(householdId, entity, limit?)` — записи однієї сутності в хронологічному порядку; з `limit` — лише `limit` найновіших (теж від найстарішого).
   - `recordPlatform(entry)` — дописує запис у журнал платформи (без простору); автор лише `staff` або `system`.
   - `platformEntriesFor(entity)` — записи журналу платформи однієї сутності в хронологічному порядку.
 - Типи `AuditEntry`, `PlatformAuditEntry`, `AuditEntryInput`, `PlatformEntryInput`, `AuditChange`; константа `AUDIT_MASK`;

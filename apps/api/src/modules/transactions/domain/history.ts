@@ -15,6 +15,16 @@
 /** The entity types of the log that name a transaction by its id. */
 export const HISTORY_ENTITIES = ["transactions.transaction", "categorization.transaction-category"] as const;
 
+/**
+ * The most entries one answer carries: the newest ones (the log of one transaction is bounded by what a person edits, but
+ * a script can write thousands: 1 501 entries were 315 KB). Рішення ведучого (2026-11-17; власник не схвалював; FIN-03
+ * п. 27, #470): 500, as the bulk action's own bound (DAT-03 п. 10); no requirement gives a number.
+ */
+export const HISTORY_MAX = 500;
+
+/** The fields that hold free text that may name a person (FIN-03 FR 20, П-10): masked by name, whatever the log marked. */
+const FREE_TEXT_FIELDS: ReadonlySet<string> = new Set(["counterparty", "description", "note"]);
+
 /** The mask of a masked value (the audit module's `AUDIT_MASK`, by value: domain code imports no module). */
 export const HISTORY_MASK = "•••";
 
@@ -88,10 +98,18 @@ export function transactionHistory(entries: readonly LoggedEntry[], readerId: st
       changes: e.changes
         .filter((c) => c.record === undefined)
         .map((c) =>
-          c.masked
+          c.masked || FREE_TEXT_FIELDS.has(c.field)
             ? { field: c.field, before: mask(c.before), after: mask(c.after), masked: true }
             : { field: c.field, before: c.before, after: c.after, masked: false },
         ),
     }))
     .filter((e) => e.changes.length > 0 || e.action !== "update");
+}
+
+/** The newest `max` entries (they are oldest first) and whether older ones were left out. */
+export function newestHistory(
+  items: readonly HistoryEntry[],
+  max: number = HISTORY_MAX,
+): { readonly items: HistoryEntry[]; readonly truncated: boolean } {
+  return { items: items.slice(-max), truncated: items.length > max };
 }

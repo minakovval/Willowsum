@@ -16616,6 +16616,7 @@ export interface operations {
                             id: string;
                             occurredAt: string;
                         }[];
+                        truncated: boolean;
                     };
                 };
             };
