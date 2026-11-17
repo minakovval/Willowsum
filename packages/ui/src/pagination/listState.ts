@@ -5,19 +5,22 @@ const PREFIX = "ws:list-state:";
 const memory = new Map<string, string>();
 
 function read(key: string): string | null {
+  // A value kept in memory is one the storage refused: it is newer than anything stored.
+  const kept = memory.get(key);
+  if (kept !== undefined) return kept;
   try {
-    return sessionStorage.getItem(PREFIX + key) ?? memory.get(key) ?? null;
+    return sessionStorage.getItem(PREFIX + key);
   } catch {
-    return memory.get(key) ?? null;
+    return null;
   }
 }
 
 function write(key: string, value: string) {
-  memory.set(key, value);
   try {
     sessionStorage.setItem(PREFIX + key, value);
+    memory.delete(key);
   } catch {
-    // memory copy only
+    memory.set(key, value);
   }
 }
 
@@ -31,11 +34,13 @@ interface Saved<T> {
  * `state`) and the scroll position are restored when the user comes back to the list (a record opened and «назад»).
  * `key` names the list («transactions»). The state is kept for the browser tab only. Returns the state, a setter
  * (also stores the value at once, so a reload or a route change loses nothing) and nothing else: the scroll
- * position is saved when the list unmounts and restored after it mounts again.
+ * position is saved when the list unmounts and restored after it mounts again — once `ready` (default: at once), so a
+ * list that loads its rows passes `ready` when they are on screen.
  */
 export function useRestoredListState<T>(
   key: string,
   initial: T,
+  { ready = true }: { ready?: boolean } = {},
 ): readonly [T, (next: T | ((prev: T) => T)) => void] {
   const [saved] = useState<Saved<T>>(() => {
     try {
@@ -66,7 +71,6 @@ export function useRestoredListState<T>(
 
   useEffect(() => {
     // The router may scroll to the top before this list unmounts, so the position is followed, not read at the end.
-    if (scroll.current > 0) window.scrollTo(0, scroll.current);
     const follow = () => {
       scroll.current = window.scrollY;
     };
@@ -76,6 +80,19 @@ export function useRestoredListState<T>(
       write(key, JSON.stringify({ state: latest.current, scrollY: scroll.current }));
     };
   }, [key]);
+
+  // The saved position is put back once the list has its rows (`ready`): a list still loading is too short to scroll.
+  // The router scrolls to the top after a page mounted (a parent's effect runs after its children's), so it is put
+  // back once more on the next frame.
+  const restoreTo = useRef(saved.scrollY);
+  useEffect(() => {
+    const y = restoreTo.current;
+    if (!ready || y <= 0) return;
+    restoreTo.current = 0;
+    window.scrollTo(0, y);
+    const frame = window.requestAnimationFrame(() => window.scrollTo(0, y));
+    return () => window.cancelAnimationFrame(frame);
+  }, [ready]);
 
   return [state, set] as const;
 }

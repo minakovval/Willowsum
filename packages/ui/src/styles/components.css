@@ -2232,6 +2232,20 @@ button.ws-stepper-step[aria-disabled="true"] {
     minmax(0, 2fr) calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
 }
 
+/* FIN-03@PoC FR 13: the list «Транзакції» has no «Актив»: [select] · Контрагент · Категорія · Рахунок · Дата і час · Сума. */
+.ws-tx-row-table.ws-tx-row-noasset {
+  grid-template-columns:
+    minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr)
+    calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
+}
+
+.ws-tx-row-table.ws-tx-row-noasset:has(.ws-row-check),
+.ws-tx-head.ws-tx-row-noasset:has(.ws-row-check-spacer) {
+  grid-template-columns:
+    var(--ws-space-4) minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr)
+    calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
+}
+
 .ws-tx-who {
   display: flex;
   align-items: center;
@@ -2275,6 +2289,50 @@ button.ws-stepper-step[aria-disabled="true"] {
 
 .ws-tx-head-amount {
   text-align: end;
+}
+
+/* DAT-01@PoC FR 3: the sortable header — the columns are buttons; the active one is highlighted with its arrow. */
+.ws-tx-head-sortable {
+  pointer-events: auto;
+}
+
+.ws-tx-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  min-block-size: var(--ws-space-6);
+  margin-inline: calc(var(--ws-space-2) * -1);
+  padding: 0 var(--ws-space-2);
+  border: 0;
+  border-radius: var(--ws-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.ws-tx-sort:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-tx-sort:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.ws-tx-sort[data-sort="none"] .ws-icon {
+  color: var(--ws-ink-muted);
+}
+
+.ws-tx-sort[data-sort="asc"],
+.ws-tx-sort[data-sort="desc"] {
+  color: var(--ws-ink);
+}
+
+.ws-tx-head-amount .ws-tx-sort {
+  flex-direction: row-reverse;
 }
 
 /* CMP-02@PoC «Тип «дата»»: the calendar icon on the left of the 40 px frame, the grey «· сьогодні». */
@@ -2395,4 +2453,35 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink-muted);
   font-size: var(--ws-text-badge-size);
   line-height: var(--ws-text-tooltip-line);
+}
+
+/* CMP-60@PoC Toolbar: the quiet row above a list — 44 px, 8 px between controls, 16 px between groups and to the list. */
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-4);
+  min-block-size: var(--ws-touch-target);
+  margin-block-end: var(--ws-space-4);
+}
+
+.ws-toolbar-start,
+.ws-toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-inline-size: 0;
+}
+
+.ws-toolbar-start {
+  flex: 1 1 auto;
+}
+
+.ws-toolbar-start .ws-field {
+  flex: 0 1 calc(var(--ws-space-8) * 5);
+  min-inline-size: calc(var(--ws-space-8) * 3 + var(--ws-space-2));
+}
+
+.ws-toolbar-end {
+  flex: none;
+  margin-inline-start: auto;
 }

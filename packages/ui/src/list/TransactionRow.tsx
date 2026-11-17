@@ -55,6 +55,8 @@ export interface TransactionRowProps extends RowOpen {
   layout?: "list" | "table" | undefined;
   /** Table columns «Актив», «Рахунок» and the time under the date. */
   asset?: string | undefined;
+  /** The table has the «Актив» column (CMP-28); the list «Транзакції» of FIN-03@PoC FR 13 has none. */
+  withAsset?: boolean | undefined;
   account?: string | undefined;
   time?: string | undefined;
   /** The table's selection checkbox. */
@@ -125,6 +127,7 @@ export function TransactionRow({
   onMerge,
   layout = "list",
   asset,
+  withAsset = true,
   account,
   time,
   selected = false,
@@ -174,7 +177,7 @@ export function TransactionRow({
     when,
     table && time,
     category?.name ?? t("transactionRow.uncategorized"),
-    table && asset,
+    table && withAsset && asset,
     table && account,
     spokenRowAmount(locale, t, hidden, amount),
     review && t("transactionRow.needsReview"),
@@ -201,6 +204,7 @@ export function TransactionRow({
   const classes = [
     "ws-tx-row",
     `ws-tx-row-${layout}`,
+    table && !withAsset && "ws-tx-row-noasset",
     review && "ws-tx-row-review",
     selected && "ws-list-row-selected",
   ]
@@ -269,7 +273,7 @@ export function TransactionRow({
             <CategoryChip category={category} />
           )}
         </span>
-        <span className="ws-tx-cell ws-tx-cell-text">{asset ?? "—"}</span>
+        {withAsset && <span className="ws-tx-cell ws-tx-cell-text">{asset ?? "—"}</span>}
         <span className="ws-tx-cell ws-tx-cell-text">{account ?? "—"}</span>
         <span className="ws-tx-cell ws-tx-when">
           <span>{when}</span>
@@ -309,26 +313,92 @@ export function TransactionRow({
   );
 }
 
+/** A column of the transactions table. */
+export type TransactionColumn = "merchant" | "category" | "asset" | "account" | "when" | "amount";
+/** The sort of the table: its column and direction. */
+export interface TransactionSort {
+  column: TransactionColumn;
+  direction: "asc" | "desc";
+}
+
+const COLUMN_LABEL: Record<TransactionColumn, MessageKey> = {
+  merchant: "transactionRow.col.merchant",
+  category: "transactionRow.col.category",
+  asset: "transactionRow.col.asset",
+  account: "transactionRow.col.account",
+  when: "transactionRow.col.when",
+  amount: "transactionRow.col.amount",
+};
+const SORT_TITLE: Record<TransactionColumn, MessageKey> = {
+  merchant: "transactionRow.sortBy.merchant",
+  category: "transactionRow.sortBy.category",
+  asset: "transactionRow.sortBy.asset",
+  account: "transactionRow.sortBy.account",
+  when: "transactionRow.sortBy.when",
+  amount: "transactionRow.sortBy.amount",
+};
+
 /**
  * The header of the transactions table (CMP-28 «Адаптивність»): «Контрагент», «Категорія», «Актив», «Рахунок»,
- * «Дата і час», «Сума» — the date is never first. Decorative: every row names its own cells.
+ * «Дата і час», «Сума» — the date is never first; `withAsset={false}` leaves «Актив» out (FIN-03@PoC FR 13).
+ * Without `onSort` it is decorative: every row names its own cells. With `onSort` (DAT-01@PoC FR 3) each column of
+ * `sortable` is a button: a press sorts by it, the next press turns the direction; the active column is highlighted
+ * with the arrow of its direction (also said in words), the other sortable ones have the grey double arrow.
  */
-export function TransactionTableHead({ selectable = false }: { selectable?: boolean }) {
+export function TransactionTableHead({
+  selectable = false,
+  withAsset = true,
+  sort,
+  sortable = [],
+  onSort,
+}: {
+  selectable?: boolean;
+  withAsset?: boolean;
+  sort?: TransactionSort | undefined;
+  sortable?: readonly TransactionColumn[];
+  onSort?: ((column: TransactionColumn) => void) | undefined;
+}) {
   const { t } = useI18n();
-  const columns: MessageKey[] = [
-    "transactionRow.col.merchant",
-    "transactionRow.col.category",
-    "transactionRow.col.asset",
-    "transactionRow.col.account",
-    "transactionRow.col.when",
-    "transactionRow.col.amount",
-  ];
+  const columns: TransactionColumn[] = ["merchant", "category", "asset", "account", "when", "amount"];
+  const shown = columns.filter((c) => withAsset || c !== "asset");
+  const head = (column: TransactionColumn) => {
+    const label = t(COLUMN_LABEL[column]);
+    if (!onSort || !sortable.includes(column))
+      return <span aria-hidden={onSort ? true : undefined}>{label}</span>;
+    const active = sort?.column === column ? sort.direction : undefined;
+    return (
+      <button
+        type="button"
+        className="ws-tx-sort"
+        data-sort={active ?? "none"}
+        title={t(SORT_TITLE[column])}
+        onClick={() => onSort(column)}
+      >
+        <span>{label}</span>
+        <Icon
+          name={active === "asc" ? "chevron-up" : active === "desc" ? "chevron-down" : "sort"}
+          size={16}
+          inButton
+        />
+        {active && (
+          <span className="ws-visually-hidden">
+            {`, ${t(active === "asc" ? "transactionRow.sorted.asc" : "transactionRow.sorted.desc")}`}
+          </span>
+        )}
+      </button>
+    );
+  };
   return (
-    <div className="ws-tx-row ws-tx-row-table ws-tx-head ws-text-label ws-muted" aria-hidden="true">
+    <div
+      className={`ws-tx-row ws-tx-row-table ws-tx-head ws-text-label ws-muted${withAsset ? "" : " ws-tx-row-noasset"}${
+        onSort ? " ws-tx-head-sortable" : ""
+      }`}
+      aria-hidden={onSort ? undefined : true}
+    >
       {selectable && <span className="ws-row-check-spacer" />}
-      {columns.map((key) => (
-        <span key={key} className={key === "transactionRow.col.amount" ? "ws-tx-head-amount" : undefined}>
-          {t(key)}
+      {shown.map((column) => (
+        <span key={column} className={column === "amount" ? "ws-tx-head-amount" : undefined}>
+          {head(column)}
         </span>
       ))}
     </div>

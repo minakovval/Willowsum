@@ -16,7 +16,8 @@ export interface Call {
 }
 
 export type Reply = { status: number; body?: unknown; headers?: Record<string, string> } | "network";
-type Handler = (call: Call) => Reply | Promise<Reply>;
+/** `url` — the whole request address, for a handler that answers by its query («?page=2&pageSize=25»). */
+type Handler = (call: Call, url: URL) => Reply | Promise<Reply>;
 
 export const SUPPORT_ID = "0123456789abcdef0123456789abcdef";
 export const TOKEN = "A".repeat(43);
@@ -49,7 +50,7 @@ export function fakeApi(handlers: Record<string, Handler | Reply>) {
     };
     calls.push(call);
     const handler = handlers[`${call.method} ${call.path}`];
-    const reply = typeof handler === "function" ? await handler(call) : handler;
+    const reply = typeof handler === "function" ? await handler(call, url) : handler;
     if (reply === undefined) return new Response(null, { status: 599 });
     if (reply === "network") throw new TypeError("Failed to fetch");
     return new Response(reply.body === undefined ? null : JSON.stringify(reply.body), {

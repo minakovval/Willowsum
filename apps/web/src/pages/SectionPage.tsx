@@ -1,18 +1,8 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
-import { Button, Icon, type IconName } from "@willowsum/ui";
-import {
-  childPath,
-  IMPORT_WIZARD_PATH,
-  rootOf,
-  sectionOf,
-  TRANSACTIONS,
-  type ChildDef,
-  type PageDef,
-  type SectionDef,
-} from "../routing/routes.ts";
+import { Icon, type IconName } from "@willowsum/ui";
+import { rootOf, sectionOf, type ChildDef, type PageDef, type SectionDef } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
-import { NewTransactionDialog } from "../transactions/NewTransactionDialog.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { AppLayout } from "./AppLayout.tsx";
 
@@ -30,53 +20,15 @@ export function EmptyState({ icon }: { icon: IconName }) {
   );
 }
 
-/** UX-09@PoC item 14: «Імпортувати виписку» opens the wizard in focus mode. */
-function ImportStatementLink({ primary }: { primary?: boolean }) {
-  const t = useT();
-  return (
-    <a className={primary ? "ws-button ws-button-primary" : "ws-button"} href={hrefFor(IMPORT_WIZARD_PATH)}>
-      <Icon name="upload" size={20} />
-      <span>{t("action.importStatement")}</span>
-    </a>
-  );
-}
-
-/**
- * An L2 page: heading and, for «Транзакції», the import actions (UX-09@PoC item 14) and «Нова транзакція» (FIN-03@PoC
- * FR 1, FR 21). `newTransaction` — the page opened at `/money/transactions/new`: the form is open over it.
- */
-export function SectionPage({
-  section,
-  page,
-  newTransaction = false,
-}: {
-  section: SectionDef;
-  page: PageDef;
-  newTransaction?: boolean;
-}) {
+/** An L2 page whose screen is not built yet: its heading and the empty state. */
+export function SectionPage({ section, page }: { section: SectionDef; page: PageDef }) {
   const t = useT();
   const title = t(page.label);
   useDocumentTitle(title);
-  const [adding, setAdding] = useState(newTransaction);
-  const close = () => {
-    setAdding(false);
-    if (newTransaction) window.location.replace(hrefFor(TRANSACTIONS.path));
-  };
-  const actions =
-    page.id === TRANSACTIONS.id ? (
-      <div className="app-page-actions">
-        <ImportStatementLink primary />
-        <a className="app-quiet-link" href={hrefFor(childPath("importHistory"))}>
-          {t("action.importHistory")}
-        </a>
-        <Button label={t("newTx.title")} onClick={() => setAdding(true)} />
-      </div>
-    ) : null;
   return (
     <AppLayout sectionId={section.id} pageId={page.id}>
-      <PageHeader title={title} actions={actions} />
+      <PageHeader title={title} />
       <EmptyState icon={page.icon} />
-      {page.id === TRANSACTIONS.id ? <NewTransactionDialog open={adding} onClose={close} /> : null}
     </AppLayout>
   );
 }

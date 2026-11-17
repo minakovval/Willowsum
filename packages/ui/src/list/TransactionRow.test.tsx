@@ -375,3 +375,81 @@ describe("CMP-28@PoC TransactionRow", () => {
     expect(screen.getByRole("link", { name: /^Сільпо/ }).getAttribute("href")).toBe("#/money/transactions/7");
   });
 });
+
+describe("DAT-01@PoC FR 3: the sortable header of the transactions table", () => {
+  function Sortable({ withAsset = false }: { withAsset?: boolean }) {
+    const [sort, setSort] = useState<{ column: "merchant" | "when" | "amount"; direction: "asc" | "desc" }>({
+      column: "when",
+      direction: "desc",
+    });
+    return (
+      <TransactionTableHead
+        withAsset={withAsset}
+        sort={sort}
+        sortable={["merchant", "when", "amount"]}
+        onSort={(column) =>
+          setSort((s) =>
+            s.column === column
+              ? { column, direction: s.direction === "asc" ? "desc" : "asc" }
+              : { column: column as "merchant" | "when" | "amount", direction: "asc" },
+          )
+        }
+      />
+    );
+  }
+  const sortButton = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("DAT-01@PoC FR 3: a press sorts ascending, the next one descending; the active column has its arrow and says the direction, the others the grey double arrow", () => {
+    render(wrap(<Sortable />));
+    const when = sortButton(/^Дата і час/);
+    expect(when.dataset.sort).toBe("desc");
+    expect(when.textContent).toBe("Дата і час, за спаданням");
+    expect(when.title).toBe("Сортувати за: дата і час");
+    const merchant = sortButton(/^Контрагент/);
+    expect(merchant.dataset.sort).toBe("none");
+    act(() => merchant.click());
+    expect(merchant.dataset.sort).toBe("asc");
+    expect(merchant.textContent).toBe("Контрагент, за зростанням");
+    expect(when.dataset.sort).toBe("none");
+    act(() => merchant.click());
+    expect(merchant.dataset.sort).toBe("desc");
+    // A column the list does not sort by is a plain label, hidden from the reader: the rows name their cells.
+    expect(screen.queryByRole("button", { name: /^Категорія/ })).toBeNull();
+    expect(screen.getByText("Категорія").getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("FIN-03@PoC FR 13: without «Актив» the header runs Контрагент, Категорія, Рахунок, Дата і час, Сума and the row has no «Актив» cell", () => {
+    const { container } = render(
+      wrap(
+        <>
+          <Sortable />
+          <TransactionRow
+            layout="table"
+            withAsset={false}
+            merchant="Сільпо"
+            date="2026-11-02"
+            time="08:02"
+            category={food}
+            asset="Škoda Octavia"
+            account="Поточний ··4417"
+            amount={spend}
+            onOpen={() => undefined}
+          />
+        </>,
+      ),
+    );
+    const head = container.querySelector(".ws-tx-head")!;
+    expect(head.getAttribute("aria-hidden")).toBeNull();
+    expect([...head.children].map((c) => c.textContent?.replace(/,.*$/, ""))).toEqual([
+      "Контрагент",
+      "Категорія",
+      "Рахунок",
+      "Дата і час",
+      "Сума",
+    ]);
+    const row = container.querySelector(".ws-tx-row:not(.ws-tx-head)")!;
+    expect(row.classList.contains("ws-tx-row-noasset")).toBe(true);
+    expect(row.textContent).not.toContain("Škoda Octavia");
+    expect(screen.getByRole("button", { name: /^Сільпо/ }).getAttribute("aria-label")).not.toContain("Škoda");
+  });
+});

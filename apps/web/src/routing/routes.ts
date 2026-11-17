@@ -86,6 +86,9 @@ export const IMPORT_WIZARD_PATH = "/import";
 /** Pages below an L2 page: they open from that page or from «+ Додати», not from the menu. */
 export type ChildId =
   | "importHistory"
+  | "review"
+  | "pairs"
+  | "transaction"
   | "newTransaction"
   | "newAccount"
   | "newGoal"
@@ -108,6 +111,9 @@ export const CHILDREN: readonly ChildDef[] = [
     path: `${TRANSACTIONS.path}/import`,
     title: "page.importHistory",
   },
+  // FIN-03@PoC FR 21: the tabs «До розбору · N» (S-058, wave 2 row 121) and «Пари · N» (S-059, row 139) of «Транзакції».
+  { id: "review", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/review`, title: "tx.tab.review" },
+  { id: "pairs", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/pairs`, title: "tx.tab.pairs" },
   {
     id: "newTransaction",
     parent: TRANSACTIONS,
@@ -138,6 +144,18 @@ export const accountPath = (accountId: string): string =>
   ACCOUNT.path.replace(":id", encodeURIComponent(accountId));
 /** The account of an S-053 path, or `null` for any other path. */
 export const accountIdOf = (path: string): string | null => ACCOUNT_PATH.exec(path)?.[1] ?? null;
+
+/** S-047 «Деталь транзакції» (`/money/transactions/:id`): a row of S-046 opens it; its screen is wave 2 row 116. */
+const TRANSACTION: ChildDef = {
+  id: "transaction",
+  parent: TRANSACTIONS,
+  path: `${TRANSACTIONS.path}/:id`,
+  title: "page.transaction",
+};
+const TRANSACTION_PATH = /^\/money\/transactions\/[0-9a-fA-F-]{36}$/;
+/** S-047 of one transaction. */
+export const transactionPath = (transactionId: string): string =>
+  TRANSACTION.path.replace(":id", encodeURIComponent(transactionId));
 
 /** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is the dependent part of wave 2 row 113. */
 const ACCOUNT_SETTINGS: ChildDef = {
@@ -203,7 +221,8 @@ export function resolveRoute(path: string): Route {
   const child =
     CHILDREN.find((c) => c.path === path) ??
     (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined) ??
-    (ACCOUNT_PATH.test(path) ? ACCOUNT : undefined);
+    (ACCOUNT_PATH.test(path) ? ACCOUNT : undefined) ??
+    (TRANSACTION_PATH.test(path) ? TRANSACTION : undefined);
   if (child) return { kind: "child", section: sectionOf(child.parent), child };
   return { kind: "notFound" };
 }

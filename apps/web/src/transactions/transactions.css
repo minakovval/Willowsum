@@ -1,0 +1,51 @@
+/* S-046 «Транзакції» (FIN-03@PoC c), DAT-01@PoC): canvas PocMoneyTx and its state boards. Tokens only (DS-06, DS-09). */
+.tx-list {
+  display: grid;
+  margin-block-start: var(--ws-space-4);
+}
+
+.tx-note {
+  margin-block: 0 var(--ws-space-3);
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.tx-totals {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ws-space-2) var(--ws-space-5);
+  margin-block-end: var(--ws-space-3);
+  font-size: var(--ws-text-body-sm-size);
+}
+
+.tx-total-amount {
+  color: var(--ws-ink);
+  font-weight: 600;
+}
+
+.tx-total-marks {
+  color: var(--ws-ink);
+}
+
+.tx-table {
+  padding: 0;
+  overflow: hidden;
+}
+
+.tx-pagination {
+  justify-self: end;
+  margin-block-start: var(--ws-space-3);
+}
+
+.tx-state {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+  margin-block-start: var(--ws-space-4);
+}
+
+.tx-error-title {
+  margin: 0;
+  color: var(--ws-loss);
+  font-weight: 600;
+}

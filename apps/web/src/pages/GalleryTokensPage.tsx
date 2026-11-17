@@ -51,6 +51,7 @@ import { ButtonDemo } from "./ButtonDemo.tsx";
 import { PaginationDemo } from "./PaginationDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ListRowDemo } from "./ListRowDemo.tsx";
+import { ListToolbarDemo } from "./ListToolbarDemo.tsx";
 import { DateFieldDemo } from "./DateFieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
@@ -435,6 +436,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-transaction-row" title={t("gallery.transactionRow.title")}>
         <TransactionRowDemo />
+      </Section>
+
+      <Section id="g-toolbar" title={t("gallery.toolbar.title")}>
+        <ListToolbarDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
