@@ -20,8 +20,8 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { countryOptions } from "./countries.ts";
 import {
   bodyOf,
-  CURRENCIES_MAX,
   EARLIEST_DATE,
+  hasCardNumber,
   hasCardTerms,
   hasDepositDates,
   hasExtraCurrencies,
@@ -49,6 +49,13 @@ import {
   type ExtraCurrency,
   type NewAccountValues,
 } from "./newAccount.ts";
+
+/**
+ * «+ додати ще валюту» in the form adds one more currency: a second row would make step 3 taller than the dialog may
+ * be at 1280 × 720 (CMP-21 п. 7, FIN-01 FR 3 — three steps, owner 2026-11-13). Further currencies are added on the
+ * account (FR 12, «+ додати ще валюту» of its settings, up to 10). Agent decision, owner question in the PR.
+ */
+const EXTRAS_IN_FORM = 1;
 
 /** The steps of FIN-01@PoC FR 3 (owner, 2026-11-13): «1 Основне · 2 Залишок · 3 Додатково». */
 const MAIN = 0;
@@ -271,14 +278,6 @@ export function NewAccountDialog({
         emptyError: t("newAccount.error.balance.empty"),
         error: e.amountProblem ? t("newAccount.balance") : null,
       },
-      {
-        id: `extra-${e.key}-date`,
-        label: t("newAccount.date"),
-        step: EXTRA,
-        required: true,
-        empty: e.date === "",
-        emptyError: t("newAccount.error.date"),
-      },
     ]),
     { id: "note", label: t("newAccount.note"), step: EXTRA, empty: v.note.trim() === "" },
   ];
@@ -319,10 +318,7 @@ export function NewAccountDialog({
     {
       id: "banks",
       title: "",
-      options: [
-        ...banks.map((b) => ({ value: b.code, label: b.name })),
-        ...(other ? [{ value: OTHER_INSTITUTION, label: t("newAccount.institution.other") }] : []),
-      ],
+      options: [...banks.map((b) => ({ value: b.code, label: b.name }))],
     },
   ];
 
@@ -347,27 +343,8 @@ export function NewAccountDialog({
             onBlur={form.leave("name")}
             error={form.errorOf("name")}
           />
-          <SearchSelect
-            label={t("newAccount.institution")}
-            value={v.bank}
-            groups={bankGroups}
-            loading={banksLoading}
-            hint={other ? undefined : t("newAccount.institution.source")}
-            searchLabel={t("newAccount.institution.search")}
-            nothingFound={t("newAccount.institution.nothing")}
-            showLeading={false}
-            onChange={(code) => set("bank", code)}
-            {...(other
-              ? {}
-              : {
-                  create: {
-                    label: t("newAccount.institution.other"),
-                    onCreate: () => setV((old) => ({ ...old, bank: OTHER_INSTITUTION })),
-                  },
-                })}
-          />
           {other ? (
-            <div className="newacc-pair">
+            <div className="newacc-pair newacc-pair--back">
               <Field
                 label={t("newAccount.institution.otherName")}
                 required
@@ -384,8 +361,30 @@ export function NewAccountDialog({
                 onChange={(c) => set("country", c)}
                 error={form.errorOf("country")}
               />
+              <IconButton
+                icon="close"
+                className="newacc-back"
+                label={t("newAccount.institution.back")}
+                onClick={() => setV((old) => ({ ...old, bank: "", otherName: "", country: "" }))}
+              />
             </div>
-          ) : null}
+          ) : (
+            <SearchSelect
+              label={t("newAccount.institution")}
+              value={v.bank}
+              groups={bankGroups}
+              loading={banksLoading}
+              hint={t("newAccount.institution.source")}
+              searchLabel={t("newAccount.institution.search")}
+              nothingFound={t("newAccount.institution.nothing")}
+              showLeading={false}
+              onChange={(code) => set("bank", code)}
+              create={{
+                label: t("newAccount.institution.other"),
+                onCreate: () => setV((old) => ({ ...old, bank: OTHER_INSTITUTION })),
+              }}
+            />
+          )}
         </>
       );
     if (form.step === BALANCE)
@@ -424,17 +423,38 @@ export function NewAccountDialog({
           />
         </>
       );
+    const numberField = (
+      <Field
+        label={t("newAccount.number")}
+        value={v.number}
+        hint={hasCardNumber(kind) ? t("newAccount.number.hint") : undefined}
+        onChange={(x) => set("number", x)}
+        onBlur={form.leave("number")}
+        error={form.errorOf("number") ?? duplicateText}
+      />
+    );
+    const noteField = (
+      <Field
+        label={t("newAccount.note")}
+        value={v.note}
+        placeholder={t("newAccount.note.placeholder")}
+        maxLength={NOTE_MAX}
+        counter
+        onChange={(x) => set("note", x)}
+        onBlur={form.leave("note")}
+      />
+    );
     return (
       <>
-        <p className="ws-form-hint">{extraHint}</p>
-        <Field
-          label={t("newAccount.number")}
-          value={v.number}
-          hint={t("newAccount.number.hint")}
-          onChange={(x) => set("number", x)}
-          onBlur={form.leave("number")}
-          error={form.errorOf("number") ?? duplicateText}
-        />
+        {kind === "loan" ? (
+          // «Кредит» has two required fields and the split note on this step: number and note share a row to fit.
+          <div className="newacc-pair newacc-pair--end">
+            {numberField}
+            {noteField}
+          </div>
+        ) : (
+          numberField
+        )}
         {duplicate ? (
           <div className="newacc-duplicate">
             <Button
@@ -445,14 +465,13 @@ export function NewAccountDialog({
           </div>
         ) : null}
         {hasRate(kind) || hasMonthly(kind) ? (
-          <div className="newacc-pair">
+          <div className={hasMonthly(kind) ? "newacc-pair" : undefined}>
             {hasRate(kind) ? (
               <Field
                 label={t("newAccount.rate")}
                 required={kind === "loan"}
                 value={v.rate}
                 inputMode="decimal"
-                hint={t("newAccount.rate.hint")}
                 onChange={(x) => set("rate", x)}
                 onBlur={form.leave("rate")}
                 error={form.errorOf("rate")}
@@ -515,7 +534,6 @@ export function NewAccountDialog({
         {hasExtraCurrencies(kind) ? (
           <ExtraCurrencies
             extras={v.extras}
-            today={today}
             form={form}
             taken={taken}
             onChange={setExtra}
@@ -524,22 +542,14 @@ export function NewAccountDialog({
                 ...old,
                 extras: [
                   ...old.extras,
-                  { key: nextKey.current++, currency: "", amount: null, amountProblem: false, date: today },
+                  { key: nextKey.current++, currency: "", amount: null, amountProblem: false },
                 ],
               }))
             }
             onRemove={(key) => setV((old) => ({ ...old, extras: old.extras.filter((e) => e.key !== key) }))}
           />
         ) : null}
-        <Field
-          label={t("newAccount.note")}
-          value={v.note}
-          placeholder={t("newAccount.note.placeholder")}
-          maxLength={NOTE_MAX}
-          counter
-          onChange={(x) => set("note", x)}
-          onBlur={form.leave("note")}
-        />
+        {kind === "loan" ? null : noteField}
       </>
     );
   };
@@ -556,6 +566,9 @@ export function NewAccountDialog({
         { label: t("newAccount.step.extra") },
       ]}
       fields={fields}
+      // Step 3 opens with its own hint (boards «Новий рахунок · крок 3», «Кредит»); a row of «+ додати ще валюту» has
+      // required fields, so the form's «Поля з * обов’язкові.» is the hint then.
+      hints={[undefined, undefined, kind === "loan" || extras.length === 0 ? extraHint : undefined]}
       submitLabel={t("newAccount.submit")}
       busy={busy}
       error={
@@ -578,10 +591,12 @@ export function NewAccountDialog({
   );
 }
 
-/** «+ додати ще валюту» of a current account (FIN-01@PoC FR 12): a row per currency — currency, balance, date, «×». */
+/**
+ * «+ додати ще валюту» of a current account (FIN-01@PoC FR 12): a row per currency — currency, balance and «×»; its
+ * opening balance is on the same «На дату» as the main currency (step 2).
+ */
 function ExtraCurrencies({
   extras,
-  today,
   form,
   taken,
   onChange,
@@ -589,7 +604,6 @@ function ExtraCurrencies({
   onRemove,
 }: {
   extras: readonly ExtraCurrency[];
-  today: string;
   form: FormDialogState;
   taken: (e: ExtraCurrency) => boolean;
   onChange: (key: number, change: Partial<ExtraCurrency>) => void;
@@ -597,7 +611,7 @@ function ExtraCurrencies({
   onRemove: (key: number) => void;
 }) {
   const t = useI18n().t;
-  const full = extras.length + 1 >= CURRENCIES_MAX;
+  const full = extras.length >= EXTRAS_IN_FORM;
   return (
     <div className="newacc-extras">
       {extras.map((e) => (
@@ -620,13 +634,6 @@ function ExtraCurrencies({
             onBlur={form.leave(`extra-${e.key}-amount`)}
             error={e.amountProblem ? undefined : form.errorOf(`extra-${e.key}-amount`)}
           />
-          <DateField
-            label={t("newAccount.date")}
-            required
-            value={e.date}
-            today={today}
-            onChange={(d) => onChange(e.key, { date: d })}
-          />
           <IconButton
             icon="close"
             label={t("newAccount.removeCurrency", { currency: e.currency || "—" })}
@@ -634,9 +641,7 @@ function ExtraCurrencies({
           />
         </div>
       ))}
-      {full ? (
-        <p className="ws-form-hint">{t("newAccount.error.currency.max")}</p>
-      ) : (
+      {full ? null : (
         <div>
           <Button variant="quiet" size="sm" label={t("newAccount.addCurrency")} onClick={onAdd} />
         </div>

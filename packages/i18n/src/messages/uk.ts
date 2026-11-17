@@ -1184,7 +1184,7 @@ export const uk = {
   "newAccount.error.maturesOn": "Дата закінчення має бути пізніше за дату відкриття.",
   "newAccount.error.grace": "Пільговий період — від 0 до 365 днів.",
   "newAccount.error.currency.taken": "Ця валюта вже є в рахунку.",
-  "newAccount.error.currency.max": "У рахунку може бути до 10 валют.",
+  "newAccount.institution.back": "Обрати банк з довідника",
   "newAccount.error.save": "Не вдалося зберегти. Дані у формі збережено — спробуйте ще раз.",
   "newAccount.error.code": "Код: {code}",
   "newAccount.error.network": "Не вдалося з’єднатися. Спробуйте ще раз",

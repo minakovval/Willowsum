@@ -1189,7 +1189,7 @@ export const en: Messages = {
   "newAccount.error.maturesOn": "The end date must be later than the opening date.",
   "newAccount.error.grace": "The grace period is 0 to 365 days.",
   "newAccount.error.currency.taken": "This currency is already in the account.",
-  "newAccount.error.currency.max": "An account can have up to 10 currencies.",
+  "newAccount.institution.back": "Choose a bank from the directory",
   "newAccount.error.save": "Could not save. The data in the form is kept — try again.",
   "newAccount.error.code": "Code: {code}",
   "newAccount.error.network": "Could not connect. Try again",

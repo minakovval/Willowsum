@@ -419,10 +419,21 @@
   gap: var(--ws-space-3);
 }
 
-/* «+ додати ще валюту»: currency, balance, date and «×» in one row. */
+/* «+ додати ще валюту»: currency, balance and «×» in one row (the date is the main «На дату»). */
 .newacc-extra {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
   gap: var(--ws-space-3);
+  align-items: end;
+}
+
+/* «Інша установа»: «Назва установи*», «Країна*» and «✕» back to the directory, in place of the bank list. */
+.newacc-pair--back {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+/* Two fields whose labels may take two lines: the inputs stay on one line. */
+.newacc-pair--end {
   align-items: end;
 }

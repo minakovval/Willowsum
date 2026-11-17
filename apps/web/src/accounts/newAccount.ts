@@ -51,7 +51,6 @@ export interface ExtraCurrency {
   amount: string | null;
   /** The amount field shows its own problem (not a number, too many decimals). */
   amountProblem: boolean;
-  date: string;
 }
 
 export interface NewAccountValues {
@@ -192,6 +191,8 @@ export const isPositive = (amount: string | null): boolean =>
 /** The fields of step 3 that a kind has (FR 3, FR 8, FR 12). */
 export const hasRate = (k: AccountKind) => k === "savings" || k === "deposit" || k === "loan";
 export const hasDepositDates = (k: AccountKind) => k === "deposit";
+/** A kind that may be a card: «Повний номер картки не вводьте…» under «Номер». */
+export const hasCardNumber = (k: AccountKind) => k === "current" || k === "credit-card";
 export const hasCardTerms = (k: AccountKind) => k === "credit-card";
 export const hasMonthly = (k: AccountKind) => k === "loan";
 export const hasExtraCurrencies = (k: AccountKind) => k === "current";
@@ -243,7 +244,7 @@ export function bodyOf(v: NewAccountValues, banks: readonly Bank[]): NewAccountB
           extraCurrencies: v.extras.map((e) => ({
             amount: e.amount ?? "",
             currency: e.currency,
-            date: e.date,
+            date: v.date,
           })),
         }
       : {}),

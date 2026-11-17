@@ -175,6 +175,36 @@ describe("CMP-21@PoC FormDialog", () => {
     expect(document.querySelector("dialog")!.getAttribute("data-align")).toBe("start");
   });
 
+  it("CMP-21@PoC AC13: a step's own hint replaces «Поля з * обов’язкові.» on that step — still one hint", () => {
+    render(
+      <I18nProvider initialLocale="uk">
+        <FormDialog
+          open
+          onClose={() => {}}
+          title="Новий рахунок"
+          steps={[{ label: "Основне" }, { label: "Додатково" }]}
+          hints={[undefined, "Поля для типу «Кредит» · «Іпотека»."]}
+          fields={[
+            { id: "name", label: "Назва", required: true, empty: false },
+            { id: "rate", label: "Ставка", step: 1, required: true, empty: true },
+          ]}
+          submitLabel="Додати рахунок"
+          onSubmit={() => {}}
+        >
+          {(form) => <span>{form.step}</span>}
+        </FormDialog>
+      </I18nProvider>,
+    );
+    const hints = [...document.querySelectorAll(".ws-form-hint")].map((h) => [
+      h.closest(".ws-form-step")!.getAttribute("data-step"),
+      h.textContent,
+    ]);
+    expect(hints).toEqual([
+      ["0", "Поля з * обов’язкові."],
+      ["1", "Поля для типу «Кредит» · «Іпотека»."],
+    ]);
+  });
+
   it("CMP-21@PoC AC15: leaving the empty «Цільова сума» shows «Обов’язкове поле» and the reason line; «Далі», the main action and steps 2–3 are inactive", () => {
     render(<GoalForm />);
     type("Назва", "Відпустка");

@@ -241,6 +241,17 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     );
   });
 
+  it("FIN-01@PoC FR 4: «Обрати банк з довідника» («✕» beside «Інша установа») brings the directory back and clears the typed name", async () => {
+    await open(api().client);
+    fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
+    fireEvent.click(within(shown()).getByRole("option", { name: "Інша установа" }));
+    fireEvent.change(field(/^Назва установи/), { target: { value: "Revolut" } });
+    expect(within(shown()).queryByRole("button", { name: /Банк або установа/ })).toBeNull();
+    fireEvent.click(within(shown()).getByRole("button", { name: "Обрати банк з довідника" }));
+    expect(within(shown()).getByRole("button", { name: /Банк або установа/ })).toBeTruthy();
+    expect(within(shown()).queryByRole("textbox", { name: /^Назва установи/ })).toBeNull();
+  });
+
   it("FIN-01@PoC FR 4: a search without a match says «Банк не знайдено. Оберіть «Інша установа».»", async () => {
     await open(api().client);
     fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
@@ -353,6 +364,8 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
     fireEvent.click(within(shown()).getByRole("button", { name: "+ додати ще валюту" }));
     const row = shown().querySelector<HTMLElement>(".newacc-extra")!;
+    // One more currency in the form (step 3 fits 1280 × 720); further ones on the account (FR 12).
+    expect(within(shown()).queryByRole("button", { name: "+ додати ще валюту" })).toBeNull();
     chooseCurrency("EUR", row);
     expect(within(row).getByText(/Ця валюта вже є в рахунку\./)).toBeTruthy();
     chooseCurrency("UAH", row);
@@ -363,7 +376,6 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect(body["extraCurrencies"]).toEqual([
       { amount: "4300.00", currency: "UAH", date: body["balanceDate"] },
     ]);
-    // «Прибрати валюту UAH» removes the row again.
   });
 
   it("FIN-01@PoC FR 3: a full card number in «Номер» is refused before it is sent; a malformed number says what to enter", () => {
