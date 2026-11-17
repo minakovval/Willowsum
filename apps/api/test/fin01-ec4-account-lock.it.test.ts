@@ -637,4 +637,30 @@ describe("FIN-12@PoC FR 8: every change of an account's money takes the account'
     expect(res.statusCode, res.body).toBe(201);
     expect(waited).toBe(false);
   });
+
+  it("FIN-12@PoC FR 8: a write that does not get the account's lock within LOCK_WAIT gives up — nothing is written, its connection goes back to the pool", async () => {
+    const { space, a } = await twoAccounts();
+    const holder = new pg.Client({ connectionString: db.url });
+    await holder.connect();
+    try {
+      await holder.query("BEGIN");
+      await lockAccounts(holder, space.householdId, [a]);
+      const started = Date.now();
+      const res = await call(space, "POST", "/v1/transactions", purchase(a));
+      const waited = Date.now() - started;
+      expect(res.statusCode).toBe(500);
+      expect(waited).toBeGreaterThanOrEqual(4_500);
+      expect(waited).toBeLessThan(15_000);
+    } finally {
+      await holder.query("COMMIT");
+      await holder.end();
+    }
+    const { rows } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM transactions.transactions WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(rows[0]!.n).toBe(0);
+    // The lock free again, the same write passes, and so does the next one at once (no connection was kept).
+    expect((await call(space, "POST", "/v1/transactions", purchase(a))).statusCode).toBe(201);
+  });
 });
