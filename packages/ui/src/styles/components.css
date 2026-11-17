@@ -2953,3 +2953,128 @@ button.ws-stepper-step[aria-disabled="true"] {
   inline-size: var(--ws-space-3);
   block-size: var(--ws-space-3);
 }
+
+/*
+ * DS-23@PoC status dictionary. A status is the marker and the word together, in the entry's ink; a badge entry is a
+ * flat 20 px plate on the tone's tint (the same plate as CMP-18), a quiet one on `surface-300`. The usage bar is a
+ * 6 px pill on `surface-300`; its fill is the gradient or an `over-*` shade and never colours the marker or the word.
+ */
+.ws-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  white-space: nowrap;
+}
+
+.ws-status[data-ink="gain"] {
+  color: var(--ws-gain);
+}
+.ws-status[data-ink="gain-soft"] {
+  color: var(--ws-gain-soft);
+}
+.ws-status[data-ink="on-warning"] {
+  color: var(--ws-on-warning);
+}
+.ws-status[data-ink="loss"] {
+  color: var(--ws-loss);
+}
+.ws-status[data-ink="loss-soft"] {
+  color: var(--ws-loss-soft);
+}
+.ws-status[data-ink="link"] {
+  color: var(--ws-link);
+}
+.ws-status[data-ink="brand"] {
+  color: var(--ws-brand);
+}
+.ws-status[data-ink="ink-muted"] {
+  color: var(--ws-ink-muted);
+}
+.ws-status[data-ink="disabled-ink"] {
+  color: var(--ws-disabled-ink);
+}
+
+.ws-status[data-plate] {
+  align-items: center;
+  block-size: calc(var(--ws-space-4) + var(--ws-space-1));
+  padding: 0 calc(var(--ws-space-1) * 1.5);
+  border-radius: var(--ws-radius-sm);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: var(--ws-text-badge-weight);
+}
+.ws-status[data-plate="positive"] {
+  background: var(--ws-tint-positive);
+}
+.ws-status[data-plate="negative"] {
+  background: var(--ws-tint-negative);
+}
+.ws-status[data-plate="attention"] {
+  background: var(--ws-tint-warning);
+}
+.ws-status[data-plate="info"] {
+  background: var(--ws-tint-info);
+}
+.ws-status[data-plate="neutral"],
+.ws-status[data-plate="quiet"] {
+  background: var(--ws-surface-300);
+}
+
+.ws-deviation {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--ws-space-1);
+}
+.ws-deviation-amount[data-ink="gain"] {
+  color: var(--ws-gain);
+}
+.ws-deviation-amount[data-ink="gain-soft"] {
+  color: var(--ws-gain-soft);
+}
+.ws-deviation-amount[data-ink="loss"] {
+  color: var(--ws-loss);
+}
+.ws-deviation-amount[data-ink="loss-soft"] {
+  color: var(--ws-loss-soft);
+}
+
+.ws-usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+  align-items: flex-start;
+}
+.ws-usage-track {
+  display: flex;
+  inline-size: 100%;
+  block-size: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-surface-300);
+}
+.ws-usage-track[data-empty="true"] {
+  background-color: transparent;
+  border: 1px solid var(--ws-line);
+  box-sizing: border-box;
+}
+.ws-usage-fill,
+.ws-usage-tail {
+  display: block;
+  block-size: 100%;
+}
+.ws-usage-fill {
+  border-radius: var(--ws-radius-pill);
+}
+.ws-usage[data-state="over"] .ws-usage-fill {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+.ws-usage-tail {
+  border-start-end-radius: var(--ws-radius-pill);
+  border-end-end-radius: var(--ws-radius-pill);
+}
+.ws-usage-sub {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}

@@ -2181,6 +2181,14 @@
       "x": 5440,
       "y": 40360
     },
+    "PocPlanBudgetTexts.dc.html": {
+      "h": 3120,
+      "page": "poc",
+      "title": "S-121 Бюджет · Тексти (словник статусів DS-23)",
+      "w": 2640,
+      "x": 9520,
+      "y": 40360
+    },
     "PocPlanBudgetPlan.dc.html": {
       "h": 1520,
       "is_interactive": true,
@@ -4378,6 +4386,7 @@
     "PocPlanBudgetCatFilter.dc.html",
     "PocPlanBudgetIncome.dc.html",
     "PocPlanBudgetOverspent.dc.html",
+    "PocPlanBudgetTexts.dc.html",
     "PocPlanBudgetBreakdown.dc.html",
     "PocPlanBudgetEmpty.dc.html",
     "PocPlanBudgetWiz1.dc.html",

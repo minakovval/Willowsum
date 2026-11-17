@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio } from "@willowsum/ui";
+import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio, STATUS_DICTIONARY } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { App } from "./App.tsx";
 
@@ -267,6 +267,37 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(norm(within(live).getByRole("status").textContent)).toBe("Готово, 6 файлів");
     act(() => within(live).getByRole("button", { name: "Почати знову" }).click());
     expect(liveBar.getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("DS-23@PoC gallery: the Status section lists every entry of the dictionary, the usage scale with eight overspend levels, the deviation steps and the form steps", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-status")!.textContent).toBe("Словник статусів «Планування»");
+    const section = container.querySelector<HTMLElement>("#g-status ~ .gallery-status")!;
+    expect(section.querySelectorAll("[data-status-row]")).toHaveLength(STATUS_DICTIONARY.length);
+    const overdue = section.querySelector<HTMLElement>('[data-status-row="d.overdue"]')!;
+    expect(overdue.querySelector(".ws-status-marker")!.textContent).toBe("!");
+    expect(norm(overdue.querySelector(".ws-status-word")!.textContent)).toBe("Прострочено на 5 дн.");
+    const usage = section.querySelector<HTMLElement>('[data-case="usage"]')!;
+    expect([...usage.querySelectorAll(".ws-usage")].map((u) => u.getAttribute("data-state"))).toEqual([
+      "notStarted",
+      "remaining",
+      "remaining",
+      "almost",
+      "exhausted",
+      "limitReached",
+    ]);
+    const over = [...section.querySelectorAll('[data-case="over"] .ws-usage')];
+    expect(over.map((u) => u.getAttribute("data-level"))).toEqual(["1", "2", "3", "4", "5", "6", "7", "8"]);
+    const dev = [...section.querySelectorAll('[data-case="deviation"] .ws-deviation')];
+    expect(dev.map((d) => d.getAttribute("data-state"))).toEqual([
+      "better",
+      "slightlyBetter",
+      "unchanged",
+      "slightlyWorse",
+      "worse",
+      "worse",
+    ]);
+    expect(section.querySelectorAll('[data-case="steps"] .ws-stepper-item')).toHaveLength(5);
   });
 
   it("CMP-03@PoC gallery: the Select section shows the native list in every state, «з пошуком» and the list buttons", () => {
