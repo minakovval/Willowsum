@@ -177,16 +177,42 @@ const plnWallets = async (householdId: string, accountId: string) =>
     )
   ).rows[0]!.n as number;
 
+/** The space's journal: every entry with its postings, in the order recorded. */
+async function journal(householdId: string) {
+  const { rows } = await db.owner.query(
+    `SELECT e.id, e.event_type, e.operation_date::text AS day, e.source_module, e.source_id,
+            p.debit_account_id, p.credit_account_id, p.amount::text AS amount, p.currency
+       FROM ledger.entries e JOIN ledger.postings p ON p.household_id = e.household_id AND p.entry_id = e.id
+      WHERE e.household_id = $1 ORDER BY e.recorded_at, e.id, p.seq`,
+    [householdId],
+  );
+  return rows;
+}
+
 describe("PR 284 security: a wallet with transactions the journal does not hold yet stays (IMP-02 FR 15, AC14)", () => {
   it("IMP-02@PoC FR 15: a PLN wallet with an «Очікує» transaction cannot be removed — the transaction row would be left without its wallet", async () => {
     const space = await newSpace();
     const id = await multi(space);
     const t = await add(space, plnTx(id, "pending"));
     expect(t.status).toBe("pending");
+    const before = await journal(space.householdId);
     const res = await call(space, "DELETE", `/v1/accounts/${id}/wallets/PLN`);
     expect(res.statusCode, res.body).toBe(409);
     expect(res.json().code).toBe("ACCOUNT_CURRENCY_HAS_TRANSACTIONS");
     expect(await plnWallets(space.householdId, id)).toBe(1);
+    // #290 item 6: the refusal leaves the journal as it was, and the transaction can still be posted to its wallet.
+    expect(await journal(space.householdId)).toEqual(before);
+    const posted = await call(space, "PATCH", `/v1/transactions/${t.id}`, { status: "posted" });
+    expect(posted.statusCode, posted.body).toBe(200);
+    const after = await journal(space.householdId);
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.slice(before.length)).toEqual([
+      expect.objectContaining({
+        event_type: expect.any(String),
+        amount: "40.000000000000000000",
+        currency: "PLN",
+      }),
+    ]);
   });
 
   it("IMP-02@PoC FR 15: a PLN wallet whose posted transaction is not handed to the journal yet cannot be removed", async () => {
@@ -245,5 +271,65 @@ describe("PR 284 security: a wallet with transactions the journal does not hold 
     expect(res.statusCode, res.body).toBe(409);
     expect(res.json().code).toBe("ACCOUNT_CURRENCY_HAS_TRANSACTIONS");
     expect(await plnWallets(space.householdId, id)).toBe(1);
+  });
+});
+
+const card = async (space: Space): Promise<string> => {
+  const res = await call(space, "POST", "/v1/accounts", {
+    kind: "credit-card",
+    name: "Картка",
+    balance: { amount: "300.00", currency: "EUR" },
+    balanceDate: "2026-01-01",
+    creditLimit: "2000.00",
+  });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json().id as string;
+};
+const eurTx = (accountId: string, status?: string) => ({
+  ...plnTx(accountId, status),
+  amount: { amount: "-40.00", currency: "EUR" },
+});
+const kindOf = async (space: Space, id: string) => {
+  const res = await call(space, "GET", `/v1/accounts/${id}`);
+  expect(res.statusCode, res.body).toBe(200);
+  return res.json().kind as string;
+};
+
+describe("#290 item 3: «Кредит» ↔ «Кредитна картка» asks the same modules as removing a wallet (FIN-12 FR 5)", () => {
+  it("FIN-12@PoC FR 5: a credit card whose only transaction is «Очікує» keeps its kind — «Кредит» is refused, nothing changes", async () => {
+    const space = await newSpace();
+    const id = await card(space);
+    await add(space, eurTx(id, "pending"));
+    const before = await journal(space.householdId);
+    const res = await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" });
+    expect(res.statusCode, res.body).toBe(409);
+    expect(res.json().code).toBe("ACCOUNT_HAS_TRANSACTIONS");
+    expect(await kindOf(space, id)).toBe("credit-card");
+    expect(await journal(space.householdId)).toEqual(before);
+  });
+
+  it("FIN-12@PoC FR 5: a credit card whose posted transaction is not handed to the journal yet keeps its kind", async () => {
+    const space = await newSpace();
+    const id = await card(space);
+    transactionsLedgerDown = true;
+    try {
+      const res = await call(space, "POST", "/v1/transactions", eurTx(id));
+      expect(res.statusCode, res.body).toBe(201);
+    } finally {
+      transactionsLedgerDown = false;
+    }
+    const res = await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" });
+    expect(res.statusCode, res.body).toBe(409);
+    expect(await kindOf(space, id)).toBe("credit-card");
+  });
+
+  it("FIN-12@PoC FR 5: once its «Очікує» transaction is deleted, the card can become «Кредит»", async () => {
+    const space = await newSpace();
+    const id = await card(space);
+    const t = await add(space, eurTx(id, "pending"));
+    expect((await call(space, "DELETE", `/v1/transactions/${t.id}`)).statusCode).toBeLessThan(300);
+    const res = await call(space, "PATCH", `/v1/accounts/${id}`, { kind: "loan" });
+    expect(res.statusCode, res.body).toBe(200);
+    expect(await kindOf(space, id)).toBe("loan");
   });
 });
