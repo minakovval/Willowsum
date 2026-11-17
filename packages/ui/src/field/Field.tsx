@@ -29,7 +29,8 @@ export interface FieldProps {
   required?: boolean | undefined;
   disabled?: boolean | undefined;
   readOnly?: boolean | undefined;
-  type?: "text" | "email" | "search" | "tel" | "url" | undefined;
+  /** `date`: the browser's own date input (YYYY-MM-DD value), until the design system has a date picker. */
+  type?: "text" | "email" | "search" | "tel" | "url" | "date" | undefined;
   inputMode?: InputHTMLAttributes<HTMLInputElement>["inputMode"];
   name?: string | undefined;
   autoComplete?: string | undefined;
