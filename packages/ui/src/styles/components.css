@@ -1285,7 +1285,7 @@
 
 .ws-select-option--active {
   background: var(--ws-surface-300);
-  box-shadow: inset 0 0 0 2px var(--ws-focus);
+  box-shadow: inset 0 0 0 2px var(--ws-focus-ring-color);
 }
 
 .ws-select-option[aria-disabled="true"] {
