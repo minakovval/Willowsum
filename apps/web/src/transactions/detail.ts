@@ -3,6 +3,7 @@ import type { ApiClient, paths } from "@willowsum/api-contract";
 import { isIconName, type TransactionCategory } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
 import { maskedNumber } from "../accounts/format.ts";
+import type { SplitCategory } from "./api.ts";
 
 /**
  * FIN-03@PoC d) — what S-047 «Деталь транзакції» reads: the transaction (`GET /v1/transactions/{id}`; another space's or
@@ -34,8 +35,10 @@ export interface DetailData {
   readonly account: string | undefined;
   /** In a «Можливий дубль» pair now (FIN-03@PoC FR 12, FR 18). */
   readonly possibleDuplicate: boolean;
-  /** Category and account names by id, for «Історія змін». */
+  /** Category and account names by id, for «Історія змін» and the parts of a split. */
   readonly names: ReadonlyMap<string, string>;
+  /** The categories a part of «Розділити» may take (BUD-13@PoC FR 6): not hidden; the dialog keeps the transaction's type. */
+  readonly splitCategories: readonly SplitCategory[];
 }
 
 function failed(o: Exclude<Outcome<unknown>, { ok: true }>): Loaded<never> {
@@ -72,6 +75,9 @@ export async function loadDetail(api: ApiClient, transactionId: string): Promise
   const index = categoryIndex(tree.data.groups);
   const names = new Map<string, string>();
   for (const [id, c] of index) names.set(id, c.name);
+  const splitCategories: SplitCategory[] = tree.data.groups.flatMap((g) =>
+    g.categories.filter((c) => !c.hidden).map((c) => ({ id: c.id, name: c.name, kind: c.kind })),
+  );
   let accountName: string | undefined;
   if (account.ok) {
     const mask = account.data.number ? maskedNumber(account.data.number.last4) : null;
@@ -93,6 +99,7 @@ export async function loadDetail(api: ApiClient, transactionId: string): Promise
       account: accountName,
       possibleDuplicate,
       names,
+      splitCategories,
     },
   };
 }
@@ -104,11 +111,15 @@ export async function loadHistory(api: ApiClient, transactionId: string): Promis
   return o.ok ? { kind: "ready", data: o.data } : failed(o);
 }
 
-/** Reads on mount and on `retry()`; an answer after unmount is dropped; a throw is the error state. */
+/**
+ * Reads on mount and on `retry()`; an answer after unmount is dropped; a throw is the error state. `update` changes
+ * the loaded data in place (a saved change answers with the new record), so the page keeps its focus and no skeleton
+ * flashes.
+ */
 export function useLoaded<T>(
   key: string,
   load: (api: ApiClient, key: string) => Promise<Loaded<T>>,
-): { state: Loaded<T>; retry: () => void } {
+): { state: Loaded<T>; retry: () => void; update: (change: (data: T) => T) => void } {
   const api = useAuthApi();
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<Loaded<T>>({ kind: "loading" });
@@ -130,11 +141,14 @@ export function useLoaded<T>(
     setState({ kind: "loading" });
     setAttempt((n) => n + 1);
   }, []);
-  return { state, retry };
+  const update = useCallback((change: (data: T) => T) => {
+    setState((old) => (old.kind === "ready" ? { kind: "ready", data: change(old.data) } : old));
+  }, []);
+  return { state, retry, update };
 }
 
-/** The actions of the menu «…» and of «Роз'єднати» (FIN-03@PoC FR 11, FR 16, FR 27). */
-export type DetailAction = "hide" | "show" | "delete" | "unmerge";
+/** The actions of the menu «…», «Роз'єднати» (FIN-03@PoC FR 11, FR 16, FR 27) and «Об'єднати назад» (BUD-13@PoC FR 8). */
+export type DetailAction = "hide" | "show" | "delete" | "unmerge" | "unsplit";
 
 export async function runAction(
   api: ApiClient,
@@ -151,5 +165,32 @@ export async function runAction(
       return outcome(api.DELETE("/v1/transactions/{transactionId}", path));
     case "unmerge":
       return outcome(api.DELETE("/v1/transactions/{transactionId}/merge", path));
+    case "unsplit":
+      return unsplit(api, transactionId);
   }
+}
+
+/**
+ * BUD-13@PoC FR 1, FR 2: «Нотатка» and «Теги» of S-047 (`PATCH …/attributes`; only the fields sent change, a tag the
+ * space lacks is created) and FR 8 «Об'єднати назад» (`DELETE …/split`). Each answers with the transaction.
+ */
+export const saveAttributes = (
+  api: ApiClient,
+  transactionId: string,
+  body: { note?: string | null; tags?: string[] },
+): Promise<Outcome<TransactionDetail>> =>
+  outcome(
+    api.PATCH("/v1/transactions/{transactionId}/attributes", {
+      params: { path: { transactionId } },
+      body,
+    }),
+  );
+
+export const unsplit = (api: ApiClient, transactionId: string): Promise<Outcome<TransactionDetail>> =>
+  outcome(api.DELETE("/v1/transactions/{transactionId}/split", { params: { path: { transactionId } } }));
+
+/** The tags of the space for the suggestions of «+ Тег» (BUD-13@PoC FR 2); a failed read offers none. */
+export async function loadTagNames(api: ApiClient): Promise<string[]> {
+  const o = await outcome(api.GET("/v1/transaction-tags"));
+  return o.ok ? o.data.items.map((t) => t.name) : [];
 }

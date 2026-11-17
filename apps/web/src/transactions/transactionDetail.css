@@ -134,3 +134,144 @@
   justify-content: space-between;
   gap: var(--ws-space-3);
 }
+
+/* BUD-13@PoC b): «Теги», «Нотатка», «Розділення» and «Розділити» · «Схожі транзакції» (canvas PocMoneyTxDetail). */
+.txd-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The board's tag chip on `surface-300`; its text is `ink`, as DS-06 allows on that surface (PR body). */
+.txd-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  padding-inline: var(--ws-space-2) var(--ws-space-1);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-badge-line);
+  font-weight: 500;
+}
+
+.txd-tag-remove {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: var(--ws-touch-target);
+  min-block-size: var(--ws-touch-target);
+  margin-block: calc((var(--ws-touch-target) - var(--ws-text-badge-line)) / -2);
+  margin-inline: calc(var(--ws-space-3) * -1) calc(var(--ws-space-3) * -1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  cursor: pointer;
+}
+
+.txd-tag-remove:focus-visible,
+.txd-add:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+/* «+ Тег», «Додайте тег», «Додайте нотатку», «Змінити нотатку»: a text action in the row (the board's link colour). */
+.txd-add {
+  min-block-size: var(--ws-touch-target);
+  margin-block: calc((var(--ws-touch-target) - var(--ws-text-body-sm-line)) / -2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-link);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.txd-add-muted {
+  color: var(--ws-ink-muted);
+  font-weight: 400;
+}
+
+.txd-add[disabled] {
+  color: var(--ws-disabled-ink);
+  cursor: default;
+}
+
+.txd-note {
+  white-space: pre-wrap;
+}
+
+.txd-inline-edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.txd-note-edit {
+  display: grid;
+  flex: 1;
+  gap: var(--ws-space-2);
+}
+
+.txd-input {
+  box-sizing: border-box;
+  min-block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding-inline: var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font: inherit;
+}
+
+.txd-textarea {
+  inline-size: 100%;
+  padding-block: var(--ws-space-2);
+  resize: vertical;
+}
+
+.txd-input:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+.txd-attr-status {
+  margin: 0;
+}
+
+.txd-facts dd.txd-split {
+  align-items: flex-start;
+  flex-direction: column;
+}
+
+.txd-split-parts {
+  display: grid;
+  gap: var(--ws-space-1);
+  inline-size: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.txd-split-parts li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.txd-split-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.txd-attr-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-2);
+}

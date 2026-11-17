@@ -211,7 +211,13 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
     expect(line).toMatch(/^2 лист\. 2026.*, \d\d:\d\d · Поточний ··4417 · Проведена$/);
     expect(plain(c.querySelector(".txd-amount")?.textContent)).toContain("−42,80 €");
     const facts = c.querySelector(".txd-facts")!;
-    expect([...facts.querySelectorAll("dt")].map((d) => d.textContent)).toEqual(["Категорія", "Опис"]);
+    // «Теги» and «Нотатка» follow (BUD-13@PoC FR 1, row 117; canvas PocMoneyTxDetail).
+    expect([...facts.querySelectorAll("dt")].map((d) => d.textContent)).toEqual([
+      "Категорія",
+      "Опис",
+      "Теги",
+      "Нотатка",
+    ]);
     expect(facts.textContent).toContain("Продукти");
     expect(facts.textContent).toContain("як раніше");
     expect(facts.textContent).toContain("Продукти на тиждень");
