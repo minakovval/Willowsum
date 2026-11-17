@@ -321,7 +321,7 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     );
   });
 
-  it("DAT-01@PoC AC1: on page 2 with a search and a sort, the user opens a record and comes back — the page, the scroll position, the search and the sort are restored", async () => {
+  it("DAT-01@PoC AC1, FR 7: on page 2 with a search and a sort, the user opens a record and comes back — the page, the scroll position, the search and the sort are restored", async () => {
     const { lastQuery } = open();
     await loaded();
     fireEvent.change(within(toolbar()).getByRole("searchbox"), { target: { value: "Мерчант" } });
@@ -409,7 +409,7 @@ describe("FIN-03@PoC c): header, tabs and toolbar", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("FIN-03@PoC AC16: with 0 in «До розбору» the tab has its name only and the totals have no such chip; with 5 it reads «До розбору · 5» and opens the queue", async () => {
+  it("FIN-03@PoC AC16, FR 25: with 0 in «До розбору» the tab has its name only and the totals have no such chip; with 5 it reads «До розбору · 5» and opens the queue", async () => {
     open();
     await loaded();
     const tabs = screen.getByRole("tablist", { name: "Розділи транзакцій" });

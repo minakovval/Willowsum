@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- Перевіряється: packages/ui/src/toolbar/ListToolbar.test.tsx, packages/ui/src/toolbar/ListToolbar.css.test.ts, packages/ui/src/field/Field.test.tsx, apps/web/src/transactions/fin03c-transactions.test.tsx
 
 **Мета.** Як користувач довгого списку (транзакції, активи, рахунки), я хочу мати над списком пошук, фільтри, сортування і вибір колонок, щоб налаштувати перегляд під себе.
 

@@ -2331,10 +2331,6 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink);
 }
 
-.ws-tx-head-amount .ws-tx-sort {
-  flex-direction: row-reverse;
-}
-
 /* CMP-02@PoC «Тип «дата»»: the calendar icon on the left of the 40 px frame, the grey «· сьогодні». */
 .ws-date .ws-select-control {
   padding-inline-start: var(--ws-space-3);
@@ -2477,7 +2473,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-toolbar-start .ws-field {
-  flex: 0 1 calc(var(--ws-space-8) * 5);
+  flex: 0 1 calc(var(--ws-space-8) * 5 + var(--ws-space-6));
   min-inline-size: calc(var(--ws-space-8) * 3 + var(--ws-space-2));
 }
 
