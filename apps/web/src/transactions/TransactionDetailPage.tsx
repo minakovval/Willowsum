@@ -1,0 +1,325 @@
+import { useId, useState } from "react";
+import {
+  formatDate,
+  formatLocaleOf,
+  formatMoney,
+  speakMoney,
+  useI18n,
+  useT,
+  type Locale,
+  type MessageKey,
+} from "@willowsum/i18n";
+import {
+  Amount,
+  Badge,
+  Button,
+  ConfirmDialog,
+  Icon,
+  MenuButton,
+  merchantInitials,
+  Skeleton,
+  Tooltip,
+  type MenuItem,
+  type TransactionCategory,
+} from "@willowsum/ui";
+import { useAuthApi } from "../auth/api.ts";
+import { AppLayout } from "../pages/AppLayout.tsx";
+import { NotFoundPage } from "../pages/NotFoundPage.tsx";
+import { rootOf, SECTIONS, TRANSACTIONS, transactionIdOf } from "../routing/routes.ts";
+import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
+import { useDocumentTitle } from "../useDocumentTitle.ts";
+import {
+  loadDetail,
+  runAction,
+  useLoaded,
+  type CategorySource,
+  type DetailAction,
+  type DetailData,
+} from "./detail.ts";
+import { LoadError, TransactionHistoryDialog } from "./TransactionHistoryDialog.tsx";
+import "./transactionDetail.css";
+
+const SOURCE_KEYS: Readonly<Record<Exclude<CategorySource, "none">, MessageKey>> = {
+  manual: "txDetail.source.manual",
+  rule: "txDetail.source.rule",
+  merchant: "txDetail.source.merchant",
+  bank: "txDetail.source.bank",
+  dictionary: "txDetail.source.dictionary",
+};
+
+/**
+ * S-047 «Деталь транзакції» (FIN-03@PoC FR 11, FR 16, FR 18, FR 20, FR 27; canvas PocMoneyTxDetail,
+ * PocMoneyTxDetailNoReceipt; «Тексти» PocMoneyTxDetailTexts) at `/money/transactions/:id`, opened from a row of S-046
+ * and from «Нова транзакція» (S-048). The heading: initials, the counterparty, «дата, час · рахунок · стан», the
+ * marks and the amount, the menu «…» and «✕» back to the list; then «Категорія» with its source and «Опис». A
+ * transaction of another space, or one deleted, is «Не знайдено» (FIN-03@PoC AC12).
+ */
+export function TransactionDetailPage() {
+  const transactionId = transactionIdOf(useHashPath()) ?? "";
+  // Another transaction is a fresh page: nothing of the previous one stays on screen while the next one loads.
+  return <Detail key={transactionId} transactionId={transactionId} />;
+}
+
+function Detail({ transactionId }: { transactionId: string }) {
+  const t = useT();
+  const { state, retry } = useLoaded(transactionId, loadDetail);
+  const ready = state.kind === "ready" ? state.data : null;
+  const title = ready ? counterpartyOf(t, ready) : t("page.transaction");
+  useDocumentTitle(title);
+  if (state.kind === "missing") return <NotFoundPage />;
+  return (
+    <AppLayout sectionId="money" pageId={TRANSACTIONS.id}>
+      <Crumbs current={title} />
+      {state.kind === "loading" ? (
+        <section className="ws-card txd">
+          <h1 className="ws-text-heading-2 txd-name">{title}</h1>
+          <Skeleton variant="row" lines={4} />
+        </section>
+      ) : state.kind === "error" ? (
+        <section className="ws-card txd">
+          <h1 className="ws-text-heading-2 txd-name">{title}</h1>
+          <LoadError body={t("txDetail.error.body")} supportId={state.supportId} retry={retry} />
+        </section>
+      ) : (
+        <Card data={state.data} reload={retry} />
+      )}
+    </AppLayout>
+  );
+}
+
+const counterpartyOf = (t: ReturnType<typeof useT>, d: DetailData) =>
+  d.transaction.counterparty ?? t("accountCard.tx.noCounterparty");
+
+/** UX-09@PoC item 8: «Гроші › Транзакції › <контрагент>». */
+function Crumbs({ current }: { current: string }) {
+  const t = useT();
+  const money = SECTIONS.find((s) => s.id === "money")!;
+  return (
+    <nav className="ws-breadcrumbs" aria-label={t("shell.breadcrumbs")}>
+      <ol>
+        <li>
+          <a href={hrefFor(rootOf(money).path)}>{t(money.label)}</a>
+        </li>
+        <li>
+          <a href={hrefFor(TRANSACTIONS.path)}>{t(TRANSACTIONS.label)}</a>
+        </li>
+        <li aria-current="page">{current}</li>
+      </ol>
+    </nav>
+  );
+}
+
+/** «2 лист. 2026 р., 09:14»: the date of the transaction, then the time it was recorded in the browser's time zone. */
+function whenOf(locale: Locale, date: string, recordedAt: string): string {
+  const day = formatDate(locale, date);
+  const at = new Date(recordedAt);
+  if (Number.isNaN(at.getTime())) return day;
+  const time = new Intl.DateTimeFormat(formatLocaleOf(locale), { hour: "2-digit", minute: "2-digit" }).format(
+    at,
+  );
+  return `${day}, ${time}`;
+}
+
+type Open = "none" | "history" | "delete";
+
+function Card({ data, reload }: { data: DetailData; reload: () => void }) {
+  const { t, locale } = useI18n();
+  const api = useAuthApi();
+  const titleId = useId();
+  const [open, setOpen] = useState<Open>("none");
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<{ supportId?: string } | null>(null);
+  const tx = data.transaction;
+  const merchant = counterpartyOf(t, data);
+  const amount = tx.amount;
+  const merged = tx.mergedDuplicates.length > 0;
+
+  const act = async (action: DetailAction) => {
+    if (busy) return;
+    setBusy(true);
+    setFailure(null);
+    const o = await runAction(api, tx.id, action);
+    setBusy(false);
+    if (!o.ok) {
+      setFailure(o.kind === "problem" && o.supportId ? { supportId: o.supportId } : {});
+      return;
+    }
+    // FIN-03@PoC FR 16, AC10: a deleted transaction is gone; the list is where the user goes back to.
+    if (action === "delete") window.location.assign(hrefFor(TRANSACTIONS.path));
+    else reload();
+  };
+
+  const line = [
+    whenOf(locale, tx.date, tx.recordedAt),
+    data.account,
+    t(tx.status === "pending" ? "newTx.status.pending" : "newTx.status.posted"),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const marks: { label: string; tone: "info" | "attention" | "neutral" }[] = [];
+  if (tx.hidden) marks.push({ label: t("txDetail.hidden"), tone: "neutral" });
+  if (data.possibleDuplicate) marks.push({ label: t("transactionRow.possibleDuplicate"), tone: "attention" });
+  if (tx.transfer) marks.push({ label: t("transactionRow.transfer"), tone: "neutral" });
+  if (merged) marks.push({ label: t("txDetail.merged"), tone: "neutral" });
+
+  return (
+    <section className="ws-card txd" aria-labelledby={titleId}>
+      <div className="txd-head">
+        <span className="ws-tx-logo" aria-hidden="true">
+          {merchantInitials(merchant)}
+        </span>
+        <div className="txd-title">
+          <h1 id={titleId} className="ws-text-heading-2 txd-name">
+            {merchant}
+          </h1>
+          <p className="ws-muted">{line}</p>
+          {marks.length > 0 ? (
+            <p className="txd-marks">
+              {marks.map((m) => (
+                <Badge key={m.label} label={m.label} tone={m.tone} />
+              ))}
+            </p>
+          ) : null}
+        </div>
+        <p className="txd-amount">
+          <Amount
+            value={formatMoney(locale, amount.amount, amount.currency)}
+            spoken={speakMoney(locale, amount.amount, amount.currency)}
+          />
+        </p>
+        <MoreMenu data={data} onOpen={setOpen} onAction={(a) => void act(a)} />
+        <Tooltip text={t("shell.close")}>
+          <a className="ws-icon-button" href={hrefFor(TRANSACTIONS.path)} aria-label={t("shell.close")}>
+            <Icon name="close" size={20} inButton />
+          </a>
+        </Tooltip>
+      </div>
+      {failure && open === "none" ? (
+        <div className="txd-error" role="alert">
+          <p>{t("txDetail.action.error")}</p>
+          {failure.supportId ? (
+            <p className="ws-muted">{t("tx.error.code", { code: failure.supportId })}</p>
+          ) : null}
+        </div>
+      ) : null}
+      <dl className="txd-facts">
+        <div>
+          <dt>{t("newTx.category")}</dt>
+          <dd>
+            <CategoryChip category={data.category} />
+            {data.categorySource !== "none" ? (
+              <span className="ws-muted">{t(SOURCE_KEYS[data.categorySource])}</span>
+            ) : null}
+          </dd>
+        </div>
+        {tx.description ? (
+          <div>
+            <dt>{t("newTx.description")}</dt>
+            <dd>{tx.description}</dd>
+          </div>
+        ) : null}
+      </dl>
+      {merged ? (
+        // FIN-03@PoC FR 11: the merged record has «Об'єднано» and the action «Роз'єднати» (edge case 4).
+        <div className="txd-actions">
+          <Button label={t("txDetail.unmerge")} onClick={() => void act("unmerge")} />
+        </div>
+      ) : null}
+      {open === "history" ? <TransactionHistoryDialog data={data} onClose={() => setOpen("none")} /> : null}
+      <ConfirmDialog
+        open={open === "delete"}
+        onClose={() => {
+          setOpen("none");
+          setFailure(null);
+        }}
+        title={t("txDetail.delete.title")}
+        text={t("txDetail.delete.text")}
+        closeLabel={t("shell.close")}
+        cancelLabel={t("newTx.cancel")}
+        confirmLabel={t("txDetail.delete.confirm")}
+        busyLabel={t("txDetail.delete.busy")}
+        busy={busy}
+        error={
+          failure ? (
+            <span>
+              {t("txDetail.action.error")}
+              {failure.supportId ? ` ${t("tx.error.code", { code: failure.supportId })}` : ""}
+            </span>
+          ) : undefined
+        }
+        onConfirm={() => void act("delete")}
+      />
+    </section>
+  );
+}
+
+/**
+ * «…» «Ще дії» (FIN-03@PoC FR 27; canvas PocMoneyTxDetail): «Приховати транзакцію» only for a «Можливий дубль» that is
+ * no side of a transfer (FR 18) — «Показати транзакцію» once hidden (FR 16); «Історія змін»; «Видалити» for a transaction
+ * entered by hand, last, after a separator. «Позначити як переказ» (S-059 «Поєднати вручну», wave 2 row 139) and
+ * «Об'єднати з іншою» come with their screens: the menu shows no item that does nothing (PR body).
+ */
+function MoreMenu({
+  data,
+  onOpen,
+  onAction,
+}: {
+  data: DetailData;
+  onOpen: (open: Open) => void;
+  onAction: (action: DetailAction) => void;
+}) {
+  const t = useT();
+  const tx = data.transaction;
+  const items: MenuItem[] = [];
+  if (tx.hidden && tx.mergedInto === null)
+    items.push({ id: "show", label: t("txDetail.menu.show"), icon: "eye", onSelect: () => onAction("show") });
+  else if (!tx.hidden && data.possibleDuplicate && tx.transfer === null)
+    items.push({
+      id: "hide",
+      label: t("txDetail.menu.hide"),
+      icon: "eye-off",
+      onSelect: () => onAction("hide"),
+    });
+  items.push({
+    id: "history",
+    label: t("txDetail.menu.history"),
+    icon: "list",
+    onSelect: () => onOpen("history"),
+  });
+  if (tx.source === "manual")
+    items.push({
+      id: "delete",
+      label: t("txDetail.menu.delete"),
+      icon: "trash",
+      danger: true,
+      onSelect: () => onOpen("delete"),
+    });
+  return (
+    <MenuButton
+      menuLabel={t("txDetail.more")}
+      ariaLabel={t("txDetail.more")}
+      title={t("txDetail.more")}
+      placement="down"
+      align="end"
+      className="ws-icon-button"
+      items={items}
+    >
+      <Icon name="more" size={20} inButton />
+    </MenuButton>
+  );
+}
+
+/** The category as the list shows it (CMP-28): the icon on its coloured circle; «Без категорії» — a dashed chip. */
+function CategoryChip({ category }: { category: TransactionCategory | null }) {
+  const t = useT();
+  if (!category)
+    return <span className="ws-tx-category ws-tx-category-none">{t("transactionRow.uncategorized")}</span>;
+  return (
+    <span className="ws-tx-category">
+      <span className="ws-tx-category-dot" data-tone={category.tone ?? "transfer"} aria-hidden="true">
+        <Icon name={category.icon ?? "other"} size={16} />
+      </span>
+      <span className="ws-tx-category-name">{category.name}</span>
+    </span>
+  );
+}

@@ -145,17 +145,19 @@ export const accountPath = (accountId: string): string =>
 /** The account of an S-053 path, or `null` for any other path. */
 export const accountIdOf = (path: string): string | null => ACCOUNT_PATH.exec(path)?.[1] ?? null;
 
-/** S-047 «Деталь транзакції» (`/money/transactions/:id`): a row of S-046 opens it; its screen is wave 2 row 116. */
+/** S-047 «Деталь транзакції» (`/money/transactions/:id`): a row of S-046 opens it (FIN-03@PoC d), wave 2 row 116). */
 const TRANSACTION: ChildDef = {
   id: "transaction",
   parent: TRANSACTIONS,
   path: `${TRANSACTIONS.path}/:id`,
   title: "page.transaction",
 };
-const TRANSACTION_PATH = /^\/money\/transactions\/[0-9a-fA-F-]{36}$/;
+const TRANSACTION_PATH = /^\/money\/transactions\/([0-9a-fA-F-]{36})$/;
 /** S-047 of one transaction. */
 export const transactionPath = (transactionId: string): string =>
   TRANSACTION.path.replace(":id", encodeURIComponent(transactionId));
+/** The transaction of an S-047 path, or `null` for any other path. */
+export const transactionIdOf = (path: string): string | null => TRANSACTION_PATH.exec(path)?.[1] ?? null;
 
 /** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is the dependent part of wave 2 row 113. */
 const ACCOUNT_SETTINGS: ChildDef = {

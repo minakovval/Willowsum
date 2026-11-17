@@ -580,6 +580,24 @@ describe("FIN-03@PoC d): «Нова транзакція» (S-048)", () => {
     expect(alert.textContent).toContain(`Код: ${SUPPORT_ID}`);
   });
 
+  it("S-048 → S-047 (#462): added, but the category was not saved — «Відкрити транзакцію» opens its details (S-047), where it is changed", async () => {
+    const handlers = base();
+    handlers[`PUT /v1/transactions/${TX}/category`] = problem(503, "MODULE_UNAVAILABLE");
+    open(handlers);
+    await accountReady();
+    await typeAmount("5");
+    press("Далі");
+    await choose(/^Категорія/, "Продукти");
+    press("Додати транзакцію");
+    await waitFor(() =>
+      expect(dialog().textContent).toContain(
+        "Транзакцію додано, але категорію або теги не збережено. Змініть їх у деталі транзакції.",
+      ),
+    );
+    press("Відкрити транзакцію");
+    expect(window.location.hash).toBe(`#/money/transactions/${TX}`);
+  });
+
   it("S-048 states: loading — «Рахунок» is a skeleton in the shape of the field; a list that failed leaves the explanation and «Новий рахунок»", async () => {
     let release: ((r: Reply) => void) | null = null;
     const handlers = base();
