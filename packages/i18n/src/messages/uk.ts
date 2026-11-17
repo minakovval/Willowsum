@@ -1770,7 +1770,6 @@ export const uk = {
   "status.usage.ofLimit": "{percent} ліміту",
   "status.usage.overLimit": "{percent} понад ліміт",
   "status.usage.overTip": "перевищено · {amount} ({percent})",
-  "status.usage.level": "рівень {level}",
   "status.deviation.up": "вище бази",
   "status.deviation.down": "нижче бази",
   "status.step.hint": "Щоб продовжити, заповніть: {fields}",

@@ -1777,7 +1777,6 @@ export const en: Messages = {
   "status.usage.ofLimit": "{percent} of the limit",
   "status.usage.overLimit": "{percent} over the limit",
   "status.usage.overTip": "over the limit · {amount} ({percent})",
-  "status.usage.level": "level {level}",
   "status.deviation.up": "above the base",
   "status.deviation.down": "below the base",
   "status.step.hint": "To continue, fill in: {fields}",
