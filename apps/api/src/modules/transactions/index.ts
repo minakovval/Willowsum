@@ -28,6 +28,8 @@ import {
   duplicateCandidates,
   ruleCandidates,
   ruleInputsOf,
+  reviewQueueMembers,
+  reviewQueueSlices,
   type CandidateSide,
   type DuplicateSide,
   type RuleInput,
@@ -225,6 +227,40 @@ export interface TransactionTexts {
   counterpartyCounts(
     householdId: string,
   ): Promise<readonly { readonly counterparty: string; readonly count: number }[]>;
+  /**
+   * BUD-12@PoC FR 14 (mode «Мерчанти» of «До розбору»): the queue — shown transactions in it, as its counter counts them
+   * — counted and summed (exact NUMERIC, signed) by counterparty and currency in SQL, the oldest first, at most `limit`;
+   * `more` — others are beyond them.
+   */
+  reviewQueueSlices(
+    householdId: string,
+    limit: number,
+  ): Promise<{
+    readonly slices: readonly {
+      readonly counterparty: string | null;
+      readonly currency: string;
+      readonly count: number;
+      readonly total: string;
+      readonly oldest: string;
+    }[];
+    readonly more: boolean;
+  }>;
+  /**
+   * BUD-12@PoC FR 14, FR 16: the queued transactions (id, counterparty) whose counterparty is one of `counterparties`
+   * (with `none`, also those without one), by id after `after`, at most `limit`; `more` — others are beyond them.
+   */
+  reviewQueueMembers(
+    householdId: string,
+    query: {
+      readonly counterparties: readonly string[];
+      readonly none: boolean;
+      readonly after: string | null;
+      readonly limit: number;
+    },
+  ): Promise<{
+    readonly items: readonly { readonly id: string; readonly counterparty: string | null }[];
+    readonly more: boolean;
+  }>;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -234,6 +270,10 @@ export function createTransactionTexts(db: ModuleDatabase): TransactionTexts {
       db.inHousehold(householdId, (q) => counterpartiesOf(q, householdId, ids)),
     counterpartyCounts: (householdId) =>
       db.inHousehold(householdId, (q) => counterpartyCounts(q, householdId)),
+    reviewQueueSlices: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => reviewQueueSlices(q, householdId, limit)),
+    reviewQueueMembers: (householdId, query) =>
+      db.inHousehold(householdId, (q) => reviewQueueMembers(q, householdId, query)),
   };
 }
 

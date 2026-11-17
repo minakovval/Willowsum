@@ -11,6 +11,7 @@ import {
 } from "../../application/index.ts";
 import { MERCHANT_NAME_MAX, merchantInitials, type Merchant } from "../../domain/index.ts";
 import { merchantsTx } from "../db/store.ts";
+import { reviewGroupsRoutes } from "./review-groups.ts";
 import { handOffNow, merchantsServices } from "./services.ts";
 
 /**
@@ -249,4 +250,5 @@ export const merchantsRoutes = [
   renameMerchantRoute,
   mergeMerchantsRoute,
   unmergeMerchantRoute,
+  ...reviewGroupsRoutes,
 ];
