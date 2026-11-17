@@ -59,7 +59,7 @@ describe("CMP-27@PoC ListRow styles", () => {
       rule(".ws-list-row:active,\n.ws-tx-row:active,\n.ws-list-row-selected,\n.ws-list-row-selected:hover"),
     ).toMatch(/background:\s*var\(--ws-surface-300\)/);
     const ring = rule(".ws-row-open:focus-visible::after");
-    expect(ring).toMatch(/outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus\)/);
+    expect(ring).toMatch(/outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus-ring-color\)/);
     expect(ring).toMatch(/outline-offset:\s*calc\(var\(--ws-focus-ring-width\) \* -1\)/);
   });
 
@@ -98,7 +98,7 @@ describe("CMP-28@PoC TransactionRow styles", () => {
 
   it("CMP-28@PoC FR «Стани»: hover and focus are the row's (surface-100, a 3 px `focus` ring inside)", () => {
     expect(rule(".ws-list-row:hover,\n.ws-tx-row:hover")).toMatch(/background:\s*var\(--ws-surface-100\)/);
-    expect(rule(".ws-row-open:focus-visible::after")).toMatch(/var\(--ws-focus\)/);
+    expect(rule(".ws-row-open:focus-visible::after")).toMatch(/var\(--ws-focus-ring-color\)/);
   });
 
   it("CMP-28@PoC AC6: the table has the date column after «Рахунок», not first, and the amounts end-aligned", () => {

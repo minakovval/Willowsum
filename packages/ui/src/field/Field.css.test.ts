@@ -111,7 +111,7 @@ describe("CMP-02@PoC Field styles", () => {
     expect(rule(".ws-field-box:hover")).toMatch(/border-color:\s*var\(--ws-ink\)/);
     const focus = rule(".ws-field-box:has(.ws-field-input:focus-visible)");
     expect(focus).toMatch(/border-color:\s*var\(--ws-ink\)/);
-    expect(focus).toMatch(/outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus\)/);
+    expect(focus).toMatch(/outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus-ring-color\)/);
     expect(focus).toMatch(/outline-offset:\s*var\(--ws-focus-ring-offset\)/);
     expect(rule(".ws-field-input:focus-visible")).toMatch(/outline:\s*none/);
     expect(rule('.ws-field[data-state="readonly"] .ws-field-box')).toMatch(

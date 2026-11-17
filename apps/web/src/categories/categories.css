@@ -96,7 +96,7 @@
 }
 
 .cat-group-toggle:focus-visible {
-  outline: 3px solid var(--ws-focus);
+  outline: 3px solid var(--ws-focus-ring-color);
   outline-offset: -3px;
 }
 
@@ -185,7 +185,7 @@
 }
 
 .cat-choice-option:has(input:focus-visible) {
-  outline: 3px solid var(--ws-focus);
+  outline: 3px solid var(--ws-focus-ring-color);
   outline-offset: 2px;
 }
 

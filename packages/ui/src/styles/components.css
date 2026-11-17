@@ -388,7 +388,7 @@
 }
 
 .ws-segmented-option:has(input:focus-visible) {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -454,7 +454,7 @@
 }
 
 .ws-switch input:focus-visible + .ws-switch-track {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -851,7 +851,7 @@
 }
 
 .ws-page-tab:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: 1px;
 }
 
@@ -942,7 +942,7 @@
 
 .ws-field-box:has(.ws-field-input:focus-visible) {
   border-color: var(--ws-ink);
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -1232,7 +1232,7 @@
 
 .ws-select-search:focus-within {
   border-color: var(--ws-ink);
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -1967,7 +1967,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-row-open:focus-visible::after {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: calc(var(--ws-focus-ring-width) * -1);
 }
 
@@ -2318,7 +2318,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-tx-sort:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -2421,7 +2421,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-calendar-nav:focus-visible,
 .ws-calendar-day:focus-visible,
 .ws-calendar-chip:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -2645,7 +2645,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-filter-button:focus-visible,
 .ws-filter-chip__remove:focus-visible,
 .ws-filter-row__button:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -2938,7 +2938,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 
 .ws-toast-action:focus-visible,
 .ws-toast-close:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
