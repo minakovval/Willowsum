@@ -60,7 +60,12 @@ export const transactionHistoryRoute = defineRoute({
     const entries = (
       await Promise.all(HISTORY_ENTITIES.map((type) => history.entriesFor(householdId, { type, id: row.id })))
     ).flat();
-    return { items: transactionHistory(entries, ctx.principal.userId) };
+    return {
+      items: transactionHistory(entries, ctx.principal.userId).map((e) => ({
+        ...e,
+        changes: [...e.changes],
+      })),
+    };
   },
 });
 
