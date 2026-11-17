@@ -59,6 +59,7 @@ import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
+import { ToastDemo } from "./ToastDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { TransactionDemo } from "./TransactionDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -392,6 +393,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-progress" title={t("gallery.progress.title")}>
         <ProgressDemo />
+      </Section>
+
+      <Section id="g-toast" title={t("gallery.toast.title")}>
+        <ToastDemo />
       </Section>
 
       <Section id="g-tabs" title={t("gallery.tabs.title")}>

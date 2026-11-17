@@ -389,6 +389,12 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   ...textOn("link", ["tint-info"], "DS-07 info badge"),
   ...textOn("brand", ["tint-info"], "CMP-09 main goal tag"),
   ...textOn("ink-muted", ["surface-300"], "DS-07 neutral badge"),
+  ...textOn(
+    "ink-muted",
+    ["tint-info", "surface-inset"],
+    "BUD-12 S-058 chosen merchant group, «Категорія для всієї групи»",
+  ),
+  ...uiOn("brand", ["tint-info"], "BUD-12 S-058 edge of the chosen merchant group"),
   ...textOn("brand", ["surface-300"], "CMP-11 / CMP-65 / CMP-69 current tab and navigation item"),
   ...textOn("ink", ["surface-inset", "tint-info"], "DS-06 surface-inset, tint-info"),
   ...uiOn("brand", ["surface-200"], "DS-07 chart step 1"),
