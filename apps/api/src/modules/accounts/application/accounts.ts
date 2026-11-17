@@ -72,6 +72,8 @@ export interface StoredAccount {
   /** The date of «Закритий» (FIN-01 FR 15, FR 22); closing comes with FIN-12 (wave 2 row 13). */
   readonly closedOn: string | null;
   readonly source: "manual" | "import";
+  /** «Обране» (FIN-01 FR 20): shown at the top of its group; a display flag (FIN-12 FR 8), false for a new account. */
+  readonly favourite: boolean;
 }
 
 export interface StoredSubaccount {
@@ -160,6 +162,8 @@ export interface AccountsTx {
       | "annualRate"
     >,
   ): Promise<void>;
+  /** «Обране» (FIN-01 FR 20): set or clear the star of the account. */
+  setFavourite(householdId: string, accountId: string, favourite: boolean): Promise<void>;
   /** «Закритий» with its date, or active again (FIN-12 FR 7–9). */
   setStatus(
     householdId: string,
@@ -351,6 +355,7 @@ export async function createAccount(
     status: "active",
     closedOn: null,
     source: "manual",
+    favourite: false,
   };
   await tx.insertAccount(householdId, account);
 
@@ -419,6 +424,8 @@ export interface AccountView {
   /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
   readonly closedOn: string | null;
   readonly source: "manual" | "import";
+  /** «Обране» (FIN-01 FR 20). */
+  readonly favourite: boolean;
   readonly openedOn: string;
   readonly owners: readonly StoredOwner[];
   /** Per currency, the balance today from the ledger, shown from the holder's side (a debt is negative). */
@@ -505,6 +512,7 @@ export async function accountView(
     status: account.status,
     closedOn: account.closedOn,
     source: account.source,
+    favourite: account.favourite,
     openedOn: account.openedOn,
     owners: await tx.owners(householdId, accountId),
     currencies,

@@ -6,6 +6,14 @@ import { App } from "./App.tsx";
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
 const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
 
+/**
+ * The page controls (theme, language, «Приховати суми»). The gallery renders every section at once
+ * (about 4 350 elements), so a document-wide `screen.getByLabelText` takes about 2 s in jsdom and
+ * `screen.getByRole(…, { name })` about 0.9 s; under a loaded full run that passed the 5 s limit.
+ * Queries by label or by accessible name are scoped to the part of the page they test.
+ */
+const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
+
 describe("/gallery/tokens (DS-22)", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -13,7 +21,11 @@ describe("/gallery/tokens (DS-22)", () => {
     installMatchMedia({ width: 390 });
     window.location.hash = "#/gallery/tokens";
   });
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    // A test that fails between vi.useFakeTimers() and vi.useRealTimers() must not leave fake timers on.
+    vi.useRealTimers();
+  });
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
     render(<App />);
@@ -42,12 +54,12 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("switches the page theme and hides amounts while keeping percentages", () => {
     const { container } = render(<App />);
-    act(() => screen.getByLabelText("Темна").click());
+    act(() => controls().getByLabelText("Темна").click());
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
 
     const amounts = container.querySelector("#g-amounts")!.parentElement!;
     expect(norm(amounts.textContent)).toContain("284 650,00 ₴");
-    act(() => screen.getByRole("switch", { name: "Приховати суми" }).click());
+    act(() => controls().getByRole("switch", { name: "Приховати суми" }).click());
     expect(norm(amounts.innerHTML)).not.toContain("284 650");
     expect(norm(amounts.textContent)).toContain("•••");
     expect(norm(amounts.textContent)).toContain("+2,4 %");
@@ -65,7 +77,7 @@ describe("/gallery/tokens (DS-22)", () => {
     const fit = () => norm(container.querySelector(".gallery-fit")!.innerHTML);
     expect(fit()).toContain("12,35 трлн €");
     expect(fit()).toContain("1,23 млн ₴");
-    act(() => screen.getByLabelText("English").click());
+    act(() => controls().getByLabelText("English").click());
     expect(fit()).toContain("€12.35tn");
     expect(fit()).toContain("₴1.23M");
   });
@@ -143,7 +155,7 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(filter.getAttribute("aria-pressed")).toBe("false");
     act(() => filter.click());
     expect(filter.getAttribute("aria-pressed")).toBe("true");
-    act(() => screen.getByLabelText("English").click());
+    act(() => controls().getByLabelText("English").click());
     expect(within(section).getByRole("button", { name: "Options" })).toBeTruthy();
   });
 
@@ -427,7 +439,7 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("switches language to English", () => {
     render(<App />);
-    act(() => screen.getByLabelText("English").click());
+    act(() => controls().getByLabelText("English").click());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Design tokens");
     expect(document.documentElement.lang).toBe("en");
     expect(document.title).toBe("Willowsum · Design tokens");
@@ -477,7 +489,11 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       act(() =>
         within(screen.getByRole("alertdialog")).getByRole("button", { name: "Видалити рахунок" }).click(),
       );
-      expect(screen.getByRole("button", { name: "Видаляємо…" }).getAttribute("aria-busy")).toBe("true");
+      expect(
+        within(screen.getByRole("alertdialog"))
+          .getByRole("button", { name: "Видаляємо…" })
+          .getAttribute("aria-busy"),
+      ).toBe("true");
       act(() => vi.advanceTimersByTime(1200));
       const alert = within(screen.getByRole("alertdialog")).getByRole("alert");
       expect(norm(alert.textContent)).toMatch(/^Помилка Не вдалося видалити рахунок/);
