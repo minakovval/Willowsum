@@ -2539,6 +2539,17 @@ button.ws-stepper-step[aria-disabled="true"] {
   outline-offset: var(--ws-focus-ring-offset);
 }
 
+/* The chips: a list named «Застосовані фільтри» (CMP-64), 8 px apart, wrapping. */
+.ws-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 /* The chip «фільтр зі зняттям» (CMP-64): 32 px, 0 6 px 0 10 px, pill, `tint-info`, `brand` 13/18 px 500; text at most 240 px. */
 .ws-filter-chip {
   display: inline-flex;

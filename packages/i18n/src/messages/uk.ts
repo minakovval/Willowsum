@@ -995,6 +995,7 @@ export const uk = {
   "filter.reset": "Скинути все",
   "filter.apply": "Застосувати",
   "filter.remove": "Прибрати фільтр: {field} — {value}",
+  "filter.chips": "Застосовані фільтри",
   "date.none": "Без дати",
   "date.todaySuffix": "· сьогодні",
   "date.dialog": "Оберіть дату",

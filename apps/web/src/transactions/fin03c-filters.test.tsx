@@ -6,7 +6,7 @@ import { resetNavigationSession } from "../routing/session.ts";
 import { filteredTransactionsPath } from "./filters.ts";
 
 /**
- * FIN-03@PoC FR 22, AC21, FR 33; DAT-01@PoC FR 4, FR 7; CMP-32@PoC — the filters of S-046 «Транзакції» (canvas
+ * FIN-03@PoC AC21, FR 33; DAT-01@PoC FR 7; CMP-32@PoC — the filters of S-046 «Транзакції» (canvas
  * PocMoneyTxFilters, PocMoneyTxNoResults; «Тексти» PocMoneyTxTexts). The fake API filters by the `filter` values of
  * the query as the server's whitelist does (joined by AND). Synthetic data only.
  */
@@ -221,7 +221,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", () => {
+describe("S-046 «Транзакції»: the filters built so far — not yet «Категорії», «Стан: можливий дубль» or several states, so the requirement items they belong to are not claimed", () => {
   it("FIN-03@PoC AC21: «Рахунки: Поточний» and «Тип: списання», then «Застосувати» — the panel closes, the list shows only such transactions and the pagination row shows their number", async () => {
     const { lastFilters } = open();
     await loaded();
@@ -244,7 +244,7 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     expect(plain(within(toolbar()).getByRole("status").textContent)).toBe("Знайдено 10 транзакцій");
   });
 
-  it("FIN-03@PoC FR 22, DAT-01@PoC FR 4: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
+  it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
     open();
     await loaded();
     const button = filtersButton();
@@ -280,7 +280,7 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     ).toEqual(["Скинути все", "Застосувати"]);
   });
 
-  it("CMP-32@PoC AC4, FIN-03@PoC FR 22: with «Рахунки: Поточний, Ощадний» and «Тип: списання» the button says «Фільтри · 2», the chips stand beside it with «×», the open panel shows «Поточний ··4417, Ощадний ··1180» and the unset rows in grey; «×» removes one filter", async () => {
+  it("CMP-32@PoC AC4: with «Рахунки: Поточний, Ощадний» and «Тип: списання» the button says «Фільтри · 2», the chips stand beside it with «×», the open panel shows «Поточний ··4417, Ощадний ··1180» and the unset rows in grey; «×» removes one filter", async () => {
     const { lastFilters } = open();
     await loaded();
     fireEvent.click(filtersButton());
@@ -290,7 +290,9 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     await waitFor(() => expect(lastFilters()).toEqual([`accountId.in:${ACC},${ACC3}`, "type.eq:out"]));
     expect(filtersButton().textContent).toBe("Фільтри · 2");
     expect(chips()).toEqual(["Рахунки: 2", "Тип: списання"]);
-    expect(screen.getByRole("button", { name: "Прибрати фільтр: Рахунки — 2" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Прибрати фільтр: Рахунки — Поточний ··4417, Ощадний ··1180" }),
+    ).toBeTruthy();
     fireEvent.click(filtersButton());
     expect(rowButton("Рахунки").getAttribute("aria-label")).toBe("Рахунки: Поточний ··4417, Ощадний ··1180");
     expect(rowButton("Рахунки").hasAttribute("data-unset")).toBe(false);
@@ -302,7 +304,7 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     expect(chips()).toEqual(["Рахунки: 2"]);
   });
 
-  it("FIN-03@PoC FR 22, DAT-01@PoC FR 4: «Період» and «Сума» take «від» and «до» inside the drop-down, «Стан» one state, «Теги» several with check boxes, «Мерчант» a text it contains — each goes to the server's filter", async () => {
+  it("filter panel: «Період» and «Сума» take «від» and «до» inside the drop-down, «Стан» one state, «Теги» several with check boxes, «Мерчант» a text it contains — each goes to the server's filter", async () => {
     const { lastFilters } = open();
     await loaded();
     fireEvent.click(filtersButton());
@@ -340,7 +342,7 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     expect(await screen.findByRole("heading", { name: "Нічого не знайдено" })).toBeTruthy();
   });
 
-  it("FIN-03@PoC FR 22: an amount the server cannot take is not sent — «Застосувати» keeps the panel open and the field says why", async () => {
+  it("filter panel: an amount the server cannot take is not sent — «Застосувати» keeps the panel open and the field says why", async () => {
     const { lastFilters, lists } = open();
     await loaded();
     const before = lists().length;
@@ -356,7 +358,7 @@ describe("FIN-03@PoC FR 22: the filters of «Транзакції» (S-046)", ()
     expect(lastFilters()).toEqual([]);
   });
 
-  it("FIN-03@PoC FR 22: «Скинути все» removes every filter at once; the panel closes", async () => {
+  it("filter panel: «Скинути все» removes every filter at once; the panel closes", async () => {
     const { lastFilters } = open();
     await loaded();
     fireEvent.click(filtersButton());

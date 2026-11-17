@@ -995,6 +995,7 @@ export const en: Messages = {
   "filter.reset": "Reset all",
   "filter.apply": "Apply",
   "filter.remove": "Remove filter: {field} — {value}",
+  "filter.chips": "Applied filters",
   "date.none": "No date",
   "date.todaySuffix": "· today",
   "date.dialog": "Choose a date",

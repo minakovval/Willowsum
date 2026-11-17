@@ -48,7 +48,8 @@ export interface FilterBarProps {
  * CMP-32@PoC FilterBar above a list: the button «Фільтри · N» (a native `button`, `aria-haspopup="dialog"`,
  * `aria-expanded`), the chips of the active filters with their «×», and the panel under the button — a `dialog`
  * without a scrim, with rows «підпис — випадний список» and «Скинути все» and «Застосувати» (without a count) at its
- * foot. The list changes only on «Застосувати», «Скинути все» or a chip's «×»; a choice in the panel changes the draft
+ * foot. The chips are a list named «Застосовані фільтри» (CMP-64). The list changes only on «Застосувати», «Скинути
+ * все» or a chip's «×»; a choice in the panel changes the draft
  * only. Escape or a press outside closes the panel without applying; the focus goes back to the button.
  */
 export function FilterBar({
@@ -67,6 +68,9 @@ export function FilterBar({
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
+  const chipList = useRef<HTMLUListElement>(null);
+  /** The place of the chip whose «×» was pressed, until the chips change. */
+  const removed = useRef<number | null>(null);
 
   const close = useCallback((refocus: boolean) => {
     setOpen(false);
@@ -77,6 +81,17 @@ export function FilterBar({
   useEffect(() => {
     if (open) panel.current?.querySelector<HTMLElement>("button, input, [tabindex]")?.focus();
   }, [open]);
+  // CMP-64 «Клавіатура і екранний читач»: after «×» the focus goes to the next chip (the previous one when it was the
+  // last), or to «Фільтри» when no chip is left.
+  const chipKey = chips.map((c) => c.id).join(" ");
+  useEffect(() => {
+    const at = removed.current;
+    if (at === null) return;
+    removed.current = null;
+    const buttons = chipList.current?.querySelectorAll<HTMLElement>(".ws-filter-chip__remove") ?? [];
+    const next = buttons[Math.min(at, buttons.length - 1)];
+    (next ?? button.current)?.focus();
+  }, [chipKey]);
 
   const show = () => {
     onOpen?.();
@@ -132,26 +147,30 @@ export function FilterBar({
           </div>
         </div>
       ) : null}
-      {chips.map((chip) => {
-        const name = t("filter.remove", { field: chip.field, value: chip.value });
-        return (
-          <span key={chip.id} className="ws-filter-chip">
-            <TruncatedText text={chip.text} className="ws-filter-chip__text" />
-            <button
-              type="button"
-              className="ws-filter-chip__remove"
-              aria-label={name}
-              title={name}
-              onClick={() => {
-                button.current?.focus();
-                onRemove(chip.id);
-              }}
-            >
-              <Icon name="close" size={16} tone="muted" />
-            </button>
-          </span>
-        );
-      })}
+      {chips.length > 0 ? (
+        <ul ref={chipList} className="ws-filter-chips" aria-label={t("filter.chips")}>
+          {chips.map((chip, index) => {
+            const name = t("filter.remove", { field: chip.field, value: chip.value });
+            return (
+              <li key={chip.id} className="ws-filter-chip">
+                <TruncatedText text={chip.text} className="ws-filter-chip__text" />
+                <button
+                  type="button"
+                  className="ws-filter-chip__remove"
+                  aria-label={name}
+                  title={name}
+                  onClick={() => {
+                    removed.current = index;
+                    onRemove(chip.id);
+                  }}
+                >
+                  <Icon name="close" size={16} tone="muted" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
     </div>
   );
 }

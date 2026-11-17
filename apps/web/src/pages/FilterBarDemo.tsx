@@ -25,7 +25,7 @@ export function FilterBarDemo() {
     chips.push({
       id: "accounts",
       field: t("tx.filter.accounts"),
-      value: applied.accounts.length === 1 ? names(applied.accounts) : String(applied.accounts.length),
+      value: names(applied.accounts),
       text:
         applied.accounts.length === 1
           ? t("tx.filter.chip.account", { name: names(applied.accounts) })

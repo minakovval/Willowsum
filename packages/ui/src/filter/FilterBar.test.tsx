@@ -123,6 +123,26 @@ describe("CMP-32@PoC FilterBar", () => {
     expect(document.activeElement).toBe(filtersButton());
   });
 
+  it("CMP-32@PoC FR «Клавіатура і екранний читач»: the chips are a list named «Застосовані фільтри»; after «×» the focus goes to the next chip, and to «Фільтри» once none is left", () => {
+    render(<Bar />);
+    fireEvent.click(filtersButton());
+    chooseAccounts("Ощадний ··1180");
+    fireEvent.click(row(/^Тип:/));
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Тип" })).getByRole("option", { name: "Списання" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Застосувати" }));
+    const list = screen.getByRole("list", { name: "Застосовані фільтри" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    fireEvent.click(within(list).getByRole("button", { name: "Прибрати фільтр: Рахунки — Ощадний ··1180" }));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Прибрати фільтр: Тип — списання" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Прибрати фільтр: Тип — списання" }));
+    expect(screen.queryByRole("list", { name: "Застосовані фільтри" })).toBeNull();
+    expect(document.activeElement).toBe(filtersButton());
+  });
+
   it("CMP-32@PoC AC6, FR «Поведінка»: a change in the panel does not apply; the foot keeps «Скинути все» and «Застосувати» without a count; the list changes only on the press", () => {
     const applied = vi.fn();
     render(<Bar onApplied={applied} />);

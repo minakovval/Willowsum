@@ -246,13 +246,13 @@ export function chipsOf(t: Translate, locale: Locale, f: TxFilters, names: Filte
     let value = summary;
     let text = summary;
     if (field === "accounts") {
-      value = f.accounts.length === 1 ? summary : String(f.accounts.length);
+      // The «×» names the chosen accounts even when the chip shows their number (CMP-32 AC2).
       text =
         f.accounts.length === 1
           ? t("tx.filter.chip.account", { name: summary })
           : t("tx.filter.chip.accounts", { count: f.accounts.length });
     } else if (field === "tags") {
-      value = f.tags.length === 1 ? summary : String(f.tags.length);
+      // As for «Рахунки»: the «×» names the chosen tags.
       text =
         f.tags.length === 1
           ? t("tx.filter.chip.tag", { name: summary })
