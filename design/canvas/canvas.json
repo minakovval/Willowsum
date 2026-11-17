@@ -632,6 +632,14 @@
       "x": 2720,
       "y": 920
     },
+    "NoAccessTexts.dc.html": {
+      "h": 760,
+      "page": "system",
+      "title": "S-029 Немає доступу · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 2100
+    },
     "NoAccess.dc.html": {
       "h": 800,
       "page": "system",
@@ -4149,6 +4157,7 @@
     "Shell.dc.html",
     "Disabled.dc.html",
     "NoAccess.dc.html",
+    "NoAccessTexts.dc.html",
     "NotFound.dc.html",
     "Upgrade.dc.html",
     "StepUp.dc.html",

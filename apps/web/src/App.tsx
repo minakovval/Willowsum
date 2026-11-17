@@ -15,6 +15,7 @@ import { RulesPage } from "./rules/RulesPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
+import { NoAccessPage } from "./pages/NoAccessPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
@@ -126,6 +127,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       return <ImportWizardPage />;
     case "auth":
       return authPage(route.screen);
+    case "noAccess":
+      return <NoAccessPage />;
     case "notFound":
       return <NotFoundPage />;
   }

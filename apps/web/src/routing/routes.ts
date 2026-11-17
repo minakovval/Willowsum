@@ -195,6 +195,12 @@ export const accountSettingsPath = (accountId: string): string =>
 /** DS-22: the design-system sample page, outside the app navigation. */
 export const GALLERY_TOKENS_PATH = "/gallery/tokens";
 
+/**
+ * S-029 «Немає доступу» (DAT-05@PoC FR 6): the page that stands in place of a module the user's rights close. The
+ * shell opens it by this path until the role and scope of a member reach the web app (ACC-10).
+ */
+export const NO_ACCESS_PATH = "/no-access";
+
 export type Route =
   | { kind: "page"; section: SectionDef; page: PageDef }
   | { kind: "child"; section: SectionDef; child: ChildDef }
@@ -204,6 +210,7 @@ export type Route =
   | { kind: "categories" }
   | { kind: "importWizard" }
   | { kind: "gallery" }
+  | { kind: "noAccess" }
   | { kind: "auth"; screen: AuthScreen }
   | { kind: "notFound" };
 
@@ -232,6 +239,7 @@ export function canonicalPath(path: string): string {
 
 export function resolveRoute(path: string): Route {
   if (path === GALLERY_TOKENS_PATH) return { kind: "gallery" };
+  if (path === NO_ACCESS_PATH) return { kind: "noAccess" };
   if (path === SETTINGS_PATH) return { kind: "settings" };
   if (path === PROFILE_PATH) return { kind: "profile" };
   if (path === SPACE_SETTINGS_PATH) return { kind: "spaceSettings" };
