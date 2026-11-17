@@ -26,6 +26,7 @@ import {
   DEBTS,
   RECURRING,
   resolveRoute,
+  TRANSACTIONS,
   type AuthScreen,
   type ChildId,
   type Route,
@@ -91,6 +92,9 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       // FIN-12@PoC c), GRID-02@PoC FR 2: S-053 «Картка рахунку».
       if (route.child.id === "account") return <AccountCardPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
+      // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
+      if (route.child.id === "newTransaction")
+        return <SectionPage section={route.section} page={TRANSACTIONS} newTransaction />;
       return <ChildPage section={route.section} child={route.child} />;
     }
     case "settings":

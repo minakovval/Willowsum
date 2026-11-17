@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
-import { Icon, type IconName } from "@willowsum/ui";
+import { Button, Icon, type IconName } from "@willowsum/ui";
 import {
   childPath,
   IMPORT_WIZARD_PATH,
@@ -12,6 +12,7 @@ import {
   type SectionDef,
 } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
+import { NewTransactionDialog } from "../transactions/NewTransactionDialog.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { AppLayout } from "./AppLayout.tsx";
 
@@ -40,11 +41,27 @@ function ImportStatementLink({ primary }: { primary?: boolean }) {
   );
 }
 
-/** An L2 page: heading and, for «Транзакції», the import actions (UX-09@PoC item 14). */
-export function SectionPage({ section, page }: { section: SectionDef; page: PageDef }) {
+/**
+ * An L2 page: heading and, for «Транзакції», the import actions (UX-09@PoC item 14) and «Нова транзакція» (FIN-03@PoC
+ * FR 1, FR 21). `newTransaction` — the page opened at `/money/transactions/new`: the form is open over it.
+ */
+export function SectionPage({
+  section,
+  page,
+  newTransaction = false,
+}: {
+  section: SectionDef;
+  page: PageDef;
+  newTransaction?: boolean;
+}) {
   const t = useT();
   const title = t(page.label);
   useDocumentTitle(title);
+  const [adding, setAdding] = useState(newTransaction);
+  const close = () => {
+    setAdding(false);
+    if (newTransaction) window.location.replace(hrefFor(TRANSACTIONS.path));
+  };
   const actions =
     page.id === TRANSACTIONS.id ? (
       <div className="app-page-actions">
@@ -52,12 +69,14 @@ export function SectionPage({ section, page }: { section: SectionDef; page: Page
         <a className="app-quiet-link" href={hrefFor(childPath("importHistory"))}>
           {t("action.importHistory")}
         </a>
+        <Button label={t("newTx.title")} onClick={() => setAdding(true)} />
       </div>
     ) : null;
   return (
     <AppLayout sectionId={section.id} pageId={page.id}>
       <PageHeader title={title} actions={actions} />
       <EmptyState icon={page.icon} />
+      {page.id === TRANSACTIONS.id ? <NewTransactionDialog open={adding} onClose={close} /> : null}
     </AppLayout>
   );
 }
@@ -101,11 +120,6 @@ export function ChildPage({ section, child }: { section: SectionDef; child: Chil
   return (
     <AppLayout sectionId={section.id} pageId={child.parent.id}>
       <ChildHeader child={child} title={title} />
-      {child.id === "newTransaction" ? (
-        <p>
-          <ImportStatementLink />
-        </p>
-      ) : null}
       <EmptyState icon={child.parent.icon} />
     </AppLayout>
   );
