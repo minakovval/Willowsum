@@ -55,7 +55,7 @@ import {
  * «+ додати ще валюту» in the form adds one more currency: a second row would make step 3 taller than the dialog may
  * be at 1280 × 720 (CMP-21 п. 7, FIN-01 FR 3 — three steps, owner 2026-11-13). Further currencies are added on the
  * account (FR 12, «+ додати ще валюту» of its settings, up to 10). Lead decision 2026-11-17
- * (`docs/decisions/log/2026-11-17-s052-new-account.md`).
+ * (decision log, 2026-11-17, «S-052 «Новий рахунок» — рішення ведучого»).
  */
 const EXTRAS_IN_FORM = 1;
 
