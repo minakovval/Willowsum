@@ -42,6 +42,8 @@ import {
 const WEB = "http://localhost:5173";
 const NOW = Date.parse("2026-10-17T10:00:00Z");
 const DAY = 24 * 60 * 60 * 1000;
+/** A scoped member: no write permission (403); «Транзакції» closed by the visibility policy (reads 404). */
+const SCOPED = { role: "editor", scoped: true };
 const telemetry = testTelemetryForFile();
 
 let db: RealModulesDatabase;
@@ -203,9 +205,12 @@ async function run(space: Space, runId: string): Promise<RunBody> {
   return res.json() as RunBody;
 }
 
-/** Passes of the worker as main.ts wires it until the space's events are dispatched and its jobs have ended. */
+/**
+ * Passes of the worker as main.ts wires it until the space's events are dispatched and its jobs have ended (a run of
+ * 1 200 records leaves one audit job per changed transaction: more at a time than the worker's default).
+ */
 async function runWorker(householdId: string): Promise<void> {
-  for (let pass = 0; pass < 40; pass++) {
+  for (let pass = 0; pass < 200; pass++) {
     const { rows } = await db.owner.query(
       `SELECT (SELECT count(*) FROM categorization.jobs WHERE household_id = $1 AND state IN ('queued', 'running'))
             + (SELECT count(*) FROM transactions.jobs WHERE household_id = $1 AND state IN ('queued', 'running'))
@@ -217,6 +222,7 @@ async function runWorker(householdId: string): Promise<void> {
     const worker = createWorker({
       ...workerQueues(db.databases, { isEnabled }),
       households: async () => [householdId],
+      concurrency: 50,
     });
     try {
       await worker.tick();
@@ -390,7 +396,7 @@ describe("BUD-14@PoC FR 15: «Видалити» a rule", () => {
     expect((await call(space, "DELETE", `/v1/category-rules/${netflix.id}`)).statusCode).toBe(404);
   });
 
-  it("BUD-14@PoC FR 15, «Права доступу»: a rule of another space is not found; a viewer cannot delete; a scoped member sees nothing; the flag off — no route", async () => {
+  it("BUD-14@PoC FR 15, «Права доступу»: a rule of another space is not found; a viewer and a scoped member cannot delete, a scoped member sees nothing; the flag off — no route", async () => {
     const space = await newSpace();
     const other = await newSpace();
     const rule = await createRule(space, {
@@ -402,9 +408,10 @@ describe("BUD-14@PoC FR 15: «Видалити» a rule", () => {
       (await call(space, "DELETE", `/v1/category-rules/${rule.id}`, undefined, { role: "viewer" }))
         .statusCode,
     ).toBe(403);
-    expect(
-      (await call(space, "DELETE", `/v1/category-rules/${rule.id}`, undefined, { scoped: true })).statusCode,
-    ).toBe(404);
+    expect((await call(space, "DELETE", `/v1/category-rules/${rule.id}`, undefined, SCOPED)).statusCode).toBe(
+      403,
+    );
+    expect((await call(space, "GET", "/v1/category-rules", undefined, SCOPED)).statusCode).toBe(404);
     off.add("categorization.rules");
     expect((await call(space, "DELETE", `/v1/category-rules/${rule.id}`)).statusCode).toBe(404);
     off.clear();
@@ -800,7 +807,7 @@ describe("Concurrency: two simultaneous runs and undos of one space", () => {
 });
 
 describe("BUD-14@PoC «Права доступу» of the runs", () => {
-  it("BUD-14@PoC «Права доступу»: a run of another space is not found; a viewer reads but cannot apply or undo; a scoped member sees nothing; the flag off — no route", async () => {
+  it("BUD-14@PoC «Права доступу»: a run of another space is not found; a viewer reads but cannot apply or undo; a scoped member cannot apply and sees nothing; the flag off — no route", async () => {
     const space = await newSpace();
     const other = await newSpace();
     const account = await createAccount(space);
@@ -813,9 +820,9 @@ describe("BUD-14@PoC «Права доступу» of the runs", () => {
     expect(
       (await call(space, "POST", `/v1/category-rules/${rule.id}/apply`, {}, { role: "viewer" })).statusCode,
     ).toBe(403);
-    expect(
-      (await call(space, "POST", `/v1/category-rules/${rule.id}/apply`, {}, { scoped: true })).statusCode,
-    ).toBe(404);
+    expect((await call(space, "POST", `/v1/category-rules/${rule.id}/apply`, {}, SCOPED)).statusCode).toBe(
+      403,
+    );
     const report = await apply(space, rule.id);
     expect((await call(other, "GET", `/v1/category-rule-runs/${report.id}`)).statusCode).toBe(404);
     expect((await call(other, "POST", `/v1/category-rule-runs/${report.id}/undo`, {})).statusCode).toBe(404);
@@ -828,9 +835,9 @@ describe("BUD-14@PoC «Права доступу» of the runs", () => {
         .statusCode,
     ).toBe(403);
     expect(
-      (await call(space, "GET", `/v1/category-rule-runs/${report.id}`, undefined, { scoped: true }))
-        .statusCode,
+      (await call(space, "GET", `/v1/category-rule-runs/${report.id}`, undefined, SCOPED)).statusCode,
     ).toBe(404);
+    expect((await call(space, "GET", "/v1/category-rule-runs", undefined, SCOPED)).statusCode).toBe(404);
     off.add("categorization.rules");
     expect((await call(space, "GET", `/v1/category-rule-runs/${report.id}`)).statusCode).toBe(404);
     expect((await call(space, "POST", `/v1/category-rule-runs/${report.id}/undo`, {})).statusCode).toBe(404);
