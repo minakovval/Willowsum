@@ -146,6 +146,65 @@ export async function openField(
   });
 }
 
+/** The largest byte payload one call may seal: a stored file (ARC-06 FR 4) is at most 25 MiB. */
+export const SEAL_BYTES_MAX = 32 * 1024 * 1024;
+const BYTES_VERSION = 1;
+const PURPOSE_RE = /^[a-z][a-z0-9-]{0,30}:[A-Za-z0-9-]{1,64}$/;
+
+function checkPurpose(purpose: string): void {
+  if (!PURPOSE_RE.test(purpose)) throw new Error("A sealed payload's purpose is «<kind>:<id>»");
+}
+
+function bytesAad(householdId: string, purpose: string): Buffer {
+  return Buffer.from(`household:${householdId}|bytes:${purpose}`, "utf8");
+}
+
+/**
+ * ARC-06 FR 4, NFR-01 FR 4: a file's bytes sealed with its space's key (AES-256-GCM), bound to the space and to its
+ * purpose (e.g. `file:<id>`), so the ciphertext of one file or space cannot be opened as another. Layout: version
+ * byte, 12-byte IV, 16-byte tag, ciphertext.
+ */
+export async function sealBytes(
+  deps: SpaceKeysDeps,
+  householdId: string,
+  purpose: string,
+  plaintext: Uint8Array,
+): Promise<Buffer> {
+  checkPurpose(purpose);
+  if (plaintext.length > SEAL_BYTES_MAX)
+    throw new Error(`A sealed payload is at most ${SEAL_BYTES_MAX} bytes`);
+  return withDataKey(deps, householdId, (key) => {
+    const iv = randomBytes(IV_BYTES);
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    cipher.setAAD(bytesAad(householdId, purpose));
+    const body = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+    return Buffer.concat([Buffer.from([BYTES_VERSION]), iv, cipher.getAuthTag(), body]);
+  });
+}
+
+/** The bytes `sealBytes` sealed for this space and purpose; anything else is `SEALED_VALUE_INVALID`. */
+export async function openBytes(
+  deps: SpaceKeysDeps,
+  householdId: string,
+  purpose: string,
+  sealed: Uint8Array,
+): Promise<Buffer> {
+  checkPurpose(purpose);
+  const bytes = Buffer.from(sealed.buffer, sealed.byteOffset, sealed.length);
+  if (bytes.length < 1 + IV_BYTES + TAG_BYTES || bytes[0] !== BYTES_VERSION)
+    throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  return withDataKey(deps, householdId, (key) => {
+    try {
+      const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(1, 1 + IV_BYTES));
+      decipher.setAAD(bytesAad(householdId, purpose));
+      decipher.setAuthTag(bytes.subarray(1 + IV_BYTES, 1 + IV_BYTES + TAG_BYTES));
+      return Buffer.concat([decipher.update(bytes.subarray(1 + IV_BYTES + TAG_BYTES)), decipher.final()]);
+    } catch {
+      throw new SpaceKeyError("SEALED_VALUE_INVALID");
+    }
+  });
+}
+
 /**
  * ARC-06 FR 3: the daily task. Every space's key wrapped by an older master key version is unwrapped and wrapped
  * again with the current one; the data key stays the same, so sealed values open before, during and after (no

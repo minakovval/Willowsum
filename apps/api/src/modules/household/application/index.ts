@@ -5,9 +5,12 @@ export type { SpaceAudit, SpaceMembership, SpacesDeps, SpacesStore, SpacesTx } f
 export {
   destroySpaceKey,
   newSpaceKey,
+  openBytes,
   openField,
   rewrapSpaceKeys,
+  sealBytes,
   sealField,
+  SEAL_BYTES_MAX,
   SEAL_MAX_LENGTH,
 } from "./space-keys.ts";
 export type { RewrapResult, SpaceKeyAudit, SpaceKeysDeps } from "./space-keys.ts";

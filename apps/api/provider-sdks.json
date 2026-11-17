@@ -17,6 +17,7 @@
     "@stripe/*",
     "@vonage/*",
     "aws-sdk",
+    "aws4fetch",
     "braintree",
     "cloudflare",
     "googleapis",

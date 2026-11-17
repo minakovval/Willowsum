@@ -10,8 +10,10 @@ import {
   destroySpaceKey,
   ensureFirstSpace,
   newSpaceKey,
+  openBytes,
   openField,
   rewrapSpaceKeys,
+  sealBytes,
   sealField,
   type RewrapResult,
   type SpaceKeysDeps,
@@ -36,7 +38,7 @@ export {
   spaceName,
 } from "./domain/index.ts";
 export type { SpaceKeyErrorCode, SpaceRole } from "./domain/index.ts";
-export { SEAL_MAX_LENGTH } from "./application/index.ts";
+export { SEAL_BYTES_MAX, SEAL_MAX_LENGTH } from "./application/index.ts";
 export type { RewrapResult, SpaceMembership } from "./application/index.ts";
 
 /**
@@ -48,6 +50,10 @@ export interface SpaceKeys {
   seal(householdId: string, field: string, plaintext: string): Promise<string>;
   /** The value sealed for this space and field; `SpaceKeyError` for anything else or without a key. */
   open(householdId: string, field: string, sealed: string): Promise<string>;
+  /** A file's bytes (≤ 32 MiB) sealed for this space and purpose (`<kind>:<id>`, e.g. `file:<uuid>`; ARC-06 FR 4). */
+  sealBytes(householdId: string, purpose: string, plaintext: Uint8Array): Promise<Buffer>;
+  /** The bytes sealed for this space and purpose; `SpaceKeyError` for anything else or without a key. */
+  openBytes(householdId: string, purpose: string, sealed: Uint8Array): Promise<Buffer>;
   /** Rewraps every key of an older master key version; gives `pending:` spaces their key. The scheduler's task. */
   rewrapAll(): Promise<RewrapResult>;
   /** Destroys the space's key (ARC-06 FR 5, NFR-12 FR 3): its sealed values can no longer be opened. */
@@ -170,6 +176,8 @@ export function createSpaceKeys(
   return {
     seal: (householdId, field, plaintext) => sealField(keyDeps, householdId, field, plaintext),
     open: (householdId, field, sealed) => openField(keyDeps, householdId, field, sealed),
+    sealBytes: (householdId, purpose, plaintext) => sealBytes(keyDeps, householdId, purpose, plaintext),
+    openBytes: (householdId, purpose, sealed) => openBytes(keyDeps, householdId, purpose, sealed),
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
   };

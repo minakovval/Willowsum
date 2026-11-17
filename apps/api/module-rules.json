@@ -79,7 +79,7 @@
     },
     "file-storage": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "household"]
     },
     "fx-rates": {
       "layer": "subject",
