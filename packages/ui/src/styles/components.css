@@ -537,6 +537,235 @@
 }
 
 /*
+ * CMP-26@PoC Table: a frame (1 px line, radius 8, surface-200), the summary line, th 13/16 caps ink-muted on
+ * surface-100, rows 52 px (flat: 44 px) with a 1 px line. Never scrolls sideways: the columns share the width
+ * (`table-layout: fixed`, `width` of the schema) and below 520 px of the container every row is a card.
+ */
+.ws-dtable-wrap {
+  container-type: inline-size;
+  min-width: 0;
+}
+
+.ws-dtable-frame {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.ws-dtable-summary {
+  margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-block-end: 1px solid var(--ws-line);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-weight: 500;
+  color: var(--ws-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-dtable {
+  inline-size: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-dtable th {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  background: var(--ws-surface-100);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+  font-weight: var(--ws-text-label-weight);
+  letter-spacing: var(--ws-text-label-tracking);
+  text-align: start;
+  text-transform: uppercase;
+}
+
+.ws-dtable td {
+  block-size: calc(var(--ws-space-1) * 13);
+  padding: 0 var(--ws-space-4);
+  border-block-end: 1px solid var(--ws-line);
+  vertical-align: middle;
+  overflow: hidden;
+}
+
+.ws-dtable tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.ws-dtable th.ws-dtable-end,
+.ws-dtable td.ws-dtable-end {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ws-dtable .ws-dtable-selectcol,
+.ws-dtable th.ws-dtable-select,
+.ws-dtable td.ws-dtable-select {
+  inline-size: calc(var(--ws-space-4) * 3);
+}
+
+.ws-dtable td.ws-dtable-select .ws-row-check {
+  display: block;
+}
+
+.ws-dtable-row:hover {
+  background: var(--ws-surface-100);
+}
+
+.ws-dtable-row[data-selected="true"] {
+  background: var(--ws-surface-300);
+}
+
+.ws-dtable-row[data-open="true"] {
+  cursor: pointer;
+}
+
+.ws-dtable-row:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: calc(var(--ws-focus-ring-width) * -1);
+}
+
+.ws-dtable-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  min-block-size: var(--ws-touch-target);
+  margin-block: calc(var(--ws-space-3) * -1 - var(--ws-space-1) / 2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.ws-dtable-sort[data-sort="asc"],
+.ws-dtable-sort[data-sort="desc"] {
+  color: var(--ws-ink);
+}
+
+.ws-dtable-sort:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: calc(var(--ws-focus-ring-width) * -1);
+}
+
+.ws-dtable-state {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-4);
+}
+
+.ws-dtable-state p {
+  margin: 0;
+}
+
+.ws-dtable-footer {
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.ws-dtable-wrap--flat .ws-dtable-summary,
+.ws-dtable-wrap--flat .ws-dtable th,
+.ws-dtable-wrap--flat .ws-dtable td {
+  padding-inline: var(--ws-space-3);
+}
+
+.ws-dtable-wrap--flat .ws-dtable th {
+  letter-spacing: calc(var(--ws-text-label-tracking) / 2);
+}
+
+.ws-dtable-wrap--flat .ws-dtable td {
+  block-size: calc(var(--ws-space-1) * 11);
+}
+
+/* Below 520 px of the container (not of the window) a row becomes a card; `flat` keeps rows as rows. */
+@container (max-width: 519px) {
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable thead {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  /* A sort button focused by Tab shows its heading row, so the focus ring is never on a hidden element. */
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable thead:focus-within {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable,
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tbody,
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tr,
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td {
+    display: block;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable colgroup {
+    display: none;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tbody tr {
+    padding-block: var(--ws-space-2);
+    border-block-end: 1px solid var(--ws-line);
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tbody tr:last-child {
+    border-block-end: 0;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td {
+    display: grid;
+    grid-template-columns: minmax(0, 38fr) minmax(0, 62fr);
+    align-items: center;
+    gap: var(--ws-space-2);
+    block-size: auto;
+    min-block-size: calc(var(--ws-space-1) * 9);
+    padding: var(--ws-space-1) var(--ws-space-4);
+    border: 0;
+    text-align: end;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td::before {
+    content: attr(data-label);
+    color: var(--ws-ink-muted);
+    font-size: var(--ws-text-label-size);
+    line-height: var(--ws-text-label-line);
+    font-weight: var(--ws-text-label-weight);
+    letter-spacing: var(--ws-text-label-tracking);
+    text-align: start;
+    text-transform: uppercase;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td[data-first="true"] {
+    display: block;
+    font-weight: 600;
+    text-align: start;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td[data-first="true"]::before {
+    content: none;
+  }
+
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable td.ws-dtable-select {
+    display: block;
+    inline-size: auto;
+  }
+}
+
+/*
  * CMP-25@PoC Tooltip: the full text of what is cut off, abbreviated or shown as an icon. A white surface-200 panel
  * with a 1 px line border, radius 8, shadow-popover; 6 px top and bottom, 10 px at the sides; ink 13/18 px; at
  * most 320 px wide (64 × 5), then the text wraps. Placed by script (fixed, above the element or below it, inside

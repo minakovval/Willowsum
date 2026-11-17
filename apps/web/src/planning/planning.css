@@ -1,0 +1,67 @@
+/*
+ * GRID-04@PoC: page grids of «Планування» (S-121 «Бюджет», S-136 «Цілі», S-141 «Регулярні платежі», S-143 «Борги»).
+ * Tokens only (DS-06, DS-09); columns, gutter and band gap come from the width class (GRID-00 FR 2, 4).
+ * Under Expanded (not in PoC, П-25) every region takes the whole width.
+ */
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  gap: var(--ws-gutter);
+  align-items: stretch;
+  margin-block-start: var(--ws-space-4);
+}
+
+.plan-grid > .plan-region {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/* Between bands of blocks: the band gap (48 px on Expanded and wider). */
+.plan-grid[data-plan-page="budget"] > [data-plan-region="categories"],
+.plan-grid[data-plan-page="recurring"] > [data-plan-region="details"] {
+  margin-block-start: calc(var(--ws-band-gap) - var(--ws-gutter));
+}
+
+/* An empty slot keeps the height of a block until its screen fills it. */
+.plan-slot {
+  min-height: calc(var(--ws-space-8) * 3);
+}
+
+.plan-region[data-plan-region="categories"],
+.plan-region[data-plan-region="details"] {
+  min-height: calc(var(--ws-space-8) * 5);
+}
+
+.plan-stack {
+  display: grid;
+  gap: var(--ws-gutter);
+  align-content: start;
+}
+
+@media (min-width: 1024px) {
+  .plan-grid > .plan-span-4 {
+    grid-column: span 4;
+  }
+
+  .plan-grid > .plan-span-8 {
+    grid-column: span 8;
+  }
+
+  .plan-grid > .plan-span-12 {
+    grid-column: 1 / -1;
+  }
+
+  /* «Цілі»: the list is as tall as its content, the detail column sets the row height. */
+  .plan-grid[data-plan-page="goals"] > [data-plan-region="list"] {
+    align-self: start;
+  }
+}
+
+/* A block that brings its own card (S-141 details) sits flush in its region. */
+.plan-region > .ws-card {
+  margin-block-start: 0;
+}
+
+.plan-tabs-slot:empty {
+  display: none;
+}

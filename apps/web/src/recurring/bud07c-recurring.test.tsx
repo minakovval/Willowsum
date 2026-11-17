@@ -209,6 +209,28 @@ afterEach(() => {
 });
 
 describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
+  it("GRID-04@PoC FR 5: the calendar takes 8 columns, the totals and nearest charges 4, the details 12", async () => {
+    renderAt(PAGE, api().client);
+    await screen.findByRole("list", { name: "Знайдено в транзакціях" });
+    const grid = document.querySelector<HTMLElement>("[data-plan-page='recurring']")!;
+    const region = (name: string) => grid.querySelector<HTMLElement>(`[data-plan-region='${name}']`)!;
+    expect([...grid.children].map((c) => c.getAttribute("data-plan-region"))).toEqual([
+      "calendar",
+      "side",
+      "details",
+    ]);
+    expect(region("calendar").className).toContain("plan-span-8");
+    expect(region("side").className).toContain("plan-span-4");
+    expect(region("details").className).toContain("plan-span-12");
+    expect(region("calendar").dataset.empty).toBe("true");
+    expect([...region("side").children].map((c) => c.getAttribute("data-plan-region"))).toEqual([
+      "summary",
+      "upcoming",
+    ]);
+    // The details of FR 7 stay in the 12-column region.
+    expect(within(region("details")).getByRole("rowheader", { name: /YouTube/ })).toBeTruthy();
+  });
+
   it("BUD-07@PoC FR 4, AC1: a proposal shows its frequency, expected amount and next date with «Не регулярний» and «Підтвердити»", async () => {
     renderAt(
       PAGE,

@@ -3,6 +3,7 @@ import { useT } from "@willowsum/i18n";
 import { Icon, PageTabs, Skeleton } from "@willowsum/ui";
 import { childPath, DEBTS, rootOf, SECTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
+import { PlanGrid, PlanRegion } from "../planning/PlanGrid.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
@@ -65,7 +66,12 @@ export function DebtsScreen({ tab }: { tab: DebtsTab }) {
           selected={tab}
           tabs={TABS.map((x) => ({ id: x.id, label: t(x.label), href: hrefFor(tabPath(x.id)) }))}
         >
-          <TabContent tab={tab} state={state} retry={retry} />
+          {/* GRID-04@PoC: S-143 is one column of 12: the summary, the warning and the table, one under another. */}
+          <PlanGrid page="debts">
+            <PlanRegion name="content" span={12}>
+              <TabContent tab={tab} state={state} retry={retry} />
+            </PlanRegion>
+          </PlanGrid>
         </PageTabs>
       )}
     </AppLayout>
