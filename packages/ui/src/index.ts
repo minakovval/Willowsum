@@ -102,6 +102,7 @@ export type { BadgeTone } from "./badge/Badge.tsx";
 export { ListRow } from "./list/ListRow.tsx";
 export type { ListRowProps } from "./list/ListRow.tsx";
 export {
+  CategoryChip,
   merchantInitials,
   ReviewAnnouncement,
   TransactionRow,
@@ -127,3 +128,5 @@ export type {
   FilterChipItem,
   FilterRowProps,
 } from "./filter/FilterBar.tsx";
+export { Toast } from "./toast/Toast.tsx";
+export type { ToastProps, ToastTone } from "./toast/Toast.tsx";

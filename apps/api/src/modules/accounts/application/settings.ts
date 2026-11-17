@@ -8,6 +8,7 @@ import {
 } from "../domain/index.ts";
 import type { AccountsDeps, AccountsTx, Caller, StoredAccount } from "./accounts.ts";
 import { AUDIT_MASK } from "../../audit/index.ts";
+import { walletsWithTransactions } from "./currencies.ts";
 import type { AuditChange, HandOff } from "./hand-off.ts";
 
 /**
@@ -15,8 +16,10 @@ import type { AuditChange, HandOff } from "./hand-off.ts";
  * and changing its kind within its group. In the accounts transaction with the account's row locked:
  *
  * 1. the change is checked against the account as it is — nothing is written for a refusal or for no change;
- * 2. «Кредит» ↔ «Кредитна картка» only without transactions: no ledger entry in effect besides «Початковий залишок»
- *    on any of its currencies (an adjustment of «Оновити залишок» is a transaction, FR 14);
+ * 2. «Кредит» ↔ «Кредитна картка» only without transactions, asked as removing a currency asks it
+ *    (`walletsWithTransactions`, #290 item 3): no ledger entry in effect besides «Початковий залишок» on any of its
+ *    currencies (an adjustment of «Оновити залишок» is a transaction, FR 14), and no transaction the journal does not
+ *    hold yet («Очікує», or a hand-off not run);
  * 3. the account's name, kind and the kind's own fields;
  * 4. for a new credit kind, the hand-off job in the same transaction (ARC-04 FR 2, hand-off.ts): once it has
  *    committed, the liability takes the account's kind (`liabilities`, its own transaction and audit entry) — right
@@ -44,11 +47,8 @@ export interface SettingsInput {
   readonly kind?: AccountKind | undefined;
 }
 
-/** «Початковий залишок» is the account's starting point, not a transaction (FIN-01 FR 7; a lead decision). */
-const NOT_TRANSACTIONS = ["opening-balance"] as const;
-
 export async function updateAccountSettings(
-  deps: Pick<AccountsDeps, "ledger" | "newId">,
+  deps: Pick<AccountsDeps, "ledger" | "newId" | "walletUsage">,
   tx: AccountsTx,
   caller: Caller,
   accountId: string,
@@ -79,9 +79,8 @@ export async function updateAccountSettings(
       case "multi-currency":
         return { kind: "invalid", issues: [{ field: "kind", issue: "multi_currency" }] };
       case "credit": {
-        for (const s of subaccounts)
-          if (await deps.ledger.hasLiveEntries(householdId, s.ledgerAccountId, NOT_TRANSACTIONS))
-            return { kind: "has-transactions" };
+        if (await walletsWithTransactions(deps, tx, householdId, accountId, subaccounts))
+          return { kind: "has-transactions" };
         // «Строк дії» is a card's (FR 4): a loan has none; the audit entry keeps the value dropped.
         after = {
           ...after,

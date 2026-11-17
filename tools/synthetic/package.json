@@ -7,11 +7,18 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "bin": "index.ts",
+  "bin": {
+    "synthetic": "index.ts",
+    "synthetic-family": "family.ts"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "generate": "node index.ts"
+    "generate": "node index.ts",
+    "family": "node family.ts"
+  },
+  "dependencies": {
+    "@willowsum/domain-kernel": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

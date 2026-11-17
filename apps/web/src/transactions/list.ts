@@ -9,6 +9,7 @@ import {
   type TransactionSort,
 } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
+import { useReviewCount } from "./reviewCount.ts";
 import { filterParams, isTxFilters, NO_FILTERS, type FilterNames, type TxFilters } from "./filters.ts";
 
 /**
@@ -108,7 +109,7 @@ export type Loaded<T> =
   | { readonly kind: "off" }
   | { readonly kind: "error"; readonly supportId?: string };
 
-function failed(o: Exclude<Outcome<unknown>, { ok: true }>): Loaded<never> {
+export function failed(o: Exclude<Outcome<unknown>, { ok: true }>): Loaded<never> {
   if (o.kind === "problem" && (o.problem.code === "NOT_FOUND" || o.problem.code === "MODULE_UNAVAILABLE"))
     return { kind: "off" };
   return o.kind === "problem" && o.supportId ? { kind: "error", supportId: o.supportId } : { kind: "error" };
@@ -121,7 +122,7 @@ function accountLabel(a: Account): string {
 
 const MAX_ACCOUNT_PAGES = 20;
 
-async function accountNames(api: ApiClient): Promise<Map<string, string>> {
+export async function accountNames(api: ApiClient): Promise<Map<string, string>> {
   const names = new Map<string, string>();
   let cursor: string | undefined;
   for (let page = 0; page < MAX_ACCOUNT_PAGES; page++) {
@@ -140,7 +141,7 @@ async function accountNames(api: ApiClient): Promise<Map<string, string>> {
 }
 
 /** The category tree: a category's name, its icon and the tone of its group (the chart palette, 1–8). */
-function categoryIndex(groups: CategoryGroups): Map<string, TransactionCategory> {
+export function categoryIndex(groups: CategoryGroups): Map<string, TransactionCategory> {
   const out = new Map<string, TransactionCategory>();
   groups.forEach((g, i) => {
     const tone = g.kind === "service" ? "transfer" : (((i % 8) + 1) as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8);
@@ -243,13 +244,11 @@ export function useTransactionsPage(view: ListView): {
 /** The numbers of the tabs: `null` until read or when the read failed — the tab then shows its name only. */
 export function useTabCounts(): { review: number | null; pairs: number | null } {
   const api = useAuthApi();
-  const [review, setReview] = useState<number | null>(null);
+  // BUD-12@PoC FR 2: the same number as on «Транзакції» of the side menu, changed by the actions of the queue.
+  const review = useReviewCount(false);
   const [pairs, setPairs] = useState<number | null>(null);
   useEffect(() => {
     let live = true;
-    void outcome(api.GET("/v1/transaction-review")).then((o) => {
-      if (live && o.ok) setReview(o.data.count);
-    });
     void outcome(api.GET("/v1/transfer-proposals")).then((o) => {
       if (live && o.ok) setPairs(o.data.count);
     });

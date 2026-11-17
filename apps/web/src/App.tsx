@@ -105,7 +105,7 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "transactionHistory") return <TransactionHistoryPage />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
       if (route.child.id === "newTransaction") return <TransactionsPage newTransaction />;
-      // FIN-03@PoC FR 21: the tabs «До розбору» and «Пари» (their screens are later rows: the empty state until then).
+      // FIN-03@PoC FR 21: the tabs «До розбору» (BUD-12@PoC b), S-058) and «Пари» (a later row: the empty state until then).
       if (route.child.id === "review" || route.child.id === "pairs")
         return <TransactionsPage tab={route.child.id} />;
       return <ChildPage section={route.section} child={route.child} />;

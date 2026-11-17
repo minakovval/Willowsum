@@ -50,6 +50,7 @@ function account(over: Partial<Account> & Pick<Account, "name">): Account {
 
 const summary: AccountsSummary = {
   currency: "EUR",
+  cash: { total: eur("300.00"), approximate: false, unavailableCount: 0 },
   moneyTogether: {
     total: eur("300.00"),
     approximate: false,

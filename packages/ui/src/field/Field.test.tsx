@@ -154,6 +154,54 @@ describe("CMP-02@PoC Field", () => {
     expect(spy).toHaveBeenLastCalledWith("100.50", null);
   });
 
+  it("CMP-02@PoC AC2: a field in error forgets its draft when the value changes from outside while it is not focused (#392 N3: a form reset)", () => {
+    function Resettable() {
+      const [value, setValue] = useState<string | null>("10.00");
+      return (
+        <>
+          <AmountField label="Сума" currency="EUR" value={value} onChange={(v) => setValue(v)} />
+          <button type="button" onClick={() => setValue("50.00")}>
+            Скинути
+          </button>
+          <output data-testid="state">{value ?? ""}</output>
+        </>
+      );
+    }
+    render(wrap(<Resettable />));
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "12,345" } });
+    fireEvent.blur(input);
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("state").textContent).toBe("");
+    // The field's own report (null, «places») keeps the draft and the error: the value it caused is no outside change.
+    expect(input.value).toBe("12,345");
+    fireEvent.click(screen.getByRole("button", { name: "Скинути" }));
+    expect(norm(input.value)).toBe("50,00");
+    expect(input.getAttribute("aria-invalid")).toBeNull();
+    expect(fieldOf(input).querySelector(".ws-field-error")).toBeNull();
+  });
+
+  it("CMP-02@PoC AC2: a value changed from outside while the field is focused keeps what the user is typing", () => {
+    function Live() {
+      const [value, setValue] = useState<string | null>("10.00");
+      return (
+        <>
+          <AmountField label="Сума" currency="EUR" value={value} onChange={(v) => setValue(v)} />
+          <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => setValue("50.00")}>
+            Скинути
+          </button>
+        </>
+      );
+    }
+    render(wrap(<Live />));
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "12,3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Скинути" }));
+    expect(input.value).toBe("12,3");
+  });
+
   it("CMP-02@PoC AC3: 4 512 300 000,00 in a 120 px amount field shows «4,51 млрд» underlined, the full value on hover and for editing on focus", () => {
     widths(120);
     render(wrap(<Amount label="Сума" currency="EUR" initial="4512300000.00" />));

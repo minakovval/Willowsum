@@ -2857,3 +2857,99 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-category-disc[data-icon-tone="ink"] {
   color: var(--ws-ink);
 }
+
+/*
+ * CMP-20 Toast as the review queue needs it (BUD-12@PoC FR 6): bottom left of the content area (past the navigation),
+ * at most 480 px wide; padding 10 × 14 px, radius `radius-md`, `ink` fill with `surface-100` text, `shadow-popover`,
+ * layer `layer-toast`. The marker is a 20 px `surface-100` circle with the 12 px symbol in `ink`; the action is
+ * 14/20 600 underlined, at least 32 px tall within a 44 px target; «×» is 32 × 32 px within a 44 px target, its
+ * hover a 18 % `surface-100` wash. It appears and leaves at once: no slide, so reduced motion needs nothing more.
+ */
+.ws-toast {
+  position: fixed;
+  inset-block-end: var(--ws-space-5);
+  inset-inline-start: calc(var(--ws-nav-width, 0px) + var(--ws-space-6));
+  z-index: var(--ws-layer-toast);
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  box-sizing: border-box;
+  max-inline-size: calc(var(--ws-space-8) * 7 + var(--ws-space-6));
+  padding: calc(var(--ws-space-2) + var(--ws-space-1) / 2) calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-md);
+  background-color: var(--ws-ink);
+  color: var(--ws-surface-100);
+  box-shadow: var(--ws-shadow-popover);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-size);
+  line-height: var(--ws-text-body-line);
+}
+
+.ws-toast-marker {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: calc(var(--ws-space-5) - var(--ws-space-1));
+  block-size: calc(var(--ws-space-5) - var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-surface-100);
+  color: var(--ws-ink);
+}
+
+.ws-toast-text {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.ws-toast-action,
+.ws-toast-close {
+  position: relative;
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* The 44 px target around the 32 px visible control. */
+.ws-toast-action::after,
+.ws-toast-close::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-space-6) - var(--ws-touch-target)) / 2);
+}
+
+.ws-toast-action {
+  min-block-size: var(--ws-space-6);
+  padding: 0 var(--ws-space-1);
+  font-family: var(--ws-text-action-family);
+  font-size: var(--ws-text-body-size);
+  line-height: var(--ws-text-body-line);
+  font-weight: var(--ws-text-action-weight);
+  text-decoration: underline;
+}
+
+.ws-toast-close {
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  padding: 0;
+  border-radius: var(--ws-radius-sm);
+}
+
+.ws-toast-close:hover {
+  background-color: color-mix(in srgb, var(--ws-surface-100) 18%, transparent);
+}
+
+.ws-toast-action:focus-visible,
+.ws-toast-close:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/* The 12 px symbol of the marker (the icon set draws from 16 px). */
+.ws-toast-marker svg {
+  inline-size: var(--ws-space-3);
+  block-size: var(--ws-space-3);
+}
