@@ -23,7 +23,8 @@ export async function lockAccounts(
   householdId: string,
   accountIds: readonly string[],
 ): Promise<void> {
-  const ids = [...new Set(accountIds)].sort();
+  // One key and one order per account, whatever the letter case of the id a request sent (a uuid is read in both).
+  const ids = [...new Set(accountIds.map((id) => id.toLowerCase()))].sort();
   if (ids.length === 0) return;
   const { rows } = await q.query<{ before: string }>(`SELECT current_setting('lock_timeout') AS before`);
   await q.query(`SELECT set_config('lock_timeout', $1, true)`, [LOCK_WAIT]);

@@ -359,6 +359,40 @@ describe("FIN-01@PoC EC4, FIN-12@PoC FR 7: a write on the account and its closin
   });
 });
 
+describe("FIN-12@PoC FR 8: a transfer and the lock's own wait (security review of #490)", () => {
+  it("FIN-12@PoC FR 8 (#455): a transfer created while its inflow's account closes — it waits and is refused ACCOUNT_CLOSED; no row is written", async () => {
+    const space = await newSpace();
+    const from = await account(space, "1000.00");
+    const to = await account(space);
+    const [closed, moved] = await race(
+      () => slowed(space, "accounts.accounts", "UPDATE", "NEW.status = 'closed'"),
+      () => call(space, "POST", `/v1/accounts/${to}/close`, { closedOn: CLOSED_ON }),
+      () => transfer(space, from, to),
+    );
+    expect(closed.statusCode, closed.body).toBe(200);
+    expect(moved.statusCode, moved.body).toBe(409);
+    expect(moved.json().code).toBe("ACCOUNT_CLOSED");
+    const { rows } = await db.owner.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM transactions.transactions WHERE household_id = $1`,
+      [space.householdId],
+    );
+    expect(rows[0]!.n).toBe(0);
+  });
+
+  it("FIN-12@PoC FR 8: lockAccounts leaves the transaction's own lock_timeout as it was", async () => {
+    const client = new pg.Client({ connectionString: db.url });
+    await client.connect();
+    try {
+      await client.query("BEGIN; SET LOCAL lock_timeout = '7s'");
+      await lockAccounts(client, randomUUID(), [randomUUID()]);
+      const { rows } = await client.query<{ now: string }>(`SELECT current_setting('lock_timeout') AS now`);
+      expect(rows[0]!.now).toBe("7s");
+    } finally {
+      await client.end();
+    }
+  });
+});
+
 describe("IMP-02@PoC FR 15: a wallet with a transaction stays, also when both requests run at once", () => {
   it("IMP-02@PoC FR 15 (#290 п. 4): a transaction created on the UAH wallet while the wallet is removed — the removal waits for it and is refused", async () => {
     const space = await newSpace();
@@ -479,6 +513,16 @@ describe("FIN-12@PoC FR 8: every change of an account's money takes the account'
         const { space, a } = await twoAccounts();
         const id = await transaction(space, a);
         return { space, locked: [a], run: () => call(space, "DELETE", `/v1/transactions/${id}`) };
+      },
+    },
+    {
+      name: "«Приховати» a duplicate (hiding, showing and splits share this path)",
+      status: 200,
+      arrange: async () => {
+        const { space, a } = await twoAccounts();
+        const id = await transaction(space, a);
+        await transaction(space, a);
+        return { space, locked: [a], run: () => call(space, "POST", `/v1/transactions/${id}/hide`) };
       },
     },
     {
@@ -662,5 +706,133 @@ describe("FIN-12@PoC FR 8: every change of an account's money takes the account'
     expect(rows[0]!.n).toBe(0);
     // The lock free again, the same write passes, and so does the next one at once (no connection was kept).
     expect((await call(space, "POST", "/v1/transactions", purchase(a))).statusCode).toBe(201);
+  });
+});
+
+/** Security review of PR #490: the lock's key is the account's id as the request spelled it. */
+describe("sec490: the account's lock is the same whatever the letter case of the id in the request", () => {
+  async function twoAccounts() {
+    const space = await newSpace();
+    const a = await account(space, "1000.00");
+    const b = await account(space);
+    return { space, a, b };
+  }
+  const close = (space: Space, id: string) =>
+    call(space, "POST", `/v1/accounts/${id}/close`, {
+      closedOn: CLOSED_ON,
+      settlement: { kind: "adjustment" },
+    });
+
+  it("sec490 control: lower-case id — the transaction waits", async () => {
+    const { space, a } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [a], () =>
+      call(space, "POST", "/v1/transactions", purchase(a)),
+    );
+    expect(res.statusCode, res.body).toBe(201);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P1: «Додати транзакцію» with the account's id in upper case waits for the account's lock", async () => {
+    const { space, a } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [a], () =>
+      call(space, "POST", "/v1/transactions", purchase(a.toUpperCase())),
+    );
+    expect(res.statusCode, res.body).toBe(201);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P2: a closing addressed with the id in upper case waits for the account's lock", async () => {
+    const { space, b } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [b], () => close(space, b.toUpperCase()));
+    expect(res.statusCode, res.body).toBe(200);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P3: «Оновити залишок» addressed with the id in upper case waits", async () => {
+    const { space, a } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [a], () =>
+      call(space, "POST", `/v1/accounts/${a.toUpperCase()}/balance`, {
+        balance: { amount: "900.00", currency: "EUR" },
+      }),
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P4: an edit that moves a transaction to an account named in upper case waits for that account", async () => {
+    const { space, a, b } = await twoAccounts();
+    const id = await transaction(space, a);
+    const { waited, res } = await whileLocked(space, [b], () =>
+      call(space, "PATCH", `/v1/transactions/${id}`, { accountId: b.toUpperCase() }),
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P5: a transfer with both ids in upper case waits for the inflow's account", async () => {
+    const { space, a, b } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [b], () =>
+      transfer(space, a.toUpperCase(), b.toUpperCase()),
+    );
+    expect(res.statusCode, res.body).toBe(201);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 P6: a closing with the transfer target in upper case waits for the target", async () => {
+    const { space, a, b } = await twoAccounts();
+    const { waited, res } = await whileLocked(space, [b], () =>
+      call(space, "POST", `/v1/accounts/${a}/close`, {
+        closedOn: CLOSED_ON,
+        settlement: { kind: "transfer", toAccountId: b.toUpperCase() },
+      }),
+    );
+    expect(res.statusCode, res.body).toBe(200);
+    expect(waited).toBe(true);
+  });
+
+  it("sec490 E2E (FIN-01@PoC EC4): a transaction after the closing date, sent with the id in upper case while the account closes — the closing is refused", async () => {
+    const space = await newSpace();
+    const accountId = await account(space);
+    const [created, closed] = await race(
+      () => slowed(space, "transactions.transactions", "INSERT"),
+      () => call(space, "POST", "/v1/transactions", purchase(accountId.toUpperCase(), "-45.50", TODAY)),
+      () => close(space, accountId),
+    );
+    expect(created.statusCode, created.body).toBe(201);
+    expect(closed.statusCode, closed.body).toBe(409);
+    await runWorker(space.householdId);
+    expect(await stateOn(space, accountId, TODAY)).toEqual({ status: "active", balance: "-45.5" });
+  });
+});
+
+describe("sec490: order, self-transfer, a transfer while its account closes", () => {
+  it("sec490 U1: lockAccounts locks each account once, in the order of the canonical (lower-case) ids", async () => {
+    const seen: string[] = [];
+    const q = {
+      query: async (sql: string, params?: unknown[]) => {
+        if (sql.includes("pg_advisory_xact_lock")) seen.push(String(params![1]));
+        return { rows: [{ before: "0" }] };
+      },
+    } as unknown as Parameters<typeof lockAccounts>[0];
+    const low = "0a000000-0000-4000-8000-000000000001";
+    const high = "f0000000-0000-4000-8000-000000000002";
+    await lockAccounts(q, randomUUID(), [high.toUpperCase(), low, high]);
+    expect(seen).toEqual([low, high]);
+  });
+
+  it("sec490 S1 (FIN-12@PoC FR 7): a closing that transfers the balance to the account itself, named in upper case, is refused same_account", async () => {
+    const space = await newSpace();
+    const a = await account(space, "1000.00");
+    const res = await call(space, "POST", `/v1/accounts/${a}/close`, {
+      closedOn: CLOSED_ON,
+      settlement: { kind: "transfer", toAccountId: a.toUpperCase() },
+    });
+    await runWorker(space.householdId);
+    const state = await stateOn(space, a);
+    expect({ code: res.statusCode, ...state }, res.body).toEqual({
+      code: 400,
+      status: "active",
+      balance: "1000",
+    });
   });
 });

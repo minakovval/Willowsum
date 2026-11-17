@@ -244,10 +244,11 @@ export async function closeAccount(
   settled: Settled,
 ): Promise<ManageRefusal | { readonly kind: "account-closed"; readonly handOff: ManagedHandOff }> {
   const { householdId } = caller;
-  const target = input.settlement?.kind === "transfer" ? input.settlement.toAccountId : null;
+  // Ids as PostgreSQL writes them (lower case): a request may spell a uuid in either case.
+  const target = input.settlement?.kind === "transfer" ? input.settlement.toAccountId.toLowerCase() : null;
+  const self = accountId.toLowerCase();
   // Both rows locked in the order of their ids, so two closings that transfer to each other cannot deadlock.
-  if (target !== null && target !== accountId && target < accountId)
-    await tx.lockAccount(householdId, target);
+  if (target !== null && target !== self && target < self) await tx.lockAccount(householdId, target);
   const account = await managedAccount(deps, tx, householdId, accountId, settled);
   if (refused(account)) return account;
   const today = deps.today();
@@ -271,7 +272,7 @@ export async function closeAccount(
       kind: "invalid",
       issues: [{ field: "settlement.toAccountId", issue }],
     });
-    if (input.settlement.toAccountId === accountId) return issueOf("same_account");
+    if (target === self) return issueOf("same_account");
     const other = await tx.lockAccount(householdId, input.settlement.toAccountId);
     if (!other) return issueOf("not_found");
     if (other.status === "closed") return issueOf("closed");

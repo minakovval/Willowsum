@@ -102,7 +102,7 @@ async function pendingHandOffsOn(
                    WHERE t.household_id = j.household_id AND t.id::text = j.payload->>'transactionId'
                      AND t.account_id = $2)
           OR EXISTS (SELECT 1 FROM jsonb_array_elements(j.payload->'audit') a
-                      WHERE a->>'field' = 'accountId' AND $2::text IN (a->>'before', a->>'after'))
+                      WHERE a->>'field' = 'accountId' AND lower($2::text) IN (a->>'before', a->>'after'))
           OR EXISTS (SELECT 1 FROM transactions t
                        JOIN transfers f ON f.household_id = t.household_id AND f.id = t.transfer_id
                        JOIN transactions o ON o.household_id = f.household_id
