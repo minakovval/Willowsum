@@ -31,10 +31,11 @@ only when the lead proposes it and the owner agrees.
 ## Size of the lead's rules (`pr-pipeline/references/lead-communication.md`, «Rule text»)
 
 ```bash
-cat .claude/skills/pr-pipeline/SKILL.md .claude/skills/pr-pipeline/references/*.md .claude/references/*.md | wc -l   # at most 1060
+cat .claude/skills/pr-pipeline/SKILL.md .claude/skills/pr-pipeline/references/*.md \
+  $(ls .claude/references/*.md | grep -v /external-review.md) | wc -l   # at most 1060
 ```
 
-The author of a PR that changes these files runs it before pushing; the reviewer repeats it. Over the limit → in the
+Files read only by the external reviewer (`external-review.md`) are not counted. The author of a PR that changes these files runs it before pushing; the reviewer repeats it. Over the limit → in the
 same PR move rarely needed text to a reference outside the skill, or delete what a later rule replaced, and add the
 table «правило → нове місце» to the PR body. Inline history of the paragraphs the PR edits is removed only after
 checking that the decision log has it (`grep -rn "<date or #PR>" docs/decisions/log/`); if it does not, add the

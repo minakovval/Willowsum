@@ -8,7 +8,7 @@ session starts or finishes.
 1. Pick the agent's model by risk and by the PR's tier ([merge rules](../../../references/merge-rules.md), «Review
    tiers»). The tier Фундамент keeps the models below (main model, Fable for its uses); authors and
    `review-pr` reviewers of the tiers Функціональність (screens, components), Документи and Локальні інструменти run
-   on the lighter model, which for those tiers replaces «every review … of a PR that changes code … stays on the main
+   on the lighter model (Sonnet; Opus only where the screen has money logic), which for those tiers replaces «every review … of a PR that changes code … stays on the main
    model» below; security reviews stay as below; why: the owner asked for cost by risk (brief «легший процес,
    надійна база», item 5):
    - **implementing** sensitive features: the main model (Fable has only the uses below);
@@ -20,9 +20,10 @@ session starts or finishes.
      is mandatory on any model**;
    - **Fable** only for:
      (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the security review of every PR that
-     **writes** sums, balances or postings — a money PR that only reads (a directory, read-only queries, like #338)
+     **writes** sums, balances or postings or changes the database schema — a money PR that only reads (a directory, read-only queries, like #338)
      goes to the main model with mutation testing; the lead decides by the diff, in doubt Fable; (c) the security reviews of sign-in, encryption and data isolation of the
-     household or space, not queued behind (b); (d) wave planning (`plan-wave`). At most 4 Fable tasks at once.
+     household or space, not queued behind (b); (d) wave planning (`plan-wave`). At most 4 Fable tasks at once. When the separate Fable limit nears
+     90 %, the reviews in (c) go temporarily to Opus and the lead tells the owner.
      Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
      import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
      Opus; parallelism as in AGENTS.md (7 branches, 10 agents). Fable draws on the Ultra subscription limit about
