@@ -116,3 +116,10 @@ export type { RowMoney } from "./list/rowParts.tsx";
 export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
 export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
 export { forgetListStates, useRestoredListState } from "./pagination/listState.ts";
+export { FilterBar, FilterChecks, FilterRow } from "./filter/FilterBar.tsx";
+export type {
+  FilterBarProps,
+  FilterChecksProps,
+  FilterChipItem,
+  FilterRowProps,
+} from "./filter/FilterBar.tsx";

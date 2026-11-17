@@ -273,7 +273,7 @@ describe("FIN-12@PoC c) S-053 «Картка рахунку»", () => {
       within(block)
         .getByRole("link", { name: /^Усі 28\s+транзакцій рахунку$/ })
         .getAttribute("href"),
-    ).toBe("#/money/transactions");
+    ).toBe(`#/money/transactions?account=${ACCOUNT_ID}`);
     const list = fake.urls.find((u) => u.pathname === "/v1/transactions")!;
     expect(list.searchParams.get("filter")).toBe(`accountId.eq:${ACCOUNT_ID}`);
     // At most one category read per shown row.

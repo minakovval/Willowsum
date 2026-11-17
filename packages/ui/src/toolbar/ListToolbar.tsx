@@ -3,9 +3,12 @@ import { useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "rea
 const ITEMS =
   "input:not([disabled]), select:not([disabled]), button:not([disabled]), a[href], [data-toolbar-item]";
 
-/** The controls of the toolbar, in order: those inside an open menu are the menu's, not the toolbar's. */
+/** A menu or a panel open from the toolbar (CMP-32 «Фільтри»): its controls are its own, not the toolbar's. */
+const POPUP = '[role="menu"], [role="dialog"]';
+
+/** The controls of the toolbar, in order: those inside an open menu or panel are not the toolbar's. */
 function itemsOf(root: HTMLElement): HTMLElement[] {
-  return Array.from(root.querySelectorAll<HTMLElement>(ITEMS)).filter((el) => !el.closest('[role="menu"]'));
+  return Array.from(root.querySelectorAll<HTMLElement>(ITEMS)).filter((el) => !el.closest(POPUP));
 }
 
 /** In a text field ← and → move the caret; they leave the field only from its start or its end. */
@@ -54,7 +57,7 @@ export function ListToolbar({
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
     const target = e.target as HTMLElement;
-    if (!root.current || target.closest('[role="menu"]') || !leavesField(target, e.key)) return;
+    if (!root.current || target.closest(POPUP) || !leavesField(target, e.key)) return;
     const items = itemsOf(root.current);
     const at = items.indexOf(target);
     if (at < 0) return;

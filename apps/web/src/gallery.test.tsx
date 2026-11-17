@@ -449,6 +449,31 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(bar.querySelector('button[aria-label="Параметри"]')).not.toBeNull();
   });
 
+  it("CMP-32@PoC gallery: the FilterBar section shows «Фільтри · 2» with the chips «Рахунки: 2» and «Тип: списання»; the panel opens with «Рахунки» and «Тип», and «×» removes one filter", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-filter-bar")!.textContent).toBe("Панель фільтрів");
+    const at = container.querySelector<HTMLElement>('[data-case="filter-bar"]')!;
+    const button = within(at).getByRole("button", { name: "Фільтри · 2" });
+    expect(button.getAttribute("aria-haspopup")).toBe("dialog");
+    expect([...at.querySelectorAll(".ws-filter-chip")].map((c) => norm(c.textContent))).toEqual([
+      "Рахунки: 2",
+      "Тип: списання",
+    ]);
+    act(() => button.click());
+    const panel = within(at).getByRole("dialog", { name: "Фільтри" });
+    expect([...panel.querySelectorAll(".ws-filter-row__label")].map((l) => l.textContent)).toEqual([
+      "Рахунки",
+      "Тип",
+    ]);
+    expect(
+      within(panel)
+        .getByRole("button", { name: /^Рахунки:/ })
+        .getAttribute("aria-label"),
+    ).toBe(norm("Рахунки: Поточний ··4417, Кредитна ··9021"));
+    act(() => within(at).getByRole("button", { name: "Прибрати фільтр: Тип — списання" }).click());
+    expect(within(at).getByRole("button", { name: "Фільтри · 1" })).toBeTruthy();
+  });
+
   it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
     vi.useFakeTimers();
     sessionStorage.clear();

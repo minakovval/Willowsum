@@ -110,6 +110,7 @@ export function OptionRow({
   active,
   disabled,
   create,
+  checkbox,
   onChoose,
   onHover,
 }: {
@@ -121,6 +122,8 @@ export function OptionRow({
   active: boolean;
   disabled?: boolean | undefined;
   create?: boolean;
+  /** One of several values (CMP-32 «Стани»): a check box on the left instead of the check on the right. */
+  checkbox?: boolean | undefined;
   onChoose: () => void;
   onHover: () => void;
 }) {
@@ -141,12 +144,17 @@ export function OptionRow({
       }}
       onMouseMove={onHover}
     >
+      {checkbox ? (
+        <span className="ws-check-box" data-checked={selected || undefined} aria-hidden="true">
+          {selected ? <Icon name="check" size={16} /> : null}
+        </span>
+      ) : null}
       {create ? <Icon name="plus" size={16} /> : leading}
       <span className="ws-select-option__text">
         <span className="ws-select-option__label">{label}</span>
         {secondary ? <span className="ws-select-option__secondary">{secondary}</span> : null}
       </span>
-      {selected ? (
+      {selected && !checkbox ? (
         <span className="ws-select-option__check">
           <Icon name="check" size={16} />
         </span>
