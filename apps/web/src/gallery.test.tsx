@@ -213,6 +213,25 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(swap.querySelectorAll(".ws-skeleton-row")).toHaveLength(3);
   });
 
+  it("BUD-12@PoC FR 6 gallery: the Toast section shows one message at a time, with «Відмінити», information and an error", () => {
+    const { container } = render(<App />);
+    const section = container.querySelector<HTMLElement>("#g-toast")!.closest("section")!;
+    expect(container.querySelector("#g-toast")!.textContent).toBe("Спливне повідомлення");
+    const show = (c: string) =>
+      act(() => section.querySelector<HTMLButtonElement>(`[data-toast="${c}"]`)!.click());
+    show("undo");
+    expect(document.querySelectorAll(".ws-toast")).toHaveLength(1);
+    const toast = () => document.querySelector<HTMLElement>(".ws-toast")!;
+    expect(toast().getAttribute("role")).toBe("status");
+    expect(within(toast()).getByRole("button", { name: "Відмінити" })).toBeTruthy();
+    show("error");
+    expect(document.querySelectorAll(".ws-toast")).toHaveLength(1);
+    expect(toast().getAttribute("data-tone")).toBe("error");
+    expect(toast().textContent).toContain("Дію не виконано");
+    act(() => within(toast()).getByRole("button", { name: "Закрити" }).click());
+    expect(document.querySelector(".ws-toast")).toBeNull();
+  });
+
   it("CMP-74@PoC gallery: the Progress section shows running, counting, stacked, done and error, and a live case that steps, fails and finishes", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-progress")!.textContent).toBe("Прогрес");

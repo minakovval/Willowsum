@@ -295,8 +295,8 @@ export interface AmountFieldProps extends Omit<
   /** ISO 4217 code: the digits of the amount and the suffix. */
   currency: string;
   /**
-   * The digits after the point the amount may have; default: the currency's ISO 4217 minor units from `Intl`. Pass
-   * the server's registry value (`currencyInfo(code).minorUnits`) where the two may differ.
+   * The digits after the point the amount may have; default: the minor units of the currency registry
+   * (`currencyInfo(code).minorUnits` of `domain-kernel`, as the server checks them).
    */
   places?: number | undefined;
   /** Shown on the right in `ink-muted`; default: the currency symbol of the language («€», «₴»). */
@@ -333,20 +333,26 @@ export function AmountField({
     null,
   );
   const reported = useRef<typeof recheck>(null);
+  /** Whether the field has the focus, and the value it reported last (#392 N3). */
+  const [focused, setFocused] = useState(false);
+  const [said, setSaid] = useState<string | null | undefined>(undefined);
   if (checkedFor !== places) {
     setCheckedFor(places);
     if (draft !== null) {
       const parsed = parseAmountInput(draft, locale, places);
       if (parsed.problem === null && problem !== null) setDraft(null);
       setProblem(parsed.problem);
+      setSaid(parsed.value);
       setRecheck({ value: parsed.value, problem: parsed.problem });
     } else if (value !== null) {
       const fitted = amountInPlaces(value, places);
       if (fitted === null) {
         setDraft(editAmount(locale, value, places));
         setProblem("places");
+        setSaid(null);
         setRecheck({ value: null, problem: "places" });
       } else if (fitted !== value) {
+        setSaid(fitted);
         setRecheck({ value: fitted, problem: null });
       }
     }
@@ -356,6 +362,20 @@ export function AmountField({
     reported.current = recheck;
     onChange?.(recheck.value, recheck.problem);
   }, [recheck, onChange]);
+  // #392 N3: a value the consumer changes itself (a form reset) while the field is not focused replaces a draft kept
+  // for its error; the value the field reported itself (null with «places») keeps the draft and the error.
+  const report = (next: string | null, nextProblem: AmountProblem | null) => {
+    setSaid(next);
+    onChange?.(next, nextProblem);
+  };
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) {
+    setSeen(value);
+    if (!focused && value !== said && draft !== null) {
+      setDraft(null);
+      setProblem(null);
+    }
+  }
   // The text the focus put in the field: leaving it unchanged keeps the value as it was (even «≈ 0,33»).
   const start = useRef<string | null>(null);
 
@@ -385,6 +405,7 @@ export function AmountField({
       suffix={suffix ?? currencySymbolOf(locale, currency)}
       error={error ?? ownError}
       onFocus={() => {
+        setFocused(true);
         if (draft !== null) return;
         start.current = value === null ? "" : editAmount(locale, value, places);
         setDraft(start.current);
@@ -394,17 +415,18 @@ export function AmountField({
         const parsed = parseAmountInput(next, locale, places);
         if (parsed.problem === null) {
           setProblem(null);
-          onChange?.(parsed.value, null);
+          report(parsed.value, null);
         }
       }}
       onLeave={() => {
+        setFocused(false);
         if (draft !== null && draft === start.current) {
           setDraft(null);
         } else if (draft !== null) {
           const parsed = parseAmountInput(draft, locale, places);
           setProblem(parsed.problem);
           if (parsed.problem === null) setDraft(null);
-          onChange?.(parsed.value, parsed.problem);
+          report(parsed.value, parsed.problem);
         }
         onBlur?.();
       }}

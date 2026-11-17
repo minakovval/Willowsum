@@ -133,6 +133,33 @@ export async function addCurrency(
   return { kind: "added", handOff };
 }
 
+/**
+ * Whether any of these wallets of the account (its row locked by the caller) has a transaction — the one question of
+ * IMP-02 FR 15 (removing a currency) and FIN-12 FR 5 («Кредит» ↔ «Кредитна картка»), #290 item 3. First the
+ * account's hand-offs not done yet are finished — the wallets' own ledger accounts and opening balances, and the
+ * journal moves of managing (under this row lock, as those changes ran) — so the journal is read as they leave it.
+ * Then: an entry in effect besides «Початковий залишок» (an adjustment of «Оновити залишок» is one, FIN-12 FR 14), or a
+ * transaction the journal does not hold yet — «Очікує», or a hand-off not run — that a module keeping subaccount ids
+ * answers for (`WalletUsage`).
+ */
+export async function walletsWithTransactions(
+  deps: Pick<AccountsDeps, "ledger" | "walletUsage">,
+  tx: AccountsTx,
+  householdId: string,
+  accountId: string,
+  wallets: readonly Pick<StoredSubaccount, "id" | "ledgerAccountId">[],
+): Promise<boolean> {
+  const ids = new Set(wallets.map((w) => w.id));
+  for (const pending of await tx.pendingOpenings(householdId, accountId))
+    for (const s of pending) if (ids.has(s.subaccountId)) await openSubaccount(deps.ledger, householdId, s);
+  await finishPending(deps, tx, householdId, accountId);
+
+  for (const w of wallets)
+    if (await deps.ledger.hasLiveEntries(householdId, w.ledgerAccountId, NOT_TRANSACTIONS)) return true;
+  for (const usage of deps.walletUsage) if ((await usage.used(householdId, [...ids])).size > 0) return true;
+  return false;
+}
+
 /** Removing a currency of an account (IMP-02 FR 15, AC14): only one that is not the main one and has no transactions. */
 export async function removeCurrency(
   deps: Pick<AccountsDeps, "ledger" | "newId" | "walletUsage">,
@@ -149,22 +176,7 @@ export async function removeCurrency(
   if (!subaccount) return { kind: "not-found" };
   if (subaccount.position === 0) return { kind: "main-currency" };
 
-  // The journal as the account's earlier changes leave it: the wallet's ledger account and opening balance, the
-  // adjustments and transfers of managing (under this row lock, as those changes ran).
-  for (const pending of await tx.pendingOpenings(householdId, accountId))
-    for (const s of pending)
-      if (s.subaccountId === subaccount.id) await openSubaccount(deps.ledger, householdId, s);
-  await finishPending(deps, tx, householdId, accountId);
-
-  const hasTransactions = await deps.ledger.hasLiveEntries(
-    householdId,
-    subaccount.ledgerAccountId,
-    NOT_TRANSACTIONS,
-  );
-  // A transaction the journal does not hold yet («Очікує», or a hand-off not run) is one too: its row keeps the wallet.
-  let used = hasTransactions;
-  for (const usage of deps.walletUsage)
-    if (!used) used = (await usage.used(householdId, [subaccount.id])).has(subaccount.id);
+  const used = await walletsWithTransactions(deps, tx, householdId, accountId, [subaccount]);
   const issue = removalIssue(subaccount.position, used);
   if (issue === "has_transactions") return { kind: "has-transactions" };
   if (issue === "main_currency") return { kind: "main-currency" };
