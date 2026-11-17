@@ -15,7 +15,7 @@ CREATE TABLE files (
   object_key text NOT NULL CHECK (char_length(object_key) BETWEEN 1 AND 200),
   created_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (household_id, id),
-  UNIQUE (object_key)
+  UNIQUE (household_id, object_key)
 );
 -- Duplicates of a file are found by its SHA-256 within the space (IMP-01 «Бізнес-правила»).
 CREATE INDEX files_sha256 ON files (household_id, sha256);
