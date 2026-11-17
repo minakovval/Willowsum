@@ -435,6 +435,68 @@ describe("FIN-03@PoC FR 7, FR 8: a confirmed pair is a transfer — neither inco
     expect(again.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "in_transfer" }]);
   });
 
+  // Issue #461 (security review of #456, probe M1): the journal posts a currency transfer's credit converted into the
+  // debit's currency at the kept rate (fx-transfer, ARC-11). A credit beyond a stored amount (NUMERIC(38,18)) there
+  // must be refused before anything is written — never both rows' own events reversed without the transfer's.
+  it("FIN-03@PoC FR 27: a currency pair whose credit the journal cannot convert into the debit's currency is a field issue (400); nothing is written", async () => {
+    const space = await newSpace();
+    const uah = await createAccount(space, "0.00", "UAH");
+    const eur = await createAccount(space, "0.00");
+    const out = await add(space, uah, "-1.00", "2026-10-14", "UAH");
+    const into = await add(space, eur, "99999999999999999999.99", "2026-10-14");
+    const counts = async () => {
+      const { rows } = await db.owner.query(
+        `SELECT (SELECT count(*)::int FROM transactions.transfers WHERE household_id = $1) AS transfers,
+                (SELECT count(*)::int FROM ledger.entries WHERE household_id = $1) AS entries,
+                (SELECT count(*)::int FROM audit.entries WHERE household_id = $1) AS audit`,
+        [space.householdId],
+      );
+      return rows[0];
+    };
+    const before = {
+      live: await liveEntries(space.householdId),
+      counts: await counts(),
+      rows: [await get(space, out.id), await get(space, into.id)],
+    };
+    expect(before.live).toEqual([
+      ["transaction", "2026-10-14"],
+      ["transaction", "2026-10-14"],
+    ]);
+    // The oversized amount is on the side the error names: the counterpart, or the transaction acted on.
+    const res = await mark(space, out.id, into.id);
+    expect(res.statusCode, res.body).toBe(400);
+    expect(res.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "invalid" }]);
+    const back = await mark(space, into.id, out.id);
+    expect(back.statusCode, back.body).toBe(400);
+    expect(back.json().errors).toEqual([{ in: "body", path: "transactionId", issue: "invalid" }]);
+    expect({
+      live: await liveEntries(space.householdId),
+      counts: await counts(),
+      rows: [await get(space, out.id), await get(space, into.id)],
+    }).toEqual(before);
+  });
+
+  it("FIN-03@PoC FR 27: a currency pair whose credit the journal can just keep is marked with its fx-transfer; one cent more is refused", async () => {
+    const space = await newSpace();
+    const uah = await createAccount(space, "0.00", "UAH");
+    const eur = await createAccount(space, "0.00");
+    // 2298850574712643678.16 EUR × 43.5 = 99999999999999999999.96 UAH; one cent more is 100000000000000000000.395.
+    const out = await add(space, uah, "-1.00", "2026-10-14", "UAH");
+    const over = await add(space, eur, "2298850574712643678.17", "2026-10-14");
+    const fits = await add(space, eur, "2298850574712643678.16", "2026-10-14");
+    const refused = await mark(space, out.id, over.id);
+    expect(refused.statusCode, refused.body).toBe(400);
+    expect(refused.json().errors).toEqual([{ in: "body", path: "counterpartId", issue: "invalid" }]);
+    const res = await mark(space, out.id, fits.id);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().transfer).toMatchObject({ side: "outflow", counterpartId: fits.id, fee: null });
+    // The refused credit keeps its own event; the pair's two are replaced by the transfer's one.
+    expect(await liveEntries(space.householdId)).toEqual([
+      ["transaction", "2026-10-14"],
+      ["fx-transfer", "2026-10-14"],
+    ]);
+  });
+
   it("FIN-03@PoC FR 22, FR 23: «Стан: переказ» lists the transfer's two sides — visible in the lists of both accounts", async () => {
     const { space, a, b, out, into } = await ac2();
     await mark(space, out.id, into.id);

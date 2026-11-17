@@ -141,6 +141,15 @@ export async function markTransfer(
     if (Array.isArray(pair)) return { kind: "invalid", issues: pair };
     const now = transferRateRequest(pair.outflow, pair.inflow);
     if (JSON.stringify(now) !== JSON.stringify(request)) return { kind: "conflict" };
+    // The journal keeps the credit converted into the debit's currency at the kept rate (fx-transfer, ARC-11): a
+    // credit whose converted value is beyond a stored amount could never be posted, and the rows' own events would be
+    // reversed without it (#461). A field issue on the side that carries it, before the account's state (fields
+    // first, then closed: decision 2026-11-16-fin03-transfer-create); nothing written.
+    if (now !== null && !creditFitsJournal(pair.inflow.amount, rate!, now.date))
+      return {
+        kind: "invalid",
+        issues: [{ field: pair.inflow.id === id ? "transactionId" : "counterpartId", issue: "invalid" }],
+      };
     if (await anyClosed(deps, householdId, [pair.outflow, pair.inflow])) return { kind: "closed" };
     const link: TransferLink = {
       id: deps.newId(),
