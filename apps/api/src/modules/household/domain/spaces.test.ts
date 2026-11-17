@@ -41,6 +41,14 @@ describe("ACC-08@PoC FR 5: a new name of the space", () => {
     expect(spaceName("😀".repeat(61))).toBeNull();
   });
 
+  it("ACC-08@PoC AC5: bidi marks and tag characters are not saved; a name that looks empty is not saved either (#200)", () => {
+    for (const bad of ["Коваль\u200E", "\u200FКоваль", "Ко\u061Cваль", "Коваль\u{E0041}"])
+      expect(spaceName(bad), bad).toBeNull();
+    for (const empty of ["\u3164", "\u2800\u2800", "\uFE0F", "\u0301", " \u3164 "])
+      expect(spaceName(empty), empty).toBeNull();
+    expect(spaceName("Коваль\u0301 ❤\uFE0F")).toBe("Коваль\u0301 ❤\uFE0F".normalize("NFC"));
+  });
+
   it("a name is one line: control characters are not saved; uniqueness is not required", () => {
     expect(spaceName("Коваль\nі батьки")).toBeNull();
     expect(spaceName("Коваль\u0000")).toBeNull();
@@ -63,5 +71,11 @@ describe("ACC-08@PoC FR 5: a new name of the space", () => {
     for (const cp of [0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069]) {
       expect(spaceName(`Коваль${String.fromCodePoint(cp)}батьки`)).toBeNull();
     }
+  });
+});
+
+describe("sec429: Hangul fillers alone are not a name (mutation survivor)", () => {
+  it("ACC-08@PoC AC5: U+115F and U+1160 on their own are not saved", () => {
+    for (const empty of ["ᅟ", "ᅠᅠ", " ᅟᅠ "]) expect(spaceName(empty), empty).toBeNull();
   });
 });

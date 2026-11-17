@@ -1,6 +1,7 @@
 import type { Money } from "@willowsum/domain-kernel";
 import {
   isRejected,
+  type ChargeMark,
   nextDate,
   type PaymentFields,
   type PaymentIssue,
@@ -23,7 +24,18 @@ export interface StoredPayment extends PaymentFields {
   readonly source: "proposal" | "manual";
   readonly createdOn: string;
   readonly version: number;
+  /** FR 11: the expected amount the charges have made it; null — `expected`, as set (row 26). */
+  readonly current: Money | null;
+  /** FR 10 «Залишити»: misses are counted anew from this day (row 26). */
+  readonly keptOn: string | null;
 }
+
+/** A user's mark on one charge (FR 20, FR 21; migrations/0004_charge_marks.sql). */
+export type StoredMark = {
+  readonly id: string;
+  readonly paymentId: string;
+  readonly dueOn: string;
+} & ChargeMark;
 
 /** A rejected series as stored. */
 export interface StoredRejection extends RejectedSeries {
@@ -46,6 +58,17 @@ export interface RecurringTx {
   moveCategory(householdId: string, sourceId: string, targetId: string): Promise<StoredPayment[]>;
   categoriesInUse(householdId: string, ids: readonly string[]): Promise<ReadonlySet<string>>;
   enqueueHandOff(handOff: RecurringHandOff): Promise<void>;
+  /** The payment, locked until the commit: the actions on one payment's charges run one after another. */
+  lockPayment(householdId: string, id: string): Promise<StoredPayment | null>;
+  /** The marks of the space's charges. */
+  marks(householdId: string): Promise<StoredMark[]>;
+  /** One mark per charge (replaced); returns its id, or null — the transaction already settles another charge. */
+  saveMark(householdId: string, mark: StoredMark): Promise<string | null>;
+  settledElsewhere(householdId: string, transactionId: string): Promise<boolean>;
+  /** FR 10 «Залишити». */
+  keep(householdId: string, id: string, today: string): Promise<StoredPayment | null>;
+  /** FR 11: the current expected amount, if it is still `before` (compare and set); false — another read wrote it. */
+  setCurrentAmount(householdId: string, id: string, before: Money | null, after: Money): Promise<boolean>;
 }
 
 /**
@@ -70,7 +93,7 @@ export interface Caller {
   readonly accountId: string;
 }
 
-export const AUDIT_ENTITIES = ["recurring.payment", "recurring.rejection"] as const;
+export const AUDIT_ENTITIES = ["recurring.payment", "recurring.rejection", "recurring.charge"] as const;
 export const HAND_OFF_ACTIONS = ["create", "update"] as const;
 
 /**
@@ -171,6 +194,8 @@ function newPayment(deps: PaymentDeps, fields: PaymentFields, merchantId: string
     source: merchantId === null ? "manual" : "proposal",
     createdOn: deps.today(),
     version: 1,
+    current: null,
+    keptOn: null,
   };
 }
 

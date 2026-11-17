@@ -8,6 +8,26 @@ describe("CICD-06 FR 2: every flag has an owner and a review date; CI fails for 
     expect(flagReviewProblems(FLAGS, new Date().toISOString().slice(0, 10), Object.keys(FLAGS))).toEqual([]);
   });
 
+  it("a key the flags table would reject fails; keys with «-» and «_» (data.bulk_actions) pass", () => {
+    const flag = { ...base, kind: "release", reviewBy: "2027-01-01" };
+    const keys = [
+      "data.bulk_actions",
+      "household.space-settings",
+      "Data.bulk",
+      "data.Bulk",
+      "data..bulk",
+      "data.bulk actions",
+      `a.${"x".repeat(99)}`,
+    ];
+    const problems = flagReviewProblems(Object.fromEntries(keys.map((k) => [k, flag])), "2026-11-16", keys);
+    expect(problems).toEqual(
+      ["Data.bulk", "data.Bulk", "data..bulk", "data.bulk actions", `a.${"x".repeat(99)}`].map(
+        (k) =>
+          `${k}: the flags table cannot store this key (lowercase dot-separated parts of [a-z0-9_-], ≤ 100 characters)`,
+      ),
+    );
+  });
+
   it("a flag without an owner or a review date fails", () => {
     const problems = flagReviewProblems(
       {

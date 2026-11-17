@@ -46,9 +46,19 @@ import { offeredLanguages } from "../i18n/languages.ts";
 import { GALLERY_TOKENS_PATH } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AmountFitDemo } from "./AmountFitDemo.tsx";
+import { DialogDemo } from "./DialogDemo.tsx";
+import { ButtonDemo } from "./ButtonDemo.tsx";
+import { PaginationDemo } from "./PaginationDemo.tsx";
+import { FieldDemo } from "./FieldDemo.tsx";
+import { ListRowDemo } from "./ListRowDemo.tsx";
+import { FilterBarDemo } from "./FilterBarDemo.tsx";
+import { ListToolbarDemo } from "./ListToolbarDemo.tsx";
+import { DateFieldDemo } from "./DateFieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
+import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
+import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { TransactionDemo } from "./TransactionDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
@@ -396,6 +406,46 @@ export function GalleryTokensPage() {
         >
           <p className="ws-muted">{t("gallery.tabs.panel")}</p>
         </PageTabs>
+      </Section>
+
+      <Section id="g-select" title={t("gallery.select.title")}>
+        <SelectDemo />
+      </Section>
+
+      <Section id="g-dialog" title={t("gallery.dialog.title")}>
+        <DialogDemo />
+      </Section>
+
+      <Section id="g-button" title={t("gallery.button.title")}>
+        <ButtonDemo />
+      </Section>
+
+      <Section id="g-pagination" title={t("gallery.pagination.title")}>
+        <PaginationDemo />
+      </Section>
+
+      <Section id="g-field" title={t("gallery.field.title")}>
+        <FieldDemo />
+      </Section>
+
+      <Section id="g-date" title={t("gallery.date.title")}>
+        <DateFieldDemo />
+      </Section>
+
+      <Section id="g-list-row" title={t("gallery.listRow.title")}>
+        <ListRowDemo />
+      </Section>
+
+      <Section id="g-transaction-row" title={t("gallery.transactionRow.title")}>
+        <TransactionRowDemo />
+      </Section>
+
+      <Section id="g-toolbar" title={t("gallery.toolbar.title")}>
+        <ListToolbarDemo />
+      </Section>
+
+      <Section id="g-filter-bar" title={t("gallery.filterBar.title")}>
+        <FilterBarDemo />
       </Section>
 
       <Section id="g-transaction" title={t("gallery.section.transaction")}>

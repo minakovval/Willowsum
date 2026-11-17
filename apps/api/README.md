@@ -52,6 +52,7 @@
 | Змінна | Що | Типово |
 | --- | --- | --- |
 | `WS_PORT` | Порт HTTP (API або лише перевірки `/health/live`, `/health/ready`) | 8080 |
+| `WS_HOST` | Адреса, на якій слухає HTTP: `0.0.0.0` (усі інтерфейси, контейнер) або `127.0.0.1` (лише ця машина; так запускає `pnpm local:dev`) | `0.0.0.0` |
 | `WS_SHUTDOWN_TIMEOUT_MS` | Скільки чекати завершення запитів під час зупинки | 30000 |
 | `WS_PLAN_ENTITLEMENTS` | Джерело матриці планів (plan-catalog); у PoC — лише `all-enabled` (П-24) | `all-enabled` |
 | `WS_PROVIDER_MODE` | Реалізація портів провайдерів: `test` (синтетична, без мережі) або `live` (ARC-05, ADR-0005). У `staging`/`production` ролі `api` (ACC-01 п. 12) і `scheduler` (VAL-05 п. 3, 4: курси НБУ, листи-алерти) стартують лише з `live` | `test` |
@@ -59,7 +60,7 @@
 | `WS_TELEMETRY_ENVIRONMENT` | `deployment.environment.name` усіх сигналів (`local`, `ci`, `staging`, `production`) | `local` |
 | `WS_OTLP_ENDPOINT` | Лише для `otlp`: базова адреса OTLP/HTTP (https; http лише для localhost), сигнали — `/v1/traces`, `/v1/metrics`, `/v1/logs` | — |
 | `WS_OTLP_AUTHORIZATION` | Лише для `otlp`, секрет: значення заголовка `Authorization` (для Grafana Cloud — `Basic <base64 instance:token>`) | — |
-| `WS_TRUSTED_PROXY_HOPS` | Скільки проксі перед API мають довіру до `X-Forwarded-For` / `X-Forwarded-Proto` (0–5); 0 — адреса клієнта з сокета, заголовки ігноруються (NFR-14 п. 8) | 0 |
+| `WS_TRUSTED_PROXY_HOPS` | Скільки проксі перед API мають довіру до `X-Forwarded-For` / `X-Forwarded-Proto` (0–5); 0 — адреса клієнта з сокета, заголовки ігноруються (NFR-14 п. 8); e2e-стек (`apps/web/e2e`) працює з 1 вузлом, API слухає лише loopback; у розгортанні порт API має бути досяжний лише через проксі (ADR-0007) | 0 |
 | `WS_RATE_LIMITS` | Ліміти частоти: `on` або `off-load-test` (лише навантажувальний тест; у `production` відхиляється; при старті — подія `rate_limits.disabled`) (NFR-14 п. 9) | `on` |
 | `WS_API_INSTANCES` | Скільки екземплярів API запущено; лічильники лімітів у пам'яті процесу, тож при > 1 і `WS_RATE_LIMITS=on` роль `api` не стартує (NFR-14 п. 10, ADR-0007) | 1 |
 | `WS_ALLOWED_ORIGINS` | Origin сторінок, яким дозволено запити на запис (через кому, точний `https://host[:port]`; http лише для localhost, у `staging`/`production` — лише https) (NFR-15 п. 5) | локально `http://localhost:5173,http://localhost:4173`; у `staging`/`production` — жодного |
@@ -156,6 +157,8 @@
   `defineJobHandler`: він виконується в транзакції простору модуля, і задача стає виконаною в тій самій транзакції.
 - Сховища, обробники і підписки на події реєструє `workerQueues` у `src/wiring.ts`; роль `worker` запускає
   `createWorker` (до 8 спроб, далі черга невдалих і подія `job.dead_lettered` рівня ERROR; одна важка задача за раз).
+  Збій кроку «модуль × простір» (вихідні події або черга задач) — подія `worker.space_failed` рівня WARN (модуль і
+  клас помилки), прохід іде далі; прохід падає цілком (`worker.pass_failed`) лише коли збоять усі кроки.
 
 ## Зовнішні провайдери (ARC-05)
 

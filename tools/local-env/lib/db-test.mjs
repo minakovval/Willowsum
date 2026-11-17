@@ -60,6 +60,31 @@ export function adminUrlFromState(values) {
 }
 
 /**
+ * Whether an admin URL points at this machine (the same rule as `assertLocalServer` of `pnpm local:dev`, #363): the
+ * integration runs set role passwords and drop roles cluster-wide, so they must never reach another server.
+ */
+export function isLocalAdminUrl(adminUrl, env = process.env) {
+  if (adminUrl !== adminUrl.trim()) return false;
+  // PGHOSTADDR / PGSERVICE in the environment send libpq elsewhere whatever the URL says (#452).
+  if (env.PGHOSTADDR || env.PGSERVICE) return false;
+  // libpq has no fragment: parameters behind a `#` still apply there, while `new URL` hides them.
+  if (adminUrl.includes('#')) return false;
+  let u;
+  try {
+    u = new URL(adminUrl);
+  } catch {
+    return false;
+  }
+  const host = u.hostname.replace(/^\[|\]$/g, '');
+  const params = new URLSearchParams(u.search);
+  const socket = params.get('host') ?? '';
+  // `service=` reads a pg_service.conf entry whose hostaddr / port win over the URL's host (psql, libpq).
+  if (params.has('service')) return false;
+  if (host !== '') return !params.has('host') && !params.has('hostaddr') && ['127.0.0.1', '::1', 'localhost'].includes(host);
+  return params.getAll('host').length === 1 && !params.has('hostaddr') && socket.startsWith('/') && !socket.includes(',') && !socket.split('/').includes('..');
+}
+
+/**
  * Which PostgreSQL to use: WS_TEST_PG_ADMIN_URL (a superuser URL, e.g. a machine's own cluster) wins; else the
  * `pnpm local:up` stack (started if Docker is there); else an error that says what to do.
  * @returns {{ kind: 'url', url: string } | { kind: 'compose' } | { kind: 'none', message: string }}
@@ -68,6 +93,7 @@ export function resolveServer({ env, docker }) {
   const url = env.WS_TEST_PG_ADMIN_URL;
   if (url) {
     if (!/^postgres(ql)?:\/\//.test(url)) return { kind: 'none', message: 'WS_TEST_PG_ADMIN_URL must be a postgres:// URL.' };
+    if (!isLocalAdminUrl(url, env)) return { kind: 'none', message: 'WS_TEST_PG_ADMIN_URL must point at this machine (127.0.0.1, ::1, localhost or a socket directory), with no PGHOSTADDR or PGSERVICE in the environment.' };
     return { kind: 'url', url };
   }
   if (docker) return { kind: 'compose' };

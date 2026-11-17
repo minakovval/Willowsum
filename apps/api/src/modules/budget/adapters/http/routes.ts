@@ -4,6 +4,7 @@ import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
 import {
   byId,
+  countsFrom,
   createBudget,
   deleteBudget,
   isIncluded,
@@ -11,11 +12,12 @@ import {
   periodPlan,
   setBudgetAccount,
   updatePlan,
+  wizard,
   type Handed,
   type Result,
   type StoredBudget,
 } from "../../application/index.ts";
-import { isPeriod, periodFigures, periodMode } from "../../domain/index.ts";
+import { isPeriod, periodFigures, periodMode, shareFrom, type StartChoice } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
@@ -46,12 +48,24 @@ const moneyInput = z
   .strict();
 const periodText = z.string().max(7).meta({ description: "A calendar month, YYYY-MM" });
 
+/** FR 14: a proportional first period — from its first day to the period's last, `days` of `daysInPeriod` (13/30). */
+const shareSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  days: z.number().int(),
+  daysInPeriod: z.number().int(),
+});
+const share = (budget: StoredBudget, period: string) =>
+  budget.firstDay !== null && period === budget.firstPeriod ? shareFrom(budget.firstDay) : null;
+
 const budgetSchema = z.object({
   id: z.uuid(),
   /** FR 1: the space's reporting currency when the budget was created; limits are in it. */
   currency: z.string(),
   /** FR 5: the first period, YYYY-MM. */
   firstPeriod: z.string(),
+  /** FR 14: the proportional first period's share of days; null — the first period is whole. */
+  proportional: shareSchema.nullable(),
   incomePlan: moneySchema,
   /** FR 7: the limits as they are now (from the current period on); a category without one is «Поза планом». */
   limits: z.array(z.object({ categoryId: z.uuid(), amount: moneySchema })),
@@ -69,6 +83,7 @@ async function present(ctx: ProtectedContext, b: StoredBudget): Promise<z.input<
     id: b.id,
     currency: b.currency,
     firstPeriod: b.firstPeriod,
+    proportional: share(b, b.firstPeriod),
     incomePlan: money(b.incomePlan),
     limits: limits.map((l) => ({ categoryId: l.categoryId, amount: money(l.amount) })),
     createdOn: b.createdOn,
@@ -159,8 +174,13 @@ export const createBudgetRoute = defineRoute({
   request: {
     body: z
       .object({
-        /** The current month (spending since its 1st counts) or the next one. */
+        /** The current month (spending since its 1st counts) or the next one; on the 1st — the current one only. */
         firstPeriod: periodText,
+        /**
+         * FR 14: «Пропорційно на <сьогодні>–<останній день>» — with the current month, not on its 1st: the first period's
+         * limits, income plan and planned savings × (days left, today included) ÷ (days in the period).
+         */
+        proportional: z.boolean().optional(),
         /** 0 by default («Почати з нуля»). */
         incomePlan: moneyInput.optional(),
         /** Expense categories of the space, each once; none — «Почати з нуля». */
@@ -304,6 +324,8 @@ const periodSchema = z.object({
   incomePlan: moneySchema,
   /** FR 11: planned contributions to goals and «Заощадження без цілі». */
   plannedSavings: moneySchema,
+  /** FR 14: a proportional first period — its plan is already × its share and it counts from `from`; else null. */
+  proportional: shareSchema.nullable(),
   /** Null for a future month. */
   incomeActual: moneySchema.nullable(),
   /** The categories with a limit, by group in the order of the space's tree. */
@@ -355,7 +377,13 @@ export const getPeriodRoute = defineRoute({
       const accountIds = (await deps.reads.accounts(householdId))
         .filter((a) => isIncluded(a, choices))
         .map((a) => a.accountId);
-      counted = await deps.reads.amounts(householdId, accountIds, params.period, budget.currency);
+      counted = await deps.reads.amounts(
+        householdId,
+        accountIds,
+        params.period,
+        budget.currency,
+        countsFrom(budget, params.period),
+      );
     }
     const figures = periodFigures(plan, categories, counted?.amounts ?? null);
     const order = new Map(categoryList.map((c, i) => [c.groupId, i]));
@@ -381,6 +409,7 @@ export const getPeriodRoute = defineRoute({
       currency: budget.currency,
       incomePlan: money(plan.incomePlan),
       plannedSavings: money(plan.plannedSavings),
+      proportional: share(budget, params.period),
       incomeActual: orNull(t.incomeActual),
       groups: [...groups.entries()].map(([groupId, lines]) => ({ groupId, categories: lines })),
       outsidePlan: {
@@ -400,8 +429,79 @@ export const getPeriodRoute = defineRoute({
   },
 });
 
+const startSchema = z.object({
+  /** «З 1 <місяця>» / «З наступного місяця (1 <місяця>)» / «Пропорційно на <день>–<останній> (<days>/<daysInPeriod>)». */
+  start: z.enum(["period-start", "next-period", "proportional"]),
+  /** What POST /v1/budget takes as `firstPeriod` (with `proportional: true` for the third). */
+  firstPeriod: z.string(),
+  from: z.string(),
+  to: z.string(),
+  days: z.number().int().nullable(),
+  daysInPeriod: z.number().int().nullable(),
+});
+
+const wizardSchema = z.object({
+  today: z.string(),
+  /** FR 14, AC15: show «Ви починаєте посеред періоду»; no choice is preselected. False on the 1st (FR 5). */
+  midPeriod: z.boolean(),
+  starts: z.array(startSchema),
+  fromSpending: z.object({
+    /** FR 2: at least 3 full months of categorized transactions; false — only «Почати з нуля» (edge case 2). */
+    available: z.boolean(),
+    /** Full months back from the last one with categorized transactions, without a gap (at most 6). */
+    historyMonths: z.number().int(),
+    /** FR 3: the average income of the 3 months; edge case 1 — the lowest of 6 for an irregular income. */
+    incomePlan: moneySchema.nullable(),
+    incomeIrregular: z.boolean(),
+    /** FR 3, FR 7: each active expense category with spending — its 3-month average and the limit (tens, half up). */
+    categories: z.array(
+      z.object({ categoryId: z.uuid(), average: moneySchema, limit: moneySchema.nullable() }),
+    ),
+  }),
+});
+
+export const getWizardRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/budget/wizard",
+  operationId: "getBudgetWizard",
+  summary:
+    "The budget wizard: the start choices and the proposal «Створити за моїми витратами» (FR 2, FR 3, FR 14; AC1, AC15)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  response: { status: 200, description: "The wizard's figures; nothing is saved", schema: wizardSchema },
+  handler: async (_input, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = budgetServices(ctx);
+    const householdId = ctx.principal.householdId;
+    const categories = byId(await deps.reads.categories(householdId));
+    const choices = await ctx.inHousehold((q) => budgetTx(q).accountChoices(householdId));
+    const accountIds = (await deps.reads.accounts(householdId))
+      .filter((a) => isIncluded(a, choices))
+      .map((a) => a.accountId);
+    const w = await wizard(deps, householdId, accountIds, categories);
+    const p = w.fromSpending;
+    return {
+      today: w.today,
+      midPeriod: w.midPeriod,
+      starts: w.starts.map((c: StartChoice) => ({ ...c })),
+      fromSpending: {
+        available: p.available,
+        historyMonths: p.historyMonths,
+        incomePlan: p.incomePlan === null ? null : money(p.incomePlan),
+        incomeIrregular: p.incomeIrregular,
+        categories: p.limits.map((l) => ({
+          categoryId: l.categoryId,
+          average: money(l.average),
+          limit: orNull(l.limit),
+        })),
+      },
+    };
+  },
+});
+
 export const budgetRoutes = [
   getBudgetRoute,
+  getWizardRoute,
   createBudgetRoute,
   updatePlanRoute,
   deleteBudgetRoute,

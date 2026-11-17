@@ -139,6 +139,7 @@ beforeAll(async () => {
   ledger = createLedger(db.databases.for("ledger"));
   const services = createAccountsServices({
     walletUsage: [],
+    pendingPostings: [],
     ledger,
     liabilities: createLiabilities(db.databases.for("liabilities"), audit),
     keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
@@ -811,5 +812,60 @@ describe("FIN-12@PoC FR 14: the ledger's reads for managing an account stay in t
     });
     const fresh = await createAccount(space, { kind: "cash", name: "Порожня", amount: "0.00" });
     expect(await ledger.latestOperationDate(space.householdId, fresh.ledgerAccountId)).toBeNull();
+  });
+});
+
+describe("FIN-12@PoC d) close and balance guards (PR #445 security review)", () => {
+  it("unscoped viewer and advisor get 403 on closing, close and balance; nothing changes", async () => {
+    const space = await newSpace();
+    const acc = await createAccount(space, { kind: "current", name: "Поточний", amount: "430.00" });
+    for (const role of ["viewer", "advisor"]) {
+      const p = { role, scoped: false };
+      const res = [
+        await call(space, "GET", `/v1/accounts/${acc.id}/closing?closedOn=${TODAY}`, undefined, p),
+        await call(
+          space,
+          "POST",
+          `/v1/accounts/${acc.id}/close`,
+          { closedOn: TODAY, settlement: { kind: "adjustment" } },
+          p,
+        ),
+        await call(
+          space,
+          "POST",
+          `/v1/accounts/${acc.id}/balance`,
+          { balance: { amount: "1.00", currency: "EUR" } },
+          p,
+        ),
+      ];
+      for (const r of res) {
+        expect(r.statusCode).toBe(403);
+        expect(r.body).not.toContain("430");
+      }
+    }
+    // editor (unscoped) is allowed: the guard is the permission, not a blanket refusal
+    const ok = await call(space, "GET", `/v1/accounts/${acc.id}/closing?closedOn=${TODAY}`, undefined, {
+      role: "editor",
+    });
+    expect(ok.statusCode).toBe(200);
+    expect((await call(space, "GET", `/v1/accounts/${acc.id}`)).json().status).toBe("active");
+    expect((await entries(space.householdId)).map((e) => e.event_type)).toEqual(["opening-balance"]);
+  });
+  it("the body is strict: extra fields and a numeric amount are refused", async () => {
+    const space = await newSpace();
+    const acc = await createAccount(space, { kind: "current", name: "Поточний", amount: "430.00" });
+    const extra = await call(space, "POST", `/v1/accounts/${acc.id}/balance`, {
+      balance: { amount: "1.00", currency: "EUR" },
+      accountId: acc.id,
+    });
+    const num = await call(space, "POST", `/v1/accounts/${acc.id}/balance`, {
+      balance: { amount: 1, currency: "EUR" },
+    });
+    const extraClose = await call(space, "POST", `/v1/accounts/${acc.id}/close`, {
+      closedOn: TODAY,
+      settlement: { kind: "adjustment", amount: "430" },
+    });
+    for (const r of [extra, num, extraClose]) expect(r.statusCode).toBe(400);
+    expect((await entries(space.householdId)).map((e) => e.event_type)).toEqual(["opening-balance"]);
   });
 });

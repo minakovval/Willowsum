@@ -60,9 +60,9 @@ describe("BUD-02@PoC: the calendar month", () => {
     expect(periodMode("2026-12", "2026-11-30")).toBe("future");
   });
 
-  it("BUD-02@PoC FR 5 (server part): the first period is the current month or the next one", () => {
+  it("BUD-02@PoC FR 5: the first period is the current month or the next one; on the 1st of a month — the current one", () => {
     expect(firstPeriodChoices("2026-11-18")).toEqual(["2026-11", "2026-12"]);
-    expect(firstPeriodChoices("2026-12-01")).toEqual(["2026-12", "2027-01"]);
+    expect(firstPeriodChoices("2026-12-01")).toEqual(["2026-12"]);
   });
 
   it("BUD-02@PoC FR 11: every finished period since the first one without a snapshot gets one; the current never", () => {

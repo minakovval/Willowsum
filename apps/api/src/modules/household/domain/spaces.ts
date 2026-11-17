@@ -22,10 +22,14 @@ export function firstSpaceName(displayName: string): string {
   return [...name].slice(0, SPACE_NAME_MAX).join("");
 }
 
-/** Control characters, line and paragraph separators, bidi embedding/override/isolate controls. */
-const FORBIDDEN_IN_NAME = /[\p{Cc}\p{Zl}\p{Zp}\u202A-\u202E\u2066-\u2069]/u;
-/** Whitespace and format characters (zero-width space, joiners, word joiner): not visible on their own. */
-const INVISIBLE = /[\s\p{Cf}]/u;
+/** Control characters, line and paragraph separators, bidi marks, embedding/override/isolate controls and tag characters (#200). */
+const FORBIDDEN_IN_NAME =
+  /[\p{Cc}\p{Zl}\p{Zp}\u200E\u200F\u061C\u202A-\u202E\u2066-\u2069\u{E0000}-\u{E007F}]/u;
+/**
+ * Whitespace, format characters (zero-width space, joiners, word joiner), combining marks and variation selectors, and the
+ * blank letters Hangul filler U+3164 and Braille blank U+2800: not visible on their own (#200).
+ */
+const INVISIBLE = /[\s\p{Cf}\p{M}\u3164\u2800\u115F\u1160]/u;
 
 /**
  * A new name of a space (ACC-08@PoC FR 5, AC5): NFC, without leading or trailing whitespace, 1–60 characters

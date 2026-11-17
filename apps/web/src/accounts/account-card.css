@@ -1,0 +1,257 @@
+/* S-053 «Картка рахунку» (canvas PocMoneyAccount). Tokens only; shares the heading, captions and errors of accounts.css. */
+
+/*
+ * GRID-02@PoC FR 2: header | «Баланс» 8 + «Інформація» 4 | «Транзакції» 8 + «Регулярні платежі» 4 on the 12 columns of
+ * Expanded; on the narrower classes (not in PoC, П-25) every card takes the whole width.
+ */
+.acard-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  gap: var(--ws-gutter);
+  align-items: start;
+}
+
+.acard-grid > * {
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 1024px) {
+  .acard-grid > .acard-balance,
+  .acard-grid > .acard-tx {
+    grid-column: span 8;
+  }
+
+  .acard-grid > .acard-info,
+  .acard-grid > .acard-recurring {
+    grid-column: span 4;
+  }
+
+  .acard-grid > .acard-balance,
+  .acard-grid > .acard-info {
+    align-self: stretch;
+  }
+}
+
+.acard-grid p,
+.acard-grid h2 {
+  margin: 0;
+}
+
+.acard-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.acard-grid .accounts-total {
+  margin-block: var(--ws-space-3) 0;
+  font-family: var(--ws-text-amount-xl-family);
+  font-size: var(--ws-text-amount-xl-size);
+  line-height: var(--ws-text-amount-xl-line);
+  font-weight: var(--ws-text-amount-xl-weight);
+  font-variant-numeric: tabular-nums;
+}
+
+.acard-currencies {
+  display: grid;
+  gap: var(--ws-space-1);
+  margin: var(--ws-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acard-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  margin-block-end: var(--ws-space-2);
+}
+
+/* «Інформація» and the payments: a label on the left, the value on the right, a hairline between rows. */
+.acard-facts {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.acard-facts > div,
+.acard-facts > li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding-block: var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.acard-facts > li:last-child {
+  border-block-end: 0;
+}
+
+.acard-facts dd {
+  margin: 0;
+  text-align: end;
+}
+
+.acard-rows {
+  display: grid;
+}
+
+.acard-all {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--ws-space-2);
+  padding-block-start: var(--ws-space-2);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.acard-empty {
+  padding-block: var(--ws-space-4);
+}
+
+.acard-error {
+  margin-block-start: var(--ws-space-2);
+}
+
+/*
+ * S-055 «Закрити рахунок» (canvas PocMoneyCloseAcc) inside the CMP-21 dialog: the date beside «Залишок на цю дату»,
+ * then the options as cards — the chosen one with a 2 px `brand-2` border on `tint-info`.
+ */
+.aclose-date-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ws-space-3);
+  align-items: end;
+}
+
+.aclose-balance,
+.abal-now,
+.abal-diff {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+}
+
+.aclose-balance {
+  min-height: calc(var(--ws-touch-target) - var(--ws-space-1));
+  box-sizing: border-box;
+  padding-block: 0;
+}
+
+.aclose-balance b,
+.abal-now b,
+.abal-diff b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.aclose-balance .ws-skeleton {
+  flex: 0 0 var(--ws-space-8);
+}
+
+.aclose-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.aclose-options legend {
+  padding: 0 0 var(--ws-space-2);
+}
+
+.aclose-option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.aclose-option[data-checked] {
+  border-color: var(--ws-brand-2);
+  box-shadow: inset 0 0 0 1px var(--ws-brand-2);
+  background: var(--ws-tint-info);
+}
+
+.aclose-option-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  cursor: pointer;
+}
+
+.aclose-option-head input {
+  margin: var(--ws-space-1) 0 0;
+  accent-color: var(--ws-brand-2);
+}
+
+.aclose-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-1);
+}
+
+.aclose-option-body b {
+  font-weight: 600;
+}
+
+.aclose-error p {
+  margin: 0;
+}
+
+/* The account line sits right under the title (board: 8 px below it, 13 px muted), not a body gap away. */
+.abal-subtitle {
+  margin: calc(var(--ws-space-2) - var(--ws-space-5)) 0 0;
+  font-size: var(--ws-text-label-size);
+}
+
+/* S-055a «Оновити залишок» (canvas PocMoneyAccBalance): the difference in a dashed box, the import note below. */
+.abal-now {
+  background: var(--ws-surface-300);
+}
+
+.abal-diff {
+  background: transparent;
+  border: 1px dashed var(--ws-border-control);
+}
+
+.abal-note {
+  display: flex;
+  gap: var(--ws-space-3);
+  margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+}
+
+.abal-note .ws-icon {
+  flex: none;
+  color: var(--ws-brand-2);
+}
+
+/* «…» «Ще дії» sits in the row of the heading actions (canvas PocMoneyAccount), not on a line of its own. */
+.accounts-head-actions > .ws-menu-root {
+  width: auto;
+}
+
+/* The radio of an option: 16 px (`space-4`; the board draws 18 px, no token for it). */
+.aclose-option-head input {
+  inline-size: var(--ws-space-4);
+  block-size: var(--ws-space-4);
+  flex: none;
+}

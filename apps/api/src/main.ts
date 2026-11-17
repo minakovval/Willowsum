@@ -19,6 +19,7 @@ import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
   createCategorizationCategoryUsage,
+  categorizationRulePorts,
   createCategorizationServices,
   createTransactionCategories,
 } from "./modules/categorization/index.ts";
@@ -47,7 +48,9 @@ import {
   createTransactionCategoryUsage,
   createTransactionHistory,
   createTransactionLookup,
+  createTransactionRuleInputs,
   createTransactionTexts,
+  createTransactionPendingPostings,
   createTransactionWalletUsage,
   createTransactionsServices,
   createTransferCandidates,
@@ -224,6 +227,14 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
               walletUsage: [createTransactionWalletUsage(databases.for("transactions"))],
+              // FIN-01 EC4: a closing first finishes the account's transactions still in the transactions queue.
+              pendingPostings: [
+                createTransactionPendingPostings(databases.for("transactions"), {
+                  accounts: createAccountDirectory(databases.for("accounts")),
+                  ledger: createLedger(databases.for("ledger")),
+                  audit,
+                }),
+              ],
             }),
             // FIN-03: a transaction is one journal event on the account's subaccount (accounts' directory); the
             // list totals convert at the official rate of each transaction's date (DAT-01, fx-rates); split parts
@@ -253,6 +264,8 @@ const server = buildServer({
                 ),
               // FIN-03 FR 18: only a «Можливий дубль» is hidden, by duplicate-matching's rule.
               duplicates: createDuplicateCheck(),
+              // BUD-12 FR 7: «Підтвердити» on a card whose category was changed elsewhere is refused.
+              categoryOf: createTransactionCategories(databases.for("categorization")),
             }),
             // FIN-03 FR 12: «Можливий дубль» pairs from the space's transactions.
             duplicateMatching: createDuplicateMatchingServices({
@@ -277,6 +290,12 @@ const server = buildServer({
                 newId: randomUUID,
               }),
               audit,
+              // BUD-14 b: the category rules read the accounts, the merchants and the transactions' rule inputs.
+              rules: categorizationRulePorts({
+                accounts: createAccountDirectory(databases.for("accounts")),
+                merchants: createMerchantDirectory(databases.for("merchants")),
+                inputs: createTransactionRuleInputs(databases.for("transactions")),
+              }),
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the
@@ -328,6 +347,10 @@ const server = buildServer({
                 audit,
                 newId: randomUUID,
               }),
+              // BUD-07 b: a charge is matched by its category (categorization), in another currency at the rate of
+              // its date (fx-rates).
+              transactionCategories: createTransactionCategories(databases.for("categorization")),
+              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               audit,
               clock: systemClock,
               newId: randomUUID,
@@ -379,7 +402,7 @@ lifecycle.onStop(() => server.close());
 // It holds no state of its own: jobs and leases are in the database. On stop, interrupted jobs go back to the queue.
 if (config.role === "worker") {
   const worker = createWorker({
-    ...workerQueues(databases),
+    ...workerQueues(databases, flags),
     households: () => spaces.spaceIds(),
     moduleAvailable: (module) => flags.isModuleAvailable(module),
   });
@@ -442,7 +465,7 @@ if (config.role === "scheduler") {
   lifecycle.onStop(() => fx.stop());
 }
 
-await server.listen({ host: "0.0.0.0", port: config.port });
+await server.listen({ host: config.host, port: config.port });
 logEvent("process.started", "info", { "ws.role": config.role });
 /**
  * Lifecycle lines written directly to stdout, outside telemetry: «stopped» comes after telemetry has stopped.

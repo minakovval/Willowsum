@@ -1,0 +1,23 @@
+{
+  "PoC/FR 1": "7ae95b4381a8aea4",
+  "PoC/FR 2": "19fc19d2e58198da",
+  "PoC/FR 3": "5cf772117f7cb81e",
+  "PoC/FR 4": "e82eb66c5a65de53",
+  "PoC/FR 5": "925f9f90a18e1656",
+  "PoC/AC 1": "8d09651512ab483b",
+  "PoC/AC 2": "b2e54bb9d84de389",
+  "PoC/AC 3": "7b8aa8aae9c4ccd4",
+  "PoC/AC 4": "5b3e7099949a4b32",
+  "PoC/AC 5": "6b4296296a303a82",
+  "PoC/EC 1": "7cee12e90369f064",
+  "PoC/EC 2": "bf160d2e5ce17382",
+  "PoC/EC 3": "9b14ff5eaece6f4e",
+  "PoC/EC 4": "13ede69878277020",
+  "PoC/EC 5": "338964fc35b6de50",
+  "MVP/FR 3": "e6b661d44b63d22c",
+  "MVP/AC 2": "b2e54bb9d84de389",
+  "MVP/AC 6": "5b3e7099949a4b32",
+  "MVP/EC 2": "9b14ff5eaece6f4e",
+  "MVP/EC 3": "13ede69878277020",
+  "MVP/EC 4": "338964fc35b6de50"
+}

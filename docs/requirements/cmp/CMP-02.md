@@ -30,7 +30,8 @@
 - [MVP] Спільні правила: П-13, П-16, DS-06, DS-10, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: —
+- [лише PoC] Перевіряється: packages/ui/src/field/Field.test.tsx, packages/ui/src/field/Field.css.test.ts, packages/ui/src/field/amount.test.ts, apps/web/src/gallery.test.tsx, packages/ui/src/field/DateField.test.tsx
+- [MVP] Перевіряється: —
 
 **Мета.** Як користувач, я хочу вводити текст і суми в поля з чіткою назвою і зрозумілою помилкою, щоб швидко заповнювати форми без здогадок.
 

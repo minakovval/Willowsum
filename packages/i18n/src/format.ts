@@ -1,4 +1,5 @@
 import { languageOf, type Locale } from "./languages.ts";
+import { pseudoLocalize } from "./pseudo.ts";
 import { translate } from "./translate.ts";
 import type { MessageKey } from "./types.ts";
 
@@ -309,18 +310,22 @@ export function formatDelta(locale: Locale, input: DeltaInput): FormattedDelta {
 
 /**
  * DS-04 FR 13: the mask of an account, card or document number — two middle dots (U+00B7) and the
- * last 4 digits, no space: «··4417». Spaces and dashes in the number are ignored; nothing else is
- * shown, whatever the number's length.
+ * last 4 characters, no space: «··4417». An IBAN-like number may end in letters: «··AB12» (the
+ * characters as they are; owner decision docs/decisions/log/2026-11-16-owner-answers-387-388-381.md).
+ * Spaces and dashes in the number are ignored; nothing else is shown, whatever the number's length.
  */
 export function maskNumber(number: string): string {
-  const digits = number.replace(/[\s-]/g, "");
-  if (!/^\d{4,}$/.test(digits)) throw new RangeError("A masked number needs at least 4 digits");
-  return `\u00B7\u00B7${digits.slice(-4)}`;
+  const chars = number.replace(/[\s-]/g, "");
+  if (!/^[0-9A-Za-z]{4,}$/.test(chars))
+    throw new RangeError("A masked number needs at least 4 letters or digits");
+  return `\u00B7\u00B7${chars.slice(-4)}`;
 }
 
 /**
  * A calendar date (`YYYY-MM-DD`, no time zone: a transaction, a payment): «26 жовт. 2026 р.» (uk),
- * «26 Oct 2026» (en). Formatted as written, so it never moves to another day.
+ * «26 Oct 2026» (en). Formatted as written, so it never moves to another day. In the pseudo-locale (NFR-09@PoC
+ * FR 2) the month name is marked like a message («[26 Ôçţ 2026 ~]»), so a date shown through this function is told
+ * apart from a hard-coded text.
  */
 export function formatDate(locale: Locale, isoDate: string): string {
   const m = CALENDAR_DATE.exec(isoDate);
@@ -329,12 +334,13 @@ export function formatDate(locale: Locale, isoDate: string): string {
   const at = new Date(Date.UTC(year, month - 1, day));
   if (at.getUTCFullYear() !== year || at.getUTCMonth() !== month - 1 || at.getUTCDate() !== day)
     throw new RangeError("No such calendar date");
-  return new Intl.DateTimeFormat(formatLocaleOf(locale), {
+  const text = new Intl.DateTimeFormat(formatLocaleOf(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
   }).format(at);
+  return languageOf(locale).status === "pseudo" ? pseudoLocalize(text) : text;
 }
 
 /**

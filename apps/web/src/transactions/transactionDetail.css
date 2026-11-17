@@ -1,0 +1,136 @@
+/* FIN-03@PoC d): S-047 «Деталь транзакції» — canvas PocMoneyTxDetail, PocMoneyTxDetailNoReceipt. Tokens only (DS-06, DS-09). */
+.txd {
+  display: grid;
+  gap: var(--ws-space-4);
+  margin-block-start: var(--ws-space-4);
+}
+
+.txd p,
+.txd h1 {
+  margin: 0;
+}
+
+/* The heading: initials, the counterparty with the line under it, the amount, «…» and «✕». */
+.txd-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  padding-block-end: var(--ws-space-4);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.txd-title {
+  display: grid;
+  flex: 1;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+}
+
+/* The menu «…» keeps the size of its button (the shell's menu root takes the whole width). */
+.txd-head > .ws-menu-root {
+  flex: none;
+  width: auto;
+}
+
+.txd-name {
+  overflow-wrap: anywhere;
+}
+
+.txd-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
+.txd-amount {
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* «Категорія», «Опис»: the label on the left, the value beside it, a hairline between rows (the board's rows). */
+.txd-facts {
+  display: grid;
+  margin: 0;
+}
+
+.txd-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 3fr);
+  gap: var(--ws-space-4);
+  padding-block: var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.txd-facts dt {
+  color: var(--ws-ink-muted);
+}
+
+.txd-facts dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.txd-actions {
+  display: flex;
+  gap: var(--ws-space-3);
+}
+
+.txd-state,
+.txd-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+}
+
+.txd-error-title {
+  color: var(--ws-loss);
+  font-weight: 600;
+}
+
+/* «Історія змін»: the entries oldest first, each with its lines. */
+.txd-history {
+  display: grid;
+  gap: var(--ws-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.txd-history p,
+.txd-history ul {
+  margin: 0;
+}
+
+.txd-history ul {
+  padding-inline-start: var(--ws-space-4);
+}
+
+.txd-history-head {
+  font-weight: 600;
+}
+
+/* The board's menu keeps each item on one line («Приховати транзакцію») and grows to its longest item. */
+.txd-head .ws-menu {
+  width: max-content;
+}
+
+.txd-head .ws-menu-label {
+  white-space: nowrap;
+}
+
+/* «Історія змін»: the heading with the link back to the transaction. */
+.txd-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}

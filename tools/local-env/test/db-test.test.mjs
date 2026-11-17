@@ -10,6 +10,7 @@ import {
   isTestDbName,
   psqlConnection,
   redactUrl,
+  isLocalAdminUrl,
   resolveServer,
   sanitizeTag,
   testDbName,
@@ -59,4 +60,43 @@ test('server: WS_TEST_PG_ADMIN_URL wins, else the local:up stack with Docker, el
   const none = resolveServer({ env: {}, docker: false });
   assert.equal(none.kind, 'none');
   assert.match(none.message, /WS_TEST_PG_ADMIN_URL/);
+});
+
+test('#363: WS_TEST_PG_ADMIN_URL must be this machine; another host or a host override is refused', () => {
+  for (const ok of ['postgres://postgres@127.0.0.1:5432/postgres', 'postgres://u:p@localhost/postgres', 'postgres://u@[::1]/x', 'postgres:///x?host=/var/run/postgresql'])
+    assert.equal(isLocalAdminUrl(ok), true, ok);
+  for (const bad of ['postgres://u@db.example.com/x', 'postgres://u@127.0.0.1/x?host=evil.example.com', 'postgres://u@127.0.0.1/x?hostaddr=10.0.0.5', 'postgres:///x?host=/tmp/../../evil', 'postgres:///x?host=/tmp,evil', 'postgres:///x', ' postgres://127.0.0.1/x', 'postgres://0.0.0.0/x'])
+    assert.equal(isLocalAdminUrl(bad), false, bad);
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: 'postgres://u@db.example.com/x' }, docker: true }).kind, 'none');
+});
+
+// sec429: psql (libpq) has no URL fragment: everything after `?` is parameters, also behind a `#`, so
+// `…/postgres#?host=<other>` connects to <other> while `new URL` sees 127.0.0.1 and an empty query.
+test('sec429: a URL with a fragment is refused (libpq reads ?host= behind the #)', () => {
+  for (const bad of ['postgres://u@127.0.0.1:5432/postgres#?host=db.example.com', 'postgres:///x?host=/var/run/postgresql#&host=db.example.com', 'postgres://u@127.0.0.1/x#'])
+    assert.equal(isLocalAdminUrl(bad), false, bad);
+});
+
+test('sec429: socket form — a host name, a repeated host and hostaddr are refused (mutation survivors)', () => {
+  for (const bad of ['postgres:///x?host=db.example.com', 'postgres:///x?host=/tmp&host=db.example.com', 'postgres:///x?host=db.example.com&host=/tmp', 'postgres:///x?host=/tmp&hostaddr=10.0.0.5'])
+    assert.equal(isLocalAdminUrl(bad), false, bad);
+});
+
+// #452: PGHOSTADDR / PGSERVICE in the environment send libpq to another host whatever the URL says.
+test('#452: PGHOSTADDR or PGSERVICE in the environment refuses an otherwise local URL', () => {
+  const url = 'postgres://u@127.0.0.1:5432/postgres';
+  assert.equal(isLocalAdminUrl(url, {}), true);
+  assert.equal(isLocalAdminUrl(url, { PGHOSTADDR: '10.0.0.5' }), false);
+  assert.equal(isLocalAdminUrl(url, { PGSERVICE: 'remote' }), false);
+  assert.equal(isLocalAdminUrl('postgres:///x?host=/tmp', { PGHOSTADDR: '10.0.0.5' }), false);
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url, PGSERVICE: 'remote' }, docker: false }).kind, 'none');
+  assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url }, docker: false }).kind, 'url');
+});
+
+// Security review of #456: `service=` in the URL reads a pg_service.conf entry whose hostaddr / port win over the
+// URL's own host in psql (libpq) — seen: `postgres://…@127.0.0.1:5432/postgres?service=remote` connects elsewhere.
+test('sec456: a URL that names a service is refused, with a host and in the socket form', () => {
+  for (const bad of ['postgres://u@127.0.0.1:5432/postgres?service=remote', 'postgres://u@localhost/postgres?service=remote', 'postgres:///x?host=/tmp&service=remote', 'postgres://u@127.0.0.1/postgres?%73ervice=remote'])
+    assert.equal(isLocalAdminUrl(bad, {}), false, bad);
+  assert.equal(isLocalAdminUrl('postgres://u@127.0.0.1:5432/postgres?sslmode=disable', {}), true);
 });

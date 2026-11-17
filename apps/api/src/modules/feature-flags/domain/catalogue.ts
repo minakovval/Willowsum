@@ -20,6 +20,14 @@ export type FlagKind = (typeof FLAG_KINDS)[number];
 /** Days a release flag may stay fully enabled before it must be removed from the code (CICD-06 FR 2). */
 export const FULL_ROLLOUT_MAX_DAYS = 30;
 
+/**
+ * The shape of a stored flag key: the CHECK on `feature_flags.flags.key` (migration 0002_flag_key_underscore.sql).
+ * Keys are the plan-catalog feature keys from the requirements, dot-separated parts that may contain «-» and «_»
+ * (`data.bulk_actions`). `check:flags` fails for a flag whose key the table would reject.
+ */
+export const FLAG_KEY_PATTERN = /^[a-z][a-z0-9_-]*(\.[a-z][a-z0-9_-]*)*$/;
+export const FLAG_KEY_MAX_LENGTH = 100;
+
 const isoDate = z.iso.date();
 
 export const flagDefinition = z
@@ -120,6 +128,22 @@ export const FLAGS = {
     description:
       "Розділення транзакції (BUD-13@PoC, FIN-03@PoC b): за категоріями і на кілька місяців; /v1/transactions/{id}/split",
   },
+  "transactions.review": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-16",
+    requires: "transactions.manual",
+    description:
+      "Розбір транзакцій (BUD-12@PoC a): черга «До розбору», «Підтвердити» і «Відмінити», лічильник; /v1/transaction-review, /v1/transactions/{id}/review/confirm, /reopen, масова дія «Підтвердити категорії»",
+  },
+  "transactions.history": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-17",
+    requires: "transactions.manual",
+    description:
+      "«Історія змін» транзакції (FIN-03@PoC п. 27): записи журналу аудиту транзакції і її категорії; /v1/transactions/{id}/history",
+  },
   "categories.tree": {
     kind: "release",
     owner: "product-owner",
@@ -141,6 +165,22 @@ export const FLAGS = {
     requires: "transactions.manual",
     description:
       "Мерчанти (BUD-14@PoC a): мерчант транзакції з опису банку, «Оригінальний опис», «Канал», перейменування, «Об'єднати з…», «Роз'єднати»; маршрути /v1/merchants, /v1/transactions/{id}/merchant",
+  },
+  "categorization.rules": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-15",
+    requires: "transactions.merchants",
+    description:
+      "Правила категорій (BUD-14@PoC b): умови, пріоритет, «Увімкнено», «Потребує уваги», «Показати»; нові транзакції проходять правила; маршрути /v1/category-rules",
+  },
+  "categorization.suggestions": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-17",
+    requires: "categorization.rules",
+    description:
+      "Підказки категорії форми «Нова транзакція» (FIN-03@PoC FR 30, FR 31): категорія за правилом або «як раніше», «Часто для <мерчанта>», «Нещодавні»; маршрут /v1/category-suggestions",
   },
   "recurring.payments": {
     kind: "release",

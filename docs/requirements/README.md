@@ -1,6 +1,6 @@
 # Product requirements / Вимоги до продукту
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-13
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
 
 **English.** This folder is the single source of truth for Willowsum product requirements. It is a
 versioned copy of the product specification: one file per requirement, plus
@@ -68,6 +68,28 @@ A card's link header has only «Зрізи» (its slices, in release order, matc
 
 **Self-contained text.** Requirement IDs may appear only in the link header. The body of a card or a
 slice stays self-contained: no other requirement IDs (the checker enforces it).
+
+## Detail only the current release
+
+Owner, 2026-11-16 (relayed from the audit session): «Агенти витрачають токени на читання - значить мають читати лише
+ту версію, до якої відносяться», «Тексти інтерфейсу живуть у двох місцях - треба узгодженний сорс оф трус»
+([log](../decisions/log/2026-11-16-owner-requirements-and-texts.md)). Рішення ведучого (2026-11-16; власник не
+схвалював; same log): the rules below; why: agents read only what their release needs, and UI texts have one home.
+
+- Full detail (FR, AC, EC, states) only for the **current release** (now PoC). A later release gets 1–2 sentences:
+  what and why; no FR, AC, states or texts.
+- A release is detailed when it becomes current, in one batch PR (`change-requirement`) before `plan-wave` plans its
+  first wave.
+- Details of later releases already written are not deleted or rewritten, only not maintained; where one
+  contradicts the current release, mark it «переглянути при деталізації».
+- Agents read only the view of their release; another release only through a direct link the task gives.
+- **No UI texts in requirements.** A requirement states the behaviour and points to the screen or element
+  («кнопка підтвердження на S-050 (текст — канва)»); for a legal or product text it says that such a text must exist
+  and what it conveys. The wording lives on the canvas: `docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва —
+  єдине джерело». Texts already in requirements move to the canvas when a PR first touches their screen (no mass
+  move).
+- Until stages 1–3 are done, no new PoC requirement: `.claude/skills/pr-pipeline/SKILL.md` §2, «PoC requirements
+  freeze».
 
 ## Source and generated release views
 
@@ -152,6 +174,35 @@ header below, then the selected lines. Apart from line 2, a view is byte for byt
 | `node tools/req-check/index.mjs --convert <ID\|all>` | Turn a card and its slice files into a source; written only when every view round-trips byte for byte, otherwise the requirement keeps its card and slice files and is listed as an exception |
 | `node tools/req-check/index.mjs --move <ID> --items FR4,AC5 --to "PoC v2" [--from PoC]` | Move items (numbered as in the `--from` view, default the first) so that they start in the target release: changes the tags of the item and its continuation lines, regenerates the views, prints the changed views, the dependents (`--impact` of each changed slice), the mentions of the items' «…» phrases elsewhere and any item now beside a variant of itself. It also warns about the items whose number changed in a view and every citation of such a number (`FR 15`, `AC 3`) in the same source and in tests and docs (`BUD-12@PoC FR 15`), and about the moved items' phrases still used in other items of the same source; fix each in the same PR. The target view must exist; add a new release by hand first («Зрізи», the card's «Реліз» line and table, the release and «Розширює» lines of the slice text) |
 | `node tools/req-check/index.mjs --coverage` | Per-item and per-release coverage: tests named by item (`ACC-01 FR 12`, `UX-09@PoC AC7`, `BUD-16 EC2`; `item n` = FR, `criterion n` = AC) are mapped to items of the views. An item of a source is one source line, so a test of PoC FR 3 also covers that item in every later view that keeps the line, whatever its number there. A plain ID means the release named for it elsewhere in the test file, else its first slice. Without a «Функціональні вимоги» label, FR n is item n of the first numbered list |
+| `node tools/req-check/index.mjs --check-fingerprints [--require-fingerprints]` | Fail when an item's text changed since its fingerprint was written (see «Text fingerprints» below), naming the requirement, the item (at its source line), the tests in its view's «Перевіряється» and the tests that name it. Also fails on an entry for an item the views no longer have and on a malformed fingerprints file. An item without an entry is not an error; with `--require-fingerprints` an item a test names without one is (CI turns this on with the initial fingerprints, owner decision item 9) |
+| `node tools/req-check/index.mjs --update-fingerprints <ID> [items…]` | After re-checking the tests and code against the text, rewrite `<ID>.fingerprints.json`. Items: `"PoC/FR 3"` (one view) or `FR3` (every view that has it), each written even when no test names it. Without items: every item a test names plus every item that already has an entry, so every changed item of the requirement is accepted at once; entries of items the views no longer have are removed. It prints the items whose text had changed and that it now marks re-checked: check that list against what you re-checked |
+
+**Text fingerprints** (owner decision 2026-11-16, items 6–8). `<ID>.fingerprints.json` next to the source
+`<ID>.md` (one file per requirement, so parallel branches rarely conflict) maps each item key to the hash of the
+item's text when its tests and code were last checked against it:
+
+```json
+{
+  "PoC/FR 2": "3f9c0a1b2c3d4e5f",
+  "PoC/AC 1": "0a1b2c3d4e5f6a7b",
+  "PoC v2/FR 2": "3f9c0a1b2c3d4e5f"
+}
+```
+
+- Key: release and item label as in that view (`PoC/FR 3`, `PoC v2/AC 1`, `MVP/EC 2`); sorted by release (build
+  order), kind (FR, AC, EC) and number; one item per line. The file is written only by `--update-fingerprints`;
+  a hand-edited file out of this form fails the check.
+- Value: the first 16 hex digits of the SHA-256 of the item's normalised text in the view: the item line and its
+  indented continuation lines, without the list marker (`3. `, `- `), in Unicode NFC, every run of whitespace
+  (line breaks and indentation included) read as one space, trimmed. Release tags are not in the views, so
+  retagging a line changes nothing; a change of words, numbers or punctuation does. A renumbered item has a new
+  key, so its old and new numbers both need a re-check.
+- Only requirements with release views have fingerprints (plain, not yet migrated files are not checked).
+- CI (job `requirements`) runs `--check-fingerprints --require-fingerprints`. A PR that changes a requirement's fingerprints needs the
+  body section `## Why the tests and code still match` (the description check) unless, for each such
+  requirement, a changed test or code file (under `apps/`, `packages/`, `tools/`, `infra/`, Markdown aside)
+  names its ID in the diff; an unrelated code change does not count. A fingerprints file alone needs no owner
+  decision.
 
 **Rollback.** The last commit in the card plus slice files format is on branch
 `claude/adoring-cray-feh4dh-requirements-format-v1` (5f563b03e90ef636e5aaab624b6ed5e2100d3efb). To roll back
@@ -183,7 +234,8 @@ Run locally before pushing: `node --test tools/req-check`, `node tools/req-check
 and `node tools/req-check/index.mjs --check-mentions` (a test named by an item its view does not have, e.g.
 `CICD-06@PoC AC3` where the view has only FR 1–3, fails CI with its file and line; name a table criterion by its
 words, «criterion «CSP без небезпечних джерел»»; a fixture line in the checker's own tests carries the marker
-`req-check-ignore-mention`).
+`req-check-ignore-mention`), and `node tools/req-check/index.mjs --check-fingerprints` (an item whose text changed
+since its fingerprint; see «Text fingerprints»).
 CI jobs: `requirements` (these checks), `traceability` (PR title starts with a requirement ID), `web`, `secrets`,
 `local-env`, `api`, `infra`.
 
@@ -246,14 +298,14 @@ requirement is kept in the README of that module.
 | INT | [int/](int/README.md) | Open data access (API) | 1 | v2 1 |
 | PLN | [pln/](pln/README.md) | Long-term forecast, retirement modelling, estate planning | 3 | v2 3 |
 | ADV | [adv/](adv/README.md) | Financial adviser workspace (B2B) | 7 | v2 7 |
-| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 17, PoC v2 1, v1-mobile 1 |
+| NFR | [nfr/](nfr/README.md) | Non-functional requirements: security, compliance, availability, performance, DoD | 19 | PoC 15, MVP 2, PoC v2 1, v1-mobile 1 |
 | DS | [ds/](ds/README.md) | Design system foundations: principles, brand, tokens, charts, status dictionary | 23 | PoC 16, PoC v2 1, MVP 6 |
 | CMP | [cmp/](cmp/README.md) | UI components (one requirement per component) | 74 | PoC 40, MVP 26, v1 3, PoC v2 5 |
 | FLW | [flw/](flw/README.md) | End-to-end user flows | 58 | PoC 11, MVP 28, v1 5, v2 9, PoC v2 5 |
 | JRN | [jrn/](jrn/README.md) | User journeys | 9 | PoC 2, MVP 3, v2 2, n/a 2 |
 | SCR | [scr/](scr/README.md) | Screen inventory and screen rules | 2 | n/a 2 |
 | ARC | [arc/](arc/README.md) | Architecture requirements | 11 | PoC 9, PoC v2 2 |
-| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 9, MVP 2, v1-mobile 1 |
+| CICD | [cicd/](cicd/README.md) | CI/CD and operations requirements | 12 | PoC 6, MVP 5, v1-mobile 1 |
 | PRC | [prc/](prc/README.md) | Engineering and delivery process: requirement process (release slices, links, traceability), change process and impact analysis | 2 | PoC 2 |
 
 ## Folders

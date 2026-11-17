@@ -123,6 +123,23 @@ export type paths = {
         patch: operations["updateAccountDetails"];
         trace?: never;
     };
+    "/v1/accounts/{accountId}/display": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** «Обране»: set or clear the star of the account, a display flag — also on a closed account (FIN-01 FR 20, FIN-12 FR 8) */
+        patch: operations["updateAccountDisplay"];
+        trace?: never;
+    };
     "/v1/accounts/{accountId}/reopen": {
         parameters: {
             query?: never;
@@ -169,6 +186,23 @@ export type paths = {
         post?: never;
         /** Removes a currency (wallet) without transactions from an account; the main currency and one with transactions stay (IMP-02 FR 15) */
         delete: operations["removeAccountWallet"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/accounts/banks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Banks of the built-in NBU directory whose name contains the text (all of them for an empty text) */
+        get: operations["searchBanks"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -293,6 +327,23 @@ export type paths = {
         head?: never;
         /** Set, change or remove limits and change the income plan — from the current period on (FR 7, FR 8, AC4) */
         patch: operations["updateBudgetPlan"];
+        trace?: never;
+    };
+    "/v1/budget/wizard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The budget wizard: the start choices and the proposal «Створити за моїми витратами» (FR 2, FR 3, FR 14; AC1, AC15) */
+        get: operations["getBudgetWizard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/bulk-actions": {
@@ -466,6 +517,92 @@ export type paths = {
         head?: never;
         /** «Перейменувати» a group; a system group shows its new name (FR 2, FR 3) */
         patch: operations["renameCategoryGroup"];
+        trace?: never;
+    };
+    "/v1/category-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Правила категорій»: the space's rules in priority order, «Потребує уваги», «Застосовано: N» (BUD-14 FR 4) */
+        get: operations["listCategoryRules"];
+        put?: never;
+        /** «Зберегти правило» of «Нове правило»: the lowest priority; applies to new transactions only (BUD-14 FR 4, FR 7) */
+        post: operations["createCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-rules/{ruleId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** «Змінити правило» and «Увімкнено»: new transactions follow the change, past ones keep their categories (BUD-14 FR 4, FR 7) */
+        patch: operations["updateCategoryRule"];
+        trace?: never;
+    };
+    "/v1/category-rules/{ruleId}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «#» drag, «Вище» / «Нижче»: the rule takes the position, 1 — the highest priority; past categories stay (BUD-14 FR 4, AC14) */
+        post: operations["moveCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-rules/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Показати» and «Застосувати до N наявних транзакцій, що підходять»: the existing transactions the conditions match; nothing changes (BUD-14 FR 7) */
+        post: operations["matchCategoryRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/category-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Нова транзакція» step 2: the category for the counterparty, «Часто для <мерчанта>» or «Нещодавні», and each known merchant's category (FIN-03 FR 30, FR 31) */
+        get: operations["getCategorySuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/debts": {
@@ -967,6 +1104,74 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/recurring/payments/{paymentId}/charges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A regular payment's charges with their statuses, newest first, through the next one (BUD-07 FR 8–12, FR 20, FR 21) */
+        get: operations["listRecurringCharges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/charges/{dueOn}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Зарахувати за <місяць>»: a transaction no charge took pays an overdue or skipped charge — «Сплачено із запізненням» (BUD-07 FR 20, AC14) */
+        post: operations["settleRecurringCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/charges/{dueOn}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Позначити пропущеним»: an overdue charge becomes «Пропущено» and is no longer matched by itself (BUD-07 FR 21, AC16) */
+        post: operations["skipRecurringCharge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/payments/{paymentId}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Залишити»: a payment «Можливо, скасований» stays; its misses are counted anew from today (BUD-07 FR 10, AC4) */
+        post: operations["keepRecurringPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/recurring/proposals": {
         parameters: {
             query?: never;
@@ -1012,6 +1217,23 @@ export type paths = {
         put?: never;
         /** «Не регулярний»: the series is not proposed again (BUD-07 FR 4) */
         post: operations["rejectRecurringProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/recurring/statuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The status of each regular payment: «Можливо, скасований», the expected amount now and its change, the latest and the next charge (BUD-07 FR 8–12) */
+        get: operations["listRecurringStatuses"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1156,6 +1378,23 @@ export type paths = {
         patch: operations["renameSpace"];
         trace?: never;
     };
+    "/v1/transaction-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The counter of «До розбору»: on «Транзакції» in the side menu (none when 0) and on the tab «До розбору · N» (BUD-12 FR 2, AC9) */
+        get: operations["getTransactionReviewCount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transaction-tags": {
         parameters: {
             query?: never;
@@ -1280,6 +1519,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/{transactionId}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Історія змін» in the details: what the audit log recorded about the transaction and its category, oldest first; free text masked (FIN-03 FR 20, FR 27) */
+        get: operations["getTransactionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transactions/{transactionId}/merchant": {
         parameters: {
             query?: never;
@@ -1326,6 +1582,40 @@ export type paths = {
         put?: never;
         /** «Не дубль»: the «Можливий дубль» mark is taken off the pair and never put on it again (FIN-03 FR 12); a side hidden as a duplicate with no other pair left is shown again (FR 35) */
         post: operations["dismissDuplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions/{transactionId}/review/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Підтвердити» on a card of «До розбору»: the category is confirmed (who and when — in the audit log) and the transaction leaves the queue; a confirmed one — nothing (BUD-12 FR 4, FR 7) */
+        post: operations["confirmTransactionReview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/transactions/{transactionId}/review/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Відмінити» of a confirmation: the transaction is back in «До розбору» with its previous state; one in the queue — nothing (BUD-12 FR 6) */
+        post: operations["reopenTransactionReview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1402,6 +1692,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Переказ між рахунками»: a transfer between two own accounts in one action — the debit, the credit and one journal event (FIN-03 FR 1, FR 28) */
+        post: operations["createTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transfer-proposals": {
         parameters: {
             query?: never;
@@ -1431,7 +1738,9 @@ export type components = {
              * @description Machine-readable code; new codes may be added
              * @enum {string}
              */
-            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            code: "VALIDATION_FAILED" | "MALFORMED_REQUEST" | "INVALID_CURSOR" | "UNAUTHENTICATED" | "SESSION_ENDED" | "INVALID_CREDENTIALS" | "CAPTCHA_REQUIRED" | "PLAN_LIMIT_REACHED" | "FORBIDDEN" | "ORIGIN_NOT_ALLOWED" | "NOT_FOUND" | "RESET_LINK_INVALID" | "NOT_ME_LINK_INVALID" | "PASSWORD_RESET_REQUIRED" | "STEP_UP_PASSWORD_INVALID" | "STEP_UP_REQUIRED" | "IDEMPOTENCY_KEY_REUSED" | "IDEMPOTENCY_REQUEST_IN_PROGRESS" | "VERSION_CONFLICT" | "ACCOUNT_DUPLICATE" | "ACCOUNT_CLOSED" | "ACCOUNT_NOT_CLOSED" | "ACCOUNT_BALANCE_NOT_ZERO" | "ACCOUNT_ACTIVITY_AFTER_CLOSE" | "ACCOUNT_POSTINGS_PENDING" | "ACCOUNT_KIND_OTHER_GROUP" | "ACCOUNT_HAS_TRANSACTIONS" | "ACCOUNT_MAIN_CURRENCY" | "ACCOUNT_CURRENCY_HAS_TRANSACTIONS" | "CATEGORY_NAME_TAKEN" | "CATEGORY_KINDS_DIFFER" | "CATEGORY_SERVICE_FIXED" | "CATEGORY_SYSTEM_FIXED" | "CATEGORY_NOT_EMPTY" | "RECURRING_PROPOSAL_GONE" | "RECURRING_CHARGE_STATE" | "RECURRING_TRANSACTION_TAKEN" | "GOAL_ACCOUNT_TAKEN" | "GOAL_ENVELOPES_OVER_BALANCE" | "GOAL_OWN_ACCOUNT" | "GOAL_SPEND_OVER_COLLECTED" | "BUDGET_EXISTS" | "BUDGET_PERIOD_BEFORE_START" | "DEBT_NOT_DECREASING" | "DEBT_OVER_LIMIT" | "BULK_ACTION_RUNNING" | "BULK_UNDO_UNAVAILABLE" | "BULK_ACTION_NOT_INTERRUPTED" | "TRANSACTION_IN_TRANSFER" | "TRANSACTION_MERGED" | "TRANSACTION_HAS_DUPLICATES" | "TRANSACTION_SPLIT" | "MERCHANT_MERGED" | "TRANSACTION_NOT_HIDEABLE" | "TRANSACTION_NOT_IN_REVIEW" | "PAYLOAD_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "LIMIT_REACHED" | "RATE_LIMITED" | "SIGN_IN_LOCKED" | "INTERNAL" | "MODULE_UNAVAILABLE" | "SERVICE_UNAVAILABLE";
+            /** @description VERSION_CONFLICT of confirming a transaction in review: the category it has now (null: none), so the card can show it without a reload */
+            currentCategoryId?: string | null;
             /** @description VERSION_CONFLICT: the current version of the record */
             currentVersion?: number;
             detail?: string;
@@ -1521,6 +1830,7 @@ export interface operations {
                                 rateDate: string | null;
                                 restricted: boolean;
                             }[];
+                            favourite: boolean;
                             /** @enum {string} */
                             group: "cash" | "credit";
                             /** Format: uuid */
@@ -1752,6 +2062,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -1953,6 +2264,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2153,6 +2465,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2613,6 +2926,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2705,7 +3019,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The balance on the closing date is not zero (ACCOUNT_BALANCE_NOT_ZERO); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The balance on the closing date is not zero (ACCOUNT_BALANCE_NOT_ZERO); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2823,7 +3137,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE) */
+            /** @description The account is closed (ACCOUNT_CLOSED); The account has movements after the closing date (ACCOUNT_ACTIVITY_AFTER_CLOSE); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING) */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2948,6 +3262,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3080,6 +3395,205 @@ export interface operations {
             };
         };
     };
+    updateAccountDisplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    favourite: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The account after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        adjustments: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            currency: string;
+                            date: string;
+                            /** Format: uuid */
+                            id: string;
+                            permanent: boolean;
+                        }[];
+                        closedOn: string | null;
+                        creditCard: {
+                            annualRate: string | null;
+                            available: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            cardExpiry: string | null;
+                            creditLimit: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            gracePeriodDays: number | null;
+                        } | null;
+                        currencies: {
+                            balance: {
+                                amount: string;
+                                currency: string;
+                            };
+                            balanceDate: string;
+                            currency: string;
+                        }[];
+                        deposit: {
+                            accrual: {
+                                accrued: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                days: number;
+                                daysToMaturity: number;
+                                matured: boolean;
+                            } | null;
+                            annualRate: string | null;
+                            maturesOn: string | null;
+                            openedOn: string | null;
+                        } | null;
+                        favourite: boolean;
+                        /** @enum {string} */
+                        group: "cash" | "credit";
+                        /** Format: uuid */
+                        id: string;
+                        institution: {
+                            country: string;
+                            name: string;
+                        } | null;
+                        /** @enum {string} */
+                        kind: "current" | "savings" | "deposit" | "cash" | "credit-card" | "loan";
+                        loan: {
+                            annualRate: string | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            monthlyPayment: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            termsMissing: boolean;
+                        } | null;
+                        name: string;
+                        note: string | null;
+                        number: {
+                            last4: string;
+                            masked: string;
+                        } | null;
+                        openedOn: string;
+                        owners: {
+                            /** Format: uuid */
+                            ownerAccountId: string;
+                            /** @description Percent, a decimal string */
+                            share: string;
+                            validFrom: string;
+                            validTo: string | null;
+                        }[];
+                        savings: {
+                            annualRate: string | null;
+                        } | null;
+                        /** @enum {string} */
+                        source: "manual" | "import";
+                        /** @enum {string} */
+                        status: "active" | "closed";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     reopenAccount: {
         parameters: {
             query?: never;
@@ -3149,6 +3663,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3363,6 +3878,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3566,6 +4082,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3660,6 +4177,119 @@ export interface operations {
             };
             /** @description The account is closed (ACCOUNT_CLOSED); The account's main currency cannot be removed (ACCOUNT_MAIN_CURRENCY); The currency has transactions on this account; it cannot be removed (ACCOUNT_CURRENCY_HAS_TRANSACTIONS) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    searchBanks: {
+        parameters: {
+            query?: {
+                /** @description Opaque cursor from `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Items per page, 1–100. */
+                limit?: number;
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of banks, names starting with the text first, then by name; the directory's source and date */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            code: string;
+                            country: string;
+                            name: string;
+                        }[];
+                        /** @description Cursor of the next page; null on the last page. */
+                        nextCursor: string | null;
+                        source: {
+                            asOf: string;
+                            attribution: string;
+                            url: string;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3991,6 +4621,12 @@ export interface operations {
                                 /** Format: uuid */
                                 categoryId: string;
                             }[];
+                            proportional: {
+                                days: number;
+                                daysInPeriod: number;
+                                from: string;
+                                to: string;
+                            } | null;
                             version: number;
                         } | null;
                     };
@@ -4103,6 +4739,7 @@ export interface operations {
                         /** Format: uuid */
                         categoryId: string;
                     }[];
+                    proportional?: boolean;
                 };
             };
         };
@@ -4133,6 +4770,12 @@ export interface operations {
                             /** Format: uuid */
                             categoryId: string;
                         }[];
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         version: number;
                     };
                 };
@@ -4604,6 +5247,12 @@ export interface operations {
                             amount: string;
                             currency: string;
                         };
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         totals: {
                             limits: {
                                 amount: string;
@@ -4752,6 +5401,12 @@ export interface operations {
                             /** Format: uuid */
                             categoryId: string;
                         }[];
+                        proportional: {
+                            days: number;
+                            daysInPeriod: number;
+                            from: string;
+                            to: string;
+                        } | null;
                         version: number;
                     };
                 };
@@ -4803,6 +5458,133 @@ export interface operations {
             };
             /** @description The record was changed by someone else; reload it and try again (VERSION_CONFLICT) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetWizard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wizard's figures; nothing is saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        fromSpending: {
+                            available: boolean;
+                            categories: {
+                                average: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                limit: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            }[];
+                            historyMonths: number;
+                            incomeIrregular: boolean;
+                            incomePlan: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                        };
+                        midPeriod: boolean;
+                        starts: {
+                            days: number | null;
+                            daysInPeriod: number | null;
+                            firstPeriod: string;
+                            from: string;
+                            /** @enum {string} */
+                            start: "period-start" | "next-period" | "proportional";
+                            to: string;
+                        }[];
+                        today: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6526,6 +7308,924 @@ export interface operations {
             };
             /** @description A category with this name already exists (CATEGORY_NAME_TAKEN) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listCategoryRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rules, the highest priority first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountIds: string[];
+                            appliedCount: number;
+                            /** Format: uuid */
+                            categoryId: string;
+                            conditions: ({
+                                /** @constant */
+                                field: "merchant";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "description";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "amount";
+                                /** @enum {string} */
+                                operator: "equals" | "greater" | "less";
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | {
+                                /** @constant */
+                                field: "account";
+                                /** @constant */
+                                operator: "equals";
+                                /** Format: uuid */
+                                value: string;
+                            })[];
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            needsAttention: ("category_deleted" | "account_deleted") | null;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    accountIds?: string[];
+                    /** Format: uuid */
+                    categoryId: string;
+                    conditions: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                    /** @default true */
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The rule */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountIds: string[];
+                        appliedCount: number;
+                        /** Format: uuid */
+                        categoryId: string;
+                        conditions: ({
+                            /** @constant */
+                            field: "merchant";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "description";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "amount";
+                            /** @enum {string} */
+                            operator: "equals" | "greater" | "less";
+                            value: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | {
+                            /** @constant */
+                            field: "account";
+                            /** @constant */
+                            operator: "equals";
+                            /** Format: uuid */
+                            value: string;
+                        })[];
+                        duplicateOf: string | null;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        needsAttention: ("category_deleted" | "account_deleted") | null;
+                        position: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description A limit of the service was reached (LIMIT_REACHED) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    updateCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    accountIds?: string[];
+                    /** Format: uuid */
+                    categoryId?: string;
+                    conditions?: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                    enabled?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The rule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountIds: string[];
+                        appliedCount: number;
+                        /** Format: uuid */
+                        categoryId: string;
+                        conditions: ({
+                            /** @constant */
+                            field: "merchant";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "description";
+                            /** @enum {string} */
+                            operator: "equals" | "contains";
+                            value: string;
+                        } | {
+                            /** @constant */
+                            field: "amount";
+                            /** @enum {string} */
+                            operator: "equals" | "greater" | "less";
+                            value: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | {
+                            /** @constant */
+                            field: "account";
+                            /** @constant */
+                            operator: "equals";
+                            /** Format: uuid */
+                            value: string;
+                        })[];
+                        duplicateOf: string | null;
+                        enabled: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        needsAttention: ("category_deleted" | "account_deleted") | null;
+                        position: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    moveCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ruleId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    position: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The rules in their new order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            accountIds: string[];
+                            appliedCount: number;
+                            /** Format: uuid */
+                            categoryId: string;
+                            conditions: ({
+                                /** @constant */
+                                field: "merchant";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "description";
+                                /** @enum {string} */
+                                operator: "equals" | "contains";
+                                value: string;
+                            } | {
+                                /** @constant */
+                                field: "amount";
+                                /** @enum {string} */
+                                operator: "equals" | "greater" | "less";
+                                value: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            } | {
+                                /** @constant */
+                                field: "account";
+                                /** @constant */
+                                operator: "equals";
+                                /** Format: uuid */
+                                value: string;
+                            })[];
+                            enabled: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            needsAttention: ("category_deleted" | "account_deleted") | null;
+                            position: number;
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    matchCategoryRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default [] */
+                    accountIds?: string[];
+                    conditions: ({
+                        /** @constant */
+                        field: "merchant";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "description";
+                        /** @enum {string} */
+                        operator: "equals" | "contains";
+                        value: string;
+                    } | {
+                        /** @constant */
+                        field: "amount";
+                        /** @enum {string} */
+                        operator: "equals" | "greater" | "less";
+                        value: {
+                            amount: string;
+                            currency: string;
+                        };
+                    } | {
+                        /** @constant */
+                        field: "account";
+                        /** @constant */
+                        operator: "equals";
+                        /** Format: uuid */
+                        value: string;
+                    })[];
+                };
+            };
+        };
+        responses: {
+            /** @description The matching transactions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                        items: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            /** Format: uuid */
+                            transactionId: string;
+                        }[];
+                        totals: {
+                            amount: string;
+                            currency: string;
+                        }[];
+                        truncated: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCategorySuggestions: {
+        parameters: {
+            query?: {
+                accountId?: string;
+                amount?: string;
+                counterparty?: string;
+                currency?: string;
+                type?: "expense" | "income";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        merchant: string | null;
+                        merchants: {
+                            name: string;
+                            suggestion: {
+                                /** Format: uuid */
+                                categoryId: string;
+                                rule: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    position: number;
+                                } | null;
+                                /** @enum {string} */
+                                source: "rule" | "merchant";
+                            };
+                        }[];
+                        suggestion: {
+                            /** Format: uuid */
+                            categoryId: string;
+                            rule: {
+                                /** Format: uuid */
+                                id: string;
+                                position: number;
+                            } | null;
+                            /** @enum {string} */
+                            source: "rule" | "merchant";
+                        } | null;
+                        top: {
+                            categoryIds: string[];
+                            /** @enum {string} */
+                            kind: "frequent" | "recent";
+                            merchant: string | null;
+                        };
+                        truncated: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9122,7 +10822,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "recurring.payments" | "goals.savings" | "budget.period" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "debts.payoff")[];
                     };
                 };
             };
@@ -10938,6 +12638,629 @@ export interface operations {
             };
         };
     };
+    listRecurringCharges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment's status and its charges within the last 430 days, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        items: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        }[];
+                        lastCharge: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        } | null;
+                        missesInRow: number;
+                        nextCharge: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            dueOn: string;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            markedOn: string | null;
+                            overdueDays: number | null;
+                            paidOn: string | null;
+                            /** @enum {string} */
+                            status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                            transactionId: string | null;
+                        } | null;
+                        /** Format: uuid */
+                        paymentId: string;
+                        /** @enum {string} */
+                        state: "active" | "possibly-cancelled";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    settleRecurringCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description YYYY-MM-DD */
+                dueOn: string;
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    transactionId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The charge, «Сплачено із запізненням» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        dueOn: string;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        markedOn: string | null;
+                        overdueDays: number | null;
+                        paidOn: string | null;
+                        /** @enum {string} */
+                        status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                        transactionId: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE); The transaction already pays a charge, or cannot pay this one (RECURRING_TRANSACTION_TAKEN) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    skipRecurringCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description YYYY-MM-DD */
+                dueOn: string;
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The charge, «Пропущено» */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        } | null;
+                        amountChange: {
+                            from: {
+                                amount: string;
+                                currency: string;
+                            };
+                            on: string;
+                            to: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** Format: uuid */
+                            transactionId: string;
+                        } | null;
+                        approximate: boolean;
+                        dueOn: string;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        markedOn: string | null;
+                        overdueDays: number | null;
+                        paidOn: string | null;
+                        /** @enum {string} */
+                        status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                        transactionId: string | null;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    keepRecurringPayment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                paymentId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The payment */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        accountId: string | null;
+                        anchorDate: string;
+                        categoryId: string | null;
+                        createdOn: string;
+                        endDate: string | null;
+                        expectedAmount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        /** @enum {string} */
+                        frequency: "week" | "two-weeks" | "month" | "quarter" | "year";
+                        /** Format: uuid */
+                        id: string;
+                        merchantId: string | null;
+                        name: string;
+                        nextDate: string | null;
+                        /** @enum {string} */
+                        source: "proposal" | "manual";
+                        subscription: boolean;
+                        /** @enum {string} */
+                        type: "expense" | "income";
+                        variable: boolean;
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The charge or the payment is not in the status this action needs; read it again (RECURRING_CHARGE_STATE) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listRecurringProposals: {
         parameters: {
             query?: never;
@@ -11305,6 +13628,188 @@ export interface operations {
             };
             /** @description The idempotency key was used for another request, or that request is still running; The proposal is no longer offered; read the proposals again (RECURRING_PROPOSAL_GONE) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    listRecurringStatuses: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One status per payment, in the payments' order; the charges matched anew on every read to the last 430 days of transactions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            amountChange: {
+                                from: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                on: string;
+                                to: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                transactionId: string;
+                            } | null;
+                            approximate: boolean;
+                            expectedAmount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            lastCharge: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                amountChange: {
+                                    from: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    on: string;
+                                    to: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    transactionId: string;
+                                } | null;
+                                approximate: boolean;
+                                dueOn: string;
+                                expectedAmount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                markedOn: string | null;
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                                transactionId: string | null;
+                            } | null;
+                            missesInRow: number;
+                            nextCharge: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                amountChange: {
+                                    from: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    on: string;
+                                    to: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    transactionId: string;
+                                } | null;
+                                approximate: boolean;
+                                dueOn: string;
+                                expectedAmount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                markedOn: string | null;
+                                overdueDays: number | null;
+                                paidOn: string | null;
+                                /** @enum {string} */
+                                status: "paid" | "paid-late" | "expected" | "overdue" | "skipped";
+                                transactionId: string | null;
+                            } | null;
+                            /** Format: uuid */
+                            paymentId: string;
+                            /** @enum {string} */
+                            state: "active" | "possibly-cancelled";
+                        }[];
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12254,6 +14759,102 @@ export interface operations {
             };
         };
     };
+    getTransactionReviewCount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many transactions of the space are in the queue (shown ones) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        count: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listTransactionTags: {
         parameters: {
             query?: never;
@@ -12606,6 +15207,7 @@ export interface operations {
                             mergedInto: string | null;
                             note: string | null;
                             recordedAt: string;
+                            review: ("queued" | "confirmed") | null;
                             /** @enum {string} */
                             source: "manual";
                             split: {
@@ -12649,6 +15251,7 @@ export interface operations {
                             } | null;
                             /** @enum {string} */
                             type: "income" | "expense";
+                            version: number;
                         }[];
                         page: number;
                         pageSize: number;
@@ -12824,6 +15427,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -12867,6 +15471,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -12989,6 +15594,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -13032,6 +15638,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -13272,6 +15879,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -13315,6 +15923,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -13444,6 +16053,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -13487,6 +16097,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -13594,6 +16205,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
+                        rule?: {
+                            /** Format: uuid */
+                            id: string;
+                            position: number;
+                        };
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */
@@ -13702,6 +16318,11 @@ export interface operations {
                 content: {
                     "application/json": {
                         categoryId: string | null;
+                        rule?: {
+                            /** Format: uuid */
+                            id: string;
+                            position: number;
+                        };
                         /** @enum {string} */
                         source: "manual" | "rule" | "merchant" | "bank" | "dictionary" | "none";
                         /** Format: uuid */
@@ -13828,6 +16449,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -13871,6 +16493,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -13921,6 +16544,120 @@ export interface operations {
             };
             /** @description The account is closed (ACCOUNT_CLOSED); The transaction is a side of a transfer; remove the mark first (TRANSACTION_IN_TRANSFER); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED); Only a duplicate or a technical record can be hidden (TRANSACTION_NOT_HIDEABLE) */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getTransactionHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction's history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: {
+                            /** @enum {string} */
+                            action: "create" | "update" | "delete";
+                            /** @enum {string} */
+                            actor: "you" | "member" | "staff" | "system";
+                            changes: {
+                                after: string | null;
+                                before: string | null;
+                                field: string;
+                                masked: boolean;
+                            }[];
+                            channel: string;
+                            /** Format: uuid */
+                            id: string;
+                            occurredAt: string;
+                        }[];
+                        truncated: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14117,6 +16854,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -14160,6 +16898,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -14282,6 +17021,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -14325,6 +17065,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -14454,6 +17195,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -14497,6 +17239,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -14585,7 +17328,7 @@ export interface operations {
             };
         };
     };
-    showTransaction: {
+    confirmTransactionReview: {
         parameters: {
             query?: never;
             header?: never;
@@ -14594,9 +17337,16 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    categoryId?: string | null;
+                    version: number;
+                };
+            };
+        };
         responses: {
-            /** @description The transaction */
+            /** @description The transaction after the change */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -14619,6 +17369,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -14662,6 +17413,348 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record was changed by someone else; reload it and try again (VERSION_CONFLICT); The transaction is not in the review queue (TRANSACTION_NOT_IN_REVIEW); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    reopenTransactionReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    categoryId?: string | null;
+                    version: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The transaction after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        version: number;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The record was changed by someone else; reload it and try again (VERSION_CONFLICT); The transaction is not in the review queue (TRANSACTION_NOT_IN_REVIEW); The transaction is merged with a duplicate; unmerge it first (TRANSACTION_MERGED) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    showTransaction: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                transactionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transaction */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        accountId: string;
+                        amount: {
+                            amount: string;
+                            currency: string;
+                        };
+                        counterparty: string | null;
+                        date: string;
+                        description: string | null;
+                        hidden: boolean;
+                        /** Format: uuid */
+                        id: string;
+                        mergedDuplicates: string[];
+                        mergedInto: string | null;
+                        note: string | null;
+                        recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
+                        /** @enum {string} */
+                        source: "manual";
+                        split: {
+                            /** @enum {string} */
+                            mode: "categories" | "months";
+                            needsReview: boolean;
+                            parts: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /** Format: uuid */
+                                categoryId: string;
+                                month: string | null;
+                            }[];
+                        } | null;
+                        /** @enum {string} */
+                        status: "posted" | "pending";
+                        tags: {
+                            /** Format: uuid */
+                            id: string;
+                            name: string;
+                        }[];
+                        transfer: {
+                            /** Format: uuid */
+                            counterpartId: string;
+                            date: string;
+                            fee: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            /** Format: uuid */
+                            id: string;
+                            rate: {
+                                date: string;
+                                rate: string;
+                                source: string;
+                            } | null;
+                            /** @enum {string} */
+                            side: "outflow" | "inflow";
+                        } | null;
+                        /** @enum {string} */
+                        type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -14804,6 +17897,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -14847,6 +17941,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -14969,6 +18064,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -15012,6 +18108,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -15141,6 +18238,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -15184,6 +18282,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -15306,6 +18405,7 @@ export interface operations {
                         mergedInto: string | null;
                         note: string | null;
                         recordedAt: string;
+                        review: ("queued" | "confirmed") | null;
                         /** @enum {string} */
                         source: "manual";
                         split: {
@@ -15349,6 +18449,7 @@ export interface operations {
                         } | null;
                         /** @enum {string} */
                         type: "income" | "expense";
+                        version: number;
                     };
                 };
             };
@@ -15510,6 +18611,266 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createTransfer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Repeating a create with the same key and the same request returns the first response (kept 24 h); the same key with another request is 409. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount: {
+                        /** @description A positive plain decimal, e.g. 120.50 */
+                        amount: string;
+                        /** @description ISO 4217 code; the account's (subaccount's) currency */
+                        currency: string;
+                    };
+                    counterparty?: string | null;
+                    /** @description YYYY-MM-DD; never after today */
+                    date: string;
+                    description?: string | null;
+                    /** Format: uuid */
+                    fromAccountId: string;
+                    received?: {
+                        /** @description A positive plain decimal, e.g. 120.50 */
+                        amount: string;
+                        /** @description ISO 4217 code; the account's (subaccount's) currency */
+                        currency: string;
+                    };
+                    /** Format: uuid */
+                    toAccountId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The transfer's two transactions: the debit and the credit */
+            201: {
+                headers: {
+                    /** @description true when this is the stored response of an earlier request with the same key */
+                    "Idempotent-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inflow: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedDuplicates: string[];
+                            mergedInto: string | null;
+                            note: string | null;
+                            recordedAt: string;
+                            review: ("queued" | "confirmed") | null;
+                            /** @enum {string} */
+                            source: "manual";
+                            split: {
+                                /** @enum {string} */
+                                mode: "categories" | "months";
+                                needsReview: boolean;
+                                parts: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                    month: string | null;
+                                }[];
+                            } | null;
+                            /** @enum {string} */
+                            status: "posted" | "pending";
+                            tags: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            transfer: {
+                                /** Format: uuid */
+                                counterpartId: string;
+                                date: string;
+                                fee: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                rate: {
+                                    date: string;
+                                    rate: string;
+                                    source: string;
+                                } | null;
+                                /** @enum {string} */
+                                side: "outflow" | "inflow";
+                            } | null;
+                            /** @enum {string} */
+                            type: "income" | "expense";
+                            version: number;
+                        };
+                        outflow: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedDuplicates: string[];
+                            mergedInto: string | null;
+                            note: string | null;
+                            recordedAt: string;
+                            review: ("queued" | "confirmed") | null;
+                            /** @enum {string} */
+                            source: "manual";
+                            split: {
+                                /** @enum {string} */
+                                mode: "categories" | "months";
+                                needsReview: boolean;
+                                parts: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                    month: string | null;
+                                }[];
+                            } | null;
+                            /** @enum {string} */
+                            status: "posted" | "pending";
+                            tags: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            transfer: {
+                                /** Format: uuid */
+                                counterpartId: string;
+                                date: string;
+                                fee: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                rate: {
+                                    date: string;
+                                    rate: string;
+                                    source: string;
+                                } | null;
+                                /** @enum {string} */
+                                side: "outflow" | "inflow";
+                            } | null;
+                            /** @enum {string} */
+                            type: "income" | "expense";
+                            version: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The idempotency key was used for another request, or that request is still running; The account is closed (ACCOUNT_CLOSED) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

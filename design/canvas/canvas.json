@@ -1483,6 +1483,14 @@
       "x": 0,
       "y": 1260
     },
+    "PocAddTexts.dc.html": {
+      "h": 520,
+      "page": "poc",
+      "title": "S-025 Меню «+ Додати» · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 1260
+    },
     "PocCheckEmail.dc.html": {
       "h": 700,
       "is_interactive": true,
@@ -1505,7 +1513,15 @@
       "page": "poc",
       "title": "Рахунок · оновити залишок вручну",
       "w": 1280,
-      "x": 4080,
+      "x": 10880,
+      "y": 25230
+    },
+    "PocMoneyAccBalanceTexts.dc.html": {
+      "h": 1060,
+      "page": "poc",
+      "title": "S-055a Оновити залишок · Тексти",
+      "w": 1280,
+      "x": 12240,
       "y": 25230
     },
     "PocMoneyAccBalanceBank.dc.html": {
@@ -1513,7 +1529,7 @@
       "page": "poc",
       "title": "Рахунок · оновити залишок з банера про розбіжність",
       "w": 1280,
-      "x": 5440,
+      "x": 13600,
       "y": 25230
     },
     "PocMoneyAccSettings.dc.html": {
@@ -1522,7 +1538,7 @@
       "page": "poc",
       "title": "S-054 Рахунок · налаштування і реквізити",
       "w": 1280,
-      "x": 2720,
+      "x": 9520,
       "y": 25230
     },
     "PocMoneyAccount.dc.html": {
@@ -1531,7 +1547,15 @@
       "page": "poc",
       "title": "S-053 Рахунок · меню «…»",
       "w": 1280,
-      "x": 1360,
+      "x": 5440,
+      "y": 25230
+    },
+    "PocMoneyAccountTexts.dc.html": {
+      "h": 1120,
+      "page": "poc",
+      "title": "S-053 Картка рахунку · Тексти",
+      "w": 2640,
+      "x": 6800,
       "y": 25230
     },
     "PocMoneyAccounts.dc.html": {
@@ -1543,6 +1567,14 @@
       "x": 0,
       "y": 25230
     },
+    "PocMoneyAccountsTexts.dc.html": {
+      "h": 1320,
+      "page": "poc",
+      "title": "S-050 Рахунки · Тексти",
+      "w": 4000,
+      "x": 1360,
+      "y": 25230
+    },
     "PocMoneyAddAcc.dc.html": {
       "h": 800,
       "is_interactive": true,
@@ -1550,6 +1582,14 @@
       "title": "S-051 Додати рахунок · вибір способу",
       "w": 1280,
       "x": 0,
+      "y": 26660
+    },
+    "PocMoneyAddAccTexts.dc.html": {
+      "h": 750,
+      "page": "poc",
+      "title": "S-051 Додати рахунок · Тексти",
+      "w": 1280,
+      "x": 1360,
       "y": 26660
     },
     "PocMoneyBank1.dc.html": {
@@ -1604,6 +1644,14 @@
       "title": "S-055 Закрити рахунок · що зробити із залишком",
       "w": 1280,
       "x": 0,
+      "y": 29380
+    },
+    "PocMoneyCloseAccTexts.dc.html": {
+      "h": 1180,
+      "page": "poc",
+      "title": "S-055 Закрити рахунок · Тексти",
+      "w": 2640,
+      "x": 1360,
       "y": 29380
     },
     "PocMoneyConnections.dc.html": {
@@ -1693,7 +1741,15 @@
       "page": "poc",
       "title": "S-052 Новий рахунок · дубль заблоковано",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
+      "y": 26660
+    },
+    "PocMoneyNewAccTexts.dc.html": {
+      "h": 2960,
+      "page": "poc",
+      "title": "S-052 Новий рахунок · Тексти",
+      "w": 2640,
+      "x": 4080,
       "y": 26660
     },
     "PocMoneyNewAccLoan.dc.html": {
@@ -1711,7 +1767,7 @@
       "page": "poc",
       "title": "Новий рахунок · крок 3 · Додатково",
       "w": 1280,
-      "x": 2720,
+      "x": 6800,
       "y": 26660
     },
     "PocMoneyNewTx.dc.html": {
@@ -1721,6 +1777,14 @@
       "title": "S-048 Нова транзакція · контрагент",
       "w": 1280,
       "x": 0,
+      "y": 14970
+    },
+    "PocMoneyNewTxTexts.dc.html": {
+      "h": 3700,
+      "page": "poc",
+      "title": "S-048 Нова транзакція · Тексти",
+      "w": 1280,
+      "x": 1360,
       "y": 14970
     },
     "PocMoneyNewTxAcc.dc.html": {
@@ -1765,7 +1829,7 @@
       "page": "poc",
       "title": "Нова транзакція · крок 2 · Контрагент і категорія",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 14970
     },
     "PocMoneyNewTxStep3.dc.html": {
@@ -1774,7 +1838,7 @@
       "page": "poc",
       "title": "Нова транзакція · крок 3 · Додатково",
       "w": 1280,
-      "x": 2720,
+      "x": 4080,
       "y": 14970
     },
     "PocMoneyPairManual.dc.html": {
@@ -1910,6 +1974,14 @@
       "title": "S-047 Деталь · без чека",
       "w": 1280,
       "x": 1360,
+      "y": 13620
+    },
+    "PocMoneyTxDetailTexts.dc.html": {
+      "h": 2600,
+      "page": "poc",
+      "title": "S-047 Деталь транзакції · Тексти",
+      "w": 1280,
+      "x": 5440,
       "y": 13620
     },
     "PocMoneyTxEmpty.dc.html": {
@@ -2695,6 +2767,15 @@
       "x": 9520,
       "y": 12190
     },
+    "PocMoneyTxTexts.dc.html": {
+      "h": 4440,
+      "is_interactive": true,
+      "page": "poc",
+      "title": "S-046 Транзакції · Тексти",
+      "w": 1280,
+      "x": 16320,
+      "y": 12190
+    },
     "PocMoneyTxToast.dc.html": {
       "h": 1180,
       "is_interactive": true,
@@ -2710,7 +2791,7 @@
       "page": "poc",
       "title": "S-050 Рахунки · частина даних не оновлена",
       "w": 1280,
-      "x": 6800,
+      "x": 14960,
       "y": 25230
     },
     "PocMoneyAccountMismatch.dc.html": {
@@ -2719,7 +2800,7 @@
       "page": "poc",
       "title": "S-053 Рахунок · залишки не збігаються",
       "w": 1280,
-      "x": 8160,
+      "x": 16320,
       "y": 25230
     },
     "PlanBudgetMethodExitStep2.dc.html": {
@@ -4202,6 +4283,7 @@
     "PocShell.dc.html",
     "PocShellCollapsed.dc.html",
     "PocAdd.dc.html",
+    "PocAddTexts.dc.html",
     "PocProfile.dc.html",
     "PocNotFound.dc.html",
     "PocStepUp.dc.html",
@@ -4211,6 +4293,7 @@
     "PocMoneyTxDetail.dc.html",
     "PocMoneyTxMenu.dc.html",
     "PocMoneyTxDetailNoReceipt.dc.html",
+    "PocMoneyTxDetailTexts.dc.html",
     "PocMoneyRules.dc.html",
     "PocMoneyRuleEdit.dc.html",
     "PocMoneyRuleEditStep2.dc.html",
@@ -4221,6 +4304,7 @@
     "PocMoneyReview.dc.html",
     "PocMoneyReviewDone.dc.html",
     "PocMoneyNewTx.dc.html",
+    "PocMoneyNewTxTexts.dc.html",
     "PocMoneyNewTxStep2.dc.html",
     "PocMoneyNewTxStep3.dc.html",
     "PocMoneyNewTxCat.dc.html",
@@ -4233,14 +4317,20 @@
     "PocMoneyPairs.dc.html",
     "PocMoneyPairManual.dc.html",
     "PocMoneyAccounts.dc.html",
+    "PocMoneyAccountsTexts.dc.html",
     "PocMoneyAccount.dc.html",
+    "PocMoneyAccountTexts.dc.html",
     "PocMoneyAccSettings.dc.html",
     "PocMoneyAccBalance.dc.html",
+    "PocMoneyAccBalanceTexts.dc.html",
     "PocMoneyAccBalanceBank.dc.html",
     "PocMoneyAddAcc.dc.html",
+    "PocMoneyAddAccTexts.dc.html",
     "PocMoneyNewAcc.dc.html",
+    "PocMoneyNewAccTexts.dc.html",
     "PocMoneyNewAccStep3.dc.html",
     "PocMoneyCloseAcc.dc.html",
+    "PocMoneyCloseAccTexts.dc.html",
     "PocMoneyMergeAcc.dc.html",
     "PocMoneyImport1.dc.html",
     "PocMoneyImport2.dc.html",
@@ -4356,7 +4446,8 @@
     "PocDataImport2.dc.html",
     "PocDataImport3.dc.html",
     "PocDataImport4.dc.html",
-    "PocDataImport5.dc.html"
+    "PocDataImport5.dc.html",
+    "PocMoneyTxTexts.dc.html"
   ],
   "pages": [
     {

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { mountApi } from "../src/api.ts";
+import { createTransactionCategories } from "../src/modules/categorization/index.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
 import { createListTotals } from "../src/platform/lists/list-total.ts";
@@ -194,6 +195,7 @@ beforeAll(async () => {
           clock: { now: () => NOW },
           newId: randomUUID,
           walletUsage: [],
+          pendingPostings: [],
         }),
         transactions: createTransactionsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),
@@ -220,6 +222,8 @@ beforeAll(async () => {
         }),
         recurring: createRecurringServices({
           history: createTransactionHistory(db.databases.for("transactions")),
+          transactionCategories: createTransactionCategories(db.databases.for("categorization")),
+          fx: createFxReporting({ db: db.databases.for("fx-rates"), now: () => NOW }),
           merchants: createMerchantDirectory(db.databases.for("merchants")),
           accounts: createAccountDirectory(db.databases.for("accounts")),
           categories,
@@ -643,5 +647,36 @@ describe("BUD-07@PoC «Кожна зміна пишеться в журнал а
     );
     expect(erased).toEqual({ payments: 1, rejections: 1, jobs: 2 });
     expect(await n("recurring.jobs WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+});
+
+describe("sec332: a proposal key of another space reads as unknown, whatever that space decided (#328 item 2)", () => {
+  it("sec332: the owner confirmed or rejected the key — a stranger's confirm and reject are the same 404 as for a made-up key; nothing written", async () => {
+    const strip = (body: string) => body.replace(/"supportId":"[0-9a-f]+"/, '"supportId":"-"');
+    for (const decision of ["confirm", "reject"] as const) {
+      const owner = await newSpace();
+      const stranger = await newSpace();
+      await streaming(owner, await createAccount(owner));
+      const [p] = await proposals(owner);
+      const decided = await call(owner, "POST", `/v1/recurring/proposals/${decision}`, { key: p!.key });
+      expect(decided.statusCode, decided.body).toBe(201);
+      // The owner itself now reads «gone»: the space decided on the merchant.
+      const again = await call(owner, "POST", `/v1/recurring/proposals/${decision}`, { key: p!.key });
+      expect([again.statusCode, again.json().code]).toEqual([409, "RECURRING_PROPOSAL_GONE"]);
+      const merchantId = p!.key.split(":", 1)[0]!;
+      for (const action of ["confirm", "reject"]) {
+        const unknown = await call(stranger, "POST", `/v1/recurring/proposals/${action}`, {
+          key: "no-such-key",
+        });
+        expect(unknown.statusCode).toBe(404);
+        for (const key of [p!.key, `${merchantId}:x`, merchantId]) {
+          const res = await call(stranger, "POST", `/v1/recurring/proposals/${action}`, { key });
+          expect(res.statusCode, `${decision} → ${action} ${key}`).toBe(404);
+          expect(strip(res.body)).toBe(strip(unknown.body));
+        }
+      }
+      expect(await n("recurring.payments WHERE household_id = $1", stranger.householdId)).toBe(0);
+      expect(await n("recurring.rejections WHERE household_id = $1", stranger.householdId)).toBe(0);
+    }
   });
 });

@@ -36,6 +36,7 @@ export {
   balanceNow,
   closeAccount,
   closingPreview,
+  settlePending,
   deleteAdjustment,
   reconcileStatement,
   reopenAccount,
@@ -54,8 +55,9 @@ export {
   type SettingsResult,
 } from "./settings.ts";
 export { updateAccountDetails, type DetailsResult } from "./details.ts";
+export { updateAccountDisplay, type DisplayInput, type DisplayResult } from "./display.ts";
 export { addCurrency, removeCurrency, type CurrencyRefusal, type CurrencyResult } from "./currencies.ts";
-export type { WalletUsage } from "./accounts.ts";
+export type { PendingPostings, WalletUsage } from "./accounts.ts";
 export {
   applyHandOff,
   applyMoves,

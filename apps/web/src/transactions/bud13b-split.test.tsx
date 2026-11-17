@@ -49,6 +49,8 @@ function tx(over: Partial<Transaction> = {}): Transaction {
     mergedDuplicates: [],
     note: null,
     tags: [],
+    review: null,
+    version: 1,
     recordedAt: "2026-03-01T10:00:00Z",
     ...over,
   };

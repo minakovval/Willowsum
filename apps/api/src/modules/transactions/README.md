@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -50,6 +50,14 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 мерчанта — `counterparty`, і розділення), 9 («Вибрано N · Сума ±X €»), аудит змін атрибутів; AC1, AC4 і AC9 (серверна
 частина), AC6, AC7, граничні випадки 1, 5, 6. Далі: калькулятор і стислий розклад (п. 7, граничний випадок 3), «Схожі
 транзакції» (п. 10) — UI, рядок 117; повторний імпорт (граничний випадок 4) — з імпортом.
+
+BUD-12@PoC a) (хвиля 2, рядок 24 — серверна частина): п. 2 (черга «До розбору» — список із `review.eq:queued` від
+найстаріших, лічильник), 4 і 7 («Підтвердити» з перевіркою версії; автор і час — у журналі аудиту), 5 («Пропустити» —
+без змін на сервері), 6 («Відмінити» підтвердження), 8 (ручні транзакції в чергу не потрапляють), 10 (одна черга
+простору), 12 і 14 (масова дія «Підтвердити категорії», групою — за ідентифікаторами); AC1, AC3, AC10 (серверна частина),
+AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постановка в чергу імпортом, зокрема «Можливий дубль» і повернення з
+«потребує перегляду» (п. 8, 9, AC4, граничні випадки 1, 3 — з імпортом), режим «Мерчанти» і «Запам'ятати» (п. 14–16, AC8 —
+правила, рядок 23, і мерчанти), UI (рядок 121).
 
 ## Публічний інтерфейс
 
@@ -118,6 +126,17 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
     офіційний курс дати переказу (немає — 400 `rate_unavailable`). Закритий рахунок — 409 `ACCOUNT_CLOSED`; сторона
     змінилася між читанням курсу і зміною — 409 `VERSION_CONFLICT`. → 200 транзакція з `transfer` (`id`, `side` —
     `outflow` / `inflow`, `counterpartId`, `date` — дата ранішої сторони, `fee` — комісія ≤ 0 або null, `rate` або null).
+  - `POST /v1/transactions/transfers` (`createTransfer`; прапорець і ключ `transactions.transfers`, дозвіл
+    `household.data.write`, `Idempotency-Key`) — FIN-03 п. 1, 28 «Переказ між рахунками» однією дією (#437):
+    `fromAccountId`, `toAccountId`, `amount` (додатна, у валюті рахунку списання), `received` (необов'язкова, додатна, у
+    валюті рахунку зарахування; в одній валюті не більша за `amount` — інакше 400 `received: amount_mismatch`, різниця —
+    комісія; без неї — сама сума, у двох валютах — сума за офіційним курсом дати, округлена до парного до копійок
+    валюти), `date`, `counterparty`, `description` (на обох сторонах). Обидві сторони «Проведена», пара і дві задачі
+    передачі — в одній транзакції модуля, або нічого; журнал — одна подія `transfer` / `fx-transfer` (у двох валютах —
+    курс дати, немає — 400 `date: rate_unavailable`). Рахунок іншого простору чи невідомий — 404; той самий —
+    400 `toAccountId: same_account`; закритий — 409 `ACCOUNT_CLOSED`; решта полів — як у `createTransaction` (`amount` —
+    `sign`, `zero`, `invalid`, `amount.currency` / `received.currency` — `currency_mismatch`, `date`). Запис аудиту —
+    `create` кожної сторони з `transfer.side` і `transfer.with`. → 201 `{ outflow, inflow }`.
   - `DELETE /v1/transactions/{transactionId}/transfer` (`unmarkTransfer`) — п. 9: обидві знову дохід і витрата; без
     позначки — нічого.
   - Сторона переказу: `hide`, `split`, `DELETE` і зміна рахунку, суми, дати чи статусу — 409 `TRANSACTION_IN_TRANSFER`
@@ -148,9 +167,29 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
     `transactions.duplicates:<простір>` першим (його беруть і `hide`), потім рядки в порядку id.
   Учасник з областю: «Транзакції» закриті політикою видимості за замовчуванням — читання 404, зміни 403 (дозвіл
   `household.data.write`).
+  - «До розбору» (BUD-12 a; прапорець випуску і ключ `transactions.review`, потребує `transactions.manual`): черга —
+    `GET /v1/transactions?filter=review.eq:queued&sort=date`; кожна транзакція має `review` (`queued` — у черзі,
+    `confirmed` — категорію підтверджено, null — ніколи не була в черзі: ручна) і `version`.
+    `GET /v1/transaction-review` (`getTransactionReviewCount`) → `{ count }` — лічильник (показані транзакції черги).
+    `POST /v1/transactions/{transactionId}/review/confirm` (`confirmTransactionReview`) і `…/review/reopen`
+    (`reopenTransactionReview`, «Відмінити»), тіло `{ version }`: інша версія — 409 `VERSION_CONFLICT` з
+    `currentVersion`; ручна (ніколи не в черзі) — 409 `TRANSACTION_NOT_IN_REVIEW`; злитий дубль — 409
+    `TRANSACTION_MERGED`; уже підтверджена (у черзі) — нічого. Закритий рахунок не заважає (як і зміні категорії).
+    Запис аудиту — `update` з полем `review`; журнал не змінюється. Зміна категорії чи транзакції після підтвердження
+    в чергу не повертає.
+  - `GET /v1/transactions/{transactionId}/history` (`getTransactionHistory`, `household.data.read`; прапорець і ключ
+    `transactions.history`, потребує `transactions.manual`) — «Історія змін» деталі S-047 (FIN-03 п. 27, #439): записи
+    журналу аудиту простору (п. 20) сутностей `transactions.transaction` і `categorization.transaction-category` цієї
+    транзакції, від найстарішого (`domain/history.ts`), не відтворені з рядка; не більше 500 найновіших (`HISTORY_MAX`), журнал
+    читається з `LIMIT`; `truncated: true` — давніші пропущено. → `items`: `id`, `occurredAt` (UTC),
+    `actor` — відносно читача (`you`, `member`, `staff`, `system`; ідентифікатора акаунта немає), `channel`, `action`
+    (`create` / `update` / `delete`), `changes` (`field`, `before`, `after`, `masked`; замасковані — контрагент, опис,
+    нотатка — лише `•••` або null, хай що збережено і як позначено в журналі: маскування за назвою поля; зміни інших записів групового запису відкинуто). Транзакція іншого
+    простору, невідома чи видалена — 404, журнал не читається; учасник з областю — 404.
 - `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags?, rates?, duplicates? })` →
   `TransactionsServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `AccountDirectory` модуля
-  accounts, `createLedger`, `createListTotals` (платформа) з `officialDatedRates` модуля fx-rates, журнал аудиту,
+  accounts, `createLedger`, `createListTotals` (платформа) з `officialDatedRates` модуля fx-rates, журнал аудиту (з
+  `entriesFor` — і джерело «Історії змін», без нього вона — 500),
   годинник; `CategoryDirectory` модуля categories (без нього «Розділити» — 500), середовище прапорців (без нього
   «Очікує» вимкнено), курси fx-rates (без них перекази — 500) і `DuplicateCheck` модуля duplicate-matching (без нього
   «Приховати транзакцію» — 500).
@@ -160,6 +199,12 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
   `transactions.add-tags` (`{ tags }`: теги додаються після наявних, той самий раз; усі вже є — «без змін»; понад 20 —
   «невалідний» `tags.too_many`; злитий дубль — `transaction.merged`; закритий рахунок — `account.closed`). Імена в
   груповому аудиті замасковані. «Відмінити» повертає теги за назвами.
+- `createTransactionReviewBulkActions({ db, flags? })` → `{ targets, actions }` для `createBulkActionsServices`
+  (`src/wiring.ts`; BUD-12 п. 12, 14): ціль `transaction-review` (вибір за фільтром списку від найстаріших; поле
+  `review`; версія — версія транзакції; запис — правилами однієї зміни, без власного аудиту) і дія
+  `transactions.confirm-category` (без параметрів; за прапорцем `transactions.review`): у черзі — підтверджено;
+  підтверджена чи ручна — «без змін»; злитий дубль — `transaction.merged`. Груповий запис аудиту; «Відмінити» повертає в
+  чергу.
 - `createTransactionsErasure(db)` → `TransactionsErasure.eraseHousehold(householdId)` → `{ transactions, idempotencyKeys,
   jobs }` — видалення простору (NFR-12@PoC п. 3) разом із рядками черги; викликає лише `data-erasure` (крок
   `transactions.records`) перед рахунками і журналом.
@@ -169,6 +214,12 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
   `transactions.hand-off-recovery` (до очищення черги): невдалі (`dead`) задачі передачі й аудиту тегів
   (`transactions.tag-audit`) повертаються в чергу; подія логу
   `transactions.hand_off_requeued` (WARN), якщо хоч одна повернулася.
+- `createTransactionPendingPostings(db, { accounts, ledger, audit })` → `PendingPostings` модуля accounts (FIN-01@PoC
+  граничний випадок 4): перед закриттям рахунку незавершені (`queued`, `running`, `dead`) задачі `transactions.hand-off`,
+  що ще можуть змінити його гроші (транзакція на рахунку зараз; на ньому до зміни — видалення чи переміщення, поле
+  аудиту `accountId`; сторона переказу, друга сторона якого на рахунку), виконуються одразу тим самим кроком, що й у
+  воркера (ідемпотентно, рядок під блокуванням), до 100 за раз; `false`, якщо хоч одна не вдалася чи їх більше (подія логу
+  `transactions.hand_off_deferred`, WARN) — закриття відмовляє. Лише рядки простору (`inHousehold`).
 - `createTransactionCategoryUsage(db)` → `CategoryUsage` модуля categories (BUD-01@PoC п. 12): які з даних категорій
   мають частини розділених транзакцій простору (будь-яких, прихованих теж). Лише читання; з'єднує `src/main.ts`.
 - `createTransactionLookup(db)` → `TransactionLookup` для `categorization` (BUD-01 b; DAT-03 п. 1, 2; #272 п. 1), лише
@@ -178,6 +229,10 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 - `createTransactionTexts(db)` → `TransactionTexts` для `merchants` (BUD-14 a), лише читання: `counterparties(householdId,
   ids)` — контрагент кожної наявної транзакції (приховані теж; null — немає); `counterpartyCounts(householdId)` — кожен
   різний контрагент показаних транзакцій простору і їхня кількість.
+- `createTransactionRuleInputs(db)` → `TransactionRuleInputs` для правил категорій `categorization` (BUD-14 b1), лише
+  читання: `inputs(householdId, ids)` — рахунок, сума зі знаком і валюта, дата, контрагент і `eligible` (показана, не
+  сторона переказу, не розділена, не злита) кожної наявної транзакції; `candidates(householdId, limit)` — такі
+  транзакції від новішої (дата, потім ідентифікатор), не більше `limit`, і `more`. `transactionCreated` — подія.
 - `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
   і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.
@@ -212,7 +267,9 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 запису журналу (залишок її ще не показує) і без запису аудиту — ніколи навпаки. Рахунок журналу субрахунку береться з
 `AccountDirectory` модуля accounts; поки передача створення рахунку його не відкрила, задача повторюється. Стан рахунку
 (закритий) читається окремою транзакцією модуля accounts: закриття, що збігається в часі зі створенням транзакції, не
-блокується; закриття саме перевіряє рухи після дати закриття.
+блокується; закриття саме перевіряє рухи після дати закриття — після того, як `createTransactionPendingPostings` довів до
+журналу передачі, що вже в черзі (FIN-01 граничний випадок 4). Зміна, що комітиться одночасно із закриттям (вже після
+його перевірки), лишається відкритим питанням власнику (див. PR FIN-01 EC4).
 
 ## Розгортання і прапорці
 
@@ -226,7 +283,8 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 вимкнені, доки всі процеси не на цій версії. Зняти прапорець `transactions.states` — приховані рядки зникають зі списку (див. вище).
 Атрибути (BUD-13) — за прапорцем `transactions.attributes`: стара версія не знає задачі `transactions.tag-audit`
 (задача чекає в черзі, потім `dead`, і щоденне повернення ставить її знову, коли процеси оновлено), а її `PATCH` не
-стирає `note` і `tag_ids` (не пише цих колонок).
+стирає `note` і `tag_ids` (не пише цих колонок). «До розбору» (BUD-12) — за прапорцем `transactions.review`: стара
+версія не пише й не стирає `review`, а запис аудиту підтвердження — звичайна дія передачі `update`.
 
 ## Залежності
 
@@ -236,7 +294,7 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 
 | Публікує | Версія | Коли |
 | --- | --- | --- |
-| — | | |
+| `transactions.created` | 1 | «Нова транзакція»: у транзакції створення, лише ідентифікатор (BUD-14 п. 8 — правила категорій `categorization`) |
 
 | Споживає | Версія | Навіщо |
 | --- | --- | --- |
@@ -249,7 +307,7 @@ BUD-13@PoC a) (хвиля 2, рядок 21 — серверна частина):
 | Таблиця | Що |
 | --- | --- |
 | `transactions` | Транзакція: рахунок і субрахунок (модуля accounts), сума NUMERIC(38,18) зі знаком (не 0) і валюта, дата, контрагент, опис, стан (`posted` / `pending`), джерело (`manual`), `hidden`, режим розділення і `split_needs_review`, версія, час запису; похідні `direction`, `magnitude`, `search_text`, `is_split` для фільтрів списку (`0001_transactions.sql`, `0004_states_and_splits.sql`) |
-| `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`) |
+| `tags` | Теги простору (BUD-13 п. 2): назва, ключ `name_key` (обрізана, нижній регістр; унікальний у просторі), версія; у `transactions` — `note` (до 2 000) і `tag_ids` (до 20, по порядку; GIN-індекс для фільтра) (`0007_attributes.sql`); `review` — «До розбору» (BUD-12: `queued` · `confirmed` · null), частковий індекс черги (`0008_review.sql`) |
 | `transaction_parts` | Частини розділення по порядку: категорія (дерева модуля categories), місяць частки «На кілька місяців», сума зі знаком і валюта; видаляються з транзакцією (`0004_states_and_splits.sql`) |
 | `transfers` | Пара переказу: списання і зарахування (кожна транзакція — в одному переказі), у двох валютах — курс (1 одиниця валюти зарахування у валюті списання), його дата і джерело (`0005_transfers.sql`); у `transactions` — `transfer_id` і похідна `is_transfer` |
 | `duplicate_dismissals` | «Не дубль»: пара транзакцій у порядку ідентифікаторів; зникає з будь-якою з них (`0006_duplicates.sql`); у `transactions` — `merged_into` (злитий дубль) |

@@ -63,6 +63,8 @@ interface Transaction {
   hidden: boolean;
   mergedInto: string | null;
   mergedDuplicates: string[];
+  /** BUD-12 FR 7: one more with each change. */
+  version: number;
   transfer: {
     id: string;
     side: string;
@@ -196,6 +198,7 @@ beforeAll(async () => {
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
           walletUsage: [],
+          pendingPostings: [],
           ledger,
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
@@ -500,7 +503,9 @@ describe("FIN-03@PoC EC4: «Роз'єднати» gives both back with their own
     expect(res.statusCode, res.body).toBe(200);
     const after = res.json() as Transaction & { recordedAt: string };
     expect(after).toMatchObject({ hidden: false, mergedInto: null, counterparty: "Синтетичний дубль" });
-    expect({ ...after, hidden: before.hidden }).toEqual({ ...before });
+    // BUD-12 added `version`: «Об'єднати» and «Роз'єднати» are changes, so it grows; every other field comes back.
+    expect(after.version).toBeGreaterThan(before.version);
+    expect({ ...after, hidden: before.hidden, version: before.version }).toEqual({ ...before });
     expect((await get(space, first.id)).mergedDuplicates).toEqual([]);
     expect(await balance(space, a)).toBe("940");
     expect((await liveEntries(space.householdId)).sort()).toEqual([

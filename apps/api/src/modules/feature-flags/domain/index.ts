@@ -1,6 +1,8 @@
 // Domain layer of feature-flags: pure rules, no I/O (ARC-01 FR 5). Allowed imports: this folder,
 // @willowsum/domain-kernel, zod, decimal.js.
 export {
+  FLAG_KEY_MAX_LENGTH,
+  FLAG_KEY_PATTERN,
   FLAG_KEYS,
   FLAG_KINDS,
   FLAGS,

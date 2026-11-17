@@ -13,6 +13,7 @@ import {
   ChartColumn,
   ChartLine,
   ChartPie,
+  Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -78,6 +79,8 @@ import {
   Watch,
   Wine,
   Amphora,
+  StickyNote,
+  Tag,
   X,
   type IconNode,
 } from "lucide";
@@ -148,6 +151,7 @@ export type IconName =
   | "plus"
   | "close"
   | "check"
+  | "calendar"
   | "chevron-left"
   | "chevron-right"
   | "chevron-up"
@@ -155,6 +159,8 @@ export type IconName =
   | "eye"
   | "eye-off"
   | "edit"
+  | "tag"
+  | "note"
   | "trash"
   | "upload"
   | "download"
@@ -330,6 +336,7 @@ const GLYPHS: Record<IconName, Glyph> = {
   plus: lucide(Plus),
   close: lucide(X),
   check: lucide(Check),
+  calendar: lucide(Calendar),
   "chevron-left": lucide(ChevronLeft),
   "chevron-right": lucide(ChevronRight),
   "chevron-up": lucide(ChevronUp),
@@ -337,6 +344,8 @@ const GLYPHS: Record<IconName, Glyph> = {
   eye: lucide(Eye),
   "eye-off": lucide(EyeOff),
   edit: lucide(Pencil),
+  tag: lucide(Tag),
+  note: lucide(StickyNote),
   trash: lucide(Trash2),
   upload: lucide(Upload),
   download: lucide(Download),
@@ -440,6 +449,7 @@ export const ICON_GROUPS = {
     "minus",
     "close",
     "check",
+    "calendar",
     "chevron-left",
     "chevron-right",
     "chevron-up",
@@ -447,6 +457,8 @@ export const ICON_GROUPS = {
     "eye",
     "eye-off",
     "edit",
+    "tag",
+    "note",
     "trash",
     "upload",
     "download",

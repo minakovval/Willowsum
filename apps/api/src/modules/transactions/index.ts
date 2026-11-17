@@ -4,7 +4,7 @@ import type { ModuleDatabase } from "../../platform/db/module-db.ts";
 import { defineModule } from "../../platform/modules/define.ts";
 import type { WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
-import type { WalletUsage } from "../accounts/index.ts";
+import type { PendingPostings, WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
@@ -14,27 +14,35 @@ import {
   counterpartiesOf,
   counterpartyCounts,
   recurringHistory,
+  recurringMatching,
   subaccountsInUse,
   eraseHouseholdTransactions,
   HAND_OFF_JOB,
   requeueDeadHandOffs,
+  settleAccountHandOffs,
   transactionAudit,
   transactionsList,
   transactionsRoutes,
   transactionsWorkerQueue,
   transferCandidates,
   duplicateCandidates,
+  ruleCandidates,
+  ruleInputsOf,
   type CandidateSide,
   type DuplicateSide,
+  type RuleInput,
 } from "./adapters/index.ts";
+import { transactionCreated } from "./events.ts";
 import type { HandOffDeps } from "./application/index.ts";
 
 export const transactionsModule = defineModule({
   name: "transactions",
-  publishes: [],
+  publishes: [transactionCreated],
   consumes: [],
   routes: transactionsRoutes,
 });
+
+export { transactionCreated, type TransactionCreated } from "./events.ts";
 
 export { createTransactionsServices, type TransactionsServices } from "./adapters/index.ts";
 export { TRANSACTION_TYPES, typeOf } from "./domain/index.ts";
@@ -248,6 +256,23 @@ export interface TransactionHistory {
       readonly counterparty: string;
     }[]
   >;
+  /**
+   * BUD-07@PoC FR 8 (wave 2 row 26): the same, with or without a counterparty — the charges of a regular payment are
+   * matched by its category too.
+   */
+  matching(
+    householdId: string,
+    query: { readonly from: string; readonly to: string; readonly limit: number },
+  ): Promise<
+    readonly {
+      readonly id: string;
+      readonly accountId: string;
+      readonly date: string;
+      readonly amount: string;
+      readonly currency: string;
+      readonly counterparty: string | null;
+    }[]
+  >;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -255,6 +280,8 @@ export function createTransactionHistory(db: ModuleDatabase): TransactionHistory
   return {
     charges: (householdId, query) =>
       db.inHousehold(householdId, (q) => recurringHistory(q, householdId, query)),
+    matching: (householdId, query) =>
+      db.inHousehold(householdId, (q) => recurringMatching(q, householdId, query)),
   };
 }
 
@@ -290,8 +317,62 @@ export function createTransactionWalletUsage(db: ModuleDatabase): WalletUsage {
 }
 
 /**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7: the space's transactions whose hand-off to the journal has not finished, for module
+ * accounts' closing — run now with the worker's ports (the accounts directory, the journal, the audit log), so the
+ * closing reads the balance they leave; false when one cannot finish now (the closing is refused). `db` is the
+ * transactions module's own database (`ModuleDatabases.for("transactions")`).
+ */
+export function createTransactionPendingPostings(
+  db: ModuleDatabase,
+  ports: {
+    readonly accounts: HandOffDeps["accounts"];
+    readonly ledger: HandOffDeps["ledger"];
+    readonly audit: Pick<AuditLog, "record">;
+  },
+): PendingPostings {
+  const deps: HandOffDeps = {
+    accounts: ports.accounts,
+    ledger: ports.ledger,
+    audit: transactionAudit(ports.audit),
+  };
+  return {
+    module: "transactions",
+    settle: (householdId, accountId) => settleAccountHandOffs(db, deps, householdId, accountId),
+  };
+}
+
+/**
+ * The transactions module as module categorization's category rules read it (BUD-14@PoC FR 5, FR 7, FR 8; wave 2 row
+ * 23). Read only; every call is bound to one space.
+ */
+export interface TransactionRuleInputs {
+  /** The inputs of each existing transaction of `ids` (hidden ones too); the others are absent. */
+  inputs(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, RuleInput>>;
+  /** The eligible transactions, newest first, at most `limit`; `more` — there are others beyond them. */
+  candidates(
+    householdId: string,
+    limit: number,
+  ): Promise<{ readonly items: readonly RuleInput[]; readonly more: boolean }>;
+}
+export type { RuleInput };
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createTransactionRuleInputs(db: ModuleDatabase): TransactionRuleInputs {
+  return {
+    inputs: (householdId, ids) => db.inHousehold(householdId, (q) => ruleInputsOf(q, householdId, ids)),
+    candidates: (householdId, limit) =>
+      db.inHousehold(householdId, (q) => ruleCandidates(q, householdId, limit)),
+  };
+}
+
+/**
  * DAT-03@PoC FR 2, BUD-13@PoC FR 2 (src/wiring.ts `bulkActionsServicesFor`): «Додати теги» — the target
  * `transaction-tags` and the action `transactions.add-tags` for module bulk-actions. `db` is the transactions module's
  * own database; `accounts` the accounts module's directory (a closed account's transactions are read only).
  */
 export { createTagBulkActions as createTransactionTagBulkActions } from "./adapters/bulk/tags.ts";
+/**
+ * BUD-12@PoC FR 12, FR 14: «Підтвердити категорії» — the target `transaction-review` and the action
+ * `transactions.confirm-category` for module bulk-actions (`db`: the transactions module's own database).
+ */
+export { createReviewBulkActions as createTransactionReviewBulkActions } from "./adapters/bulk/review.ts";

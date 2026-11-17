@@ -72,6 +72,8 @@ export interface StoredAccount {
   /** The date of «Закритий» (FIN-01 FR 15, FR 22); closing comes with FIN-12 (wave 2 row 13). */
   readonly closedOn: string | null;
   readonly source: "manual" | "import";
+  /** «Обране» (FIN-01 FR 20): shown at the top of its group; a display flag (FIN-12 FR 8), false for a new account. */
+  readonly favourite: boolean;
 }
 
 export interface StoredSubaccount {
@@ -160,6 +162,8 @@ export interface AccountsTx {
       | "annualRate"
     >,
   ): Promise<void>;
+  /** «Обране» (FIN-01 FR 20): set or clear the star of the account. */
+  setFavourite(householdId: string, accountId: string, favourite: boolean): Promise<void>;
   /** «Закритий» with its date, or active again (FIN-12 FR 7–9). */
   setStatus(
     householdId: string,
@@ -193,6 +197,20 @@ export interface WalletUsage {
   used(householdId: string, subaccountIds: readonly string[]): Promise<ReadonlySet<string>>;
 }
 
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7: a module that moves an account's money through its own queue (ARC-04) — saved in
+ * that module, in the journal only once its hand-off has run — answers before the account closes: `settle` runs the
+ * hand-offs of its records that may still move the account's money and says whether all of them finished, so the
+ * closing reads the balance they leave and never closes past a posting still to come. Accounts never reads that
+ * module's tables (ARC-02). A module that starts to post to accounts' subaccounts through its queue adds its own to
+ * the API's wiring (src/main.ts) in the same PR.
+ */
+export interface PendingPostings {
+  /** The answering module, for the reader of the wiring. */
+  readonly module: string;
+  settle(householdId: string, accountId: string): Promise<boolean>;
+}
+
 export interface AccountsDeps {
   readonly ledger: Pick<
     Ledger,
@@ -217,6 +235,8 @@ export interface AccountsDeps {
   readonly today: () => string;
   /** The modules that keep subaccount ids (IMP-02 FR 15): a wallet one of them uses is not removed. */
   readonly walletUsage: readonly WalletUsage[];
+  /** FIN-01 EC4: the modules whose queued hand-offs may still move an account's money (transactions'). */
+  readonly pendingPostings: readonly PendingPostings[];
 }
 
 export interface Caller {
@@ -335,6 +355,7 @@ export async function createAccount(
     status: "active",
     closedOn: null,
     source: "manual",
+    favourite: false,
   };
   await tx.insertAccount(householdId, account);
 
@@ -403,6 +424,8 @@ export interface AccountView {
   /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
   readonly closedOn: string | null;
   readonly source: "manual" | "import";
+  /** «Обране» (FIN-01 FR 20). */
+  readonly favourite: boolean;
   readonly openedOn: string;
   readonly owners: readonly StoredOwner[];
   /** Per currency, the balance today from the ledger, shown from the holder's side (a debt is negative). */
@@ -489,6 +512,7 @@ export async function accountView(
     status: account.status,
     closedOn: account.closedOn,
     source: account.source,
+    favourite: account.favourite,
     openedOn: account.openedOn,
     owners: await tx.owners(householdId, accountId),
     currencies,

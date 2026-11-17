@@ -365,6 +365,12 @@
   inset-block-end: calc(100% + var(--ws-space-1));
 }
 
+/* A menu of a button at the end of a toolbar lines up with the button's end edge. */
+.ws-menu-end {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+}
+
 .ws-menu-item {
   display: flex;
   align-items: center;
@@ -376,8 +382,34 @@
   text-decoration: none;
 }
 
+/* An action item (a button, not a link) looks the same as a link item. */
+button.ws-menu-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
 .ws-menu-item:hover,
 .ws-menu-item:focus-visible {
+  background: var(--ws-surface-300);
+}
+
+/* A dangerous item (CMP-61@PoC «Стани пункту»): `loss` text and icon, after a 1 px `line` separator. */
+.ws-menu-item[data-tone="danger"] {
+  color: var(--ws-loss);
+}
+
+.ws-menu-separator {
+  height: 1px;
+  margin: var(--ws-space-1) var(--ws-space-2);
+  background: var(--ws-line);
+}
+
+/* An open «…» button (CMP-61@PoC «Кнопка «…»»): `surface-300`. */
+.ws-icon-button[aria-haspopup="menu"][aria-expanded="true"] {
   background: var(--ws-surface-300);
 }
 

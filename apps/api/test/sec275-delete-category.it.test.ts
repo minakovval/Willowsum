@@ -1,4 +1,3 @@
-// ===== FILE: apps/api/test/sec275-delete-category.it.test.ts =====
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
@@ -160,6 +159,7 @@ async function splitInto(space: Space, accountId: string, categoryId: string, ot
   expect(split.statusCode, split.body).toBe(200);
   return t.json().id as string;
 }
+
 const parts = async (householdId: string) =>
   (
     await db.owner.query(
@@ -186,7 +186,6 @@ beforeAll(async () => {
         flags: { ...base, isEnabled },
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
-          walletUsage: [],
           ledger,
           liabilities: createLiabilities(db.databases.for("liabilities"), audit),
           keys: createSpaceKeys(db.databases.for("household"), audit, localKeyManagement()),
@@ -194,6 +193,8 @@ beforeAll(async () => {
           audit,
           clock: { now: () => NOW },
           newId: randomUUID,
+          walletUsage: [],
+          pendingPostings: [],
         }),
         transactions: createTransactionsServices({
           accounts: createAccountDirectory(db.databases.for("accounts")),

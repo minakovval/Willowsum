@@ -45,6 +45,14 @@ test('CICD-01 FR 4: files are classified by path into the sensitive categories',
     'packages/domain-kernel/src/money.ts': ['money'],
     'apps/api/src/modules/audit/adapters/db/migrations/0002_x.sql': ['schema'],
     'apps/api/src/platform/db/isolation.ts': ['schema'],
+    // Owner, 2026-11-16: the background job queue and outbox (ARC-04) are sensitive, with the schema.
+    'apps/api/src/platform/queue/worker.ts': ['schema'],
+    'apps/api/src/platform/queue/queue-tables.sql': ['schema'],
+    // Owner, 2026-11-16 (item 5а): module events and the queue adapters of modules are sensitive too.
+    'apps/api/src/platform/events/catalogue.ts': ['schema'],
+    'apps/api/src/platform/events/compat.ts': ['schema'],
+    'apps/api/src/modules/merchants/adapters/queue/job.ts': ['schema'],
+    'apps/api/src/modules/categorization/adapters/queue/worker.ts': ['schema'],
     '.github/workflows/pr-checks.yml': ['pipeline'],
     'apps/api/Dockerfile': ['pipeline'],
     '.gitleaksignore': ['pipeline'],
@@ -65,6 +73,14 @@ test('CICD-01 FR 4: ordinary code, UI and documentation are not sensitive', () =
     'apps/api/src/modules/crypto-wallets.md',
     'apps/api/scripts/lib/dependency-rules.test.ts',
     'tools/synthetic/index.mjs',
+    // Near misses of the events and queue-adapter globs.
+    'apps/api/src/platform/eventsource/x.ts',
+    'apps/api/src/platform/events.ts',
+    'apps/api/src/modules/merchants/events/x.ts',
+    'apps/api/src/modules/merchants/adapters/queues/x.ts',
+    'apps/api/src/modules/merchants/adapters/api/queue/x.ts',
+    'apps/api/src/modules/merchants/queue/x.ts',
+    'apps/api/src/modules/adapters/queue/x.ts',
   ]) {
     assert.deepEqual(categoriesOf(path), [], path);
   }
@@ -168,6 +184,11 @@ test('review #87 item 3: rule and requirement changes need a recorded owner deci
     assert.deepEqual(ownerDecisionFiles([f(name, '+x')]), [name], name);
   }
   assert.deepEqual(ownerDecisionFiles([f('docs/plans/poc-wave-1.md', '+x'), f('docs/adr/0008-x.md', '+x')]), []);
+  // A text fingerprint records a re-check of tests and code, not a requirement change (owner decision 2026-11-16,
+  // item 8: such a PR explains the re-check in its body instead).
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.fingerprints.json', '+x')]), []);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.json', '+x')]), ['docs/requirements/bud/BUD-16.json']);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.fingerprints.json', '+x', { previous_filename: 'docs/requirements/bud/BUD-16.md' })]), ['docs/requirements/bud/BUD-16.md'], 'renamed from a requirement');
   // Only the «Перевіряється» line (test paths) changed: not a requirement change.
   const testsLine = '@@ -9,7 +9,7 @@\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: a.test.ts\n \n';
   assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', testsLine)]), []);

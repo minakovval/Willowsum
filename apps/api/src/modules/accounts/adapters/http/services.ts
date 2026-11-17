@@ -5,7 +5,13 @@ import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { REPORTING_CURRENCY, type FxReporting } from "../../../fx-rates/index.ts";
 import type { Liabilities } from "../../../liabilities/index.ts";
-import type { AccountAudit, AccountsDeps, NumberSeal, WalletUsage } from "../../application/index.ts";
+import type {
+  AccountAudit,
+  AccountsDeps,
+  NumberSeal,
+  PendingPostings,
+  WalletUsage,
+} from "../../application/index.ts";
 
 const BRAND = Symbol("willowsum-accounts-services");
 
@@ -31,6 +37,8 @@ export function createAccountsServices(options: {
   readonly newId: () => string;
   /** IMP-02 FR 15: the modules that keep subaccount ids (transactions' `createTransactionWalletUsage`). */
   readonly walletUsage: readonly WalletUsage[];
+  /** FIN-01 EC4: the modules whose queued hand-offs may still move an account's money (transactions'). */
+  readonly pendingPostings: readonly PendingPostings[];
 }): AccountsServices {
   return {
     [BRAND]: true,
@@ -47,6 +55,7 @@ export function createAccountsServices(options: {
       // rate never fall on different days (#222). The profile's time zone (ACC-05) is not known to this module yet.
       today: () => kyivToday(options.clock.now()),
       walletUsage: options.walletUsage,
+      pendingPostings: options.pendingPostings,
     },
   };
 }

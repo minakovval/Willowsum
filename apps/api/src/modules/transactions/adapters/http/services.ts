@@ -20,6 +20,17 @@ export const TRANSFERS_FLAG = "transactions.transfers";
 /** The release flag and feature key of «Об'єднати», «Роз'єднати» and «Не дубль» (FIN-03 b, wave 2 row 16c). */
 export const DUPLICATES_FLAG = "transactions.duplicates";
 
+/** The release flag and feature key of «До розбору» (BUD-12 a, wave 2 row 24); requires `transactions.manual`. */
+export const REVIEW_FLAG = "transactions.review";
+
+/** The release flag and feature key of «Історія змін» (FIN-03 FR 27, #439); requires `transactions.manual`. */
+export const HISTORY_FLAG = "transactions.history";
+
+/** The categories of transactions (categorization's `TransactionCategories`, by shape: no import of that module). */
+export interface ReviewCategories {
+  categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
+}
+
 const BRAND = Symbol("willowsum-transactions-services");
 
 /**
@@ -35,8 +46,15 @@ export interface TransactionsServices {
   /** Transfers (FIN-03 FR 7, FR 27): the same ports and the official rates; null when the rates are not wired. */
   readonly transfers: TransferDeps | null;
   readonly totals: ListTotals;
+  /**
+   * BUD-12 FR 7: module categorization's category of each transaction (wired in src/main.ts), so «Підтвердити» on a
+   * card whose category was changed in another window is refused; null when it is not wired.
+   */
+  readonly categoryOf: ReviewCategories | null;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
+  /** «Історія змін» (FIN-03 FR 27): the audit log's entries of one entity; null when the log given cannot read. */
+  readonly history: Pick<AuditLog, "entriesFor"> | null;
 }
 
 export function createTransactionsServices(options: {
@@ -44,7 +62,8 @@ export function createTransactionsServices(options: {
   readonly ledger: TransactionsDeps["ledger"];
   /** `createListTotals` of platform/lists with fx-rates' `officialDatedRates`, on the same clock. */
   readonly totals: ListTotals;
-  readonly audit: Pick<AuditLog, "record">;
+  /** The audit log; with `entriesFor` (the API process's) it is also the source of «Історія змін» (FIN-03 FR 27). */
+  readonly audit: Pick<AuditLog, "record"> & Partial<Pick<AuditLog, "entriesFor">>;
   readonly clock: { now(): number };
   readonly newId: () => string;
   /** The categories module's directory, for the categories of split parts; without it «Розділити» answers 500. */
@@ -58,6 +77,8 @@ export function createTransactionsServices(options: {
    * without it «Приховати транзакцію» answers 500.
    */
   readonly duplicates?: DuplicateCheck;
+  /** BUD-12 FR 7: the category each transaction has (module categorization), for the card's version check. */
+  readonly categoryOf?: ReviewCategories;
 }): TransactionsServices {
   const deps: TransactionsDeps = {
     accounts: options.accounts,
@@ -78,7 +99,9 @@ export function createTransactionsServices(options: {
     splits: options.categories ? { ...deps, categories: options.categories } : null,
     transfers: options.rates ? { ...deps, rates: options.rates } : null,
     totals: options.totals,
+    categoryOf: options.categoryOf ?? null,
     reportingCurrency: REPORTING_CURRENCY,
+    history: options.audit.entriesFor ? { entriesFor: options.audit.entriesFor.bind(options.audit) } : null,
   };
 }
 

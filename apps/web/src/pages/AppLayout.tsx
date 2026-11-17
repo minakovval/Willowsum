@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
 import { AppShell, type MenuItem, type NavSection } from "@willowsum/ui";
 import {
@@ -13,11 +13,13 @@ import {
 import { lastPageOf } from "../routing/session.ts";
 import { useGoShortcuts } from "../routing/useGoShortcuts.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
+import { useSpaceName } from "../space/api.ts";
+import { NewTransactionDialog } from "../transactions/NewTransactionDialog.tsx";
 
 /**
  * The PoC user shell (UX-09@PoC, CMP-69@PoC): L1 «Гроші» and «Планування» with the L2 pages of the
  * current one, «+ Додати» (Транзакція, Рахунок, Ціль), the profile menu with «Налаштування» and
- * the G-shortcuts. No «Приховати суми», search or notifications.
+ * the G-shortcuts. «+ Додати → Транзакція» (S-025, FIN-03@PoC FR 1) opens «Нова транзакція» (S-048) over the page. No «Приховати суми», search or notifications.
  */
 export function AppLayout({
   sectionId,
@@ -30,7 +32,10 @@ export function AppLayout({
 }) {
   const t = useT();
   const path = useHashPath();
+  // ACC-08@PoC FR 2: the space's name in the profile; the placeholder until it is known.
+  const spaceName = useSpaceName();
   useGoShortcuts();
+  const [adding, setAdding] = useState(false);
 
   const sections: NavSection[] = SECTIONS.map((s) => {
     const root = rootOf(s).path;
@@ -53,7 +58,7 @@ export function AppLayout({
       id: "transaction",
       label: t("shell.add.transaction"),
       icon: "transactions",
-      href: hrefFor(childPath("newTransaction")),
+      onSelect: () => setAdding(true),
       shortcut: { code: "KeyT", label: "T" },
     },
     {
@@ -77,7 +82,7 @@ export function AppLayout({
       add={{ label: t("shell.add"), items: addItems }}
       profile={{
         name: t("shell.profile.name"),
-        space: t("shell.profile.space"),
+        space: spaceName ?? t("shell.profile.space"),
         menuLabel: t("shell.profile.menu"),
         items: [
           { id: "settings", label: t("shell.settings"), icon: "settings", href: hrefFor(SETTINGS_PATH) },
@@ -85,6 +90,7 @@ export function AppLayout({
       }}
     >
       {children}
+      <NewTransactionDialog open={adding} onClose={() => setAdding(false)} />
     </AppShell>
   );
 }

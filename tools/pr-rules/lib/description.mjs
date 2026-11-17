@@ -3,6 +3,7 @@
 // tests, how it was tested, and whether sensitive areas are touched.
 import fs from 'node:fs';
 import path from 'node:path';
+import { isFingerprintFile } from './paths.mjs';
 
 /**
  * A requirement ID at the start of the title, optionally as a release slice (`BUD-16@PoC`), followed by `:`, `,`,
@@ -53,10 +54,11 @@ const ticked = (line) => /^\s*[-*]\s+\[[xX]\]/.test(line);
 
 /**
  * Check a PR's title and body.
- * @param {{ title: string, body: string, ids: Set<string>, sensitive?: { sensitive: boolean, categories: string[] } }} pr
+ * @param {{ title: string, body: string, ids: Set<string>, sensitive?: { sensitive: boolean, categories: string[] }, files?: { filename: string, previous_filename?: string }[] }} pr
+ *   `files`: the PR's changed files (as the API lists them); without them the fingerprint rule is not applied
  * @returns {string[]} problems; empty when the description is fine
  */
-export function checkDescription({ title, body, ids, sensitive }) {
+export function checkDescription({ title, body, ids, sensitive, files }) {
   const problems = [];
   const m = TITLE_ID.exec(title ?? '');
   if (!m) {
@@ -104,5 +106,33 @@ export function checkDescription({ title, body, ids, sensitive }) {
       );
     }
   }
+  problems.push(...fingerprintProblems(files, secs));
   return problems;
+}
+
+/** The section a fingerprints-only PR must have (owner decision 2026-11-16, item 8). */
+export const FINGERPRINT_SECTION = 'Why the tests and code still match';
+
+/** Tests and code: anything the repository builds, runs or tests (`apps/`, `packages/`, `tools/`, `infra/`), but not Markdown. */
+const isTestOrCode = (name) => /^(apps|packages|tools|infra)\//.test(name) && !/\.md$/i.test(name);
+
+/**
+ * A PR that updates text fingerprints (`--update-fingerprints`) and changes no test or code naming that requirement
+ * has re-checked them by reading only: its body says why they still match the requirement (owner decision
+ * 2026-11-16, item 8). The diff of a PR whose tests or code name each such requirement shows the re-check itself.
+ */
+function fingerprintProblems(files, secs) {
+  if (!files) return [];
+  const names = files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
+  const ids = [...new Set(names.filter(isFingerprintFile).map((n) => /([A-Z][A-Z0-9]{1,4}-\d{2}[a-z]?)\.fingerprints\.json$/.exec(n)[1]))];
+  if (!ids.length) return [];
+  // The diff shows the re-check only when a changed test or code file names each re-checked requirement; an
+  // unrelated tool or code change does not stand in for it.
+  const recheck = files.filter((f) => [f.filename, f.previous_filename].some((n) => n && isTestOrCode(n)));
+  if (ids.every((id) => recheck.some((f) => new RegExp(`\\b${id}\\b`).test(f.patch ?? '')))) return [];
+  if (!secs.has(FINGERPRINT_SECTION)) {
+    return [`The PR changes only text fingerprints (*.fingerprints.json) and no tests or code: add «## ${FINGERPRINT_SECTION}» saying, per changed item, why its tests and code still match the new text (owner decision 2026-11-16, item 8).`];
+  }
+  if (!secs.get(FINGERPRINT_SECTION).trim()) return [`«${FINGERPRINT_SECTION}» is empty: say, per changed item, why its tests and code still match the new text.`];
+  return [];
 }

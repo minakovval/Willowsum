@@ -4,6 +4,7 @@ import {
   counterpartyText,
   descriptionText,
   parseSignedAmount,
+  reviewOnCreate,
   subaccountFor,
   type FieldIssue,
   type PostingAccount,
@@ -70,6 +71,8 @@ export interface TransactionsTx {
   pairsOfHidden(householdId: string, id: string, windowDays: number): Promise<readonly DuplicatePairSides[]>;
   /** ARC-04 FR 2: the hand-off of this change to the journal and the audit log, enqueued in this transaction. */
   enqueueHandOff(householdId: string, handOff: TransactionHandOff): Promise<void>;
+  /** BUD-14 FR 8: «Нова транзакція» (`transactions.created`) in the outbox, in this transaction. */
+  publishCreated(householdId: string, transactionId: string): Promise<void>;
 }
 
 export interface TransactionsDeps extends HandOffDeps {
@@ -189,7 +192,7 @@ function text(
   return parse(value);
 }
 
-interface Checked {
+export interface Checked {
   readonly account: PostingAccount;
   readonly subaccount: PostingAccount["subaccounts"][number];
   readonly amount: Money;
@@ -200,7 +203,7 @@ interface Checked {
 }
 
 /** Every field of the form against its rule, then the account and the currency (FR 2, FR 29, FR 32, edge case 2). */
-async function check(
+export async function check(
   deps: TransactionsDeps,
   householdId: string,
   input: TransactionInput,
@@ -275,8 +278,11 @@ export async function createTransaction(
     mergedInto: null,
     note: null,
     tagIds: [],
+    // BUD-12 FR 8: a transaction entered by hand never goes into «До розбору».
+    review: reviewOnCreate({ importedFromStatement: false }),
     version: 1,
   });
+  await tx.publishCreated(caller.householdId, id);
   return { kind: "ok", transaction: row, handOff: await handOff(tx, caller, "create", null, row) };
 }
 
@@ -338,6 +344,17 @@ export async function updateTransaction(
     (await tx.duplicatesOf(householdId, id)).length > 0
   )
     return { kind: "has-duplicates" };
+  // BUD-01 FR 6: the parts have the transaction's currency and sign. A new currency or sign would leave them of the old
+  // one, so the edit is refused until «Об'єднати назад» (lead decision, 2026-11-16; owner question in the PR); nothing
+  // was written.
+  if (current.split) {
+    if (checked.amount.currency !== current.amount.currency) {
+      const field = checked.account.accountId !== current.accountId ? "accountId" : "amount";
+      return { kind: "invalid", issues: [{ field, issue: "split" }] };
+    }
+    if (checked.amount.isNegative() !== current.amount.isNegative())
+      return { kind: "invalid", issues: [{ field: "amount", issue: "split" }] };
+  }
   // BUD-01 FR 6: a split outlives a change of the amount, marked «потребує перегляду».
   const split =
     current.split && !checked.amount.equals(current.amount)
@@ -359,6 +376,8 @@ export async function updateTransaction(
     mergedInto: current.mergedInto,
     note: current.note,
     tagIds: current.tagIds,
+    // BUD-12: a change after the confirmation does not put it back into the queue (business rules).
+    review: current.review,
     version: current.version + 1,
   });
   const updated = await handOff(tx, caller, "update", current, next);

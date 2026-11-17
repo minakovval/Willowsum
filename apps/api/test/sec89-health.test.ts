@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { buildServer } from "../src/platform/process/server.ts";
 
 /**
- * Security review of PR #89: the PoC «alive» check (ARC-09@PoC FR 5, CICD-07@PoC FR 5) calls production
+ * Security review of PR #89: the PoC «alive» check (ARC-09@PoC FR 5, CICD-07@PoC FR 2) calls production
  * `/health/ready` from GitHub Actions, so the probe must be reachable from the internet. Probes are never
  * rate-limited (NFR-14 test) and each one runs the readiness check (a query on the probe pool of one
  * connection and the flag refresh). The probe's body stays a closed set; concurrent probes share one check.

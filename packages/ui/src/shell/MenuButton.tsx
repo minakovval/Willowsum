@@ -6,9 +6,18 @@ export interface MenuItem {
   label: string;
   icon: IconName;
   /** A link (the app routes on the URL hash). */
-  href: string;
+  href?: string;
+  /** An action instead of a link: the menu closes and focus returns to the button. */
+  onSelect?: () => void;
+  /** An on/off option (`menuitemcheckbox`): «Параметри» → «Показати закриті» (FIN-01@PoC FR 22). */
+  checked?: boolean;
   /** A key that picks this item while the menu is open, shown on the right (UX-09 item 14). */
   shortcut?: { code: string; label: string };
+  /**
+   * A dangerous action («Закрити рахунок», «Видалити»; CMP-61@PoC «Стани пункту»): `loss` text, after a separator.
+   * The consumer puts it last.
+   */
+  danger?: boolean;
 }
 
 /**
@@ -20,6 +29,7 @@ export function MenuButton({
   menuLabel,
   items,
   placement,
+  align = "start",
   className,
   ariaLabel,
   title,
@@ -28,6 +38,8 @@ export function MenuButton({
   menuLabel: string;
   items: readonly MenuItem[];
   placement: "down" | "up";
+  /** Which edge of the button the menu lines up with; `end` for a button at the right of a toolbar. */
+  align?: "start" | "end";
   className: string;
   /** For an icon-only button. */
   ariaLabel?: string | undefined;
@@ -42,7 +54,7 @@ export function MenuButton({
 
   useEffect(() => {
     if (!open) return;
-    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    menuRef.current?.querySelector<HTMLElement>('[role^="menuitem"]')?.focus();
     const onPointer = (e: PointerEvent | MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -56,7 +68,7 @@ export function MenuButton({
   };
 
   const onMenuKeyDown = (e: KeyboardEvent<HTMLUListElement>) => {
-    const links = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    const links = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]') ?? []);
     const at = links.indexOf(document.activeElement as HTMLElement);
     if (e.key === "Escape") {
       e.preventDefault();
@@ -72,8 +84,11 @@ export function MenuButton({
       if (item) {
         e.preventDefault();
         e.stopPropagation();
-        setOpen(false);
-        window.location.href = item.href;
+        if (item.href !== undefined) {
+          setOpen(false);
+          window.location.assign(item.href);
+        } else close(true);
+        item.onSelect?.();
       }
     }
   };
@@ -99,28 +114,60 @@ export function MenuButton({
           ref={menuRef}
           role="menu"
           aria-label={menuLabel}
-          className={`ws-menu ws-menu-${placement}`}
+          className={`ws-menu ws-menu-${placement}${align === "end" ? " ws-menu-end" : ""}`}
           onKeyDown={onMenuKeyDown}
         >
-          {items.map((item) => (
-            <li key={item.id} role="none">
-              <a
-                role="menuitem"
-                className="ws-menu-item"
-                href={item.href}
-                aria-keyshortcuts={item.shortcut?.label}
-                onClick={() => setOpen(false)}
-              >
+          {items.map((item) => {
+            const content = (
+              <>
                 <Icon name={item.icon} size={20} />
                 <span className="ws-menu-label">{item.label}</span>
+                {item.checked ? <Icon name="check" size={16} /> : null}
                 {item.shortcut ? (
                   <kbd className="ws-menu-shortcut" aria-hidden="true">
                     {item.shortcut.label}
                   </kbd>
                 ) : null}
-              </a>
-            </li>
-          ))}
+              </>
+            );
+            const role = item.checked === undefined ? "menuitem" : "menuitemcheckbox";
+            const separator = item.danger ? (
+              <li role="separator" className="ws-menu-separator" key={`${item.id}-separator`} />
+            ) : null;
+            return [
+              separator,
+              <li key={item.id} role="none">
+                {item.href !== undefined ? (
+                  <a
+                    role={role}
+                    aria-checked={item.checked}
+                    className="ws-menu-item"
+                    data-tone={item.danger ? "danger" : undefined}
+                    href={item.href}
+                    aria-keyshortcuts={item.shortcut?.label}
+                    onClick={() => setOpen(false)}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    role={role}
+                    aria-checked={item.checked}
+                    className="ws-menu-item"
+                    data-tone={item.danger ? "danger" : undefined}
+                    aria-keyshortcuts={item.shortcut?.label}
+                    onClick={() => {
+                      close(true);
+                      item.onSelect?.();
+                    }}
+                  >
+                    {content}
+                  </button>
+                )}
+              </li>,
+            ];
+          })}
         </ul>
       ) : null}
     </div>

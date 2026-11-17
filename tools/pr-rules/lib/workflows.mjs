@@ -26,12 +26,13 @@ export function jobNames(yamlText) {
     if (!inJobs) continue;
     const key = /^ {2}([A-Za-z0-9_-]+):\s*(#.*)?$/.exec(line);
     if (key) {
-      current = { key: key[1], name: null, matrixName: false, needs: [] };
+      current = { key: key[1], name: null, matrixName: false, needs: [], text: '' };
       jobs.push(current);
       inNeedsList = false;
       continue;
     }
     if (!current) continue;
+    current.text += `${line}\n`;
     if (inNeedsList) {
       const item = /^ {6}- ([A-Za-z0-9_-]+)\s*(#.*)?$/.exec(line);
       if (item) {
@@ -50,6 +51,21 @@ export function jobNames(yamlText) {
     if (name) current.name = name[2].trim();
     else if (/^ {4}name:.*\$\{\{\s*matrix\./.test(line)) current.matrixName = true;
   }
-  const needed = new Set(jobs.flatMap((j) => j.needs));
-  return jobs.filter((j) => !(j.matrixName && needed.has(j.key))).map((j) => j.name ?? j.key);
+  // A matrix job is covered by an aggregate job only when that job reads `needs.<key>.result` and compares it with
+  // `success` (#243 item 2): a job that needs it just for ordering, or only prints it, would otherwise drop it from
+  // the required list unseen. Accepted: `needs.<key>.result == 'success'`, or a variable set from it and tested as
+  // `test "$VAR" = "success"` / `[ "$VAR" = success ]`.
+  // Not accepted either (#452): a step-level `if:` or `continue-on-error` anywhere in the job (the comparing step may
+  // be skipped or its failure ignored), and a job-level `if:` with `always()` or `||` (the job runs, or the
+  // comparison is decided, whatever the parts did).
+  const comparesToSuccess = (text, key) => {
+    if (/^ {6,}(- )?(if|continue-on-error):/m.test(text) || /^ {4}continue-on-error:/m.test(text)) return false;
+    if (/^ {4}if:.*(always\(\)|\|\|)/m.test(text)) return false;
+    const k = key.replace(/-/g, '\\-');
+    if (new RegExp(`needs\\.${k}\\.result\\s*==\\s*'success'`).test(text)) return true;
+    const bound = text.matchAll(new RegExp(`^\\s*(\\w+):\\s*\\$\\{\\{\\s*needs\\.${k}\\.result\\s*\\}\\}\\s*$`, 'gm'));
+    return [...bound].some((m) => new RegExp(`^\\s*(test|\\[) +"\\$${m[1]}" += +"?success"?( +\\])?\\s*$`, 'm').test(text));
+  };
+  const covered = (key) => jobs.some((j) => j.needs.includes(key) && comparesToSuccess(j.text, key));
+  return jobs.filter((j) => !(j.matrixName && covered(j.key))).map((j) => j.name ?? j.key);
 }

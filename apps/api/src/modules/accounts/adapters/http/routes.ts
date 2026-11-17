@@ -14,12 +14,14 @@ import {
   balanceNow,
   closeAccount,
   closingPreview,
+  settlePending,
   createAccount,
   createdAccountView,
   deleteAdjustment,
   findDuplicate,
   reopenAccount,
   updateAccountDetails,
+  updateAccountDisplay,
   updateAccountSettings,
   updateBalance,
   type AccountListItem,
@@ -37,13 +39,16 @@ import {
   ACCOUNT_SOURCES,
   ACCOUNT_STATUSES,
   CURRENCIES_MAX,
+  bankInstitution,
   INSTITUTION_NAME_MAX,
   institutionKey,
   institutionOf,
   NOTE_MAX,
   parseAccountNumber,
+  searchBanks,
   type FieldIssue,
 } from "../../domain/index.ts";
+import { bankRegistry } from "../banks/registry.ts";
 import { accountsListTx, accountsTx } from "../db/store.ts";
 import { accountKinds } from "../queue/hand-off.ts";
 import { accountsServices } from "./services.ts";
@@ -105,6 +110,8 @@ const accountSchema = z.object({
   /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
   closedOn: z.string().nullable(),
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group. */
+  favourite: z.boolean(),
   openedOn: z.string(),
   owners: z.array(ownerSchema),
   /** Per currency: today's balance from the ledger in the subaccount's currency; a debt is negative. */
@@ -355,6 +362,64 @@ export const findDuplicateAccountRoute = defineRoute({
   },
 });
 
+const bankSchema = z.object({
+  /** The bank's code (МФО) in the NBU list. */
+  code: z.string(),
+  name: z.string(),
+  /** Always «Україна» (UA) for a bank of the directory. */
+  country: z.string(),
+});
+
+/**
+ * «Банк або установа» (FIN-01@PoC FR 4, AC22): the search of the built-in directory of NBU banks for the account form
+ * and «Реквізити». Picking a bank fills `institution` with its name and the country «Україна»; «Інша установа» sends a
+ * name and a country by hand, and neither changes the directory. The directory is the versioned file of the app (no
+ * call to the NBU at run time); `source` names it for the attribution. Same right as creating an account.
+ */
+export const searchBanksRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts/banks",
+  operationId: "searchBanks",
+  summary: "Banks of the built-in NBU directory whose name contains the text (all of them for an empty text)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  list: true,
+  request: {
+    query: z.object({
+      ...pageQuery.shape,
+      q: z
+        .string()
+        .max(INSTITUTION_NAME_MAX * 4)
+        .optional(),
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "A page of banks, names starting with the text first, then by name; the directory's source and date",
+    schema: pageOf(bankSchema).extend({
+      source: z.object({
+        attribution: z.string(),
+        url: z.string(),
+        /** The date of the NBU list the directory was built from. */
+        asOf: z.string(),
+      }),
+    }),
+  },
+  handler: async ({ query }) => {
+    const registry = bankRegistry();
+    const from = query.cursor ? decodeCursor(query.cursor, bankPosition).o : 0;
+    const hits = searchBanks(registry, query.q ?? "");
+    const page = hits.slice(from, from + query.limit);
+    return {
+      items: page.map((bank) => ({ code: bank.code, ...bankInstitution(bank) })),
+      nextCursor: from + query.limit < hits.length ? encodeCursor({ o: from + query.limit }) : null,
+      source: { attribution: registry.source.attribution, url: registry.source.url, asOf: registry.asOf },
+    };
+  },
+});
+const bankPosition = z.object({ o: z.number().int().min(0) });
+
 /** A sum in the profile currency: unrounded; null only when no amount has any rate (never 0). */
 const reportedSumSchema = z.object({
   total: moneySchema.nullable(),
@@ -452,6 +517,8 @@ const listItemSchema = z.object({
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
   /** «Дата останнього оновлення»: the latest balance date of the account. */
   updatedOn: z.string(),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group; the list keeps the order of adding. */
+  favourite: z.boolean(),
   /** The account in the profile currency (a debt negative); a multi-currency account is one row (FR 13). */
   inProfileCurrency: reportedSumSchema,
   /** Each subaccount in its own currency and in the profile currency. */
@@ -542,10 +609,31 @@ function refusal(r: ManageRefusal): ApiProblem {
       return new ApiProblem("ACCOUNT_ACTIVITY_AFTER_CLOSE");
     case "balance-not-zero":
       return new ApiProblem("ACCOUNT_BALANCE_NOT_ZERO");
+    case "postings-pending":
+      return new ApiProblem("ACCOUNT_POSTINGS_PENDING");
   }
 }
 
 const accountParams = z.object({ accountId: z.uuid() });
+
+/**
+ * FIN-01 EC4: the other modules' pending postings of the account first, before this module's transaction holds a
+ * connection (the hand-off reads accounts' directory on this module's pool; #391 review B1). The account is looked up in
+ * the caller's space before anything runs, in a read of its own: another space's or an unknown account is 404 and a
+ * closed one 409, and nothing is settled for either (security review (a)). The closing checks it again under its lock.
+ */
+async function settleBeforeClosing(
+  ctx: ProtectedContext,
+  deps: ReturnType<typeof accountsServices>["deps"],
+  accountId: string,
+): Promise<void> {
+  const { householdId } = ctx.principal;
+  const account = await ctx.inHousehold((q) => accountsTx(q).account(householdId, accountId));
+  if (!account) throw refusal({ kind: "not-found" });
+  if (account.status === "closed") throw refusal({ kind: "closed" });
+  const pending = await settlePending(deps, householdId, accountId);
+  if (pending) throw refusal(pending);
+}
 
 /** The account after a change, as `GET` answers it. */
 async function presentAccount(
@@ -567,7 +655,7 @@ export const accountClosingRoute = defineRoute({
   summary: "The closing dialog: the account's balance on the closing date per currency (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   request: { params: accountParams, query: z.object({ closedOn: isoDate }) },
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_ACTIVITY_AFTER_CLOSE", "ACCOUNT_POSTINGS_PENDING"],
   response: {
     status: 200,
     description: "The balances on the closing date; `zero` — the account can close without a choice",
@@ -580,6 +668,7 @@ export const accountClosingRoute = defineRoute({
   handler: async ({ params, query }, ctx) => {
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
+    await settleBeforeClosing(ctx, deps, params.accountId);
     const result = await ctx.inHousehold((q) =>
       closingPreview(deps, accountsTx(q), ctx.principal.householdId, params.accountId, query.closedOn),
     );
@@ -601,7 +690,12 @@ export const closeAccountRoute = defineRoute({
     "«Закрити рахунок»: with a zero balance on the closing date, after a transfer or a write-off (FIN-12 FR 7)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 4 * 1024,
-  problems: ["ACCOUNT_CLOSED", "ACCOUNT_BALANCE_NOT_ZERO", "ACCOUNT_ACTIVITY_AFTER_CLOSE"],
+  problems: [
+    "ACCOUNT_CLOSED",
+    "ACCOUNT_BALANCE_NOT_ZERO",
+    "ACCOUNT_ACTIVITY_AFTER_CLOSE",
+    "ACCOUNT_POSTINGS_PENDING",
+  ],
   request: {
     params: accountParams,
     body: z
@@ -623,6 +717,7 @@ export const closeAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    await settleBeforeClosing(ctx, deps, params.accountId);
     const result = await ctx.inHousehold((q) =>
       closeAccount(deps, accountsTx(q), caller, params.accountId, {
         closedOn: body.closedOn,
@@ -797,6 +892,40 @@ export const updateAccountRoute = defineRoute({
   },
 });
 
+export const updateAccountDisplayRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/accounts/{accountId}/display",
+  operationId: "updateAccountDisplay",
+  summary:
+    "«Обране»: set or clear the star of the account, a display flag — also on a closed account (FIN-01 FR 20, FIN-12 FR 8)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 1024,
+  request: {
+    params: accountParams,
+    // An unknown field is 400; more display flags («Враховувати в net worth», FIN-12 FR 4) join this body later.
+    body: z
+      .object({
+        /** true puts the account in «Обране», false takes it out. */
+        favourite: z.boolean(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account after the change", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      updateAccountDisplay(deps, accountsTx(q), caller, params.accountId, body),
+    );
+    if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+    // The audit entry, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
+    if (result.kind === "updated") await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
+  },
+});
+
 export const updateAccountDetailsRoute = defineRoute({
   module: MODULE,
   method: "PATCH",
@@ -967,6 +1096,7 @@ export const removeAccountWalletRoute = defineRoute({
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
+  searchBanksRoute,
   accountsSummaryRoute,
   listAccountsRoute,
   getAccountRoute,
@@ -977,6 +1107,7 @@ export const accountsRoutes = [
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
   updateAccountDetailsRoute,
+  updateAccountDisplayRoute,
   addAccountWalletRoute,
   removeAccountWalletRoute,
 ];

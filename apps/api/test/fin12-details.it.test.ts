@@ -113,6 +113,7 @@ beforeAll(async () => {
   keys = createSpaceKeys(db.databases.for("household"), audit, localKeyManagement());
   const services = createAccountsServices({
     walletUsage: [],
+    pendingPostings: [],
     ledger,
     liabilities,
     keys,
