@@ -4,6 +4,7 @@ export { ruleCandidates, ruleInputsOf, type RuleInput } from "./db/rule-inputs.t
 export {
   requeueDeadHandOffs,
   settleAccountHandOffs,
+  unsettledAccountHandOffs,
   transactionRows,
   transactionsWorkerQueue,
 } from "./queue/hand-off.ts";

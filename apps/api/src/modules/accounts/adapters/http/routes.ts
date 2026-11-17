@@ -27,6 +27,7 @@ import {
   type AccountListItem,
   type AdjustmentView,
   type ManageRefusal,
+  type Settled,
   type AccountView,
   type ConvertedAmount,
   type ReportedSum,
@@ -626,13 +627,35 @@ async function settleBeforeClosing(
   ctx: ProtectedContext,
   deps: ReturnType<typeof accountsServices>["deps"],
   accountId: string,
-): Promise<void> {
+): Promise<Settled> {
   const { householdId } = ctx.principal;
   const account = await ctx.inHousehold((q) => accountsTx(q).account(householdId, accountId));
   if (!account) throw refusal({ kind: "not-found" });
   if (account.status === "closed") throw refusal({ kind: "closed" });
-  const pending = await settlePending(deps, householdId, accountId);
-  if (pending) throw refusal(pending);
+  const settled = await settlePending(deps, householdId, accountId);
+  if (settled.kind !== "settled") throw refusal(settled);
+  return settled;
+}
+
+/** How many times a change that reads the balance settles the other modules' postings and tries again (row 198). */
+const SETTLE_ATTEMPTS = 3;
+
+/**
+ * Row 198 (#409 items 1 and 4): a change that reads the account's balance — the closing, «Оновити залишок» — runs
+ * after `settleBeforeClosing`, under the account's money lock. A transaction committed in between (it held that lock,
+ * so the change waited for it) refuses it with `postings-pending`; then its hand-off is settled and the change runs
+ * again, at most `SETTLE_ATTEMPTS` times in all, after which ACCOUNT_POSTINGS_PENDING answers (nothing was written).
+ */
+async function settledChange<R extends { readonly kind: string }>(
+  ctx: ProtectedContext,
+  deps: ReturnType<typeof accountsServices>["deps"],
+  accountId: string,
+  change: (settled: Settled) => Promise<R>,
+): Promise<R> {
+  for (let attempt = 1; ; attempt++) {
+    const result = await change(await settleBeforeClosing(ctx, deps, accountId));
+    if (result.kind !== "postings-pending" || attempt >= SETTLE_ATTEMPTS) return result;
+  }
 }
 
 /** The account after a change, as `GET` answers it. */
@@ -717,12 +740,17 @@ export const closeAccountRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    await settleBeforeClosing(ctx, deps, params.accountId);
-    const result = await ctx.inHousehold((q) =>
-      closeAccount(deps, accountsTx(q), caller, params.accountId, {
-        closedOn: body.closedOn,
-        settlement: body.settlement ?? null,
-      }),
+    const result = await settledChange(ctx, deps, params.accountId, (settled) =>
+      ctx.inHousehold((q) =>
+        closeAccount(
+          deps,
+          accountsTx(q),
+          caller,
+          params.accountId,
+          { closedOn: body.closedOn, settlement: body.settlement ?? null },
+          settled,
+        ),
+      ),
     );
     if (result.kind !== "account-closed") throw refusal(result);
     // The transfer or the write-off and the audit entries, after the commit (ARC-04 FR 2); the worker finishes them
@@ -762,7 +790,7 @@ export const updateAccountBalanceRoute = defineRoute({
     "«Оновити залишок»: one adjustment of the difference against «Коригування», dated today (FIN-12 FR 14)",
   access: { permission: "household.data.write", feature: FEATURE },
   bodyLimitBytes: 4 * 1024,
-  problems: ["ACCOUNT_CLOSED"],
+  problems: ["ACCOUNT_CLOSED", "ACCOUNT_POSTINGS_PENDING"],
   request: {
     params: accountParams,
     body: z
@@ -785,8 +813,10 @@ export const updateAccountBalanceRoute = defineRoute({
     refuseScoped(ctx);
     const { deps } = accountsServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
-    const result = await ctx.inHousehold((q) =>
-      updateBalance(deps, accountsTx(q), caller, params.accountId, body.balance),
+    const result = await settledChange(ctx, deps, params.accountId, (settled) =>
+      ctx.inHousehold((q) =>
+        updateBalance(deps, accountsTx(q), caller, params.accountId, body.balance, settled),
+      ),
     );
     if (result.kind !== "updated") throw refusal(result);
     // The adjustment, after the commit (ARC-04 FR 2). Once it is in the journal the answer is the journal's; while the

@@ -20,6 +20,7 @@ import {
   HAND_OFF_JOB,
   requeueDeadHandOffs,
   settleAccountHandOffs,
+  unsettledAccountHandOffs,
   transactionAudit,
   transactionsList,
   transactionsRoutes,
@@ -338,6 +339,8 @@ export function createTransactionPendingPostings(
   return {
     module: "transactions",
     settle: (householdId, accountId) => settleAccountHandOffs(db, deps, householdId, accountId),
+    unsettled: (householdId, accountId, settled) =>
+      unsettledAccountHandOffs(db, householdId, accountId, settled),
   };
 }
 

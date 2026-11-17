@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { GoalsTx, StoredContribution, StoredGoal, StoredSpend } from "../../application/index.ts";
 import { enqueueHandOff, enqueueSpendCheck } from "../queue/job.ts";
+import { lockAccounts } from "../../../accounts/index.ts";
 
 /** The goals schema through the module's own role (migrations/0001_goals.sql). The row policy binds the space; SQL filters it too. */
 const GOAL_COLUMNS = `id, template, name, target_currency AS currency, target_amount::text AS target_amount,
@@ -217,10 +218,8 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
       );
     },
     async lockAccount(householdId, accountId) {
-      await q.query(
-        `SELECT pg_advisory_xact_lock(hashtextextended('goals.account:' || $1 || ':' || $2, 0))`,
-        [householdId, accountId],
-      );
+      // #298, row 198: the account's money lock of module accounts, shared with its changes and transactions' writes.
+      await lockAccounts(q, householdId, [accountId]);
     },
     async goalsOnAccount(householdId, accountId, exceptGoalId) {
       const { rows } = await q.query<GoalRow>(

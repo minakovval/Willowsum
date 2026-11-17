@@ -18,6 +18,7 @@ import {
 import { publishEvent } from "../../../../platform/queue/index.ts";
 import { transactionCreated } from "../../events.ts";
 import { enqueueHandOff } from "../queue/job.ts";
+import { lockAccounts } from "../../../accounts/index.ts";
 
 /** The transactions schema through the module's own role (migrations/0001_transactions.sql). The row policy binds the space; SQL filters it too. */
 
@@ -332,6 +333,7 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
       );
       return (rowCount ?? 0) > 0;
     },
+    lockAccounts: (householdId, accountIds) => lockAccounts(q, householdId, accountIds),
     async lockDuplicates(householdId) {
       await q.query(`SELECT pg_advisory_xact_lock(hashtextextended('transactions.duplicates:' || $1, 0))`, [
         householdId,

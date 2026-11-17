@@ -21,6 +21,7 @@ import { logEvent } from "../../platform/telemetry/signals.ts";
 import {
   applyHandOff,
   reconcileStatement,
+  settlePending,
   type HandOffDeps,
   type StatementResult,
 } from "./application/index.ts";
@@ -116,8 +117,12 @@ export interface AccountStatements {
 export function createAccountStatements(db: ModuleDatabase, services: AccountsServices): AccountStatements {
   return {
     async reconcile(householdId, statement) {
+      // Row 198 (#409 item 4): the other modules' postings of the account first (outside this module's transaction),
+      // then the recount under the account's lock, which refuses one saved since (`postings-pending`).
+      const settled = await settlePending(services.deps, householdId, statement.accountId);
+      if (settled.kind !== "settled") return { kind: "postings-pending" };
       const { result, handOff } = await db.inHousehold(householdId, (q) =>
-        reconcileStatement(services.deps, accountsTx(q), householdId, statement),
+        reconcileStatement(services.deps, accountsTx(q), householdId, statement, settled),
       );
       // The adjustment and its audit entry, after the commit (ARC-04 FR 2); the worker finishes them if this fails.
       if (handOff)
