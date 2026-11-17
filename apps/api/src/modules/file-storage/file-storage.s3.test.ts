@@ -71,7 +71,8 @@ async function newSpace(): Promise<string> {
     .householdId;
 }
 
-function store(householdId: string, bytes: Buffer, fileName: string, declared = bytes.length) {
+async function store(householdId: string, bytes: Buffer, fileName: string, declared = bytes.length) {
+  // async: a budget refused on its declared length rejects the promise like any other rejection.
   return files.store({
     householdId,
     actorId,
