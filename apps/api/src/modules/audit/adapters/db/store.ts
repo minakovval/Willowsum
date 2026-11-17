@@ -91,14 +91,26 @@ export function databaseAuditStore(db: ModuleDatabase): AuditStore {
           throw new AuditKeyConflict();
         return found;
       }),
-    forEntity: (householdId, entityType, entityId) =>
+    forEntity: (householdId, entityType, entityId, limit) =>
       db.inHousehold(householdId, async (q) => {
-        const { rows } = await q.query<Row>(
-          `SELECT ${COLUMNS} FROM entries
-            WHERE household_id = $1 AND entity_type = $2 AND entity_id = $3
-            ORDER BY occurred_at, id`,
-          [q.householdId, entityType, entityId],
-        );
+        // With a limit: the newest `limit` entries, still oldest first.
+        const { rows } =
+          limit === undefined
+            ? await q.query<Row>(
+                `SELECT ${COLUMNS} FROM entries
+                  WHERE household_id = $1 AND entity_type = $2 AND entity_id = $3
+                  ORDER BY occurred_at, id`,
+                [q.householdId, entityType, entityId],
+              )
+            : await q.query<Row>(
+                `SELECT ${COLUMNS} FROM (
+                   SELECT ${COLUMNS} FROM entries
+                    WHERE household_id = $1 AND entity_type = $2 AND entity_id = $3
+                    ORDER BY occurred_at DESC, id DESC LIMIT $4
+                 ) newest
+                  ORDER BY occurred_at, id`,
+                [q.householdId, entityType, entityId, limit],
+              );
         return rows.map(toEntry);
       }),
     appendPlatform: (row) =>

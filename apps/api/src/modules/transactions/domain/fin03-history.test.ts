@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HISTORY_MASK, transactionHistory, type LoggedEntry } from "./history.ts";
+import { HISTORY_MASK, newestHistory, transactionHistory, type LoggedEntry } from "./history.ts";
 
 const READER = "00000000-0000-4000-8000-0000000000a1";
 const OTHER = "00000000-0000-4000-8000-0000000000b2";
@@ -97,5 +97,53 @@ describe("FIN-03@PoC FR 27: «Історія змін» from the audit log", () 
       READER,
     );
     expect(history.map((e) => e.id)).toEqual(["2"]);
+  });
+
+  it("FIN-03@PoC FR 20: free text is masked by its field name too, whatever the log marked or stored", () => {
+    const [e] = transactionHistory(
+      [
+        entry({
+          id: "1",
+          occurredAt: "a",
+          changes: [
+            // Marked not masked, with the text itself: a log written before the mark, or with a wrong one.
+            {
+              field: "counterparty",
+              before: "Синтетичний Сільпо",
+              after: "Синтетична Аптека",
+              masked: false,
+            },
+            { field: "description", before: null, after: "Синтетичний опис", masked: false },
+            { field: "note", before: "Синтетична нотатка", after: null, masked: false },
+            { field: "amount", before: "-30", after: "-25", masked: false },
+          ],
+        }),
+      ],
+      READER,
+    );
+    expect(e!.changes).toEqual([
+      { field: "counterparty", before: HISTORY_MASK, after: HISTORY_MASK, masked: true },
+      { field: "description", before: null, after: HISTORY_MASK, masked: true },
+      { field: "note", before: HISTORY_MASK, after: null, masked: true },
+      { field: "amount", before: "-30", after: "-25", masked: false },
+    ]);
+    expect(JSON.stringify(e)).not.toContain("Синтетич");
+  });
+
+  it("FIN-03@PoC FR 27: one answer keeps the newest entries, oldest first, and says that older ones were left out", () => {
+    const history = transactionHistory(
+      Array.from({ length: 7 }, (_, i) =>
+        entry({
+          id: String(i),
+          occurredAt: `2026-11-16T10:00:0${i}.000Z`,
+          changes: [{ field: "amount", before: String(i), after: String(i + 1), masked: false }],
+        }),
+      ),
+      READER,
+    );
+    const capped = newestHistory(history, 5);
+    expect(capped.truncated).toBe(true);
+    expect(capped.items.map((e) => e.id)).toEqual(["2", "3", "4", "5", "6"]);
+    expect(newestHistory(history, 7)).toEqual({ items: history, truncated: false });
   });
 });

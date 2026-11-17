@@ -8,6 +8,7 @@ import { createWorker } from "../src/platform/queue/index.ts";
 import { workerQueues } from "../src/wiring.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { HISTORY_MAX } from "../src/modules/transactions/domain/history.ts";
 import { AUDIT_MASK, createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
@@ -334,5 +335,71 @@ describe("FIN-03@PoC FR 27: behind its release flag", () => {
     expect((await history(space, id)).statusCode).toBe(404);
     off.delete(FLAG);
     expect((await history(space, id)).statusCode).toBe(200);
+  });
+
+  it("FIN-03@PoC FR 27: one answer carries at most the newest HISTORY_MAX entries, oldest first, and says that it is cut", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const id = await add(space, account, "-7.00");
+    const entity = { type: "transactions.transaction", id };
+    const extra = HISTORY_MAX + 5;
+    for (let i = 0; i < extra; i++)
+      await audit.record(space.householdId, {
+        actor: { kind: "user", id: space.accountId },
+        channel: "web",
+        entity,
+        action: "update",
+        changes: [{ field: "amount", before: String(i), after: String(i + 1), sensitive: false }],
+        key: `fin03-history-cap:${randomUUID()}`,
+      });
+    // The log itself keeps every entry; its own read can be bounded (the newest ones, oldest first).
+    const newest = await audit.entriesFor(space.householdId, entity, 3);
+    const all = await audit.entriesFor(space.householdId, entity);
+    expect(all.length).toBe(extra + 1);
+    expect(newest.map((e) => e.id)).toEqual(all.slice(-3).map((e) => e.id));
+
+    const res = await history(space, id);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json() as { items: HistoryEntry[]; truncated: boolean };
+    expect(body.truncated).toBe(true);
+    expect(body.items.length).toBe(HISTORY_MAX);
+    expect(body.items.map((e) => e.id)).toEqual(all.slice(-HISTORY_MAX).map((e) => e.id));
+    // The newest edit is the last; the creation (the oldest entry) is left out.
+    expect(body.items.at(-1)!.changes[0]).toEqual({
+      field: "amount",
+      before: String(extra - 1),
+      after: String(extra),
+      masked: false,
+    });
+    expect(body.items.some((e) => e.action === "create")).toBe(false);
+  }, 120_000);
+
+  it("FIN-03@PoC FR 27: a history within the bound is whole and not marked as cut", async () => {
+    const space = await newSpace();
+    const { id } = await edited(space);
+    const res = await history(space, id);
+    expect(res.statusCode, res.body).toBe(200);
+    const body = res.json() as { items: HistoryEntry[]; truncated: boolean };
+    expect(body.truncated).toBe(false);
+    expect(body.items.length).toBe(4);
+  });
+
+  it("FIN-03@PoC FR 20: a free-text field the log marked as not masked is still masked in the answer", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const id = await add(space, account, "-7.00");
+    await audit.record(space.householdId, {
+      actor: { kind: "user", id: space.accountId },
+      channel: "web",
+      entity: { type: "transactions.transaction", id },
+      action: "update",
+      changes: [{ field: "note", before: null, after: NOTE, sensitive: false }],
+      key: `fin03-history-mask:${randomUUID()}`,
+    });
+    const res = await history(space, id);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.body).not.toContain(NOTE);
+    const last = (res.json().items as HistoryEntry[]).at(-1)!;
+    expect(last.changes).toEqual([{ field: "note", before: null, after: AUDIT_MASK, masked: true }]);
   });
 });

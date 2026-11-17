@@ -27,7 +27,12 @@ export type { AuditChange, AuditEntryInput, PlatformEntryInput } from "./domain/
  */
 export interface AuditLog {
   record(householdId: string, entry: AuditEntryInput): Promise<AuditEntry>;
-  entriesFor(householdId: string, entity: { type: string; id: string }): Promise<AuditEntry[]>;
+  /** Oldest first; with `limit` (a positive integer), only the newest `limit` entries, still oldest first. */
+  entriesFor(
+    householdId: string,
+    entity: { type: string; id: string },
+    limit?: number,
+  ): Promise<AuditEntry[]>;
   /** Staff or system only. */
   recordPlatform(entry: PlatformEntryInput): Promise<PlatformAuditEntry>;
   platformEntriesFor(entity: { type: string; id: string }): Promise<PlatformAuditEntry[]>;
@@ -38,7 +43,7 @@ export function createAuditLog(db: ModuleDatabase): AuditLog {
   const store = databaseAuditStore(db);
   return {
     record: (householdId, entry) => recordEntry(store, householdId, entry),
-    entriesFor: (householdId, entity) => store.forEntity(householdId, entity.type, entity.id),
+    entriesFor: (householdId, entity, limit) => store.forEntity(householdId, entity.type, entity.id, limit),
     recordPlatform: (entry) => recordPlatformEntry(store, entry),
     platformEntriesFor: (entity) => store.platformForEntity(entity.type, entity.id),
   };
