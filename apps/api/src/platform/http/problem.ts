@@ -192,6 +192,20 @@ export const PROBLEMS = {
    * already or is still running; nothing was written.
    */
   BULK_UNDO_UNAVAILABLE: { status: 409, title: "This bulk action can no longer be undone" },
+  /**
+   * BUD-14@PoC FR 7: another run of «Застосувати до N наявних транзакцій» (or its «Відмінити») of the space is still
+   * running; nothing was written.
+   */
+  RULE_RUN_RUNNING: { status: 409, title: "Another run of a category rule is still running" },
+  /** «Час для відміни минув» (BUD-14@PoC FR 7, AC6): the 7 days after the run are over; nothing was written. */
+  RULE_RUN_UNDO_EXPIRED: { status: 409, title: "The time to undo this run is over" },
+  /** «Запуск уже відмінено» (BUD-14@PoC FR 7): the run was undone already; nothing was written. */
+  RULE_RUN_UNDONE: { status: 409, title: "This run was undone already" },
+  /**
+   * «Потребує уваги» (BUD-14@PoC FR 10): the rule's category or an account is gone; it applies to nothing until it is
+   * edited; nothing was written.
+   */
+  RULE_NEEDS_ATTENTION: { status: 409, title: "The rule needs attention: edit it first" },
   /** DAT-03@PoC FR 10: «Продовжити» only for an interrupted bulk action; nothing was written. */
   BULK_ACTION_NOT_INTERRUPTED: { status: 409, title: "This bulk action is not interrupted" },
   /**

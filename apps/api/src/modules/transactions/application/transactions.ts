@@ -117,6 +117,12 @@ export interface Caller {
   readonly accountId: string;
 }
 
+/** A change made by the system in a space: a category rule's tags on a new transaction (BUD-14 FR 8). */
+export interface SystemCaller {
+  readonly householdId: string;
+  readonly accountId: null;
+}
+
 export interface TransactionInput {
   readonly accountId: string;
   readonly amount: { readonly amount: string; readonly currency: string };
@@ -164,7 +170,7 @@ export type TransactionResult =
 /** The hand-off of one change, with its audit values, enqueued in the caller's transaction. */
 async function handOff(
   tx: TransactionsTx,
-  caller: Caller,
+  caller: Caller | SystemCaller,
   action: TransactionHandOff["action"],
   before: StoredTransaction | null,
   after: StoredTransaction | null,
@@ -511,9 +517,9 @@ export async function setHidden(
  * account (FIN-12 FR 8), with its hand-off — the audit entry; `next` null: nothing to change.
  */
 export async function changeRow(
-  deps: TransactionsDeps,
+  deps: Pick<TransactionsDeps, "accounts">,
   tx: TransactionsTx,
-  caller: Caller,
+  caller: Caller | SystemCaller,
   id: string,
   action: TransactionHandOff["action"],
   next: (

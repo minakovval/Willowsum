@@ -8,7 +8,6 @@ import {
   rulesFor,
   ruleMatches,
   undoState,
-  withTags,
   type RankedRule,
   type RuleCondition,
   type RuleSubject,
@@ -198,13 +197,6 @@ describe("BUD-14@PoC FR 8: each attribute from the first rule that sets it", () 
       r.id === "r0" ? "category_deleted" : null,
     );
     expect([top.category?.id, top.tags?.id]).toEqual(["r1", "r2"]);
-  });
-
-  it("BUD-14@PoC FR 9: the tags of a rule are added after the transaction's own, the same tag once without regard to case; at most 20", () => {
-    expect(withTags(["Софт"], ["софт", "робота"])).toEqual(["Софт", "робота"]);
-    expect(withTags(["a"], ["A"])).toEqual(["a"]);
-    const twenty = Array.from({ length: 20 }, (_, i) => `t${i}`);
-    expect(withTags(twenty, ["new"])).toBeNull();
   });
 });
 

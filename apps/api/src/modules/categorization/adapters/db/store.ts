@@ -17,9 +17,10 @@ interface Row {
   source: CategorySource;
   version: number;
   rule_id: string | null;
+  tag_rule_id: string | null;
 }
 
-const COLUMNS = `transaction_id, category_id, source, version, rule_id`;
+const COLUMNS = `transaction_id, category_id, source, version, rule_id, tag_rule_id`;
 
 const stored = (r: Row): StoredTransactionCategory => ({
   transactionId: r.transaction_id,
@@ -27,6 +28,7 @@ const stored = (r: Row): StoredTransactionCategory => ({
   source: r.source,
   version: r.version,
   ruleId: r.source === "rule" ? r.rule_id : null,
+  tagRuleId: r.tag_rule_id,
 });
 
 export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
@@ -79,6 +81,15 @@ export function categorizationTx(q: HouseholdQueryRunner): CategorizationTx {
         [householdId, sourceId, targetId],
       );
       return rowCount ?? 0;
+    },
+    async setTagRule(householdId, transactionId, ruleId) {
+      // No new version: the reference of «Застосовано правила», not the category a bulk action or a run restores.
+      await q.query(
+        `INSERT INTO transaction_categories (household_id, transaction_id, category_id, source, tag_rule_id)
+         VALUES ($1, $2, NULL, 'none', $3)
+         ON CONFLICT (household_id, transaction_id) DO UPDATE SET tag_rule_id = EXCLUDED.tag_rule_id`,
+        [householdId, transactionId, ruleId],
+      );
     },
     enqueueHandOff: (_householdId, handOff: CategoryHandOff) => enqueueHandOff(q, handOff),
   };

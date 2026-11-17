@@ -152,24 +152,6 @@ export async function rulesFor<R extends RankedRule>(
   return { category, tags };
 }
 
-/** A tag's key: the same tag without regard to case or the spaces around it (BUD-13 FR 2). */
-export const tagKey = (name: string) => fold(name);
-
-/**
- * FR 5, FR 9: the tags a rule adds after the transaction's own, the same tag once (without regard to case); null — more
- * than `RULE_TAGS_MAX` (the transaction keeps its tags).
- */
-export function withTags(own: readonly string[], added: readonly string[]): string[] | null {
-  const keys = new Set(own.map(tagKey));
-  const next = [...own];
-  for (const name of added)
-    if (!keys.has(tagKey(name))) {
-      keys.add(tagKey(name));
-      next.push(name.trim());
-    }
-  return next.length > RULE_TAGS_MAX ? null : next;
-}
-
 /** FR 7, EC1: a run changes up to this many transactions at once; the rest go in the background with progress. */
 export const RUN_FOREGROUND_MAX = 500;
 /** FR 7, AC6: «Відмінити» is there for 7 days after the run ended. */

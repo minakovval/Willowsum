@@ -27,7 +27,8 @@ import type { StoredTransaction } from "./stored.ts";
  */
 export interface TransactionHandOff {
   readonly transactionId: string;
-  readonly actorAccountId: string;
+  /** The account that made the change; null — the system (a category rule's tags, BUD-14 FR 8). */
+  readonly actorAccountId: string | null;
   /**
    * `split` — «Розділити» or «Об'єднати назад» (BUD-13 FR 6, FR 8); `hide` / `show` — «Приховати транзакцію» and
    * showing it again (FIN-03 FR 16, FR 17): a hidden manual transaction (a duplicate) leaves the journal, shown again it
@@ -96,7 +97,7 @@ export interface TagAudit {
 export interface TransactionAudit {
   changed(
     householdId: string,
-    actorAccountId: string,
+    actorAccountId: string | null,
     transactionId: string,
     action: TransactionHandOff["action"],
     values: readonly TransactionAuditValue[],

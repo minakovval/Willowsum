@@ -1,13 +1,21 @@
 import { AUDIT_MASK } from "../../audit/index.ts";
-import { noteText, tagKey, tagName, tagNames, type FieldIssue } from "../domain/index.ts";
+import {
+  noteText,
+  tagKey,
+  tagName,
+  tagNames,
+  TAGS_PER_TRANSACTION_MAX,
+  type FieldIssue,
+} from "../domain/index.ts";
 import {
   changeRow,
   type Caller,
+  type SystemCaller,
   type TransactionResult,
   type TransactionsDeps,
   type TransactionsTx,
 } from "./transactions.ts";
-import type { TagAudit } from "./hand-off.ts";
+import type { TagAudit, TransactionHandOff } from "./hand-off.ts";
 
 /**
  * The attributes of a transaction (BUD-13@PoC FR 1, FR 2, FR 5; wave 2 row 21): «Нотатка» and «Теги», and the space's
@@ -193,4 +201,93 @@ export async function deleteTag(
   };
   await tags.enqueueTagAudit(caller.householdId, audit);
   return { kind: "ok", removed, audit };
+}
+
+/** A category rule's tags on one transaction (BUD-14@PoC FR 5, FR 7, FR 9), the names before and after. */
+export type RuleTagsResult =
+  | {
+      readonly kind: "changed";
+      readonly before: string[];
+      readonly after: string[];
+      readonly handOff: TransactionHandOff | null;
+    }
+  | { readonly kind: "unchanged" }
+  /** Not there, a merged duplicate, a closed account, more than 20 tags or an invalid name: the tags stay. */
+  | { readonly kind: "refused" };
+
+const namesOf = async (tags: TagsTx, householdId: string, ids: readonly string[]) => {
+  const names = await tags.names(householdId, ids);
+  return ids.filter((t) => names.has(t)).map((t) => names.get(t)!);
+};
+
+const sameKeys = (a: readonly string[], b: readonly string[]) =>
+  a.length === b.length && a.every((n, i) => tagKey(n) === tagKey(b[i]!));
+
+/**
+ * BUD-14@PoC FR 5, FR 9: «Застосувати» a category rule's tags — added after the transaction's own, the same tag once
+ * (without regard to case), created in the space when missing; the rules of one change of the attributes (a merged
+ * duplicate and a closed account are refused, at most 20 tags) with its hand-off (the audit entry: the system's on a
+ * new transaction, the user's on «Застосувати до N наявних…»). The transaction's category is not this module's.
+ */
+export async function addRuleTags(
+  deps: Pick<TransactionsDeps, "accounts" | "newId">,
+  tx: TransactionsTx,
+  tags: TagsTx,
+  caller: Caller | SystemCaller,
+  id: string,
+  names: readonly string[],
+): Promise<RuleTagsResult> {
+  const checked = tagNames(names);
+  if ("issue" in checked || checked.names.length === 0) return { kind: "refused" };
+  const seen = await tx.find(caller.householdId, id);
+  if (!seen || seen.mergedInto !== null) return { kind: "refused" };
+  // The tags locked before the row (the order of every tag change, see above).
+  const added = await resolveTags(tags, caller.householdId, checked.names, deps.newId);
+  if (!Array.isArray(added)) return { kind: "refused" };
+  let before: string[] = [];
+  let tooMany = false;
+  const result = await changeRow(deps, tx, caller, id, "update", async (current) => {
+    before = await namesOf(tags, caller.householdId, current.tagIds);
+    const next = [...current.tagIds, ...added.filter((t) => !current.tagIds.includes(t))];
+    if (next.length === current.tagIds.length) return null;
+    tooMany = next.length > TAGS_PER_TRANSACTION_MAX;
+    return tooMany ? null : { ...current, tagIds: next };
+  });
+  if (result.kind !== "ok" || tooMany) return { kind: "refused" };
+  if (result.handOff === null) return { kind: "unchanged" };
+  return {
+    kind: "changed",
+    before,
+    after: await namesOf(tags, caller.householdId, result.transaction.tagIds),
+    handOff: result.handOff,
+  };
+}
+
+/**
+ * BUD-14@PoC FR 7, EC5: «Відмінити» of a rule's run gives the transaction its tags back (`next`) only while they are
+ * still the ones the run left (`expected`, by key and order); a change since is kept (`changed`).
+ */
+export async function restoreRuleTags(
+  deps: Pick<TransactionsDeps, "accounts" | "newId">,
+  tx: TransactionsTx,
+  tags: TagsTx,
+  caller: Caller,
+  id: string,
+  expected: readonly string[],
+  next: readonly string[],
+): Promise<{ readonly kind: "restored" | "changed"; readonly handOff: TransactionHandOff | null }> {
+  const seen = await tx.find(caller.householdId, id);
+  if (!seen || seen.mergedInto !== null) return { kind: "changed", handOff: null };
+  const nextIds = await resolveTags(tags, caller.householdId, next, deps.newId);
+  if (!Array.isArray(nextIds)) return { kind: "changed", handOff: null };
+  let stale = false;
+  const result = await changeRow(deps, tx, caller, id, "update", async (current) => {
+    if (!sameKeys(await namesOf(tags, caller.householdId, current.tagIds), expected)) {
+      stale = true;
+      return null;
+    }
+    return { ...current, tagIds: nextIds };
+  });
+  if (result.kind !== "ok" || stale) return { kind: "changed", handOff: null };
+  return { kind: "restored", handOff: result.handOff };
 }

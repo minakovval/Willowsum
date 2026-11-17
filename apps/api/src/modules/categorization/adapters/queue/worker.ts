@@ -11,17 +11,26 @@ import {
   applyMerge,
   applyRulesToNew,
   moveRulesToCategory,
+  runPart,
+  RUN_PART_SIZE,
   type CategoryAudit,
   type CategoryFactsPort,
   type RuleDeps,
   type RulesAuditLog,
 } from "../../application/index.ts";
 import { rulesTx } from "../db/rules.ts";
+import { runsTx } from "../db/runs.ts";
 import { categorizationTx } from "../db/store.ts";
-import { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB } from "./job.ts";
+import {
+  AUDIT_JOB,
+  CATEGORY_MERGED_JOB,
+  HAND_OFF_JOB,
+  RULE_RUN_PART_JOB,
+  TRANSACTION_CREATED_JOB,
+} from "./job.ts";
 
 /** The jobs whose dead rows the daily recovery puts back; each one is idempotent. */
-const JOBS = [HAND_OFF_JOB, CATEGORY_MERGED_JOB, TRANSACTION_CREATED_JOB, AUDIT_JOB];
+const JOBS = [HAND_OFF_JOB, CATEGORY_MERGED_JOB, TRANSACTION_CREATED_JOB, AUDIT_JOB, RULE_RUN_PART_JOB];
 
 /** As liabilities' (#270 item 2): the space's erasure, which deletes the queue rows, waits for this lock. */
 async function holdsJob(q: HouseholdQueryRunner, householdId: string, id: string): Promise<boolean> {
@@ -47,6 +56,8 @@ export function categorizationWorkerQueue(
     readonly audit: RulesAuditLog;
     /** The release flag of the rules (CICD-06): off — a new transaction takes nothing from a rule. */
     readonly enabled: (householdId: string) => Promise<boolean>;
+    /** BUD-14 FR 7: the time a run ends (the start of its 7 days of «Відмінити»). */
+    readonly clock: { now(): number };
   },
 ): WorkerQueue {
   return {
@@ -82,6 +93,19 @@ export function categorizationWorkerQueue(
           );
           // Another writer inserted the row first (a change by hand): run again, which then sees it.
           if (outcome === "conflict") throw new Error("categorization.transaction-created: version conflict");
+        },
+      }),
+      defineJobHandler({
+        job: RULE_RUN_PART_JOB,
+        run: async (job, q) => {
+          // A run already begun goes on with the flag off: it was the user's choice and «Відмінити» needs its records.
+          await runPart(categorizationTx(q), rulesTx(q), runsTx(q), rules.deps, {
+            householdId: job.householdId,
+            runId: job.payload.runId,
+            limit: RUN_PART_SIZE,
+            now: rules.clock.now(),
+            chain: true,
+          });
         },
       }),
       defineJobHandler({

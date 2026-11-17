@@ -354,7 +354,8 @@ describe("BUD-14@PoC FR 15: «Видалити» a rule", () => {
     });
 
     const res = await call(space, "DELETE", `/v1/category-rules/${netflix.id}`);
-    expect(res.statusCode, res.body).toBe(204);
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json()).toEqual({ deleted: true });
     const listed = (await call(space, "GET", "/v1/category-rules")).json().items as RuleBody[];
     expect(listed.map((r) => [r.id, r.position])).toEqual([
       [first.id, 1],
