@@ -18,6 +18,7 @@ import {
   createCategorizationCategoryUsage,
   createCategorizationServices,
 } from "../src/modules/categorization/index.ts";
+import { MERCHANTS_MAX } from "../src/modules/categorization/application/suggestions.ts";
 import { createMerchantDirectory } from "../src/modules/merchants/index.ts";
 import {
   createTransactionCategoryUsage,
@@ -406,6 +407,83 @@ describe("FIN-03@PoC FR 31: «Часто для <мерчанта>», otherwise 
     expect(got.truncated).toBe(true);
     expect(got.suggestion).toBeNull();
     expect(got.top).toEqual({ kind: "recent", merchant: null, categoryIds: [] });
+  });
+});
+
+describe("FIN-03@PoC FR 30, FR 31: the answer does not grow with the space's history", () => {
+  /** `count` transactions of distinct counterparties `Синт Мерчант <n>`, copied from `from`, dated within October. */
+  async function many(space: Space, from: string, count: number): Promise<void> {
+    await db.owner.query(
+      `INSERT INTO transactions.transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
+                                              counterparty, description, status, source, version)
+       SELECT household_id, gen_random_uuid(), account_id, subaccount_id, amount, currency, DATE '2026-10-01' + (g % 10),
+              'Синт Мерчант ' || g, description, status, source, version
+         FROM transactions.transactions, generate_series(1, $3::int) AS g
+        WHERE household_id = $1 AND id = $2`,
+      [space.householdId, from, count],
+    );
+  }
+
+  it("FIN-03@PoC FR 30: `merchants` holds at most MERCHANTS_MAX merchants — the newest — by name, however many the space has", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    // A rule on «Синт» gives every merchant below a category to show.
+    await rule(space, [merchantIs("Синт")], groceries);
+    const old = await tx(space, account, "Синт Давній", "2025-12-01");
+    await many(space, old, 600);
+    await tx(space, account, "Синт Свіжий", "2026-10-16");
+
+    const got = await hints(space);
+    expect(got.truncated).toBe(false);
+    expect(got.merchants.length).toBe(MERCHANTS_MAX);
+    const names = got.merchants.map((m) => m.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, "uk")));
+    expect(names).toContain("Синт Свіжий");
+    expect(names).not.toContain("Синт Давній");
+    // Bounded in size too: 100 merchants, not 600+.
+    expect(JSON.stringify(got).length).toBeLessThan(40_000);
+  }, 60_000);
+
+  it("FIN-03@PoC FR 30: the cap never drops a merchant that contains the typed counterparty, whatever the case", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    await rule(space, [merchantIs("Синт")], groceries);
+    const first = await tx(space, account, "Синт Особливий Магазин", "2026-10-02");
+    await many(space, first, 600);
+
+    // The oldest of 601, outside the newest 100 — listed because it is what is typed.
+    await db.owner.query(
+      `UPDATE transactions.transactions SET occurred_on = DATE '2025-01-01' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, first],
+    );
+    const got = await hints(space, { counterparty: "особливий" });
+    expect(got.merchants.length).toBe(MERCHANTS_MAX);
+    expect(got.merchants.map((m) => m.name)).toContain("Синт Особливий Магазин");
+    expect((await hints(space)).merchants.map((m) => m.name)).not.toContain("Синт Особливий Магазин");
+    // A typed text that many merchants contain is bounded the same way.
+    expect((await hints(space, { counterparty: "мерчант" })).merchants.length).toBe(MERCHANTS_MAX);
+  }, 60_000);
+
+  it("FIN-03@PoC FR 30: a hidden transaction feeds no hint — no merchant, no «як раніше», nothing in «Нещодавні»", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const groceries = await category(space, "Продукти");
+    const cafe = await category(space, "Кафе і ресторани");
+    await tx(space, account, "Синт Видимий", "2026-10-01", cafe);
+    const hidden = await tx(space, account, "Синт Прихований", "2026-10-05", groceries);
+    const before = await hints(space, { counterparty: "Синт Прихований" });
+    expect(before.suggestion).toEqual({ categoryId: groceries, source: "merchant", rule: null });
+    await db.owner.query(
+      `UPDATE transactions.transactions SET hidden = true WHERE household_id = $1 AND id = $2`,
+      [space.householdId, hidden],
+    );
+
+    const got = await hints(space, { counterparty: "Синт Прихований" });
+    expect(got.suggestion).toBeNull();
+    expect(got.top).toEqual({ kind: "recent", merchant: null, categoryIds: [cafe] });
+    expect(got.merchants.map((m) => m.name)).toEqual(["Синт Видимий"]);
   });
 });
 

@@ -36153,10 +36153,14 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "truncated": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
-                    "items"
+                    "items",
+                    "truncated"
                   ],
                   "additionalProperties": false
                 }
