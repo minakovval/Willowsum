@@ -75,7 +75,7 @@ proposals: [lead communication](references/lead-communication.md).
    2026-11-14, #185), the PostgreSQL check (step 2), and says: «red CI is not a review finding unless the change
    caused it; checking CI is the lead's job before merge» (owner, 2026-11-14, #178, #197).
 4. **Batch**: wait for both reviews (owner, 2026-11-13), then send **one** fix request (`fix-review-findings`):
-   review IDs, which patch wins where reviewers conflict (your decision), what is non-blocking (→ «Follow-ups»);
+   review IDs, which patch wins where reviewers conflict (your decision), which non-blocking items are fixed in this round and which are recorded (only money, data, security or a broken requirement item → «Follow-ups»);
    never forward items one by one. Fix model and resume limit: [token economy](references/token-economy.md)
    items 1 and 5. Cheap non-blocking reviewer tests go into a fix round only when one is due anyway and only in the tier
    Фундамент (merge rules, «Merge on Ready, follow up separately»); both verdicts Ready → merge without them. A branch behind `main` is synced by the fix agent as a separate commit in the same

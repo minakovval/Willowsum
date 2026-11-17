@@ -18,7 +18,7 @@ Read when you write to the owner or when you find a process change.
 
 A small process or rule change that does not block work goes into a queue (owner, 2026-11-13): one GitHub issue
 titled «Черга змін процесу», opened and kept by the lead («Lead state» only links to it). The queue ships together
-with the next process PR or the follow-up sweep (row `R`), not as a separate PR each. A separate PR is only for a
+with the next process PR, not as a separate PR each. A separate PR is only for a
 change that blocks work or affects security, or that the owner asks for explicitly.
 
 ## Rule text

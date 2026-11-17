@@ -29,9 +29,11 @@ which reviews a PR gets («Review tiers» below).
    the protection does not cover, the process is the protection.
    Once these conditions hold: do not ask the owner to confirm the merge; merge at once and tell the
    owner it is merged. **Merge on Ready, follow up separately** (owner, 2026-11-13): when both verdicts are Ready
-   and only non-blocking findings remain, the lead merges; those items go to a follow-up PR or issue, not into
-   the same PR, so they do not start another review round. A non-blocking finding never starts a commit before
-   the merge. Exception, tier Фундамент only («Review tiers» below): a non-blocking item the reviewer marks as
+   and only non-blocking findings remain, the lead merges; a follow-up is recorded only for money, data or security, or a
+   broken requirement item (a PR or issue, not the same PR); a smaller item is fixed in the same fix round or not
+   recorded. A non-blocking finding never starts a commit before the merge, except the reviewer's one trial commit
+   (`review-pr` §7): the lead merges it when the reviewer's verdict names that new head, CI is green on it and no
+   new review round is needed. Exception, tier Фундамент only («Review tiers» below): a non-blocking item the reviewer marks as
    cheap and safe to fold in may still be added before merge, at the lead's choice (it then needs a re-review of
    that commit, as above). Рішення ведучого (2026-11-16; власник не схвалював; [log](../../docs/decisions/log/2026-11-16-owner-process-light.md)):
    the exception is dropped for the tiers Функціональність, Локальні інструменти and Документи; every such commit

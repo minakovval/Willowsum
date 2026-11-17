@@ -84,8 +84,10 @@ errors) lives only in `packages/domain-kernel`.
      sensitive paths), in one commit at the end, at most 60 lines per PR, and lists them in the PR body; the
      verdict names its new head SHA (`review-pr` §7).
    - Only a security bypass, data loss or leak, or a violation of the claimed requirement (FR/AC or shared
-     rule) blocks. Everything else goes to «Follow-ups» (the lead opens the issue) and never starts a round or a
-     commit before the merge by itself (merge rules, «Merge on Ready, follow up separately»).
+     rule) blocks. A follow-up (the lead opens the issue) is recorded only for money, data or security, or a broken
+     requirement item; a smaller item is fixed in the same fix round or not recorded. Non-blocking items never start a
+     round or a commit before the merge by themselves, except the reviewer's one trial patch commit above (merge
+     rules, «Merge on Ready, follow up separately»).
    - A re-review checks only the fixes and its own previous findings, in the same reviewer session when only the
      fixes changed (owner, 2026-11-16, «2 а»; `pr-pipeline` token economy, item 2). At most two rounds; after that
      the reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
