@@ -68,13 +68,20 @@ export async function lockBoth(
   return [await tx.lock(householdId, a), second];
 }
 
+/**
+ * Whether an account of `rows` is closed now — read under the accounts' money locks (row 198), taken here for all of
+ * them at once after the rows' own locks, so a closing never commits between this read and the change's commit.
+ */
 export async function anyClosed(
-  deps: TransactionsDeps,
+  deps: Pick<TransactionsDeps, "accounts">,
+  tx: TransactionsTx,
   householdId: string,
-  rows: readonly StoredTransaction[],
+  rows: readonly Pick<StoredTransaction, "accountId">[],
 ) {
-  for (const row of rows) {
-    const account = await deps.accounts.postingAccount(householdId, row.accountId);
+  const ids = rows.map((r) => r.accountId);
+  await tx.lockAccounts(householdId, ids);
+  for (const id of new Set(ids)) {
+    const account = await deps.accounts.postingAccount(householdId, id);
     if (account?.status === "closed") return true;
   }
   return false;
@@ -150,7 +157,7 @@ export async function markTransfer(
         kind: "invalid",
         issues: [{ field: pair.inflow.id === id ? "transactionId" : "counterpartId", issue: "invalid" }],
       };
-    if (await anyClosed(deps, householdId, [pair.outflow, pair.inflow])) return { kind: "closed" };
+    if (await anyClosed(deps, tx, householdId, [pair.outflow, pair.inflow])) return { kind: "closed" };
     const link: TransferLink = {
       id: deps.newId(),
       outflowId: pair.outflow.id,
@@ -186,7 +193,7 @@ export async function unmarkTransfer(
     // Removed or changed by another request meanwhile: as it is now.
     if (current.transfer?.id !== link.id || counterpart?.transfer?.id !== link.id)
       return { kind: "conflict" };
-    if (await anyClosed(deps, householdId, [current, counterpart])) return { kind: "closed" };
+    if (await anyClosed(deps, tx, householdId, [current, counterpart])) return { kind: "closed" };
     const [outflow, inflow] = current.id === link.outflowId ? [current, counterpart] : [counterpart, current];
     // The outflow first: the transfer event is reversed before the inflow's own event comes back (hand-off.ts).
     const { rows, handOffs } = await changeBoth(tx, caller, "untransfer", link.id, [
@@ -337,6 +344,15 @@ export async function createTransfer(
       }),
     };
   return inTransactions(async (tx) => {
+    // Row 198 (#455): both accounts' money locks, then their state as it is now — a closing or a wallet's removal may
+    // have committed since the checks above; under the locks none can until these rows have.
+    await tx.lockAccounts(householdId, [debit.account.accountId, inflow.account.accountId]);
+    for (const side of [debit, inflow]) {
+      const now = await deps.accounts.postingAccount(householdId, side.account.accountId);
+      if (now?.status === "closed") return { kind: "closed" };
+      if (!now?.subaccounts.some((s) => s.subaccountId === side.subaccount.subaccountId))
+        return { kind: "not-found" };
+    }
     const link: TransferLink = {
       id: deps.newId(),
       outflowId: deps.newId(),

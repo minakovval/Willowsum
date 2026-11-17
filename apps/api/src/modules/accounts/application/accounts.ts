@@ -208,7 +208,17 @@ export interface WalletUsage {
 export interface PendingPostings {
   /** The answering module, for the reader of the wiring. */
   readonly module: string;
-  settle(householdId: string, accountId: string): Promise<boolean>;
+  /**
+   * Runs them now, before the accounts transaction (its hand-offs read accounts' directory on this module's pool): the
+   * ids of the hand-offs it finished, or null when one cannot finish now.
+   */
+  settle(householdId: string, accountId: string): Promise<readonly string[] | null>;
+  /**
+   * Row 198, #409 item 4: under the account's lock (`lockAccounts`, taken by that module's writes too), whether a
+   * hand-off not among `settled` may still move the account's money — a change committed after `settle` read the
+   * queue. A read of that module's queue only, on its own pool.
+   */
+  unsettled(householdId: string, accountId: string, settled: readonly string[]): Promise<boolean>;
 }
 
 export interface AccountsDeps {

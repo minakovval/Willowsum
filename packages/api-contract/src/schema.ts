@@ -2793,7 +2793,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
-            /** @description The account is closed (ACCOUNT_CLOSED) */
+            /** @description The account is closed (ACCOUNT_CLOSED); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING) */
             409: {
                 headers: {
                     [name: string]: unknown;

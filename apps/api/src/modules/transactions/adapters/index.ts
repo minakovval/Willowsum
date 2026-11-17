@@ -5,6 +5,7 @@ export { reviewQueueMembers, reviewQueueSlices, type ReviewQueueSlice } from "./
 export {
   requeueDeadHandOffs,
   settleAccountHandOffs,
+  unsettledAccountHandOffs,
   transactionRows,
   transactionsWorkerQueue,
 } from "./queue/hand-off.ts";

@@ -93,16 +93,16 @@ async function pendingHandOffsOn(
   q: HouseholdQueryRunner,
   householdId: string,
   accountId: string,
-): Promise<readonly unknown[]> {
-  const { rows } = await q.query<{ payload: unknown }>(
-    `SELECT j.payload FROM jobs j
+): Promise<readonly { readonly id: string; readonly payload: unknown }[]> {
+  const { rows } = await q.query<{ id: string; payload: unknown }>(
+    `SELECT j.id::text AS id, j.payload FROM jobs j
       WHERE j.household_id = $1 AND j.name = $3 AND j.state IN ('queued', 'running', 'dead')
         AND (
           EXISTS (SELECT 1 FROM transactions t
                    WHERE t.household_id = j.household_id AND t.id::text = j.payload->>'transactionId'
                      AND t.account_id = $2)
           OR EXISTS (SELECT 1 FROM jsonb_array_elements(j.payload->'audit') a
-                      WHERE a->>'field' = 'accountId' AND $2::text IN (a->>'before', a->>'after'))
+                      WHERE a->>'field' = 'accountId' AND lower($2::text) IN (a->>'before', a->>'after'))
           OR EXISTS (SELECT 1 FROM transactions t
                        JOIN transfers f ON f.household_id = t.household_id AND f.id = t.transfer_id
                        JOIN transactions o ON o.household_id = f.household_id
@@ -114,37 +114,56 @@ async function pendingHandOffsOn(
       LIMIT ${SETTLE_LIMIT + 1}`,
     [householdId, accountId, HAND_OFF_JOB.name],
   );
-  return rows.map((r) => r.payload);
+  return rows;
 }
 
 /**
  * FIN-01@PoC EC4, FIN-12@PoC FR 7 (module accounts' `PendingPostings`, src/main.ts): before an account closes, the
  * hand-offs of the space's transactions that may still move its money are run now — each the worker's own step,
  * idempotent, with the transaction's row locked — so the closing reads the balance they leave. False when one of them
- * cannot finish now (it stays in the queue for the worker): the closing is refused, never made past a posting to come.
- * Only the space's rows are read (`inHousehold`: the row policy binds the space).
+ * cannot finish now (it stays in the queue for the worker): null, and the closing is refused, never made past a posting
+ * to come. Else the ids of the jobs it ran (they may stay queued: the worker's run of them changes nothing more), for
+ * `unsettledAccountHandOffs` under the account's lock. Only the space's rows are read (`inHousehold`: the row policy
+ * binds the space).
  */
 export async function settleAccountHandOffs(
   db: ModuleDatabase,
   deps: HandOffDeps,
   householdId: string,
   accountId: string,
-): Promise<boolean> {
+): Promise<readonly string[] | null> {
   try {
-    const payloads = await db.inHousehold(householdId, (q) => pendingHandOffsOn(q, householdId, accountId));
-    if (payloads.length > SETTLE_LIMIT) return false;
+    const jobs = await db.inHousehold(householdId, (q) => pendingHandOffsOn(q, householdId, accountId));
+    if (jobs.length > SETTLE_LIMIT) return null;
     const rows = transactionRows((work) => db.inHousehold(householdId, work));
-    for (const payload of payloads) {
+    for (const job of jobs) {
       // The payload as the worker reads it: checked by the job's schema.
-      const handOff: TransactionHandOff = HAND_OFF_JOB.schema.parse(payload);
+      const handOff: TransactionHandOff = HAND_OFF_JOB.schema.parse(job.payload);
       await applyHandOff(deps, rows, householdId, handOff);
     }
-    return true;
+    return jobs.map((j) => j.id);
   } catch (error) {
     logEvent("transactions.hand_off_deferred", "warn", {
       "ws.module": "transactions",
       "error.type": error instanceof Error ? error.constructor.name || error.name : typeof error,
     });
-    return false;
+    return null;
   }
+}
+
+/**
+ * Row 198 (#409 items 1 and 4), read by module accounts under the account's money lock (`lockAccounts`), which every
+ * write of this module on the account holds until it commits: whether an unfinished hand-off that may move the
+ * account's money is not among `settled` — a change committed after `settleAccountHandOffs` read the queue, so the
+ * balance in the journal does not count it yet. A read of this module's queue only.
+ */
+export async function unsettledAccountHandOffs(
+  db: ModuleDatabase,
+  householdId: string,
+  accountId: string,
+  settled: readonly string[],
+): Promise<boolean> {
+  const done = new Set(settled);
+  const jobs = await db.inHousehold(householdId, (q) => pendingHandOffsOn(q, householdId, accountId));
+  return jobs.some((j) => !done.has(j.id));
 }

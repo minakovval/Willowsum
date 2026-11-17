@@ -41,6 +41,8 @@ function harness(seen: Record<string, StoredTransaction>, locked: Record<string,
   const tx = {
     find: async (_h: string, id: string) => seen[id] ?? null,
     lock: async (_h: string, id: string) => (calls.push(`lock:${id}`), locked[id] ?? null),
+    // Row 198: the accounts' money lock before their state is read.
+    lockAccounts: async () => undefined,
     insertTransfer: async () => void writes.push("insertTransfer"),
     update: async (_h: string, t: StoredTransaction) => (writes.push(`update:${t.id}`), t),
     enqueueHandOff: async () => void writes.push("enqueueHandOff"),

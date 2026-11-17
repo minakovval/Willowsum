@@ -43,6 +43,7 @@ export {
   updateBalance,
   type CurrencyBalance,
   type ManageRefusal,
+  type Settled,
   type Settlement,
   type StatementResult,
 } from "./manage.ts";
