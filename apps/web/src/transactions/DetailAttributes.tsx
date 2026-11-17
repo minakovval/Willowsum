@@ -105,11 +105,18 @@ function TagsRow({
     };
   }, [adding, api]);
 
+  const refocus = useRef(false);
+  useEffect(() => {
+    // The add button is back after the field closes; focus returns to it (DS-14).
+    if (!adding && refocus.current) {
+      refocus.current = false;
+      addRef.current?.focus();
+    }
+  });
   const close = () => {
+    refocus.current = true;
     setAdding(false);
     setText("");
-    // The add button is back in the next render; focus returns to it (DS-14).
-    queueMicrotask(() => addRef.current?.focus());
   };
 
   const names = tags.map((x) => x.name);
@@ -229,9 +236,17 @@ function NoteRow({
     if (editing) areaRef.current?.focus();
   }, [editing]);
 
+  const refocus = useRef(false);
+  useEffect(() => {
+    // «Додайте нотатку» or «Змінити нотатку» is back after the field closes; focus returns to it (DS-14).
+    if (!editing && refocus.current) {
+      refocus.current = false;
+      openerRef.current?.focus();
+    }
+  });
   const close = () => {
+    refocus.current = true;
     setEditing(false);
-    queueMicrotask(() => openerRef.current?.focus());
   };
   const submit = async () => {
     const next = text.trim() === "" ? null : text;
