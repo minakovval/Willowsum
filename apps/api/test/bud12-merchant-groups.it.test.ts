@@ -574,3 +574,61 @@ describe("BUD-12@PoC FR 14: «Так розбирають і великі чер
     expect((await groups(space, "?page=6&pageSize=100")).items).toHaveLength(merchantCount - 500);
   }, 60_000);
 });
+
+describe("BUD-12@PoC FR 10 and «лише з записів у межах прав» (security review of #491)", () => {
+  it("BUD-12@PoC FR 10: two spaces with the same merchant — each gets only its own count, sums and ids, also with the other space's cursor", async () => {
+    const [a, b] = [await newSpace(), await newSpace()];
+    const [accountA, accountB] = [await createAccount(a), await createAccount(b)];
+    const idsA = [
+      await add(a, accountA, "-1.11", "Сільпо"),
+      await add(a, accountA, "-2.22", "Сільпо"),
+      await add(a, accountA, "-3.01", null),
+    ];
+    const idsB = [await add(b, accountB, "-40.01", "Сільпо"), await add(b, accountB, "-9.09", null)];
+    await queue(a, idsA);
+    await queue(b, idsB);
+    const [pageA, pageB] = [await groups(a), await groups(b)];
+    expect(pageA).toMatchObject({ count: 2, transactionCount: 3 });
+    expect(pageB).toMatchObject({ count: 2, transactionCount: 2 });
+    const [groupA, groupB] = [pageA.items.find((g) => g.merchant)!, pageB.items.find((g) => g.merchant)!];
+    expect(groupA).toMatchObject({ count: 2, totals: [{ amount: "-3.33", currency: "EUR" }] });
+    expect(groupB).toMatchObject({ count: 1, totals: [{ amount: "-40.01", currency: "EUR" }] });
+    expect(pageB.items.find((g) => g.id === "none")!.totals).toEqual([{ amount: "-9.09", currency: "EUR" }]);
+    expect(groupB.id).not.toBe(groupA.id);
+    expect((await groupIds(a, groupA.id)).sort()).toEqual(idsA.slice(0, 2).sort());
+    expect(await groupIds(b, groupB.id)).toEqual([idsB[0]]);
+    expect(await groupIds(b, "none")).toEqual([idsB[1]]);
+    // A cursor is only a position: one cut in space A opens nothing of A in space B.
+    const first = await call(a, "GET", `${GROUPS}/${groupA.id}/transactions?limit=1`);
+    const cursor = (first.json() as { nextCursor: string }).nextCursor;
+    for (const group of [groupB.id, "none"]) {
+      const res = await call(
+        b,
+        "GET",
+        `${GROUPS}/${group}/transactions?cursor=${encodeURIComponent(cursor)}`,
+      );
+      for (const id of (res.json() as { items: string[] }).items) expect(idsB).toContain(id);
+    }
+  });
+
+  it("BUD-12@PoC FR 14: a hidden transaction and a confirmed one are in no group, sum or id list; a viewer reads the groups", async () => {
+    const space = await newSpace();
+    const account = await createAccount(space);
+    const [queued, hidden, confirmed] = [
+      await add(space, account, "-10.01", "SHELL 077"),
+      await add(space, account, "-20.02", "SHELL 077"),
+      await add(space, account, "-30.03", "SHELL 077"),
+    ];
+    await queue(space, [queued, hidden, confirmed]);
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hidden]);
+    await db.owner.query(`UPDATE transactions.transactions SET review = 'confirmed' WHERE id = $1`, [
+      confirmed,
+    ]);
+    const res = await call(space, "GET", GROUPS, undefined, { role: "viewer" });
+    expect(res.statusCode, res.body).toBe(200);
+    const page = res.json() as GroupsPage;
+    expect(page).toMatchObject({ count: 1, transactionCount: 1 });
+    expect(page.items[0]).toMatchObject({ count: 1, totals: [{ amount: "-10.01", currency: "EUR" }] });
+    expect(await groupIds(space, page.items[0]!.id)).toEqual([queued]);
+  });
+});
