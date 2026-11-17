@@ -2587,12 +2587,10 @@ button.ws-stepper-step[aria-disabled="true"] {
   background: var(--ws-brand-hover);
 }
 
-/* The ring comes from the shared rule of DS-06 FR 7: the bar has the class `ws-surface-brand` (base.css). */
-
-/* The menu of «Дії з вибраними» is on `surface-200`: its items keep the shared `focus` ring (DS-06 FR 7). */
-.ws-surface-brand .ws-menu {
-  --ws-focus-ring-color: var(--ws-focus);
-}
+/*
+ * The ring comes from the shared rule of DS-06 FR 7: the bar has the class `ws-surface-brand` (base.css); the menu of
+ * «Дії з вибраними» is on `surface-200`, so the same rule gives its items the `focus` ring.
+ */
 
 /*
  * CMP-32@PoC FilterBar: the button «Фільтри · N» (36 px in a 44 px hit area, 0 × 12 px, 1 px `border-control`, radius 8,

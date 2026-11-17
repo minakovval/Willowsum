@@ -127,15 +127,24 @@ li .ws-link {
 /*
  * DS-06 FR 7 (owner, 2026-11-17): the focus ring is always at least 3 : 1 on the surface it lies on. The colour is
  * `--ws-focus-ring-color`: `focus` on ordinary surfaces (the default), `on-brand` inside `.ws-surface-brand`, a filled
- * `brand` panel, in both themes. A menu or popup on `surface-200` inside such a panel puts `focus` back (`.ws-menu`).
+ * `brand` panel, in both themes. A menu or popup on `surface-200` inside such a panel puts `focus` back. The default
+ * is set again on every `[data-theme]` element, so a subtree in the other theme gets that theme's `focus`.
  * A component with a `brand` fill adds the class; it never sets its own ring colour.
  */
 :root {
   --ws-focus-ring-color: var(--ws-focus);
 }
 
+[data-theme] {
+  --ws-focus-ring-color: var(--ws-focus);
+}
+
 .ws-surface-brand {
   --ws-focus-ring-color: var(--ws-on-brand);
+}
+
+.ws-surface-brand :is(.ws-menu, .ws-dropdown-panel, .ws-filter-panel) {
+  --ws-focus-ring-color: var(--ws-focus);
 }
 
 /* DS-14 item 3: a 3 px focus ring with a 2 px offset; never removed. */

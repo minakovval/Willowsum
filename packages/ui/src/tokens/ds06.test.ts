@@ -255,6 +255,11 @@ describe("DS-06@PoC colour tokens", () => {
       decl.find((d) => d.selector === selector && d.property === property)?.value;
     expect(val(":root", "--ws-focus-ring-color")).toBe("var(--ws-focus)");
     expect(val(".ws-surface-brand", "--ws-focus-ring-color")).toBe("var(--ws-on-brand)");
+    // A subtree in the other theme recomputes the default; popups on surface-200 in a brand panel get `focus` back.
+    expect(val("[data-theme]", "--ws-focus-ring-color")).toBe("var(--ws-focus)");
+    expect(
+      val(".ws-surface-brand :is(.ws-menu, .ws-dropdown-panel, .ws-filter-panel)", "--ws-focus-ring-color"),
+    ).toBe("var(--ws-focus)");
     expect(val(":focus-visible", "outline")).toBe(
       "var(--ws-focus-ring-width) solid var(--ws-focus-ring-color)",
     );
