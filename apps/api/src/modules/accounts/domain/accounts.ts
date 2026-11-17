@@ -272,6 +272,8 @@ export function openingAmount(kind: AccountKind, amount: string, currency: strin
  */
 export function checkNewAccount(
   input: NewAccountInput,
+  /** «Сьогодні» (YYYY-MM-DD): a balance dated later would make an account whose balance today is 0 (#210). */
+  today: string,
 ): { readonly account: NewAccount } | { readonly issues: readonly FieldIssue[] } {
   const issues: FieldIssue[] = [];
   const bad = (field: string, issue = "invalid") => issues.push({ field, issue });
@@ -297,7 +299,8 @@ export function checkNewAccount(
     if (!balance) bad("balance.amount");
     const day = date(input.balanceDate);
     if (!day) bad("balanceDate");
-    if (balance && day) currencies.push({ balance, date: day });
+    else if (day > today) bad("balanceDate", "date_in_future");
+    if (balance && day && day <= today) currencies.push({ balance, date: day });
   }
 
   onlyFor("extraCurrencies", ["current"]);
@@ -313,7 +316,8 @@ export function checkNewAccount(
       const day = date(extra.date);
       if (!balance) bad(`${at}.amount`);
       if (!day) bad(`${at}.date`);
-      if (balance && day) currencies.push({ balance, date: day });
+      else if (day > today) bad(`${at}.date`, "date_in_future");
+      if (balance && day && day <= today) currencies.push({ balance, date: day });
     });
   }
 

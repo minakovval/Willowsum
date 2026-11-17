@@ -1348,6 +1348,8 @@ export const uk = {
   "accountBalance.busy": "Оновлюємо…",
   "accountBalance.error.required": "Введіть поточний залишок.",
   "accountBalance.error.failed": "Помилка. Не вдалося оновити залишок. Спробуйте ще раз.",
+  "accountBalance.error.amount":
+    "Перевірте суму: залишок не може бути від’ємним, а борг вводиться додатною сумою.",
   "newAccount.step.main": "Основне",
   "newAccount.step.balance": "Залишок",
   "newAccount.step.extra": "Додатково",

@@ -19,6 +19,8 @@ import {
 /** FIN-01@PoC on the pure rules of accounts: kinds, the form's fields, numbers, duplicates, deposits. Synthetic data. */
 
 const eur = (amount: string) => Money.of(amount, "EUR");
+/** «Сьогодні» of the checks: no balance date in these tests is later. */
+const TODAY = "2026-11-17";
 const base: NewAccountInput = {
   kind: "current",
   name: "Щоденний",
@@ -27,7 +29,7 @@ const base: NewAccountInput = {
   balanceDate: "2026-11-01",
 };
 const issues = (input: Partial<NewAccountInput>) => {
-  const result = checkNewAccount({ ...base, ...input });
+  const result = checkNewAccount({ ...base, ...input }, TODAY);
   return "issues" in result ? result.issues : [];
 };
 /** A synthetic IBAN with a valid check (ISO 13616), ending in 1234. */
@@ -54,7 +56,7 @@ describe("FIN-01@PoC FR 1: the kinds of money accounts", () => {
 
 describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
   it("FIN-01@PoC AC1: type, institution, country, currency and balance on a date make an account", () => {
-    const result = checkNewAccount(base);
+    const result = checkNewAccount(base, TODAY);
     expect(result).toMatchObject({
       account: {
         kind: "current",
@@ -92,7 +94,7 @@ describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
     expect(issues({ name: "Щоденний\nрахунок" })).toEqual([{ field: "name", issue: "invalid" }]);
     expect(issues({ name: "\u202Eкнаб" })).toEqual([{ field: "name", issue: "invalid" }]);
     expect(issues({ note: "н".repeat(1001) })).toEqual([{ field: "note", issue: "invalid" }]);
-    expect(checkNewAccount({ ...base, note: "рядок 1\nрядок 2" })).toMatchObject({
+    expect(checkNewAccount({ ...base, note: "рядок 1\nрядок 2" }, TODAY)).toMatchObject({
       account: { note: "рядок 1\nрядок 2" },
     });
   });
@@ -108,9 +110,11 @@ describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
   });
 
   it("FIN-01@PoC FR 3: only a current account may open below zero (an overdraft); a debt is typed positive", () => {
-    expect(checkNewAccount({ ...base, balance: { amount: "-50.00", currency: "EUR" } })).toMatchObject({
-      account: { currencies: [{ balance: eur("-50") }] },
-    });
+    expect(checkNewAccount({ ...base, balance: { amount: "-50.00", currency: "EUR" } }, TODAY)).toMatchObject(
+      {
+        account: { currencies: [{ balance: eur("-50") }] },
+      },
+    );
     for (const kind of ["savings", "deposit", "cash", "credit-card", "loan"] as const)
       expect(
         issues({
@@ -124,14 +128,17 @@ describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
   });
 
   it("FIN-01@PoC FR 2: a loan carries its rate and monthly payment to the liability", () => {
-    const result = checkNewAccount({
-      ...base,
-      kind: "loan",
-      name: "Іпотека",
-      balance: { amount: "120000.00", currency: "EUR" },
-      annualRate: "4.2",
-      monthlyPayment: "650.00",
-    });
+    const result = checkNewAccount(
+      {
+        ...base,
+        kind: "loan",
+        name: "Іпотека",
+        balance: { amount: "120000.00", currency: "EUR" },
+        annualRate: "4.2",
+        monthlyPayment: "650.00",
+      },
+      TODAY,
+    );
     expect(result).toMatchObject({
       account: {
         kind: "loan",
@@ -148,23 +155,38 @@ describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
       depositOpenedOn: "2026-01-01",
       depositMaturesOn: "2027-01-01",
     };
-    expect(checkNewAccount(deposit)).toMatchObject({
+    expect(checkNewAccount(deposit, TODAY)).toMatchObject({
       account: { annualRate: "3.5", depositOpenedOn: "2026-01-01", depositMaturesOn: "2027-01-01" },
     });
     // FR 6: the account opened when the deposit did.
-    expect(checkNewAccount(deposit)).toMatchObject({ account: { openedOn: "2026-01-01" } });
+    expect(checkNewAccount(deposit, TODAY)).toMatchObject({ account: { openedOn: "2026-01-01" } });
     expect(issues({ ...deposit, depositMaturesOn: "2025-12-31" })).toEqual([
       { field: "depositMaturesOn", issue: "before_opening" },
     ]);
   });
 });
 
+describe("#210 follow-up: «На дату» is never after today", () => {
+  it("FIN-01@PoC FR 7: a balance dated after today is «date_in_future» — the main currency and every added one; today itself is fine", () => {
+    expect(issues({ balanceDate: "2026-11-18" })).toEqual([
+      { field: "balanceDate", issue: "date_in_future" },
+    ]);
+    expect(issues({ balanceDate: TODAY })).toEqual([]);
+    expect(issues({ extraCurrencies: [{ amount: "1", currency: "UAH", date: "2027-01-01" }] })).toEqual([
+      { field: "extraCurrencies.0.date", issue: "date_in_future" },
+    ]);
+  });
+});
+
 describe("FIN-01@PoC FR 12: a multi-currency account is a current account with a subaccount per currency", () => {
   it("FIN-01@PoC FR 12: «+ додати ще валюту» adds a currency with its own balance and date", () => {
-    const result = checkNewAccount({
-      ...base,
-      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-11-02" }],
-    });
+    const result = checkNewAccount(
+      {
+        ...base,
+        extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-11-02" }],
+      },
+      TODAY,
+    );
     expect(result).toMatchObject({
       account: {
         currencies: [

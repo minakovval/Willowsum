@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { contrastRatio, colors } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
@@ -147,9 +147,11 @@ const closed = account({ name: "Старий", status: "closed", closedOn: "2026
 function summary(
   over: Partial<AccountsSummary["moneyTogether"]> = {},
   credit = { card: "0.00", loan: null as string | null },
+  cash: string | null = "30280.00",
 ): AccountsSummary {
   return {
     currency: "EUR",
+    cash: { total: cash === null ? null : eur(cash), approximate: false, unavailableCount: 0 },
     moneyTogether: {
       total: eur("30280.00"),
       approximate: false,
@@ -354,6 +356,21 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     expect(plain(card.textContent)).toContain("Імпорт виписок1 рахунок");
     expect(plain(card.textContent)).toContain("Вручну3 рахунки");
     expect(screen.queryByText("Керувати підключеннями")).toBeNull();
+  });
+
+  it("FIN-01@PoC FR 14: the «Готівкові» header shows the group's total from the API (#424) — no sum made in the browser", async () => {
+    renderAt(
+      "#/money/accounts",
+      api([current, card], summary({ total: eur("31480.00") }, { card: "1200.00", loan: null }, "32680.00"))
+        .client,
+    );
+    const cashGroup = await screen.findByRole("region", { name: "Готівкові" });
+    await within(cashGroup).findByText("32 680,00 €", { selector: ".accounts-group-sum p" });
+    cleanup();
+    renderAt("#/money/accounts", api([current], summary({}, undefined, null)).client);
+    const withoutRate = await screen.findByRole("region", { name: "Готівкові" });
+    await within(withoutRate).findByText(/активн/);
+    expect(withoutRate.querySelector(".accounts-group-sum")).toBeNull();
   });
 
   it("FIN-01@PoC AC13: the «Кредитні» header shows the card debt 1 200,00 €; the card's row shows the limit 5 000,00 € and 3 800,00 € available", async () => {

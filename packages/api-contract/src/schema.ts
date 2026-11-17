@@ -4457,6 +4457,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        cash: {
+                            approximate: boolean;
+                            total: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            unavailableCount: number;
+                        };
                         credit: {
                             cardDebt: {
                                 approximate: boolean;
