@@ -150,9 +150,14 @@ function categoryIndex(groups: CategoryGroups): Map<string, TransactionCategory>
   return out;
 }
 
-export async function loadPage(api: ApiClient, view: ListView): Promise<Loaded<ListPage>> {
+/** The filter of the list as the server takes it: the search and the filters (also DAT-03 FR 1 «усі за фільтром»). */
+export function listFilter(view: Pick<ListView, "search" | "filters">): string[] {
   const query = view.search.trim();
-  const filter = [...(query ? [`search.has:${query}`] : []), ...filterParams(view.filters)];
+  return [...(query ? [`search.has:${query}`] : []), ...filterParams(view.filters)];
+}
+
+export async function loadPage(api: ApiClient, view: ListView): Promise<Loaded<ListPage>> {
+  const filter = listFilter(view);
   const list = await outcome(
     api.GET("/v1/transactions", {
       params: {
@@ -198,6 +203,8 @@ export function useTransactionsPage(view: ListView): {
   state: Loaded<ListPage>;
   refreshing: boolean;
   retry: () => void;
+  /** Reads the page again keeping the shown one on screen (after a bulk action changed its records). */
+  refresh: () => void;
 } {
   const api = useAuthApi();
   const [attempt, setAttempt] = useState(0);
@@ -229,7 +236,8 @@ export function useTransactionsPage(view: ListView): {
     setAnswer({ key: "", state: { kind: "loading" } });
     setAttempt((n) => n + 1);
   }, []);
-  return { state: answer.state, refreshing: answer.key !== key, retry };
+  const refresh = useCallback(() => setAttempt((n) => n + 1), []);
+  return { state: answer.state, refreshing: answer.key !== key, retry, refresh };
 }
 
 /** The numbers of the tabs: `null` until read or when the read failed — the tab then shows its name only. */

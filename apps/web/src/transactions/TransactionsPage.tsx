@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   formatLocaleOf,
   formatMoney,
@@ -15,6 +15,7 @@ import {
   ListToolbar,
   PageTabs,
   Pagination,
+  SelectionBar,
   Skeleton,
   TransactionRow,
   TransactionTableHead,
@@ -29,6 +30,7 @@ import { useDocumentTitle } from "../useDocumentTitle.ts";
 import {
   DEFAULT_VIEW,
   isListView,
+  listFilter,
   nextSort,
   SEARCH_MAX_LENGTH,
   SORTABLE,
@@ -43,6 +45,16 @@ import {
 import { activeCount, filtersFromHash, NO_FILTERS } from "./filters.ts";
 import { NewTransactionDialog } from "./NewTransactionDialog.tsx";
 import { TransactionFilters } from "./TransactionFilters.tsx";
+import { BulkBanner } from "./BulkBanner.tsx";
+import { BulkDialog } from "./BulkDialog.tsx";
+import {
+  selectionBody,
+  useBulkProgress,
+  useSelectionSum,
+  type BulkAction,
+  type BulkReport,
+  type Selection,
+} from "./bulk.ts";
 import "./transactions.css";
 
 export type TransactionsTab = "list" | "review" | "pairs";
@@ -132,8 +144,24 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
     ready: shown,
     valid: isListView,
   });
-  const { state, refreshing, retry } = useTransactionsPage(view);
+  const { state, refreshing, retry, refresh } = useTransactionsPage(view);
   if (state.kind === "ready" && !shown) setShown(true);
+  const ready0 = state.kind === "ready" ? state.data : null;
+
+  // DAT-03@PoC FR 1: the selection; it is cleared when the conditions of the list change (search, filters, sort) —
+  // not on another page — and after an action ran.
+  const conditions = JSON.stringify([view.search, view.filters, view.sort]);
+  const [picked, setPicked] = useState<{ key: string; value: Selection | null }>({
+    key: conditions,
+    value: null,
+  });
+  const selection = picked.key === conditions ? picked.value : null;
+  const select = (value: Selection | null) => setPicked({ key: conditions, value });
+  const headCheck = useRef<HTMLInputElement>(null);
+  const [dialog, setDialog] = useState<BulkAction | null>(null);
+  const onFinished = useCallback(() => refresh(), [refresh]);
+  const progress = useBulkProgress(onFinished);
+  const sum = useSelectionSum(selection, ready0?.summary ?? null, t, locale);
   const [query, setQuery] = useState(view.search);
   const rowsRef = useRef<HTMLDivElement>(null);
   const choices = useFilterChoices();
@@ -169,6 +197,42 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   // FIN-03@PoC AC19: a space without transactions shows the empty state, without the toolbar.
   if (ready && ready.count === 0 && view.search === "" && !filtered && !refreshing)
     return <ListEmpty onAdd={onAdd} />;
+
+  // DAT-03@PoC FR 1, CMP-73: ticked rows, or «усі за фільтром» less the rows unticked by hand.
+  const isSelected = (id: string) =>
+    selection === null
+      ? false
+      : selection.kind === "ids"
+        ? selection.ids.has(id)
+        : !selection.excluded.has(id);
+  const count =
+    selection === null
+      ? 0
+      : selection.kind === "ids"
+        ? selection.ids.size
+        : Math.max(0, (ready?.count ?? 0) - selection.excluded.size);
+  const pageChecked = !!ready && ready.rows.length > 0 && ready.rows.every((r) => isSelected(r.item.id));
+  const tick = (rows: readonly ListRow[], on: boolean) => {
+    if (selection?.kind === "filter") {
+      const excluded = new Set(selection.excluded);
+      for (const r of rows) {
+        if (on) excluded.delete(r.item.id);
+        else excluded.add(r.item.id);
+      }
+      select((ready?.count ?? 0) - excluded.size > 0 ? { kind: "filter", excluded } : null);
+      return;
+    }
+    const ids = new Map(selection?.ids ?? []);
+    for (const r of rows) {
+      if (on) ids.set(r.item.id, nameOf(r));
+      else ids.delete(r.item.id);
+    }
+    select(ids.size > 0 ? { kind: "ids", ids } : null);
+  };
+  const names = new Map([
+    ...(ready?.rows.map((r) => [r.item.id, nameOf(r)] as const) ?? []),
+    ...(selection?.kind === "ids" ? selection.ids : []),
+  ]);
 
   // «Скинути фільтри» (FIN-03@PoC «Стани інтерфейсу»): the search and every filter.
   const resetAll = () => {
@@ -217,17 +281,74 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
       ) : (
         <>
           <Totals summary={ready.summary} />
+          {progress.tracked ? (
+            <BulkBanner
+              tracked={progress.tracked}
+              failed={progress.failed}
+              reload={progress.reload}
+              now={Date.now}
+              onChanged={refresh}
+            />
+          ) : null}
+          {count > 0 ? (
+            <SelectionBar
+              count={count}
+              sum={sum}
+              filterCount={ready.count}
+              allSelected={selection?.kind === "filter"}
+              excluded={selection?.kind === "filter" ? selection.excluded.size : 0}
+              busy={progress.tracked?.report?.status === "running"}
+              actions={(["setCategory", "addTags", "confirmCategory"] as const).map((a) => ({
+                id: a,
+                label: t(`bulk.action.${a}`),
+                icon: a === "confirmCategory" ? "check" : "tag",
+                onSelect: () => setDialog(a),
+              }))}
+              onSelectAll={pageChecked ? () => select({ kind: "filter", excluded: new Set() }) : undefined}
+              onSelectPage={() =>
+                select({ kind: "ids", ids: new Map(ready.rows.map((r) => [r.item.id, nameOf(r)])) })
+              }
+              onClear={() => {
+                select(null);
+                headCheck.current?.focus();
+              }}
+            />
+          ) : null}
           <div className="ws-card tx-table" ref={rowsRef}>
             <TransactionTableHead
               withAsset={false}
               sort={view.sort}
               sortable={SORTABLE}
               onSort={(column) => setView((v) => ({ ...v, sort: nextSort(v.sort, column), page: 1 }))}
+              selectPage={{
+                checked: pageChecked,
+                label: t("bulk.selectPage"),
+                onChange: (on) => tick(ready.rows, on),
+              }}
+              selectPageRef={headCheck}
             />
             {ready.rows.map((row) => (
-              <Row key={row.item.id} row={row} />
+              <Row
+                key={row.item.id}
+                row={row}
+                selected={isSelected(row.item.id)}
+                onSelectedChange={(on) => tick([row], on)}
+              />
             ))}
           </div>
+          <BulkDialog
+            key={dialog ?? ""}
+            action={dialog}
+            count={count}
+            selection={selectionBody(selection ?? { kind: "ids", ids: new Map() }, listFilter(view))}
+            names={names}
+            onClose={() => setDialog(null)}
+            onStarted={(report: BulkReport) => {
+              setDialog(null);
+              select(null);
+              if (report.status !== "running") refresh();
+            }}
+          />
           <Pagination
             className="tx-pagination"
             page={view.page}
@@ -243,13 +364,26 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-function Row({ row }: { row: ListRow }) {
+/** The row's name as the list shows it, for the examples of «Що станеться». */
+const nameOf = (row: ListRow) => row.item.counterparty ?? "—";
+
+function Row({
+  row,
+  selected,
+  onSelectedChange,
+}: {
+  row: ListRow;
+  selected: boolean;
+  onSelectedChange: (selected: boolean) => void;
+}) {
   const { t, locale } = useI18n();
   const { item } = row;
   const time = timeOf(locale, item.recordedAt);
   return (
     <TransactionRow
       layout="table"
+      selected={selected}
+      onSelectedChange={onSelectedChange}
       withAsset={false}
       merchant={item.counterparty ?? t("accountCard.tx.noCounterparty")}
       date={item.date}

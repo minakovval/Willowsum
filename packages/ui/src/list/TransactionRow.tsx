@@ -1,5 +1,5 @@
 import { formatDate, useI18n, type MessageKey } from "@willowsum/i18n";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type Ref } from "react";
 import { Badge, type BadgeTone } from "../badge/Badge.tsx";
 import { Button } from "../button/Button.tsx";
 import { Icon, type IconName } from "../icons/Icon.tsx";
@@ -347,12 +347,21 @@ const SORT_TITLE: Record<TransactionColumn, MessageKey> = {
  */
 export function TransactionTableHead({
   selectable = false,
+  selectPage,
+  selectPageRef,
   withAsset = true,
   sort,
   sortable = [],
   onSort,
 }: {
   selectable?: boolean;
+  /**
+   * DAT-03@PoC FR 1: «Вибрати сторінку» — the header checkbox of the selection mode (`label` is its name). Replaces
+   * the empty `selectable` cell.
+   */
+  selectPage?: { checked: boolean; label: string; onChange: (checked: boolean) => void } | undefined;
+  /** The header checkbox itself, for the focus after «Зняти вибір». */
+  selectPageRef?: Ref<HTMLInputElement> | undefined;
   withAsset?: boolean;
   sort?: TransactionSort | undefined;
   sortable?: readonly TransactionColumn[];
@@ -395,7 +404,16 @@ export function TransactionTableHead({
       }`}
       aria-hidden={onSort ? undefined : true}
     >
-      {selectable && <span className="ws-row-check-spacer" />}
+      {selectPage ? (
+        <RowCheckbox
+          ref={selectPageRef}
+          checked={selectPage.checked}
+          label={selectPage.label}
+          onChange={selectPage.onChange}
+        />
+      ) : (
+        selectable && <span className="ws-row-check-spacer" />
+      )}
       {shown.map((column) => (
         <span key={column} className={column === "amount" ? "ws-tx-head-amount" : undefined}>
           {head(column)}

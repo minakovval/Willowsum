@@ -53,6 +53,7 @@ import { FieldDemo } from "./FieldDemo.tsx";
 import { ListRowDemo } from "./ListRowDemo.tsx";
 import { FilterBarDemo } from "./FilterBarDemo.tsx";
 import { ListToolbarDemo } from "./ListToolbarDemo.tsx";
+import { SelectionBarDemo } from "./SelectionBarDemo.tsx";
 import { DateFieldDemo } from "./DateFieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
@@ -442,6 +443,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-toolbar" title={t("gallery.toolbar.title")}>
         <ListToolbarDemo />
+      </Section>
+
+      <Section id="g-selection-bar" title={t("gallery.selectionBar.title")}>
+        <SelectionBarDemo />
       </Section>
 
       <Section id="g-filter-bar" title={t("gallery.filterBar.title")}>
