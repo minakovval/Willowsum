@@ -166,6 +166,14 @@ export const FLAGS = {
     description:
       "Мерчанти (BUD-14@PoC a): мерчант транзакції з опису банку, «Оригінальний опис», «Канал», перейменування, «Об'єднати з…», «Роз'єднати»; маршрути /v1/merchants, /v1/transactions/{id}/merchant",
   },
+  "merchants.review-groups": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-17",
+    requires: "transactions.review",
+    description:
+      "Режим «Мерчанти» черги «До розбору» (BUD-12@PoC FR 14–16, серверна частина): групи за мерчантом — кількість, сума, запропонована категорія — й ідентифікатори транзакцій групи; маршрути /v1/transaction-review/merchant-groups",
+  },
   "categorization.rules": {
     kind: "release",
     owner: "product-owner",

@@ -5,6 +5,7 @@ import {
   type Merchant,
   type MergeIssue,
   type NormalizedMerchant,
+  type QueueSlice,
 } from "../domain/index.ts";
 import type { MerchantHandOff } from "./hand-off.ts";
 
@@ -21,6 +22,24 @@ export interface TransactionTextsPort {
   counterpartyCounts(
     householdId: string,
   ): Promise<readonly { readonly counterparty: string; readonly count: number }[]>;
+  /** BUD-12 FR 14: «До розбору» counted and summed by counterparty and currency (SQL), the oldest first. */
+  reviewQueueSlices(
+    householdId: string,
+    limit: number,
+  ): Promise<{ readonly slices: readonly QueueSlice[]; readonly more: boolean }>;
+  /** BUD-12 FR 14, FR 16: the queued transactions of some counterparties (`none` — also without one), by id. */
+  reviewQueueMembers(
+    householdId: string,
+    query: {
+      readonly counterparties: readonly string[];
+      readonly none: boolean;
+      readonly after: string | null;
+      readonly limit: number;
+    },
+  ): Promise<{
+    readonly items: readonly { readonly id: string; readonly counterparty: string | null }[];
+    readonly more: boolean;
+  }>;
 }
 
 /** The merchants schema in one transaction of the module, bound to one space (adapters/db/store.ts). */

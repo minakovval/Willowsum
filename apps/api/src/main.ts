@@ -344,6 +344,8 @@ const server = buildServer({
             merchants: createMerchantsServices({
               transactions: createTransactionTexts(databases.for("transactions")),
               audit,
+              // BUD-12 FR 14: the suggested category of a merchant's group in «До розбору».
+              categories: createTransactionCategories(databases.for("categorization")),
             }),
             // BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant
             // (merchants), none from a loan account (accounts); payments confirmed or added by hand name a category
