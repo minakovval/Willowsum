@@ -312,7 +312,7 @@ describe("FIN-01@PoC EC4, FIN-12@PoC FR 7: a write on the account and its closin
     expect(await stateOn(space, accountId)).toEqual({ status: "closed", balance: "0" });
   });
 
-  it("FIN-12@PoC FR 8 (#409 item 1): a transaction created while a closing commits — it waits and is refused ACCOUNT_CLOSED; nothing is written on the closed account", async () => {
+  it("FIN-12@PoC FR 8 (#409 п. 1): a transaction created while a closing commits — it waits and is refused ACCOUNT_CLOSED; nothing is written on the closed account", async () => {
     const space = await newSpace();
     const accountId = await account(space);
     const [closed, created] = await race(
@@ -360,7 +360,7 @@ describe("FIN-01@PoC EC4, FIN-12@PoC FR 7: a write on the account and its closin
 });
 
 describe("IMP-02@PoC FR 15: a wallet with a transaction stays, also when both requests run at once", () => {
-  it("IMP-02@PoC FR 15 (#290 item 4): a transaction created on the UAH wallet while the wallet is removed — the removal waits for it and is refused", async () => {
+  it("IMP-02@PoC FR 15 (#290 п. 4): a transaction created on the UAH wallet while the wallet is removed — the removal waits for it and is refused", async () => {
     const space = await newSpace();
     const accountId = await account(space, "100.00");
     const added = await call(space, "POST", `/v1/accounts/${accountId}/wallets`, {
@@ -383,7 +383,7 @@ describe("IMP-02@PoC FR 15: a wallet with a transaction stays, also when both re
 });
 
 describe("FIN-12@PoC FR 14: «Оновити залишок» reads the balance under the account's lock, with every saved transaction in it", () => {
-  it("FIN-12@PoC FR 14 (#409 item 4): a transaction whose hand-off to the journal is still queued — the balance entered is the balance once the worker has run", async () => {
+  it("FIN-12@PoC FR 14 (#409 п. 4): a transaction whose hand-off to the journal is still queued — the balance entered is the balance once the worker has run", async () => {
     const space = await newSpace();
     const accountId = await account(space, "1000.00");
     vi.spyOn(ledger, "post").mockRejectedValueOnce(new Error("injected"));
@@ -399,7 +399,7 @@ describe("FIN-12@PoC FR 14: «Оновити залишок» reads the balance 
     expect(await stateOn(space, accountId, TODAY)).toEqual({ status: "active", balance: "500" });
   });
 
-  it("FIN-12@PoC FR 14 (#298, #409 item 4): a transaction created while the balance is updated — the update waits for it; the balance is the one entered", async () => {
+  it("FIN-12@PoC FR 14 (#298, #409 п. 4): a transaction created while the balance is updated — the update waits for it; the balance is the one entered", async () => {
     const space = await newSpace();
     const accountId = await account(space, "1000.00");
     const [created, updated] = await race(
