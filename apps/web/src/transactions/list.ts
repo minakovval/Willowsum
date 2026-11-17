@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { ApiClient, paths } from "@willowsum/api-contract";
 import {
   isIconName,
+  PAGE_SIZES,
   type PageSize,
   type TransactionCategory,
   type TransactionColumn,
@@ -42,6 +43,30 @@ const SORT_FIELD: Partial<Record<TransactionColumn, string>> = {
   amount: "amount",
 };
 export const SORTABLE = Object.keys(SORT_FIELD) as TransactionColumn[];
+
+/** The longest search the server accepts (`search.has`, 200 characters): the field takes no more. */
+export const SEARCH_MAX_LENGTH = 200;
+
+/**
+ * A stored view as the list can send it (DAT-01@PoC FR 7): a page from 1, a size of the page-size choice, a sortable
+ * column with its direction and a search the server accepts; anything else and the list starts from `DEFAULT_VIEW`.
+ */
+export function isListView(value: unknown): value is ListView {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const sort = v.sort as Record<string, unknown> | null | undefined;
+  return (
+    Number.isSafeInteger(v.page) &&
+    (v.page as number) >= 1 &&
+    (PAGE_SIZES as readonly unknown[]).includes(v.pageSize) &&
+    typeof sort === "object" &&
+    sort !== null &&
+    (SORTABLE as readonly unknown[]).includes(sort.column) &&
+    (sort.direction === "asc" || sort.direction === "desc") &&
+    typeof v.search === "string" &&
+    v.search.length <= SEARCH_MAX_LENGTH
+  );
+}
 
 /** A press on a header: the same column turns the direction, another one starts ascending (DAT-01@PoC FR 3). */
 export function nextSort(sort: TransactionSort, column: TransactionColumn): TransactionSort {

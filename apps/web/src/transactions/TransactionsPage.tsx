@@ -13,7 +13,6 @@ import {
   Field,
   Icon,
   ListToolbar,
-  MenuButton,
   PageTabs,
   Pagination,
   Skeleton,
@@ -29,7 +28,9 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import {
   DEFAULT_VIEW,
+  isListView,
   nextSort,
+  SEARCH_MAX_LENGTH,
   SORTABLE,
   useTabCounts,
   useTransactionsPage,
@@ -124,11 +125,13 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   const { t, locale } = useI18n();
   // DAT-01@PoC FR 7, AC1: page, size, sort and search come back with the list; the scroll position once the rows are.
   const [shown, setShown] = useState(false);
-  const [view, setView] = useRestoredListState<ListView>("transactions", DEFAULT_VIEW, { ready: shown });
+  const [view, setView] = useRestoredListState<ListView>("transactions", DEFAULT_VIEW, {
+    ready: shown,
+    valid: isListView,
+  });
   const { state, refreshing, retry } = useTransactionsPage(view);
   if (state.kind === "ready" && !shown) setShown(true);
   const [query, setQuery] = useState(view.search);
-  const [originals, setOriginals] = useState(false);
   const rowsRef = useRef<HTMLDivElement>(null);
 
   // The search asks the server once typing stops, from the first page (DAT-01@PoC FR 5).
@@ -151,31 +154,12 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
     setQuery("");
     setView((v) => ({ ...v, search: "", page: 1 }));
   };
+  // CMP-60@PoC «Стани», GRID-02@PoC FR 11: «Параметри» has one item, «Показати оригінальні валюти», which needs a
+  // converted amount per row from the server; until the list returns one, the item and so the button are not shown.
   const toolbar = (
     <ListToolbar
       label={t("tx.toolbar")}
       status={ready && view.search !== "" ? counted(t, locale, "tx.found", ready.count) : undefined}
-      end={
-        <MenuButton
-          menuLabel={t("tx.options")}
-          ariaLabel={t("tx.options")}
-          title={t("tx.options")}
-          placement="down"
-          align="end"
-          className="ws-icon-button"
-          items={[
-            {
-              id: "originals",
-              label: t("tx.options.originalCurrencies"),
-              icon: "money",
-              checked: originals,
-              onSelect: () => setOriginals((v) => !v),
-            },
-          ]}
-        >
-          <Icon name="options" size={20} inButton />
-        </MenuButton>
-      }
     >
       <Field
         label={t("tx.search.label")}
@@ -185,6 +169,7 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
         value={query}
         onChange={setQuery}
         placeholder={t("tx.search.placeholder")}
+        maxLength={SEARCH_MAX_LENGTH}
         prefix={<Icon name="search" size={16} />}
       />
     </ListToolbar>
@@ -193,11 +178,6 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   return (
     <section className="tx-list" aria-busy={refreshing || undefined}>
       {toolbar}
-      {originals ? (
-        <p className="tx-note ws-muted" role="status">
-          {t("tx.options.originalNote")}
-        </p>
-      ) : null}
       {!ready ? (
         <div className="ws-card tx-table">
           <Skeleton variant="row" lines={8} />

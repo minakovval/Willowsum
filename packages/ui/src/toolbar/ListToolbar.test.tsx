@@ -20,7 +20,7 @@ function Bar({ status }: { status?: string }) {
 }
 
 describe("CMP-60@PoC Toolbar", () => {
-  it("CMP-60@PoC FR «Клавіатура і екранний читач»: a named toolbar with one control in the Tab order; → and ← move between the controls, in a text field only from its end or start", () => {
+  it("CMP-60@PoC AC4, FR «Клавіатура і екранний читач»: a named toolbar with one control in the Tab order; → and ← move between the controls, in a text field only from its end or start", () => {
     render(<Bar />);
     const bar = screen.getByRole("toolbar", { name: "Керування списком" });
     const search = screen.getByRole("searchbox") as HTMLInputElement;

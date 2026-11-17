@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { forgetListStates } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "./api.ts";
 import { pathFromHash } from "../routing/useHashPath.ts";
 import { navigate, SIGN_IN_PATH } from "./navigation.ts";
@@ -35,6 +36,7 @@ export const SESSION_END_KEY = "ws-session-end";
 export const SIGNED_IN_KEY = "ws-signed-in";
 
 export function markSignedIn(): void {
+  forgetListStates();
   try {
     window.localStorage.setItem(SIGNED_IN_KEY, "1");
   } catch {
@@ -99,6 +101,8 @@ export function sessionEndOf(o: Outcome<unknown>): SessionEnd | null {
 /** Opens the sign-in screen with the reason; `share` also tells the other tabs of this browser. */
 export function endSession(reason: SessionEnd, { share = true }: { share?: boolean } = {}): void {
   forgetSignedIn();
+  // The saved list views (search text, page, sort) are the ended session's: nothing of them is kept (ACC-04@PoC FR 2).
+  forgetListStates();
   if (share)
     try {
       window.localStorage.setItem(SESSION_END_KEY, JSON.stringify({ reason, at: Date.now() }));

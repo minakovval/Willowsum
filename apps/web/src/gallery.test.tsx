@@ -444,7 +444,7 @@ describe("/gallery/tokens (DS-22)", () => {
     const bar = at("toolbar").querySelector('[role="toolbar"]')!;
     expect(bar.getAttribute("aria-label")).toBe("Керування списком");
     expect(bar.querySelector('input[type="search"]')!.getAttribute("placeholder")).toBe(
-      "Пошук за мерчантом, описом, сумою",
+      "Пошук за мерчантом, описом",
     );
     expect(bar.querySelector('button[aria-label="Параметри"]')).not.toBeNull();
   });

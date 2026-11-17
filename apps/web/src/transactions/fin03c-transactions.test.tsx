@@ -10,6 +10,7 @@ import {
   type Call,
   type Reply,
 } from "../auth/testing.tsx";
+import { endSession } from "../auth/session.ts";
 import { resetNavigationSession } from "../routing/session.ts";
 
 /**
@@ -359,6 +360,23 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     Object.defineProperty(window, "scrollY", { configurable: true, value: 0 });
   });
 
+  it("ACC-04@PoC FR 2, DAT-01@PoC FR 7: the search typed before the session ended is not kept for the next sign-in in the same tab", async () => {
+    const first = open();
+    await loaded();
+    fireEvent.change(within(toolbar()).getByRole("searchbox"), { target: { value: "Мерчант 3" } });
+    await waitFor(() => expect(first.lastQuery().get("filter")).toBe("search.has:Мерчант 3"));
+    expect(sessionStorage.getItem("ws:list-state:transactions")).toContain("Мерчант 3");
+    // The session ends (15 min idle): the sign-in screen replaces the page.
+    act(() => endSession("idle"));
+    cleanup();
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain("Мерчант 3");
+    // The next person signs in in the same tab and opens «Транзакції».
+    const second = open();
+    await loaded();
+    expect((within(toolbar()).getByRole("searchbox") as HTMLInputElement).value).toBe("");
+    expect(second.lists().every((q) => q.get("filter") === null)).toBe(true);
+  });
+
   it("CMP-60@PoC AC2: the sort chosen comes back with this list only — another list's saved state is untouched", async () => {
     sessionStorage.setItem("ws:list-state:accounts", '{"state":{"page":3},"scrollY":0}');
     const first = open();
@@ -371,6 +389,31 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(sessionStorage.getItem("ws:list-state:accounts")).toBe('{"state":{"page":3},"scrollY":0}');
   });
 
+  it("DAT-01@PoC FR 7: a stored view of the wrong shape is not used — the list opens on page 1, 25 rows, newest first, no search", async () => {
+    for (const state of [
+      { page: 0, pageSize: 25, sort: { column: "when", direction: "desc" }, search: "" },
+      { page: 2, pageSize: 40, sort: { column: "when", direction: "desc" }, search: "" },
+      { page: 2, pageSize: 50, sort: { column: "category", direction: "asc" }, search: "" },
+      { page: 2, pageSize: 50, sort: { column: "when", direction: "up" }, search: "" },
+      { page: 2, pageSize: 50, sort: { column: "when", direction: "desc" }, search: "x".repeat(201) },
+      { page: "2", pageSize: 50 },
+      "page 2",
+    ]) {
+      sessionStorage.setItem("ws:list-state:transactions", JSON.stringify({ state, scrollY: 0 }));
+      const opened = open();
+      await loaded();
+      const q = opened.lists()[0]!;
+      expect([q.get("page"), q.get("pageSize"), q.get("sort"), q.get("filter")]).toEqual([
+        "1",
+        "25",
+        "-date",
+        null,
+      ]);
+      expect(screen.queryByRole("alert")).toBeNull();
+      cleanup();
+    }
+  });
+
   it("DAT-01@PoC FR 2: one view — a table; no «Картки / Таблиця» switch", async () => {
     open();
     await loaded();
@@ -380,18 +423,13 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(table().querySelector(".ws-tx-head")).toBeTruthy();
   });
 
-  it("DAT-01@PoC FR 8, FR 10: the columns are fixed by the list — no «Колонки» button, and «Параметри» has no column choice", async () => {
+  it("DAT-01@PoC FR 8, FR 10: the columns are fixed by the list — no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
     open();
     await loaded();
     expect(screen.queryByRole("button", { name: "Колонки" })).toBeNull();
-    act(() => within(toolbar()).getByRole("button", { name: "Параметри" }).click());
-    const menu = screen.getByRole("menu", { name: "Параметри" });
-    expect(within(menu).queryByText(/Колонк/)).toBeNull();
-    expect(
-      within(menu)
-        .getAllByRole("menuitemcheckbox")
-        .map((i) => i.textContent),
-    ).toEqual(["Показати оригінальні валюти"]);
+    expect(within(toolbar()).queryByRole("button", { name: "Параметри" })).toBeNull();
+    expect(screen.queryByText(/Колонк/)).toBeNull();
+    expect(screen.queryByText("Показати оригінальні валюти")).toBeNull();
   });
 });
 
@@ -437,57 +475,30 @@ describe("FIN-03@PoC c): header, tabs and toolbar", () => {
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
-  it("FIN-03@PoC AC24, CMP-60@PoC AC1: one row above the table holds the search and the icon button «Параметри» (sliders), whose menu opens under it; no «Колонки», no «Картки / Таблиця», no «…» in the page header", async () => {
+  it("FIN-03@PoC FR 13: one row above the table holds the search «Пошук за мерчантом, описом»; no «Колонки», no «Картки / Таблиця», no «…» in the page header", async () => {
     open();
     await loaded();
     const bar = toolbar();
     expect(bar.compareDocumentPosition(table()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(bar).getByRole("searchbox", { name: "Пошук транзакцій" }).getAttribute("placeholder")).toBe(
-      "Пошук за мерчантом, описом, сумою",
+      "Пошук за мерчантом, описом",
     );
-    const options = within(bar).getByRole("button", { name: "Параметри" });
-    expect(options.querySelector(".ws-icon")).toBeTruthy();
-    expect(options.textContent).toBe("");
     expect(within(bar).queryByRole("button", { name: "Колонки" })).toBeNull();
+    expect(within(bar).queryByRole("radiogroup")).toBeNull();
     const header = screen.getByRole("heading", { level: 1 }).parentElement!;
     expect(within(header).queryByRole("button", { name: "Ще дії" })).toBeNull();
-    act(() => options.click());
-    const menu = screen.getByRole("menu", { name: "Параметри" });
-    expect(options.parentElement!.contains(menu)).toBe(true);
-    expect(document.activeElement).toBe(within(menu).getByRole("menuitemcheckbox"));
   });
 
-  it("CMP-60@PoC AC3: «Показати оригінальні валюти» changes no data and shows the explanation", async () => {
-    open();
-    await loaded();
-    const before = table().textContent;
-    act(() => within(toolbar()).getByRole("button", { name: "Параметри" }).click());
-    act(() => screen.getByRole("menuitemcheckbox", { name: "Показати оригінальні валюти" }).click());
-    expect(table().textContent).toBe(before);
-    expect(document.querySelector(".tx-note")?.textContent).toBe(
-      "Суми рядків показано в оригінальній валюті кожної транзакції; підсумки — у валюті профілю.",
-    );
-  });
-
-  it("CMP-60@PoC AC4: in the toolbar → moves the focus to the next control (from the end of the search text), ← back; one control is in the Tab order", async () => {
-    open();
+  it("DAT-01@PoC FR 5: the search takes at most the 200 characters the server accepts, so a long paste still gets a list, not the error state", async () => {
+    const first = open();
     await loaded();
     const search = within(toolbar()).getByRole("searchbox") as HTMLInputElement;
-    const options = within(toolbar()).getByRole("button", { name: "Параметри" });
-    expect(search.tabIndex).toBe(0);
-    expect(options.tabIndex).toBe(-1);
-    act(() => search.focus());
-    fireEvent.change(search, { target: { value: "ab" } });
-    search.setSelectionRange(1, 1);
-    fireEvent.keyDown(search, { key: "ArrowRight" });
-    expect(document.activeElement).toBe(search);
-    search.setSelectionRange(2, 2);
-    fireEvent.keyDown(search, { key: "ArrowRight" });
-    expect(document.activeElement).toBe(options);
-    expect(options.tabIndex).toBe(0);
-    expect(search.tabIndex).toBe(-1);
-    fireEvent.keyDown(options, { key: "ArrowLeft" });
-    expect(document.activeElement).toBe(search);
+    expect(search.maxLength).toBe(200);
+    fireEvent.change(search, { target: { value: "Мерчант 3" + "x".repeat(300) } });
+    await waitFor(() => expect(first.lastQuery().get("filter")).toMatch(/^search\.has:Мерчант 3x+$/));
+    expect(first.lastQuery().get("filter")!.length).toBe("search.has:".length + 200);
+    await waitFor(() => expect(screen.getByText("Нічого не знайдено")).toBeTruthy());
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 

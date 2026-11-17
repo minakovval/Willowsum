@@ -115,4 +115,4 @@ export { ListToolbar } from "./toolbar/ListToolbar.tsx";
 export type { RowMoney } from "./list/rowParts.tsx";
 export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
 export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
-export { useRestoredListState } from "./pagination/listState.ts";
+export { forgetListStates, useRestoredListState } from "./pagination/listState.ts";

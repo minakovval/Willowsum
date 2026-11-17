@@ -4,11 +4,6 @@
   margin-block-start: var(--ws-space-4);
 }
 
-.tx-note {
-  margin-block: 0 var(--ws-space-3);
-  font-size: var(--ws-text-body-sm-size);
-}
-
 .tx-totals {
   display: flex;
   flex-wrap: wrap;
