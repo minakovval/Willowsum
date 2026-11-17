@@ -88,6 +88,8 @@ export type { ConfirmDialogProps, ConfirmWord } from "./dialog/ConfirmDialog.tsx
 export { Stepper } from "./stepper/Stepper.tsx";
 export type { StepperProps, StepperStep, StepState } from "./stepper/Stepper.tsx";
 export { AmountField, Field } from "./field/Field.tsx";
+export { DateField } from "./field/DateField.tsx";
+export type { DateChip, DateFieldProps } from "./field/DateField.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/Button.tsx";

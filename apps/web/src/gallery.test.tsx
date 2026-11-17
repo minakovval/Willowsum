@@ -313,6 +313,24 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.useRealTimers();
   });
 
+  it("CMP-02@PoC gallery: the date section shows today with its calendar, an empty required date with its error and a disabled one with its reason", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-date")!.textContent).toBe("Поле дати");
+    const section = container.querySelector("#g-date")!.closest("section")!;
+    const fields = within(section as HTMLElement).getAllByRole("button", { name: /^Дата/ });
+    expect(fields).toHaveLength(3);
+    expect(norm(fields[0]!.textContent)).toContain("· сьогодні");
+    act(() => fields[0]!.click());
+    const calendar = within(section as HTMLElement).getByRole("dialog", { name: "Оберіть дату" });
+    expect(within(calendar).getByRole("button", { name: "Учора" })).toBeTruthy();
+    expect(fields[1]!.getAttribute("aria-invalid")).toBe("true");
+    expect(norm(section.textContent)).toContain("Помилка. Обов’язкове поле");
+    expect(fields[2]!.getAttribute("aria-disabled") ?? String(fields[2]!.hasAttribute("disabled"))).toBe(
+      "true",
+    );
+    expect(norm(section.textContent)).toContain("Дату задано рахунком");
+  });
+
   it("CMP-02@PoC gallery: the Field section shows empty, required with counter, error, disabled, read-only, search and the amount cases", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-field")!.textContent).toBe("Поле введення");

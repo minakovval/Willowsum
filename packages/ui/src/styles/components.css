@@ -2276,3 +2276,123 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-tx-head-amount {
   text-align: end;
 }
+
+/* CMP-02@PoC «Тип «дата»»: the calendar icon on the left of the 40 px frame, the grey «· сьогодні». */
+.ws-date .ws-select-control {
+  padding-inline-start: var(--ws-space-3);
+}
+
+.ws-date-today {
+  margin-inline-start: var(--ws-space-1);
+  color: var(--ws-ink-muted);
+}
+
+/* The month calendar: a 300 px menu panel under the field, 34 px days, the quick chips and the limit line. */
+.ws-dropdown-panel.ws-calendar {
+  inset-inline-end: auto;
+  inline-size: calc(var(--ws-space-8) * 4 + var(--ws-space-6) + var(--ws-space-3));
+  max-block-size: none;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+}
+
+.ws-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ws-calendar-title {
+  font-weight: 600;
+}
+
+.ws-calendar-navs {
+  display: flex;
+  gap: var(--ws-space-1);
+}
+
+.ws-calendar-nav,
+.ws-calendar-day,
+.ws-calendar-chip {
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ws-calendar-nav {
+  display: grid;
+  place-items: center;
+  inline-size: calc(var(--ws-space-6) + var(--ws-space-1));
+  block-size: calc(var(--ws-space-6) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+}
+
+.ws-calendar-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  justify-items: center;
+}
+
+.ws-calendar-weekday {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.ws-calendar-day,
+.ws-calendar-blank {
+  inline-size: calc(var(--ws-space-6) + 2px);
+  block-size: calc(var(--ws-space-6) + 2px);
+  border-radius: var(--ws-radius-md);
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-calendar-day[data-today] {
+  box-shadow: inset 0 0 0 1.5px var(--ws-focus);
+}
+
+.ws-calendar-day[aria-selected="true"] {
+  background: var(--ws-brand);
+  color: var(--ws-on-brand);
+  font-weight: 600;
+}
+
+.ws-calendar-day[aria-disabled="true"] {
+  color: var(--ws-disabled-ink);
+  cursor: default;
+}
+
+.ws-calendar-nav:focus-visible,
+.ws-calendar-day:focus-visible,
+.ws-calendar-chip:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.ws-calendar-chips {
+  display: flex;
+  gap: var(--ws-space-2);
+  padding-block-start: var(--ws-space-2);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.ws-calendar-chip {
+  min-block-size: calc(var(--ws-space-6));
+  padding: 0 var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-pill);
+  font-weight: 500;
+}
+
+.ws-calendar-chip[aria-pressed="true"] {
+  background: var(--ws-tint-info);
+}
+
+.ws-calendar-note {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-badge-size);
+  line-height: var(--ws-text-tooltip-line);
+}
