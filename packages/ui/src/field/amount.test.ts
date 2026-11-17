@@ -20,6 +20,17 @@ describe("CMP-02@PoC amount text", () => {
     expect(currencyPlaces("JPY")).toBe(0);
   });
 
+  it("CMP-02@PoC AC2: the digits are the registry's minor units of domain-kernel (#467), not `Intl`'s — IQD 3, IDR and HUF 2, BTC 8, USDT 6, XAU 4", () => {
+    // `Intl` says IQD 0, IDR 0, HUF 0 and BTC 2, and refuses USDT: the forms would ask for other digits than the server.
+    expect(currencyPlaces("IQD")).toBe(3);
+    expect(currencyPlaces("IDR")).toBe(2);
+    expect(currencyPlaces("HUF")).toBe(2);
+    expect(currencyPlaces("BTC")).toBe(8);
+    expect(currencyPlaces("USDT")).toBe(6);
+    expect(currencyPlaces("XAU")).toBe(4);
+    expect(currencyPlaces("KWD")).toBe(3);
+  });
+
   it("CMP-02@PoC FR «Вміст»: typed text becomes a decimal string padded to the currency's digits", () => {
     expect(parseAmountInput("12,3", "uk", 2)).toEqual({ value: "12.30", problem: null });
     expect(parseAmountInput("3 000,00", "uk", 2)).toEqual({ value: "3000.00", problem: null });

@@ -1354,6 +1354,8 @@ export const en: Messages = {
   "accountBalance.busy": "Updating…",
   "accountBalance.error.required": "Enter the current balance.",
   "accountBalance.error.failed": "Error. Could not update the balance. Try again.",
+  "accountBalance.error.amount":
+    "Check the amount: a balance cannot be negative, and a debt is entered as a positive amount.",
   "newAccount.step.main": "Main",
   "newAccount.step.balance": "Balance",
   "newAccount.step.extra": "More",
