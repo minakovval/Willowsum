@@ -142,7 +142,23 @@ const base = (accounts: Account[] = [CURRENT, CARD]): Handlers => ({
   [`PATCH /v1/transactions/${TX}/attributes`]: { status: 200, body: {} },
 });
 
+/** The method, path and Idempotency-Key of every request the fake API reads (it reads each body with `text()`). */
+let sentHeaders: { method: string; path: string; key: string | null }[] = [];
+function recordHeaders() {
+  sentHeaders = [];
+  const text = Request.prototype.text;
+  vi.spyOn(Request.prototype, "text").mockImplementation(function (this: Request) {
+    sentHeaders.push({
+      method: this.method,
+      path: new URL(this.url).pathname,
+      key: this.headers.get("Idempotency-Key"),
+    });
+    return text.call(this);
+  });
+}
+
 function open(handlers: Handlers = base(), props: { accountId?: string } = {}) {
+  recordHeaders();
   const api = fakeApi(handlers);
   const onClose = vi.fn();
   const onCreated = vi.fn();
@@ -153,7 +169,10 @@ function open(handlers: Handlers = base(), props: { accountId?: string } = {}) {
       </AuthApiProvider>
     </I18nProvider>,
   );
-  return { calls: api.calls, onClose, onCreated };
+  // The Idempotency-Key of each POST to `path`, in order (read from the requests the fake API receives).
+  const keys = (path: string) =>
+    sentHeaders.flatMap((h) => (h.method === "POST" && h.path === path ? [h.key] : []));
+  return { calls: api.calls, keys, onClose, onCreated };
 }
 
 const dialog = () => screen.getByRole("dialog", { name: "Нова транзакція" });
@@ -307,6 +326,92 @@ describe("FIN-03@PoC d): «Нова транзакція» (S-048)", () => {
     expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ tags: ["родина", "тиждень 45"] });
   });
 
+  it("FIN-03@PoC FR 2: a minus typed under «Надходження» is dropped — the field shows «45,50» and the body has +45.50", async () => {
+    const { calls } = open();
+    await accountReady();
+    act(() => within(dialog()).getByRole("radio", { name: "Надходження" }).click());
+    await typeAmount("-45,50");
+    const field = within(dialog()).getByRole<HTMLInputElement>("textbox", { name: /Сума/ });
+    expect(field.value).toBe("45,50");
+    await act(async () => button("Додати транзакцію").click());
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    const post = calls.find((c) => c.method === "POST")!;
+    expect((post.body as { amount: unknown }).amount).toEqual({ amount: "45.50", currency: "EUR" });
+  });
+
+  it("FIN-03@PoC FR 2: under «Списання» a typed minus is not doubled — the field shows «45,50» and the body has −45.50", async () => {
+    const { calls } = open();
+    await accountReady();
+    await typeAmount("-45,50");
+    expect(within(dialog()).getByRole<HTMLInputElement>("textbox", { name: /Сума/ }).value).toBe("45,50");
+    await act(async () => button("Додати транзакцію").click());
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect((calls.find((c) => c.method === "POST")!.body as { amount: unknown }).amount).toEqual({
+      amount: "-45.50",
+      currency: "EUR",
+    });
+  });
+
+  it("FIN-03@PoC AC1: a retry after a lost answer sends the same Idempotency-Key; a double click sends one POST", async () => {
+    const handlers = base();
+    let lost = true;
+    let release: (r: Reply) => void = () => undefined;
+    handlers["POST /v1/transactions"] = (call) => {
+      if (lost) {
+        lost = false;
+        return "network";
+      }
+      return new Promise<Reply>(
+        (r) => (release = () => r({ status: 201, body: created(call.body as never) })),
+      );
+    };
+    const { calls, keys: keysOf, onClose } = open(handlers);
+    await accountReady();
+    await typeAmount("45,50");
+    await act(async () => button("Додати транзакцію").click());
+    await waitFor(() => expect(dialog().textContent).toContain("Не вдалося зберегти."));
+    // A double click: two separate presses; the second meets the busy action and does nothing.
+    await act(async () => button("Додати транзакцію").click());
+    await act(async () => button(/Додаємо|Додати транзакцію/).click());
+    await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(2));
+    await act(async () => release({ status: 201 }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const keys = keysOf("/v1/transactions");
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it("FIN-03@PoC FR 2: another account in a currency with fewer digits — 45,50 € is cleared for JPY, 45,00 € becomes 45 ¥", async () => {
+    const YEN = account("00000000-0000-4000-8000-000000000003", "Єни", {
+      currencies: [
+        {
+          currency: "JPY",
+          amount: { amount: "1000", currency: "JPY" },
+          equivalent: eur("6.00"),
+          rateDate: null,
+          approximate: false,
+          restricted: false,
+        },
+      ],
+    });
+    const { calls } = open(base([CURRENT, YEN]));
+    await accountReady();
+    await typeAmount("45,50");
+    await choose(/^Рахунок/, /Єни/);
+    expect(within(dialog()).getByRole<HTMLInputElement>("textbox", { name: /Сума/ }).value).toBe("");
+    expect(dialog().textContent).toContain("Обов’язкове поле");
+    await choose(/^Рахунок/, /Поточний/);
+    await typeAmount("45");
+    await choose(/^Рахунок/, /Єни/);
+    await act(async () => button("Додати транзакцію").click());
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect((calls.find((c) => c.method === "POST")!.body as { amount: unknown }).amount).toEqual({
+      amount: "-45",
+      currency: "JPY",
+    });
+  });
+
   it("FIN-03@PoC FR 32: «Рахунок» lists the accounts by group with their currency and ends with «Новий рахунок»", async () => {
     open();
     await accountReady();
@@ -364,6 +469,41 @@ describe("FIN-03@PoC d): «Нова транзакція» (S-048)", () => {
     expect(disabled("Додати транзакцію")).toBe(true);
     await typeAmount("12");
     expect(disabled("Додати транзакцію")).toBe(false);
+  });
+
+  it("FIN-03@PoC FR 32: «Новий рахунок» retried after a lost answer sends the same Idempotency-Key", async () => {
+    let accounts: Account[] = [];
+    let lost = true;
+    const handlers = base();
+    handlers["GET /v1/accounts"] = () => ({ status: 200, body: { items: accounts, nextCursor: null } });
+    handlers["POST /v1/accounts"] = () => {
+      if (lost) {
+        lost = false;
+        return "network";
+      }
+      const fresh = account("00000000-0000-4000-8000-000000000009", "Гаманець", { number: null });
+      accounts = [fresh];
+      return { status: 201, body: fresh };
+    };
+    const { keys: keysOf } = open(handlers);
+    await waitFor(() => expect(button(/^Рахунок/).textContent).toContain("Оберіть рахунок"));
+    press("Новий рахунок");
+    const form = screen.getByRole("dialog", { name: "Новий рахунок" });
+    fireEvent.change(within(form).getByRole("textbox", { name: /Назва/ }), { target: { value: "Гаманець" } });
+    const balance = within(form).getByRole("textbox", { name: /Залишок/ });
+    await act(async () => {
+      fireEvent.focus(balance);
+      fireEvent.change(balance, { target: { value: "100" } });
+      fireEvent.blur(balance);
+    });
+    await act(async () => within(form).getByRole("button", { name: "Додати рахунок" }).click());
+    await waitFor(() => expect(form.textContent).toContain("Не вдалося зберегти."));
+    await act(async () => within(form).getByRole("button", { name: "Додати рахунок" }).click());
+    await waitFor(() => expect(button(/^Рахунок/).textContent).toContain("Гаманець"));
+    const keys = keysOf("/v1/accounts");
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
   });
 
   it("FIN-03@PoC AC18: the calendar of «Дата» opens on today of the space with «Сьогодні» and «Учора»; later days are unavailable", async () => {

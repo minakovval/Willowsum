@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { newIdempotencyKey, type paths } from "@willowsum/api-contract";
+import { type paths } from "@willowsum/api-contract";
 import { outcome, type Outcome } from "../auth/api.ts";
 import type { ApiClient } from "@willowsum/api-contract";
 
@@ -85,6 +85,17 @@ export function useFormChoices(api: ApiClient): {
 export function signed(amount: string, type: TxType): string {
   const size = amount.trim().replace(/^[+-]/, "");
   return type === "expense" ? `-${size}` : size;
+}
+
+/**
+ * The amount in a currency with `places` digits after the point: trailing zeros go («45.00» → «45» for JPY); `null`
+ * when it has more significant digits than the currency allows (45.50 for JPY) — the field is then empty again.
+ */
+export function fitAmount(amount: string, places: number): string | null {
+  const [whole = "", fraction = ""] = amount.split(".");
+  const digits = fraction.replace(/0+$/, "");
+  if (digits.length > places) return null;
+  return digits ? `${whole}.${digits}` : whole;
 }
 
 /** An amount that moves no money («0», «0,00»): the server refuses it (issue `zero`). */
@@ -199,10 +210,11 @@ export const ACCOUNT_KINDS: readonly AccountKind[] = [
 export async function createAccount(
   api: ApiClient,
   input: { kind: AccountKind; name: string; currency: string; balance: string; today: string },
+  key: string,
 ): Promise<Outcome<Account>> {
   const o = await outcome(
     api.POST("/v1/accounts", {
-      params: { header: { "Idempotency-Key": newIdempotencyKey() } },
+      params: { header: { "Idempotency-Key": key } },
       body: {
         kind: input.kind,
         name: input.name.trim(),

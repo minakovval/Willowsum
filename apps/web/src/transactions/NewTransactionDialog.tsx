@@ -1,9 +1,10 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { newIdempotencyKey } from "@willowsum/api-contract";
 import { formatLocaleOf, useI18n, useT, type MessageKey } from "@willowsum/i18n";
 import {
   AmountField,
   CategorySelect,
+  currencyPlaces,
   DateField,
   Dialog,
   Field,
@@ -26,6 +27,7 @@ import {
   ACCOUNT_KINDS,
   createAccount,
   createCategory,
+  fitAmount,
   isZero,
   saveTransaction,
   tagNames,
@@ -95,6 +97,9 @@ function NewTransactionForm({
   const [sent, setSent] = useState<{ body: string; key: string } | null>(null);
 
   const [step, setStep] = useState(0);
+  const stepsRef = useRef<HTMLDivElement>(null);
+  // Bumped by each move between steps: the effect below then focuses the new step's first field.
+  const [moves, setMoves] = useState(0);
   const [visited, setVisited] = useState<ReadonlySet<number>>(new Set([0]));
   const [mode, setMode] = useState<Mode>("form");
   const [type, setType] = useState<TxType>("expense");
@@ -129,8 +134,25 @@ function NewTransactionForm({
   const valid = missing.length === 0;
 
   const go = (next: number) => {
+    setMoves((n) => n + 1);
     setStep(next);
     setVisited((v) => new Set([...v, next]));
+  };
+  // A new step takes the focus to its first field, so focus never stays on a hidden step (as FormDialog does).
+  useLayoutEffect(() => {
+    if (moves === 0) return;
+    const shown = stepsRef.current?.querySelector<HTMLElement>(`[data-step="${step}"]`);
+    shown?.querySelector<HTMLElement>("input:not([disabled]), button:not([disabled])")?.focus();
+  }, [moves, step]);
+
+  // Another account: the amount keeps its value only in the digits the new currency has (45,50 € → JPY is cleared).
+  const changeAccount = (next: string) => {
+    setChosen(next);
+    const to = parseChoice(next).currency;
+    if (amount === null || !to) return;
+    const fitted = fitAmount(amount, currencyPlaces(to));
+    setAmount(fitted);
+    if (fitted === null) setAmountTouched(true);
   };
   const stepState = (index: number): StepState => {
     if (index === step) return "current";
@@ -190,7 +212,7 @@ function NewTransactionForm({
         onCreated={async (created) => {
           await choices.reloadAccounts();
           const code = created.currencies[0]?.currency;
-          if (code) setChosen(choiceValue(created.id, code));
+          if (code) changeAccount(choiceValue(created.id, code));
           setMode("form");
         }}
       />
@@ -226,6 +248,7 @@ function NewTransactionForm({
       onClose={onClose}
       title={t("newTx.title")}
       align="start"
+      bar="form"
       closeLabel={t("shell.close")}
       actions={actions}
       busy={busy}
@@ -234,107 +257,119 @@ function NewTransactionForm({
     >
       <div className="newtx">
         <Stepper steps={STEPS.map((s, i) => ({ label: t(s), state: stepState(i) }))} onSelect={go} />
-        <div className="newtx-step">
-          {step === 0 ? (
-            <>
-              <p className="newtx-hint">{t("newTx.hint.required")}</p>
-              <Segmented
-                legend={t("newTx.type")}
-                name="newtx-type"
-                value={type}
-                onChange={(v) => {
-                  setType(v);
-                  setCategoryId("");
-                }}
-                options={[
-                  { value: "expense", label: t("newTx.type.expense") },
-                  { value: "income", label: t("newTx.type.income") },
-                ]}
-              />
-              <AmountField
-                label={t("newTx.amount")}
-                required
-                value={amount}
-                currency={currency || "EUR"}
-                hint={t("newTx.amount.hint")}
-                error={amountError}
-                onChange={(v) => setAmount(v)}
-                onBlur={() => setAmountTouched(true)}
-              />
-              <AccountField
-                state={choices.accounts}
-                value={account}
-                onChange={setChosen}
-                onCreate={() => setMode("account")}
-              />
-              <DateField
-                label={t("newTx.date")}
-                required
-                value={date}
-                onChange={setDate}
-                today={today}
-                max={today}
-                chips={[
-                  { label: t("newTx.date.today"), value: today },
-                  { label: t("newTx.date.yesterday"), value: yesterday(today) },
-                ]}
-                limitNote={t("newTx.date.limit")}
-              />
-              <a className="app-quiet-link" href={hrefFor(IMPORT_WIZARD_PATH)} onClick={onClose}>
-                {t("action.importStatement")}
-              </a>
-            </>
-          ) : step === 1 ? (
-            <>
-              <p className="newtx-hint">{t("newTx.hint.party")}</p>
-              <CounterpartyField
-                merchants={choices.merchants}
-                value={counterparty}
-                onChange={setCounterparty}
-                count={(n) => {
-                  const rule = new Intl.PluralRules(formatLocaleOf(locale)).select(n);
-                  const form = (COUNT_FORMS as readonly string[]).includes(rule) ? rule : "other";
-                  return t(`newTx.counterparty.count.${form}` as MessageKey, { count: n });
-                }}
-              />
-              <CategoryField
-                groups={choices.groups}
-                type={type}
-                value={categoryId}
-                onChange={setCategoryId}
-                onCreate={() => setMode("category")}
-              />
-            </>
-          ) : (
-            <>
-              <p className="newtx-hint">{t("newTx.hint.more")}</p>
-              <Field
-                label={t("newTx.description")}
-                value={description}
-                onChange={setDescription}
-                placeholder={t("newTx.description.placeholder")}
-                maxLength={1000}
-              />
-              <Field
-                label={t("newTx.tags")}
-                value={tags}
-                onChange={setTags}
-                placeholder={t("newTx.tags.placeholder")}
-                hint={t("newTx.tags.hint")}
-              />
-              <Segmented
-                legend={t("newTx.status")}
-                visibleLegend
-                name="newtx-status"
-                value={status}
-                onChange={setStatus}
-                options={[
-                  { value: "posted", label: t("newTx.status.posted") },
-                  { value: "pending", label: t("newTx.status.pending") },
-                ]}
-              />
-            </>
-          )}
+        <div ref={stepsRef} className="ws-form-steps">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="ws-form-step"
+              data-step={i}
+              inert={i !== step || undefined}
+              aria-hidden={i !== step || undefined}
+            >
+              {i === 0 ? (
+                <>
+                  <div className="newtx-head">
+                    <p className="newtx-hint">{t("newTx.hint.required")}</p>
+                    <a className="app-quiet-link" href={hrefFor(IMPORT_WIZARD_PATH)} onClick={onClose}>
+                      {t("action.importStatement")}
+                    </a>
+                  </div>
+                  <Segmented
+                    legend={t("newTx.type")}
+                    name="newtx-type"
+                    value={type}
+                    onChange={(v) => {
+                      setType(v);
+                      setCategoryId("");
+                    }}
+                    options={[
+                      { value: "expense", label: t("newTx.type.expense") },
+                      { value: "income", label: t("newTx.type.income") },
+                    ]}
+                  />
+                  <AmountField
+                    label={t("newTx.amount")}
+                    required
+                    value={amount}
+                    currency={currency || "EUR"}
+                    hint={t("newTx.amount.hint")}
+                    error={amountError}
+                    onChange={(v) => setAmount(v === null ? null : v.replace(/^-/, ""))}
+                    onBlur={() => setAmountTouched(true)}
+                  />
+                  <AccountField
+                    state={choices.accounts}
+                    value={account}
+                    onChange={changeAccount}
+                    onCreate={() => setMode("account")}
+                  />
+                  <DateField
+                    label={t("newTx.date")}
+                    required
+                    value={date}
+                    onChange={setDate}
+                    today={today}
+                    max={today}
+                    chips={[
+                      { label: t("newTx.date.today"), value: today },
+                      { label: t("newTx.date.yesterday"), value: yesterday(today) },
+                    ]}
+                    limitNote={t("newTx.date.limit")}
+                  />
+                </>
+              ) : i === 1 ? (
+                <>
+                  <p className="newtx-hint">{t("newTx.hint.party")}</p>
+                  <CounterpartyField
+                    merchants={choices.merchants}
+                    value={counterparty}
+                    onChange={setCounterparty}
+                    count={(n) => {
+                      const rule = new Intl.PluralRules(formatLocaleOf(locale)).select(n);
+                      const form = (COUNT_FORMS as readonly string[]).includes(rule) ? rule : "other";
+                      return t(`newTx.counterparty.count.${form}` as MessageKey, { count: n });
+                    }}
+                  />
+                  <CategoryField
+                    groups={choices.groups}
+                    type={type}
+                    value={categoryId}
+                    onChange={setCategoryId}
+                    onCreate={() => setMode("category")}
+                  />
+                </>
+              ) : (
+                <>
+                  <p className="newtx-hint">{t("newTx.hint.more")}</p>
+                  <Field
+                    label={t("newTx.description")}
+                    value={description}
+                    onChange={setDescription}
+                    placeholder={t("newTx.description.placeholder")}
+                    maxLength={1000}
+                  />
+                  <Field
+                    label={t("newTx.tags")}
+                    value={tags}
+                    onChange={setTags}
+                    placeholder={t("newTx.tags.placeholder")}
+                    hint={t("newTx.tags.hint")}
+                  />
+                  <Segmented
+                    legend={t("newTx.status")}
+                    visibleLegend
+                    name="newtx-status"
+                    value={status}
+                    onChange={setStatus}
+                    options={[
+                      { value: "posted", label: t("newTx.status.posted") },
+                      { value: "pending", label: t("newTx.status.pending") },
+                    ]}
+                  />
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </Dialog>
@@ -589,6 +624,8 @@ function QuickAccount({
   const [balance, setBalance] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ReactNode>(null);
+  // One key per content sent, as for the transaction: a retry after a lost answer creates the account once.
+  const [sent, setSent] = useState<{ body: string; key: string } | null>(null);
   const missing = [
     !name.trim() && t("newTx.newAccount.name"),
     balance === null && t("newTx.newAccount.balance"),
@@ -600,7 +637,11 @@ function QuickAccount({
     if (missing || balance === null || busy) return;
     setBusy(true);
     setError(null);
-    const o = await createAccount(api, { kind, name, currency, balance, today });
+    const input = { kind, name, currency, balance, today };
+    const body = JSON.stringify(input);
+    const key = sent?.body === body ? sent.key : newIdempotencyKey();
+    setSent({ body, key });
+    const o = await createAccount(api, input, key);
     if (o.ok) {
       await onCreated(o.data);
       return;
