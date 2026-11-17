@@ -217,7 +217,9 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     const { lastQuery } = open();
     await loaded();
     const head = table().querySelector(".ws-tx-head")!;
-    expect([...head.children].map((c) => c.textContent?.replace(/,.*$/, ""))).toEqual([
+    // The columns; the first cell is the «Вибрати сторінку» checkbox of the selection mode (DAT-03@PoC FR 1).
+    const columns = [...head.children].filter((c) => !c.matches(".ws-row-check"));
+    expect(columns.map((c) => c.textContent?.replace(/,.*$/, ""))).toEqual([
       "Контрагент",
       "Категорія",
       "Рахунок",

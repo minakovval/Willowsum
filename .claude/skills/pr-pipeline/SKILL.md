@@ -113,7 +113,7 @@ another open PR, or CI cannot run: then stop merging and tell the owner at once)
 
 **Lead sessions** — [restarts](references/restarts.md) (read at the start, after a restart or an agent cut off by a
 limit, at ~350 k tokens and after a compaction: the steps are there); a new session, the automatic restart and the start message:
-[new session](../../references/new-lead-session.md). Model by risk (Fable included), briefs, resumes, token accounting and the
+[new session](../../references/new-lead-session.md); the external review every 2 days: [external review](../../references/external-review.md). Model by risk (Fable included), briefs, resumes, token accounting and the
 retrospective (with the process review): [token economy](references/token-economy.md) (read when you choose a model or write a brief).
 
 ## 2. Owner
