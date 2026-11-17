@@ -477,7 +477,7 @@ describe("FIN-03@PoC c): header, tabs and toolbar", () => {
     expect(screen.queryByRole("toolbar")).toBeNull();
   });
 
-  it("FIN-03@PoC FR 13: one row above the table holds the search «Пошук за мерчантом, описом»; no «Колонки», no «Картки / Таблиця», no «…» in the page header", async () => {
+  it("FIN-03@PoC FR 13: one row above the table holds the search «Пошук за мерчантом, описом»; no «Колонки», no «Картки / Таблиця»; the page header has the «…» of «Правила категорій» only (BUD-14@PoC FR 4)", async () => {
     open();
     await loaded();
     const bar = toolbar();
@@ -488,7 +488,8 @@ describe("FIN-03@PoC c): header, tabs and toolbar", () => {
     expect(within(bar).queryByRole("button", { name: "Колонки" })).toBeNull();
     expect(within(bar).queryByRole("radiogroup")).toBeNull();
     const header = screen.getByRole("heading", { level: 1 }).parentElement!;
-    expect(within(header).queryByRole("button", { name: "Ще дії" })).toBeNull();
+    // BUD-14@PoC FR 4: the «…» of the header holds one item, «Правила категорій» (S-197).
+    expect(within(header).getAllByRole("button", { name: "Ще дії" })).toHaveLength(1);
   });
 
   it("DAT-01@PoC FR 5: the search takes at most the 200 characters the server accepts, so a long paste still gets a list, not the error state", async () => {

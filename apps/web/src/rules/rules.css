@@ -1,0 +1,325 @@
+/* BUD-14@PoC c) «Правила категорій» (S-197) and «Правило категорії» (S-198): canvas PocMoneyRules, PocMoneyRuleEdit. Tokens only. */
+
+.rules-page {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.rules-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.rules-head-text {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.rules-head h1,
+.rules-head p,
+.rules-state p,
+.rules-run p,
+.rules-note,
+.rules-failure,
+.rules-duplicate {
+  margin: 0;
+}
+
+.rules-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.rules-search {
+  inline-size: calc(var(--ws-space-8) * 5);
+}
+
+.rules-state {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+}
+
+.rules-notices {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.rules-failure {
+  color: var(--ws-loss);
+}
+
+.rules-duplicate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.rules-link {
+  min-block-size: var(--ws-touch-target);
+  padding: 0 var(--ws-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--ws-brand);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rules-link:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+.rules-link:disabled {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.rules-run {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+}
+
+.rules-run-body {
+  display: grid;
+  flex: 1;
+  gap: var(--ws-space-1);
+}
+
+.rules-run-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.rules-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.rules-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.rules-table th {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  background: var(--ws-surface-inset);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: start;
+  text-transform: uppercase;
+}
+
+.rules-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border-block-start: 1px solid var(--ws-line);
+  vertical-align: middle;
+}
+
+/* The row is focused only by «Показати правило №N» (tabIndex -1): `:focus`, since a click before it hides `:focus-visible`. */
+.rules-row:focus {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: -3px;
+}
+
+.rules-row[data-attention] {
+  background: var(--ws-tint-warning);
+}
+
+.rules-order {
+  white-space: nowrap;
+}
+
+.rules-handle {
+  display: inline-flex;
+  align-items: center;
+  margin-inline-end: var(--ws-space-2);
+  color: var(--ws-ink-muted);
+  cursor: grab;
+}
+
+.rules-position {
+  font-variant-numeric: tabular-nums;
+}
+
+.rules-condition-body {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.rules-attention {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.rules-notes {
+  font-size: var(--ws-text-label-size);
+}
+
+.rules-category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.rules-applied {
+  color: var(--ws-ink-muted);
+  white-space: nowrap;
+}
+
+.rules-actions {
+  white-space: nowrap;
+  text-align: end;
+}
+
+.rules-actions .ws-icon-button[aria-disabled="true"] {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.rules-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+}
+
+/* S-198 */
+.rules-form {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.rules-conditions,
+.rules-accounts {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.rules-conditions legend,
+.rules-accounts legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.rules-cond {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1.5fr) var(--ws-touch-target);
+  align-items: end;
+  gap: var(--ws-space-2);
+}
+
+/* The labels of one line are named for screen readers only: the line reads «Мерчант · дорівнює · значення». */
+.rules-cond .ws-select-label,
+.rules-cond .ws-field-label {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.rules-cond-amount {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ws-space-2);
+}
+
+.rules-cond-remove {
+  min-inline-size: var(--ws-touch-target);
+  min-block-size: var(--ws-touch-target);
+  border: 0;
+  border-radius: var(--ws-radius-sm);
+  background: transparent;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-heading-3-size);
+  cursor: pointer;
+}
+
+.rules-cond-remove:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+.rules-cond-remove:disabled {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.rules-cond-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.rules-account,
+.rules-apply-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: var(--ws-touch-target);
+}
+
+.rules-apply p {
+  margin: 0;
+}
+
+.rules-apply-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.rules-matches {
+  display: grid;
+  gap: var(--ws-space-2);
+  text-align: start;
+}
+
+.rules-matches p {
+  margin: 0;
+}
+
+.rules-matches-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.rules-matches-table th,
+.rules-matches-table td {
+  padding: var(--ws-space-1) var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+  text-align: start;
+}
+
+.rules-matches-table td:last-child,
+.rules-matches-table th:last-child {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}

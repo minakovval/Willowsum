@@ -668,7 +668,10 @@ describe("FIN-03@PoC FR 1: the entry points of «Нова транзакція»
   it("FIN-03@PoC FR 1: «Нова транзакція» in the header of «Гроші → Транзакції» opens the form over the page", async () => {
     renderAt("#/money/transactions", app());
     const header = screen.getByRole("heading", { level: 1, name: "Транзакції" }).parentElement!;
-    const actions = [...header.querySelectorAll("a, button")].map((el) => el.textContent);
+    // Without the icon-only «…» of «Правила категорій» (BUD-14@PoC FR 4).
+    const actions = [...header.querySelectorAll("a, button")]
+      .filter((el) => el.getAttribute("aria-haspopup") !== "menu")
+      .map((el) => el.textContent);
     expect(actions).toEqual(["Імпортувати виписку", "Історія імпорту", "Нова транзакція"]);
     act(() => within(header).getByRole("button", { name: "Нова транзакція" }).click());
     expect(screen.getByRole("dialog", { name: "Нова транзакція" })).toBeTruthy();
