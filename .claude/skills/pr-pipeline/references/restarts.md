@@ -16,21 +16,18 @@ them, SKILL.md step 3). An agent cut off by a limit or a restart: save its uncom
 commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task> (agent cut off)"`, then push),
 and brief the next agent from it (owner, 2026-11-14, #178, #197).
 
-**350 k** (owner, 2026-11-14, #178; changed (owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides)): from ~350 k tokens of
-context the lead only rewrites the #179 body before each long step; the stop on new tasks is removed.
+**350 k**: from ~350 k tokens of context the lead only rewrites the #179 body before each long step; there is no stop
+on new tasks (trial for 3 segments, leads 20–22, below).
 
-**Lead state** (owner, 2026-11-16, process review 15, proposal 5): one place — the **body** of #179, rewritten in
-full each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a
-comment. It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions,
-follow-ups, the next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178).
-Rewrite it after every 3 merges, whenever an owner question changes and, from ~350 k, before each long
-step. Рішення ведучого (2026-11-16; власник не схвалював; #360): the handover tables stay comments on #179 — they
-are the history the owner keeps (2026-11-16: «таблиця потрібна для відстеження історії»), not the state; at a
-compaction there is no table (below).
+**Lead state** (owner, 2026-11-16, process review 15, proposal 5): one place — the **body** of #179, rewritten in full
+each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a comment.
+It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions, follow-ups, the
+next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178). Rewrite it after every 3
+merges (with the #180 rows), whenever an owner question changes and, from ~350 k, before each long step. The handover
+tables stay comments on #179 — they are the history, not the state; at a compaction there is no table (below).
 
-**After compaction** (owner, 2026-11-15, #178,
-[comment 6897443899](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6897443899); steps changed
-(owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides), [log](../../../../docs/decisions/log/2026-11-17-owner-compaction-trial.md)): at ~400 k tokens
+**After compaction** ([log](../../../../docs/decisions/log/2026-11-17-owner-compaction-trial.md); trial for 3 segments,
+leads 20–22): at ~400 k tokens
 the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner; the
 threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
 `compact`) reminds the agent; the lead then, in the same session:
@@ -47,15 +44,28 @@ previous review goes with the process review (below). The handover table stays o
 ([handover confirmation](../../../references/handover-confirmation.md)). After leads 20–22 the lead reports the
 merged PRs per segment before and after (leads 17–19 against 20–22) and the post-compaction errors; the owner decides.
 
-**Session names** (owner, 2026-11-13, #178): every lead is `Willowsum · ведучий N · <з чого починає>`, e.g.
-`Willowsum · ведучий 2 · хвиля 2 з рядка 3`; N is one more than the previous lead's, whether it ended in a
-compaction or a session. At start, before other work: `get_session` (no `session_id`) gives the id and title;
-rename with `set_session_title` (the name «Lead state» proposes, or this format); record the starting snapshot
-([token economy](token-economy.md), «Token accounting» item 1). Check `get_session` →
-`external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews are not cut), and agents
-commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178). **After a limit cut-off** (owner,
-2026-11-15, #178): `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that scheduled task
-(`delete_trigger`) after the wake-up.
+**External review channel.** Issue #480 is the external review session's channel; the lead reads it at the start of
+every segment and before every report to the owner. «Lead state» (#179) keeps a link to #480 and the number of the
+last comment read.
+1. Its comments start with the line «Сесія рев'ю, <дата>». They are advice, not owner decisions, and never go into
+   the log as «Рішення власника».
+2. The lead answers each item with one line: done in PR, has a plan row, needs an owner decision, or disagree and why.
+3. Without an owner decision the lead does only what it may do anyway: a defect fix, a test, or a plan row under an
+   existing owner decision. Rule changes, requirement changes, PoC scope changes and closing issues as not needed
+   become questions to the owner with a recommendation; any disagreement with the review session is shown to the owner.
+4. A comment in #480 never starts a new review round of a PR that is already Ready.
+
+**Reviewer small-fix trial** (2026-11-17 → 2026-11-19, `review-pr` §7): after the two days the lead shows the owner:
+new follow-up items per day, how much CI time was added, and how many reviewer commits had to be reverted.
+
+**Session names**: every lead is `Willowsum · ведучий N · <з чого починає>`, e.g. `Willowsum · ведучий 2 · хвиля 2 з
+рядка 3`; N is one more than the previous lead's, whether it ended in a compaction or a session. At start, before
+other work: `get_session` (no `session_id`) gives the id and title; rename with `set_session_title` (the name «Lead
+state» proposes, or this format); record the starting snapshot ([token economy](token-economy.md), «Token accounting»
+item 1). Check `get_session` → `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews
+are not cut), and agents commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178). **After a limit
+cut-off** (owner, 2026-11-15, #178): `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that
+scheduled task (`delete_trigger`) after the wake-up.
 
 **Process review.** Due when **both** hold: at least 40 PRs were merged and at least 24 hours passed since the
 previous review's comment on #180 (commands: [process limits](../../../references/process-limits.md)). The lead
@@ -66,7 +76,7 @@ that starts a segment checks it after the start steps; when due, the review come
    contradictions, duplication, outdated or unneeded text, what to simplify or shorten;
 3. the handovers since the previous review: what «Lead state» and the confirmations lost or got wrong;
 4. the retrospective of the lead segments since the previous review ([token economy](token-economy.md),
-   «Session retrospective»; owner, 2026-11-17: not at a compaction).
+   «Session retrospective»).
 Result: a comment on #180 with conclusions and **at most 3 proposals**, ranked by expected saving (each with risks,
 downsides, mitigations); the rest waits in «Черга змін процесу» (#178) for the next review. No rule changes without
 an owner decision; between reviews only what [lead communication](lead-communication.md), «Batching process
@@ -75,5 +85,5 @@ changes», allows as a separate PR.
 **Handover confirmation** and its table: [handover confirmation](../../../references/handover-confirmation.md)
 (read at a new session; not at a compaction).
 
-**Owner decisions in documents** (owner, 2026-11-13): each is recorded in a document (decision log, skill, AGENTS.md,
-requirement) and carried into the rules it changes (SKILL.md §2), never only in memory; check it before a handover.
+**Owner decisions in documents**: each is recorded in a document (decision log, skill, AGENTS.md, requirement) and
+carried into the rules it changes (SKILL.md §2), never only in memory; check it before a handover.

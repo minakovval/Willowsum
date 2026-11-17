@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-17
 
 This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
 the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …» (owner,
@@ -79,6 +79,10 @@ errors) lives only in `packages/domain-kernel`.
    daily check, ADR-0008, reads exactly these lines; owner, 2026-11-12). Which reviews a PR gets depends on its
    tier — Фундамент, Функціональність, Локальні інструменти, Документи (lead's proposal on the owner's decision of 2026-11-16):
    [merge rules](.claude/references/merge-rules.md), «Review tiers». Review rounds (owner, 2026-11-12):
+   - Exception to «review in a different session», trial 2026-11-17 → 2026-11-19: the reviewer applies small
+     patches itself, only in tests, texts, comments, docs, markup and screen styles (never working code in
+     sensitive paths), in one commit at the end, at most 60 lines per PR, and lists them in the PR body; the
+     verdict names its new head SHA (`review-pr` §7).
    - Only a security bypass, data loss or leak, or a violation of the claimed requirement (FR/AC or shared
      rule) blocks. Everything else goes to «Follow-ups» (the lead opens the issue) and never starts a round or a
      commit before the merge by itself (merge rules, «Merge on Ready, follow up separately»).

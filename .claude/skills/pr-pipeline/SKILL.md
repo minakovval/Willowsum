@@ -25,8 +25,7 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (e) the end of each stage of `docs/plans/poc-wave-2.md` and once a day: the number of PRs merged in the period,
   what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
   rows of #180), and the UI texts marked «варіант від агента, потребує погодження» (`docs/design/ARTIFACTS.md`,
-  «Тексти інтерфейсу») — Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md)); why: the owner asked to keep cost under control and to see
-  progress in the interface.
+  «Тексти інтерфейсу»).
 
 Never write (owner, 2026-11-13/14, #178) service notifications: an agent started or finished, (un)subscribed, PR or
 issue opened, reviewers started, CI in progress, an agent's interim state, waiting for reports, #179 or #180
@@ -102,18 +101,16 @@ proposals: [lead communication](references/lead-communication.md).
    characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
    never posted in an issue or a PR — one line in the issue (module, rule broken), the detail (the reviewer's
    `keep/` file) in a draft security advisory ([how](../../references/process-limits.md)); if that fails, tell the
-   owner at once (§2, urgent). **This exception applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the probes and details go
-   into the issue as usual; from the start of MVP planning the rule is in force.
-   **Token and time accounting** (mandatory): in the same turn as the merge, before the agent logs can vanish, add
-   the PR's row to the **body** of #180 ([token economy](references/token-economy.md), «Token accounting»).
+   owner at once (§2, urgent). **This exception applies from MVP**: until then the probes and details go into the
+   issue as usual; from the start of MVP planning the rule is in force.
+   **Token and time accounting** (mandatory): at each merge save the PR's agent numbers (tokens, ms) before the logs
+   vanish; add the PR rows to the **body** of #180 in a batch every 3 merges, with the #179 update ([token
+   economy](references/token-economy.md), «Token accounting»).
 8. **Report to the owner**: «Мовчання в чаті» above; questions: §2.
-9. **Follow-up sweep**: after every 8–10 merged PRs, one PR (row `R`, lighter model) closes the small open
-   follow-ups (issues and the «Follow-ups» of merged PRs), security items first, only in modules with no open PR.
-   Larger items get a plan row. **Limit:** while more than 40 follow-up issues are open, the next free author slot
-   goes to row `R` before any new plan row, from the end of stage 1 of `docs/plans/poc-wave-2.md` (until then: one
-   author slot, no more, stays on row `R`); a security follow-up left open by 2 sweeps gets its own plan row.
-   Count: [process limits](../../references/process-limits.md). Small process changes:
-   [lead communication](references/lead-communication.md), «Batching process changes».
+9. **Follow-ups**: an open follow-up about money or data loss gets a plan row; the rest are sorted once into closed
+   or the MVP list. A follow-up sweep (row `R`) runs only when the lead proposes it and the owner agrees; none is
+   scheduled by count. Small process changes: [lead communication](references/lead-communication.md), «Batching
+   process changes».
 
 Rare cases — [stacked PRs and CI that cannot run](../../references/stacked-and-blocked.md) (read when a PR depends on
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
@@ -135,12 +132,11 @@ retrospective (with the process review): [token economy](references/token-econom
   parallel work, billing or CI that cannot run, anything about security (a leaked secret, a finding in `main`, a
   production risk). While a question waits, keep the other branches moving.
 - Anything the owner must do in a web console → a browser task (`browser-task`), never a request for keys in chat.
-- **PoC requirements freeze** (owner, 2026-11-16, «база має бути надійною»; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../docs/decisions/log/2026-11-16-owner-process-light.md))): until stages 1–3 of
-  `docs/plans/poc-wave-2.md` (Рахунки, Транзакції, Імпорт) are done, no new PoC requirement and no wider PoC scope.
-  Allowed: bug fixes, answers to questions that block the current stages, and moving scope to a later release. PRs
-  of the decision log and requirement clean-ups: at most one a day, as a batch of that day's files (each log file is
-  still written the day of the decision, below); a decision a running code PR needs goes at once ([merge checklist](references/merge-checklist.md),
-  «Order»); why: detailed requirements took the time while the interface still cannot create an account.
+- **PoC requirements freeze**: new product features in PoC are frozen until stages 1–3 of `docs/plans/poc-wave-2.md`
+  (Рахунки, Транзакції, Імпорт) are done. Not covered by the freeze: changes to the foundation the owner approved —
+  A1, the scale foundation, the space time zone and review rows. Bug fixes, answers to questions that block the
+  current stages and moving scope to a later release are allowed. PRs of the decision log and requirement
+  clean-ups: at most one a day, as a batch of that day's files; a decision a running code PR needs goes at once ([merge checklist](references/merge-checklist.md), «Order»).
 - Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (AGENTS.md
   «Where things are») and, in the PRs that implement it, as `Рішення власника (YYYY-MM-DD): схвалено …`. A small
   detail you decide (AGENTS.md «Ambiguity») goes into the decision log, the PR body and the document it shapes as
