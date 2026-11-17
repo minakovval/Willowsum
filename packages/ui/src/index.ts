@@ -139,5 +139,15 @@ export type {
 } from "./filter/FilterBar.tsx";
 export { Toast } from "./toast/Toast.tsx";
 export type { ToastProps, ToastTone } from "./toast/Toast.tsx";
+export { NO_MARKER, STATUS_DICTIONARY, STATUS_FAMILIES, statusEntry } from "./status/dictionary.ts";
+export type { StatusEntry, StatusFamily, StatusInk, StatusTone } from "./status/dictionary.ts";
+export { almostPercent, deviation, overLevel, usageFill, usagePercent, usageState } from "./status/rules.ts";
+export type { DecimalInput, Deviation, DeviationState, OverLevel, UsageState } from "./status/rules.ts";
+export { StatusMark } from "./status/StatusMark.tsx";
+export type { StatusMarkProps } from "./status/StatusMark.tsx";
+export { UsageStatus } from "./status/UsageStatus.tsx";
+export type { UsageStatusProps } from "./status/UsageStatus.tsx";
+export { DeviationMark } from "./status/DeviationMark.tsx";
+export type { DeviationMarkProps } from "./status/DeviationMark.tsx";
 export { Table } from "./table/Table.tsx";
 export type { TableColumn, TableProps, TableRow, TableSortDirection } from "./table/Table.tsx";

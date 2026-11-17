@@ -1966,3 +1966,49 @@ code {
   place-items: center;
   min-block-size: calc(var(--ws-space-8) * 9);
 }
+
+/* DS-23@PoC gallery: the status dictionary by family, the usage scale, deviations and form steps. */
+.gallery-status {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-status p {
+  margin: 0;
+}
+
+.gallery-status__family,
+.gallery-status__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.gallery-status__table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  text-align: start;
+}
+
+.gallery-status__table th,
+.gallery-status__table td {
+  padding: var(--ws-space-1) var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+  vertical-align: baseline;
+}
+
+.gallery-status__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--ws-space-3);
+}
+
+.gallery-status__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-4);
+  margin: 0;
+  list-style: none;
+}
