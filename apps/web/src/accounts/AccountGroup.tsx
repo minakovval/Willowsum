@@ -1,4 +1,4 @@
-import { Fragment, useId, useState } from "react";
+import { Fragment, useId, useLayoutEffect, useRef, useState } from "react";
 import { formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
 import { Badge, IconButton, merchantInitials } from "@willowsum/ui";
 import type { Account, AccountsSummary, MoneyValue } from "./api.ts";
@@ -24,16 +24,19 @@ const SOURCE: Readonly<Record<string, MessageKey>> = {
  * masked number and, under it, the institution; type; currency («N валюти» for a multi-currency account, whose row
  * opens its sub-accounts); source and the date of the last update; the balance in the profile currency with the
  * account's own amount smaller under it. No automatic «Неактивний»: only a closed account (shown with «Показати
- * закриті») carries a mark.
+ * закриті») carries a mark. FR 20: the «Обране» star before each account; the starred ones first, each part in the
+ * order it comes in.
  */
 export function AccountGroup({
   group,
   accounts,
   summary,
+  favourite,
 }: {
   group: "cash" | "credit";
   accounts: readonly Account[];
   summary: AccountsSummary | null;
+  favourite: { toggle: (account: Account) => void; pending: ReadonlySet<string> };
 }) {
   const { t, locale } = useI18n();
   const titleId = useId();
@@ -84,8 +87,13 @@ export function AccountGroup({
             </tr>
           </thead>
           <tbody>
-            {accounts.map((a) => (
-              <AccountRow key={a.id} account={a} />
+            {starredFirst(accounts).map((a) => (
+              <AccountRow
+                key={a.id}
+                account={a}
+                onStar={() => favourite.toggle(a)}
+                starBusy={favourite.pending.has(a.id)}
+              />
             ))}
           </tbody>
         </table>
@@ -94,7 +102,20 @@ export function AccountGroup({
   );
 }
 
-function AccountRow({ account: a }: { account: Account }) {
+/** FR 20: «Обране» at the top of the group; otherwise the order stays as it comes (stable). */
+function starredFirst(accounts: readonly Account[]): Account[] {
+  return [...accounts.filter((a) => a.favourite), ...accounts.filter((a) => !a.favourite)];
+}
+
+function AccountRow({
+  account: a,
+  onStar,
+  starBusy,
+}: {
+  account: Account;
+  onStar: () => void;
+  starBusy: boolean;
+}) {
   const { t, locale } = useI18n();
   const [open, setOpen] = useState(false);
   const subId = useId();
@@ -112,6 +133,7 @@ function AccountRow({ account: a }: { account: Account }) {
       <tr className={closed ? "accounts-row accounts-row--closed" : "accounts-row"}>
         <td data-label={t("accounts.col.account")}>
           <span className="accounts-name-cell">
+            <Star on={a.favourite} busy={starBusy} onToggle={onStar} />
             <span className="accounts-tile" aria-hidden="true">
               {merchantInitials(a.institution?.name ?? a.name)}
             </span>
@@ -168,6 +190,37 @@ function AccountRow({ account: a }: { account: Account }) {
           ))
         : null}
     </Fragment>
+  );
+}
+
+/**
+ * The «Обране» star (FR 20; canvas PocMoneyAccounts): its name and tooltip say what a press does — «Додати в обране» or
+ * «Прибрати з обраного»; a starred one is drawn filled, so the state is not in a colour alone. The row moves when it
+ * changes, so the focus is put back on the star if the move took it away.
+ */
+function Star({ on, busy, onToggle }: { on: boolean; busy: boolean; onToggle: () => void }) {
+  const t = useI18n().t;
+  const wrap = useRef<HTMLSpanElement>(null);
+  const pressed = useRef(false);
+  useLayoutEffect(() => {
+    if (!pressed.current) return;
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    wrap.current?.querySelector("button")?.focus();
+  }, [on]);
+  return (
+    <span ref={wrap} className={on ? "accounts-star accounts-star--on" : "accounts-star"}>
+      <IconButton
+        icon="star"
+        label={t(on ? "accounts.favourite.remove" : "accounts.favourite.add")}
+        aria-disabled={busy || undefined}
+        onClick={() => {
+          if (busy) return;
+          pressed.current = true;
+          onToggle();
+        }}
+      />
+    </span>
   );
 }
 

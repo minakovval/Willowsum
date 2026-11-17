@@ -83,6 +83,8 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
       "postgres:///x?host=/tmp/../../evil",
       "postgres:///x?host=/tmp&host=evil.example.com",
       "postgres:///x?host=evil.example.com&host=/tmp",
+      "postgres://u@127.0.0.1:5432/postgres#?host=db.example.com",
+      "postgres:///x?host=/tmp#&host=db.example.com",
       " postgres://127.0.0.1/x",
       "postgres://127.0.0.1/x ",
     ])

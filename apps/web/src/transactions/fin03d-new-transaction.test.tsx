@@ -189,18 +189,17 @@ describe("FIN-03@PoC d): «Нова транзакція» (S-048)", () => {
     open();
     await accountReady();
     const steps = within(dialog()).getByRole("list", { name: "Кроки форми" });
+    // Each step reads its number, name and state (CMP-14); the current one is not a button and has aria-current.
     expect(
-      within(steps)
-        .getAllByRole("button")
-        .map((b) => b.getAttribute("aria-label")),
+      [...steps.querySelectorAll(".ws-stepper-step")].map(
+        (s) => s.querySelector(".ws-visually-hidden")!.textContent,
+      ),
     ).toEqual([
       "Крок 1: Основне — поточний",
       "Крок 2: Контрагент і категорія — ще недоступний",
       "Крок 3: Додатково — ще недоступний",
     ]);
-    expect(
-      within(steps).getByRole("button", { name: "Крок 1: Основне — поточний" }).getAttribute("aria-current"),
-    ).toBe("step");
+    expect(steps.querySelector('[aria-current="step"]')!.textContent).toContain("Крок 1: Основне — поточний");
     expect(dialog().textContent).toContain("Поля з * обов’язкові.");
     const type = within(dialog()).getByRole("group", { name: "Тип транзакції" });
     expect(

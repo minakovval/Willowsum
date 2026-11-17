@@ -93,7 +93,7 @@ test.describe("DS-06@PoC AC2: contrast of every route, light theme, 1280 px", ()
 });
 
 test.describe("DS-06@PoC AC2: contrast of the CMP-21 dialogs in the gallery, light theme, 1280 px", () => {
-  for (const name of ["delete", "unsaved", "options", "column", "error"]) {
+  for (const name of ["delete", "unsaved", "options", "column", "error", "form", "short", "word"]) {
     test(`DS-06@PoC AC2: dialog «${name}»`, async ({ page }) => {
       await page.goto(`/#${GALLERY_TOKENS_PATH}`);
       await page.locator(`button[data-case="${name}"]`).click();
@@ -102,6 +102,12 @@ test.describe("DS-06@PoC AC2: contrast of the CMP-21 dialogs in the gallery, lig
       if (name === "error") {
         await dialog.locator('.ws-dialog-action[data-variant="danger"]').click();
         await expect(dialog.getByRole("alert")).toContainText("Помилка");
+      }
+      if (name === "form") {
+        // The step indicator, «Обов’язкове поле» under the left fields and the reason line above the inactive buttons.
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Tab");
+        await expect(dialog.locator(".ws-field-error")).toHaveCount(2);
       }
       await expectNoContrastProblems(page);
     });

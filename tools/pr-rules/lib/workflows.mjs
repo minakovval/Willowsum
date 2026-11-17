@@ -51,8 +51,16 @@ export function jobNames(yamlText) {
     if (name) current.name = name[2].trim();
     else if (/^ {4}name:.*\$\{\{\s*matrix\./.test(line)) current.matrixName = true;
   }
-  // A matrix job is covered by an aggregate job only when that job reads `needs.<key>.result` (#243): a job that
-  // needs it just for ordering would otherwise drop it from the required list unseen.
-  const covered = (key) => jobs.some((j) => j.needs.includes(key) && j.text.includes(`needs.${key}.result`));
+  // A matrix job is covered by an aggregate job only when that job reads `needs.<key>.result` and compares it with
+  // `success` (#243 item 2): a job that needs it just for ordering, or only prints it, would otherwise drop it from
+  // the required list unseen. Accepted: `needs.<key>.result == 'success'`, or a variable set from it and tested as
+  // `test "$VAR" = "success"` / `[ "$VAR" = success ]`.
+  const comparesToSuccess = (text, key) => {
+    const k = key.replace(/-/g, '\\-');
+    if (new RegExp(`needs\\.${k}\\.result\\s*==\\s*'success'`).test(text)) return true;
+    const bound = text.matchAll(new RegExp(`^\\s*(\\w+):\\s*\\$\\{\\{\\s*needs\\.${k}\\.result\\s*\\}\\}\\s*$`, 'gm'));
+    return [...bound].some((m) => new RegExp(`^\\s*(test|\\[) +"\\$${m[1]}" += +"?success"?( +\\])?\\s*$`, 'm').test(text));
+  };
+  const covered = (key) => jobs.some((j) => j.needs.includes(key) && comparesToSuccess(j.text, key));
   return jobs.filter((j) => !(j.matrixName && covered(j.key))).map((j) => j.name ?? j.key);
 }

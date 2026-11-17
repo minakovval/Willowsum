@@ -21,6 +21,7 @@ import {
   findDuplicate,
   reopenAccount,
   updateAccountDetails,
+  updateAccountDisplay,
   updateAccountSettings,
   updateBalance,
   type AccountListItem,
@@ -38,13 +39,16 @@ import {
   ACCOUNT_SOURCES,
   ACCOUNT_STATUSES,
   CURRENCIES_MAX,
+  bankInstitution,
   INSTITUTION_NAME_MAX,
   institutionKey,
   institutionOf,
   NOTE_MAX,
   parseAccountNumber,
+  searchBanks,
   type FieldIssue,
 } from "../../domain/index.ts";
+import { bankRegistry } from "../banks/registry.ts";
 import { accountsListTx, accountsTx } from "../db/store.ts";
 import { accountKinds } from "../queue/hand-off.ts";
 import { accountsServices } from "./services.ts";
@@ -106,6 +110,8 @@ const accountSchema = z.object({
   /** The date of «Закритий» (FIN-12 FR 7, FR 8); null while active. */
   closedOn: z.string().nullable(),
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group. */
+  favourite: z.boolean(),
   openedOn: z.string(),
   owners: z.array(ownerSchema),
   /** Per currency: today's balance from the ledger in the subaccount's currency; a debt is negative. */
@@ -356,6 +362,64 @@ export const findDuplicateAccountRoute = defineRoute({
   },
 });
 
+const bankSchema = z.object({
+  /** The bank's code (МФО) in the NBU list. */
+  code: z.string(),
+  name: z.string(),
+  /** Always «Україна» (UA) for a bank of the directory. */
+  country: z.string(),
+});
+
+/**
+ * «Банк або установа» (FIN-01@PoC FR 4, AC22): the search of the built-in directory of NBU banks for the account form
+ * and «Реквізити». Picking a bank fills `institution` with its name and the country «Україна»; «Інша установа» sends a
+ * name and a country by hand, and neither changes the directory. The directory is the versioned file of the app (no
+ * call to the NBU at run time); `source` names it for the attribution. Same right as creating an account.
+ */
+export const searchBanksRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/accounts/banks",
+  operationId: "searchBanks",
+  summary: "Banks of the built-in NBU directory whose name contains the text (all of them for an empty text)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  list: true,
+  request: {
+    query: z.object({
+      ...pageQuery.shape,
+      q: z
+        .string()
+        .max(INSTITUTION_NAME_MAX * 4)
+        .optional(),
+    }),
+  },
+  response: {
+    status: 200,
+    description:
+      "A page of banks, names starting with the text first, then by name; the directory's source and date",
+    schema: pageOf(bankSchema).extend({
+      source: z.object({
+        attribution: z.string(),
+        url: z.string(),
+        /** The date of the NBU list the directory was built from. */
+        asOf: z.string(),
+      }),
+    }),
+  },
+  handler: async ({ query }) => {
+    const registry = bankRegistry();
+    const from = query.cursor ? decodeCursor(query.cursor, bankPosition).o : 0;
+    const hits = searchBanks(registry, query.q ?? "");
+    const page = hits.slice(from, from + query.limit);
+    return {
+      items: page.map((bank) => ({ code: bank.code, ...bankInstitution(bank) })),
+      nextCursor: from + query.limit < hits.length ? encodeCursor({ o: from + query.limit }) : null,
+      source: { attribution: registry.source.attribution, url: registry.source.url, asOf: registry.asOf },
+    };
+  },
+});
+const bankPosition = z.object({ o: z.number().int().min(0) });
+
 /** A sum in the profile currency: unrounded; null only when no amount has any rate (never 0). */
 const reportedSumSchema = z.object({
   total: moneySchema.nullable(),
@@ -453,6 +517,8 @@ const listItemSchema = z.object({
   source: z.enum(ACCOUNT_SOURCES).meta({ "x-extensible-enum": true }),
   /** «Дата останнього оновлення»: the latest balance date of the account. */
   updatedOn: z.string(),
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group; the list keeps the order of adding. */
+  favourite: z.boolean(),
   /** The account in the profile currency (a debt negative); a multi-currency account is one row (FR 13). */
   inProfileCurrency: reportedSumSchema,
   /** Each subaccount in its own currency and in the profile currency. */
@@ -826,6 +892,40 @@ export const updateAccountRoute = defineRoute({
   },
 });
 
+export const updateAccountDisplayRoute = defineRoute({
+  module: MODULE,
+  method: "PATCH",
+  path: "/v1/accounts/{accountId}/display",
+  operationId: "updateAccountDisplay",
+  summary:
+    "«Обране»: set or clear the star of the account, a display flag — also on a closed account (FIN-01 FR 20, FIN-12 FR 8)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  bodyLimitBytes: 1024,
+  request: {
+    params: accountParams,
+    // An unknown field is 400; more display flags («Враховувати в net worth», FIN-12 FR 4) join this body later.
+    body: z
+      .object({
+        /** true puts the account in «Обране», false takes it out. */
+        favourite: z.boolean(),
+      })
+      .strict(),
+  },
+  response: { status: 200, description: "The account after the change", schema: accountSchema },
+  handler: async ({ params, body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = accountsServices(ctx);
+    const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
+    const result = await ctx.inHousehold((q) =>
+      updateAccountDisplay(deps, accountsTx(q), caller, params.accountId, body),
+    );
+    if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+    // The audit entry, after the commit (ARC-04 FR 2); the worker finishes it if this fails.
+    if (result.kind === "updated") await handOffNow(ctx, deps, result.handOff);
+    return ctx.inHousehold((q) => presentAccount(deps, accountsTx(q), caller.householdId, params.accountId));
+  },
+});
+
 export const updateAccountDetailsRoute = defineRoute({
   module: MODULE,
   method: "PATCH",
@@ -996,6 +1096,7 @@ export const removeAccountWalletRoute = defineRoute({
 export const accountsRoutes = [
   createAccountRoute,
   findDuplicateAccountRoute,
+  searchBanksRoute,
   accountsSummaryRoute,
   listAccountsRoute,
   getAccountRoute,
@@ -1006,6 +1107,7 @@ export const accountsRoutes = [
   deleteBalanceAdjustmentRoute,
   updateAccountRoute,
   updateAccountDetailsRoute,
+  updateAccountDisplayRoute,
   addAccountWalletRoute,
   removeAccountWalletRoute,
 ];

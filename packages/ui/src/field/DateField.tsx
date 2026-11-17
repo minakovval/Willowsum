@@ -56,10 +56,11 @@ function weeksOf(month: string): (string | null)[][] {
 /**
  * CMP-02@PoC «Тип «дата»»: the 40 px frame with a calendar icon on the left and a chevron on the right; the value is the
  * date in the locale's format, the grey «· сьогодні» for today. A press or Alt+↓ opens the month calendar (300 px,
- * `role="dialog"` «Оберіть дату»): «‹ Листопад 2026 ›», the weekdays from Monday, 34 px days (the chosen one `brand`,
+ * `role="dialog"` «Оберіть дату»): «Листопад 2026 ‹ ›», the weekdays from Monday, 34 px days (the chosen one `brand`,
  * today with a `focus` frame), the form's quick chips and the limit line. Days after `max` are `aria-disabled`. The days
- * are a `grid`: arrows move by a day or a week, PageUp / PageDown by a month, Enter chooses, Esc closes and gives the
- * focus back to the field.
+ * are a `grid`: arrows move by a day or a week, Home / End to the start or end of the week, PageUp / PageDown by a
+ * month, Enter chooses, Esc closes and gives the focus back to the field; Tab out closes it. An optional field shows
+ * «Без дати» when empty and offers «Без дати» in the calendar to clear a chosen date.
  */
 export function DateField(props: DateFieldProps) {
   const { value, onChange, today, max, chips, limitNote, id, disabled } = props;
@@ -125,12 +126,22 @@ export function DateField(props: DateFieldProps) {
       ArrowDown: () => addDays(focusDay, 7),
       PageUp: () => addMonths(focusDay, -1),
       PageDown: () => addMonths(focusDay, 1),
+      // The start and the end of the week (from Monday).
+      Home: () => addDays(focusDay, -((toUtc(focusDay).getUTCDay() + 6) % 7)),
+      End: () => addDays(focusDay, 6 - ((toUtc(focusDay).getUTCDay() + 6) % 7)),
     };
     const move = moves[e.key];
     if (move) {
       e.preventDefault();
       setFocusDay(move());
     }
+  };
+
+  // An optional date once chosen can go back to «Без дати».
+  const clearable = !props.required && value !== "";
+  const clear = () => {
+    onChange("");
+    close(true);
   };
 
   const openCalendar = () => {
@@ -145,6 +156,11 @@ export function DateField(props: DateFieldProps) {
           className="ws-select-box ws-date"
           ref={root}
           onMouseDown={pressHitArea}
+          onBlur={(e) => {
+            // Tab (or any focus move) out of the field and its calendar closes the calendar.
+            const next = e.relatedTarget;
+            if (open && next instanceof Node && !e.currentTarget.contains(next)) close(false);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Escape" && open) {
               e.preventDefault();
@@ -177,7 +193,9 @@ export function DateField(props: DateFieldProps) {
           >
             <Icon name="calendar" size={16} tone="muted" />
             <span id={`${control}-value`} className="ws-select-value">
-              {value ? formatDate(locale, value) : (props.placeholder ?? t("select.placeholder"))}
+              {value
+                ? formatDate(locale, value)
+                : (props.placeholder ?? t(props.required ? "select.placeholder" : "date.none"))}
               {value && value === today ? (
                 <span className="ws-date-today">{t("date.todaySuffix")}</span>
               ) : null}
@@ -189,25 +207,27 @@ export function DateField(props: DateFieldProps) {
           {open ? (
             <div className="ws-dropdown-panel ws-calendar" role="dialog" aria-label={t("date.dialog")}>
               <div className="ws-calendar-head">
-                <button
-                  type="button"
-                  className="ws-calendar-nav"
-                  aria-label={t("date.prevMonth")}
-                  onClick={() => setFocusDay(addMonths(focusDay, -1))}
-                >
-                  <Icon name="chevron-left" size={16} />
-                </button>
                 <span id={`${base}-month`} className="ws-calendar-title" aria-live="polite">
                   {title}
                 </span>
-                <button
-                  type="button"
-                  className="ws-calendar-nav"
-                  aria-label={t("date.nextMonth")}
-                  onClick={() => setFocusDay(addMonths(focusDay, 1))}
-                >
-                  <Icon name="chevron-right" size={16} />
-                </button>
+                <span className="ws-calendar-navs">
+                  <button
+                    type="button"
+                    className="ws-calendar-nav"
+                    aria-label={t("date.prevMonth")}
+                    onClick={() => setFocusDay(addMonths(focusDay, -1))}
+                  >
+                    <Icon name="chevron-left" size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    className="ws-calendar-nav"
+                    aria-label={t("date.nextMonth")}
+                    onClick={() => setFocusDay(addMonths(focusDay, 1))}
+                  >
+                    <Icon name="chevron-right" size={16} />
+                  </button>
+                </span>
               </div>
               <div ref={grid} role="grid" aria-labelledby={`${base}-month`} onKeyDown={onGridKey}>
                 <div role="row" className="ws-calendar-row">
@@ -243,9 +263,9 @@ export function DateField(props: DateFieldProps) {
                   </div>
                 ))}
               </div>
-              {chips?.length ? (
+              {chips?.length || clearable ? (
                 <div className="ws-calendar-chips">
-                  {chips.map((c) => (
+                  {(chips ?? []).map((c) => (
                     <button
                       key={c.value}
                       type="button"
@@ -256,6 +276,11 @@ export function DateField(props: DateFieldProps) {
                       {c.label}
                     </button>
                   ))}
+                  {clearable ? (
+                    <button type="button" className="ws-calendar-chip" onClick={() => clear()}>
+                      {t("date.none")}
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
               {limitNote ? <p className="ws-calendar-note">{limitNote}</p> : null}

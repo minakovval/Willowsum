@@ -32,7 +32,7 @@ test('jobNames: job keys, or a plain `name:`', () => {
   assert.deepEqual(jobNames(yml), ['a', 'Bee', 'd']);
 });
 
-test('jobNames: a matrix job that another job needs is covered by that aggregate job, not listed', () => {
+test('jobNames: a matrix job is covered only by an aggregate job that compares needs.<key>.result with `success`, not listed', () => {
   const yml = [
     'jobs:',
     '  parts:',
@@ -43,7 +43,21 @@ test('jobNames: a matrix job that another job needs is covered by that aggregate
     '  agg:',
     '    needs: [changes, parts]',
     '    steps:',
-    '      - env: { PARTS: "${{ needs.parts.result }}" }',
+    '      - env:',
+    '          PARTS: ${{ needs.parts.result }}',
+    '        run: |',
+    '          test "$PARTS" = "success"',
+    '  printer:',
+    '    needs: printed',
+    '    steps:',
+    '      - run: echo "${{ needs.printed.result }}"',
+    '  printed:',
+    '    name: pr ${{ matrix.x }}',
+    '  inline:',
+    '    needs: gated',
+    '    if: needs.gated.result == \'success\'',
+    '  gated:',
+    '    name: g ${{ matrix.x }}',
     '  other:',
     '    name: o ${{ matrix.x }}',
     '  listed:',
@@ -58,7 +72,7 @@ test('jobNames: a matrix job that another job needs is covered by that aggregate
     '',
   ].join('\n');
   // `lone` is needed by nobody: it stays listed by its key, so a missing check run is reported, never lost.
-  assert.deepEqual(jobNames(yml), ['agg', 'other', 'listed', 'lone', 'Plain', 'dep']);
+  assert.deepEqual(jobNames(yml), ['agg', 'printer', 'printed', 'inline', 'other', 'listed', 'lone', 'Plain', 'dep']);
 });
 
 // Owner, 2026-11-14 (#178 comment 6883729022 item 2): integration tests in 2 shards. `api` stays the one required
@@ -155,6 +169,8 @@ test('PRC-02 (owner, 2026-11-13): the traceability files and the report are gene
   assert.match(job, /git ls-files -- docs\/traceability docs\/validation\/req-check-report\.md/);
   // A test naming an item that does not exist fails the job.
   assert.match(job, /run: node tools\/req-check\/index\.mjs --quiet --check-mentions\n/);
+  // An item whose text changed since its fingerprint fails the job (owner decision 2026-11-16, items 6–7).
+  assert.match(job, /run: node tools\/req-check\/index\.mjs --quiet --check-fingerprints\n/);
   const ignore = read('.gitignore');
   assert.match(ignore, /^\/docs\/traceability\/$/m);
   assert.match(ignore, /^\/docs\/validation\/req-check-report\.md$/m);

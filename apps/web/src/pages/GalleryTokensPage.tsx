@@ -51,10 +51,10 @@ import { ButtonDemo } from "./ButtonDemo.tsx";
 import { PaginationDemo } from "./PaginationDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ListRowDemo } from "./ListRowDemo.tsx";
+import { DateFieldDemo } from "./DateFieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
-import { StepperDemo } from "./StepperDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -425,8 +425,8 @@ export function GalleryTokensPage() {
         <FieldDemo />
       </Section>
 
-      <Section id="g-stepper" title={t("gallery.stepper.title")}>
-        <StepperDemo />
+      <Section id="g-date" title={t("gallery.date.title")}>
+        <DateFieldDemo />
       </Section>
 
       <Section id="g-list-row" title={t("gallery.listRow.title")}>

@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, DS-06, DS-10, DS-11, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: packages/ui/src/dialog/Dialog.test.tsx, packages/ui/src/dialog/Dialog.css.test.ts, apps/web/src/gallery.test.tsx, apps/web/e2e/contrast.spec.ts
+- Перевіряється: packages/ui/src/dialog/Dialog.test.tsx, packages/ui/src/dialog/Dialog.css.test.ts, apps/web/src/gallery.test.tsx, apps/web/e2e/contrast.spec.ts, packages/ui/src/dialog/FormDialog.test.tsx, packages/ui/src/dialog/ConfirmDialog.test.tsx, apps/web/e2e/dialog-form.spec.ts
 
 **Мета.** Як користувач, я хочу, щоб важливі рішення (видалення, ліміт плану, закінчення сесії) з'являлися поверх сторінки і чітко називали дію, щоб я не помилився.
 

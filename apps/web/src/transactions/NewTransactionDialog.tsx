@@ -134,7 +134,7 @@ function NewTransactionForm({
   };
   const stepState = (index: number): StepState => {
     if (index === step) return "current";
-    if (index === 0) return valid ? "done" : "attention";
+    if (index === 0) return valid ? "done" : "error";
     if (!valid) return "unavailable";
     return visited.has(index) ? "done" : "available";
   };
@@ -233,11 +233,7 @@ function NewTransactionForm({
       error={failure ? <FailureText failure={failure} /> : undefined}
     >
       <div className="newtx">
-        <Stepper
-          label={t("newTx.steps")}
-          steps={STEPS.map((s, i) => ({ label: t(s), state: stepState(i) }))}
-          onSelect={go}
-        />
+        <Stepper steps={STEPS.map((s, i) => ({ label: t(s), state: stepState(i) }))} onSelect={go} />
         <div className="newtx-step">
           {step === 0 ? (
             <>

@@ -4,12 +4,12 @@ import { DateField } from "./DateField.tsx";
 
 const TODAY = "2026-11-02";
 
-function Controlled({ initial = TODAY }: { initial?: string }) {
+function Controlled({ initial = TODAY, required = true }: { initial?: string; required?: boolean }) {
   const [value, setValue] = useState(initial);
   return (
     <DateField
       label="Дата"
-      required
+      required={required}
       value={value}
       onChange={setValue}
       today={TODAY}
@@ -94,5 +94,71 @@ describe("CMP-02@PoC Field, type «дата»", () => {
     render(<DateField label="Дата" value="" onChange={() => {}} today={TODAY} error="Вкажіть дату." />);
     expect(field().getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByRole("alert").textContent).toContain("Помилка. Вкажіть дату.");
+  });
+  it("CMP-02@PoC FR 8: an optional date with no value shows «Без дати»; a required one «Оберіть…»", () => {
+    const { unmount } = render(
+      <DateField label="Дата завершення" value="" onChange={() => {}} today={TODAY} />,
+    );
+    expect(screen.getByRole("button", { name: /^Дата завершення/ }).textContent).toContain("Без дати");
+    unmount();
+    render(<DateField label="Дата" required value="" onChange={() => {}} today={TODAY} />);
+    expect(field().textContent).toContain("Оберіть…");
+    expect(field().textContent).not.toContain("Без дати");
+  });
+
+  it("CMP-02@PoC FR 8: an optional date once chosen is cleared with «Без дати» in the calendar; a required one has no such choice", () => {
+    const { unmount } = render(<Controlled required={false} />);
+    act(() => field().click());
+    act(() => within(calendar()).getByRole("button", { name: "Без дати" }).click());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(field().textContent).toContain("Без дати");
+    expect(document.activeElement).toBe(field());
+    act(() => field().click());
+    // Nothing to clear when there is no date.
+    expect(within(calendar()).queryByRole("button", { name: "Без дати" })).toBeNull();
+    unmount();
+    render(<Controlled />);
+    act(() => field().click());
+    expect(within(calendar()).queryByRole("button", { name: "Без дати" })).toBeNull();
+  });
+
+  it("CMP-02@PoC FR 8: Home and End move to the start and the end of the week; PageDown by a month", () => {
+    render(<Controlled initial="2026-10-14" />);
+    act(() => field().click());
+    const grid = within(calendar()).getByRole("grid");
+    fireEvent.keyDown(grid, { key: "Home" });
+    expect(document.activeElement).toBe(day(12));
+    fireEvent.keyDown(grid, { key: "End" });
+    expect(document.activeElement).toBe(day(18));
+    fireEvent.keyDown(grid, { key: "PageDown" });
+    expect(within(calendar()).getByText("Листопад 2026")).toBeTruthy();
+    expect(document.activeElement).toBe(day(18));
+  });
+
+  it("CMP-02@PoC FR 8: Tab out of the calendar closes it", () => {
+    render(
+      <>
+        <Controlled />
+        <input aria-label="Далі" />
+      </>,
+    );
+    act(() => field().click());
+    const next = screen.getByRole("textbox", { name: "Далі" });
+    act(() => {
+      fireEvent.blur(day(2), { relatedTarget: next });
+      next.focus();
+    });
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("CMP-02@PoC FR 8: the month arrows are both on the right of the title", () => {
+    render(<Controlled />);
+    act(() => field().click());
+    const head = calendar().querySelector(".ws-calendar-head")!;
+    expect(head.firstElementChild!.textContent).toBe("Листопад 2026");
+    expect([...head.querySelectorAll("button")].map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Попередній місяць",
+      "Наступний місяць",
+    ]);
   });
 });

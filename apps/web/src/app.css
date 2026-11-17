@@ -1596,3 +1596,8 @@ code {
 .gallery-rows__narrow {
   max-inline-size: calc(var(--ws-space-8) * 7);
 }
+
+/* CMP-21 b) gallery: the hint at the top of the optional step. */
+.gallery-dialog__step-hint {
+  margin: 0;
+}
