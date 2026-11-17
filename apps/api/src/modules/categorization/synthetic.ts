@@ -2,7 +2,13 @@
 // data. Each row refers to opaque (synthetic) ids of a transaction and a category of the space; half are «вручну»,
 // one is «Без категорії» (a null category with the source «none»); two category rules (BUD-14 b). Every hand-off job (the audit entry, ARC-04) is done;
 // the module publishes no events: outbox_events gets one dispatched row for the isolation check.
+import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
+
+function key(householdId: string, table: string, n: number): string {
+  const h = createHash("sha256").update(`${householdId}/${table}/${n}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
 
 const SOURCES = ["manual", "bank", "none", "dictionary"] as const;
 
@@ -40,6 +46,56 @@ export const synthetic = [
           enabled: i === 0 ? "true" : "false",
           condition_key: JSON.stringify([[`merchant:contains:${value.toLowerCase()}`], []]),
           version: "1",
+        };
+      }
+    },
+  }),
+  defineSyntheticTable({
+    // BUD-14 b2: one completed run of «Застосувати до N наявних…» per space over 3 synthetic transactions.
+    table: "categorization.rule_runs",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          id: key(household.id, "rule-run", i),
+          rule_id: key(household.id, "rule", i),
+          actor_account_id: key(household.id, "actor", 0),
+          undo_actor_account_id: null,
+          category_id: key(household.id, "category", i),
+          tags: "{синтетичний}",
+          status: "completed",
+          truncated: "false",
+          item_count: "3",
+          created_at: "2026-10-30T10:00:00Z",
+          ended_at: "2026-10-30T10:00:01Z",
+          undone_at: null,
+        };
+    },
+  }),
+  defineSyntheticTable({
+    // The run's records: two changed (category and tags), the third left as set by hand.
+    table: "categorization.rule_run_items",
+    perHousehold: 3,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++) {
+        const changed = i % 3 !== 2;
+        yield {
+          household_id: household.id,
+          run_id: key(household.id, "rule-run", 0),
+          ordinal: String(i + 1),
+          transaction_id: key(household.id, "transaction", i),
+          result: changed ? "changed" : "manual",
+          category_changed: changed ? "true" : "false",
+          before_category_id: null,
+          before_source: changed ? "none" : null,
+          before_rule_id: null,
+          after_version: changed ? "1" : null,
+          tags_changed: changed ? "true" : "false",
+          tags_before: changed ? "{}" : null,
+          tags_after: changed ? "{синтетичний}" : null,
+          before_tag_rule_id: null,
+          undo_result: null,
         };
       }
     },

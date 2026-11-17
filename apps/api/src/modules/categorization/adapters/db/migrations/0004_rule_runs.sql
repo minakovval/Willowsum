@@ -57,6 +57,8 @@ CREATE TABLE rule_run_items (
   -- «Відмінити»: `pending`, `restored`, `not_restored`; null — nothing to undo.
   undo_result text CHECK (undo_result IN ('pending', 'restored', 'not_restored')),
   PRIMARY KEY (household_id, run_id, ordinal),
+  -- Deferred: the synthetic loader (tools/synthetic) writes tables by name, the records before their run.
   FOREIGN KEY (household_id, run_id) REFERENCES rule_runs (household_id, id) ON DELETE CASCADE
+    DEFERRABLE INITIALLY DEFERRED
 );
 CREATE INDEX rule_run_items_pending ON rule_run_items (household_id, run_id, ordinal) WHERE result = 'pending';
