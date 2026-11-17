@@ -21,7 +21,7 @@
       рецензента довелося відкотити.
 
    Це проба до 2026-11-19; звіт за п. 5 обов'язковий. Рішення ведучого (2026-11-17; власник не схвалював; #481): проба
-   діє й у `security-review` (власник назвав його «де застосовно»). Правила: `.claude/skills/review-pr/SKILL.md` (§5, §7),
+   діє й у `security-review`. Правила: `.claude/skills/review-pr/SKILL.md` (§5, §7),
    `.claude/skills/security-review/SKILL.md`, `AGENTS.md` («Process», крок 5), `.claude/skills/pr-pipeline/references/restarts.md`
    («Reviewer small-fix trial»).
 2. Рішення власника (2026-11-17): **A0. Правило follow-up рецензента.** Рецензент записує follow-up лише тоді, коли
