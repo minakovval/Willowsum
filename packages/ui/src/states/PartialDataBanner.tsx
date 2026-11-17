@@ -9,7 +9,7 @@ export interface PartialDataBannerProps {
 }
 
 /**
- * DAT-05@PoC FR 5 «Частичні дані»: one of the sources is unavailable, so the page shows what it has under this
+ * DAT-05@PoC FR 5 «Часткові дані»: one of the sources is unavailable, so the page shows what it has under this
  * banner «Частина даних не оновлена» with a link to the last import's result. A warning with a symbol and words
  * (colour is not the only sign); a polite status, not an alert.
  */
