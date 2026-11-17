@@ -1,7 +1,6 @@
 import {
   BROWSER_RELEASES,
   browserSupport,
-  RELEASE_TABLE_STALE_AFTER_DAYS,
   supportCutoff,
   supportedMinimums,
   type Release,
@@ -10,7 +9,9 @@ import {
 /**
  * NFR-07@PoC FR 1, EC1: supported = Chrome, Safari and Edge versions released in the last 3 months (owner decision
  * 2026-11-13). The cutoff moves with the date; the release tables say when each version came out. Every case fixes
- * its date once (no re-reading of the clock inside a test).
+ * its date once (no re-reading of the clock inside a test). Whether the tables are current is not checked here: that
+ * depends on today's date, not on the PR, so the daily check of `main` does it (owner decision 2026-11-17, #161;
+ * `tools/pr-rules/test/nfr07-browser-tables.test.mjs`).
  */
 const chrome = (v: string) =>
   `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v} Safari/537.36`;
@@ -67,6 +68,17 @@ describe("NFR-07@PoC FR 1: supported = released within the last 3 months (owner 
     expect(supportCutoff(day("2027-01-05"))).toBe("2026-10-05");
   });
 
+  it("NFR-07@PoC FR 1: a day the month 3 months back does not have becomes that month's last day", () => {
+    expect(supportCutoff(day("2026-05-31"))).toBe("2026-02-28");
+    expect(supportCutoff(day("2026-12-31"))).toBe("2026-09-30");
+    expect(supportCutoff(day("2028-05-31"))).toBe("2028-02-29");
+    expect(supportCutoff(day("2026-05-29"))).toBe("2026-02-28");
+    // Months that have the day keep it, also across the year's start.
+    expect(supportCutoff(day("2027-01-31"))).toBe("2026-10-31");
+    expect(supportCutoff(day("2026-05-28"))).toBe("2026-02-28");
+    expect(supportCutoff(day("2026-03-01"))).toBe("2025-12-01");
+  });
+
   it("NFR-07@PoC FR 1: the minimum is the oldest version released on or after the cutoff", () => {
     // 152 came out on 2026-08-12, one day before the window; 153 on 2026-08-26. Safari 26.6 on 2026-07-27, 27.0 on 2026-09-14.
     expect(supportedMinimums(CHECKED)).toEqual({ chromium: "153", safari: "27.0" });
@@ -104,22 +116,4 @@ describe("NFR-07@PoC FR 1: supported = released within the last 3 months (owner 
       }
     }
   });
-});
-
-describe("NFR-07@PoC FR 1: release tables kept current", () => {
-  // Read once: this check is about today, the others fix their dates.
-  const today = new Date();
-
-  for (const [name, table] of Object.entries(BROWSER_RELEASES) as [string, readonly Release[]][]) {
-    const limit = RELEASE_TABLE_STALE_AFTER_DAYS[name as keyof typeof BROWSER_RELEASES];
-    it(`NFR-07@PoC FR 1: the ${name} release table has a release from the last ${limit} days`, () => {
-      const newest = table.at(-1)!;
-      const ageDays = Math.floor((today.getTime() - Date.parse(`${newest.released}T00:00:00Z`)) / 86_400_000);
-      expect(
-        ageDays,
-        `The ${name} release table is stale: its newest release (${newest.version}, ${newest.released}) is ${ageDays} days old. ` +
-          `Add the newer releases with their first stable dates to BROWSER_RELEASES in apps/web/src/browser/support.ts.`,
-      ).toBeLessThanOrEqual(limit);
-    });
-  }
 });
