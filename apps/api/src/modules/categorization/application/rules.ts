@@ -340,7 +340,7 @@ export interface ListedRule {
 }
 
 /** The lookups of other modules once per category and account within one call. */
-function memoized(
+export function memoized(
   deps: Pick<RuleDeps, "categories" | "accounts">,
 ): Pick<RuleDeps, "categories" | "accounts"> {
   const categories = new Map<string, ReturnType<RuleDeps["categories"]["category"]>>();

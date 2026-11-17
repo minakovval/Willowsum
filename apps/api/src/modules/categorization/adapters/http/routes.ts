@@ -12,6 +12,7 @@ import { CATEGORY_SOURCES } from "../../domain/index.ts";
 import { rulesTx } from "../db/rules.ts";
 import { categorizationTx } from "../db/store.ts";
 import { rulesRoutes } from "./rules.ts";
+import { getCategorySuggestionsRoute } from "./suggestions.ts";
 import { categorizationServices, handOffNow } from "./services.ts";
 
 /**
@@ -155,4 +156,5 @@ export const categorizationRoutes = [
   getTransactionCategoryRoute,
   setTransactionCategoryRoute,
   ...rulesRoutes,
+  getCategorySuggestionsRoute,
 ];

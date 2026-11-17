@@ -166,6 +166,14 @@ export const FLAGS = {
     description:
       "Правила категорій (BUD-14@PoC b): умови, пріоритет, «Увімкнено», «Потребує уваги», «Показати»; нові транзакції проходять правила; маршрути /v1/category-rules",
   },
+  "categorization.suggestions": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-17",
+    requires: "categorization.rules",
+    description:
+      "Підказки категорії форми «Нова транзакція» (FIN-03@PoC FR 30, FR 31): категорія за правилом або «як раніше», «Часто для <мерчанта>», «Нещодавні»; маршрут /v1/category-suggestions",
+  },
   "recurring.payments": {
     kind: "release",
     owner: "product-owner",
