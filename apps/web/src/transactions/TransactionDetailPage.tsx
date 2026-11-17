@@ -34,6 +34,8 @@ import {
 } from "../routing/routes.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
+import { splitAction } from "./api.ts";
+import { AttributeRows, SplitRow } from "./DetailAttributes.tsx";
 import {
   loadDetail,
   runAction,
@@ -41,7 +43,10 @@ import {
   type CategorySource,
   type DetailAction,
   type DetailData,
+  type TransactionDetail,
 } from "./detail.ts";
+import { filteredTransactionsPath } from "./filters.ts";
+import { SplitDialog } from "./SplitDialog.tsx";
 import "./transactionDetail.css";
 
 const SOURCE_KEYS: Readonly<Record<Exclude<CategorySource, "none">, MessageKey>> = {
@@ -67,7 +72,7 @@ export function TransactionDetailPage() {
 
 function Detail({ transactionId }: { transactionId: string }) {
   const t = useT();
-  const { state, retry } = useLoaded(transactionId, loadDetail);
+  const { state, retry, update } = useLoaded(transactionId, loadDetail);
   const ready = state.kind === "ready" ? state.data : null;
   const title = ready ? counterpartyOf(t, ready) : t("page.transaction");
   useDocumentTitle(title);
@@ -86,7 +91,11 @@ function Detail({ transactionId }: { transactionId: string }) {
           <LoadError body={t("txDetail.error.body")} supportId={state.supportId} retry={retry} />
         </section>
       ) : (
-        <Card data={state.data} reload={retry} />
+        <Card
+          data={state.data}
+          reload={retry}
+          replace={(transaction) => update((d) => ({ ...d, transaction }))}
+        />
       )}
     </AppLayout>
   );
@@ -136,9 +145,18 @@ function whenOf(locale: Locale, date: string, recordedAt: string): string {
   return `${day}, ${time}`;
 }
 
-type Open = "none" | "delete";
+type Open = "none" | "delete" | "split";
 
-function Card({ data, reload }: { data: DetailData; reload: () => void }) {
+function Card({
+  data,
+  reload,
+  replace,
+}: {
+  data: DetailData;
+  reload: () => void;
+  /** A saved change answers with the transaction: it replaces the shown one in place (focus stays). */
+  replace: (t: TransactionDetail) => void;
+}) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const titleId = useId();
@@ -162,6 +180,7 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
     }
     // FIN-03@PoC FR 16, AC10: a deleted transaction is gone; the list is where the user goes back to.
     if (action === "delete") window.location.assign(hrefFor(TRANSACTIONS.path));
+    else if (action === "unsplit") replace(o.data as TransactionDetail);
     else reload();
   };
 
@@ -177,6 +196,19 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
   if (data.possibleDuplicate) marks.push({ label: t("transactionRow.possibleDuplicate"), tone: "attention" });
   if (tx.transfer) marks.push({ label: t("transactionRow.transfer"), tone: "neutral" });
   if (merged) marks.push({ label: t("txDetail.merged"), tone: "neutral" });
+  // BUD-13@PoC FR 8, FIN-03@PoC FR 23: «розділено» / «розділено на N міс.», as in the row of the list.
+  if (tx.split)
+    marks.push({
+      label:
+        tx.split.mode === "months"
+          ? t("transactionRow.splitMonths", { count: tx.split.parts.length })
+          : t("transactionRow.split"),
+      tone: "neutral",
+    });
+  // A merged duplicate keeps its attributes; a side of a transfer is never split (BUD-13@PoC edge case 6).
+  const attributesLocked = tx.mergedInto !== null;
+  const canSplit = !attributesLocked && tx.transfer === null;
+  const similar = tx.counterparty ? hrefFor(filteredTransactionsPath({ merchant: tx.counterparty })) : null;
 
   return (
     <section className="ws-card txd" aria-labelledby={titleId}>
@@ -243,7 +275,47 @@ function Card({ data, reload }: { data: DetailData; reload: () => void }) {
             <dd>{tx.description}</dd>
           </div>
         ) : null}
+        <AttributeRows transaction={tx} locked={attributesLocked} onSaved={replace} />
+        {tx.split ? <SplitRow split={tx.split} names={data.names} /> : null}
       </dl>
+      {canSplit || similar ? (
+        // BUD-13@PoC FR 1, FR 8, FR 10: «Розділити», «Об'єднати назад» once split, «Схожі транзакції» (canvas PocMoneyTxDetail).
+        <div className="txd-actions txd-attr-actions">
+          {canSplit ? (
+            <Button
+              label={t("tx.split.open")}
+              onClick={() => {
+                setFailure(null);
+                setOpen("split");
+              }}
+            />
+          ) : null}
+          {canSplit && tx.split ? (
+            <Button label={t("txDetail.unsplit")} variant="quiet" onClick={() => void act("unsplit")} />
+          ) : null}
+          {similar ? <Button label={t("txDetail.similar")} icon="search" href={similar} /> : null}
+        </div>
+      ) : null}
+      {open === "split" ? (
+        <SplitDialog
+          transaction={tx}
+          summary={[
+            merchant,
+            formatMoney(locale, amount.amount, amount.currency),
+            formatDate(locale, tx.date),
+            data.account,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+          categories={data.splitCategories}
+          onSave={splitAction(api, tx.id)}
+          onSaved={(saved) => {
+            setOpen("none");
+            replace(saved);
+          }}
+          onClose={() => setOpen("none")}
+        />
+      ) : null}
       {merged ? (
         // FIN-03@PoC FR 11: the merged record has «Об'єднано» and the action «Роз'єднати» (edge case 4).
         <div className="txd-actions">
