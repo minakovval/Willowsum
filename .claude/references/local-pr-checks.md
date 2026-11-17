@@ -2,9 +2,9 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Shared by several skills (owner, 2026-11-13: rare parts moved out of the skills). Read when you are about to push, open a PR or change a PR body and need the details of the local check.
+Shared by several skills. Read when you are about to push, open a PR or change a PR body and need the details of the local check.
 
-**Local PR checks before every push and body change** (owner, 2026-11-13): before `git push`, opening the
+**Local PR checks before every push and body change**: before `git push`, opening the
 PR or PATCHing its body, write the body to your own scratchpad file and run, from the worktree root:
 
 ```

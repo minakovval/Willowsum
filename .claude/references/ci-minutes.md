@@ -2,19 +2,18 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-14
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you add or change a workflow, or a job was skipped by its path filter.
+Moved out of AGENTS.md without change. Read when you add or change a workflow, or a job was skipped by its path filter.
 
-**CI minutes** (lead, 2026-11-12; updated by the owner's decision of 2026-11-13, item 5: the repository is
+**CI minutes** (the repository is
 public since 2026-11-13, so GitHub Actions minutes are free, but jobs stay lean and path-filtered): a new push cancels the PR's run in progress;
 the pnpm store is cached; the job `changes` skips `web`, `api`, `local-env`, `infra` and `e2e`
 when the PR's paths do not need them (docs-only PRs skip all five; `e2e`, NFR-07@PoC, runs on every code change
 except `infra/`, `tools/` and the root lint, format and ignore files, with only Chromium and WebKit installed and cached; a skipped job concludes `skipped` and
 counts as passed only when `tools/pr-rules/lib/ci-paths.mjs` says the PR did not need it). Do not add
 scheduled or frequent workflows without counting their minutes. «Requirements traceability» runs once per push to
-`main` (about a minute; owner, 2026-11-13) to publish the generated traceability files.
+`main` (about a minute) to publish the generated traceability files.
 
-**The job `api` in parts** (owner, 2026-11-14, [#178, comment 6883729022](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6883729022)
-item 2: integration tests in 2 shards): the matrix job `api-parts` runs three parallel parts, each with its own
+**The job `api` in parts** (integration tests in 2 shards): the matrix job `api-parts` runs three parallel parts, each with its own
 PostgreSQL 17 service — `api checks` (module boundaries, contract, flags, schema, migrations, old code + new
 schema, the image) and `api integration 1/2`, `api integration 2/2` (`vitest --shard=i/2`, split by file). The
 required check stays `api`: a small job that needs the parts and fails unless all three passed; it and the parts are

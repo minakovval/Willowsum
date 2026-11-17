@@ -2,9 +2,9 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you read, change or move requirement text, or need the exact source and view rules.
+Moved out of AGENTS.md without change. Read when you read, change or move requirement text, or need the exact source and view rules.
 
-Each migrated requirement has **one source file** (`bud/BUD-16.md`, owner, 2026-11-12): the card part, then
+Each migrated requirement has **one source file** (`bud/BUD-16.md`): the card part, then
 `## Джерело зрізів` and the text of every release, each release-specific line tagged with its releases
 (`[PoC]`, `[PoC v2]`, `[PoC–MVP]`, `[лише PoC]`). Its **release views** (`bud/BUD-16.poc.md`,
 `BUD-16.poc-v2.md`, …; ID `BUD-16@PoC`, also called slices) are generated from it. A view is complete for its
@@ -27,6 +27,5 @@ same PR and in this order:
 
 - the views: `node tools/req-check/index.mjs --views` (0 errors; commit the regenerated views);
 - `node tools/req-check/index.mjs --check-mentions` (no test names an item its view does not have) and
-  `node --test tools/req-check`. The traceability files and the req-check report are not committed (owner,
-  2026-11-13): CI generates them on every PR and fails if that fails. The skill `change-requirement` has the
+  `node --test tools/req-check`. The traceability files and the req-check report are not committed: CI generates them on every PR and fails if that fails. The skill `change-requirement` has the
   full procedure.

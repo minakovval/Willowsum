@@ -2,9 +2,9 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when a PR adds or changes an external service, or the owner must act in a web console.
+Moved out of AGENTS.md without change. Read when a PR adds or changes an external service, or the owner must act in a web console.
 
-Owner decision of 2026-11-12:
+Rules:
 
 - `docs/ops/integrations.md` is the single list of all third-party services: purpose, account, how we
   interact, where credentials live, data sent, region, plan, requirements, status. The PR that adds or

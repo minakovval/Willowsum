@@ -2,7 +2,7 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you need to know which module owns a capability or which modules implement a requirement code.
+Moved out of AGENTS.md without change. Read when you need to know which module owns a capability or which modules implement a requirement code.
 
 The full module catalogue (79 modules, what each one owns) and the modularity rules are in
 `docs/requirements/arc/ARC-01.md`; the ledger rules are in `docs/requirements/arc/ARC-11.md`.
