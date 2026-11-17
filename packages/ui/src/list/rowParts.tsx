@@ -8,7 +8,7 @@ import {
   type Locale,
   type Translate,
 } from "@willowsum/i18n";
-import { useLayoutEffect, useState, type ReactNode, type RefObject } from "react";
+import { useLayoutEffect, useState, type ReactNode, type Ref, type RefObject } from "react";
 import { useHideAmounts } from "../privacy/HideAmounts.tsx";
 import { FitAmount } from "../amount/FitAmount.tsx";
 import { formatCompactAmount } from "../amount/compact.ts";
@@ -131,13 +131,16 @@ export function RowCheckbox({
   checked,
   label,
   onChange,
+  ref,
 }: {
   checked: boolean;
   label: string;
   onChange: (checked: boolean) => void;
+  ref?: Ref<HTMLInputElement> | undefined;
 }) {
   return (
     <input
+      ref={ref}
       type="checkbox"
       className="ws-row-check"
       checked={checked}
