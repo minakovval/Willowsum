@@ -127,3 +127,5 @@ export type {
   FilterChipItem,
   FilterRowProps,
 } from "./filter/FilterBar.tsx";
+export { Toast } from "./toast/Toast.tsx";
+export type { ToastProps, ToastTone } from "./toast/Toast.tsx";
