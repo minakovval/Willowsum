@@ -155,7 +155,7 @@ describe("CMP-73@PoC SelectionBar", () => {
     expect(screen.getByRole("tooltip").textContent).toBe("Інша масова дія ще виконується");
   });
 
-  it("CMP-73@PoC FR «Розміри і стиль»: on-brand text on brand, the brand-on-white button and the on-brand focus ring keep their contrast", () => {
+  it("CMP-73@PoC FR «Розміри і стиль»: on-brand text on brand and the brand-on-white button keep their contrast", () => {
     const light = (name: keyof typeof colors) => colors[name].light;
     expect(contrastRatio(light("on-brand"), light("brand"))).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(light("brand"), light("surface-200"))).toBeGreaterThanOrEqual(4.5);

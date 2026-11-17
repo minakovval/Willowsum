@@ -2593,6 +2593,11 @@ button.ws-stepper-step[aria-disabled="true"] {
   outline-offset: var(--ws-focus-ring-offset);
 }
 
+/* The menu of «Дії з вибраними» is on `surface-200`: its items keep the shared `focus` ring (DS-06 FR 4). */
+.ws-selection-bar .ws-menu :focus-visible {
+  outline-color: var(--ws-focus);
+}
+
 /*
  * CMP-32@PoC FilterBar: the button «Фільтри · N» (36 px in a 44 px hit area, 0 × 12 px, 1 px `border-control`, radius 8,
  * `surface-200`, a 16 px `ink-muted` icon, 13/18 px 600; open — `brand-2` and `tint-info`), the chips «значення ×»

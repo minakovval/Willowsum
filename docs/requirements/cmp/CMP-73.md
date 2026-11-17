@@ -31,7 +31,7 @@
 - [MVP] Спільні правила: П-13, П-16, DS-06, DS-10, DS-11, DS-14, DS-18
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: packages/ui/src/toolbar/SelectionBar.test.tsx, apps/web/src/transactions/dat03-bulk.test.tsx, apps/web/src/gallery.test.tsx
+- [лише PoC] Перевіряється: packages/ui/src/toolbar/SelectionBar.test.tsx, packages/ui/src/toolbar/SelectionBar.css.test.ts, apps/web/src/transactions/dat03-bulk.test.tsx, apps/web/src/gallery.test.tsx
 - [MVP] Перевіряється: —
 
 **Мета.** Як користувач списку, я хочу після вибору кількох записів бачити, скільки їх вибрано і на яку суму, і виконувати над ними одну дію з одного меню, щоб не змінювати записи по одному.
