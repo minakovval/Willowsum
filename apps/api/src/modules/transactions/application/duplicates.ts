@@ -63,7 +63,7 @@ export async function mergeDuplicate(
     const nested = (await tx.duplicatesOf(householdId, duplicateId)).length > 0;
     const issues = mergeIssues(kept, duplicate, nested);
     if (issues.length > 0) return { kind: "invalid", issues };
-    if (await anyClosed(deps, householdId, [kept])) return { kind: "closed" };
+    if (await anyClosed(deps, tx, householdId, [kept])) return { kind: "closed" };
     const merged = await tx.update(householdId, {
       ...duplicate,
       hidden: true,
@@ -110,7 +110,7 @@ export async function unmergeDuplicate(
       return now ? { kind: "ok", transaction: now, handOffs: [] } : { kind: "not-found" };
     }
     // The duplicates' own accounts too: the one that stays may have moved to another account since the merge.
-    if (await anyClosed(deps, householdId, [kept, ...duplicates])) return { kind: "closed" };
+    if (await anyClosed(deps, tx, householdId, [kept, ...duplicates])) return { kind: "closed" };
     const handOffs: TransactionHandOff[] = [];
     let result = kept;
     for (const duplicate of duplicates) {
@@ -154,7 +154,7 @@ export async function dismissDuplicate(
     ] as const)
       if (side.mergedInto !== null) issues.push({ field, issue: "merged" });
     if (issues.length > 0) return { kind: "invalid", issues };
-    if (await anyClosed(deps, householdId, [current])) return { kind: "closed" };
+    if (await anyClosed(deps, tx, householdId, [current])) return { kind: "closed" };
     const [first, second] = dismissalPair(id, counterpartId);
     if (!(await tx.insertDismissal(householdId, first, second)))
       return { kind: "ok", transaction: current, handOffs: [] };

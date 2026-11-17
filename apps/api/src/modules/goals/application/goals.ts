@@ -221,7 +221,7 @@ function handOff(
 
 /** The balance a part on an account needs (FR 2, FR 3), read before the goals transaction; null for marks. */
 export async function partBalance(
-  deps: GoalsDeps,
+  deps: Pick<GoalsDeps, "balances" | "today">,
   householdId: string,
   part: { readonly partKind: PartKind; readonly accountId: string | null; readonly currency: string },
 ): Promise<Result<Money | null>> {
@@ -263,6 +263,7 @@ export const reservedBy = (
  * reduced.
  */
 async function checkAccount(
+  deps: Pick<GoalsDeps, "balances" | "today">,
   tx: GoalsTx,
   householdId: string,
   goal: {
@@ -278,6 +279,13 @@ async function checkAccount(
   if (goal.accountId === null || goal.partKind === "marks" || balance === null)
     return { kind: "ok", value: null };
   await tx.lockAccount(householdId, goal.accountId);
+  // #298 (owner, 2026-11-17: checked with wave 2 row 198's lock): the balance is read again under the account's money
+  // lock, which «Оновити залишок», the closing and every write of module transactions on the account take too — the
+  // one read before the goals transaction may be older than a change that committed meanwhile.
+  const now = await partBalance(deps, householdId, goal);
+  if (now.kind !== "ok") return now;
+  if (now.value === null) return { kind: "ok", value: null };
+  const fresh = now.value;
   const others = await tx.goalsOnAccount(householdId, goal.accountId, goal.id);
   if (others.some((o) => o.partKind === "account") || (goal.partKind === "account" && others.length > 0))
     return { kind: "account-taken" };
@@ -287,7 +295,7 @@ async function checkAccount(
   const theirs = await tx.contributions(householdId, ids);
   const spent = await tx.spends(householdId, ids);
   const total = envelopes.reduce((sum, o) => sum.plus(reservedBy(o, theirs, spent)), reserved);
-  const excess = envelopeExcess(balance, total);
+  const excess = envelopeExcess(fresh, total);
   const growth = before === null ? null : reserved.minus(before);
   const reservesMore = growth === null || !(growth.isNegative() || growth.isZero());
   return excess && reservesMore ? { kind: "envelopes-over-balance", excess } : { kind: "ok", value: null };
@@ -303,6 +311,7 @@ export async function createGoal(
 ): Promise<Handed<Result<StoredGoal>>> {
   const goal: StoredGoal = { ...fields, id: deps.newId(), createdOn: deps.today(), version: 1 };
   const checked = await checkAccount(
+    deps,
     tx,
     caller.householdId,
     { ...goal, currency: goal.target.currency },
@@ -380,6 +389,7 @@ export async function updateGoal(
   const sameEnvelope =
     stored.partKind === "envelope" && next.partKind === "envelope" && stored.accountId === next.accountId;
   const checked = await checkAccount(
+    deps,
     tx,
     caller.householdId,
     { ...next, currency: next.target.currency },
@@ -626,6 +636,7 @@ export async function contribute(
   const own = await tx.contributions(caller.householdId, [id]);
   const spent = await tx.spends(caller.householdId, [id]);
   const fits = await checkAccount(
+    deps,
     tx,
     caller.householdId,
     { ...goal, currency: goal.target.currency },

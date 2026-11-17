@@ -21,6 +21,7 @@ import { logEvent } from "../../platform/telemetry/signals.ts";
 import {
   applyHandOff,
   reconcileStatement,
+  settlePending,
   type HandOffDeps,
   type StatementResult,
 } from "./application/index.ts";
@@ -116,8 +117,12 @@ export interface AccountStatements {
 export function createAccountStatements(db: ModuleDatabase, services: AccountsServices): AccountStatements {
   return {
     async reconcile(householdId, statement) {
+      // Row 198 (#409 item 4): the other modules' postings of the account first (outside this module's transaction),
+      // then the recount under the account's lock, which refuses one saved since (`postings-pending`).
+      const settled = await settlePending(services.deps, householdId, statement.accountId);
+      if (settled.kind !== "settled") return { kind: "postings-pending" };
       const { result, handOff } = await db.inHousehold(householdId, (q) =>
-        reconcileStatement(services.deps, accountsTx(q), householdId, statement),
+        reconcileStatement(services.deps, accountsTx(q), householdId, statement, settled),
       );
       // The adjustment and its audit entry, after the commit (ARC-04 FR 2); the worker finishes them if this fails.
       if (handOff)
@@ -136,6 +141,15 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
     },
   };
 }
+
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7, FR 8, FR 14 (wave 2 row 198): the one lock of an account's money, for every module
+ * that changes it, taken in that module's own transaction (adapters/db/account-lock.ts: the order that keeps it free of
+ * deadlocks). Module transactions takes it before it reads an account's state through `AccountDirectory` and holds it
+ * until its change has committed, so a closing, «Оновити залишок» or a wallet's removal runs before or after the change,
+ * never across it.
+ */
+export { lockAccounts } from "./adapters/index.ts";
 
 /**
  * An account as another module posts money to it (FIN-03@PoC FR 2, edge case 2; module transactions): its state and

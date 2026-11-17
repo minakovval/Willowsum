@@ -132,10 +132,36 @@ export async function settlePending(
   deps: Pick<AccountsDeps, "pendingPostings">,
   householdId: string,
   accountId: string,
-): Promise<ManageRefusal | null> {
-  for (const module of deps.pendingPostings)
-    if (!(await module.settle(householdId, accountId))) return { kind: "postings-pending" };
-  return null;
+): Promise<ManageRefusal | Settled> {
+  const ids: (readonly string[])[] = [];
+  for (const module of deps.pendingPostings) {
+    const done = await module.settle(householdId, accountId);
+    if (done === null) return { kind: "postings-pending" };
+    ids.push(done);
+  }
+  return { kind: "settled", ids };
+}
+
+/** What `settlePending` finished, per module of `deps.pendingPostings` in their order. */
+export interface Settled {
+  readonly kind: "settled";
+  readonly ids: readonly (readonly string[])[];
+}
+
+/**
+ * Row 198 (#409 items 1 and 4): under the account's lock, which the other modules' writes take too, none of them has
+ * committed a change since `settled` was read — else the balance read next would miss it, and the change is refused
+ * (`postings-pending`; the route settles again and tries once more).
+ */
+async function nothingSince(
+  deps: Pick<AccountsDeps, "pendingPostings">,
+  householdId: string,
+  accountId: string,
+  settled: Settled,
+): Promise<boolean> {
+  for (const [i, module] of deps.pendingPostings.entries())
+    if (await module.unsettled(householdId, accountId, settled.ids[i] ?? [])) return false;
+  return true;
 }
 
 /** The account's row, locked until the transaction ends; a refusal when it is not there or not active. */
@@ -150,15 +176,23 @@ async function activeAccount(
   return account;
 }
 
-/** The active account's row, locked, with its earlier changes' journal moves finished. */
+/**
+ * The active account's row, locked (with the account's money lock, `lockAccounts`), with its earlier changes' journal
+ * moves finished; with `settled`, also the other modules' changes saved since refuse it (a balance read next counts
+ * every saved transaction).
+ */
 async function managedAccount(
-  deps: Pick<AccountsDeps, "ledger">,
+  deps: Pick<AccountsDeps, "ledger" | "pendingPostings">,
   tx: AccountsTx,
   householdId: string,
   accountId: string,
+  settled: Settled | null = null,
 ): Promise<StoredAccount | ManageRefusal> {
   const account = await activeAccount(tx, householdId, accountId);
-  if (!refused(account)) await finishPending(deps, tx, householdId, accountId);
+  if (refused(account)) return account;
+  if (settled && !(await nothingSince(deps, householdId, accountId, settled)))
+    return { kind: "postings-pending" };
+  await finishPending(deps, tx, householdId, accountId);
   return account;
 }
 
@@ -207,13 +241,15 @@ export async function closeAccount(
   caller: Caller,
   accountId: string,
   input: { readonly closedOn: string; readonly settlement: Settlement | null },
+  settled: Settled,
 ): Promise<ManageRefusal | { readonly kind: "account-closed"; readonly handOff: ManagedHandOff }> {
   const { householdId } = caller;
-  const target = input.settlement?.kind === "transfer" ? input.settlement.toAccountId : null;
+  // Ids as PostgreSQL writes them (lower case): a request may spell a uuid in either case.
+  const target = input.settlement?.kind === "transfer" ? input.settlement.toAccountId.toLowerCase() : null;
+  const self = accountId.toLowerCase();
   // Both rows locked in the order of their ids, so two closings that transfer to each other cannot deadlock.
-  if (target !== null && target !== accountId && target < accountId)
-    await tx.lockAccount(householdId, target);
-  const account = await managedAccount(deps, tx, householdId, accountId);
+  if (target !== null && target !== self && target < self) await tx.lockAccount(householdId, target);
+  const account = await managedAccount(deps, tx, householdId, accountId, settled);
   if (refused(account)) return account;
   const today = deps.today();
   const issue = closingDateIssue(input.closedOn, account.openedOn, today);
@@ -236,7 +272,7 @@ export async function closeAccount(
       kind: "invalid",
       issues: [{ field: "settlement.toAccountId", issue }],
     });
-    if (input.settlement.toAccountId === accountId) return issueOf("same_account");
+    if (target === self) return issueOf("same_account");
     const other = await tx.lockAccount(householdId, input.settlement.toAccountId);
     if (!other) return issueOf("not_found");
     if (other.status === "closed") return issueOf("closed");
@@ -356,6 +392,7 @@ export async function updateBalance(
   caller: Caller,
   accountId: string,
   input: { readonly amount: string; readonly currency: string },
+  settled: Settled,
 ): Promise<
   | ManageRefusal
   | {
@@ -367,7 +404,7 @@ export async function updateBalance(
     }
 > {
   const { householdId } = caller;
-  const account = await managedAccount(deps, tx, householdId, accountId);
+  const account = await managedAccount(deps, tx, householdId, accountId, settled);
   if (refused(account)) return account;
   const subaccount = (await tx.subaccounts(householdId, accountId)).find(
     (s) => s.currency === input.currency,
@@ -444,6 +481,8 @@ export type StatementResult =
   /** A manual account's adjustment is permanent: a statement does not recount it. */
   | { readonly kind: "permanent" }
   | { readonly kind: "not-found" | "closed" }
+  /** Row 198 (#409 item 4): a transaction of the account is not in the journal yet; nothing changed, try again later. */
+  | { readonly kind: "postings-pending" }
   /** The statement's end is not a date, is in the future, or is before the account's opening (#228). */
   | { readonly kind: "bad-date" };
 
@@ -458,10 +497,16 @@ export async function reconcileStatement(
   tx: AccountsTx,
   householdId: string,
   input: { readonly accountId: string; readonly statementEnd: string; readonly closingBalance: Money },
+  settled: Settled,
 ): Promise<{ readonly result: StatementResult; readonly handOff: ManagedHandOff | null }> {
-  const account = await managedAccount(deps, tx, householdId, input.accountId);
+  const account = await managedAccount(deps, tx, householdId, input.accountId, settled);
   const done = (result: StatementResult) => ({ result, handOff: null });
-  if (refused(account)) return done(account.kind === "closed" ? { kind: "closed" } : { kind: "not-found" });
+  if (refused(account))
+    return done(
+      account.kind === "closed" || account.kind === "postings-pending"
+        ? { kind: account.kind }
+        : { kind: "not-found" },
+    );
   // The caller passes the space of its principal after its own check of rights; the date is checked here (#228).
   if (
     !isCalendarDate(input.statementEnd) ||
