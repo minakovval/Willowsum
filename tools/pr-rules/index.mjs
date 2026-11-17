@@ -18,6 +18,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readBrowserTables } from './lib/browser-tables.mjs';
 import { jobsToRun, outputLines } from './lib/ci-paths.mjs';
 import { checkDescription, requirementIds } from './lib/description.mjs';
 import { evaluate, needsAlert, render } from './lib/daily.mjs';
@@ -156,6 +157,9 @@ async function daily() {
       if (flag('--issue')) await upsertAlertIssue(client(), report, { until: until.toISOString() });
       throw e;
     }
+    // NFR-07@PoC FR 1: the web app's browser release tables, judged against the end of the window (not in a
+    // replayed `--input`, which carries its own).
+    input.browserTables = readBrowserTables(ROOT);
   }
   if (flag('--save-input')) fs.writeFileSync(flag('--save-input'), `${JSON.stringify(input, null, 2)}\n`);
   const result = evaluate(input);

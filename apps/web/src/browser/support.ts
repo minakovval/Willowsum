@@ -7,12 +7,17 @@
  *
  * The minimum is computed from today's date (lead decision 2026-11-13): the oldest version in `BROWSER_RELEASES`
  * released on or after the cutoff, 3 calendar months back. So old versions drop out on time by themselves; the
- * tables only need new releases added. A unit test fails when a table's newest release is older than
- * `RELEASE_TABLE_STALE_AFTER_DAYS` — the sign that newer releases are missing. Sources (checked 2026-11-13):
+ * tables only need new releases added. The tables live in `releases.json` next to this file, so that the daily check
+ * of `main` (`tools/pr-rules`, `lib/browser-tables.mjs`) reads them too: it alerts through the `main-check` issue when
+ * a table's newest release is older than `RELEASE_TABLE_STALE_AFTER_DAYS` — the sign that newer releases are missing.
+ * A PR's CI does not look at today's date (owner decision 2026-11-17, #161): it checks only what a PR can break —
+ * the order of the tables and the cutoff on fixed dates. Sources (checked 2026-11-13):
  * - Chromium: Google's version history, Windows stable, first stable date of each major. Edge ships the same majors
  *   within days and is detected by the major, so Chrome's dates stand for it (lead decision 2026-11-13).
  * - Safari: Apple's Safari release notes, release date of each version.
  */
+import data from "./releases.json";
+
 export interface Release {
   /** `153` (Chromium major) or `27.1` (Safari major.minor). */
   readonly version: string;
@@ -20,46 +25,32 @@ export interface Release {
   readonly released: string;
 }
 
-const table = (rows: readonly (readonly [string, string])[]): readonly Release[] =>
-  Object.freeze(rows.map(([version, released]) => Object.freeze({ version, released })));
+const table = (rows: readonly (readonly string[])[]): readonly Release[] =>
+  Object.freeze(rows.map(([version = "", released = ""]) => Object.freeze({ version, released })));
 
 export const BROWSER_RELEASES = Object.freeze({
-  chromium: table([
-    ["150", "2026-06-17"],
-    ["151", "2026-07-15"],
-    ["152", "2026-08-12"],
-    ["153", "2026-08-26"],
-    ["154", "2026-09-09"],
-    ["155", "2026-09-23"],
-    ["156", "2026-10-07"],
-    ["157", "2026-10-22"],
-    ["158", "2026-11-04"],
-  ]),
-  safari: table([
-    ["26.3", "2026-02-11"],
-    ["26.4", "2026-03-24"],
-    ["26.5", "2026-05-11"],
-    ["26.6", "2026-07-27"],
-    ["27.0", "2026-09-14"],
-    ["27.1", "2026-10-23"],
-    ["27.2", "2026-10-26"],
-  ]),
+  chromium: table(data.releases.chromium),
+  safari: table(data.releases.safari),
 });
 
 export const SUPPORT_WINDOW_MONTHS = 3;
 
 /**
- * How old a table's newest release may get before a test asks for the newer ones. Chrome ships a major every two to
- * four weeks, so six weeks without one means the table is behind; Safari's releases are 5 to 11 weeks apart, so 12
- * weeks. Both stay well inside the window, where a missing release would start to matter.
+ * How old a table's newest release may get before the daily check of `main` asks for the newer ones. Chrome ships a
+ * major every two to four weeks, so six weeks without one means the table is behind; Safari's releases are 5 to 11
+ * weeks apart, so 12 weeks. Both stay well inside the window, where a missing release would start to matter.
  */
-export const RELEASE_TABLE_STALE_AFTER_DAYS = Object.freeze({ chromium: 42, safari: 84 });
+export const RELEASE_TABLE_STALE_AFTER_DAYS = Object.freeze({ ...data.staleAfterDays });
 
-/** The first day of the window: `today` 3 calendar months back, as a UTC date (`YYYY-MM-DD`). */
+/**
+ * The first day of the window: `today` 3 calendar months back, as a UTC date (`YYYY-MM-DD`). A day the target month
+ * does not have becomes its last day: 05-31 gives 02-28 (02-29 in a leap year), 12-31 gives 09-30.
+ */
 export function supportCutoff(today: Date): string {
-  const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-  d.setUTCMonth(d.getUTCMonth() - SUPPORT_WINDOW_MONTHS);
-  return d.toISOString().slice(0, 10);
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth() - SUPPORT_WINDOW_MONTHS;
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(year, month, Math.min(today.getUTCDate(), lastDay))).toISOString().slice(0, 10);
 }
 
 /** The oldest version of each browser released on or after the cutoff (the newest known one if none is). */

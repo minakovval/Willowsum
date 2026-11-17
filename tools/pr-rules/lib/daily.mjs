@@ -1,6 +1,7 @@
 // CICD-01 FR 1, FR 3, FR 4 and FR 5 (ADR-0008): the daily check of `main` and of the PRs merged into it.
 // Pure: `evaluate(input)` takes what the workflow fetched from the GitHub REST API (or a recorded fixture) and
 // returns findings; `render` turns them into the alert issue. No network, no clock (the input carries `now`).
+import { browserTableFindings } from './browser-tables.mjs';
 import { jobsToRun } from './ci-paths.mjs';
 import { classifyFiles, ownerApprovalNeeded, ownerDecisionFiles, safeName, unionClassification } from './paths.mjs';
 
@@ -337,6 +338,9 @@ export function evaluate(input) {
     }
   }
 
+  // NFR-07@PoC FR 1: the browser release tables are current (only when the caller read them: a live run).
+  if (input.browserTables !== undefined) findings.push(...browserTableFindings(input.browserTables, now));
+
   const count = (s) => findings.filter((f) => f.severity === s).length;
   return {
     findings,
@@ -368,7 +372,7 @@ export function render(result, { runUrl } = {}) {
     const items = findings.filter((f) => f.severity === severity);
     if (!items.length) continue;
     out.push('', `### ${SEVERITY[severity]}`, '');
-    for (const f of items) out.push(`- **${safeName(f.subject)}** (CICD-01 ${f.rule}): ${safeName(f.message)}`);
+    for (const f of items) out.push(`- **${safeName(f.subject)}** (${f.requirement ?? 'CICD-01'} ${f.rule}): ${safeName(f.message)}`);
   }
   if (!findings.length) out.push('', 'Порушень не знайдено.');
   return `${out.join('\n')}\n`;
