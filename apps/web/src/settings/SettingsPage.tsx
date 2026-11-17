@@ -2,7 +2,13 @@ import type { ReactNode } from "react";
 import { useT } from "@willowsum/i18n";
 import { Skeleton } from "@willowsum/ui";
 import { AppLayout } from "../pages/AppLayout.tsx";
-import { IMPORT_WIZARD_PATH, PROFILE_PATH, SETTINGS_PATH, SPACE_SETTINGS_PATH } from "../routing/routes.ts";
+import {
+  CATEGORIES_SETTINGS_PATH,
+  IMPORT_WIZARD_PATH,
+  PROFILE_PATH,
+  SETTINGS_PATH,
+  SPACE_SETTINGS_PATH,
+} from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useSpaceName } from "../space/api.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -44,6 +50,16 @@ export function SettingsPage() {
                 href={IMPORT_WIZARD_PATH}
                 action={t("settings.action.import")}
                 item={t("settings.row.import")}
+              />
+            </Row>
+          </Section>
+          {/* BUD-01@PoC c): «Модулі → Категорії» opens S-196 (board PocSettings). */}
+          <Section id="settings-modules" title={t("settings.modules")}>
+            <Row label={t("settings.row.categories")}>
+              <ActionLink
+                href={CATEGORIES_SETTINGS_PATH}
+                action={t("settings.action.configure")}
+                item={t("settings.row.categories")}
               />
             </Row>
           </Section>

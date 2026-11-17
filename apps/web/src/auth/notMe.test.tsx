@@ -68,7 +68,8 @@ describe("ACC-04@PoC «Це був не я»", () => {
     const done = screen.getByRole("status");
     expect(plain(done.textContent)).toContain("Усі сесії завершено");
     expect(plain(done.textContent)).toContain("olena@example.com");
-    expect(document.activeElement).toBe(done);
+    // Notice focuses itself in a passive effect, which may run after findByRole resolves.
+    await waitFor(() => expect(document.activeElement).toBe(done));
     expect(calls.at(-1)).toMatchObject({ path: "/v1/not-me-links/confirm", body: { token: TOKEN } });
     expect(screen.getByRole("link", { name: "Повернутися до входу" }).getAttribute("href")).toBe("#/login");
   });

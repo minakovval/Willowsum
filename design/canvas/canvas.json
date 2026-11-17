@@ -2928,13 +2928,21 @@
       "x": 8160,
       "y": 10520
     },
+    "PocSettingsCategoriesTexts.dc.html": {
+      "h": 1700,
+      "page": "poc",
+      "title": "S-196 Категорії · Тексти",
+      "w": 2640,
+      "x": 9520,
+      "y": 10520
+    },
     "PocSettingsReview.dc.html": {
       "h": 900,
       "is_interactive": true,
       "page": "poc",
       "title": "S-199 Розбір транзакцій · налаштування черги",
       "w": 1280,
-      "x": 9520,
+      "x": 12240,
       "y": 10520
     },
     "PocBulk.dc.html": {
@@ -2962,6 +2970,14 @@
       "title": "S-036 Дії з вибраними · звіт і «Відмінити»",
       "w": 1280,
       "x": 14960,
+      "y": 12190
+    },
+    "PocBulkTexts.dc.html": {
+      "h": 2040,
+      "page": "poc",
+      "title": "S-036 Дії з вибраними · Тексти",
+      "w": 2640,
+      "x": 17680,
       "y": 12190
     },
     "PocImportTemplates.dc.html": {
@@ -4437,10 +4453,12 @@
     "PocProfilePassword.dc.html",
     "PocSettingsSpace.dc.html",
     "PocSettingsCategories.dc.html",
+    "PocSettingsCategoriesTexts.dc.html",
     "PocSettingsReview.dc.html",
     "PocBulk.dc.html",
     "PocBulkProgress.dc.html",
     "PocBulkReport.dc.html",
+    "PocBulkTexts.dc.html",
     "PocImportTemplates.dc.html",
     "PocDataImport1.dc.html",
     "PocDataImport2.dc.html",
