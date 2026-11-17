@@ -251,6 +251,30 @@ describe("CMP-13@PoC list state", () => {
     rerender(<Screen />);
   });
 
+  it("CMP-13@PoC AC2: a list that loads its rows gets its scroll position back once they are there (`ready`), and again on the next frame after the router scrolled to the top", () => {
+    function Loading({ ready }: { ready: boolean }) {
+      useRestoredListState("loading-list", { page: 1 }, { ready });
+      return null;
+    }
+    sessionStorage.setItem(
+      "ws:list-state:loading-list",
+      JSON.stringify({ state: { page: 2 }, scrollY: 640 }),
+    );
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => frames.push(cb));
+    const { rerender } = render(<Loading ready={false} />);
+    expect(window.scrollTo).not.toHaveBeenCalled();
+    rerender(<Loading ready />);
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 640);
+    vi.mocked(window.scrollTo).mockClear();
+    act(() => frames.forEach((cb) => cb(0)));
+    expect(window.scrollTo).toHaveBeenLastCalledWith(0, 640);
+    vi.mocked(window.scrollTo).mockClear();
+    rerender(<Loading ready={false} />);
+    rerender(<Loading ready />);
+    expect(window.scrollTo).not.toHaveBeenCalled(); // once per visit
+  });
+
   it("CMP-13@PoC AC2: a list nobody visited starts from the initial state, and a blocked sessionStorage does not break it", () => {
     const blocked = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");

@@ -426,6 +426,29 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.useRealTimers();
   });
 
+  it("DAT-01@PoC FR 3 gallery: the «Транзакції» table sorts in its headers and has no «Актив»; CMP-60 gallery: the toolbar with the search and «Параметри»", () => {
+    const { container } = render(<App />);
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    const head = at("tx-table-sortable").querySelector(".ws-tx-head")!;
+    expect([...head.children].map((c) => c.textContent?.replace(/,.*$/, ""))).toEqual([
+      "Контрагент",
+      "Категорія",
+      "Рахунок",
+      "Дата і час",
+      "Сума",
+    ]);
+    const merchant = head.querySelector<HTMLButtonElement>('.ws-tx-sort[title="Сортувати за: контрагент"]')!;
+    act(() => merchant.click());
+    expect(merchant.dataset.sort).toBe("asc");
+    expect(container.querySelector("#g-toolbar")!.textContent).toBe("Панель списку");
+    const bar = at("toolbar").querySelector('[role="toolbar"]')!;
+    expect(bar.getAttribute("aria-label")).toBe("Керування списком");
+    expect(bar.querySelector('input[type="search"]')!.getAttribute("placeholder")).toBe(
+      "Пошук за мерчантом, описом",
+    );
+    expect(bar.querySelector('button[aria-label="Параметри"]')).not.toBeNull();
+  });
+
   it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
     vi.useFakeTimers();
     sessionStorage.clear();

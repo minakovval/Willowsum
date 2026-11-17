@@ -53,6 +53,8 @@ export interface FieldProps {
   counter?: boolean | undefined;
   /** `search` — the 36 px field above a list. */
   size?: "default" | "search" | undefined;
+  /** The label is read, not shown: only for the search field of a list toolbar (CMP-60), whose placeholder says what it searches. */
+  labelHidden?: boolean | undefined;
   className?: string | undefined;
 }
 
@@ -139,6 +141,7 @@ function FieldView({
   maxLength,
   counter,
   size = "default",
+  labelHidden = false,
   className,
 }: ViewProps) {
   const { t, locale } = useI18n();
@@ -173,7 +176,7 @@ function FieldView({
 
   return (
     <div className={className ? `ws-field ${className}` : "ws-field"} data-state={state}>
-      <label className="ws-field-label" htmlFor={id}>
+      <label className={labelHidden ? "ws-visually-hidden" : "ws-field-label"} htmlFor={id}>
         {label}
         {required && (
           <>

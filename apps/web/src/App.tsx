@@ -20,6 +20,7 @@ import { RecurringPage } from "./recurring/RecurringPage.tsx";
 import { ProfilePage } from "./settings/ProfilePage.tsx";
 import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
+import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
 import {
   ACCOUNTS,
   canonicalPath,
@@ -85,6 +86,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.page.id === ACCOUNTS.id) return <AccountsPage />;
       // BUD-07@PoC c): S-141 «Регулярні платежі».
       if (route.page.id === RECURRING.id) return <RecurringPage />;
+      // FIN-03@PoC c), DAT-01@PoC: S-046 «Транзакції».
+      if (route.page.id === TRANSACTIONS.id) return <TransactionsPage />;
       return <SectionPage section={route.section} page={route.page} />;
     case "child": {
       const tab = DEBT_TABS[route.child.id];
@@ -95,8 +98,10 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "newAccount") return <AccountsPage creating />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
-      if (route.child.id === "newTransaction")
-        return <SectionPage section={route.section} page={TRANSACTIONS} newTransaction />;
+      if (route.child.id === "newTransaction") return <TransactionsPage newTransaction />;
+      // FIN-03@PoC FR 21: the tabs «До розбору» and «Пари» (their screens are later rows: the empty state until then).
+      if (route.child.id === "review" || route.child.id === "pairs")
+        return <TransactionsPage tab={route.child.id} />;
       return <ChildPage section={route.section} child={route.child} />;
     }
     case "settings":

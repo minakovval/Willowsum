@@ -105,8 +105,14 @@ export {
   TransactionRow,
   TransactionTableHead,
 } from "./list/TransactionRow.tsx";
-export type { TransactionCategory, TransactionRowProps } from "./list/TransactionRow.tsx";
+export type {
+  TransactionCategory,
+  TransactionColumn,
+  TransactionRowProps,
+  TransactionSort,
+} from "./list/TransactionRow.tsx";
+export { ListToolbar } from "./toolbar/ListToolbar.tsx";
 export type { RowMoney } from "./list/rowParts.tsx";
 export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
 export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
-export { useRestoredListState } from "./pagination/listState.ts";
+export { forgetListStates, useRestoredListState } from "./pagination/listState.ts";

@@ -316,6 +316,25 @@ describe("CMP-02@PoC Field", () => {
     expect(norm(fieldOf(empty).querySelector(".ws-field-hint")!.textContent)).toBe("До 200 символів");
   });
 
+  it("CMP-60@PoC FR «Будова»: the search field of a list toolbar keeps its label for the reader and shows none", () => {
+    render(
+      wrap(
+        <Field
+          label="Пошук транзакцій"
+          labelHidden
+          type="search"
+          size="search"
+          value=""
+          placeholder="Пошук за мерчантом"
+          onChange={() => {}}
+        />,
+      ),
+    );
+    const search = screen.getByRole("searchbox", { name: "Пошук транзакцій" });
+    const label = document.querySelector(`label[for="${search.id}"]`)!;
+    expect(label.className).toBe("ws-visually-hidden");
+  });
+
   it("CMP-02@PoC FR «Розміри і стиль»: the unit is inside on the right and read with the field; the search field has a 36 px size and a decorative magnifier", () => {
     render(
       wrap(

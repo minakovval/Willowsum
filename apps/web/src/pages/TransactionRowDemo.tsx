@@ -5,6 +5,8 @@ import {
   TransactionRow,
   TransactionTableHead,
   type TransactionCategory,
+  type TransactionColumn,
+  type TransactionSort,
 } from "@willowsum/ui";
 
 /**
@@ -29,6 +31,13 @@ export function TransactionRowDemo() {
     tone: "transfer",
   };
   const [queue, setQueue] = useState(["a", "b", "c"]);
+  const [sort, setSort] = useState<TransactionSort>({ column: "when", direction: "desc" });
+  const sortBy = (column: TransactionColumn) =>
+    setSort((s) =>
+      s.column === column
+        ? { column, direction: s.direction === "asc" ? "desc" : "asc" }
+        : { column, direction: "asc" },
+    );
   const [remaining, setRemaining] = useState<number | null>(null);
   const confirm = (id: string) => () =>
     new Promise<void>((resolve) =>
@@ -150,6 +159,39 @@ export function TransactionRowDemo() {
           account={t("gallery.transactionRow.accSavings")}
           amount={{ value: "3400.00", currency: "EUR" }}
           onSelectedChange={() => undefined}
+          onOpen={() => undefined}
+        />
+      </div>
+
+      {caption("gallery.transactionRow.tableSortable")}
+      <div className="ws-card gallery-rows__list" data-case="tx-table-sortable">
+        <TransactionTableHead
+          withAsset={false}
+          sort={sort}
+          sortable={["merchant", "when", "amount"]}
+          onSort={sortBy}
+        />
+        <TransactionRow
+          layout="table"
+          withAsset={false}
+          merchant={t("gallery.transactionRow.silpo")}
+          date="2026-11-02"
+          time="08:02"
+          category={food}
+          account={t("gallery.transactionRow.accMain")}
+          amount={{ value: "-42.90", currency: "EUR" }}
+          onOpen={() => undefined}
+        />
+        <TransactionRow
+          layout="table"
+          withAsset={false}
+          merchant={t("gallery.transactionRow.wog")}
+          date="2026-10-31"
+          time="19:22"
+          category={fuel}
+          account={t("gallery.transactionRow.accMain")}
+          amount={{ value: "-54.20", currency: "EUR" }}
+          pending
           onOpen={() => undefined}
         />
       </div>
