@@ -53,7 +53,7 @@ export const SPEND_CHECK_JOB = defineJob({
   schema: z.strictObject({ transactionId: z.uuid(), entryId: z.uuid() }),
 });
 
-/** Enqueues the spend's check in the caller's goals transaction; the same entry twice is one job. */
+/** Enqueues the spend's check in the caller's goals transaction; the same spend twice is one job. */
 export async function enqueueSpendCheck(
   q: HouseholdQueryRunner,
   check: { readonly spendId: string; readonly transactionId: string; readonly entryId: string },

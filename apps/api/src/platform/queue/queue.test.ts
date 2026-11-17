@@ -282,3 +282,74 @@ describe("ARC-02@PoC FR 2 / ARC-04@PoC: a failure in one space does not stop the
     ]);
   });
 });
+
+describe("ARC-02@PoC FR 2: reviewer checks of the «all steps failed» rule and the kill-switch path", () => {
+  const job = (key: string) => ({ name: sum.name, key, payload: { n: 1 }, heavy: false, traceparent: null });
+
+  it("ARC-02@PoC FR 2: one step that works is enough — the pass resolves and runs that space's job in its own space", async () => {
+    const store = memoryStore("reports");
+    await store.enqueue("h2", job("a"));
+    const claim = store.claim.bind(store);
+    store.pendingEvents = async () => {
+      throw new StoreUnavailableError("outbox down for household h1");
+    };
+    store.claim = async (h, r) => {
+      if (h === "h1") throw new StoreUnavailableError("claim failed for household h1");
+      return claim(h, r);
+    };
+    const seen: string[] = [];
+    const worker = createWorker({
+      queues: [
+        {
+          store,
+          handlers: [defineJobHandler({ job: sum, run: async (j) => void seen.push(j.householdId) })],
+        },
+      ],
+      households: async () => ["h1", "h2"],
+    });
+    // 4 steps, 3 failed: not a systematic failure, so the pass does not reject.
+    expect(await worker.tick()).toBe(1);
+    await worker.idle();
+    expect(seen).toEqual(["h2"]);
+    expect(telemetry.memory.logRecords().filter((r) => r.body === "worker.space_failed")).toHaveLength(3);
+    expect(await exportedText(telemetry)).not.toContain("household h");
+  });
+
+  it("ARC-02@PoC FR 2: an unreadable kill switch still hands the module's events over, takes none of its jobs, and logs no message", async () => {
+    const reports = memoryStore("reports");
+    const ledger = memoryStore("ledger");
+    const posting = defineJob({ name: "ledger.post", schema: z.object({ n: z.number().int() }) });
+    await reports.enqueue("h1", job("a"));
+    const dispatched: string[] = [];
+    reports.pendingEvents = async (h) =>
+      h === "h1" && dispatched.length === 0
+        ? [{ id: "e1", name: "reports.done", version: 1, payload: { n: 1 }, traceparent: null }]
+        : [];
+    reports.markDispatched = async (_h, ids) => void dispatched.push(...ids);
+    const seen: string[] = [];
+    const worker = createWorker({
+      queues: [
+        {
+          store: reports,
+          handlers: [defineJobHandler({ job: sum, run: async () => void seen.push("reports") })],
+        },
+        {
+          store: ledger,
+          handlers: [defineJobHandler({ job: posting, run: async () => void seen.push("ledger") })],
+        },
+      ],
+      subscriptions: [{ event: { name: "reports.done", version: 1 }, consumer: "ledger", job: posting }],
+      households: async () => ["h1"],
+      moduleAvailable: async (module) => {
+        if (module === "reports") throw new StoreUnavailableError("flags table unavailable for household h1");
+        return true;
+      },
+    });
+    await worker.tick();
+    await worker.idle();
+    expect(dispatched).toEqual(["e1"]);
+    expect(seen).toEqual(["ledger"]);
+    expect(reports.jobs.get("h1/reports.sum/a")!.state).toBe("queued");
+    expect(await exportedText(telemetry)).not.toContain("household h");
+  });
+});

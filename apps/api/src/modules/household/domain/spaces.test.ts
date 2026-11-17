@@ -73,3 +73,9 @@ describe("ACC-08@PoC FR 5: a new name of the space", () => {
     }
   });
 });
+
+describe("sec429: Hangul fillers alone are not a name (mutation survivor)", () => {
+  it("ACC-08@PoC AC5: U+115F and U+1160 on their own are not saved", () => {
+    for (const empty of ["ᅟ", "ᅠᅠ", " ᅟᅠ "]) expect(spaceName(empty), empty).toBeNull();
+  });
+});
