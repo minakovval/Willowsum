@@ -89,6 +89,7 @@ export type ChildId =
   | "review"
   | "pairs"
   | "transaction"
+  | "transactionHistory"
   | "newTransaction"
   | "newAccount"
   | "newGoal"
@@ -145,17 +146,34 @@ export const accountPath = (accountId: string): string =>
 /** The account of an S-053 path, or `null` for any other path. */
 export const accountIdOf = (path: string): string | null => ACCOUNT_PATH.exec(path)?.[1] ?? null;
 
-/** S-047 «Деталь транзакції» (`/money/transactions/:id`): a row of S-046 opens it; its screen is wave 2 row 116. */
+/** S-047 «Деталь транзакції» (`/money/transactions/:id`): a row of S-046 opens it (FIN-03@PoC d), wave 2 row 116). */
 const TRANSACTION: ChildDef = {
   id: "transaction",
   parent: TRANSACTIONS,
   path: `${TRANSACTIONS.path}/:id`,
   title: "page.transaction",
 };
-const TRANSACTION_PATH = /^\/money\/transactions\/[0-9a-fA-F-]{36}$/;
+const TRANSACTION_PATH = /^\/money\/transactions\/([0-9a-fA-F-]{36})$/;
 /** S-047 of one transaction. */
 export const transactionPath = (transactionId: string): string =>
   TRANSACTION.path.replace(":id", encodeURIComponent(transactionId));
+/** The transaction of an S-047 path, or `null` for any other path. */
+export const transactionIdOf = (path: string): string | null => TRANSACTION_PATH.exec(path)?.[1] ?? null;
+
+/** «Історія змін» of S-047 (`/money/transactions/:id/history`): a page, as CMP-21@PoC asks for much content. */
+const TRANSACTION_HISTORY: ChildDef = {
+  id: "transactionHistory",
+  parent: TRANSACTIONS,
+  path: `${TRANSACTION.path}/history`,
+  title: "txDetail.menu.history",
+};
+const TRANSACTION_HISTORY_PATH = /^\/money\/transactions\/([0-9a-fA-F-]{36})\/history$/;
+/** «Історія змін» of one transaction. */
+export const transactionHistoryPath = (transactionId: string): string =>
+  `${transactionPath(transactionId)}/history`;
+/** The transaction of a history path, or `null` for any other path. */
+export const transactionHistoryIdOf = (path: string): string | null =>
+  TRANSACTION_HISTORY_PATH.exec(path)?.[1] ?? null;
 
 /** S-054 «Налаштування рахунку» (`/money/accounts/:id/settings`); its screen is the dependent part of wave 2 row 113. */
 const ACCOUNT_SETTINGS: ChildDef = {
@@ -222,7 +240,8 @@ export function resolveRoute(path: string): Route {
     CHILDREN.find((c) => c.path === path) ??
     (ACCOUNT_SETTINGS_PATH.test(path) ? ACCOUNT_SETTINGS : undefined) ??
     (ACCOUNT_PATH.test(path) ? ACCOUNT : undefined) ??
-    (TRANSACTION_PATH.test(path) ? TRANSACTION : undefined);
+    (TRANSACTION_PATH.test(path) ? TRANSACTION : undefined) ??
+    (TRANSACTION_HISTORY_PATH.test(path) ? TRANSACTION_HISTORY : undefined);
   if (child) return { kind: "child", section: sectionOf(child.parent), child };
   return { kind: "notFound" };
 }
