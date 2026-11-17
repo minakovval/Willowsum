@@ -3873,7 +3873,7 @@
             }
           },
           "409": {
-            "description": "The account is closed (ACCOUNT_CLOSED)",
+            "description": "The account is closed (ACCOUNT_CLOSED); Some of the account's transactions are still being posted; try again later (ACCOUNT_POSTINGS_PENDING)",
             "content": {
               "application/problem+json": {
                 "schema": {

@@ -10,6 +10,7 @@ import {
   type StoredSubaccount,
 } from "../../application/index.ts";
 import { enqueueHandOff, HAND_OFF_JOB, handOffOf } from "../queue/job.ts";
+import { lockAccounts } from "./account-lock.ts";
 
 /** The accounts schema through the module's own role (migrations/0001_accounts.sql). The row policy binds the space; SQL filters it too. */
 
@@ -213,6 +214,8 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
       return rows.map(subaccount);
     },
     async lockAccount(householdId, accountId) {
+      // The account's money lock first, shared with module transactions (row 198), then its row.
+      await lockAccounts(q, householdId, [accountId]);
       const { rows } = await q.query<AccountRow>(
         `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE household_id = $1 AND id = $2 FOR UPDATE`,
         [householdId, accountId],

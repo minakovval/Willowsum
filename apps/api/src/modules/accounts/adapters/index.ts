@@ -1,4 +1,5 @@
 // Adapters of accounts: database (ModuleDatabase, schema «accounts»), HTTP, external services.
+export { lockAccounts } from "./db/account-lock.ts";
 export { eraseHouseholdAccounts } from "./db/erasure.ts";
 export { accountsListTx, accountsTx } from "./db/store.ts";
 export { accountAudit, accountsRoutes, createAccountsServices, type AccountsServices } from "./http/index.ts";

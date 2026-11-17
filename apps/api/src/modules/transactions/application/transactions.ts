@@ -49,6 +49,13 @@ export interface TransactionsTx {
    */
   lockDuplicates(householdId: string): Promise<void>;
   /**
+   * FIN-01@PoC EC4, FIN-12@PoC FR 7, FR 8 (wave 2 row 198): the money lock of the accounts `accountIds` (module accounts'
+   * `lockAccounts`, the one its closing, «Оновити залишок» and wallet removal take), until the transaction ends. Taken
+   * after the rows' locks, all the change's accounts at once, before their state is read from `AccountDirectory`, so a
+   * closing runs before the change (and the change sees the account closed) or after it (and sees the change).
+   */
+  lockAccounts(householdId: string, accountIds: readonly string[]): Promise<void>;
+  /**
    * FR 18: the possible duplicates `id` is a side of now, by the search of `DuplicateCandidates` within `windowDays`;
    * read under `lockDuplicates`.
    */
@@ -258,6 +265,8 @@ export async function createTransaction(
   caller: Caller,
   input: TransactionInput,
 ): Promise<TransactionResult> {
+  // Row 198: the account's money lock before its state is read, held until the row and its hand-off have committed.
+  await tx.lockAccounts(caller.householdId, [input.accountId]);
   const checked = await check(deps, caller.householdId, input, null);
   if (checked === "closed") return { kind: "closed" };
   if ("issues" in checked) return { kind: "invalid", issues: checked.issues };
@@ -306,6 +315,8 @@ export async function updateTransaction(
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
   if (current.mergedInto !== null) return { kind: "merged" };
+  // Row 198: both accounts' money locks (the one it is on and the one it moves to), after the rows', at once.
+  await tx.lockAccounts(householdId, [current.accountId, change.accountId ?? current.accountId]);
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   const checked = await check(
@@ -464,6 +475,7 @@ export async function deleteTransaction(
   const copies = await lockWithCopies(deps, tx, householdId, id);
   const current = await tx.lock(householdId, id);
   if (!current) return { kind: "not-found" };
+  await tx.lockAccounts(householdId, [current.accountId]);
   const holder = await deps.accounts.postingAccount(householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   // A side of a transfer is deleted only once the mark is removed (FR 9), so the other side is never left half a pair.
@@ -530,6 +542,7 @@ export async function changeRow(
   if (!current) return { kind: "not-found" };
   // A merged duplicate is hidden, split or shown only through «Роз'єднати» (FR 11).
   if (current.mergedInto !== null) return { kind: "merged" };
+  await tx.lockAccounts(caller.householdId, [current.accountId]);
   const holder = await deps.accounts.postingAccount(caller.householdId, current.accountId);
   if (holder?.status === "closed") return { kind: "closed" };
   const changed = await next(current);
