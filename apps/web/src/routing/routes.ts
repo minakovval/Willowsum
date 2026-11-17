@@ -90,6 +90,7 @@ export type ChildId =
   | "importHistory"
   | "review"
   | "pairs"
+  | "rules"
   | "transaction"
   | "transactionHistory"
   | "newTransaction"
@@ -117,6 +118,8 @@ export const CHILDREN: readonly ChildDef[] = [
   // FIN-03@PoC FR 21: the tabs «До розбору · N» (S-058, wave 2 row 121) and «Пари · N» (S-059, row 139) of «Транзакції».
   { id: "review", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/review`, title: "tx.tab.review" },
   { id: "pairs", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/pairs`, title: "tx.tab.pairs" },
+  // BUD-14@PoC FR 4: «Гроші › Транзакції › Правила» (S-197), from «…» of «Транзакції» → «Правила категорій».
+  { id: "rules", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/rules`, title: "rules.title" },
   {
     id: "newTransaction",
     parent: TRANSACTIONS,
@@ -192,6 +195,12 @@ export const accountSettingsPath = (accountId: string): string =>
 /** DS-22: the design-system sample page, outside the app navigation. */
 export const GALLERY_TOKENS_PATH = "/gallery/tokens";
 
+/**
+ * S-029 «Немає доступу» (DAT-05@PoC FR 6): the page that stands in place of a module the user's rights close. The
+ * shell opens it by this path until the role and scope of a member reach the web app (ACC-10).
+ */
+export const NO_ACCESS_PATH = "/no-access";
+
 export type Route =
   | { kind: "page"; section: SectionDef; page: PageDef }
   | { kind: "child"; section: SectionDef; child: ChildDef }
@@ -201,6 +210,7 @@ export type Route =
   | { kind: "categories" }
   | { kind: "importWizard" }
   | { kind: "gallery" }
+  | { kind: "noAccess" }
   | { kind: "auth"; screen: AuthScreen }
   | { kind: "notFound" };
 
@@ -229,6 +239,7 @@ export function canonicalPath(path: string): string {
 
 export function resolveRoute(path: string): Route {
   if (path === GALLERY_TOKENS_PATH) return { kind: "gallery" };
+  if (path === NO_ACCESS_PATH) return { kind: "noAccess" };
   if (path === SETTINGS_PATH) return { kind: "settings" };
   if (path === PROFILE_PATH) return { kind: "profile" };
   if (path === SPACE_SETTINGS_PATH) return { kind: "spaceSettings" };

@@ -320,6 +320,30 @@ describe("FIN-01@PoC FR 6: the Owner of the space owns every new account with 10
 });
 
 describe("FIN-01@PoC FR 2, FR 16: credit cards and loans are «Кредитні» liabilities", () => {
+  it("FIN-01@PoC AC24: the list returns the stored grace period of a card (55 days) as a number, and null when none is set; nothing is computed from it", async () => {
+    const space = await newSpace();
+    const base = {
+      kind: "credit-card",
+      institution: { name: "Синтетичний банк", country: "UA" },
+      balance: { amount: "1200.00", currency: "EUR" },
+      balanceDate: "2026-10-01",
+      creditLimit: "5000.00",
+    };
+    expect((await create(space, { ...base, name: "З пільговим", gracePeriodDays: 55 })).statusCode).toBe(201);
+    expect((await create(space, { ...base, name: "Без пільгового" })).statusCode).toBe(201);
+    const list = await call(space, "GET", "/v1/accounts");
+    expect(list.statusCode).toBe(200);
+    const byName = new Map(
+      list.json().items.map((i: { name: string; creditCard: unknown }) => [i.name, i.creditCard]),
+    );
+    expect(byName.get("З пільговим")).toMatchObject({
+      gracePeriodDays: 55,
+      creditLimit: { amount: "5000", currency: "EUR" },
+      available: { amount: "3800", currency: "EUR" },
+    });
+    expect(byName.get("Без пільгового")).toMatchObject({ gracePeriodDays: null });
+  });
+
   it("FIN-01@PoC AC8: a card with a debt of 1 200 EUR and a limit of 5 000 EUR: debt −1 200, limit 5 000, available 3 800; the ledger holds a liability of 1 200", async () => {
     const space = await newSpace();
     const res = await create(space, {

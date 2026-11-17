@@ -111,7 +111,7 @@ describe("CMP-01@PoC Button styles", () => {
 
   it("CMP-01@PoC AC3: every variant shows the 3 px focus ring in 1D4E89 with a 2 px offset; no button rule removes it", () => {
     expect(rule(base, ":focus-visible")).toEqual({
-      outline: "var(--ws-focus-ring-width) solid var(--ws-focus)",
+      outline: "var(--ws-focus-ring-width) solid var(--ws-focus-ring-color)",
       "outline-offset": "var(--ws-focus-ring-offset)",
     });
     expect(layout["focus-ring-width"]).toBe(3);

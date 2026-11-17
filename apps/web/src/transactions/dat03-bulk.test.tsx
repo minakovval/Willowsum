@@ -229,7 +229,7 @@ afterEach(() => {
 
 describe("DAT-03@PoC b): the selection panel of «Транзакції»", () => {
   it("DAT-03@PoC AC12: with 3 transactions ticked «Дії з вибраними» has exactly «Змінити категорію», «Додати теги», «Підтвердити категорії», and the panel has no separate action buttons", async () => {
-    open();
+    open(5); // only rows 3–5 are used: fewer rows, cheaper re-render on every tick
     await loaded();
     expect(queryBar()).toBeNull();
     tickRows(3, 4, 5);
@@ -246,7 +246,7 @@ describe("DAT-03@PoC b): the selection panel of «Транзакції»", () =>
   });
 
   it("CMP-73@PoC AC1: two ticked transactions show «Вибрано 2 · Сума −8,00 €» from the server's sum of the selection, with «Дії з вибраними» and «×»", async () => {
-    const api = open();
+    const api = open(4);
     await loaded();
     tickRows(3, 4);
     await waitFor(() => expect(plain(bar().textContent)).toContain("Вибрано 2· Сума −8,00 €"));
@@ -354,7 +354,7 @@ describe("DAT-03@PoC b): the selection panel of «Транзакції»", () =>
 
 describe("DAT-03@PoC b): S-036 «Дії з вибраними»", () => {
   it("DAT-03@PoC AC1, FR 3: 12 ticked, 2 already «Продукти» — before anything runs the summary says «Зміниться 10, пропущено 2: без змін» with the examples, that the action runs at once and can be undone", async () => {
-    const api = open();
+    const api = open(12); // the 12 ticked rows are the whole page: each tick re-renders every row of the table
     await loaded();
     tickRows(...Array.from({ length: 12 }, (_, i) => i + 1));
     await openAction("Змінити категорію");

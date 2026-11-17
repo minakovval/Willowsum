@@ -354,7 +354,7 @@
 }
 
 .accounts-way:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 

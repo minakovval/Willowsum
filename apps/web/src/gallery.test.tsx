@@ -1,7 +1,13 @@
+import type { ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio, STATUS_DICTIONARY } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
+import { I18nProvider } from "@willowsum/i18n";
 import { App } from "./App.tsx";
+import { DialogDemo } from "./pages/DialogDemo.tsx";
+import { ProgressDemo } from "./pages/ProgressDemo.tsx";
+import { StatesDemo } from "./pages/StatesDemo.tsx";
+import { TableDemo } from "./pages/TableDemo.tsx";
 
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
 const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
@@ -19,6 +25,15 @@ const openDialog = (role: "dialog" | "alertdialog", name: string) => {
   return within(el);
 };
 const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
+
+/** One demo alone in the I18n provider; the full-page test checks that the demo sits in its gallery section. */
+const renderSection = (demo: ReactNode) => render(<I18nProvider initialLocale="uk">{demo}</I18nProvider>);
+
+/**
+ * The Dialog section alone, not the whole gallery: its tests only open dialogs from the section's buttons, and
+ * rendering every section (about 4 350 elements) cost about 1 s per test and put the form test at 5.3 s of 5 s.
+ */
+const renderDialogSection = () => renderSection(<DialogDemo />);
 
 describe("/gallery/tokens (DS-22)", () => {
   beforeEach(() => {
@@ -40,6 +55,17 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
+    // The Progress, Dialog, states and Table sections are on the page with their demos (their other tests render the demos alone).
+    const section = (id: string) => document.getElementById(id)!.closest("section")!;
+    expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
+    expect(section("g-progress").querySelector('[data-case="queue"]')).not.toBeNull();
+    expect(document.getElementById("g-states")!.textContent).toBe("Стани екранів");
+    expect(section("g-states").querySelector('[data-case="state-empty-area"]')).not.toBeNull();
+    expect(document.getElementById("g-table")!.textContent).toBe("Таблиця");
+    expect(section("g-table").querySelector('[data-case="table-wide"]')).not.toBeNull();
+    expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
+    for (const c of ["delete", "form", "word", "error"])
+      expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
@@ -192,6 +218,24 @@ describe("/gallery/tokens (DS-22)", () => {
     );
   });
 
+  it("DAT-05@PoC gallery: the states section shows empty (area, block, without rights), loading, error beside a working card, partial data and «Немає доступу»", () => {
+    const { container } = renderSection(<StatesDemo />);
+    const at = (c: string) => within(container.querySelector<HTMLElement>(`[data-case="state-${c}"]`)!);
+    expect(at("empty-area").getByRole("heading", { level: 2 }).textContent).toBe("Транзакцій ще немає");
+    expect(at("empty-area").getAllByRole("button")).toHaveLength(2);
+    expect(at("empty-block").getByRole("button", { name: "Створити бюджет" })).toBeTruthy();
+    expect(at("empty-no-rights").queryByRole("button")).toBeNull();
+    expect(at("loading").getByText("Ще завантажується…")).toBeTruthy();
+    expect(at("error-area").getByText("Код: TX-503")).toBeTruthy();
+    expect(at("error-block").getByText("Код: BUD-500")).toBeTruthy();
+    expect(at("error-block").getByText("12 480,00 ₴")).toBeTruthy();
+    expect(at("partial").getByText("Частина даних не оновлена")).toBeTruthy();
+    expect(at("no-access-page").getByRole("heading", { name: "Немає доступу" })).toBeTruthy();
+    expect(at("no-access-widget").queryByRole("link")).toBeNull();
+    // The demos have no h1 of their own (the «Немає доступу» module demo is an h2); the page's one h1 is checked above.
+    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
+  });
+
   it("CMP-22@PoC gallery: the Skeleton section shows every variant, the slow line, and swaps the skeleton for its content", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-skeleton")!.textContent).toBe("Скелетон");
@@ -233,8 +277,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-74@PoC gallery: the Progress section shows running, counting, stacked, done and error, and a live case that steps, fails and finishes", () => {
-    const { container } = render(<App />);
-    expect(container.querySelector("#g-progress")!.textContent).toBe("Прогрес");
+    const { container } = renderSection(<ProgressDemo />);
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     expect(norm(at("queue").querySelector(".ws-progress-text")!.textContent)).toBe("31 з 103 · лишилось 72");
     expect(at("counting").textContent).toContain("Рахуємо…");
@@ -593,8 +636,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC1: every case opens from its button with focus inside, never on a danger action, and closes back", () => {
-    render(<App />);
-    const section = document.getElementById("g-dialog")!.parentElement!;
+    const { container: section } = renderDialogSection();
     const openers = [...section.querySelectorAll<HTMLButtonElement>("button[data-case]")];
     expect(openers.map((b) => b.dataset.case)).toEqual([
       "delete",
@@ -624,7 +666,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC13: the gallery form «Нова ціль» has three steps, «Далі» on step 1 and the main action inactive until the required fields are filled", () => {
-    render(<App />);
+    renderDialogSection();
     act(() => document.querySelector<HTMLButtonElement>('button[data-case="form"]')!.click());
     const scoped = openDialog("dialog", "Нова ціль");
     const dialog = document.querySelector<HTMLElement>("dialog.ws-dialog")!;
@@ -647,7 +689,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC4: the gallery «Закрити акаунт?» keeps its action inactive until «ВИДАЛИТИ» is typed", () => {
-    render(<App />);
+    renderDialogSection();
     act(() => document.querySelector<HTMLButtonElement>('button[data-case="word"]')!.click());
     const dialog = openDialog("alertdialog", "Закрити акаунт?");
     const action = dialog.getByRole("button", { name: "Закрити акаунт" });
@@ -661,7 +703,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
     vi.useFakeTimers();
     try {
-      render(<App />);
+      renderDialogSection();
       act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
       const dialog = () => openDialog("alertdialog", "Видалити рахунок «Monobank»?");
       act(() => dialog().getByRole("button", { name: "Видалити рахунок" }).click());
@@ -672,5 +714,37 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("CMP-26@PoC gallery: the Table section shows the wide table that sorts, the 768 and 480 px containers, flat, and the loading, empty and error states", () => {
+    const { container } = renderSection(<TableDemo />);
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    const wide = at("table-wide");
+    expect(norm(wide.querySelector("[data-testid='table-summary']")!.textContent)).toBe(
+      "128 записів · 1 284 560,00 €",
+    );
+    const head = within(wide).getByRole("columnheader", { name: /Вартість/ });
+    expect(head.getAttribute("aria-sort")).toBe("descending");
+    act(() =>
+      within(wide)
+        .getByRole("button", { name: /Дата і час/ })
+        .click(),
+    );
+    expect(
+      within(wide)
+        .getByRole("columnheader", { name: /Дата і час/ })
+        .getAttribute("aria-sort"),
+    ).toBe("descending");
+    expect(within(wide).getByRole("checkbox", { name: "Вибрати Кредитна ··9021" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(at("table-768").querySelector("table")).not.toBeNull();
+    expect(at("table-480").querySelector(".ws-dtable-wrap")).not.toBeNull();
+    expect(at("table-flat").querySelector(".ws-dtable-wrap--flat")).not.toBeNull();
+    expect(at("table-loading").querySelector("[aria-busy='true']")).not.toBeNull();
+    expect(at("table-empty").textContent).toContain("Записів немає");
+    const error = within(at("table-error")).getByRole("alert");
+    expect(error.textContent).toContain("Код: WS-4F2A");
   });
 });

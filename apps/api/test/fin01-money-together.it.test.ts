@@ -412,6 +412,7 @@ describe("FIN-01@PoC FR 19, FR 21: the «Кредитні» header and «Дже�
     const row = (await list(space, "?group=credit")).items[0]!;
     expect(row.id).toBe(id);
     expect(row.creditCard).toEqual({
+      gracePeriodDays: null,
       creditLimit: { amount: "5000", currency: "EUR" },
       debt: { amount: "1200", currency: "EUR" },
       available: { amount: "3800", currency: "EUR" },

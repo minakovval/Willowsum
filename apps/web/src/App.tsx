@@ -11,9 +11,11 @@ import { VerifyPage } from "./auth/VerifyPage.tsx";
 import { AccountCardPage } from "./accounts/AccountCardPage.tsx";
 import { AccountsPage } from "./accounts/AccountsPage.tsx";
 import { CategoriesPage } from "./categories/CategoriesPage.tsx";
+import { RulesPage } from "./rules/RulesPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
+import { NoAccessPage } from "./pages/NoAccessPage.tsx";
 import { NotFoundPage } from "./pages/NotFoundPage.tsx";
 import { ChildPage, SectionPage } from "./pages/SectionPage.tsx";
 import { NewRecurringPaymentPage } from "./recurring/NewRecurringPaymentPage.tsx";
@@ -23,11 +25,15 @@ import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx";
 import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
+import { BudgetPage } from "./planning/BudgetPage.tsx";
+import { GoalsPage } from "./planning/GoalsPage.tsx";
 import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
 import {
   ACCOUNTS,
   canonicalPath,
+  BUDGET,
   DEBTS,
+  GOALS,
   RECURRING,
   resolveRoute,
   TRANSACTIONS,
@@ -85,6 +91,9 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
       if (route.page.id === DEBTS.id) return <DebtsScreen tab="list" />;
+      // GRID-04@PoC FR 1, FR 3: the grids of S-121 «Бюджет» and S-136 «Цілі».
+      if (route.page.id === BUDGET.id) return <BudgetPage />;
+      if (route.page.id === GOALS.id) return <GoalsPage />;
       // FIN-01@PoC c), GRID-02@PoC FR 1: S-050 «Рахунки».
       if (route.page.id === ACCOUNTS.id) return <AccountsPage />;
       // BUD-07@PoC c): S-141 «Регулярні платежі».
@@ -103,6 +112,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       // FIN-03@PoC d): S-047 «Деталь транзакції».
       if (route.child.id === "transaction") return <TransactionDetailPage />;
       if (route.child.id === "transactionHistory") return <TransactionHistoryPage />;
+      // BUD-14@PoC c): S-197 «Правила категорій» (S-198 opens over it).
+      if (route.child.id === "rules") return <RulesPage />;
       // FIN-03@PoC d): `/money/transactions/new` is «Транзакції» with «Нова транзакція» open over it (S-048).
       if (route.child.id === "newTransaction") return <TransactionsPage newTransaction />;
       // FIN-03@PoC FR 21: the tabs «До розбору» (BUD-12@PoC b), S-058) and «Пари» (a later row: the empty state until then).
@@ -123,6 +134,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       return <ImportWizardPage />;
     case "auth":
       return authPage(route.screen);
+    case "noAccess":
+      return <NoAccessPage />;
     case "notFound":
       return <NotFoundPage />;
   }

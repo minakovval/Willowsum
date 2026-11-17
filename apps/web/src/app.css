@@ -1733,7 +1733,7 @@ code {
 }
 
 .tx-segment:has(input:focus-visible) {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: var(--ws-focus-ring-offset);
 }
 
@@ -1905,6 +1905,66 @@ code {
   display: flex;
   flex: 1;
   flex-direction: column;
+}
+
+/* CMP-26@PoC: the Table section of the gallery — each case is a table in a container of its own width. */
+.gallery-table {
+  display: grid;
+  gap: var(--ws-space-5);
+}
+
+.gallery-table__case {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.gallery-table__box {
+  max-inline-size: 100%;
+}
+
+.gallery-table__box--768 {
+  inline-size: calc(var(--ws-space-8) * 12);
+}
+
+.gallery-table__box--480 {
+  inline-size: calc(var(--ws-space-8) * 7.5);
+}
+
+.gallery-table__box--flat {
+  inline-size: calc(var(--ws-space-8) * 6.25);
+}
+
+/* DAT-05@PoC: the «Стани екранів» section of the gallery, and S-029 «Немає доступу». */
+.gallery-states {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-states p {
+  margin: 0;
+}
+
+.gallery-states__grid,
+.gallery-states__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--ws-space-8) * 4), 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-states__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.no-access-page {
+  display: grid;
+  place-items: center;
+  min-block-size: calc(var(--ws-space-8) * 9);
 }
 
 /* DS-23@PoC gallery: the status dictionary by family, the usage scale, deviations and form steps. */

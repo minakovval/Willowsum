@@ -218,7 +218,7 @@
 }
 
 .review-group-row:focus-visible {
-  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
   outline-offset: calc(var(--ws-focus-ring-offset) * -1 - var(--ws-focus-ring-width));
 }
 

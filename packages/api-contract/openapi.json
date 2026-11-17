@@ -325,6 +325,18 @@
                                       }
                                     ]
                                   },
+                                  "gracePeriodDays": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
                                   "debt": {
                                     "type": "object",
                                     "properties": {
@@ -367,6 +379,7 @@
                                 },
                                 "required": [
                                   "creditLimit",
+                                  "gracePeriodDays",
                                   "debt",
                                   "available"
                                 ],

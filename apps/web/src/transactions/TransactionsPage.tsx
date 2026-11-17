@@ -13,6 +13,7 @@ import {
   Field,
   Icon,
   ListToolbar,
+  MenuButton,
   PageTabs,
   Pagination,
   SelectionBar,
@@ -24,6 +25,7 @@ import {
 } from "@willowsum/ui";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
+import { useRuleCount } from "../rules/api.ts";
 import { childPath, IMPORT_WIZARD_PATH, TRANSACTIONS, transactionPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -113,6 +115,7 @@ export function TransactionsPage({
       <div className="app-page-head">
         <h1>{title}</h1>
         <div className="app-page-actions">
+          <RulesMenu />
           <Button
             variant="primary"
             icon="upload"
@@ -445,6 +448,36 @@ function Totals({ summary }: { summary: ListSummary }) {
       ) : null}
       {marks.length > 0 ? <span className="tx-total-marks">{marks.join(" · ")}</span> : null}
     </div>
+  );
+}
+
+/**
+ * BUD-14@PoC FR 4: «…» → «Правила категорій» (S-197); the item shows the number of rules. Not shown while the function
+ * is switched off for the space.
+ */
+function RulesMenu() {
+  const t = useT();
+  const count = useRuleCount();
+  if (count === "off") return null;
+  return (
+    <MenuButton
+      menuLabel={t("rules.menu.label")}
+      ariaLabel={t("rules.menu.label")}
+      title={t("rules.menu.label")}
+      placement="down"
+      align="end"
+      className="ws-icon-button"
+      items={[
+        {
+          id: "rules",
+          label: count === null ? t("rules.menu.item") : t("rules.menu.itemCount", { count }),
+          icon: "list",
+          href: hrefFor(childPath("rules")),
+        },
+      ]}
+    >
+      <Icon name="more" size={20} inButton />
+    </MenuButton>
   );
 }
 

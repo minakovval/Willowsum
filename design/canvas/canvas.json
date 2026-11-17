@@ -632,6 +632,14 @@
       "x": 2720,
       "y": 920
     },
+    "NoAccessTexts.dc.html": {
+      "h": 760,
+      "page": "system",
+      "title": "S-029 Немає доступу · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 2100
+    },
     "NoAccess.dc.html": {
       "h": 800,
       "page": "system",
@@ -1913,6 +1921,14 @@
       "x": 2720,
       "y": 21180
     },
+    "PocMoneyRulesTexts.dc.html": {
+      "h": 2912,
+      "page": "poc",
+      "title": "S-197 Правила категорій і S-198 Правило категорії · Тексти",
+      "w": 3960,
+      "x": 4080,
+      "y": 21180
+    },
     "PocMoneyRules.dc.html": {
       "h": 900,
       "is_interactive": true,
@@ -2668,6 +2684,14 @@
       "title": "PoC · Стани: порожній, завантаження, помилка",
       "w": 1280,
       "x": 0,
+      "y": 5460
+    },
+    "PocTableTexts.dc.html": {
+      "h": 760,
+      "page": "poc",
+      "title": "CMP-26 Таблиця · Тексти",
+      "w": 1280,
+      "x": 1360,
       "y": 5460
     },
     "PocStepUp.dc.html": {
@@ -4149,6 +4173,7 @@
     "Shell.dc.html",
     "Disabled.dc.html",
     "NoAccess.dc.html",
+    "NoAccessTexts.dc.html",
     "NotFound.dc.html",
     "Upgrade.dc.html",
     "StepUp.dc.html",
@@ -4483,7 +4508,9 @@
     "PocDataImport3.dc.html",
     "PocDataImport4.dc.html",
     "PocDataImport5.dc.html",
-    "PocMoneyTxTexts.dc.html"
+    "PocMoneyTxTexts.dc.html",
+    "PocMoneyRulesTexts.dc.html",
+    "PocTableTexts.dc.html"
   ],
   "pages": [
     {
