@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -233,6 +233,14 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   читання: `inputs(householdId, ids)` — рахунок, сума зі знаком і валюта, дата, контрагент і `eligible` (показана, не
   сторона переказу, не розділена, не злита) кожної наявної транзакції; `candidates(householdId, limit)` — такі
   транзакції від новішої (дата, потім ідентифікатор), не більше `limit`, і `more`. `transactionCreated` — подія.
+- `createTransactionRuleTags({ db, accounts, newId, flags? })` → `TransactionRuleTags` для правил категорій
+  `categorization` (BUD-14 b2, п. 5, 7, 9; за прапорцем `transactions.attributes`, без нього — `refused`): `check(names)`;
+  `addTags(householdId, id, names, actorAccountId | null)` — теги правила після власних, той самий раз, тег створюється за
+  потреби; правилами однієї зміни атрибутів (злитий дубль, закритий рахунок, понад 20 — `refused`) з передачею (запис
+  аудиту `update` з `tags`; `actorAccountId` null — система: нова транзакція) → `changed` (назви до й після) /
+  `unchanged` / `refused`; `restoreTags(householdId, id, expected, next, actorAccountId)` — «Відмінити» запуску: `next`,
+  лише якщо теги досі `expected` (за ключем і порядком) → `restored` / `changed`. Кожен виклик — окрема транзакція модуля.
+  `TransactionHandOff.actorAccountId` може бути null (система; запис аудиту — `system`).
 - `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
   і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.
