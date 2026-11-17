@@ -1063,4 +1063,26 @@ describe("Review of #492: a rule's tags create a tag only for a change that is m
     expect(await tagsOf(space, id)).toEqual(twenty);
     expect(await tagNamesOfSpace(space)).not.toContain("зайвий-синтетичний");
   });
+
+  it("BUD-14@PoC FR 5: a transaction in a closed account takes no rule tag, and the tag is not created", async () => {
+    const space = await newSpace();
+    const made = await call(space, "POST", "/v1/accounts", {
+      kind: "current",
+      name: "Синтетичний закритий",
+      balance: { amount: "6.00", currency: "EUR" },
+      balanceDate: "2025-01-01",
+    });
+    const account = made.json().id as string;
+    const id = await purchase(space, account, "SYNTH SHUT", "-6.00");
+    const rule = await createRule(space, {
+      conditions: [merchantIs("Synth Shut")],
+      categoryId: await category(space, "Продукти"),
+      tags: ["закритий-синтетичний"],
+    });
+    const closed = await call(space, "POST", `/v1/accounts/${account}/close`, { closedOn: "2026-10-17" });
+    expect(closed.statusCode, closed.body).toBe(200);
+    await apply(space, rule.id);
+    expect(await tagsOf(space, id)).toEqual([]);
+    expect(await tagNamesOfSpace(space)).not.toContain("закритий-синтетичний");
+  });
 });
