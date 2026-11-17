@@ -85,6 +85,15 @@ describe("CMP-26@PoC Table styles", () => {
     expect(rule(`${CARD} .ws-dtable tbody tr`)["border-block-end"]).toBe("1px solid var(--ws-line)");
   });
 
+  it("CMP-26@PoC FR «Стани»: in a card the hidden heading row comes back while a sort button in it has focus", () => {
+    const hidden = rule(`${CARD} .ws-dtable thead`);
+    expect(hidden["clip-path"]).toBe("inset(50%)");
+    const focused = rule(`${CARD} .ws-dtable thead:focus-within`);
+    expect(focused["clip-path"]).toBe("none");
+    expect(focused.position).toBe("static");
+    expect(focused["block-size"]).toBe("auto");
+  });
+
   it("CMP-26@PoC AC6: every card rule is limited to the non-flat table, so `flat` rows stay rows in a narrow container", () => {
     const inside = raw.slice(
       raw.indexOf(".ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable thead"),

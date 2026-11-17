@@ -708,6 +708,15 @@
     clip-path: inset(50%);
   }
 
+  /* A sort button focused by Tab shows its heading row, so the focus ring is never on a hidden element. */
+  .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable thead:focus-within {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
   .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable,
   .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tbody,
   .ws-dtable-wrap:not(.ws-dtable-wrap--flat) .ws-dtable tr,
