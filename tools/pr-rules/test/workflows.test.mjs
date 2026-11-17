@@ -155,6 +155,8 @@ test('PRC-02 (owner, 2026-11-13): the traceability files and the report are gene
   assert.match(job, /git ls-files -- docs\/traceability docs\/validation\/req-check-report\.md/);
   // A test naming an item that does not exist fails the job.
   assert.match(job, /run: node tools\/req-check\/index\.mjs --quiet --check-mentions\n/);
+  // An item whose text changed since its fingerprint fails the job (owner decision 2026-11-16, items 6–7).
+  assert.match(job, /run: node tools\/req-check\/index\.mjs --quiet --check-fingerprints\n/);
   const ignore = read('.gitignore');
   assert.match(ignore, /^\/docs\/traceability\/$/m);
   assert.match(ignore, /^\/docs\/validation\/req-check-report\.md$/m);

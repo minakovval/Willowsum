@@ -19,7 +19,8 @@
     "migrate": "node scripts/migrate.ts",
     "db:bootstrap": "node scripts/db-bootstrap.ts",
     "ledger:rebuild-balances": "node scripts/ledger-balances.ts rebuild",
-    "start": "node src/main.ts"
+    "start": "node src/main.ts",
+    "banks:update": "node scripts/nbu-banks.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "2.2.1",

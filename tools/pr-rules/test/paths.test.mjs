@@ -184,6 +184,11 @@ test('review #87 item 3: rule and requirement changes need a recorded owner deci
     assert.deepEqual(ownerDecisionFiles([f(name, '+x')]), [name], name);
   }
   assert.deepEqual(ownerDecisionFiles([f('docs/plans/poc-wave-1.md', '+x'), f('docs/adr/0008-x.md', '+x')]), []);
+  // A text fingerprint records a re-check of tests and code, not a requirement change (owner decision 2026-11-16,
+  // item 8: such a PR explains the re-check in its body instead).
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.fingerprints.json', '+x')]), []);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.json', '+x')]), ['docs/requirements/bud/BUD-16.json']);
+  assert.deepEqual(ownerDecisionFiles([f('docs/requirements/bud/BUD-16.fingerprints.json', '+x', { previous_filename: 'docs/requirements/bud/BUD-16.md' })]), ['docs/requirements/bud/BUD-16.md'], 'renamed from a requirement');
   // Only the «Перевіряється» line (test paths) changed: not a requirement change.
   const testsLine = '@@ -9,7 +9,7 @@\n - Модуль: —\n-- Перевіряється: —\n+- Перевіряється: a.test.ts\n \n';
   assert.deepEqual(ownerDecisionFiles([f('docs/requirements/arc/ARC-05.poc.md', testsLine)]), []);

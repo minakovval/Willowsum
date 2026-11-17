@@ -18,6 +18,14 @@
 //                                                        it and its coverage line (instead of reading whole folders)
 //   node tools/req-check/index.mjs --check-mentions      fail (exit 1) on a test that names an item its requirement
 //                                                        does not have; prints file:line for each (CI, PRC-02)
+//   node tools/req-check/index.mjs --check-fingerprints  fail (exit 1) when an item's text changed since its fingerprint
+//                                                        (<ID>.fingerprints.json next to the source) was written; names
+//                                                        the item and its tests. --require-fingerprints: an item a test
+//                                                        names without a fingerprint fails too
+//   node tools/req-check/index.mjs --update-fingerprints <ID> [items…]
+//                                                        after re-checking the tests and code against the text, rewrite
+//                                                        the fingerprints (items: "PoC/FR 3" or "FR 3"; none = every
+//                                                        item a test names plus every item that already has one)
 //
 // Options: --root <dir> (repository root, default cwd), --requirements <dir> (default docs/requirements),
 // --baseline <file> (default tools/req-check/baseline.json), --no-baseline, --quiet,
@@ -39,6 +47,7 @@ import { findMentions, computeCoverage, renderCoverage, danglingMentions } from 
 import { SLICE_FILE_RE } from './lib/config.mjs';
 import { resolveSlice, decisionMentions, renderShow } from './lib/show.mjs';
 import { buildModel } from './lib/model.mjs';
+import { FINGERPRINT_FILE_RE, fingerprintFileName, fingerprintable, checkFingerprints, updateFingerprints, parseFingerprints, renderFingerprints } from './lib/fingerprints.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -84,7 +93,7 @@ function isLink(p) {
 }
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, checkMentions: false, show: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, checkMentions: false, checkFingerprints: false, requireFingerprints: false, updateFingerprints: null, fingerprintItems: [], show: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -107,6 +116,12 @@ export function parseArgs(argv) {
     else if (a === '--from') opts.from = next();
     else if (a === '--coverage') opts.coverage = true;
     else if (a === '--check-mentions') opts.checkMentions = true;
+    else if (a === '--check-fingerprints') opts.checkFingerprints = true;
+    else if (a === '--require-fingerprints') opts.requireFingerprints = true;
+    else if (a === '--update-fingerprints') {
+      opts.updateFingerprints = next();
+      while (i + 1 < argv.length && !argv[i + 1].startsWith('--')) opts.fingerprintItems.push(argv[++i]);
+    }
     else if (a === '--show') opts.show = next();
     else if (a === '--update-baseline') opts.updateBaseline = true;
     else if (a === '--no-baseline') opts.useBaseline = false;
@@ -205,6 +220,22 @@ function printFinding(log, f, level) {
   if (process.env.GITHUB_ACTIONS === 'true') log(`::${level} file=${escProp(f.file)},line=${Math.max(1, f.line)},title=${escProp(`req-check ${f.rule}`)}::${escData(f.message)}`);
 }
 
+/** Every `<ID>.fingerprints.json` in the module folders of the requirements dir, as {rel, id, text}. */
+export function loadFingerprintFiles(root, reqDir) {
+  const out = [];
+  const abs = path.resolve(root, reqDir);
+  if (!fs.existsSync(abs)) return out;
+  for (const dir of fs.readdirSync(abs, { withFileTypes: true }).filter((e) => e.isDirectory() && !e.name.startsWith('.')).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+    for (const name of fs.readdirSync(path.join(abs, dir.name)).sort()) {
+      const m = FINGERPRINT_FILE_RE.exec(name);
+      const p = path.join(abs, dir.name, name);
+      if (!m || !fs.lstatSync(p).isFile()) continue;
+      out.push({ rel: path.relative(root, p).split(path.sep).join('/'), id: m[1], text: fs.readFileSync(p, 'utf8') });
+    }
+  }
+  return out;
+}
+
 /** Markdown files of the decision log (`docs/decisions/`, the archive and `log/`), as {rel, text}, newest last. */
 export function loadDecisionFiles(root) {
   const out = [];
@@ -224,7 +255,7 @@ export function loadDecisionFiles(root) {
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
-    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--show ID@release] [--coverage] [--check-mentions] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
+    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--show ID@release] [--coverage] [--check-mentions] [--check-fingerprints [--require-fingerprints]] [--update-fingerprints ID [items…]] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
     return 0;
   }
   if (opts.convert) {
@@ -277,14 +308,47 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     return 0;
   }
 
+  if (opts.updateFingerprints) {
+    const f = fingerprintable(result.model).get(opts.updateFingerprints);
+    if (!f) throw new Error(`--update-fingerprints: ${opts.updateFingerprints} is not a requirement with release views`);
+    const rel = `${f.doc.rel.slice(0, f.doc.rel.lastIndexOf('/') + 1)}${fingerprintFileName(f.id)}`;
+    const p = reqPath(opts.root, rel);
+    let existing = new Map();
+    if (fs.existsSync(p)) {
+      const parsed = parseFingerprints(fs.readFileSync(p, 'utf8'));
+      // A file out of canonical order is rewritten; any other problem needs a look first.
+      const bad = parsed.problems.filter((x) => !x.includes('canonical form'));
+      if (bad.length) throw new Error(`--update-fingerprints: ${rel}: ${bad.join('; ')}`);
+      existing = parsed.entries;
+    }
+    const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
+    const { entries, written, removed, changed } = updateFingerprints(f, existing, cov.covered, opts.fingerprintItems);
+    write(opts.root, rel, renderFingerprints(entries));
+    log(`req-check: ${rel}: ${written.length} fingerprints written${written.length ? ` (${written.join(', ')})` : ''}${removed.length ? `, ${removed.length} removed (${removed.join(', ')})` : ''}.`);
+    // Without items every changed item of the requirement is accepted at once: list them, so none goes unnoticed.
+    log(changed.length ? `req-check: ${changed.length} items whose text had changed are now marked re-checked: ${changed.join(', ')}. Make sure their tests and code were checked against the new text.` : 'req-check: no item whose text had changed was updated.');
+    log('req-check: a PR that changes no test or code naming this requirement says why they still match under «## Why the tests and code still match».');
+    return 0;
+  }
+
+  let fingerprintExit = 0;
+  if (opts.checkFingerprints) {
+    const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
+    const r = checkFingerprints(result.model, loadFingerprintFiles(opts.root, opts.requirements), cov.covered, { require: opts.requireFingerprints });
+    for (const f of r.findings) printFinding(log, f, 'error');
+    log(`req-check: ${r.checked} fingerprinted items checked, ${r.changed} changed items; ${r.missing} items named by tests have no fingerprint yet${opts.requireFingerprints ? ' (required)' : ' (not required until the initial fingerprints are set)'}; ${r.findings.length} errors.`);
+    fingerprintExit = r.findings.length ? 1 : 0;
+    if (!opts.coverage && !opts.checkMentions) return fingerprintExit;
+  }
+
   if (opts.coverage || opts.checkMentions) {
     const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
     if (opts.coverage) log(renderCoverage(cov));
-    if (!opts.checkMentions) return 0;
+    if (!opts.checkMentions) return fingerprintExit;
     const dangling = danglingMentions(cov);
     for (const f of dangling) printFinding(log, f, 'error');
     log(`req-check: ${dangling.length} test mentions name no item${dangling.length ? ' (listed above as file:line)' : ''}.`);
-    return dangling.length ? 1 : 0;
+    return dangling.length || fingerprintExit ? 1 : 0;
   }
 
   if (opts.views) {
