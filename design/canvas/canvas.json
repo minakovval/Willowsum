@@ -2928,13 +2928,21 @@
       "x": 8160,
       "y": 10520
     },
+    "PocSettingsCategoriesTexts.dc.html": {
+      "h": 1700,
+      "page": "poc",
+      "title": "S-196 Категорії · Тексти",
+      "w": 2640,
+      "x": 9520,
+      "y": 10520
+    },
     "PocSettingsReview.dc.html": {
       "h": 900,
       "is_interactive": true,
       "page": "poc",
       "title": "S-199 Розбір транзакцій · налаштування черги",
       "w": 1280,
-      "x": 9520,
+      "x": 12240,
       "y": 10520
     },
     "PocBulk.dc.html": {
@@ -4445,6 +4453,7 @@
     "PocProfilePassword.dc.html",
     "PocSettingsSpace.dc.html",
     "PocSettingsCategories.dc.html",
+    "PocSettingsCategoriesTexts.dc.html",
     "PocSettingsReview.dc.html",
     "PocBulk.dc.html",
     "PocBulkProgress.dc.html",

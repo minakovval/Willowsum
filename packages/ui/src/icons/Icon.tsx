@@ -534,6 +534,30 @@ export const ICON_PARENT_CHILD: readonly (readonly [IconName, IconName])[] = [
 export const isIconName = (v: unknown): v is IconName =>
   typeof v === "string" && Object.prototype.hasOwnProperty.call(GLYPHS, v);
 
+/**
+ * A Lucide node drawn as the set draws its glyphs (DS-12: outline, 1.8 px absolute line, solid dots), for the icons
+ * that are data rather than interface names: the category icons of BUD-01@PoC FR 10 (`CategoryDisc`).
+ */
+export function NodeSvg({ node, px }: { node: IconNode; px: number }) {
+  const sw = Math.round(((ICON_STROKE * 24) / px) * 1000) / 1000;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={px}
+      height={px}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={sw}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      focusable="false"
+      aria-hidden="true"
+    >
+      {draw(node, sw)}
+    </svg>
+  );
+}
+
 /** DS-12 item 3: tones. */
 export type IconTone = "default" | "muted" | "brand" | "on-brand";
 

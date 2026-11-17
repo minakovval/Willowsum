@@ -10,6 +10,7 @@ import { SignUpPage } from "./auth/SignUpPage.tsx";
 import { VerifyPage } from "./auth/VerifyPage.tsx";
 import { AccountCardPage } from "./accounts/AccountCardPage.tsx";
 import { AccountsPage } from "./accounts/AccountsPage.tsx";
+import { CategoriesPage } from "./categories/CategoriesPage.tsx";
 import { DebtsScreen, type DebtsTab } from "./debts/DebtsScreen.tsx";
 import { GalleryTokensPage } from "./pages/GalleryTokensPage.tsx";
 import { ImportWizardPage } from "./pages/ImportWizardPage.tsx";
@@ -115,6 +116,9 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       return <ProfilePage />;
     case "spaceSettings":
       return <SpaceSettingsPage />;
+    // BUD-01@PoC c): S-196 «Категорії».
+    case "categories":
+      return <CategoriesPage />;
     case "importWizard":
       return <ImportWizardPage />;
     case "auth":
