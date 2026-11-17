@@ -300,10 +300,7 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: S3 adapter on the local S3-compatible storage — anonymous access, allowed types, downloads (ARC-06 FR 4)
         if: matrix.part == 'checks'
-        run: pnpm --filter @willowsum/api test:s3
-      - name: S3 storage logs on failure
-        if: failure() && matrix.part == 'checks'
-        run: docker logs --tail 200 ws-s3 || true
+        run: pnpm --filter @willowsum/api test:s3 || { docker logs --tail 200 ws-s3; exit 1; }
       - name: Schema check — row policies, household column, amounts, UTC time, region (ARC-03)
         if: matrix.part == 'checks'
         run: pnpm --filter @willowsum/api check:schema
