@@ -408,6 +408,15 @@ button.ws-menu-item {
   background: var(--ws-line);
 }
 
+/* A line under the items that says why an action is not there (BUD-01@PoC FR 12): `ink-muted`, 13 px. */
+.ws-menu-note {
+  max-width: calc(var(--ws-space-8) * 5);
+  padding: var(--ws-space-1) var(--ws-space-3) var(--ws-space-2);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
 /* An open «…» button (CMP-61@PoC «Кнопка «…»»): `surface-300`. */
 .ws-icon-button[aria-haspopup="menu"][aria-expanded="true"] {
   background: var(--ws-surface-300);

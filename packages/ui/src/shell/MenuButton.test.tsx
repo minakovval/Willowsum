@@ -103,3 +103,35 @@ describe("MenuButton dangerous item", () => {
     );
   });
 });
+
+describe("MenuButton separators and note", () => {
+  it("BUD-01@PoC FR 12: `separator` puts a separator before an item; `note` is a line under the items that describes the menu", () => {
+    render(
+      <MenuButton
+        menuLabel="Дії"
+        ariaLabel="Ще дії"
+        placement="down"
+        className="b"
+        note="Категорію з транзакціями не можна видалити"
+        items={[
+          { id: "a", label: "Перейменувати", icon: "edit" },
+          { id: "b", label: "Приховати", icon: "eye-off", separator: true },
+        ]}
+      >
+        …
+      </MenuButton>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Ще дії" }));
+    const menu = screen.getByRole("menu");
+    expect([...menu.children].map((c) => c.getAttribute("role"))).toEqual([
+      "none",
+      "separator",
+      "none",
+      "separator",
+      "none",
+    ]);
+    const note = document.getElementById(menu.getAttribute("aria-describedby")!)!;
+    expect(note.textContent).toBe("Категорію з транзакціями не можна видалити");
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+  });
+});

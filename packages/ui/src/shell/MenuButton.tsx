@@ -18,6 +18,8 @@ export interface MenuItem {
    * The consumer puts it last.
    */
   danger?: boolean;
+  /** A 1 px `line` separator before this item, between groups of actions (CMP-61@PoC «Будова»). */
+  separator?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export function MenuButton({
   className,
   ariaLabel,
   title,
+  note,
   children,
 }: {
   menuLabel: string;
@@ -44,6 +47,11 @@ export function MenuButton({
   /** For an icon-only button. */
   ariaLabel?: string | undefined;
   title?: string | undefined;
+  /**
+   * A line of text under the items, after a separator: why an action is not there (BUD-01@PoC FR 12: «Категорію з
+   * транзакціями… не можна видалити…»). It describes the menu (`aria-describedby`); it is not an item.
+   */
+  note?: string | undefined;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -114,6 +122,7 @@ export function MenuButton({
           ref={menuRef}
           role="menu"
           aria-label={menuLabel}
+          aria-describedby={note ? `${id}-note` : undefined}
           className={`ws-menu ws-menu-${placement}${align === "end" ? " ws-menu-end" : ""}`}
           onKeyDown={onMenuKeyDown}
         >
@@ -131,9 +140,10 @@ export function MenuButton({
               </>
             );
             const role = item.checked === undefined ? "menuitem" : "menuitemcheckbox";
-            const separator = item.danger ? (
-              <li role="separator" className="ws-menu-separator" key={`${item.id}-separator`} />
-            ) : null;
+            const separator =
+              item.danger || item.separator ? (
+                <li role="separator" className="ws-menu-separator" key={`${item.id}-separator`} />
+              ) : null;
             return [
               separator,
               <li key={item.id} role="none">
@@ -168,6 +178,14 @@ export function MenuButton({
               </li>,
             ];
           })}
+          {note ? (
+            <>
+              <li role="separator" className="ws-menu-separator" />
+              <li role="none" id={`${id}-note`} className="ws-menu-note">
+                {note}
+              </li>
+            </>
+          ) : null}
         </ul>
       ) : null}
     </div>
