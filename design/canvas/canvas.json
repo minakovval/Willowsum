@@ -3033,6 +3033,14 @@
       "w": 1280,
       "x": 8160,
       "y": 33220
+    },
+    "PocMoneyReviewTexts.dc.html": {
+      "h": 1040,
+      "page": "poc",
+      "title": "S-058 До розбору · Тексти",
+      "w": 2640,
+      "x": 2720,
+      "y": 20070
     }
   },
   "createdOnFiles": {
@@ -4319,6 +4327,7 @@
     "PocMoneyTxError.dc.html",
     "PocMoneyReview.dc.html",
     "PocMoneyReviewDone.dc.html",
+    "PocMoneyReviewTexts.dc.html",
     "PocMoneyNewTx.dc.html",
     "PocMoneyNewTxTexts.dc.html",
     "PocMoneyNewTxStep2.dc.html",
