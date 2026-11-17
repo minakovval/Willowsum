@@ -1,6 +1,6 @@
 # Lead communication and process-change queue
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
 
 Read when you write to the owner or when you find a process change.
 
