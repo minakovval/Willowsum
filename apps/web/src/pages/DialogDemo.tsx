@@ -1,14 +1,36 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
 import { Dialog, type DialogProps } from "@willowsum/ui";
+import { GalleryCloseAccount, GalleryGoalForm, GalleryRuleForm } from "./FormDialogDemo.tsx";
 
 /**
  * CMP-21@PoC Dialog (base) in the design-system gallery, on synthetic values: a danger confirmation, «Зберегти
  * зміни?» with three equal buttons, options aligned left, labels that stack, the running action that ends in an
  * error, content taller than the window (only the body scrolls) and the two named wider sizes.
  */
-type Case = "delete" | "unsaved" | "options" | "column" | "error" | "long" | "split" | "wide";
-const CASES: readonly Case[] = ["delete", "unsaved", "options", "column", "error", "long", "split", "wide"];
+type BaseCase = "delete" | "unsaved" | "options" | "column" | "error" | "long" | "split" | "wide";
+/** CMP-21 b): the form with steps, the form without steps and the confirmation that needs a typed word. */
+type FormCase = "form" | "short" | "word";
+type Case = BaseCase | FormCase;
+const CASES: readonly Case[] = [
+  "delete",
+  "unsaved",
+  "options",
+  "column",
+  "error",
+  "long",
+  "split",
+  "wide",
+  "form",
+  "short",
+  "word",
+];
+const FORMS: Record<FormCase, (props: { onClose: () => void }) => ReactNode> = {
+  form: GalleryGoalForm,
+  short: GalleryRuleForm,
+  word: GalleryCloseAccount,
+};
+const isForm = (c: Case): c is FormCase => c in FORMS;
 /** How long the gallery's synthetic «delete» runs before it fails. */
 const RUN_MS = 1200;
 
@@ -46,7 +68,7 @@ export function DialogDemo() {
     tone: "danger" as const,
   };
 
-  const props: Record<Case, Omit<DialogProps, "open" | "onClose" | "closeLabel">> = {
+  const props: Record<BaseCase, Omit<DialogProps, "open" | "onClose" | "closeLabel">> = {
     delete: {
       ...deleting,
       actions: [cancel, { label: t("gallery.dialog.delete.action"), variant: "danger", onClick: close }],
@@ -145,7 +167,11 @@ export function DialogDemo() {
     long: "gallery.dialog.open.long",
     split: "gallery.dialog.open.split",
     wide: "gallery.dialog.open.wide",
+    form: "gallery.dialog.open.form",
+    short: "gallery.dialog.open.short",
+    word: "gallery.dialog.open.word",
   };
+  const Form = open && isForm(open) ? FORMS[open] : null;
 
   return (
     <div className="gallery-dialog">
@@ -157,7 +183,9 @@ export function DialogDemo() {
           </button>
         ))}
       </div>
-      {open ? (
+      {Form ? (
+        <Form key={open} onClose={close} />
+      ) : open && !isForm(open) ? (
         <Dialog key={open} open onClose={close} closeLabel={t("gallery.dialog.close")} {...props[open]} />
       ) : null}
     </div>

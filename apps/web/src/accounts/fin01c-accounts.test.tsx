@@ -42,6 +42,7 @@ function account(over: Partial<Account> & Pick<Account, "name">): Account {
     closedOn: null,
     source: "manual",
     updatedOn: "2026-11-01",
+    favourite: false,
     inProfileCurrency: { total: balance, approximate: false, unavailableCount: 0 },
     currencies: [
       {

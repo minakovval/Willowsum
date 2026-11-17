@@ -8,7 +8,7 @@ import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
 import { AddAccountDialog } from "./AddAccountDialog.tsx";
 import { AccountGroup } from "./AccountGroup.tsx";
-import { useAccounts, useAccountsSummary, type Account, type AccountsSummary } from "./api.ts";
+import { useAccounts, useAccountsSummary, useFavourite, type Account, type AccountsSummary } from "./api.ts";
 import { MoneyTogether, RateBanner, Sources } from "./Summary.tsx";
 import "./accounts.css";
 
@@ -25,6 +25,7 @@ export function AccountsPage() {
   const [adding, setAdding] = useState(false);
   const accounts = useAccounts(showClosed);
   const summary = useAccountsSummary();
+  const favourite = useFavourite(accounts.patch);
   const add = () => setAdding(true);
   const off = accounts.state.kind === "off";
   const none = accounts.state.kind === "ready" && !showClosed && accounts.state.data.length === 0;
@@ -65,6 +66,7 @@ export function AccountsPage() {
             accounts={accounts.state.data}
             showClosed={showClosed}
             summary={summary.state.kind === "ready" ? summary.state.data : null}
+            favourite={favourite}
           />
         </div>
       ) : null}
@@ -109,10 +111,12 @@ function Groups({
   accounts,
   showClosed,
   summary,
+  favourite,
 }: {
   accounts: readonly Account[];
   showClosed: boolean;
   summary: AccountsSummary | null;
+  favourite: ReturnType<typeof useFavourite>;
 }) {
   const t = useT();
   const cash = accounts.filter((a) => a.group === "cash");
@@ -125,8 +129,17 @@ function Groups({
           {t("accounts.closed.none")}
         </p>
       ) : null}
-      {cash.length > 0 ? <AccountGroup group="cash" accounts={cash} summary={summary} /> : null}
-      {credit.length > 0 ? <AccountGroup group="credit" accounts={credit} summary={summary} /> : null}
+      {favourite.failed ? (
+        <p className="accounts-note" role="alert">
+          {t("accounts.favourite.error")}
+        </p>
+      ) : null}
+      {cash.length > 0 ? (
+        <AccountGroup group="cash" accounts={cash} summary={summary} favourite={favourite} />
+      ) : null}
+      {credit.length > 0 ? (
+        <AccountGroup group="credit" accounts={credit} summary={summary} favourite={favourite} />
+      ) : null}
     </>
   );
 }

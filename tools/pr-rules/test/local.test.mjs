@@ -97,3 +97,23 @@ test('local: lists every changed file of a category and every rule file, not onl
   assert.match(r.stdout, /\.claude\/skills\/s12\/SKILL\.md/);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('local: a fingerprints file with a test that names its requirement passes as in CI (the test file patch is read)', () => {
+  const fp = 'docs/requirements/prc/PRC-02.fingerprints.json';
+  const body = (root) => {
+    const p = path.join(root, 'pr432-fix-body.md');
+    fs.writeFileSync(p, BODY.replace('- [ ] Pipeline', '- [x] Pipeline'));
+    return p;
+  };
+  // The test names PRC-02: the diff shows the re-check, no section needed.
+  let root = repo({ [fp]: '{}\n', 'tools/x/a.test.mjs': 'test("PRC-02 FR 1", () => {});\n' });
+  let r = run(root, ['--title', 'PRC-02: x', '--body-file', body(root)]);
+  assert.equal(r.code, 0, r.stdout);
+  fs.rmSync(root, { recursive: true, force: true });
+  // A test that names another requirement does not stand in for the section.
+  root = repo({ [fp]: '{}\n', 'tools/x/a.test.mjs': 'test("ACC-01 FR 1", () => {});\n' });
+  r = run(root, ['--title', 'PRC-02: x', '--body-file', body(root)]);
+  assert.equal(r.code, 1, r.stdout);
+  assert.match(r.stdout, /changes only text fingerprints/);
+  fs.rmSync(root, { recursive: true, force: true });
+});

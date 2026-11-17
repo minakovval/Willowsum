@@ -75,6 +75,18 @@ export type {
   DialogSize,
   DialogTone,
 } from "./dialog/Dialog.tsx";
+export { FormDialog, FormMore } from "./dialog/FormDialog.tsx";
+export type {
+  FormDialogField,
+  FormDialogProps,
+  FormDialogState,
+  FormDialogStep,
+  FormMoreProps,
+} from "./dialog/FormDialog.tsx";
+export { ConfirmDialog } from "./dialog/ConfirmDialog.tsx";
+export type { ConfirmDialogProps, ConfirmWord } from "./dialog/ConfirmDialog.tsx";
+export { Stepper } from "./stepper/Stepper.tsx";
+export type { StepperProps, StepperStep, StepState } from "./stepper/Stepper.tsx";
 export { AmountField, Field } from "./field/Field.tsx";
 export { DateField } from "./field/DateField.tsx";
 export type { DateChip, DateFieldProps } from "./field/DateField.tsx";

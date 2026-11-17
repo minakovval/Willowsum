@@ -34,13 +34,14 @@ interface AccountRow {
   status: StoredAccount["status"];
   closed_on: string | null;
   source: StoredAccount["source"];
+  favourite: boolean;
 }
 
 // Dates as text, so no time zone of the driver touches them.
 const ACCOUNT_COLUMNS = `id, kind, name, institution_name, institution_country, institution_key, number_last4,
   number_sealed, note, annual_rate::text AS annual_rate, deposit_opened_on::text AS deposit_opened_on,
   deposit_matures_on::text AS deposit_matures_on, card_expires, opened_on::text AS opened_on, status,
-  closed_on::text AS closed_on, source`;
+  closed_on::text AS closed_on, source, favourite`;
 
 function account(row: AccountRow): StoredAccount {
   return {
@@ -61,6 +62,7 @@ function account(row: AccountRow): StoredAccount {
     status: row.status,
     closedOn: row.closed_on,
     source: row.source,
+    favourite: row.favourite,
   };
 }
 
@@ -251,6 +253,12 @@ export function accountsTx(q: ModuleQueryRunner): AccountsTx {
           a.cardExpiry,
           a.annualRate,
         ],
+      );
+    },
+    async setFavourite(householdId, accountId, favourite) {
+      await q.query(
+        `UPDATE accounts SET favourite = $3, updated_at = now() WHERE household_id = $1 AND id = $2`,
+        [householdId, accountId, favourite],
       );
     },
     async setStatus(householdId, accountId, status, closedOn) {

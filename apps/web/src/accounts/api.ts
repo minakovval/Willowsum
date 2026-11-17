@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { paths } from "@willowsum/api-contract";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
 
@@ -37,6 +37,8 @@ const MAX_PAGES = 20;
 export function useAccounts(includeClosed: boolean): {
   state: Loaded<readonly Account[]>;
   retry: () => void;
+  /** Changes one row on screen (the star of «Обране», FR 20) without reading the list again. */
+  patch: (id: string, change: Partial<Account>) => void;
 } {
   const api = useAuthApi();
   const [attempt, setAttempt] = useState(0);
@@ -80,7 +82,57 @@ export function useAccounts(includeClosed: boolean): {
     setState({ kind: "loading" });
     setAttempt((n) => n + 1);
   }, []);
-  return { state, retry };
+  const patch = useCallback((id: string, change: Partial<Account>) => {
+    setState((s) =>
+      s.kind === "ready"
+        ? { kind: "ready", data: s.data.map((a) => (a.id === id ? { ...a, ...change } : a)) }
+        : s,
+    );
+  }, []);
+  return { state, retry, patch };
+}
+
+/**
+ * The «Обране» star (FIN-01@PoC FR 20, `PATCH /v1/accounts/{id}/display`): the row changes at once and goes back if
+ * the server refuses, with `failed` set until the next change succeeds. One change per account at a time: a press
+ * while it is on its way sends nothing (`pending`).
+ */
+export function useFavourite(patch: (id: string, change: Partial<Account>) => void): {
+  toggle: (account: Account) => void;
+  pending: ReadonlySet<string>;
+  failed: boolean;
+} {
+  const api = useAuthApi();
+  const busy = useRef(new Set<string>());
+  const [pending, setPending] = useState<ReadonlySet<string>>(new Set());
+  const [failed, setFailed] = useState(false);
+  const toggle = useCallback(
+    (account: Account) => {
+      if (busy.current.has(account.id)) return;
+      busy.current.add(account.id);
+      setPending(new Set(busy.current));
+      const favourite = !account.favourite;
+      patch(account.id, { favourite });
+      void outcome(
+        api.PATCH("/v1/accounts/{accountId}/display", {
+          params: { path: { accountId: account.id } },
+          body: { favourite },
+        }),
+      ).then((o) => {
+        busy.current.delete(account.id);
+        setPending(new Set(busy.current));
+        if (o.ok) {
+          setFailed(false);
+          patch(account.id, { favourite: o.data.favourite });
+        } else {
+          setFailed(true);
+          patch(account.id, { favourite: account.favourite });
+        }
+      });
+    },
+    [api, patch],
+  );
+  return { toggle, pending, failed };
 }
 
 /** «Гроші разом», the debt of the «Кредитні» group and «Джерела даних» of the active accounts. */

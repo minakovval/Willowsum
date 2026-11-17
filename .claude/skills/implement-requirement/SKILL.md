@@ -65,6 +65,9 @@ For every new write endpoint labelled `sensitive:money`, also a test with two si
   `--views` and `--check-mentions` (0 errors), `--coverage` (every AC and EC of your view covered). Without
   Docker: `WS_TEST_PG_ADMIN_URL=postgres://postgres@127.0.0.1:5432/postgres pnpm db:test run -- <command>`.
   Traceability files and the report are not committed (generate on demand if you need to read them).
+- Text fingerprints (owner, 2026-11-16, items 6–8): once the tests and code match the view, run
+  `node tools/req-check/index.mjs --update-fingerprints <ID>` (the items your tests name) and commit
+  `<ID>.fingerprints.json`; `--check-fingerprints` must show 0 errors.
 - A PR that changes `migrations/`: before push, one more check — «old code + new schema» (ARC-03 FR 4, the CI
   step of the same name): `main`'s module tests on this branch's migrations (owner, 2026-11-15, #178, comment
   6891308063). With `main` checked out in a scratch worktree `<base>` (`git worktree add <base> origin/main`):
