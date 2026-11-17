@@ -2678,6 +2678,14 @@
       "x": 0,
       "y": 5460
     },
+    "PocTableTexts.dc.html": {
+      "h": 760,
+      "page": "poc",
+      "title": "CMP-26 Таблиця · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 5460
+    },
     "PocStepUp.dc.html": {
       "h": 800,
       "page": "poc",
@@ -4492,7 +4500,8 @@
     "PocDataImport4.dc.html",
     "PocDataImport5.dc.html",
     "PocMoneyTxTexts.dc.html",
-    "PocMoneyRulesTexts.dc.html"
+    "PocMoneyRulesTexts.dc.html",
+    "PocTableTexts.dc.html"
   ],
   "pages": [
     {
