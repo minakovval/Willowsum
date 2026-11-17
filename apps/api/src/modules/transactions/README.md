@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -177,9 +177,18 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     `TRANSACTION_MERGED`; уже підтверджена (у черзі) — нічого. Закритий рахунок не заважає (як і зміні категорії).
     Запис аудиту — `update` з полем `review`; журнал не змінюється. Зміна категорії чи транзакції після підтвердження
     в чергу не повертає.
+  - `GET /v1/transactions/{transactionId}/history` (`getTransactionHistory`, `household.data.read`; прапорець і ключ
+    `transactions.history`, потребує `transactions.manual`) — «Історія змін» деталі S-047 (FIN-03 п. 27, #439): записи
+    журналу аудиту простору (п. 20) сутностей `transactions.transaction` і `categorization.transaction-category` цієї
+    транзакції, від найстарішого (`domain/history.ts`), не відтворені з рядка. → `items`: `id`, `occurredAt` (UTC),
+    `actor` — відносно читача (`you`, `member`, `staff`, `system`; ідентифікатора акаунта немає), `channel`, `action`
+    (`create` / `update` / `delete`), `changes` (`field`, `before`, `after`, `masked`; замасковані — контрагент, опис,
+    нотатка — лише `•••` або null, хай що збережено; зміни інших записів групового запису відкинуто). Транзакція іншого
+    простору, невідома чи видалена — 404, журнал не читається; учасник з областю — 404.
 - `createTransactionsServices({ accounts, ledger, totals, audit, clock, newId, categories?, flags?, rates?, duplicates? })` →
   `TransactionsServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `AccountDirectory` модуля
-  accounts, `createLedger`, `createListTotals` (платформа) з `officialDatedRates` модуля fx-rates, журнал аудиту,
+  accounts, `createLedger`, `createListTotals` (платформа) з `officialDatedRates` модуля fx-rates, журнал аудиту (з
+  `entriesFor` — і джерело «Історії змін», без нього вона — 500),
   годинник; `CategoryDirectory` модуля categories (без нього «Розділити» — 500), середовище прапорців (без нього
   «Очікує» вимкнено), курси fx-rates (без них перекази — 500) і `DuplicateCheck` модуля duplicate-matching (без нього
   «Приховати транзакцію» — 500).
