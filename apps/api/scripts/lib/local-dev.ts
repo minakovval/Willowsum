@@ -148,6 +148,8 @@ export function assertLocalServer(adminUrl: string): void {
   };
   // pg parses a URL with a leading space differently (host `base`): refuse it before reading anything.
   if (adminUrl !== adminUrl.trim()) refuse("the URL has leading or trailing spaces");
+  // libpq has no URL fragment: `…#?host=<other>` connects to <other> while `new URL` sees an empty query.
+  if (adminUrl.includes("#")) refuse("the URL has a fragment");
   const u = new URL(adminUrl);
   const host = u.hostname.replace(/^\[|\]$/g, "");
   const params = new URLSearchParams(u.search);

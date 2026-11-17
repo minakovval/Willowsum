@@ -80,6 +80,8 @@ export interface AccountListItem {
   readonly source: "manual" | "import";
   /** The latest balance date the account has (lead decision 2026-11-14). */
   readonly updatedOn: string;
+  /** «Обране» (FIN-01 FR 20): the page shows it at the top of its group; the list keeps the order of adding. */
+  readonly favourite: boolean;
   /** The account's balance in the profile currency (a debt negative). */
   readonly inProfileCurrency: ReportedSum;
   /** Per subaccount: its balance in its own currency, then in the profile currency. */
@@ -337,6 +339,7 @@ export async function accountsPage(
       status: account.status,
       closedOn: account.closedOn,
       source: account.source,
+      favourite: account.favourite,
       updatedOn: subaccounts.reduce(
         (d, s) => (s.sub.balanceDate > d ? s.sub.balanceDate : d),
         subaccounts[0]!.sub.balanceDate,

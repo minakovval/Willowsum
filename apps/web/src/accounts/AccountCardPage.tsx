@@ -1,6 +1,15 @@
-import { useId, type ReactElement, type ReactNode } from "react";
+import { useId, useState, type ReactElement, type ReactNode } from "react";
 import { formatLocaleOf, useI18n, useT, type Locale, type MessageKey } from "@willowsum/i18n";
-import { Badge, Button, Icon, isIconName, Skeleton, Tooltip, TransactionRow } from "@willowsum/ui";
+import {
+  Badge,
+  Button,
+  Icon,
+  isIconName,
+  MenuButton,
+  Skeleton,
+  Tooltip,
+  TransactionRow,
+} from "@willowsum/ui";
 import {
   ACCOUNTS,
   accountIdOf,
@@ -25,6 +34,9 @@ import {
   type RecurringPayment,
 } from "./card.ts";
 import { maskedNumber, money, negated, shortDate } from "./format.ts";
+import { CloseAccountDialog } from "./CloseAccountDialog.tsx";
+import { UpdateBalanceDialog } from "./UpdateBalanceDialog.tsx";
+import { kyivToday } from "../recurring/data.ts";
 import "./accounts.css";
 import "./account-card.css";
 
@@ -65,27 +77,46 @@ function balanceDay(locale: Locale, isoDate: string): string {
  * the 12 columns: «Баланс» 8 + «Інформація» 4, «Транзакції» 8 + «Регулярні платежі» 4. An account of another space
  * is «Не знайдено» without its name (FIN-12@PoC AC6). A closed account is read only: no import (FR 8).
  */
-export function AccountCardPage() {
+export function AccountCardPage({ today = kyivToday() }: { today?: string }) {
   const accountId = accountIdOf(useHashPath()) ?? "";
+  // A change made in a dialog (FIN-12@PoC d) reads the whole card again: balance, transactions, the «…» menu.
+  const [round, setRound] = useState(0);
   // Another account is a fresh page: nothing of the previous one stays on screen while the new one loads.
-  return <AccountCard key={accountId} accountId={accountId} />;
+  return (
+    <AccountCard
+      key={`${accountId}#${round}`}
+      accountId={accountId}
+      today={today}
+      reload={() => setRound((n) => n + 1)}
+    />
+  );
 }
 
-function AccountCard({ accountId }: { accountId: string }) {
+function AccountCard({ accountId, today, reload }: { accountId: string; today: string; reload: () => void }) {
   const account = useAccount(accountId);
   if (account.state.kind === "missing") return <NotFoundPage />;
-  return <Card accountId={accountId} account={account.state} retry={account.retry} />;
+  return (
+    <Card accountId={accountId} account={account.state} retry={account.retry} today={today} reload={reload} />
+  );
 }
+
+/** Which dialog of the «…» menu is open (S-055, S-055a). */
+type Open = "none" | "balance" | "close";
 
 function Card({
   accountId,
   account,
   retry,
+  today,
+  reload,
 }: {
   accountId: string;
   account: Exclude<Block<AccountDetail>, { kind: "missing" }>;
   retry: () => void;
+  today: string;
+  reload: () => void;
 }) {
+  const [open, setOpen] = useState<Open>("none");
   const t = useT();
   const ready = account.kind === "ready" ? account.data : null;
   const title = ready?.name ?? t("page.account");
@@ -102,7 +133,26 @@ function Card({
         </>
       ) : (
         <>
-          <Head account={account.data} />
+          <Head account={account.data} onOpen={setOpen} />
+          {open === "balance" ? (
+            <UpdateBalanceDialog
+              account={account.data}
+              today={today}
+              onCancel={() => setOpen("none")}
+              onUpdated={reload}
+              onGone={reload}
+            />
+          ) : null}
+          {open === "close" ? (
+            <CloseAccountDialog
+              account={account.data}
+              today={today}
+              onCancel={() => setOpen("none")}
+              // Canvas PocMoneyCloseAcc: the closed account leaves the active list, which the page goes back to.
+              onClosed={() => window.location.assign(hrefFor(ACCOUNTS.path))}
+              onGone={reload}
+            />
+          ) : null}
           <div className="acard-grid">
             <BalanceCard account={account.data} />
             <InfoCard account={account.data} />
@@ -139,7 +189,7 @@ function Crumbs({ current }: { current: string }) {
  * and the currencies; the gear «Налаштування рахунку» (an icon link: tooltip and accessible name, no text label) and
  * «Імпортувати виписку».
  */
-function Head({ account: a }: { account: AccountDetail }) {
+function Head({ account: a, onOpen }: { account: AccountDetail; onOpen: (dialog: Open) => void }) {
   const t = useT();
   const mask = a.number ? maskedNumber(a.number.last4) : null;
   const under = [a.institution?.name, mask, a.currencies.map((c) => c.currency).join(", ")]
@@ -156,6 +206,8 @@ function Head({ account: a }: { account: AccountDetail }) {
         {under ? <p className="ws-muted">{under}</p> : null}
       </div>
       <div className="accounts-head-actions">
+        {/* FIN-12@PoC FR 8, FR 15: a closed account is read only — no «Оновити залишок», nothing to close. */}
+        {closed ? null : <MoreMenu onOpen={onOpen} />}
         <IconLink
           icon="settings"
           label={t("accountCard.settings")}
@@ -172,6 +224,42 @@ function Head({ account: a }: { account: AccountDetail }) {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * «…» «Ще дії» (GRID-02@PoC FR 15, AC9; CMP-61 «Кнопка «…»»; canvas PocMoneyAccount): «Оновити залишок» (S-055a) and
+ * «Закрити рахунок» (S-055), the dangerous one last after a separator. «Об'єднати з іншим рахунком» comes with its dialog
+ * and API (PR body): the menu shows no item that does nothing.
+ */
+function MoreMenu({ onOpen }: { onOpen: (dialog: Open) => void }) {
+  const t = useT();
+  return (
+    <MenuButton
+      menuLabel={t("accountCard.more")}
+      ariaLabel={t("accountCard.more")}
+      title={t("accountCard.more")}
+      placement="down"
+      align="end"
+      className="ws-icon-button"
+      items={[
+        {
+          id: "balance",
+          label: t("accountCard.menu.balance"),
+          icon: "edit",
+          onSelect: () => onOpen("balance"),
+        },
+        {
+          id: "close",
+          label: t("accountCard.menu.close"),
+          icon: "lock",
+          danger: true,
+          onSelect: () => onOpen("close"),
+        },
+      ]}
+    >
+      <Icon name="more" size={20} inButton />
+    </MenuButton>
   );
 }
 

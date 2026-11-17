@@ -902,3 +902,34 @@ describe("DAT-03@PoC FR 11 (#272 item 5): the undo's entry never comes before th
     expect(await groupEntries(space, r.id)).toHaveLength(2);
   });
 });
+
+describe("#280 security (#272 item 5): the undo's entry comes after the entries of every run, the last one too", () => {
+  it("DAT-03@PoC FR 11: two runs (interrupted, «Продовжити»), both runs' audit jobs dead — the undo writes run 1, run 2, then itself", async () => {
+    const space = await newSpace();
+    const ids = seed(space, 60);
+    const r = await start(space, byIds(ids));
+    failAtWrite = 5;
+    await work(space.householdId);
+    await work(space.householdId);
+    expect(await report(space, r.id)).toMatchObject({ status: "interrupted", changed: 4 });
+    const killRunAudits = () =>
+      db.owner.query(
+        `UPDATE bulk_actions.jobs SET state = 'dead', attempts = 8, finished_at = now()
+          WHERE household_id = $1 AND name = 'bulk-actions.audit' AND dedupe_key LIKE '%:run:%' AND state = 'queued'`,
+        [space.householdId],
+      );
+    await killRunAudits();
+    await call(space, "POST", `/v1/bulk-actions/${r.id}/resume`);
+    for (let i = 0; i < 20 && (await report(space, r.id)).status !== "completed"; i++)
+      await work(space.householdId);
+    expect(await report(space, r.id)).toMatchObject({ status: "completed", changed: 60 });
+    await killRunAudits();
+    expect(await groupEntries(space, r.id)).toHaveLength(0);
+    await call(space, "POST", `/v1/bulk-actions/${r.id}/undo`);
+    await drain(space.householdId);
+    const entries = await groupEntries(space, r.id);
+    expect(entries.map((e) => e.changes[0]!.field)).toEqual(["action", "action", "undo"]);
+    expect(entries[0]!.changes.slice(1).map((c) => c.record)).toEqual(ids.slice(0, 4));
+    expect(entries[1]!.changes.slice(1).map((c) => c.record)).toEqual(ids.slice(4));
+  });
+});

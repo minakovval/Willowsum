@@ -123,6 +123,23 @@ export type paths = {
         patch: operations["updateAccountDetails"];
         trace?: never;
     };
+    "/v1/accounts/{accountId}/display": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** «Обране»: set or clear the star of the account, a display flag — also on a closed account (FIN-01 FR 20, FIN-12 FR 8) */
+        patch: operations["updateAccountDisplay"];
+        trace?: never;
+    };
     "/v1/accounts/{accountId}/reopen": {
         parameters: {
             query?: never;
@@ -1641,6 +1658,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/transactions/transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** «Переказ між рахунками»: a transfer between two own accounts in one action — the debit, the credit and one journal event (FIN-03 FR 1, FR 28) */
+        post: operations["createTransfer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/transfer-proposals": {
         parameters: {
             query?: never;
@@ -1762,6 +1796,7 @@ export interface operations {
                                 rateDate: string | null;
                                 restricted: boolean;
                             }[];
+                            favourite: boolean;
                             /** @enum {string} */
                             group: "cash" | "credit";
                             /** Format: uuid */
@@ -1993,6 +2028,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2194,6 +2230,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2394,6 +2431,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -2854,6 +2892,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3189,6 +3228,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3321,6 +3361,205 @@ export interface operations {
             };
         };
     };
+    updateAccountDisplay: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    favourite: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The account after the change */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        adjustments: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            currency: string;
+                            date: string;
+                            /** Format: uuid */
+                            id: string;
+                            permanent: boolean;
+                        }[];
+                        closedOn: string | null;
+                        creditCard: {
+                            annualRate: string | null;
+                            available: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            cardExpiry: string | null;
+                            creditLimit: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            gracePeriodDays: number | null;
+                        } | null;
+                        currencies: {
+                            balance: {
+                                amount: string;
+                                currency: string;
+                            };
+                            balanceDate: string;
+                            currency: string;
+                        }[];
+                        deposit: {
+                            accrual: {
+                                accrued: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                days: number;
+                                daysToMaturity: number;
+                                matured: boolean;
+                            } | null;
+                            annualRate: string | null;
+                            maturesOn: string | null;
+                            openedOn: string | null;
+                        } | null;
+                        favourite: boolean;
+                        /** @enum {string} */
+                        group: "cash" | "credit";
+                        /** Format: uuid */
+                        id: string;
+                        institution: {
+                            country: string;
+                            name: string;
+                        } | null;
+                        /** @enum {string} */
+                        kind: "current" | "savings" | "deposit" | "cash" | "credit-card" | "loan";
+                        loan: {
+                            annualRate: string | null;
+                            debt: {
+                                amount: string;
+                                currency: string;
+                            };
+                            monthlyPayment: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            termsMissing: boolean;
+                        } | null;
+                        name: string;
+                        note: string | null;
+                        number: {
+                            last4: string;
+                            masked: string;
+                        } | null;
+                        openedOn: string;
+                        owners: {
+                            /** Format: uuid */
+                            ownerAccountId: string;
+                            /** @description Percent, a decimal string */
+                            share: string;
+                            validFrom: string;
+                            validTo: string | null;
+                        }[];
+                        savings: {
+                            annualRate: string | null;
+                        } | null;
+                        /** @enum {string} */
+                        source: "manual" | "import";
+                        /** @enum {string} */
+                        status: "active" | "closed";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     reopenAccount: {
         parameters: {
             query?: never;
@@ -3390,6 +3629,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3604,6 +3844,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -3807,6 +4048,7 @@ export interface operations {
                             maturesOn: string | null;
                             openedOn: string | null;
                         } | null;
+                        favourite: boolean;
                         /** @enum {string} */
                         group: "cash" | "credit";
                         /** Format: uuid */
@@ -18087,6 +18329,266 @@ export interface operations {
             };
             /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    createTransfer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Repeating a create with the same key and the same request returns the first response (kept 24 h); the same key with another request is 409. */
+                "Idempotency-Key"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    amount: {
+                        /** @description A positive plain decimal, e.g. 120.50 */
+                        amount: string;
+                        /** @description ISO 4217 code; the account's (subaccount's) currency */
+                        currency: string;
+                    };
+                    counterparty?: string | null;
+                    /** @description YYYY-MM-DD; never after today */
+                    date: string;
+                    description?: string | null;
+                    /** Format: uuid */
+                    fromAccountId: string;
+                    received?: {
+                        /** @description A positive plain decimal, e.g. 120.50 */
+                        amount: string;
+                        /** @description ISO 4217 code; the account's (subaccount's) currency */
+                        currency: string;
+                    };
+                    /** Format: uuid */
+                    toAccountId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The transfer's two transactions: the debit and the credit */
+            201: {
+                headers: {
+                    /** @description true when this is the stored response of an earlier request with the same key */
+                    "Idempotent-Replayed"?: "true";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        inflow: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedDuplicates: string[];
+                            mergedInto: string | null;
+                            note: string | null;
+                            recordedAt: string;
+                            review: ("queued" | "confirmed") | null;
+                            /** @enum {string} */
+                            source: "manual";
+                            split: {
+                                /** @enum {string} */
+                                mode: "categories" | "months";
+                                needsReview: boolean;
+                                parts: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                    month: string | null;
+                                }[];
+                            } | null;
+                            /** @enum {string} */
+                            status: "posted" | "pending";
+                            tags: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            transfer: {
+                                /** Format: uuid */
+                                counterpartId: string;
+                                date: string;
+                                fee: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                rate: {
+                                    date: string;
+                                    rate: string;
+                                    source: string;
+                                } | null;
+                                /** @enum {string} */
+                                side: "outflow" | "inflow";
+                            } | null;
+                            /** @enum {string} */
+                            type: "income" | "expense";
+                            version: number;
+                        };
+                        outflow: {
+                            /** Format: uuid */
+                            accountId: string;
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            counterparty: string | null;
+                            date: string;
+                            description: string | null;
+                            hidden: boolean;
+                            /** Format: uuid */
+                            id: string;
+                            mergedDuplicates: string[];
+                            mergedInto: string | null;
+                            note: string | null;
+                            recordedAt: string;
+                            review: ("queued" | "confirmed") | null;
+                            /** @enum {string} */
+                            source: "manual";
+                            split: {
+                                /** @enum {string} */
+                                mode: "categories" | "months";
+                                needsReview: boolean;
+                                parts: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /** Format: uuid */
+                                    categoryId: string;
+                                    month: string | null;
+                                }[];
+                            } | null;
+                            /** @enum {string} */
+                            status: "posted" | "pending";
+                            tags: {
+                                /** Format: uuid */
+                                id: string;
+                                name: string;
+                            }[];
+                            transfer: {
+                                /** Format: uuid */
+                                counterpartId: string;
+                                date: string;
+                                fee: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** Format: uuid */
+                                id: string;
+                                rate: {
+                                    date: string;
+                                    rate: string;
+                                    source: string;
+                                } | null;
+                                /** @enum {string} */
+                                side: "outflow" | "inflow";
+                            } | null;
+                            /** @enum {string} */
+                            type: "income" | "expense";
+                            version: number;
+                        };
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The idempotency key was used for another request, or that request is still running; The account is closed (ACCOUNT_CLOSED) */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

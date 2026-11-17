@@ -504,3 +504,48 @@ describe("ARC-04 follow-ups of #174 with the first real user of the queue (ARC-1
     ).toEqual({ events: 0, jobs: 0 });
   });
 });
+
+describe("ARC-02@PoC FR 2 on PostgreSQL: a failed step leaves no job claimed and no space mixed up", () => {
+  it("ARC-02@PoC FR 2: a claim that fails half-way in one space rolls back (the job stays queued, no lease), the other space runs in its own context, and the next pass takes the job", async () => {
+    for (const space of [spaceA, spaceB])
+      await databases.for(CONSUMER).inHousehold(space, (q) => enqueueJob(q, light, "x", { note: "l" }));
+    const setup = queueSetup(databases, b);
+    const consumer = setup.queues.find((q) => q.store.module === CONSUMER)!;
+    const real = consumer.store;
+    // The claim's UPDATE has already marked the job running when the per-job lease step throws.
+    const broken = {
+      ...real,
+      claim: (h: string, r: Parameters<typeof real.claim>[1]) =>
+        real.claim(
+          h,
+          h === spaceA
+            ? {
+                ...r,
+                leaseMs: () => {
+                  throw new Error("lease step failed");
+                },
+              }
+            : r,
+        ),
+    };
+    const w = worker(
+      {},
+      { ...setup, queues: setup.queues.map((q) => (q === consumer ? { ...q, store: broken } : q)) },
+    );
+    await w.tick();
+    await w.idle();
+    expect(
+      await rows("SELECT household_id, state, lease_owner, attempts FROM queue_consumer.jobs ORDER BY state"),
+    ).toEqual([
+      { household_id: spaceB, state: "done", lease_owner: null, attempts: 1 },
+      { household_id: spaceA, state: "queued", lease_owner: null, attempts: 0 },
+    ]);
+    // The job of spaceB wrote its effect in spaceB, not in the space whose step failed just before.
+    expect(await rows("SELECT household_id FROM queue_consumer.effects")).toEqual([{ household_id: spaceB }]);
+
+    await drain(worker());
+    expect(await rows("SELECT household_id, state FROM queue_consumer.jobs ORDER BY household_id")).toEqual(
+      [spaceA, spaceB].sort().map((household_id) => ({ household_id, state: "done" })),
+    );
+  });
+});

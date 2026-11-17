@@ -105,6 +105,9 @@ importers:
       '@willowsum/api-contract':
         specifier: workspace:*
         version: link:../../packages/api-contract
+      '@willowsum/domain-kernel':
+        specifier: workspace:*
+        version: link:../../packages/domain-kernel
       '@willowsum/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
