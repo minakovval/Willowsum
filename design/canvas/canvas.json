@@ -1976,6 +1976,14 @@
       "x": 1360,
       "y": 13620
     },
+    "PocMoneyTxDetailTexts.dc.html": {
+      "h": 2600,
+      "page": "poc",
+      "title": "S-047 Деталь транзакції · Тексти",
+      "w": 1280,
+      "x": 5440,
+      "y": 13620
+    },
     "PocMoneyTxEmpty.dc.html": {
       "h": 800,
       "is_interactive": true,
@@ -4285,6 +4293,7 @@
     "PocMoneyTxDetail.dc.html",
     "PocMoneyTxMenu.dc.html",
     "PocMoneyTxDetailNoReceipt.dc.html",
+    "PocMoneyTxDetailTexts.dc.html",
     "PocMoneyRules.dc.html",
     "PocMoneyRuleEdit.dc.html",
     "PocMoneyRuleEditStep2.dc.html",

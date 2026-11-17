@@ -21,7 +21,7 @@ import {
 import { useAuthApi } from "../auth/api.ts";
 import { maskedNumber } from "../accounts/format.ts";
 import { kyivToday } from "../recurring/data.ts";
-import { IMPORT_WIZARD_PATH } from "../routing/routes.ts";
+import { IMPORT_WIZARD_PATH, transactionPath } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import {
   ACCOUNT_KINDS,
@@ -198,7 +198,15 @@ function NewTransactionForm({
         onClose={onClose}
         title={t("newTx.title")}
         closeLabel={t("shell.close")}
-        actions={[{ label: t("newTx.done"), onClick: onClose, variant: "primary" }]}
+        actions={[
+          { label: t("newTx.done"), onClick: onClose },
+          // The text points to the details (S-047), where the category and the tags are changed (#462).
+          {
+            label: t("newTx.openTransaction"),
+            onClick: () => window.location.assign(hrefFor(transactionPath(partial.id))),
+            variant: "primary",
+          },
+        ]}
         error={<ErrorText text={t("newTx.partial")} />}
       />
     );
