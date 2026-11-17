@@ -5,6 +5,13 @@ import { outcome, useAuthApi } from "../auth/api.ts";
 import { POLL_MS } from "../transactions/bulk.ts";
 import { codeOf, type Run } from "./api.ts";
 
+/** The calendar day of an instant in the user's time zone (the deadline of «Відмінити» as the user's clock shows it). */
+const localDay = (iso: string): string => {
+  const d = new Date(iso);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+};
+
 /** The text of each refusal of «Відмінити» (BUD-14 «Стани інтерфейсу», README «Правила категорій»). */
 const UNDO_REFUSED: Readonly<Record<string, MessageKey>> = {
   RULE_RUN_UNDO_EXPIRED: "rules.run.expired",
@@ -67,7 +74,7 @@ export function RunNotice({
     } else setRefused(UNDO_REFUSED[codeOf(o) ?? ""] ?? "rules.run.error");
   };
 
-  const until = run.undo.until ? formatDate(locale, run.undo.until.slice(0, 10)) : null;
+  const until = run.undo.until ? formatDate(locale, localDay(run.undo.until)) : null;
   return (
     <section className="ws-card rules-run" role="status">
       <div className="rules-run-body">

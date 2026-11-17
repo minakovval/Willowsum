@@ -619,15 +619,56 @@ describe("BUD-14@PoC the run on existing transactions", () => {
     ).toBeGreaterThan(1);
   }, 10000);
 
-  it("BUD-14@PoC AC6: «Відмінити» after 7 days is refused with «Час для відміни минув»; a second one — «Запуск уже відмінено»", async () => {
-    const undo = `POST /v1/category-rule-runs/00000000-0000-4000-8000-0000000000f1/undo`;
+  const RUN_ID = "00000000-0000-4000-8000-0000000000f1";
+  const UNDO = `POST /v1/category-rule-runs/${RUN_ID}/undo`;
+  /** A fresh page load: the runs come from `GET /v1/category-rule-runs`, nothing from an earlier page. */
+  const reopen = (runs: Run[], over: Record<string, Handler> = {}) => {
+    const a = api(SIX(), { "GET /v1/category-rule-runs": { status: 200, body: { items: runs } }, ...over });
+    open(a);
+    return a;
+  };
+
+  it("BUD-14@PoC AC6: after a reload the newest run is read from the server; «Відмінити» on a run past 7 days is refused with «Час для відміни минув», a second one — «Запуск уже відмінено»", async () => {
     let code = "RULE_RUN_UNDO_EXPIRED";
-    await saveWithRun(run(), { [undo]: () => problem(409, code) });
-    fireEvent.click(screen.getByRole("button", { name: "Відмінити" }));
+    reopen([run({ createdAt: "2026-11-09T10:00:00Z" })], { [UNDO]: () => problem(409, code) });
+    fireEvent.click(await screen.findByRole("button", { name: "Відмінити" }));
     expect(await screen.findByText("Час для відміни минув")).toBeTruthy();
     code = "RULE_RUN_UNDONE";
     fireEvent.click(screen.getByRole("button", { name: "Відмінити" }));
     expect(await screen.findByText("Запуск уже відмінено")).toBeTruthy();
+  });
+
+  it("BUD-14@PoC FR 7: a page opened later shows «Відмінити» for the newest run still within 7 days, and sends the undo; a run that cannot be undone is not offered", async () => {
+    const a = reopen(
+      [
+        run({
+          id: "00000000-0000-4000-8000-0000000000f2",
+          createdAt: "2026-11-10T10:00:00Z",
+          undo: { available: false, until: null, restored: 0, notRestored: 0 },
+        }),
+        run({ createdAt: "2026-11-16T10:00:00Z" }),
+        run({ id: "00000000-0000-4000-8000-0000000000f3", createdAt: "2026-11-12T10:00:00Z" }),
+      ],
+      {
+        [UNDO]: {
+          status: 200,
+          body: run({
+            status: "undone",
+            undo: { available: false, until: null, restored: 14, notRestored: 0 },
+          }),
+        },
+      },
+    );
+    await loaded();
+    fireEvent.click(await screen.findByRole("button", { name: "Відмінити" }));
+    expect(await screen.findByText("Запуск відмінено: відновлено 14, не відновлено 0")).toBeTruthy();
+    expect(sent(a, "POST", `/v1/category-rule-runs/${RUN_ID}/undo`)).toHaveLength(1);
+  });
+
+  it("BUD-14@PoC FR 7: with no run that can be undone the page shows no run notice", async () => {
+    reopen([run({ undo: { available: false, until: null, restored: 0, notRestored: 0 } })]);
+    await loaded();
+    expect(screen.queryByRole("button", { name: "Відмінити" })).toBeNull();
   });
 
   it("BUD-14@PoC FR 7: «Відмінити» within 7 days sends the undo and shows what was restored", async () => {

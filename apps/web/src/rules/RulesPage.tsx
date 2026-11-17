@@ -1,4 +1,4 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent } from "react";
 import { useI18n, useT, type MessageKey } from "@willowsum/i18n";
 import {
   Badge,
@@ -71,6 +71,9 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
   const [duplicate, setDuplicate] = useState<string | null>(null);
   const [runError, setRunError] = useState<MessageKey | null>(null);
   const dragged = useRef<string | null>(null);
+  // WCAG 2.4.3: after «Вище» / «Нижче» the table is read again and React may re-insert the focused row, which drops
+  // the focus to the page; the same button of the same rule gets it back (the other one at the first or last place).
+  const refocus = useRef<{ id: string; dir: "up" | "down" } | null>(null);
 
   const list = rules.kind === "ready" ? rules.data : [];
   const say = (text: string) => setToast((prev) => ({ key: (prev?.key ?? 0) + 1, text }));
@@ -85,11 +88,15 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
     if (o.ok) {
       done?.();
       reload();
-    } else setFailure({ code: o.kind === "problem" ? o.supportId : undefined });
+    } else {
+      refocus.current = null;
+      setFailure({ code: o.kind === "problem" ? o.supportId : undefined });
+    }
   };
 
-  const move = (rule: Rule, position: number) => {
+  const move = (rule: Rule, position: number, keepFocus = false) => {
     if (position < 1 || position > list.length || position === rule.position) return;
+    refocus.current = keepFocus ? { id: rule.id, dir: position < rule.position ? "up" : "down" } : null;
     void act(() =>
       outcome(
         api.POST("/v1/category-rules/{ruleId}/move", {
@@ -99,6 +106,40 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
       ),
     );
   };
+  useLayoutEffect(() => {
+    const want = refocus.current;
+    if (!want) return;
+    refocus.current = null;
+    const row = document.getElementById(`rule-${want.id}`);
+    const named = (key: "rules.up" | "rules.down") =>
+      row?.querySelector<HTMLElement>(`button[aria-label="${t(key)}"]`) ?? null;
+    const [first, other] =
+      want.dir === "up" ? (["rules.up", "rules.down"] as const) : (["rules.down", "rules.up"] as const);
+    const button = named(first);
+    (button?.getAttribute("aria-disabled") === "true" ? named(other) : button)?.focus();
+  }, [rules, t]);
+
+  // BUD-14@PoC FR 7, AC6, AC15: «Відмінити» stays for 7 days, so the newest run that still runs or can be undone is
+  // read when the page opens (the server's 20 newest), not only the run this page started.
+  useEffect(() => {
+    let live = true;
+    void outcome(api.GET("/v1/category-rule-runs")).then((o) => {
+      if (!live || !o.ok) return;
+      const latest = [...o.data.items]
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .find(
+          (r) =>
+            r.status === "running" ||
+            r.status === "undoing" ||
+            (r.status === "completed" && r.undo.available),
+        );
+      if (latest) setRun((current) => current ?? latest);
+    });
+    return () => {
+      live = false;
+    };
+  }, [api]);
+
   const toggle = (rule: Rule, enabled: boolean) =>
     void act(() =>
       outcome(
@@ -141,11 +182,13 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
           <h1>{title}</h1>
           <p className="ws-muted">{t("rules.subtitle")}</p>
         </div>
-        <Button
-          variant="primary"
-          label={t("rules.new")}
-          onClick={() => setOpen({ kind: "edit", rule: null })}
-        />
+        {rules.kind === "off" ? null : (
+          <Button
+            variant="primary"
+            label={t("rules.new")}
+            onClick={() => setOpen({ kind: "edit", rule: null })}
+          />
+        )}
       </div>
 
       {rules.kind === "loading" ? (
@@ -241,7 +284,7 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
                       last={list.length}
                       busy={busy}
                       onToggle={(on) => toggle(rule, on)}
-                      onMove={(position) => move(rule, position)}
+                      onMove={(position) => move(rule, position, true)}
                       onEdit={() => setOpen({ kind: "edit", rule })}
                       onDelete={() => setOpen({ kind: "delete", rule })}
                       onDragStart={() => (dragged.current = rule.id)}
@@ -280,6 +323,7 @@ function RulesBody({ rules, refs, reload, title }: ReturnType<typeof useRules> &
         confirmLabel={t("rules.delete")}
         busyLabel={t("rules.deleting")}
         busy={busy}
+        error={failure ? t("rules.error.action") : undefined}
         onConfirm={() => open.kind === "delete" && remove(open.rule)}
       />
       {toast ? (
