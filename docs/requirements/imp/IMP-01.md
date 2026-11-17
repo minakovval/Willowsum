@@ -33,7 +33,7 @@
 - [MVP] Спільні правила: П-8, П-10, П-21, NFR-01, NFR-12
 - [MVP] Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-10, UC-IMP-17, UC-IMP-18, UC-IMP-21, UC-IMP-24, UC-IMP-03
 - [MVP] Модуль: import-sessions, file-parsers, file-storage, transactions, ocr
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/file-storage/adapters/inspection/inspect.test.ts, apps/api/src/modules/file-storage/adapters/isolation/run.test.ts, apps/api/src/modules/file-storage/application/upload-budget.test.ts
 
 **Мета.** Як користувач без підключеного банку, я хочу масово завантажувати виписки й експорти транзакцій з банків та інших сервісів у будь-якому поширеному форматі, щоб отримати свої транзакції в продукті без ручного введення, а оригінали файлів зберігалися як докази.
 

@@ -29,7 +29,7 @@
 - Спільні правила: П-24, NFR-01
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/platform/adapters/kms/kms.test.ts, apps/api/src/platform/adapters/kms/sec141-deployed.test.ts, apps/api/src/modules/household/space-keys.it.test.ts, apps/api/src/modules/household/sec141-space-keys.it.test.ts, tools/infra-check/test/start.test.mjs
+- Перевіряється: apps/api/src/platform/adapters/kms/kms.test.ts, apps/api/src/platform/adapters/kms/sec141-deployed.test.ts, apps/api/src/modules/household/space-keys.it.test.ts, apps/api/src/modules/household/sec141-space-keys.it.test.ts, tools/infra-check/test/start.test.mjs, apps/api/src/modules/file-storage/adapters/inspection/inspect.test.ts, apps/api/src/modules/file-storage/adapters/isolation/run.test.ts, apps/api/src/modules/file-storage/application/upload-budget.test.ts, apps/api/src/modules/file-storage/file-storage.it.test.ts, apps/api/src/modules/file-storage/file-storage.s3.test.ts
 
 #. [PoC–PoC v2] Конвертне шифрування: кожен простір має власний ключ даних (AES-256-GCM), обгорнутий головним ключем. Доступ до головного ключа — лише через порт KMS (адаптер `key-management`). PoC і PoC v2 розгортаються лише локально (рішення власника 2026-11-16): головний ключ дає локальний адаптер KMS, а справжній адаптер керованого KMS хмари хостингу (OCI Vault) — з MVP.
 #. [MVP] Конвертне шифрування: кожен простір має власний ключ даних (AES-256-GCM), обгорнутий головним ключем. Доступ до головного ключа — лише через адаптер KMS, що викликає керований KMS. Хостинг і резервні копії працюють за профілем «Старт», а головний ключ живе в керованому KMS хмари хостингу (OCI Vault в Oracle Cloud Infrastructure): значення ключа не залишає KMS, копій поза KMS немає.

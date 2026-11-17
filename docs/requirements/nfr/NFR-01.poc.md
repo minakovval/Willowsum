@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-8, П-10, П-24, П-26, ARC-03, ARC-06, ARC-07, CICD-02, CICD-12
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts, apps/api/test/fin12-details.it.test.ts, apps/web/src/settings/acc05b-settings.test.tsx, apps/web/src/settings/acc05b-step-up-secrets.test.tsx
+- Перевіряється: apps/api/src/modules/identity/identity.it.test.ts, apps/api/src/modules/identity/domain/rules.test.ts, apps/api/src/modules/identity/acc04-sessions.it.test.ts, apps/api/src/modules/identity/acc04-new-device.it.test.ts, apps/api/src/modules/identity/acc05-profile.it.test.ts, apps/api/src/modules/identity/domain/step-up.test.ts, apps/api/test/fin12-details.it.test.ts, apps/web/src/settings/acc05b-settings.test.tsx, apps/web/src/settings/acc05b-step-up-secrets.test.tsx, apps/api/src/modules/file-storage/application/signed-link.test.ts, apps/api/src/modules/file-storage/file-storage.it.test.ts
 
 **Мета.** Як користувач, що зберігає в Willowsum дані про весь капітал родини, я хочу, щоб дані були зашифровані, вхід захищений, а відомі вразливості закриті до релізу, щоб ризик витоку фінансових даних і захоплення акаунта був мінімальним.
 

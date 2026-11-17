@@ -10,6 +10,6 @@ export default defineConfig({
     // ARC-05: tests never reach the network (only this machine and the test database).
     setupFiles: [fileURLToPath(new URL("../../tools/test-guards/no-network.mjs", import.meta.url))],
     include: ["src/**/*.test.ts", "scripts/**/*.test.ts", "test/**/*.test.ts"],
-    exclude: ["**/*.it.test.ts", "**/node_modules/**", "test/fixtures/**", "test/.tmp/**"],
+    exclude: ["**/*.it.test.ts", "**/*.s3.test.ts", "**/node_modules/**", "test/fixtures/**", "test/.tmp/**"],
   },
 });

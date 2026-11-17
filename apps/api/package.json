@@ -7,6 +7,7 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:s3": "vitest run --config vitest.s3.config.ts",
     "check:modules": "node scripts/check-modules.ts",
     "check:schema": "node scripts/check-schema.ts",
     "check:migrations": "node scripts/check-migrations.ts",

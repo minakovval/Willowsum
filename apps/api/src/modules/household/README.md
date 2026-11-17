@@ -1,6 +1,6 @@
 # Модуль household
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-14 (ACC-06@PoC: валюта звітності простору)
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-17 (ARC-06@PoC п. 4: `sealBytes` / `openBytes` для файлів)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -50,6 +50,9 @@ AC1, AC2 — серверна частина (валюта звітності �
   - `seal(householdId, field, text)` → `ws1.…` — AES-256-GCM ключем простору, прив'язано до простору й поля (до 4096 символів);
   - `open(householdId, field, sealed)` → текст; інакше `SpaceKeyError` (`SEALED_VALUE_INVALID`, `SPACE_KEY_MISSING`,
     `SPACE_KEY_DESTROYED`);
+  - `sealBytes(householdId, purpose, bytes)` / `openBytes(householdId, purpose, sealed)` — байти файлу (≤ 32 МіБ) ключем
+    простору, AES-256-GCM, прив'язано до простору й призначення `<вид>:<id>` (ARC-06@PoC п. 4; file-storage: `file:<id>`);
+    чуже призначення чи простір — `SEALED_VALUE_INVALID`;
   - `rewrapAll()` → `{ rewrapped, provisioned, failed }` — щоденна задача `household.space-keys` (`src/wiring.ts`); нова
     обгортка перевіряється розгортанням до збереження; кожне переобгортання — запис `household.space-key`/`update`
     (`masterKeyVersion`) у журналі простору;
