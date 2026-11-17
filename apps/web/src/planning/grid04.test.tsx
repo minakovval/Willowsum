@@ -41,7 +41,13 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
   it("GRID-04@PoC FR 1: the three blocks are empty slots of one height — they stretch in one row", () => {
     renderAt("#/planning/budget", fakeApi({}).client);
     const slots = document.querySelectorAll("[data-plan-page='budget'] > [data-empty='true']");
-    expect(slots).toHaveLength(4);
+    expect([...slots].map((e) => e.getAttribute("data-plan-region"))).toEqual([
+      "spendable",
+      "income",
+      "recurring",
+    ]);
+    // The page is not blank until its screen comes: the shell's empty state stays.
+    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
     expect(css).toContain("align-items: stretch;");
     expect(css).toContain("grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));");
     expect(css).toContain("gap: var(--ws-gutter);");
@@ -50,6 +56,7 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
   it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", () => {
     renderAt("#/planning/goals", fakeApi({}).client);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Цілі");
+    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
     expect(regions("goals")).toEqual([
       ["list", "4"],
       ["detail", "8"],
@@ -93,6 +100,12 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     expect(sections).toEqual(["Гроші", "Планування"]);
     expect(navLabels()).toEqual(["Бюджет", "Цілі", "Регулярні платежі", "Борги"]);
     expect(navLabels()).not.toContain("Звіти");
+  });
+
+  it("GRID-04@PoC AC6, EC3: without any debt «Борги» opens and shows its empty state", async () => {
+    renderAt("#/planning/debts", fakeApi({ "GET /v1/debts": { status: 200, body: { debts: [] } } }).client);
+    expect(await screen.findByRole("heading", { name: "Боргів не додано" })).toBeTruthy();
+    expect(navLabels()).toContain("Борги");
   });
 
   it("GRID-04@PoC FR 7, AC3: every page of «Планування» opens; «Тільки бюджет» is not in the PoC shell", () => {
