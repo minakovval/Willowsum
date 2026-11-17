@@ -25,7 +25,6 @@ const SKELETONS = [
   "import-sessions",
   "file-parsers",
   "import-recipes",
-  "file-storage",
   "staff-admin",
   "notification-delivery",
 ];
