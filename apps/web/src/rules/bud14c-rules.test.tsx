@@ -646,8 +646,9 @@ describe("BUD-14@PoC the run on existing transactions", () => {
           createdAt: "2026-11-10T10:00:00Z",
           undo: { available: false, until: null, restored: 0, notRestored: 0 },
         }),
-        run({ createdAt: "2026-11-16T10:00:00Z" }),
+        // An older run that can be undone comes first, so the newest one is found by its date, not by its place.
         run({ id: "00000000-0000-4000-8000-0000000000f3", createdAt: "2026-11-12T10:00:00Z" }),
+        run({ createdAt: "2026-11-16T10:00:00Z" }),
       ],
       {
         [UNDO]: {
