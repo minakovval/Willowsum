@@ -10,7 +10,7 @@
 - Спільні правила: П-6, П-10, П-11, CMP-03, NFR-01
 - Сценарії: UC-BUD-63, UC-BUD-64, UC-BUD-66, UC-BUD-68, UC-BUD-65, UC-BUD-67, UC-BUD-69
 - Модуль: transactions, categorization
-- Перевіряється: apps/api/src/modules/transactions/domain/bud12-review.test.ts, apps/api/test/bud12-review.it.test.ts, apps/api/src/modules/merchants/domain/bud12-merchant-groups.test.ts, apps/api/test/bud12-merchant-groups.it.test.ts
+- Перевіряється: apps/api/src/modules/transactions/domain/bud12-review.test.ts, apps/api/test/bud12-review.it.test.ts, apps/api/src/modules/merchants/domain/bud12-merchant-groups.test.ts, apps/api/test/bud12-merchant-groups.it.test.ts, apps/web/src/transactions/bud12b-review.test.tsx, packages/ui/src/toast/Toast.test.tsx, apps/web/src/gallery.test.tsx
 
 **Мета.** Як власник бюджету, я хочу швидко переглядати нові транзакції в черзі «До розбору» і підтверджувати або виправляти їхню категорію, щоб бюджет і звіти спиралися на перевірені дані.
 

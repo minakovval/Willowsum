@@ -420,6 +420,39 @@ describe("FIN-01@PoC FR 19, FR 21: the «Кредитні» header and «Дже�
     expect(row.loan).toBeNull();
   });
 
+  it("FIN-12@PoC FR 1: the «Готівкові» group has its own total in the profile currency (#424) — cash accounts only, a card's debt and a loan left out, closed accounts too", async () => {
+    const space = await newSpace();
+    await create(space, cash("Щоденний", "5000.10", "EUR"));
+    await create(space, cash("Готівка", "0.20", "EUR", { kind: "cash" }));
+    await create(space, cash("Гривні", "829680.00", "UAH"));
+    await create(space, card("Картка", "1200.00", "5000.00"));
+    await create(space, {
+      kind: "loan",
+      name: "Іпотека",
+      balance: { amount: "120000.00", currency: "EUR" },
+      annualRate: "4.2",
+      monthlyPayment: "650.00",
+    });
+    const closed = await create(space, cash("Старий", "77.00", "EUR"));
+    await db.owner.query(
+      `UPDATE accounts.accounts SET status = 'closed', closed_on = '2026-11-01' WHERE household_id = $1 AND id = $2`,
+      [space.householdId, closed],
+    );
+    const s = await summary(space);
+    const uah = new Decimal("829680").div(EUR_UAH);
+    expect(s.cash).toMatchObject({ approximate: false, unavailableCount: 0 });
+    expect(s.cash.total.currency).toBe("EUR");
+    expect(new Decimal(s.cash.total.amount).toDecimalPlaces(2).toFixed(2)).toBe(
+      new Decimal("5000.30").plus(uah).toDecimalPlaces(2).toFixed(2),
+    );
+    // «{cash} готівкові − {credit} кредитні»: the two parts give «Гроші разом» exactly.
+    expect(new Decimal(s.cash.total.amount).minus(s.credit.cardDebt.total.amount).toString()).toBe(
+      new Decimal(s.moneyTogether.total.amount).toString(),
+    );
+    const empty = await summary(await newSpace("Петро Інший"));
+    expect(empty.cash.total).toEqual({ amount: "0", currency: "EUR" });
+  });
+
   it("FIN-01@PoC FR 21: «Джерела даних» counts the active accounts imported and entered by hand", async () => {
     const space = await newSpace();
     const imported = await create(space, cash("Виписка", "10.00", "EUR"));

@@ -19,7 +19,7 @@ const SOURCE: Readonly<Record<string, MessageKey>> = {
 
 /**
  * FIN-01@PoC FR 13, FR 14, FR 16, FR 19, FR 22 (canvas PocMoneyAccounts): one group of the list — «Готівкові» with the
- * number of active accounts, or «Кредитні» with the card debt (what is owed to the banks, not the sum of limits) and
+ * number of active accounts and the group's total from the API (#424), or «Кредитні» with the card debt (what is owed to the banks, not the sum of limits) and
  * a separate «Кредити: −<сума>» line. The heading is plain text, with no «›» and no teaser mark. Each row: the name with the
  * masked number and, under it, the institution; type; currency («N валюти» for a multi-currency account, whose row
  * opens its sub-accounts); source and the date of the last update; the balance in the profile currency with the
@@ -43,6 +43,7 @@ export function AccountGroup({
   const active = accounts.filter((a) => a.status === "active").length;
   const profile =
     summary?.currency ?? accounts.find((a) => a.inProfileCurrency.total)?.inProfileCurrency.total?.currency;
+  const cashTotal = summary?.cash.total ?? null;
   const cardDebt = summary?.credit.cardDebt.total ?? null;
   const loanDebt = summary?.credit.loanDebt.total ?? null;
   const hasLoans = accounts.some((a) => a.kind === "loan" && a.status === "active");
@@ -59,6 +60,11 @@ export function AccountGroup({
               : counted(t, locale, "accounts.group.credit.count", active)}
           </p>
         </div>
+        {group === "cash" && cashTotal ? (
+          <div className="accounts-group-sum">
+            <p className="accounts-strong">{money(locale, cashTotal)}</p>
+          </div>
+        ) : null}
         {group === "credit" ? (
           <div className="accounts-group-sum">
             {cardDebt ? <p className="accounts-strong">{money(locale, negated(cardDebt))}</p> : null}

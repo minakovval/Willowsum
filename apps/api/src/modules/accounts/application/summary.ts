@@ -61,6 +61,11 @@ export interface AccountsSummary {
     /** Largest equivalent first; currencies without a rate last. */
     readonly breakdown: readonly CurrencyShare[];
   };
+  /**
+   * The «Готівкові» header (FR 14; board S-050, #424): the cash accounts' total in the profile currency, so «Гроші
+   * разом» reads «{cash} готівкові − {credit} кредитні» without summing in the browser.
+   */
+  readonly cash: ReportedSum;
   /** The «Кредитні» header (FR 19): what is owed on cards, and «Кредити: −<сума>»; both positive debts. */
   readonly credit: { readonly cardDebt: ReportedSum; readonly loanDebt: ReportedSum };
   /** «Джерела даних» (FR 21): active accounts per source. */
@@ -230,8 +235,9 @@ export async function accountsSummary(
   const nets = netByCurrency(balancesWhere(inMoneyTogether));
   const debts = (kind: AccountKind) =>
     netByCurrency(balancesWhere((k) => k === kind).map((m) => m.negated()));
-  const [together, cards, loans] = await Promise.all([
+  const [together, cashOnly, cards, loans] = await Promise.all([
     today(deps, nets),
+    today(deps, netByCurrency(balancesWhere((k) => groupOf(k) === "cash"))),
     today(deps, debts("credit-card")),
     today(deps, debts("loan")),
   ]);
@@ -267,6 +273,7 @@ export async function accountsSummary(
           : null,
       breakdown: ordered.map((i, n) => ({ ...i, percent: percents[n] ?? null })),
     },
+    cash: reportedSum(cashOnly),
     credit: { cardDebt: reportedSum(cards), loanDebt: reportedSum(loans) },
     sources: {
       import: accounts.filter((a) => a.source === "import").length,

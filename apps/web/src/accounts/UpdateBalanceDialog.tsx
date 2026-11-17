@@ -5,7 +5,7 @@ import { AmountField, Dialog, Icon, Select } from "@willowsum/ui";
 import { useAuthApi } from "../auth/api.ts";
 import type { AccountDetail } from "./card.ts";
 import { maskedNumber, money, negated } from "./format.ts";
-import { updateBalance } from "./manage.ts";
+import { fieldIssue, updateBalance } from "./manage.ts";
 
 /** «на 2 листопада» (uk), «on 2 November» (en): the day without the year. */
 function longDay(locale: string, isoDate: string): string {
@@ -42,6 +42,7 @@ export function UpdateBalanceDialog({
   const [currency, setCurrency] = useState(account.currencies[0]?.currency ?? "");
   const [value, setValue] = useState<string | null>(null);
   const [required, setRequired] = useState(false);
+  const [refused, setRefused] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ key: MessageKey; supportId?: string | undefined } | null>(null);
 
@@ -56,7 +57,7 @@ export function UpdateBalanceDialog({
   // An amount outside NUMERIC(38,18) throws in the kernel: show no difference and let the server refuse it.
   let difference: Money | null = null;
   try {
-    if (current && value !== null) {
+    if (current && value !== null && !(debt && value.startsWith("-"))) {
       const entered = Money.of(value, current.currency);
       difference = (debt ? entered.negated() : entered).minus(
         Money.of(current.balance.amount, current.currency),
@@ -79,6 +80,7 @@ export function UpdateBalanceDialog({
     if (o.ok) return onUpdated();
     if (o.kind === "problem" && (o.problem.code === "NOT_FOUND" || o.problem.code === "ACCOUNT_CLOSED"))
       return onGone();
+    if (fieldIssue(o, "balance.amount") !== null) return setRefused(true);
     setFailure({
       key: "accountBalance.error.failed",
       supportId: o.kind === "problem" ? o.supportId : undefined,
@@ -138,9 +140,16 @@ export function UpdateBalanceDialog({
           currency={current.currency}
           value={value}
           hint={t(debt ? "accountBalance.hint.debt" : "accountBalance.hint")}
-          error={required && value === null ? t("accountBalance.error.required") : undefined}
+          error={
+            required && value === null
+              ? t("accountBalance.error.required")
+              : refused
+                ? t("accountBalance.error.amount")
+                : undefined
+          }
           onChange={(v) => {
             setFailure(null);
+            setRefused(false);
             setValue(v);
           }}
         />

@@ -484,13 +484,21 @@ describe("IMP-02@PoC FR 1, FR 13, FR 14: the account as a container with a walle
     expect(before.view.currencies).toEqual([
       { currency: "UAH", balance: money("13000", "UAH"), balanceDate: "2026-10-01" },
     ]);
-    // Every account of the database keeps a main wallet (position 0) and at most one wallet per currency.
+    // #290 item 6: the database itself keeps this account one main wallet (position 0) and one wallet per currency —
+    // a second UAH wallet or a second main one is refused, not just absent on a fresh database.
     const { rows } = await db.owner.query(
-      `SELECT count(*)::int AS without_main FROM accounts.accounts a
-        WHERE NOT EXISTS (SELECT 1 FROM accounts.subaccounts s
-                           WHERE s.household_id = a.household_id AND s.account_id = a.id AND s.position = 0)`,
+      `SELECT position, currency FROM accounts.subaccounts WHERE household_id = $1 AND account_id = $2`,
+      [space.householdId, id],
     );
-    expect(rows).toEqual([{ without_main: 0 }]);
+    expect(rows).toEqual([{ position: 0, currency: "UAH" }]);
+    const wallet = (position: number, currency: string) =>
+      db.owner.query(
+        `INSERT INTO accounts.subaccounts (household_id, account_id, id, currency, position, ledger_account_id, balance_date)
+         VALUES ($1, $2, $3, $4, $5, $6, '2026-10-01')`,
+        [space.householdId, id, randomUUID(), currency, position, randomUUID()],
+      );
+    await expect(wallet(1, "UAH")).rejects.toMatchObject({ code: "23505" });
+    await expect(wallet(0, "PLN")).rejects.toMatchObject({ code: "23505" });
 
     expect((await addCurrency(space, id, money("0", "EUR"))).statusCode).toBe(200);
     expect((await removeCurrency(space, id, "EUR")).statusCode).toBe(200);

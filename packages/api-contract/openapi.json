@@ -2067,6 +2067,48 @@
                       ],
                       "additionalProperties": false
                     },
+                    "cash": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "approximate": {
+                          "type": "boolean"
+                        },
+                        "unavailableCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "total",
+                        "approximate",
+                        "unavailableCount"
+                      ],
+                      "additionalProperties": false
+                    },
                     "credit": {
                       "type": "object",
                       "properties": {
@@ -2185,6 +2227,7 @@
                   "required": [
                     "currency",
                     "moneyTogether",
+                    "cash",
                     "credit",
                     "sources"
                   ],
