@@ -62,8 +62,8 @@ needs no owner decision (`tools/pr-rules`, `OWNER_DECISION_PATHS`), but every ow
   contradictions between that area's PoC slices, their cards and the canvas boards (or turns them into owner
   questions) before the first code row of the section. Server and screen sections of one area share the sweep
   of the first of them unless the screens add boards of their own.
-- **Follow-up sweep** (owner, 2026-11-13): a recurring row `R` — after every 8–10 merged PRs, one PR that closes
-  the small open follow-ups (`pr-pipeline` «1. Per requirement part»); count it as ≈ (plan rows / 9) PRs.
+- **Follow-up sweep**: a row `R` only when the lead proposes it and the owner agrees (`pr-pipeline` step 9); it is
+  not scheduled by count.
 - **Estimate**: the PR count per section and in total (with the sweeps and the follow-up PRs), and the number of
   Ч PRs.
 

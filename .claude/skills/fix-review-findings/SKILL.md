@@ -43,8 +43,8 @@ fixes every blocking item, CI green, the new head SHA.
 
 ## 3. Non-blocking
 
-Do not fix non-blocking items in this commit unless they are one-line and safe. List each under «Follow-ups»
-in the PR body / report; the lead opens the issue. A security finding left unfixed in `main`: in «Follow-ups» only one line (module, rule broken); the probe, test and patch stay in the reviewer's scratchpad `keep/` file for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the probe, test and patch go into the issue or PR as usual; from the start of MVP planning this rule is in force.
+Fix the small non-blocking items in this same fix round. List under «Follow-ups» in the PR body / report only an
+item about money, data or security, or one that breaks a requirement item; the lead opens the issue. A security finding left unfixed in `main`: in «Follow-ups» only one line (module, rule broken); the probe, test and patch stay in the reviewer's scratchpad `keep/` file for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then the probe, test and patch go into the issue or PR as usual; from the start of MVP planning this rule is in force.
 
 A decision this round records (the lead's choice between patches, a small detail) goes into a **new file**
 `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (a numeric suffix if the name is taken; owner, 2026-11-13),

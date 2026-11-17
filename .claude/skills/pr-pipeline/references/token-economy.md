@@ -67,8 +67,8 @@ once, per `message.model` (owner, 2026-11-15). A resumed agent's notice shows it
 `get_session` → `usage` includes the agents; the lead's own share: `session` on `~/.claude/projects/<dir>/<id>.jsonl`.
 
 **Script** (owner, 2026-11-14, #178): `tools/token-report` ([README](../../../../tools/token-report/README.md);
-tests `node --test 'tools/token-report/**/*.test.mjs'`). Run `pr` **right after the merge**: agent logs vanish with
-the container.
+tests `node --test 'tools/token-report/**/*.test.mjs'`). Save each merged PR's agent numbers in `tokens.tsv` **right
+after the merge**: agent logs vanish with the container; run `pr` for the batch rows (item 2) while the logs exist.
 ```bash
 node tools/token-report/index.mjs pr --pr <n> --type <код|UI|вимоги|процес|виправлення> --rounds "<раунди>" \
   --run role=author,log=<tasks/…output>,ms=<duration_ms>,tokens=<subagent_tokens> \
@@ -102,16 +102,18 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
    from its #180 comment ([README](../../../../tools/token-report/README.md)). Рішення ведучого (2026-11-16;
    власник не схвалював; #360): the row includes the agents, as the rows since «ведучий 3» do; the lead's own
    share (`session --since <start>`) goes into the retrospective.
-2. **PR.** In the same turn as the merge (owner, 2026-11-13), append the script's row to «PR»: every author, fix,
-   reviewer and confirmation run of that PR (follow-up and fix agents of the same PR included).
+2. **PR.** In a batch every 3 merges, with the #179 state update (not after each merge), append the script's rows
+   to «PR»: every author, fix, reviewer and confirmation run of each PR (follow-up and fix agents included).
 3. **Analysis** (owner, 2026-11-15, #178): no weekly «Аналіз» note; the process review ([restarts](restarts.md))
    draws its conclusions from #180: which PR types cost most (sum and per PR, tokens and time) and the lead's share.
-   Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)): once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the pace from 2026-11-16 on, not earlier days (owner, 2026-11-16, Ultra, item 4): the mean time
-   from opening a PR to its merge, review sessions per PR and cost per merged PR (from #180); if one of them did not
-   improve, tell the owner in two or three lines; why: the brief's «Як перевірити, що спрацювало».
+   Once stage 1 of `docs/plans/poc-wave-2.md` is done, compare with the pace from 2026-11-16 on, not earlier days:
+   the mean time from opening a PR to its merge, review sessions per PR and cost per merged PR (from #180); if one
+   of them did not improve, tell the owner in two or three lines.
 
 ## Session retrospective
 
-With the process review and at the end of a session (owner, 2026-11-14/15, #178; not at a compaction: [restarts](restarts.md), «After compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs); proposals with risks,
-downsides and mitigations (→ #178 and item 4 of the handover table); risks — plus the «Сесії» row («Token
-accounting» item 1; that row is written at a compaction too) and a short note to the owner in chat. [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
+With the process review and at the end of a session (not at a compaction: [restarts](restarts.md), «After
+compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs);
+proposals with risks, downsides and mitigations (→ #178 and item 4 of the handover table); risks — plus the «Сесії»
+row («Token accounting» item 1; written at a compaction too) and a short note to the owner in chat.
+[Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).

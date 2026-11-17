@@ -1,8 +1,8 @@
 # Process limits: how to check and apply them
 
-**Створено:** 2026-11-16 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-17
 
-Read when a lead segment starts, before taking a new plan row, when a PR adds text to the lead's rules, or when a
+Read when a lead segment starts, when a PR adds text to the lead's rules, or when a
 review finds a security defect that will not be fixed in the same PR. The rules themselves are in the files named
 in each heading; this file only says how to apply them.
 
@@ -22,19 +22,11 @@ write «огляд процесу: не настав (N PR, H год)» in «Lea
 comment starts with `## Огляд процесу ведучого N`, so the next check finds it. More than 3 proposals → the 3 with
 the largest expected saving go to the owner, the rest are listed in #178 under «Чекає наступного огляду».
 
-## Follow-up limit (`pr-pipeline/SKILL.md`, step 9)
+## Follow-ups (`pr-pipeline/SKILL.md`, step 9)
 
-```bash
-gh api 'search/issues?q=repo:minakovval/Willowsum+is:issue+is:open+in:title+follow-ups' --jq .total_count
-```
-
-Run it before taking a new plan row. A follow-up issue is one whose title has «Follow-ups» or «follow-ups»; the lead
-names every such issue that way. More than 40 → the next free author slot gets row `R` (modules with no open PR,
-security items first) and new rows wait for the slots after it; the rows already in work continue. This applies from
-the end of stage 1 (Рахунки) of `docs/plans/poc-wave-2.md`, «Порядок етапів»; until then, while more than 40 are
-open, one author slot, no more, stays on row `R`. A security
-follow-up that two sweeps left open: add a row for it to the wave plan in the next plan-status PR and link the
-issue from the row.
+No count of open follow-ups schedules a sweep. Open money and data-loss follow-ups get a plan row in the next
+plan-status PR (linked from the row); the rest are sorted once into closed or the MVP list. A sweep (row `R`) runs
+only when the lead proposes it and the owner agrees.
 
 ## Size of the lead's rules (`pr-pipeline/references/lead-communication.md`, «Rule text»)
 
