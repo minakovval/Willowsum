@@ -50,7 +50,7 @@
 - [лише v1-mobile] Сценарії: UC-BUD-63, UC-BUD-64, UC-BUD-66, UC-BUD-68, UC-BUD-65, UC-BUD-67, UC-BUD-69
 - [v1] Сценарії: UC-BUD-63, UC-BUD-64, UC-BUD-66, UC-BUD-68, UC-BUD-65, UC-BUD-67, UC-BUD-69, UC-BUD-80
 - Модуль: transactions, categorization
-- Перевіряється: apps/api/src/modules/transactions/domain/bud12-review.test.ts, apps/api/test/bud12-review.it.test.ts
+- Перевіряється: apps/api/src/modules/transactions/domain/bud12-review.test.ts, apps/api/test/bud12-review.it.test.ts, apps/api/src/modules/merchants/domain/bud12-merchant-groups.test.ts, apps/api/test/bud12-merchant-groups.it.test.ts
 
 **Мета.** Як власник бюджету, я хочу швидко переглядати нові транзакції в черзі «До розбору» і підтверджувати або виправляти їхню категорію, щоб бюджет і звіти спиралися на перевірені дані.
 
