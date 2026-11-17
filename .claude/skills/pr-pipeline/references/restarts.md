@@ -53,6 +53,7 @@ last comment read.
    existing owner decision. Rule changes, requirement changes, PoC scope changes and closing issues as not needed
    become questions to the owner with a recommendation; any disagreement with the review session is shown to the owner.
 4. A comment in #480 never starts a new review round of a PR that is already Ready.
+5. Every 2 days (when ≥ 2 days have passed since the last «Сесія рев'ю» report in #480) the lead starts the external review as a separate session with a clean context, per [external review](../../../references/external-review.md), and records the date of the launch and the report in #179.
 
 **Reviewer small-fix trial** (2026-11-17 → 2026-11-19, `review-pr` §7): after the two days the lead shows the owner:
 new follow-up items per day, how much CI time was added, and how many reviewer commits had to be reverted.
