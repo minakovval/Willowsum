@@ -188,3 +188,8 @@
   outline: 3px solid var(--ws-focus);
   outline-offset: 2px;
 }
+
+/* The board's menu is 240 px wide: «Об’єднати з іншою…» stays on one line. */
+.cat-more .ws-menu {
+  min-width: calc(var(--ws-space-8) * 4 - var(--ws-space-4));
+}
