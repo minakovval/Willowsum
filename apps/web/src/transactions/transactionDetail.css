@@ -175,7 +175,7 @@
 
 .txd-tag-remove:focus-visible,
 .txd-add:focus-visible {
-  outline: 3px solid var(--ws-focus);
+  outline: 3px solid var(--ws-focus-ring-color);
   outline-offset: 2px;
 }
 
@@ -237,7 +237,7 @@
 }
 
 .txd-input:focus-visible {
-  outline: 3px solid var(--ws-focus);
+  outline: 3px solid var(--ws-focus-ring-color);
   outline-offset: 2px;
 }
 

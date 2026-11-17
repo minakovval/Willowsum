@@ -248,6 +248,58 @@ describe("DS-06@PoC colour tokens", () => {
     );
   });
 
+  it("DS-06@PoC FR 7: one shared rule gives the focus ring `focus` on ordinary surfaces and `on-brand` on `brand`, in both themes, at least 3 : 1 to its surface", () => {
+    const base = readFileSync(join(stylesDir, "base.css"), "utf8");
+    const decl = cssDeclarations(base);
+    const val = (selector: string, property: string) =>
+      decl.find((d) => d.selector === selector && d.property === property)?.value;
+    expect(val(":root", "--ws-focus-ring-color")).toBe("var(--ws-focus)");
+    expect(val(".ws-surface-brand", "--ws-focus-ring-color")).toBe("var(--ws-on-brand)");
+    // A subtree in the other theme recomputes the default; popups on surface-200 in a brand panel get `focus` back.
+    expect(val("[data-theme]", "--ws-focus-ring-color")).toBe("var(--ws-focus)");
+    expect(
+      val(".ws-surface-brand :is(.ws-menu, .ws-dropdown-panel, .ws-filter-panel)", "--ws-focus-ring-color"),
+    ).toBe("var(--ws-focus)");
+    expect(val(":focus-visible", "outline")).toBe(
+      "var(--ws-focus-ring-width) solid var(--ws-focus-ring-color)",
+    );
+    for (const theme of ["light", "dark"] as const) {
+      expect(contrastRatio(colors["on-brand"][theme], colors.brand[theme])).toBeGreaterThanOrEqual(3);
+      for (const surface of ["surface-100", "surface-200", "surface-300"] as const)
+        expect(
+          contrastRatio(colors.focus[theme], colors[surface][theme]),
+          `${theme} ${surface}`,
+        ).toBeGreaterThanOrEqual(3);
+    }
+    // A component never sets its own ring colour on a brand surface.
+    const components = readFileSync(join(stylesDir, "components.css"), "utf8");
+    expect(
+      cssDeclarations(components).filter(
+        (d) =>
+          /\.ws-selection-bar/.test(d.selector) &&
+          /focus/.test(d.selector) &&
+          d.property.startsWith("outline"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("DS-06@PoC AC12: an element in focus on `brand` gets the `on-brand` ring (3 : 1 to brand), on surface-100, -200 and -300 the `focus` ring", () => {
+    const base = readFileSync(join(stylesDir, "base.css"), "utf8");
+    const ringColour = (surface: "brand" | "surface-100" | "surface-200" | "surface-300") => {
+      const decl = cssDeclarations(base);
+      const own = decl.find(
+        (d) => d.selector === ".ws-surface-brand" && d.property === "--ws-focus-ring-color",
+      )!.value;
+      const dflt = decl.find((d) => d.selector === ":root" && d.property === "--ws-focus-ring-color")!.value;
+      return surface === "brand" ? own : dflt;
+    };
+    expect(ringColour("brand")).toBe("var(--ws-on-brand)");
+    for (const s of ["surface-100", "surface-200", "surface-300"] as const)
+      expect(ringColour(s)).toBe("var(--ws-focus)");
+    for (const theme of ["light", "dark"] as const)
+      expect(contrastRatio(colors["on-brand"][theme], colors.brand[theme])).toBeGreaterThanOrEqual(3);
+  });
+
   it("DS-06@PoC EC1: in forced colours the focus ring is an outline and controls keep a border", () => {
     const base = readFileSync(join(stylesDir, "base.css"), "utf8");
     const focus = cssDeclarations(base).filter((d) => d.selector === ":focus-visible");

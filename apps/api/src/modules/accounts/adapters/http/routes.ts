@@ -528,7 +528,12 @@ const listItemSchema = z.object({
   /** Each subaccount in its own currency and in the profile currency. */
   currencies: z.array(convertedSchema),
   creditCard: z
-    .object({ creditLimit: moneySchema.nullable(), debt: moneySchema, available: moneySchema.nullable() })
+    .object({
+      creditLimit: moneySchema.nullable(),
+      gracePeriodDays: z.number().int().nullable(),
+      debt: moneySchema,
+      available: moneySchema.nullable(),
+    })
     .nullable(),
   loan: z
     .object({
@@ -549,6 +554,7 @@ function presentItem(item: AccountListItem): z.input<typeof listItemSchema> {
     currencies: item.currencies.map(convertedOut),
     creditCard: item.creditCard && {
       creditLimit: maybeMoney(item.creditCard.creditLimit),
+      gracePeriodDays: item.creditCard.gracePeriodDays,
       debt: money(item.creditCard.debt),
       available: maybeMoney(item.creditCard.available),
     },

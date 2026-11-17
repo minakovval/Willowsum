@@ -93,6 +93,8 @@ export interface AccountListItem {
   readonly currencies: readonly ConvertedAmount[];
   readonly creditCard: {
     readonly creditLimit: Money | null;
+    /** FIN-01 FR 19: the stored number of days, shown as «пільговий період N днів»; no date, nothing computed. */
+    readonly gracePeriodDays: number | null;
     readonly debt: Money;
     readonly available: Money | null;
   } | null;
@@ -361,6 +363,7 @@ export async function accountsPage(
         account.kind === "credit-card"
           ? {
               creditLimit: liability?.creditLimit ?? null,
+              gracePeriodDays: liability?.gracePeriodDays ?? null,
               debt,
               available: liability?.creditLimit ? availableCredit(liability.creditLimit, debt) : null,
             }

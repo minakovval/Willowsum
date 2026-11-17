@@ -37,7 +37,7 @@ describe("CMP-32@PoC FilterBar styles", () => {
       /inset:\s*calc\(\(var\(--ws-touch-target\) - var\(--ws-space-5\)\) \/ -2\)/,
     );
     expect(css).toMatch(
-      /\.ws-filter-chip__remove:focus-visible,[\s\S]*?outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus\);\s*outline-offset:\s*var\(--ws-focus-ring-offset\)/,
+      /\.ws-filter-chip__remove:focus-visible,[\s\S]*?outline:\s*var\(--ws-focus-ring-width\) solid var\(--ws-focus-ring-color\);\s*outline-offset:\s*var\(--ws-focus-ring-offset\)/,
     );
     expect(rule(".ws-filter-rows")).toMatch(/gap:\s*var\(--ws-space-3\)/);
   });

@@ -64,7 +64,7 @@ describe("CMP-26@PoC Table styles", () => {
     expect(rule(".ws-dtable-row:hover").background).toBe("var(--ws-surface-100)");
     expect(rule('.ws-dtable-row[data-selected="true"]').background).toBe("var(--ws-surface-300)");
     for (const sel of [".ws-dtable-row:focus-visible", ".ws-dtable-sort:focus-visible"]) {
-      expect(rule(sel).outline).toBe("var(--ws-focus-ring-width) solid var(--ws-focus)");
+      expect(rule(sel).outline).toBe("var(--ws-focus-ring-width) solid var(--ws-focus-ring-color)");
       expect(rule(sel)["outline-offset"]).toBe("calc(var(--ws-focus-ring-width) * -1)");
     }
     expect(rule('.ws-dtable-sort[data-sort="desc"]').color).toBe("var(--ws-ink)");

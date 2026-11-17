@@ -74,7 +74,7 @@ describe("CMP-03@PoC Select styles", () => {
 
   it("CMP-03@PoC AC3: in focus a 3 px `focus` ring with a 2 px offset is drawn and the border turns `ink`", () => {
     expect(rule(base, ":focus-visible")).toContain(
-      "outline: var(--ws-focus-ring-width) solid var(--ws-focus);",
+      "outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);",
     );
     expect(px("focus-ring-width")).toBe(3);
     expect(px("focus-ring-offset")).toBe(2);
@@ -146,7 +146,7 @@ describe("CMP-03@PoC Select styles", () => {
 
   it("CMP-03@PoC AC3: the active option has an inset 2 px `focus` ring; the search field ring sits 2 px outside it", () => {
     expect(rule(components, ".ws-select-option--active")).toContain(
-      "box-shadow: inset 0 0 0 2px var(--ws-focus);",
+      "box-shadow: inset 0 0 0 2px var(--ws-focus-ring-color);",
     );
     expect(rule(components, ".ws-select-search:focus-within")).toContain(
       "outline-offset: var(--ws-focus-ring-offset);",

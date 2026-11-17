@@ -1326,6 +1326,7 @@ export const en: Messages = {
   "accounts.favourite.remove": "Remove from favourites",
   "accounts.favourite.error": "Couldn't change favourites. Please try again.",
   "accounts.card.terms": "Limit {limit} · available {available}",
+  "accounts.card.grace": "grace period {days} days",
   "accounts.loan.terms": "{rate}% · {payment} / mo.",
   "accounts.closed": "Closed",
   "accounts.closed.none": "No closed accounts",
