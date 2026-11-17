@@ -388,7 +388,8 @@ interface MenuActions {
  * The «…» of a category (board: «Перейменувати», «Іконка і колір» | «Об’єднати з іншою…», «Приховати»):
  * - «Обов’язкова» — a check item, expenses only (FR 11, AC15);
  * - merge and hide — not for «Переказ» and «Коригування» (FR 3); a hidden category shows «Показати» instead of
- *   «Приховати» and is not merged (the server refuses a hidden source as it refuses a hidden target);
+ *   «Приховати» and offers no merge until it is shown again (a screen choice: the server refuses only a hidden
+ *   target, `mergeProblem` in module `categories`);
  * - «Видалити» — last, only when the server says the category is custom and empty (FR 12, AC18); a custom category
  *   that is not empty gets the explanation instead (AC19); a system one never offers it (AC7).
  */
