@@ -3,7 +3,7 @@ import { FILE_LIMITS, reject } from "../domain/index.ts";
 /**
  * Sizes on the request stream (ARC-06@PoC FR 4, NFR-15@PoC FR 18): one budget per upload request, shared by its
  * files. The declared length of the request is refused at once when it is over 150 MiB; then each file is read
- * chunk by chunk and the reading stops — the stream is destroyed — as soon as the file passes 25 MiB or the request
+ * chunk by chunk and the reading stops — the stream is destroyed — the moment the file passes 25 MiB or the request
  * passes 150 MiB, before the rest is buffered or its type is checked. Every upload path reads files through a budget.
  */
 export interface UploadBudget {
