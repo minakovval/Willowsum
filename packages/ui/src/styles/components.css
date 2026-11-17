@@ -1582,6 +1582,16 @@
   margin: 0;
 }
 
+/* In a form the line stands right above the buttons on the right with an info mark, and keeps its room when empty. */
+.ws-dialog-foot:has(> .ws-dialog-actions[data-bar="form"]) > .ws-dialog-note {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-text-body-sm-line);
+  text-align: end;
+}
+
 /* Equal buttons of one size in one row, 12 px apart; a full-width column (primary on top) when they do not fit. */
 .ws-dialog-actions {
   display: grid;
@@ -1608,6 +1618,176 @@
 /* The running main action keeps its look and shows its busy label. */
 .ws-dialog-action[aria-busy="true"] {
   cursor: progress;
+}
+
+/* The bar of a form: «Скасувати» at the start; «Назад», «Далі» and the main action at the end, each its own width. */
+.ws-dialog-actions[data-bar="form"] {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ws-dialog-actions[data-bar="form"] > .ws-dialog-action:first-child {
+  margin-inline-end: auto;
+}
+
+/*
+ * CMP-21@PoC «Форма створення або редагування сутності»: one column, every field full width, 16 px between the
+ * fields; one hint on top. All steps share one grid cell: the dialog keeps the height of the tallest step and the
+ * bar does not move; the steps not shown are hidden (and inert).
+ */
+.ws-form-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-form-steps {
+  display: grid;
+}
+
+.ws-form-step {
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 1;
+  gap: var(--ws-space-4);
+  min-width: 0;
+}
+
+.ws-form-step[inert] {
+  visibility: hidden;
+}
+
+/* «Додатково»: a full-width 44 px heading button; collapsed by default. */
+.ws-form-more {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-form-more-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-ink);
+  font: inherit;
+  font-weight: var(--ws-text-label-weight);
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-form-more-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-4);
+}
+
+.ws-form-more-body[hidden] {
+  display: none;
+}
+
+/*
+ * The step indicator, `dialog` size (CMP-21@PoC п. 8; card Stepper): 44 px pills (the hit area), padding 0 10 px 0
+ * 8 px, a 20 px circle with an 11 px bold number, the name Inter 13/18 px 500, 10 × 1 px `border-control` dashes.
+ */
+.ws-stepper {
+  display: flex;
+  align-items: center;
+  margin: calc(-1 * var(--ws-space-3)) 0 calc(-1 * var(--ws-space-1));
+  margin-inline-start: calc(-1 * var(--ws-space-2));
+  padding: 0;
+  list-style: none;
+}
+
+.ws-stepper-item {
+  display: flex;
+  align-items: center;
+}
+
+.ws-stepper-dash {
+  flex: none;
+  width: calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  height: 1px;
+  background: var(--ws-border-control);
+}
+
+.ws-stepper-step {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-height: var(--ws-touch-target);
+  padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2) 0 var(--ws-space-2);
+  border: 0;
+  border-radius: var(--ws-radius-pill);
+  background: transparent;
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-label-size);
+  line-height: calc(var(--ws-space-4) + var(--ws-space-1) / 2);
+  font-weight: var(--ws-text-label-weight);
+  white-space: nowrap;
+}
+
+button.ws-stepper-step {
+  cursor: pointer;
+}
+
+button.ws-stepper-step[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.ws-stepper-mark {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: calc(var(--ws-space-4) + var(--ws-space-1));
+  height: calc(var(--ws-space-4) + var(--ws-space-1));
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-badge-size);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.ws-stepper-mark svg {
+  width: var(--ws-space-3);
+  height: var(--ws-space-3);
+}
+
+.ws-stepper-step[data-state="current"] {
+  background: var(--ws-tint-info);
+  font-weight: var(--ws-text-action-weight);
+}
+
+.ws-stepper-step[data-state="current"] .ws-stepper-mark {
+  background: var(--ws-brand);
+  color: var(--ws-on-brand);
+}
+
+.ws-stepper-step[data-state="done"] .ws-stepper-mark {
+  background: var(--ws-gain);
+  color: var(--ws-surface-200);
+}
+
+/* «З помилкою»: «!» in `loss` on `tint-negative` — DS-06 AC9, the warning colours never mark an error. */
+.ws-stepper-step[data-state="error"] .ws-stepper-mark {
+  background: var(--ws-tint-negative);
+  color: var(--ws-loss);
+}
+
+.ws-stepper-step[data-state="unavailable"] {
+  color: var(--ws-disabled-ink);
+}
+
+.ws-stepper-step[data-state="unavailable"] .ws-stepper-mark {
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
 }
 
 /*

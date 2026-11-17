@@ -12,6 +12,12 @@ const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " 
  * `screen.getByRole(…, { name })` about 0.9 s; under a loaded full run that passed the 5 s limit.
  * Queries by label or by accessible name are scoped to the part of the page they test.
  */
+const openDialog = (role: "dialog" | "alertdialog", name: string) => {
+  const el = document.querySelector<HTMLElement>("dialog.ws-dialog")!;
+  expect(el.getAttribute("role") ?? "dialog").toBe(role);
+  expect(document.getElementById(el.getAttribute("aria-labelledby")!)!.textContent).toBe(name);
+  return within(el);
+};
 const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
 
 describe("/gallery/tokens (DS-22)", () => {
@@ -466,6 +472,9 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       "long",
       "split",
       "wide",
+      "form",
+      "short",
+      "word",
     ]);
     for (const opener of openers) {
       opener.focus();
@@ -481,21 +490,51 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
     }
   });
 
+  it("CMP-21@PoC AC13: the gallery form «Нова ціль» has three steps, «Далі» on step 1 and the main action inactive until the required fields are filled", () => {
+    render(<App />);
+    act(() => document.querySelector<HTMLButtonElement>('button[data-case="form"]')!.click());
+    const scoped = openDialog("dialog", "Нова ціль");
+    const dialog = document.querySelector<HTMLElement>("dialog.ws-dialog")!;
+    const steps = scoped.getByRole("list", { name: "Кроки форми" });
+    expect(steps.querySelectorAll("li")).toHaveLength(3);
+    const bar = () => [...dialog.querySelectorAll(".ws-dialog-action")].map((b) => b.textContent);
+    expect(bar()).toEqual(["Скасувати", "Далі", "Додати ціль"]);
+    const submit = scoped.getByRole("button", { name: "Додати ціль" });
+    expect(submit.getAttribute("aria-disabled")).toBe("true");
+    expect(norm(dialog.querySelector(".ws-dialog-note")!.textContent)).toBe(
+      "Щоб продовжити, заповніть: Назва, Цільова сума",
+    );
+    fireEvent.change(scoped.getByLabelText(/^Назва/), { target: { value: "Відпустка" } });
+    const amount = scoped.getByLabelText(/^Цільова сума/);
+    act(() => amount.focus());
+    fireEvent.change(amount, { target: { value: "3000" } });
+    expect(submit.getAttribute("aria-disabled")).toBeNull();
+    act(() => within(dialog).getByRole("button", { name: "Далі" }).click());
+    expect(bar()).toEqual(["Скасувати", "Назад", "Далі", "Додати ціль"]);
+  });
+
+  it("CMP-21@PoC AC4: the gallery «Закрити акаунт?» keeps its action inactive until «ВИДАЛИТИ» is typed", () => {
+    render(<App />);
+    act(() => document.querySelector<HTMLButtonElement>('button[data-case="word"]')!.click());
+    const dialog = openDialog("alertdialog", "Закрити акаунт?");
+    const action = dialog.getByRole("button", { name: "Закрити акаунт" });
+    expect(action.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.change(dialog.getByLabelText("Введіть ВИДАЛИТИ, щоб підтвердити"), {
+      target: { value: "ВИДАЛИТИ" },
+    });
+    expect(action.getAttribute("aria-disabled")).toBeNull();
+  });
+
   it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
     vi.useFakeTimers();
     try {
       render(<App />);
       act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
-      act(() =>
-        within(screen.getByRole("alertdialog")).getByRole("button", { name: "Видалити рахунок" }).click(),
-      );
-      expect(
-        within(screen.getByRole("alertdialog"))
-          .getByRole("button", { name: "Видаляємо…" })
-          .getAttribute("aria-busy"),
-      ).toBe("true");
+      const dialog = () => openDialog("alertdialog", "Видалити рахунок «Monobank»?");
+      act(() => dialog().getByRole("button", { name: "Видалити рахунок" }).click());
+      expect(dialog().getByRole("button", { name: "Видаляємо…" }).getAttribute("aria-busy")).toBe("true");
       act(() => vi.advanceTimersByTime(1200));
-      const alert = within(screen.getByRole("alertdialog")).getByRole("alert");
+      const alert = dialog().getByRole("alert");
       expect(norm(alert.textContent)).toMatch(/^Помилка Не вдалося видалити рахунок/);
     } finally {
       vi.useRealTimers();
