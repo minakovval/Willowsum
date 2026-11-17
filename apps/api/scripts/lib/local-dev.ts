@@ -142,10 +142,15 @@ export function parsePrompt(line: string): PromptCommand {
 }
 
 /** `pnpm local:dev` resets cluster-wide role passwords and may drop ws_dev: only a server on this machine. */
-export function assertLocalServer(adminUrl: string): void {
+export function assertLocalServer(
+  adminUrl: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): void {
   const refuse = (where: string): never => {
     throw new Error(`not a local PostgreSQL (${where}); pnpm local:dev runs only on this machine`);
   };
+  // PGHOSTADDR / PGSERVICE in the environment send libpq elsewhere whatever the URL says (#452).
+  if (env["PGHOSTADDR"] || env["PGSERVICE"]) refuse("PGHOSTADDR or PGSERVICE is set");
   // pg parses a URL with a leading space differently (host `base`): refuse it before reading anything.
   if (adminUrl !== adminUrl.trim()) refuse("the URL has leading or trailing spaces");
   // libpq has no URL fragment: `…#?host=<other>` connects to <other> while `new URL` sees an empty query.
@@ -154,6 +159,8 @@ export function assertLocalServer(adminUrl: string): void {
   const host = u.hostname.replace(/^\[|\]$/g, "");
   const params = new URLSearchParams(u.search);
   const socket = params.get("host") ?? "";
+  // `service=` reads a pg_service.conf entry whose hostaddr / port win over the URL's host in libpq.
+  if (params.has("service")) refuse("the URL names a service");
   if (host !== "") {
     // libpq lets ?host= / ?hostaddr= override the authority: with either present the real target is not `host`.
     if (params.has("host") || params.has("hostaddr")) refuse(`${host} with ${socket || "hostaddr"}`);

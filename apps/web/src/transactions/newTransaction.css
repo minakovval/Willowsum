@@ -1,0 +1,74 @@
+/* FIN-03@PoC d): S-048 «Нова транзакція» — canvas PocMoneyNewTx, PocMoneyNewTxStep2, PocMoneyNewTxStep3, *Acc, *Cat,
+   *Date, *NoAcc. One column, the label above the field, 16 px between fields. */
+.newtx {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+}
+
+.newtx .ws-stepper {
+  margin-inline-start: calc(var(--ws-space-2) * -1);
+}
+
+/* The short forms «Новий рахунок» and «Нова категорія»: one column, 16 px between fields. The steps of the main form
+   use CMP-21's `.ws-form-steps` (all steps in one grid cell, so the dialog keeps one height and the bar never moves). */
+.newtx-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-4);
+}
+
+/* Step 1: the hint and «Імпортувати виписку» on one line (UX-09 AC8), so the step fits a 720 px window. */
+.newtx-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.newtx-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+/* FIN-03@PoC FR 23: the counterparty is its initials on a grey tile (no logos in PoC). */
+.newtx-initials {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-badge-size);
+  font-weight: 600;
+}
+
+.newtx-noaccount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+}
+
+.newtx-noaccount .ws-select {
+  align-self: stretch;
+}
+
+.newtx-pair {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--ws-space-3);
+}
+
+.newtx-error {
+  margin: 0;
+}
+
+.newtx-code {
+  display: block;
+  color: var(--ws-ink-muted);
+}

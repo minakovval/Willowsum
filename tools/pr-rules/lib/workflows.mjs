@@ -55,7 +55,12 @@ export function jobNames(yamlText) {
   // `success` (#243 item 2): a job that needs it just for ordering, or only prints it, would otherwise drop it from
   // the required list unseen. Accepted: `needs.<key>.result == 'success'`, or a variable set from it and tested as
   // `test "$VAR" = "success"` / `[ "$VAR" = success ]`.
+  // Not accepted either (#452): a step-level `if:` or `continue-on-error` anywhere in the job (the comparing step may
+  // be skipped or its failure ignored), and a job-level `if:` with `always()` or `||` (the job runs, or the
+  // comparison is decided, whatever the parts did).
   const comparesToSuccess = (text, key) => {
+    if (/^ {6,}(- )?(if|continue-on-error):/m.test(text) || /^ {4}continue-on-error:/m.test(text)) return false;
+    if (/^ {4}if:.*(always\(\)|\|\|)/m.test(text)) return false;
     const k = key.replace(/-/g, '\\-');
     if (new RegExp(`needs\\.${k}\\.result\\s*==\\s*'success'`).test(text)) return true;
     const bound = text.matchAll(new RegExp(`^\\s*(\\w+):\\s*\\$\\{\\{\\s*needs\\.${k}\\.result\\s*\\}\\}\\s*$`, 'gm'));

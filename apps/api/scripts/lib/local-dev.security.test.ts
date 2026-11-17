@@ -97,6 +97,20 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
     expect(() => assertFreshAllowed("ws_t_cray_feh4dh_0a1b2c3d", true)).toThrow(/only the development/);
   });
 
+  it("refuses PGHOSTADDR and PGSERVICE in the environment, which send libpq to another host (#452)", () => {
+    expect(() => assertLocalServer(ADMIN, {})).not.toThrow();
+    expect(() => assertLocalServer(ADMIN, { PGHOSTADDR: "10.0.0.5" })).toThrow(/not a local/);
+    expect(() => assertLocalServer(ADMIN, { PGSERVICE: "remote" })).toThrow(/not a local/);
+    expect(() => assertLocalServer("postgres:///x?host=/tmp", { PGHOSTADDR: "10.0.0.5" })).toThrow(
+      /not a local/,
+    );
+  });
+
+  it("sec456: refuses a URL that names a service (a pg_service.conf entry's hostaddr wins over the URL's host in libpq)", () => {
+    expect(() => assertLocalServer(`${ADMIN}?service=remote`, {})).toThrow(/not a local/);
+    expect(() => assertLocalServer("postgres:///x?host=/tmp&service=remote", {})).toThrow(/not a local/);
+  });
+
   it("accepts a Unix socket directory", () => {
     expect(() => assertLocalServer("postgres:///x?host=/tmp")).not.toThrow();
     expect(() => assertLocalServer("postgres:///x?host=/var/run/postgresql")).not.toThrow();

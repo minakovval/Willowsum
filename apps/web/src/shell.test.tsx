@@ -210,10 +210,10 @@ describe("UX-09@PoC navigation", () => {
     expect(window.location.hash).toBe("#/planning/budget");
     expect(screen.getByRole("menu", { name: "Додати" })).toBeTruthy();
 
+    // FIN-03@PoC d): the form «Нова транзакція» (S-048) opens over the page the user is on.
     key("KeyT", items[0]!);
-    go(window.location.hash);
-    expect(window.location.hash).toBe("#/money/transactions/new");
-    expect(h1()).toBe("Нова транзакція");
+    expect(window.location.hash).toBe("#/planning/budget");
+    expect(screen.getByRole("dialog", { name: "Нова транзакція" })).toBeTruthy();
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
@@ -221,8 +221,8 @@ describe("UX-09@PoC navigation", () => {
     render(<App />);
     act(() => screen.getByRole("button", { name: "Додати" }).click());
     follow(screen.getByRole("menuitem", { name: "Транзакція" }));
-    expect(h1()).toBe("Нова транзакція");
-    follow(screen.getByRole("link", { name: "Імпортувати виписку" }));
+    const form = screen.getByRole("dialog", { name: "Нова транзакція" });
+    follow(within(form).getByRole("link", { name: "Імпортувати виписку" }));
     expect(window.location.hash).toBe("#/import");
     expect(h1()).toBe("Імпорт виписки");
     expect(screen.queryByRole("navigation", { name: "Основна навігація" })).toBeNull();
