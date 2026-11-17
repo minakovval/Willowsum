@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ApiClient, paths } from "@willowsum/api-contract";
 import {
   isIconName,
@@ -9,6 +9,7 @@ import {
   type TransactionSort,
 } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
+import { filterParams, isTxFilters, NO_FILTERS, type FilterNames, type TxFilters } from "./filters.ts";
 
 /**
  * FIN-03@PoC c), DAT-01@PoC — what S-046 «Транзакції» reads: one numbered page of `GET /v1/transactions` (the server
@@ -24,17 +25,24 @@ type Account =
 type CategoryGroups =
   paths["/v1/categories"]["get"]["responses"]["200"]["content"]["application/json"]["groups"];
 
-/** What the list keeps when the user leaves and comes back (DAT-01@PoC FR 7, AC1): page, size, sort, search. */
+/** What the list keeps when the user leaves and comes back (DAT-01@PoC FR 7, AC1): page, size, sort, search, filters. */
 export interface ListView {
   page: number;
   pageSize: PageSize;
   sort: TransactionSort;
   search: string;
+  filters: TxFilters;
 }
 
 /** FIN-03@PoC FR 13: «Дата і час», the newest first. */
 export const DEFAULT_SORT: TransactionSort = { column: "when", direction: "desc" };
-export const DEFAULT_VIEW: ListView = { page: 1, pageSize: 25, sort: DEFAULT_SORT, search: "" };
+export const DEFAULT_VIEW: ListView = {
+  page: 1,
+  pageSize: 25,
+  sort: DEFAULT_SORT,
+  search: "",
+  filters: NO_FILTERS,
+};
 
 /** The columns the server sorts by (the whitelist of the list) and the field each one asks for. */
 const SORT_FIELD: Partial<Record<TransactionColumn, string>> = {
@@ -49,7 +57,8 @@ export const SEARCH_MAX_LENGTH = 200;
 
 /**
  * A stored view as the list can send it (DAT-01@PoC FR 7): a page from 1, a size of the page-size choice, a sortable
- * column with its direction and a search the server accepts; anything else and the list starts from `DEFAULT_VIEW`.
+ * column with its direction, a search the server accepts and filters of the right shape; anything else and the list
+ * starts from `DEFAULT_VIEW`.
  */
 export function isListView(value: unknown): value is ListView {
   if (typeof value !== "object" || value === null) return false;
@@ -64,7 +73,8 @@ export function isListView(value: unknown): value is ListView {
     (SORTABLE as readonly unknown[]).includes(sort.column) &&
     (sort.direction === "asc" || sort.direction === "desc") &&
     typeof v.search === "string" &&
-    v.search.length <= SEARCH_MAX_LENGTH
+    v.search.length <= SEARCH_MAX_LENGTH &&
+    isTxFilters(v.filters)
   );
 }
 
@@ -142,6 +152,7 @@ function categoryIndex(groups: CategoryGroups): Map<string, TransactionCategory>
 
 export async function loadPage(api: ApiClient, view: ListView): Promise<Loaded<ListPage>> {
   const query = view.search.trim();
+  const filter = [...(query ? [`search.has:${query}`] : []), ...filterParams(view.filters)];
   const list = await outcome(
     api.GET("/v1/transactions", {
       params: {
@@ -149,7 +160,7 @@ export async function loadPage(api: ApiClient, view: ListView): Promise<Loaded<L
           page: String(view.page),
           pageSize: String(view.pageSize) as "25" | "50" | "100",
           sort: sortParam(view.sort),
-          ...(query ? { filter: `search.has:${query}` } : {}),
+          ...(filter.length > 0 ? { filter } : {}),
         },
       },
     }),
@@ -190,9 +201,9 @@ export function useTransactionsPage(view: ListView): {
 } {
   const api = useAuthApi();
   const [attempt, setAttempt] = useState(0);
-  const { page, pageSize, sort, search } = view;
+  const { page, pageSize, sort, search, filters } = view;
   // The answer remembers what it answers: while it is not the current view's, the next page is on its way.
-  const key = JSON.stringify([page, pageSize, sort.column, sort.direction, search, attempt]);
+  const key = JSON.stringify([page, pageSize, sort.column, sort.direction, search, filters, attempt]);
   const [answer, setAnswer] = useState<{ key: string; state: Loaded<ListPage> }>({
     key: "",
     state: { kind: "loading" },
@@ -202,10 +213,13 @@ export function useTransactionsPage(view: ListView): {
     const settle = (state: Loaded<ListPage>) => {
       if (live) setAnswer({ key, state });
     };
-    loadPage(api, { page, pageSize, sort: { column: sort.column, direction: sort.direction }, search }).then(
-      settle,
-      () => settle({ kind: "error" }),
-    );
+    loadPage(api, {
+      page,
+      pageSize,
+      sort: { column: sort.column, direction: sort.direction },
+      search,
+      filters,
+    }).then(settle, () => settle({ kind: "error" }));
     return () => {
       live = false;
     };
@@ -236,4 +250,44 @@ export function useTabCounts(): { review: number | null; pairs: number | null } 
     };
   }, [api]);
   return { review, pairs };
+}
+
+/** A value of a filter row: an id and the name the row, the chip and the drop-down show. */
+export interface FilterChoice {
+  readonly value: string;
+  readonly label: string;
+}
+
+/**
+ * The values of «Рахунки» and «Теги» (FIN-03@PoC FR 22) and the names of the chosen ones; read once per list. A
+ * failed read leaves the row with no values to choose (the chips of a link still show «—» for the name).
+ */
+export function useFilterChoices(): {
+  accounts: readonly FilterChoice[];
+  tags: readonly FilterChoice[];
+  names: FilterNames;
+} {
+  const api = useAuthApi();
+  const [accounts, setAccounts] = useState<readonly FilterChoice[]>([]);
+  const [tags, setTags] = useState<readonly FilterChoice[]>([]);
+  useEffect(() => {
+    let live = true;
+    void accountNames(api).then((names) => {
+      if (live) setAccounts([...names].map(([value, label]) => ({ value, label })));
+    });
+    void outcome(api.GET("/v1/transaction-tags")).then((o) => {
+      if (live && o.ok) setTags(o.data.items.map((tag) => ({ value: tag.id, label: tag.name })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [api]);
+  const names = useMemo(
+    () => ({
+      accounts: new Map(accounts.map((a) => [a.value, a.label])),
+      tags: new Map(tags.map((tag) => [tag.value, tag.label])),
+    }),
+    [accounts, tags],
+  );
+  return { accounts, tags, names };
 }

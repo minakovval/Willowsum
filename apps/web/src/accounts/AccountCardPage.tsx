@@ -18,7 +18,6 @@ import {
   RECURRING,
   rootOf,
   SECTIONS,
-  TRANSACTIONS,
 } from "../routing/routes.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
@@ -37,6 +36,7 @@ import { maskedNumber, money, negated, shortDate } from "./format.ts";
 import { CloseAccountDialog } from "./CloseAccountDialog.tsx";
 import { UpdateBalanceDialog } from "./UpdateBalanceDialog.tsx";
 import { kyivToday } from "../recurring/data.ts";
+import { filteredTransactionsPath } from "../transactions/filters.ts";
 import "./accounts.css";
 import "./account-card.css";
 
@@ -423,7 +423,7 @@ function TransactionsCard({ accountId }: { accountId: string }) {
               <Button
                 variant="quiet"
                 label={counted(t, locale, "accountCard.tx.all", state.data.count)}
-                href={hrefFor(TRANSACTIONS.path)}
+                href={hrefFor(filteredTransactionsPath({ account: accountId }))}
               />
             </p>
           ) : null}

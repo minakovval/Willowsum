@@ -32,6 +32,7 @@ import {
   nextSort,
   SEARCH_MAX_LENGTH,
   SORTABLE,
+  useFilterChoices,
   useTabCounts,
   useTransactionsPage,
   type ListRow,
@@ -39,7 +40,9 @@ import {
   type ListView,
   type SummaryTotal,
 } from "./list.ts";
+import { activeCount, filtersFromHash, NO_FILTERS } from "./filters.ts";
 import { NewTransactionDialog } from "./NewTransactionDialog.tsx";
+import { TransactionFilters } from "./TransactionFilters.tsx";
 import "./transactions.css";
 
 export type TransactionsTab = "list" | "review" | "pairs";
@@ -133,6 +136,21 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   if (state.kind === "ready" && !shown) setShown(true);
   const [query, setQuery] = useState(view.search);
   const rowsRef = useRef<HTMLDivElement>(null);
+  const choices = useFilterChoices();
+
+  // FIN-03@PoC FR 33: a link with `?account=` or `?merchant=` opens the list with that one filter, from page 1 (set
+  // while rendering, so no request goes out for the stored view first); the query is then dropped from the address
+  // so that «назад» and a reload come back to the list as the user left it.
+  const [linked, setLinked] = useState(() => filtersFromHash(window.location.hash));
+  if (linked) {
+    setLinked(null);
+    setQuery("");
+    setView((v) => ({ ...v, page: 1, search: "", filters: linked }));
+  }
+  useEffect(() => {
+    if (filtersFromHash(window.location.hash))
+      window.history.replaceState(window.history.state, "", hrefFor(TRANSACTIONS.path));
+  }, []);
 
   // The search asks the server once typing stops, from the first page (DAT-01@PoC FR 5).
   useEffect(() => {
@@ -147,19 +165,24 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   if (state.kind === "off") return <EmptyState icon={TRANSACTIONS.icon} />;
   if (state.kind === "error") return <ListError supportId={state.supportId} retry={retry} />;
   const ready = state.kind === "ready" ? state.data : null;
+  const filtered = activeCount(view.filters) > 0;
   // FIN-03@PoC AC19: a space without transactions shows the empty state, without the toolbar.
-  if (ready && ready.count === 0 && view.search === "" && !refreshing) return <ListEmpty onAdd={onAdd} />;
+  if (ready && ready.count === 0 && view.search === "" && !filtered && !refreshing)
+    return <ListEmpty onAdd={onAdd} />;
 
-  const resetSearch = () => {
+  // «Скинути фільтри» (FIN-03@PoC «Стани інтерфейсу»): the search and every filter.
+  const resetAll = () => {
     setQuery("");
-    setView((v) => ({ ...v, search: "", page: 1 }));
+    setView((v) => ({ ...v, search: "", filters: NO_FILTERS, page: 1 }));
   };
   // CMP-60@PoC «Стани», GRID-02@PoC FR 11: «Параметри» has one item, «Показати оригінальні валюти», which needs a
   // converted amount per row from the server; until the list returns one, the item and so the button are not shown.
   const toolbar = (
     <ListToolbar
       label={t("tx.toolbar")}
-      status={ready && view.search !== "" ? counted(t, locale, "tx.found", ready.count) : undefined}
+      status={
+        ready && (view.search !== "" || filtered) ? counted(t, locale, "tx.found", ready.count) : undefined
+      }
     >
       <Field
         label={t("tx.search.label")}
@@ -172,6 +195,13 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
         maxLength={SEARCH_MAX_LENGTH}
         prefix={<Icon name="search" size={16} />}
       />
+      <TransactionFilters
+        filters={view.filters}
+        onChange={(filters) => setView((v) => ({ ...v, filters, page: 1 }))}
+        accounts={choices.accounts}
+        tags={choices.tags}
+        names={choices.names}
+      />
     </ListToolbar>
   );
 
@@ -183,7 +213,7 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
           <Skeleton variant="row" lines={8} />
         </div>
       ) : ready.count === 0 ? (
-        <NoResults query={view.search} onReset={resetSearch} />
+        <NoResults query={view.search} onReset={resetAll} />
       ) : (
         <>
           <Totals summary={ready.summary} />
@@ -299,7 +329,7 @@ function ListEmpty({ onAdd }: { onAdd: () => void }) {
   );
 }
 
-/** «Нічого не знайдено» and «Скинути фільтри» (FIN-03@PoC «Стани інтерфейсу»). */
+/** «Нічого не знайдено» and «Скинути фільтри» (FIN-03@PoC «Стани інтерфейсу», DAT-01@PoC «Стани інтерфейсу»). */
 function NoResults({ query, onReset }: { query: string; onReset: () => void }) {
   const t = useT();
   return (
@@ -308,7 +338,7 @@ function NoResults({ query, onReset }: { query: string; onReset: () => void }) {
       <h2 id="tx-none-title" className="ws-text-heading-3">
         {t("tx.noResults.title")}
       </h2>
-      <p className="ws-muted">{t("tx.noResults.search", { query })}</p>
+      <p className="ws-muted">{query ? t("tx.noResults.search", { query }) : t("tx.noResults.filters")}</p>
       <Button label={t("tx.noResults.reset")} onClick={onReset} />
     </section>
   );

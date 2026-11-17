@@ -2481,3 +2481,229 @@ button.ws-stepper-step[aria-disabled="true"] {
   flex: none;
   margin-inline-start: auto;
 }
+
+/*
+ * CMP-32@PoC FilterBar: the button «Фільтри · N» (36 px in a 44 px hit area, 0 × 12 px, 1 px `border-control`, radius 8,
+ * `surface-200`, a 16 px `ink-muted` icon, 13/18 px 600; open — `brand-2` and `tint-info`), the chips «значення ×»
+ * 8 px apart, and the panel under the button: 440 px, rows «підпис — випадний список» 12 px apart.
+ */
+.ws-filter-bar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-inline-size: 0;
+}
+
+.ws-filter-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-filter-button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) * -1);
+}
+
+.ws-filter-button:hover {
+  border-color: var(--ws-ink);
+}
+
+.ws-filter-button[aria-expanded="true"] {
+  border-color: var(--ws-brand-2);
+  background: var(--ws-tint-info);
+}
+
+.ws-filter-button:focus-visible,
+.ws-filter-chip__remove:focus-visible,
+.ws-filter-row__button:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/* The chip «фільтр зі зняттям» (CMP-64): 32 px, 0 6 px 0 10 px, pill, `tint-info`, `brand` 13/18 px 500; text at most 240 px. */
+.ws-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  block-size: var(--ws-space-6);
+  max-inline-size: calc(var(--ws-space-8) * 4 + var(--ws-space-6));
+  padding: 0 calc(var(--ws-space-1) + var(--ws-space-1) / 2) 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-tint-info);
+  color: var(--ws-brand);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ws-filter-chip__text {
+  min-inline-size: 0;
+  max-inline-size: calc(var(--ws-space-8) * 4 - var(--ws-space-4));
+}
+
+/* «×»: a 16 px glyph (the smallest DS icon size) in a 24 px circle, its hit area 44 × 44 px. */
+.ws-filter-chip__remove {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ws-radius-pill);
+  background: transparent;
+  color: var(--ws-ink-muted);
+  cursor: pointer;
+}
+
+.ws-filter-chip__remove::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--ws-touch-target) - var(--ws-space-5)) / -2);
+}
+
+.ws-filter-panel {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: calc(100% + var(--ws-space-2));
+  z-index: var(--ws-layer-tooltip);
+  box-sizing: border-box;
+  inline-size: calc(var(--ws-space-8) * 7 - var(--ws-space-2));
+  padding: var(--ws-space-2) var(--ws-space-5) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  color: var(--ws-ink);
+}
+
+.ws-filter-rows {
+  display: grid;
+  gap: var(--ws-space-3);
+  padding-block: var(--ws-space-2);
+}
+
+.ws-filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: var(--ws-touch-target);
+}
+
+.ws-filter-row__label {
+  flex: none;
+  inline-size: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.ws-filter-row__control {
+  position: relative;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ws-filter-row__button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 calc(var(--ws-space-2) + var(--ws-space-1) / 2);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-filter-row__button::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) * -1);
+}
+
+.ws-filter-row__button:hover,
+.ws-filter-row__button[aria-expanded="true"] {
+  border-color: var(--ws-brand-2);
+}
+
+/* A filter that is not set says «Усі» or «Будь-який» in grey. */
+.ws-filter-row__button[data-unset] {
+  color: var(--ws-ink-muted);
+}
+
+.ws-filter-row__value {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ws-filter-row__panel {
+  z-index: var(--ws-layer-nav);
+}
+
+.ws-filter-range {
+  display: flex;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-1);
+}
+
+.ws-filter-range .ws-field {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ws-filter-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+  padding-block-start: var(--ws-space-3);
+}
+
+/* A check box of a value among several (16 px, radius 4; checked — `brand` with a white check). */
+.ws-check-box {
+  display: grid;
+  flex: none;
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: var(--ws-space-4);
+  block-size: var(--ws-space-4);
+  border: 1.5px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-surface-200);
+}
+
+.ws-check-box[data-checked] {
+  border-color: var(--ws-brand);
+  background: var(--ws-brand);
+  color: var(--ws-surface-200);
+}
