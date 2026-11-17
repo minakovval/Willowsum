@@ -1,13 +1,15 @@
 import { useI18n } from "@willowsum/i18n";
-import { deviation } from "./rules.ts";
+import { deviation, type DecimalInput } from "./rules.ts";
 import { StatusMark } from "./StatusMark.tsx";
 
 export interface DeviationMarkProps {
   /** The value and the base it is compared with (plan, average, previous period), in the same unit. */
-  value: number;
-  base: number;
+  value: DecimalInput;
+  base: DecimalInput;
   /** Spending and debt: less is better; income: more is better. */
   kind: "expense" | "income";
+  /** The currency of both amounts (the «1 unit» of «без змін» is one whole unit of it). */
+  currency: string;
   /** The change as the caller formats it («50,20 €»). */
   amount: string;
   /** The change spoken in full (DS-04: «50 євро 20 центів»). */
@@ -20,9 +22,17 @@ export interface DeviationMarkProps {
  * to 10 % inclusive of the rounded percent) or «— …» in `brand` when the change is below 1 % and 1 currency unit.
  * The colour says «краще» or «гірше», the arrow says the direction; the state word is in the accessible name.
  */
-export function DeviationMark({ value, base, kind, amount, spokenAmount, className }: DeviationMarkProps) {
+export function DeviationMark({
+  value,
+  base,
+  kind,
+  currency,
+  amount,
+  spokenAmount,
+  className,
+}: DeviationMarkProps) {
   const { t } = useI18n();
-  const d = deviation(value, base, kind);
+  const d = deviation(value, base, kind, currency);
   const word = t(`status.b.${d.state}`);
   const direction =
     d.arrow === "▲" ? t("status.deviation.up") : d.arrow === "▼" ? t("status.deviation.down") : "";

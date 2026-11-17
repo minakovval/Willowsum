@@ -1,16 +1,17 @@
 import { formatPercent, useI18n } from "@willowsum/i18n";
 import type { CSSProperties } from "react";
-import { almostPercent, overLevel, usageFill, usagePercent, usageState } from "./rules.ts";
+import { Decimal } from "@willowsum/domain-kernel";
+import { almostPercent, overLevel, usageFill, usagePercent, usageState, type DecimalInput } from "./rules.ts";
 import { StatusMark } from "./StatusMark.tsx";
 
 export interface UsageStatusProps {
-  /** Spent and the limit in the same unit; the limit is above zero. */
-  spent: number;
-  limit: number;
+  /** Spent and the limit: exact decimals (a string or a `Decimal`, never a float) in one currency; the limit is above zero. */
+  spent: DecimalInput;
+  limit: DecimalInput;
   /** A category with the attribute «обов'язкова»: a spent limit is «ліміт вичерпано» (grey), not «вичерпано». */
   mandatory?: boolean;
   /** The sum of the limits of the optional categories of the period; the overspend level is its share. */
-  optionalLimits?: number;
+  optionalLimits?: DecimalInput;
   /** The overspend of an exceeded limit (spent − limit) is calculated; this shows it in the tooltip text. */
   overTip?: string;
   className?: string;
@@ -28,17 +29,20 @@ export function UsageStatus({
   spent,
   limit,
   mandatory = false,
-  optionalLimits = 0,
+  optionalLimits = "0",
   overTip,
   className,
 }: UsageStatusProps) {
   const { t, locale } = useI18n();
   const state = usageState(spent, limit, mandatory);
   const percent = usagePercent(spent, limit);
-  const level = state === "over" ? overLevel(spent - limit, optionalLimits) : undefined;
+  const level = state === "over" ? overLevel(new Decimal(spent).minus(limit), optionalLimits) : undefined;
   // The second line: the remainder as a share of the limit, or the overspend as a share of the limit (whole percent).
-  const wholePercent = formatPercent(locale, String(Math.round(Math.abs(100 - percent))));
-  const fillWidth = `${Math.min(100, Math.max(0, percent))}%`;
+  const wholePercent = formatPercent(
+    locale,
+    new Decimal("100").minus(percent).abs().toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toFixed(0),
+  );
+  const fillWidth = `${Decimal.min(100, Decimal.max(0, percent)).toFixed(2)}%`;
   const fillColor =
     state === "over"
       ? `var(--ws-over-${level})`
@@ -73,9 +77,7 @@ export function UsageStatus({
       <StatusMark
         id={`a.${state}`}
         params={
-          state === "almost"
-            ? { percent: formatPercent(locale, String(almostPercent(spent, limit))) }
-            : undefined
+          state === "almost" ? { percent: formatPercent(locale, almostPercent(spent, limit)) } : undefined
         }
       />
       <span className="ws-usage-sub">{sub}</span>

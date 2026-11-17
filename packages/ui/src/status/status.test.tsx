@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { CATALOGUES, I18nProvider, placeholdersOf } from "@willowsum/i18n";
+import { Decimal } from "@willowsum/domain-kernel";
 import { colors, contrastRatio, CONTRAST_MINIMUM, THEMES } from "../tokens/index.ts";
 import { Stepper } from "../stepper/Stepper.tsx";
 import { NO_MARKER, STATUS_DICTIONARY, STATUS_FAMILIES, statusEntry } from "./dictionary.ts";
@@ -180,42 +181,64 @@ describe("DS-23@PoC FR 3: tones and markers", () => {
   });
 });
 
+const dec = (v: string) => new Decimal(v);
+
+describe("DS-23@PoC NFR-06: exact decimals, never floats (review B1)", () => {
+  it("DS-23@PoC AC4: 0,40 € of 5 600,00 € is «без змін» whatever the notation", () => {
+    expect(deviation(dec("5600.40"), dec("5600.00"), "income", "EUR").state).toBe("unchanged");
+    expect(deviation("5600.40", "5600.00", "income", "EUR").state).toBe("unchanged");
+  });
+  it("DS-23@PoC FR 4: 0,1 + 0,2 against a limit of 0,30 is exactly the limit, «вичерпано»", () => {
+    expect(usageState(dec("0.1").plus("0.2"), dec("0.30"), false)).toBe("exhausted");
+    expect(usageState(dec("0.3"), dec("0.30"), false)).toBe("exhausted");
+    expect(usageState(dec("0.3"), dec("0.30"), true)).toBe("limitReached");
+  });
+  it("DS-23@PoC FR 4: an overspend of exactly 5 % is level 2, exactly 10 % level 3", () => {
+    expect(overLevel(dec("0.10"), dec("2.00"))).toBe(2);
+    expect(overLevel(dec("10.1").minus("10"), dec("2"))).toBe(2);
+    expect(overLevel(dec("0.20"), dec("2.00"))).toBe(3);
+  });
+  it("DS-23@PoC FR 5: an unknown currency is an error", () => {
+    expect(() => deviation("1", "2", "expense", "XXX1")).toThrow();
+  });
+});
+
 describe("DS-23@PoC FR 4: the usage scale", () => {
   it("DS-23@PoC FR 4: the state follows the share of the limit", () => {
-    expect(usageState(0, 100, false)).toBe("notStarted");
-    expect(usageState(79.99, 100, false)).toBe("remaining");
-    expect(usageState(80, 100, false)).toBe("almost");
-    expect(usageState(99.99, 100, false)).toBe("almost");
-    expect(usageState(100, 100, true)).toBe("limitReached");
-    expect(usageState(100, 100, false)).toBe("exhausted");
-    expect(usageState(100.01, 100, true)).toBe("over");
-    expect(() => usageState(5, 0, false)).toThrow(RangeError);
-    expect(almostPercent(99.6, 100)).toBe(99);
-    expect(almostPercent(86, 100)).toBe(86);
+    expect(usageState("0", "100", false)).toBe("notStarted");
+    expect(usageState("79.99", "100", false)).toBe("remaining");
+    expect(usageState("80", "100", false)).toBe("almost");
+    expect(usageState("99.99", "100", false)).toBe("almost");
+    expect(usageState("100", "100", true)).toBe("limitReached");
+    expect(usageState("100", "100", false)).toBe("exhausted");
+    expect(usageState("100.01", "100", true)).toBe("over");
+    expect(() => usageState("5", "0", false)).toThrow(RangeError);
+    expect(almostPercent("99.6", "100")).toBe("99");
+    expect(almostPercent("86", "100")).toBe("86");
   });
 
   it("DS-23@PoC AC3: an overspend of 48,60 € of 2 000 € optional limits is level 1 (2,43 %)", () => {
-    expect(overLevel(48.6, 2000)).toBe(1);
+    expect(overLevel("48.6", "2000")).toBe(1);
   });
 
   it("DS-23@PoC FR 4: the level bounds belong to the higher level; without optional limits it is 8", () => {
-    const at = (share: number) => overLevel(share, 100);
+    const at = (share: number) => overLevel(String(share), "100");
     expect([4.99, 5, 9.99, 10, 19.99, 20, 49.99, 50, 99.99, 100, 199.99, 200, 499.99, 500].map(at)).toEqual([
       1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8,
     ]);
-    expect(overLevel(10, 0)).toBe(8);
+    expect(overLevel("10", "0")).toBe(8);
   });
 
   it("DS-23@PoC FR 4: the fill is a gradient of the usage tokens, only tokens", () => {
-    expect(usageFill(0)).toBe("color-mix(in oklch, var(--ws-usage-30) 0%, var(--ws-usage-0))");
-    expect(usageFill(30)).toContain("var(--ws-usage-30) 100%");
-    expect(usageFill(42.5)).toContain("var(--ws-usage-55)");
-    expect(usageFill(100)).toBe("var(--ws-usage-95)");
-    expect(usageFill(60)).not.toMatch(/#|rgb/);
+    expect(usageFill("0")).toBe("color-mix(in oklch, var(--ws-usage-30) 0%, var(--ws-usage-0))");
+    expect(usageFill("30")).toContain("var(--ws-usage-30) 100%");
+    expect(usageFill("42.5")).toContain("var(--ws-usage-55)");
+    expect(usageFill("100")).toBe("var(--ws-usage-95)");
+    expect(usageFill("60")).not.toMatch(/#|rgb/);
   });
 
   it("DS-23@PoC AC3: «✕ перевищено» of level 1 has the `over-1` tail and a «N % понад ліміт» line", () => {
-    const { container } = wrap(<UsageStatus spent={148.6} limit={100} optionalLimits={2000} />);
+    const { container } = wrap(<UsageStatus spent="148.6" limit="100" optionalLimits="2000" />);
     expect(visible(container)).toContain("✕ перевищено");
     expect(container.querySelector<HTMLElement>(".ws-usage-tail")!.style.backgroundColor).toBe(
       "var(--ws-over-1)",
@@ -225,7 +248,7 @@ describe("DS-23@PoC FR 4: the usage scale", () => {
   });
 
   it("DS-23@PoC FR 4: the gradient paints the bar only; the word and the marker keep the tone's ink", () => {
-    const { container } = wrap(<UsageStatus spent={86} limit={100} />);
+    const { container } = wrap(<UsageStatus spent="86" limit="100" />);
     const fill = container.querySelector<HTMLElement>(".ws-usage-fill")!;
     expect(fill.style.backgroundColor).toContain("usage-95");
     expect(container.querySelector(".ws-status")!.getAttribute("data-ink")).toBe("on-warning");
@@ -234,19 +257,19 @@ describe("DS-23@PoC FR 4: the usage scale", () => {
   });
 
   it("DS-23@PoC EC2: a mandatory category at its limit is grey «✓ ліміт вичерпано»; over the limit it is «перевищено»", () => {
-    const grey = wrap(<UsageStatus spent={100} limit={100} mandatory />);
+    const grey = wrap(<UsageStatus spent="100" limit="100" mandatory />);
     expect(visible(grey.container)).toContain("✓ ліміт вичерпано");
     expect(grey.container.querySelector<HTMLElement>(".ws-usage-fill")!.style.backgroundColor).toBe(
       "var(--ws-ink-muted)",
     );
     cleanup();
-    const over = wrap(<UsageStatus spent={120} limit={100} mandatory optionalLimits={200} />);
+    const over = wrap(<UsageStatus spent="120" limit="100" mandatory optionalLimits="200" />);
     expect(over.container.querySelector(".ws-usage")!.getAttribute("data-state")).toBe("over");
     expect(over.container.querySelector(".ws-usage")!.getAttribute("data-level")).toBe("3");
   });
 
   it("DS-23@PoC EC3: an overspend of a budget without optional limits is level 8 (`over-8`)", () => {
-    const { container } = wrap(<UsageStatus spent={150} limit={100} />);
+    const { container } = wrap(<UsageStatus spent="150" limit="100" />);
     expect(container.querySelector(".ws-usage")!.getAttribute("data-level")).toBe("8");
     expect(container.querySelector<HTMLElement>(".ws-usage-tail")!.style.backgroundColor).toBe(
       "var(--ws-over-8)",
@@ -254,11 +277,11 @@ describe("DS-23@PoC FR 4: the usage scale", () => {
   });
 
   it("DS-23@PoC FR 4: «не почато» has an empty bar and «100 % ліміту» under it; «вичерпано» of an optional category is `over-1`", () => {
-    const empty = wrap(<UsageStatus spent={0} limit={100} />);
+    const empty = wrap(<UsageStatus spent="0" limit="100" />);
     expect(empty.container.querySelector(".ws-usage-fill")).toBeNull();
     expect(norm(empty.container.querySelector(".ws-usage-sub")!.textContent)).toBe("100 % ліміту");
     cleanup();
-    const full = wrap(<UsageStatus spent={100} limit={100} />);
+    const full = wrap(<UsageStatus spent="100" limit="100" />);
     expect(full.container.querySelector<HTMLElement>(".ws-usage-fill")!.style.backgroundColor).toBe(
       "var(--ws-over-1)",
     );
@@ -268,45 +291,50 @@ describe("DS-23@PoC FR 4: the usage scale", () => {
 
 describe("DS-23@PoC FR 5: deviation", () => {
   it("DS-23@PoC AC4: an income change of 0,40 € of 5 600 € is «—» in `brand`", () => {
-    expect(deviation(5600.4, 5600, "income").state).toBe("unchanged");
-    const { container } = wrap(<DeviationMark value={5600.4} base={5600} kind="income" amount="0,40 €" />);
+    expect(deviation("5600.4", "5600", "income", "EUR").state).toBe("unchanged");
+    const { container } = wrap(
+      <DeviationMark currency="EUR" value="5600.4" base="5600" kind="income" amount="0,40 €" />,
+    );
     const mark = container.querySelector(".ws-status")!;
     expect(mark.getAttribute("data-ink")).toBe("brand");
     expect(visible(container)).toBe("—");
   });
 
   it("DS-23@PoC AC6: spending 550,20 € against 500,00 € (10,04 %) is «▲ 50,20 €» in the soft `loss-soft` step", () => {
-    const d = deviation(550.2, 500, "expense");
-    expect(d).toEqual({ state: "slightlyWorse", arrow: "▲", percent: 10 });
-    const { container } = wrap(<DeviationMark value={550.2} base={500} kind="expense" amount="50,20 €" />);
+    const d = deviation("550.2", "500", "expense", "EUR");
+    expect(d).toEqual({ state: "slightlyWorse", arrow: "▲", percent: "10.0" });
+    const { container } = wrap(
+      <DeviationMark currency="EUR" value="550.2" base="500" kind="expense" amount="50,20 €" />,
+    );
     expect(visible(container)).toBe("▲ 50,20 €");
     expect(container.querySelector(".ws-deviation-amount")!.getAttribute("data-ink")).toBe("loss-soft");
     expect(container.querySelector(".ws-status")!.getAttribute("data-ink")).toBe("loss-soft");
   });
 
   it("DS-23@PoC FR 5: colour says better or worse, the arrow says the direction; above 10 % the step is saturated", () => {
-    expect(deviation(400, 500, "expense")).toMatchObject({ state: "better", arrow: "▼" });
-    expect(deviation(480, 500, "expense")).toMatchObject({ state: "slightlyBetter", arrow: "▼" });
-    expect(deviation(600, 500, "income")).toMatchObject({ state: "better", arrow: "▲" });
-    expect(deviation(400, 500, "income")).toMatchObject({ state: "worse", arrow: "▼" });
-    expect(deviation(520, 500, "income")).toMatchObject({ state: "slightlyBetter" });
-    expect(deviation(560, 500, "expense")).toMatchObject({ state: "worse", arrow: "▲" });
-    expect(deviation(10.5, 10, "expense").state).toBe("slightlyWorse");
+    expect(deviation("400", "500", "expense", "EUR")).toMatchObject({ state: "better", arrow: "▼" });
+    expect(deviation("480", "500", "expense", "EUR")).toMatchObject({ state: "slightlyBetter", arrow: "▼" });
+    expect(deviation("600", "500", "income", "EUR")).toMatchObject({ state: "better", arrow: "▲" });
+    expect(deviation("400", "500", "income", "EUR")).toMatchObject({ state: "worse", arrow: "▼" });
+    expect(deviation("520", "500", "income", "EUR")).toMatchObject({ state: "slightlyBetter" });
+    expect(deviation("560", "500", "expense", "EUR")).toMatchObject({ state: "worse", arrow: "▲" });
+    expect(deviation("10.5", "10", "expense", "EUR").state).toBe("slightlyWorse");
   });
 
   it("DS-23@PoC FR 5: «без змін» needs both below 1 % and below 1 unit; a base of zero is never soft", () => {
-    expect(deviation(100.9, 100, "expense").state).toBe("unchanged");
-    expect(deviation(5600.4, 5600, "expense").state).toBe("unchanged");
-    expect(deviation(1000, 1000.5, "expense").state).toBe("unchanged");
-    expect(deviation(101, 100, "expense").state).not.toBe("unchanged");
-    expect(deviation(5, 0, "expense")).toMatchObject({ state: "worse", percent: null });
+    expect(deviation("100.9", "100", "expense", "EUR").state).toBe("unchanged");
+    expect(deviation("5600.4", "5600", "expense", "EUR").state).toBe("unchanged");
+    expect(deviation("1000", "1000.5", "expense", "EUR").state).toBe("unchanged");
+    expect(deviation("101", "100", "expense", "EUR").state).not.toBe("unchanged");
+    expect(deviation("5", "0", "expense", "EUR")).toMatchObject({ state: "worse", percent: null });
   });
 
   it("DS-23@PoC FR 5: the state word is in the tooltip and in the accessible name with the direction and the amount", () => {
     const { container } = wrap(
       <DeviationMark
-        value={550.2}
-        base={500}
+        currency="EUR"
+        value="550.2"
+        base="500"
         kind="expense"
         amount="50,20 €"
         spokenAmount="50 євро 20 центів"

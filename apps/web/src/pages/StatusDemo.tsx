@@ -16,7 +16,18 @@ import {
  * usage scale in every state and the eight overspend levels, the deviation steps and the form steps.
  */
 const STEP_STATES: readonly StepState[] = ["current", "done", "available", "unavailable", "error"];
-const OVER_SHARES = [2, 7, 15, 35, 75, 150, 350, 800] as const;
+// Exact decimal strings (AGENTS.md «Money»): spent against a limit of 100 and optional limits of 100.
+const USAGE_SPENT = ["0", "35", "60", "86", "100"] as const;
+const OVER_SPENT = ["102", "107", "115", "135", "175", "250", "450", "900"] as const;
+// value, base, kind, the change as shown
+const DEVIATIONS = [
+  ["400", "500", "expense", "100"],
+  ["480", "500", "expense", "20"],
+  ["5600.40", "5600", "income", "0.40"],
+  ["550.20", "500", "expense", "50.20"],
+  ["650", "500", "expense", "150"],
+  ["400", "500", "income", "100"],
+] as const;
 
 export function StatusDemo() {
   const { t, locale } = useI18n();
@@ -86,13 +97,13 @@ export function StatusDemo() {
       <figure className="gallery-status__case" data-case="usage">
         <figcaption className="ws-text-label ws-muted">{t("gallery.status.usage")}</figcaption>
         <div className="gallery-status__grid">
-          {([0, 35, 60, 86, 100] as const).map((spent) => (
+          {USAGE_SPENT.map((spent) => (
             <div className="ws-card" key={spent} data-usage={spent}>
-              <UsageStatus spent={spent} limit={100} />
+              <UsageStatus spent={spent} limit="100" />
             </div>
           ))}
           <div className="ws-card" data-usage="mandatory">
-            <UsageStatus spent={100} limit={100} mandatory />
+            <UsageStatus spent="100" limit="100" mandatory />
           </div>
         </div>
       </figure>
@@ -100,9 +111,9 @@ export function StatusDemo() {
       <figure className="gallery-status__case" data-case="over">
         <figcaption className="ws-text-label ws-muted">{t("gallery.status.over")}</figcaption>
         <div className="gallery-status__grid">
-          {OVER_SHARES.map((share) => (
-            <div className="ws-card" key={share} data-over={share}>
-              <UsageStatus spent={100 + share} limit={100} optionalLimits={100} />
+          {OVER_SPENT.map((spent) => (
+            <div className="ws-card" key={spent} data-over={spent}>
+              <UsageStatus spent={spent} limit="100" optionalLimits="100" />
             </div>
           ))}
         </div>
@@ -111,23 +122,9 @@ export function StatusDemo() {
       <figure className="gallery-status__case" data-case="deviation">
         <figcaption className="ws-text-label ws-muted">{t("gallery.status.deviation")}</figcaption>
         <ul className="ws-card gallery-status__row">
-          {(
-            [
-              [400, 500, "expense"],
-              [480, 500, "expense"],
-              [5600.4, 5600, "income"],
-              [550.2, 500, "expense"],
-              [650, 500, "expense"],
-              [400, 500, "income"],
-            ] as const
-          ).map(([value, base, kind]) => (
+          {DEVIATIONS.map(([value, base, kind, change]) => (
             <li key={`${value}-${kind}`}>
-              <DeviationMark
-                value={value}
-                base={base}
-                kind={kind}
-                amount={money(String(Math.abs(Math.round((value - base) * 100) / 100)))}
-              />
+              <DeviationMark value={value} base={base} kind={kind} currency="EUR" amount={money(change)} />
             </li>
           ))}
         </ul>
