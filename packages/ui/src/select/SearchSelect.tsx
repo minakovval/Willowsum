@@ -31,6 +31,8 @@ export interface SearchSelectProps extends FieldStateProps {
   create?: SearchCreate;
   /** What the chosen value shows before its name (the category chip, the institution logo). */
   showLeading?: boolean;
+  /** The line of a search without a match, when the list has its own («Банк не знайдено…»); default «Нічого не знайдено». */
+  nothingFound?: string;
   id?: string;
 }
 
@@ -54,6 +56,7 @@ export function SearchSelect(props: SearchSelectProps) {
     searchLabel,
     create,
     showLeading = true,
+    nothingFound,
     id,
     placeholder,
     disabled,
@@ -202,7 +205,7 @@ export function SearchSelect(props: SearchSelectProps) {
               </span>
               {/* Always present, so the reader hears «Нічого не знайдено» when the text appears. */}
               <p className="ws-select-nothing" role="status">
-                {shown.count === 0 ? t("select.nothingFound") : null}
+                {shown.count === 0 ? (nothingFound ?? t("select.nothingFound")) : null}
               </p>
               <div id={listId} role="listbox" aria-labelledby={label} className="ws-select-list">
                 {shown.groups.map(({ group, rows }) => (

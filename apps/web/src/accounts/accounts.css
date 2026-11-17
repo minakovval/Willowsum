@@ -396,3 +396,33 @@
 .accounts-star--on svg {
   fill: currentcolor;
 }
+
+/* S-052 «Новий рахунок» (FIN-01@PoC FR 3): two fields in one row («Залишок*» + «Валюта*», the deposit dates). */
+.newacc-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ws-space-3);
+  align-items: start;
+}
+
+.newacc-pair--amount {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.newacc-duplicate {
+  margin-top: calc(-1 * var(--ws-space-2));
+}
+
+.newacc-extras {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+/* «+ додати ще валюту»: currency, balance, date and «×» in one row. */
+.newacc-extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr) auto;
+  gap: var(--ws-space-3);
+  align-items: end;
+}

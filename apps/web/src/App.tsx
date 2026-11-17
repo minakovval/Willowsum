@@ -90,6 +90,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (tab) return <DebtsScreen tab={tab} />;
       // FIN-12@PoC c), GRID-02@PoC FR 2: S-053 «Картка рахунку».
       if (route.child.id === "account") return <AccountCardPage />;
+      // FIN-01@PoC c2): S-052 «Новий рахунок» over S-050 «Рахунки».
+      if (route.child.id === "newAccount") return <AccountsPage creating />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       return <ChildPage section={route.section} child={route.child} />;
     }

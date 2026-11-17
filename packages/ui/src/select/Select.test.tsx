@@ -228,6 +228,21 @@ describe("CMP-03@PoC Select — «з пошуком»", () => {
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Додати «Кава»"]);
   });
 
+  it("CMP-03@PoC empty search: a list with its own line («Банк не знайдено…») shows it instead of the general one", () => {
+    render(
+      <SearchSelect
+        label="Банк або установа"
+        groups={PAYEES}
+        value=""
+        onChange={() => {}}
+        nothingFound="Банк не знайдено. Оберіть «Інша установа»."
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Банк або установа/ }));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Кава" } });
+    expect(screen.getByRole("status").textContent).toBe("Банк не знайдено. Оберіть «Інша установа».");
+  });
+
   it("CMP-03@PoC outside press: a press outside the field closes the panel", () => {
     render(<Controlled groups={PAYEES} />);
     fireEvent.click(screen.getByRole("button", { name: /Контрагент/ }));
