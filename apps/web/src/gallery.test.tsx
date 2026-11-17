@@ -4,6 +4,7 @@ import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio, STATUS_DICTIONAR
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { I18nProvider } from "@willowsum/i18n";
 import { App } from "./App.tsx";
+import { StatusDemo } from "./pages/StatusDemo.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
 import { StatesDemo } from "./pages/StatesDemo.tsx";
@@ -59,6 +60,8 @@ describe("/gallery/tokens (DS-22)", () => {
     const section = (id: string) => document.getElementById(id)!.closest("section")!;
     expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
     expect(section("g-progress").querySelector('[data-case="queue"]')).not.toBeNull();
+    expect(document.getElementById("g-status")!.textContent).toBe("Словник статусів «Планування»");
+    expect(section("g-status").querySelector('[data-case="usage"]')).not.toBeNull();
     expect(document.getElementById("g-states")!.textContent).toBe("Стани екранів");
     expect(section("g-states").querySelector('[data-case="state-empty-area"]')).not.toBeNull();
     expect(document.getElementById("g-table")!.textContent).toBe("Таблиця");
@@ -313,9 +316,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("DS-23@PoC gallery: the Status section lists every entry of the dictionary, the usage scale with eight overspend levels, the deviation steps and the form steps", () => {
-    const { container } = render(<App />);
-    expect(container.querySelector("#g-status")!.textContent).toBe("Словник статусів «Планування»");
-    const section = container.querySelector<HTMLElement>("#g-status ~ .gallery-status")!;
+    const { container: section } = renderSection(<StatusDemo />);
     expect(section.querySelectorAll("[data-status-row]")).toHaveLength(STATUS_DICTIONARY.length);
     const overdue = section.querySelector<HTMLElement>('[data-status-row="d.overdue"]')!;
     expect(overdue.querySelector(".ws-status-marker")!.textContent).toBe("!");
