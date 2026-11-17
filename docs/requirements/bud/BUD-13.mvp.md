@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-10, П-21, П-23, NFR-01
 - Сценарії: UC-BUD-03, UC-BUD-70, UC-BUD-71, UC-BUD-72, UC-BUD-73
 - Модуль: transactions, file-storage
-- Перевіряється: apps/api/src/modules/transactions/domain/fin03-splits.test.ts, apps/api/test/fin03-states-splits.it.test.ts, apps/api/src/modules/transactions/domain/bud13-attributes.test.ts, apps/api/test/bud13-attributes.it.test.ts
+- Перевіряється: apps/api/src/modules/transactions/domain/fin03-splits.test.ts, apps/api/test/fin03-states-splits.it.test.ts, apps/api/src/modules/transactions/domain/bud13-attributes.test.ts, apps/api/test/bud13-attributes.it.test.ts, apps/web/src/transactions/bud13b-split.test.tsx
 
 **Мета.** Як власник бюджету, я хочу додавати до транзакцій нотатки, теги, чеки й розділяти суми, щоб точно відображати, на що і за який період пішли гроші.
 

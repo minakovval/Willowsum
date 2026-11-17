@@ -1601,3 +1601,308 @@ code {
 .gallery-dialog__step-hint {
   margin: 0;
 }
+
+/*
+ * BUD-13@PoC b), FIN-03@PoC e) (wave 2, row 117): «Розділити транзакцію» (S-049; boards PocMoneySplit,
+ * PocMoneySplitMonths).
+ */
+.tx-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ws-layer-drawer);
+  display: grid;
+  place-items: start center;
+  padding: var(--ws-space-7) var(--ws-space-4);
+  background: var(--ws-scrim);
+  backdrop-filter: blur(var(--ws-scrim-blur));
+}
+
+/* BUD-13 FR 6: the dialog is never taller than 624 px; the months schedule keeps one height for any N. */
+.tx-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: min(624px, 100%);
+  overflow: hidden;
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-dialog);
+  color: var(--ws-ink);
+}
+
+.tx-dialog-close {
+  position: absolute;
+  inset-block-start: var(--ws-space-3);
+  inset-inline-end: var(--ws-space-3);
+}
+
+.tx-dialog-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto; /* only the body scrolls (many parts); the foot with «Зберегти» and the reason stays in view */
+  flex-direction: column;
+  gap: var(--ws-space-3);
+  padding: calc(var(--ws-space-5) + var(--ws-space-1)) var(--ws-space-6) var(--ws-space-5);
+}
+
+.tx-dialog-title {
+  margin: 0 calc(var(--ws-space-6) + var(--ws-space-2)) 0 0;
+  font-family: var(--ws-text-heading-2-family);
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+  font-weight: var(--ws-text-heading-2-weight);
+  letter-spacing: var(--ws-text-heading-2-tracking);
+}
+
+.tx-dialog-summary,
+.tx-dialog-explain,
+.tx-hint {
+  margin: 0;
+  color: var(--ws-ink-muted);
+}
+
+.tx-dialog-explain,
+.tx-hint {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-dialog-explain {
+  margin-block-start: calc(var(--ws-space-2) * -1);
+}
+
+.tx-dialog-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+  flex: 0 0 auto;
+  padding: var(--ws-space-4) var(--ws-space-6);
+  border-block-start: 1px solid var(--ws-surface-300);
+  background: var(--ws-surface-inset);
+}
+
+.tx-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-2);
+}
+
+.tx-reason {
+  margin: 0;
+}
+
+.tx-segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: calc(var(--ws-space-1) / 2);
+  margin: 0;
+  padding: calc(var(--ws-space-1) - 1px);
+  border: 0;
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+}
+
+.tx-segment {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ws-touch-target);
+  padding: 0 var(--ws-space-3);
+  border-radius: calc(var(--ws-radius-md) - 2px);
+  color: var(--ws-ink);
+  font-size: var(--ws-text-label-size);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tx-segment input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.tx-segment:has(input:checked) {
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-raised);
+  color: var(--ws-ink);
+  font-weight: 600;
+}
+
+.tx-segment:has(input:focus-visible) {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.tx-parts,
+.tx-schedule-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tx-parts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-2);
+}
+
+.tx-part {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.tx-part-index {
+  width: calc(var(--ws-space-5) - var(--ws-space-1));
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.tx-part-category {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-part-amount {
+  position: relative;
+  flex: none;
+  width: calc(var(--ws-space-8) * 2 + var(--ws-space-3));
+}
+
+.tx-part-amount .auth-input,
+.tx-num {
+  padding-inline-end: calc(var(--ws-space-6) + var(--ws-space-3));
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-num {
+  padding-inline-end: var(--ws-space-3);
+}
+
+.tx-part-currency {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: var(--ws-space-3);
+  display: flex;
+  align-items: center;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  pointer-events: none;
+}
+
+.tx-link-button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: calc(var(--ws-space-1) * 1.5);
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-link);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.tx-link-button:disabled {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.tx-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3) calc(var(--ws-space-3) + 2px);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-note b {
+  font-weight: 600;
+}
+
+.tx-note-done > svg {
+  color: var(--ws-gain);
+}
+
+.tx-month-fields {
+  display: flex;
+  gap: var(--ws-space-3);
+}
+
+.tx-month-fields > .auth-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.tx-month-fields > .tx-field-narrow {
+  flex: none;
+  width: calc(var(--ws-space-8) * 2 - var(--ws-space-2));
+}
+
+/* Head, two shares, the folded line and the last share: one height whatever the number of months (FR 6, AC8). */
+.tx-schedule {
+  min-height: calc(var(--ws-space-8) * 3 + var(--ws-space-6) + var(--ws-space-2));
+  border: 1px solid var(--ws-line);
+  border-radius: calc(var(--ws-radius-md) + 2px);
+  overflow: hidden;
+}
+
+.tx-schedule-empty {
+  border-style: dashed;
+}
+
+.tx-schedule-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin: 0;
+  padding: var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+  background: var(--ws-surface-inset);
+}
+
+.tx-schedule-head b {
+  font-weight: 600;
+}
+
+.tx-schedule-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-height: calc(var(--ws-space-6) + var(--ws-space-1));
+  padding: var(--ws-space-1) var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-surface-300);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.tx-schedule-row:last-child {
+  border-block-end: 0;
+}
+
+.tx-schedule-more {
+  background: var(--ws-surface-inset);
+  color: var(--ws-ink-muted);
+}
+
+.tx-schedule-index {
+  width: calc(var(--ws-space-5) - 2px);
+  color: var(--ws-ink-muted);
+}
+
+.tx-schedule-month {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}

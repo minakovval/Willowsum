@@ -59,6 +59,7 @@ import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
+import { TransactionDemo } from "./TransactionDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -445,6 +446,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-filter-bar" title={t("gallery.filterBar.title")}>
         <FilterBarDemo />
+      </Section>
+
+      <Section id="g-transaction" title={t("gallery.section.transaction")}>
+        <TransactionDemo />
       </Section>
 
       <Section id="g-type" title={t("gallery.section.typography")}>
