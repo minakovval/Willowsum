@@ -48,7 +48,7 @@ ul.prs li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap:
 ul.prs .n { color: var(--muted); font-variant-numeric: tabular-nums; }
 ul.prs .t { overflow-wrap: anywhere; }
 ul.prs .age { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 72px); justify-content: start; gap: 6px; align-items: end; height: 190px; }
+.chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; align-items: end; height: 190px; }
 .col { display: grid; grid-template-rows: auto 1fr auto; height: 100%; gap: 4px; text-align: center; min-width: 0; }
 .col .v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .col .stack { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
@@ -96,7 +96,7 @@ footer { color: var(--muted); font-size: 12px; }
   </div>
 
   <section aria-labelledby="h-days">
-    <h2 id="h-days">Злито PR за день</h2>
+    <h2 id="h-days">Злито PR за день, з початку проєкту</h2>
     <div class="chart" id="chart"></div>
     <div class="legend"><span style="--c:var(--product)">продукт</span><span style="--c:var(--process)">процес і правила</span></div>
   </section>
@@ -104,12 +104,12 @@ footer { color: var(--muted); font-size: 12px; }
   <div class="facts">
     <section class="fact"><h2>Відкладені задачі</h2><b id="issues">–</b><p class="note">відкритих, без службових задач процесу</p></section>
     <section class="fact"><h2>Ведучий</h2><b id="lead">–</b><p class="note" id="leadnote">&nbsp;</p></section>
-    <section class="fact"><h2>Усього злито з 13.11</h2><b id="total">–</b><p class="note" id="totalnote">&nbsp;</p></section>
+    <section class="fact"><h2>Усього злито PR</h2><b id="total">–</b><p class="note" id="totalnote">&nbsp;</p></section>
   </div>
 
   <footer>
     Дані читаються прямо з публічного репозиторію <a href="https://github.com/minakovval/Willowsum">minakovval/Willowsum</a> раз на 10 хвилин, поки сторінка відкрита.
-    Відсоток і прогноз приблизні: вони спираються на оцінку кількості PR у плані й на темп останніх днів. PR із назвою «PRC-…» рахуються як процес.
+    Відсоток і прогноз приблизні й стосуються плану хвилі 2, який діє з 13 листопада: вони спираються на оцінку кількості PR у цьому плані й на темп останніх днів. Графік і загальна кількість охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
   </footer>
 </div>
 
@@ -119,12 +119,13 @@ footer { color: var(--muted); font-size: 12px; }
   var REPO = 'minakovval/Willowsum';
   var API = 'https://api.github.com/repos/' + REPO;
   var PLAN = 'https://raw.githubusercontent.com/' + REPO + '/main/docs/plans/poc-wave-2.md';
-  var START = '2026-11-13T00:00:00Z';          // the wave-2 plan was created on this day
+  var START = '2026-10-01T00:00:00Z';          // before the first PR of the project
+  var WAVE2 = '2026-11-13T00:00:00Z';          // the wave-2 plan and its PR estimate start on this day
   var PROCESS_ISSUES = [178, 179, 180, 465, 480];
   var FALLBACK_TOTAL = 251;
   var EVERY_MS = 10 * 60 * 1000;
-  var KEY = 'willowsum-dash-v1';
-  var DAYS = 14;
+  var KEY = 'willowsum-dash-v2';
+  var DAYS = 30;
 
   var $ = function (id) { return document.getElementById(id); };
   var state = load();
@@ -206,7 +207,8 @@ footer { color: var(--muted); font-size: 12px; }
 
   function render() {
     var prs = Object.keys(state.prs).map(function (n) { return state.prs[n]; });
-    var product = prs.filter(function (p) { return !isProcess(p.t); });
+    var product = prs.filter(function (p) { return !isProcess(p.t) && p.m >= WAVE2; });
+    var productAll = prs.filter(function (p) { return !isProcess(p.t); }).length;
     var total = state.total || FALLBACK_TOTAL;
     var done = product.length;
     var pct = Math.min(100, Math.round(done / total * 100));
@@ -215,7 +217,7 @@ footer { color: var(--muted); font-size: 12px; }
       text('pct', pct);
       $('bar').style.width = pct + '%';
       $('barbox').setAttribute('aria-valuenow', pct);
-      text('barnote', 'Злито ' + done + ' продуктових PR з ≈ ' + total + ' за оцінкою плану');
+      text('barnote', 'План хвилі 2 (з 13 листопада): злито ' + done + ' продуктових PR з ≈ ' + total + ' за оцінкою');
 
       var since = Date.now() - 72 * 36e5;
       var recent = product.filter(function (p) { return new Date(p.m).getTime() >= since; }).length;
@@ -228,7 +230,8 @@ footer { color: var(--muted); font-size: 12px; }
       else text('eta', 'не порахувати');
 
       text('total', prs.length);
-      text('totalnote', done + ' продукт · ' + (prs.length - done) + ' процес');
+      var first = prs.reduce(function (a, p) { return p.m < a ? p.m : a; }, prs[0].m);
+      text('totalnote', productAll + ' продукт · ' + (prs.length - productAll) + ' процес · з ' + fmtDate(new Date(first)));
       renderChart(prs);
     }
 
@@ -262,9 +265,10 @@ footer { color: var(--muted); font-size: 12px; }
       by[k][isProcess(p.t) ? 'pc' : 'pd'] += 1;
     });
     var days = [], max = 1, today = new Date();
+    var firstDay = Object.keys(by).sort()[0] || dayKey(today);
     for (var i = DAYS - 1; i >= 0; i--) {
       var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
-      if (dayKey(d) < dayKey(new Date(START))) continue;   // nothing is counted before the plan start
+      if (dayKey(d) < firstDay) continue;   // the chart starts on the day of the first merged PR
       var v = by[dayKey(d)] || { pd: 0, pc: 0 };
       days.push({ d: d, pd: v.pd, pc: v.pc, today: i === 0 });
       max = Math.max(max, v.pd + v.pc);
