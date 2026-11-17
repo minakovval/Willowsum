@@ -1,6 +1,6 @@
 # Restarts
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
 
 Read when the container restarted, you resume the pipeline, the context was compacted, or a lead session starts or
 finishes (a new session: also [new session](../../../references/new-lead-session.md)).
@@ -16,33 +16,36 @@ them, SKILL.md step 3). An agent cut off by a limit or a restart: save its uncom
 commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task> (agent cut off)"`, then push),
 and brief the next agent from it (owner, 2026-11-14, #178, #197).
 
-**350 k stop** (owner, 2026-11-14, #178): from ~350 k tokens of context the lead takes no new tasks and only brings
-the current PRs to merge (1–2 PRs fewer per segment) and keeps «Lead state» current, so the compaction loses little.
+**350 k** (owner, 2026-11-14, #178; changed (owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides)): from ~350 k tokens of
+context the lead only rewrites the #179 body before each long step; the stop on new tasks is removed.
 
 **Lead state** (owner, 2026-11-16, process review 15, proposal 5): one place — the **body** of #179, rewritten in
 full each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a
 comment. It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions,
 follow-ups, the next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178).
-Rewrite it after every 3 merges, whenever an owner question changes and, from the 350 k stop, before each long
+Rewrite it after every 3 merges, whenever an owner question changes and, from ~350 k, before each long
 step. Рішення ведучого (2026-11-16; власник не схвалював; #360): the handover tables stay comments on #179 — they
-are the history the owner keeps (2026-11-16: «таблиця потрібна для відстеження історії»), not the state.
+are the history the owner keeps (2026-11-16: «таблиця потрібна для відстеження історії»), not the state; at a
+compaction there is no table (below).
 
 **After compaction** (owner, 2026-11-15, #178,
-[comment 6897443899](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6897443899)): at ~400 k tokens
-the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner); the
-lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher `compact`) reminds the
-agent; the lead then, in the same session:
+[comment 6897443899](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6897443899); steps changed
+(owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides), [log](../../../../docs/decisions/log/2026-11-17-owner-compaction-trial.md)): at ~400 k tokens
+the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner; the
+threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
+`compact`) reminds the agent; the lead then, in the same session:
 1. re-reads «Lead state» (#179), the `pr-pipeline` skill and [lead-communication.md](lead-communication.md)
    («Ukrainian only» and the rest: after a compaction the lead twice wrote to the owner in English; owner,
    2026-11-16, `2026-11-16-owner-sensitive-sync-language-card.md`), then the sources above as needed;
 2. becomes lead N+1 (the numbering continues) and renames the session with `set_session_title` to
    `Willowsum · ведучий N+1 · <з чого продовжує>`;
-3. posts the retrospective of lead N ([token economy](token-economy.md), «Session retrospective»), adds its
-   «Сесії» row to #180 and records the new segment's start («Token accounting» item 1);
-4. posts the handover table on #179 ([handover confirmation](../../../references/handover-confirmation.md); the table stays at every handover, a compaction
-   included: owner, 2026-11-16, #178, «ні, таблиця потрібна для відстеження історії»): «Передано» is «Lead state»
-   as kept current, «Прийнято» is what lead N+1 re-read and did; the chat gets only the short retrospective;
-5. continues the pipeline; when a «Process review» is due (below), it comes first.
+3. adds one row for lead N to «Сесії» in #180 («Token accounting» item 1);
+4. continues the pipeline; when a «Process review» is due (below), it comes first.
+
+At a compaction there is **no** retrospective and **no** handover table: the retrospective of the segments since the
+previous review goes with the process review (below). The handover table stays only for a new session
+([handover confirmation](../../../references/handover-confirmation.md)). After leads 20–22 the lead reports the
+merged PRs per segment before and after (leads 17–19 against 20–22) and the post-compaction errors; the owner decides.
 
 **Session names** (owner, 2026-11-13, #178): every lead is `Willowsum · ведучий N · <з чого починає>`, e.g.
 `Willowsum · ведучий 2 · хвиля 2 з рядка 3`; N is one more than the previous lead's, whether it ended in a
@@ -61,14 +64,16 @@ that starts a segment checks it after the start steps; when due, the review come
    rational, needed, useful, optimal? — on the data of #180 (tokens, time, rounds);
 2. the current instructions (AGENTS.md, `pr-pipeline` and `references/`, the other skills, `.claude/references/`):
    contradictions, duplication, outdated or unneeded text, what to simplify or shorten;
-3. the handovers since the previous review: what «Lead state» and the confirmations lost or got wrong.
+3. the handovers since the previous review: what «Lead state» and the confirmations lost or got wrong;
+4. the retrospective of the lead segments since the previous review ([token economy](token-economy.md),
+   «Session retrospective»; owner, 2026-11-17: not at a compaction).
 Result: a comment on #180 with conclusions and **at most 3 proposals**, ranked by expected saving (each with risks,
 downsides, mitigations); the rest waits in «Черга змін процесу» (#178) for the next review. No rule changes without
 an owner decision; between reviews only what [lead communication](lead-communication.md), «Batching process
 changes», allows as a separate PR.
 
 **Handover confirmation** and its table: [handover confirmation](../../../references/handover-confirmation.md)
-(read at every handover, a compaction included).
+(read at a new session; not at a compaction).
 
 **Owner decisions in documents** (owner, 2026-11-13): each is recorded in a document (decision log, skill, AGENTS.md,
 requirement) and carried into the rules it changes (SKILL.md §2), never only in memory; check it before a handover.
