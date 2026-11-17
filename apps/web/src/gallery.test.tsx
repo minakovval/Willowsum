@@ -1,7 +1,11 @@
+import type { ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
+import { I18nProvider } from "@willowsum/i18n";
 import { App } from "./App.tsx";
+import { DialogDemo } from "./pages/DialogDemo.tsx";
+import { ProgressDemo } from "./pages/ProgressDemo.tsx";
 
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
 const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
@@ -19,6 +23,15 @@ const openDialog = (role: "dialog" | "alertdialog", name: string) => {
   return within(el);
 };
 const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
+
+/** One demo section alone, in the providers the gallery gives it (see `renderDialogSection`). */
+const renderSection = (demo: ReactNode) => render(<I18nProvider initialLocale="uk">{demo}</I18nProvider>);
+
+/**
+ * The Dialog section alone, not the whole gallery: its tests only open dialogs from the section's buttons, and
+ * rendering every section (about 4 350 elements) cost about 1 s per test and put the form test at 5.3 s of 5 s.
+ */
+const renderDialogSection = () => renderSection(<DialogDemo />);
 
 describe("/gallery/tokens (DS-22)", () => {
   beforeEach(() => {
@@ -40,6 +53,8 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
+    // The title of the Progress section (its demo is tested alone, without the rest of the page).
+    expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
@@ -233,8 +248,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-74@PoC gallery: the Progress section shows running, counting, stacked, done and error, and a live case that steps, fails and finishes", () => {
-    const { container } = render(<App />);
-    expect(container.querySelector("#g-progress")!.textContent).toBe("Прогрес");
+    const { container } = renderSection(<ProgressDemo />);
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     expect(norm(at("queue").querySelector(".ws-progress-text")!.textContent)).toBe("31 з 103 · лишилось 72");
     expect(at("counting").textContent).toContain("Рахуємо…");
@@ -562,8 +576,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC1: every case opens from its button with focus inside, never on a danger action, and closes back", () => {
-    render(<App />);
-    const section = document.getElementById("g-dialog")!.parentElement!;
+    const { container: section } = renderDialogSection();
     const openers = [...section.querySelectorAll<HTMLButtonElement>("button[data-case]")];
     expect(openers.map((b) => b.dataset.case)).toEqual([
       "delete",
@@ -593,7 +606,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC13: the gallery form «Нова ціль» has three steps, «Далі» on step 1 and the main action inactive until the required fields are filled", () => {
-    render(<App />);
+    renderDialogSection();
     act(() => document.querySelector<HTMLButtonElement>('button[data-case="form"]')!.click());
     const scoped = openDialog("dialog", "Нова ціль");
     const dialog = document.querySelector<HTMLElement>("dialog.ws-dialog")!;
@@ -616,7 +629,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-21@PoC AC4: the gallery «Закрити акаунт?» keeps its action inactive until «ВИДАЛИТИ» is typed", () => {
-    render(<App />);
+    renderDialogSection();
     act(() => document.querySelector<HTMLButtonElement>('button[data-case="word"]')!.click());
     const dialog = openDialog("alertdialog", "Закрити акаунт?");
     const action = dialog.getByRole("button", { name: "Закрити акаунт" });
@@ -630,7 +643,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   it("CMP-21@PoC AC6: the synthetic delete runs, then fails with «Помилка» inside the open dialog", () => {
     vi.useFakeTimers();
     try {
-      render(<App />);
+      renderDialogSection();
       act(() => document.querySelector<HTMLButtonElement>('button[data-case="error"]')!.click());
       const dialog = () => openDialog("alertdialog", "Видалити рахунок «Monobank»?");
       act(() => dialog().getByRole("button", { name: "Видалити рахунок" }).click());
