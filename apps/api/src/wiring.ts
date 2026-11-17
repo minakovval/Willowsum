@@ -57,6 +57,7 @@ import {
 import {
   createTransactionLookup,
   createTransactionRuleInputs,
+  createTransactionRuleTags,
   createTransactionReviewBulkActions,
   createTransactionTagBulkActions,
   createTransactionsHandOffRecovery,
@@ -387,6 +388,13 @@ export function workerQueues(
           accounts: createAccountDirectory(databases.for("accounts")),
           merchants: createMerchantDirectory(databases.for("merchants")),
           inputs: createTransactionRuleInputs(databases.for("transactions")),
+          // BUD-14 b2: the tags action of the rules, on new transactions and in background runs.
+          tags: createTransactionRuleTags({
+            db: databases.for("transactions"),
+            accounts: createAccountDirectory(databases.for("accounts")),
+            newId: randomUUID,
+            ...(flags ? { flags } : {}),
+          }),
         }),
         flags,
       ),

@@ -121,8 +121,8 @@ export function transactionAudit(audit: Pick<AuditLog, "record">): TransactionAu
   return {
     async changed(householdId, actorAccountId, transactionId, action, values, key) {
       await audit.record(householdId, {
-        actor: { kind: "user", id: actorAccountId },
-        channel: "web",
+        actor: actorAccountId === null ? { kind: "system" } : { kind: "user", id: actorAccountId },
+        channel: actorAccountId === null ? "system" : "web",
         entity: { type: "transactions.transaction", id: transactionId },
         // The log knows create, update and delete: a split, hiding and showing are updates of the transaction, told
         // apart by their fields (`split.*`, `hidden`) and the key (`transactions.split:…`, `transactions.hide:…`).

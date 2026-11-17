@@ -4,7 +4,10 @@ import {
   conditionKey,
   firstRule,
   moved,
+  RUN_FOREGROUND_MAX,
+  rulesFor,
   ruleMatches,
+  undoState,
   type RankedRule,
   type RuleCondition,
   type RuleSubject,
@@ -157,5 +160,59 @@ describe("BUD-14@PoC FR 4: the order is the priority", () => {
     expect(moved(["a", "b", "c", "d", "e"], "e", 1)).toEqual(["e", "a", "b", "c", "d"]);
     expect(moved(["a", "b", "c"], "a", 2)).toEqual(["b", "a", "c"]);
     expect(moved(["a", "b", "c"], "b", 3)).toEqual(["a", "c", "b"]);
+  });
+});
+
+describe("BUD-14@PoC FR 8: each attribute from the first rule that sets it", () => {
+  it("BUD-14@PoC AC3: №1 «Мерчант містить Costco → Продукти», №2 «Рахунок = Amex · сума більше за 200 € → тег «великі», Дім» — the category from №1, the tag from №2, both applied", async () => {
+    const costco = subject({
+      merchant: "Costco",
+      description: "COSTCO WHOLESALE 0042",
+      amount: eur("-312.00"),
+      accountId: AMEX,
+    });
+    const r1 = rule("r1", [{ field: "merchant", operator: "contains", value: "Costco" }], GROCERIES);
+    const r2 = {
+      ...rule(
+        "r2",
+        [
+          { field: "account", operator: "equals", value: AMEX },
+          { field: "amount", operator: "greater", value: eur("200") },
+        ],
+        HOME,
+      ),
+      tags: ["великі"],
+    };
+    const chosen = await rulesFor([r1, r2], costco, async () => null);
+    expect(chosen.category?.id).toBe("r1");
+    expect(chosen.tags?.id).toBe("r2");
+    // A rule without tags sets no tags; a lower one with tags would.
+    expect((await rulesFor([r1], costco, async () => null)).tags).toBeNull();
+    // A higher rule with tags wins the tags too; one that needs attention sets neither.
+    const r0 = {
+      ...rule("r0", [{ field: "merchant", operator: "equals", value: "costco" }], HOME),
+      tags: ["опт"],
+    };
+    const top = await rulesFor([r0, r1, r2], costco, async (r) =>
+      r.id === "r0" ? "category_deleted" : null,
+    );
+    expect([top.category?.id, top.tags?.id]).toEqual(["r1", "r2"]);
+  });
+});
+
+describe("BUD-14@PoC FR 7: «Застосувати до N наявних транзакцій» and «Відмінити»", () => {
+  it("BUD-14@PoC EC1: up to 500 transactions at once, the rest in the background", () => {
+    expect(RUN_FOREGROUND_MAX).toBe(500);
+  });
+
+  it("BUD-14@PoC AC6: «Відмінити» for 7 days after the run ended — 8 days later «Час для відміни минув»; a run undone once is «Запуск уже відмінено»", () => {
+    const ended = Date.parse("2026-10-09T10:00:00Z");
+    const day = 24 * 60 * 60 * 1000;
+    expect(undoState({ status: "completed", endedAt: ended }, ended + 6 * day)).toBe("available");
+    expect(undoState({ status: "completed", endedAt: ended }, ended + 7 * day)).toBe("available");
+    expect(undoState({ status: "completed", endedAt: ended }, ended + 8 * day)).toBe("expired");
+    expect(undoState({ status: "undone", endedAt: ended }, ended + day)).toBe("undone");
+    expect(undoState({ status: "undoing", endedAt: ended }, ended + day)).toBe("undone");
+    expect(undoState({ status: "running", endedAt: null }, ended)).toBe("running");
   });
 });

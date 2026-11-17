@@ -12,6 +12,7 @@ import { CATEGORY_SOURCES } from "../../domain/index.ts";
 import { rulesTx } from "../db/rules.ts";
 import { categorizationTx } from "../db/store.ts";
 import { rulesRoutes } from "./rules.ts";
+import { runsRoutes } from "./runs.ts";
 import { getCategorySuggestionsRoute } from "./suggestions.ts";
 import { categorizationServices, handOffNow } from "./services.ts";
 
@@ -42,16 +43,23 @@ const categorySchema = z.object({
    * now; absent — no rule (or it is no longer there).
    */
   rule: z.object({ id: z.uuid(), position: z.number().int() }).optional(),
+  /**
+   * BUD-14 FR 8, AC3: «Застосовано правила: №…» — the rules that set the category and the tags, in priority order now;
+   * absent — none (or no longer there).
+   */
+  appliedRules: z.array(z.object({ id: z.uuid(), position: z.number().int() })).optional(),
 });
 
 const present = (
   row: StoredTransactionCategory,
   position: number | null = null,
+  applied: readonly { id: string; position: number }[] = [],
 ): z.input<typeof categorySchema> => ({
   transactionId: row.transactionId,
   categoryId: row.categoryId,
   source: row.source,
   ...(row.ruleId !== null && position !== null ? { rule: { id: row.ruleId, position } } : {}),
+  ...(applied.length > 0 ? { appliedRules: [...applied] } : {}),
 });
 
 /** Scoped members: «Транзакції» are closed by the visibility policy's default (00-general «Область доступу»). */
@@ -100,15 +108,17 @@ export const getTransactionCategoryRoute = defineRoute({
     refuseScoped(ctx);
     await existing(ctx, params.transactionId);
     const householdId = ctx.principal.householdId;
-    const { row, position } = await ctx.inHousehold(async (q) => {
+    const { row, position, applied } = await ctx.inHousehold(async (q) => {
       const found = await categoryOf(categorizationTx(q), householdId, params.transactionId);
-      const rule =
-        found.ruleId === null
-          ? undefined
-          : (await rulesTx(q).rules(householdId)).find((r) => r.id === found.ruleId);
-      return { row: found, position: rule?.position ?? null };
+      const refs = [found.ruleId, found.tagRuleId ?? null].filter((id): id is string => id !== null);
+      const rules = refs.length === 0 ? [] : await rulesTx(q).rules(householdId);
+      const rule = rules.find((r) => r.id === found.ruleId);
+      const applied = rules
+        .filter((r) => refs.includes(r.id))
+        .map((r) => ({ id: r.id, position: r.position }));
+      return { row: found, position: rule?.position ?? null, applied };
     });
-    return present(row, position);
+    return present(row, position, applied);
   },
 });
 
@@ -156,5 +166,6 @@ export const categorizationRoutes = [
   getTransactionCategoryRoute,
   setTransactionCategoryRoute,
   ...rulesRoutes,
+  ...runsRoutes,
   getCategorySuggestionsRoute,
 ];

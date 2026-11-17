@@ -319,6 +319,8 @@ describe("BUD-14@PoC FR 4: «Правила категорій» in priority ord
       accountIds: [],
       categoryId: groceries,
       enabled: true,
+      // BUD-14 b2 (FR 5): the tags action, none here.
+      tags: [],
       needsAttention: null,
       appliedCount: 0,
     });
@@ -587,6 +589,8 @@ describe("BUD-14@PoC FR 8: new transactions go through the rules", () => {
       categoryId: subscriptions,
       source: "rule",
       rule: { id: rule.id, position: 1 },
+      // BUD-14 b2 (FR 8): «Застосовано правила: №1».
+      appliedRules: [{ id: rule.id, position: 1 }],
     });
     expect((await listRules(space))[0]!.appliedCount).toBe(1);
     // The system's entry of the rule's category (П-10).

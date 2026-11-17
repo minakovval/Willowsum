@@ -49,6 +49,7 @@ import {
   createTransactionHistory,
   createTransactionLookup,
   createTransactionRuleInputs,
+  createTransactionRuleTags,
   createTransactionTexts,
   createTransactionPendingPostings,
   createTransactionWalletUsage,
@@ -295,7 +296,16 @@ const server = buildServer({
                 accounts: createAccountDirectory(databases.for("accounts")),
                 merchants: createMerchantDirectory(databases.for("merchants")),
                 inputs: createTransactionRuleInputs(databases.for("transactions")),
+                // BUD-14 b2: the tags action of a rule in «Застосувати до N наявних…».
+                tags: createTransactionRuleTags({
+                  db: databases.for("transactions"),
+                  accounts: createAccountDirectory(databases.for("accounts")),
+                  newId: randomUUID,
+                  flags,
+                }),
               }),
+              // BUD-14 b2: when a run began and ended, and its 7 days of «Відмінити».
+              clock: systemClock,
             }),
             // BUD-01: the category tree of the space; the system tree is written on first use. FR 12: a custom
             // category is deleted only while empty — every module that keeps category ids answers here (today the

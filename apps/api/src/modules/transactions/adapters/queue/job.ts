@@ -13,7 +13,8 @@ const value = z.string().max(1000).nullable();
 /** The payload of `transactions.hand-off` (application/hand-off.ts `TransactionHandOff`), checked when enqueued and run. */
 const handOffSchema = z.strictObject({
   transactionId: z.uuid(),
-  actorAccountId: z.uuid(),
+  // Null — the system: the tags of a category rule on a new transaction (BUD-14 FR 8).
+  actorAccountId: z.uuid().nullable(),
   action: z.enum(HAND_OFF_ACTIONS),
   version: z.number().int().min(1),
   transferId: z.uuid().optional(),

@@ -6,6 +6,7 @@ import { defineRoute, type ProtectedContext } from "../../../../platform/http/ro
 import {
   checkRule,
   createRule,
+  deleteRule,
   listRules,
   matchingTransactions,
   moveRule,
@@ -19,6 +20,8 @@ import {
   AMOUNT_OPERATORS,
   RULE_ACCOUNTS_MAX,
   RULE_CONDITIONS_MAX,
+  RULE_TAG_NAME_MAX,
+  RULE_TAGS_MAX,
   RULES_MAX,
   TEXT_OPERATORS,
   type RuleCondition,
@@ -57,6 +60,30 @@ const conditionSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("account"), operator: z.literal("equals"), value: z.uuid() }).strict(),
 ]);
 
+/**
+ * «Теги» of a rule (FR 5): each a tag's name as a transaction's (BUD-13 FR 2) — one line, the spaces at its ends trimmed,
+ * 1–60 characters; the same tag (without regard to case) once, in the order first given; at most 20.
+ */
+const tagsSchema = z
+  .array(z.string().max(RULE_TAG_NAME_MAX * 4))
+  .max(RULE_TAGS_MAX * 4)
+  .transform((names, ctx) => {
+    const byKey = new Map<string, string>();
+    for (const [i, raw] of names.entries()) {
+      const name = raw.normalize("NFC").trim();
+      if (name === "" || [...name].length > RULE_TAG_NAME_MAX || /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(name)) {
+        ctx.addIssue({ code: "custom", path: [i], message: "invalid" });
+        return z.NEVER;
+      }
+      if (!byKey.has(name.toLowerCase())) byKey.set(name.toLowerCase(), name);
+    }
+    if (byKey.size > RULE_TAGS_MAX) {
+      ctx.addIssue({ code: "custom", message: "too_many" });
+      return z.NEVER;
+    }
+    return [...byKey.values()];
+  });
+
 const matcherFields = {
   /** «Умови*»: all must hold (FR 5). «Сума» is compared without its sign, in its own currency. */
   conditions: z.array(conditionSchema).min(1).max(RULE_CONDITIONS_MAX),
@@ -73,6 +100,8 @@ const ruleSchema = z.object({
   categoryId: z.uuid(),
   /** «Увімкнено»: a disabled rule is not applied to new transactions (AC12). */
   enabled: z.boolean(),
+  /** FR 5: «Додатково» → «Теги» — the tags the rule adds after a transaction's own, by name. */
+  tags: z.array(z.string()),
   /** FR 10, AC7: «Потребує уваги» — the category or an account is gone; skipped until edited. Null — fine. */
   needsAttention: z.enum(["category_deleted", "account_deleted"]).nullable(),
   /** «Застосовано: N транзакцій»: the transactions whose category this rule set and still holds. */
@@ -102,6 +131,7 @@ const present = (l: ListedRule): z.input<typeof ruleSchema> => ({
   accountIds: [...l.rule.accountIds],
   categoryId: l.rule.categoryId,
   enabled: l.rule.enabled,
+  tags: [...l.rule.tags],
   needsAttention: l.attention,
   appliedCount: l.appliedCount,
 });
@@ -195,6 +225,7 @@ export const createCategoryRuleRoute = defineRoute({
         /** «Категорія*»: of the space's tree in use, not a service one. */
         categoryId: z.uuid(),
         enabled: z.boolean().default(true),
+        tags: tagsSchema.default([]),
       })
       .strict(),
   },
@@ -230,6 +261,7 @@ export const updateCategoryRuleRoute = defineRoute({
         accountIds: matcherFields.accountIds.optional(),
         categoryId: z.uuid().optional(),
         enabled: z.boolean().optional(),
+        tags: tagsSchema.optional(),
       })
       .strict(),
   },
@@ -241,6 +273,7 @@ export const updateCategoryRuleRoute = defineRoute({
       ...(body.accountIds !== undefined ? { accountIds: body.accountIds } : {}),
       ...(body.categoryId !== undefined ? { categoryId: body.categoryId } : {}),
       ...(body.enabled !== undefined ? { enabled: body.enabled } : {}),
+      ...(body.tags !== undefined ? { tags: body.tags } : {}),
     };
     await checked(ctx, fields);
     const householdId = ctx.principal.householdId;
@@ -296,6 +329,29 @@ export const moveCategoryRuleRoute = defineRoute({
     await rulesAuditNow(audit, householdId, result.audit);
     const listed = await ctx.inHousehold((q) => listRules(rulesTx(q), deps, householdId));
     return { items: listed.map(present) };
+  },
+});
+
+export const deleteCategoryRuleRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/category-rules/{ruleId}",
+  operationId: "deleteCategoryRule",
+  summary:
+    "«Видалити» after the confirmation: the rule goes, the others keep their order; transactions keep their category and tags without «за правилом №…» (BUD-14 FR 15, AC17)",
+  access: { permission: "household.data.write", feature: FEATURE },
+  request: { params: ruleParams },
+  response: { status: 200, description: "Deleted", schema: z.object({ deleted: z.literal(true) }) },
+  handler: async ({ params }, ctx) => {
+    refuseScoped(ctx);
+    const { audit } = rulesDeps(ctx);
+    const householdId = ctx.principal.householdId;
+    const result = await ctx.inHousehold((q) =>
+      deleteRule(rulesTx(q), { householdId, actorAccountId: ctx.principal.userId, id: params.ruleId }),
+    );
+    if (result.kind === "not-found") throw new ApiProblem("NOT_FOUND");
+    await rulesAuditNow(audit, householdId, result.audit);
+    return { deleted: true as const };
   },
 });
 
@@ -366,4 +422,5 @@ export const rulesRoutes = [
   createCategoryRuleRoute,
   updateCategoryRuleRoute,
   moveCategoryRuleRoute,
+  deleteCategoryRuleRoute,
 ];

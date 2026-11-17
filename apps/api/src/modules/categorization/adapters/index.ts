@@ -14,6 +14,12 @@ export {
   createCategorizationServices,
   type CategorizationServices,
 } from "./http/services.ts";
-export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB } from "./queue/job.ts";
+export {
+  AUDIT_JOB,
+  CATEGORY_MERGED_JOB,
+  HAND_OFF_JOB,
+  RULE_RUN_PART_JOB,
+  TRANSACTION_CREATED_JOB,
+} from "./queue/job.ts";
 export { RULE_SCAN_MAX } from "./http/services.ts";
 export { categorizationWorkerQueue, requeueDeadJobsOf } from "./queue/worker.ts";
