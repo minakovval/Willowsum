@@ -524,14 +524,17 @@ describe("sec451 (security review of #451): createTransfer", () => {
     expect(over.statusCode, over.body).toBe(400);
   });
 
-  it("sec451 closed: a closed `from` account answers 409 also when the form has other errors (#455)", async () => {
+  it("sec451 closed: the checks run fields first, then the closed account — a closed `from` is 409 with a valid form, 400 with field errors, like `to` and createTransaction (#456)", async () => {
     const { space, b } = await twoAccounts();
     const a = await createAccount(space, "0.00");
     expect((await call(space, "POST", `/v1/accounts/${a}/close`, { closedOn: TODAY })).statusCode).toBe(200);
-    for (const extra of [{}, { amount: { amount: "-5.00", currency: "EUR" } }, { date: "2026-13-01" }]) {
-      const res = await transfer(space, body(a, b, extra));
-      expect(res.statusCode, JSON.stringify(extra)).toBe(409);
-    }
+    expect((await transfer(space, body(a, b))).statusCode).toBe(409);
+    for (const extra of [{ amount: { amount: "-5.00", currency: "EUR" } }, { date: "2026-13-01" }])
+      expect((await transfer(space, body(a, b, extra))).statusCode, JSON.stringify(extra)).toBe(400);
+    // `from` = `to` on a closed account is still `same_account`.
+    const same = await transfer(space, body(a, a));
+    expect(same.statusCode).toBe(400);
+    expect(same.json().errors).toEqual([{ in: "body", path: "toAccountId", issue: "same_account" }]);
     expect(await written(space.householdId)).toEqual(NOTHING);
   });
 

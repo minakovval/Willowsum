@@ -134,3 +134,17 @@ export function transferReceived(
   // Too small to reach the credit currency's minor unit: a transfer moves money (FR 2).
   return received.isZero() ? { field: "amount", issue: "zero" } : received;
 }
+
+/**
+ * Whether the journal can keep a two-currency transfer's credit: it posts the credit converted into the debit's
+ * currency at the kept rate (fx-transfer, ARC-11), and a value beyond a stored amount (NUMERIC(38,18)) never posts.
+ */
+export function creditFitsJournal(received: Money, rate: ExchangeRate, date: string): boolean {
+  try {
+    convert(received, rate, date);
+    return true;
+  } catch (error) {
+    if (error instanceof DomainError && error.code === "AMOUNT_OUT_OF_RANGE") return false;
+    throw error;
+  }
+}

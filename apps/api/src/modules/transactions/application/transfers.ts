@@ -4,6 +4,7 @@ import {
   parseSignedAmount,
   reviewOnCreate,
   transferRateRequest,
+  creditFitsJournal,
   transferReceived,
   type FieldIssue,
   type TransferLink,
@@ -263,8 +264,6 @@ export async function createTransfer(
     deps.accounts.postingAccount(householdId, input.toAccountId),
   ]);
   if (!from || !to) return { kind: "not-found" };
-  // A closed debit account is «closed» (409) whatever else is wrong with the form (#455).
-  if (from.status === "closed") return { kind: "closed" };
   // The debit: the form's checks of one transaction (date, texts, account, currency) on the negated amount.
   const outflow =
     isIssue(sent) || issues.length > 0
@@ -308,6 +307,10 @@ export async function createTransfer(
   if (received === "rate_unavailable")
     return { kind: "invalid", issues: [{ field: "date", issue: "rate_unavailable" }] };
   if (isIssue(received)) return { kind: "invalid", issues: [received] };
+  // The journal keeps the credit converted into the debit's currency at the kept rate (fx-transfer, ARC-11): a
+  // credit whose converted value is beyond a stored amount could never be posted — a field issue, nothing written.
+  if (two && !creditFitsJournal(received, rate!, debit.date))
+    return { kind: "invalid", issues: [{ field: given === null ? "amount" : "received", issue: "invalid" }] };
   const inflow = await check(
     deps,
     householdId,

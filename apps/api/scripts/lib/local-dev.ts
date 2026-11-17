@@ -159,6 +159,8 @@ export function assertLocalServer(
   const host = u.hostname.replace(/^\[|\]$/g, "");
   const params = new URLSearchParams(u.search);
   const socket = params.get("host") ?? "";
+  // `service=` reads a pg_service.conf entry whose hostaddr / port win over the URL's host in libpq.
+  if (params.has("service")) refuse("the URL names a service");
   if (host !== "") {
     // libpq lets ?host= / ?hostaddr= override the authority: with either present the real target is not `host`.
     if (params.has("host") || params.has("hostaddr")) refuse(`${host} with ${socket || "hostaddr"}`);

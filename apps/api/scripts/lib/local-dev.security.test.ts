@@ -106,6 +106,11 @@ describe("CICD-04 security: the guard looks at where pg really connects", () => 
     );
   });
 
+  it("sec456: refuses a URL that names a service (a pg_service.conf entry's hostaddr wins over the URL's host in libpq)", () => {
+    expect(() => assertLocalServer(`${ADMIN}?service=remote`, {})).toThrow(/not a local/);
+    expect(() => assertLocalServer("postgres:///x?host=/tmp&service=remote", {})).toThrow(/not a local/);
+  });
+
   it("accepts a Unix socket directory", () => {
     expect(() => assertLocalServer("postgres:///x?host=/tmp")).not.toThrow();
     expect(() => assertLocalServer("postgres:///x?host=/var/run/postgresql")).not.toThrow();

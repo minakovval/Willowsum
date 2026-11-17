@@ -78,6 +78,8 @@ export function isLocalAdminUrl(adminUrl, env = process.env) {
   const host = u.hostname.replace(/^\[|\]$/g, '');
   const params = new URLSearchParams(u.search);
   const socket = params.get('host') ?? '';
+  // `service=` reads a pg_service.conf entry whose hostaddr / port win over the URL's host (psql, libpq).
+  if (params.has('service')) return false;
   if (host !== '') return !params.has('host') && !params.has('hostaddr') && ['127.0.0.1', '::1', 'localhost'].includes(host);
   return params.getAll('host').length === 1 && !params.has('hostaddr') && socket.startsWith('/') && !socket.includes(',') && !socket.split('/').includes('..');
 }

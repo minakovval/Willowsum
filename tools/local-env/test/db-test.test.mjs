@@ -92,3 +92,11 @@ test('#452: PGHOSTADDR or PGSERVICE in the environment refuses an otherwise loca
   assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url, PGSERVICE: 'remote' }, docker: false }).kind, 'none');
   assert.equal(resolveServer({ env: { WS_TEST_PG_ADMIN_URL: url }, docker: false }).kind, 'url');
 });
+
+// Security review of #456: `service=` in the URL reads a pg_service.conf entry whose hostaddr / port win over the
+// URL's own host in psql (libpq) — seen: `postgres://…@127.0.0.1:5432/postgres?service=remote` connects elsewhere.
+test('sec456: a URL that names a service is refused, with a host and in the socket form', () => {
+  for (const bad of ['postgres://u@127.0.0.1:5432/postgres?service=remote', 'postgres://u@localhost/postgres?service=remote', 'postgres:///x?host=/tmp&service=remote', 'postgres://u@127.0.0.1/postgres?%73ervice=remote'])
+    assert.equal(isLocalAdminUrl(bad, {}), false, bad);
+  assert.equal(isLocalAdminUrl('postgres://u@127.0.0.1:5432/postgres?sslmode=disable', {}), true);
+});
