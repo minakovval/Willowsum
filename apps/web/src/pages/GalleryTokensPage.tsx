@@ -58,6 +58,7 @@ import { DateFieldDemo } from "./DateFieldDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
 import { SkeletonDemo } from "./SkeletonDemo.tsx";
+import { StatesDemo } from "./StatesDemo.tsx";
 import { TooltipDemo } from "./TooltipDemo.tsx";
 import { ToastDemo } from "./ToastDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
@@ -389,6 +390,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-skeleton" title={t("gallery.skeleton.title")}>
         <SkeletonDemo />
+      </Section>
+
+      <Section id="g-states" title={t("gallery.states.title")}>
+        <StatesDemo />
       </Section>
 
       <Section id="g-progress" title={t("gallery.progress.title")}>
