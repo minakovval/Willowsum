@@ -346,3 +346,8 @@
   background: var(--ws-tint-info);
   color: var(--ws-brand);
 }
+
+/* The picker of the pencil: the field and its open list (at most 320 px) fit in the dialog body. */
+.review-picker {
+  min-block-size: calc(var(--ws-space-8) * 6 + var(--ws-space-2));
+}

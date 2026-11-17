@@ -341,16 +341,19 @@ function CategoryDialog({
       closeLabel={t("shell.close")}
       actions={[{ label: t("newTx.cancel"), onClick: onClose }]}
     >
-      <CategorySelect
-        label={t("review.dialog.label")}
-        value=""
-        onChange={onChoose}
-        merchant={merchant}
-        top={top}
-        groups={groups}
-        onCreate={() => setCreating(true)}
-        placeholder={t("transactionRow.uncategorized")}
-      />
+      {/* Room for the open list inside the dialog, so it is not cut by the dialog's scrolling body. */}
+      <div className="review-picker">
+        <CategorySelect
+          label={t("review.dialog.label")}
+          value=""
+          onChange={onChoose}
+          merchant={merchant}
+          top={top}
+          groups={groups}
+          onCreate={() => setCreating(true)}
+          placeholder={t("transactionRow.uncategorized")}
+        />
+      </div>
     </Dialog>
   );
 }
