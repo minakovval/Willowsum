@@ -16,7 +16,7 @@
  *   within days and is detected by the major, so Chrome's dates stand for it (lead decision 2026-11-13).
  * - Safari: Apple's Safari release notes, release date of each version.
  */
-import data from "./releases.json";
+import data from "./releases.json" with { type: "json" };
 
 export interface Release {
   /** `153` (Chromium major) or `27.1` (Safari major.minor). */
