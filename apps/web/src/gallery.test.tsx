@@ -6,6 +6,7 @@ import { I18nProvider } from "@willowsum/i18n";
 import { App } from "./App.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
+import { StatesDemo } from "./pages/StatesDemo.tsx";
 
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
 const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
@@ -53,10 +54,12 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
-    // The Progress and Dialog sections are on the page with their demos (their other tests render the demos alone).
+    // The Progress, Dialog and states sections are on the page with their demos (their other tests render the demos alone).
     const section = (id: string) => document.getElementById(id)!.closest("section")!;
     expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
     expect(section("g-progress").querySelector('[data-case="queue"]')).not.toBeNull();
+    expect(document.getElementById("g-states")!.textContent).toBe("Стани екранів");
+    expect(section("g-states").querySelector('[data-case="state-empty-area"]')).not.toBeNull();
     expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
     for (const c of ["delete", "form", "word", "error"])
       expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
@@ -213,8 +216,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("DAT-05@PoC gallery: the states section shows empty (area, block, without rights), loading, error beside a working card, partial data and «Немає доступу»", () => {
-    const { container } = render(<App />);
-    expect(container.querySelector("#g-states")!.textContent).toBe("Стани екранів");
+    const { container } = renderSection(<StatesDemo />);
     const at = (c: string) => within(container.querySelector<HTMLElement>(`[data-case="state-${c}"]`)!);
     expect(at("empty-area").getByRole("heading", { level: 2 }).textContent).toBe("Транзакцій ще немає");
     expect(at("empty-area").getAllByRole("button")).toHaveLength(2);
@@ -227,8 +229,8 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(at("partial").getByText("Частина даних не оновлена")).toBeTruthy();
     expect(at("no-access-page").getByRole("heading", { name: "Немає доступу" })).toBeTruthy();
     expect(at("no-access-widget").queryByRole("link")).toBeNull();
-    // The page still has one h1 (the «Немає доступу» module demo is an h2 here).
-    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    // The demos have no h1 of their own (the «Немає доступу» module demo is an h2); the page's one h1 is checked above.
+    expect(screen.queryAllByRole("heading", { level: 1 })).toHaveLength(0);
   });
 
   it("CMP-22@PoC gallery: the Skeleton section shows every variant, the slow line, and swaps the skeleton for its content", () => {
