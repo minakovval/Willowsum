@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -112,7 +112,6 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
 
 ## Session retrospective
 
-At the end of every lead segment (each compaction and the end of a session; owner, 2026-11-14/15, #178): a comment
-on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs); proposals with risks,
+With the process review and at the end of a session (owner, 2026-11-14/15, #178; not at a compaction: [restarts](restarts.md), «After compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs); proposals with risks,
 downsides and mitigations (→ #178 and item 4 of the handover table); risks — plus the «Сесії» row («Token
-accounting» item 1) and a short note to the owner in chat. [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
+accounting» item 1; that row is written at a compaction too) and a short note to the owner in chat. [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
