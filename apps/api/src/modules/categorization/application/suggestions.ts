@@ -22,6 +22,13 @@ import type { StoredTransactionCategory } from "./transaction-categories.ts";
  * use in the tree, not hidden and of the transaction's type («Витрата» / «Надходження»), when the form gives it.
  */
 
+/**
+ * The most merchants `merchants` lists. The space's merchants are as many as its history (20 000 transactions were 4.0 MB
+ * and ≈ 2 s); the list «Контрагент» shows a handful. Рішення ведучого (2026-11-17; власник не схвалював; FIN-03 п. 30,
+ * #471): 100 — the merchants that contain the typed text, then the newest; no requirement gives a number.
+ */
+export const MERCHANTS_MAX = 100;
+
 /** What the form knows so far: the counterparty typed or chosen, and from step 1 the account, amount and type. */
 export interface SuggestionInput {
   readonly counterparty: string | null;
@@ -47,7 +54,10 @@ export interface CategorySuggestions {
   readonly suggestion: Suggestion | null;
   /** FR 31: «Часто для <мерчанта>» or «Нещодавні». */
   readonly top: TopCategories;
-  /** FR 30: the known merchants of the space that have a category to show, by name. */
+  /**
+   * FR 30: the known merchants of the space that have a category to show, by name: at most `MERCHANTS_MAX` — first
+   * those whose name contains the typed counterparty, then the newest of the others.
+   */
   readonly merchants: readonly { readonly name: string; readonly suggestion: Suggestion }[];
   /** The space has more transactions than are read at once: only the newest were looked at. */
   readonly truncated: boolean;
@@ -142,10 +152,17 @@ export async function categorySuggestions(
 
   const merchant = counterparty === null ? null : (names.get(counterparty) ?? counterparty);
   const merchants: { name: string; suggestion: Suggestion }[] = [];
-  for (const name of [...known].sort((a, b) => a.localeCompare(b, "uk"))) {
+  // `known` is in the order of the newest transactions. The names that contain the typed text come first, so the cap
+  // never drops a merchant the user is typing; then the newest of the others.
+  const typed = counterparty?.toLocaleLowerCase("uk") ?? null;
+  const matches = (name: string) => typed !== null && name.toLocaleLowerCase("uk").includes(typed);
+  const ordered = [...[...known].filter(matches), ...[...known].filter((n) => !matches(n))];
+  for (const name of ordered) {
+    if (merchants.length >= MERCHANTS_MAX) break;
     const suggestion = await suggestionFor(name, name);
     if (suggestion !== null) merchants.push({ name, suggestion });
   }
+  merchants.sort((a, b) => a.name.localeCompare(b.name, "uk"));
   return {
     merchant,
     suggestion: merchant === null ? null : await suggestionFor(merchant, counterparty!),
