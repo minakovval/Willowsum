@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-17
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -18,9 +18,9 @@ Write to the owner in chat **only** for (owner, 2026-11-14, #178):
 - (b) an owner decision needed: batched questions (§2);
 - (c) a problem: a blocker, red CI not caused by the PR, a security issue, or nothing merged for 2 hours (one line
   with the reason);
-- (d) the end of a lead segment: the short retrospective (the handover table goes to #179:
-  [handover confirmation](../../references/handover-confirmation.md));
-  at the end of a session also the item-by-item handover confirmation and the start message
+- (d) the end of a lead session (not a compaction: [restarts](references/restarts.md), «After compaction»): the
+  handover table goes to #179 ([handover confirmation](../../references/handover-confirmation.md)), the
+  item-by-item confirmation and the start message
   ([new session](../../references/new-lead-session.md));
 - (e) the end of each stage of `docs/plans/poc-wave-2.md` and once a day: the number of PRs merged in the period,
   what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
@@ -119,9 +119,9 @@ Rare cases — [stacked PRs and CI that cannot run](../../references/stacked-and
 another open PR, or CI cannot run: then stop merging and tell the owner at once).
 
 **Lead sessions** — [restarts](references/restarts.md) (read at the start, after a restart or an agent cut off by a
-limit, at ~350 k tokens and after a compaction); a new session, the automatic restart and the start message:
+limit, at ~350 k tokens and after a compaction: the steps are there); a new session, the automatic restart and the start message:
 [new session](../../references/new-lead-session.md). Model by risk (Fable included), briefs, resumes, token accounting and the
-retrospective: [token economy](references/token-economy.md) (read when you choose a model or write a brief).
+retrospective (with the process review): [token economy](references/token-economy.md) (read when you choose a model or write a brief).
 
 ## 2. Owner
 
