@@ -219,6 +219,34 @@ describe("downloads only through signed links (ARC-06@PoC FR 4, NFR-01@PoC FR 4)
     expect(await rows(householdId)).toBe(0);
   });
 
+  it("ARC-06@PoC FR 4: a removal whose transaction fails keeps the row and the object; the object goes only after the commit", async () => {
+    let failAudit = false;
+    const audit = createAuditLog(db.databases.for("audit"));
+    const failing = createFileStorage({
+      db: db.databases.for("file-storage"),
+      audit: {
+        record: (...args: Parameters<typeof audit.record>) =>
+          failAudit ? Promise.reject(new Error("audit is down")) : audit.record(...args),
+      },
+      keys,
+      objects,
+      linkKey: linkKey(randomBytes(32)),
+      now: () => clock,
+    });
+    const householdId = await newSpace();
+    const stored = await store(householdId, csv());
+    failAudit = true;
+    await expect(failing.remove(householdId, stored.id, actorId)).rejects.toThrow("audit is down");
+    expect(await rows(householdId)).toBe(1);
+    expect(objects.objects.has(stored.objectKey)).toBe(true);
+    const { token } = await files.link(householdId, stored.id);
+    expect((await files.open(householdId, token)).body).toEqual(csv());
+    failAudit = false;
+    await failing.remove(householdId, stored.id, actorId);
+    expect(await rows(householdId)).toBe(0);
+    expect(objects.objects.has(stored.objectKey)).toBe(false);
+  });
+
   it("ARC-06@PoC FR 4: storing and removing a file are audited by kind, format and size, never its name", async () => {
     const householdId = await newSpace();
     const stored = await store(householdId, csv(), "UA00 0000 0000 0000 0000 0000 0000 0.csv");
@@ -253,7 +281,7 @@ describe("the technical limit of a space's storage (NFR-15@PoC FR 31)", () => {
         kind: "statement",
         fileName: "big.csv",
         declaredBytes: 200 * 1024 * 1024,
-        budget: { used: 0, read: () => Promise.reject(new Error("the stream must not be read")) },
+        budget: uploadBudget(200 * 1024 * 1024),
         body: body(csv()),
       }),
     );

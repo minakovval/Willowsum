@@ -88,19 +88,27 @@ function dataStart(buf: Buffer, entry: ZipEntry, directoryOffset: number): numbe
   return at + LOCAL_BYTES + buf.readUInt16LE(at + 26) + buf.readUInt16LE(at + 28);
 }
 
-/** Unpacks one element as a stream under the limits; resolves with its bytes when `keep`, else an empty buffer. */
-function unpack(data: Buffer, entry: ZipEntry, cap: number, keep: boolean): Promise<Buffer> {
+interface Unpacked {
+  /** The element's bytes when `keep`, else an empty buffer. */
+  readonly bytes: Buffer;
+  /** Its first bytes (at most 8), kept for every element: what it is by content, whatever its name. */
+  readonly head: Buffer;
+}
+
+/** Unpacks one element as a stream under the limits. */
+function unpack(data: Buffer, entry: ZipEntry, cap: number, keep: boolean): Promise<Unpacked> {
   if (entry.method === 0) {
     if (entry.compressedSize !== entry.uncompressedSize) reject("CORRUPTED");
     if (entry.uncompressedSize > cap) reject("ARCHIVE_LIMIT");
     if (crc32(data) !== entry.crc) reject("CORRUPTED");
-    return Promise.resolve(keep ? data : Buffer.alloc(0));
+    return Promise.resolve({ bytes: keep ? data : Buffer.alloc(0), head: data.subarray(0, 8) });
   }
   return new Promise((resolve, fail) => {
     const inflater = createInflateRaw({ chunkSize: 64 * 1024 });
     const chunks: Buffer[] = [];
     let total = 0;
     let crc = 0;
+    let head: Buffer = Buffer.alloc(0);
     let settled = false;
     const settle = (work: () => void) => {
       if (settled) return;
@@ -115,13 +123,14 @@ function unpack(data: Buffer, entry: ZipEntry, cap: number, keep: boolean): Prom
         return;
       }
       crc = crc32(chunk, crc);
+      if (head.length < 8) head = Buffer.concat([head, chunk.subarray(0, 8 - head.length)]);
       if (keep) chunks.push(chunk);
     });
     inflater.on("error", () => settle(() => fail(new FileRejectionSignal("CORRUPTED"))));
     inflater.on("end", () =>
       settle(() => {
         if (total !== entry.uncompressedSize || crc !== entry.crc) fail(new FileRejectionSignal("CORRUPTED"));
-        else resolve(Buffer.concat(chunks));
+        else resolve({ bytes: Buffer.concat(chunks), head });
       }),
     );
     inflater.end(data);
@@ -138,17 +147,19 @@ class FileRejectionSignal extends Error {
 }
 
 /**
- * Unpacks every element in turn under the ZIP limits; returns the elements and the bytes of those `keep` selects.
+ * Unpacks every element in turn under the ZIP limits; returns the elements, the bytes of those `keep` selects and the
+ * first bytes of every element.
  * Throws a rejection: ARCHIVE_LIMIT for a limit, CORRUPTED for a damaged package, UNSUPPORTED_FORMAT for ZIP
  * encryption or another compression method.
  */
 export async function unpackZip(
   buf: Buffer,
   keep: (name: string) => boolean,
-): Promise<{ entries: ZipEntry[]; parts: Map<string, Buffer> }> {
+): Promise<{ entries: ZipEntry[]; parts: Map<string, Buffer>; heads: Map<string, Buffer> }> {
   const entries = readZipDirectory(buf);
   const directoryOffset = buf.readUInt32LE(findEndOfDirectory(buf) + 16);
   const parts = new Map<string, Buffer>();
+  const heads = new Map<string, Buffer>();
   let budget = FILE_LIMITS.zipUnpackedBytes;
   for (const entry of entries) {
     if (entry.flags & 0x1) reject("UNSUPPORTED_FORMAT");
@@ -156,15 +167,23 @@ export async function unpackZip(
     if (entry.uncompressedSize > FILE_LIMITS.zipRatio * entry.compressedSize) reject("ARCHIVE_LIMIT");
     const start = dataStart(buf, entry, directoryOffset);
     const cap = Math.min(FILE_LIMITS.zipRatio * entry.compressedSize, budget);
-    let bytes: Buffer;
+    let unpacked: Unpacked;
     try {
-      bytes = await unpack(buf.subarray(start, start + entry.compressedSize), entry, cap, keep(entry.name));
+      unpacked = await unpack(
+        buf.subarray(start, start + entry.compressedSize),
+        entry,
+        cap,
+        keep(entry.name),
+      );
     } catch (error) {
       if (error instanceof FileRejectionSignal) reject(error.code);
       throw error;
     }
     budget -= entry.uncompressedSize;
-    if (keep(entry.name)) parts.set(entry.name, bytes);
+    // Two elements of one name: which one a reader takes is not defined, so neither is trusted.
+    if (heads.has(entry.name)) reject("CORRUPTED");
+    heads.set(entry.name, unpacked.head);
+    if (keep(entry.name)) parts.set(entry.name, unpacked.bytes);
   }
-  return { entries, parts };
+  return { entries, parts, heads };
 }

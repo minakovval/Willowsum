@@ -214,13 +214,16 @@ export async function removeFile(
   fileId: string,
   actorId: string,
 ): Promise<void> {
-  await deps.store.inSpace(householdId, async (tx) => {
-    const file = await tx.find(fileId);
-    if (!file) throw new FileNotFoundError();
+  // The object goes only after the row and its audit entry are committed: a failed commit keeps both, never a row
+  // whose object is gone.
+  const file = await deps.store.inSpace(householdId, async (tx) => {
+    const found = await tx.find(fileId);
+    if (!found) throw new FileNotFoundError();
     await tx.remove(fileId);
-    await deps.objects.delete(file.objectKey);
-    await deps.audit.removed(file, actorId);
+    await deps.audit.removed(found, actorId);
+    return found;
   });
+  await deps.objects.delete(file.objectKey);
 }
 
 export async function spaceUsage(deps: FilesDeps, householdId: string): Promise<number> {

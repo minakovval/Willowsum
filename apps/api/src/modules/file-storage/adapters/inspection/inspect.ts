@@ -53,15 +53,41 @@ export async function inspectFile(bytes: Buffer, ceilings: Ceilings = PARSE_CEIL
 // ---------------------------------------------------------------- XLSX
 
 const MAIN_SHEET = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
+const WORKSHEET = "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml";
 const XML_PART_RE = /\.(xml|rels|vml)$/i;
 const SHEET_RE = /^xl\/worksheets\/[^/]+\.xml$/i;
 const FORBIDDEN_PART_RE = /(^|\/)vbaproject\.bin$|^xl\/(externallinks|embeddings|activex)\//i;
 const DTD_RE = /<!(DOCTYPE|ENTITY)/i;
-const CONTENT_TYPE_ATTR_RE = /ContentType\s*=\s*"([^"]*)"/g;
+// A part is what its content type says, whatever it is called, and XML allows either quote around a value.
+const CONTENT_TYPE_ATTR_RE = /ContentType\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+const PART_NAME_ATTR_RE = /PartName\s*=\s*(?:"\/?([^"]*)"|'\/?([^']*)')/;
+const OVERRIDE_RE = /<(?:[A-Za-z_][\w.-]*:)?Override\b[^>]*>/g;
+const XML_COMMENT_RE = /<!--[\s\S]*?-->/g;
+const FORBIDDEN_TYPE_RE = /macroEnabled|vbaProject|macrosheet|externalLink|oleObject|activeX/i;
+const XML_ENCODING_RE = /^\uFEFF?\s*<\?xml[^>]*?encoding\s*=\s*["']([^"']*)["']/i;
+const CFB_MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
 // A DDE formula: application|topic!item.
 const DDE_RE = /<f\b[^>]*>[^<]*[A-Za-z0-9_]\|[^<]*![^<]*<\/f>/;
 
+/** Whether an element is XML by its content: `<` first, in UTF-8 or UTF-16, after a byte order mark and blanks. */
+function looksXml(part: Buffer): boolean {
+  let at = 0;
+  if (part[0] === 0xef && part[1] === 0xbb && part[2] === 0xbf) at = 3;
+  else if ((part[0] === 0xff && part[1] === 0xfe) || (part[0] === 0xfe && part[1] === 0xff)) at = 2;
+  while (at < part.length && [0x00, 0x09, 0x0a, 0x0d, 0x20].includes(part[at]!)) at++;
+  return part[at] === 0x3c;
+}
+
+/** The text of an XML part: UTF-8 or UTF-16 only (as the package format requires), anything else is refused. */
 function xmlText(part: Buffer): string {
+  const text = decodeXml(part);
+  const encoding = XML_ENCODING_RE.exec(text.slice(0, 200))?.[1];
+  if (text.includes("\u0000") || (encoding !== undefined && !/^utf-?(8|16)$/i.test(encoding)))
+    reject("UNSUPPORTED_FORMAT");
+  return text;
+}
+
+function decodeXml(part: Buffer): string {
   if (part.length >= 2 && part[0] === 0xff && part[1] === 0xfe) return part.toString("utf16le", 2);
   if (part.length >= 2 && part[0] === 0xfe && part[1] === 0xff) {
     const swapped = Buffer.from(part.subarray(2));
@@ -79,24 +105,40 @@ function count(text: string, re: RegExp): number {
 }
 
 async function inspectXlsx(bytes: Buffer, ceilings: Ceilings): Promise<Omit<Inspection, "contentType">> {
-  const { entries, parts } = await unpackZip(
-    bytes,
-    (name) => XML_PART_RE.test(name) || name === "[Content_Types].xml",
-  );
+  const { entries, parts, heads } = await unpackZip(bytes, () => true);
   if (entries.some((e) => FORBIDDEN_PART_RE.test(e.name))) reject("UNSUPPORTED_FORMAT");
+  // A compound file inside the package is a VBA project or an embedded object, whatever its name and declared type.
+  for (const head of heads.values()) if (head.equals(CFB_MAGIC)) reject("UNSUPPORTED_FORMAT");
   const contentTypes = parts.get("[Content_Types].xml");
   if (!contentTypes) return reject("UNSUPPORTED_FORMAT");
-  for (const part of parts.values()) if (DTD_RE.test(xmlText(part))) reject("UNSUPPORTED_FORMAT");
-  const types = xmlText(contentTypes);
-  const declared = [...types.matchAll(CONTENT_TYPE_ATTR_RE)].map((m) => m[1]!);
-  if (declared.some((t) => /macroEnabled|vbaProject/i.test(t))) reject("UNSUPPORTED_FORMAT");
-  const main = /<Override\b[^>]*>/g;
+  // Every element that is XML by its name or by its content is checked, so a part under another name is not skipped.
+  for (const [name, part] of parts)
+    if (
+      (XML_PART_RE.test(name) || name === "[Content_Types].xml" || looksXml(part)) &&
+      DTD_RE.test(xmlText(part))
+    )
+      reject("UNSUPPORTED_FORMAT");
+  const types = xmlText(contentTypes).replace(XML_COMMENT_RE, "");
+  // No writer spells a content type with character references; one that does is hiding it.
+  if (types.includes("&#")) reject("UNSUPPORTED_FORMAT");
+  const declared = [...types.matchAll(CONTENT_TYPE_ATTR_RE)].map((m) => m[1] ?? m[2]!);
+  if (declared.some((t) => FORBIDDEN_TYPE_RE.test(t))) reject("UNSUPPORTED_FORMAT");
   let mainPart: string | undefined;
-  for (const m of types.matchAll(main)) {
-    if (m[0].includes(`"${MAIN_SHEET}"`)) mainPart = /PartName\s*=\s*"\/?([^"]*)"/.exec(m[0])?.[1];
+  let sheetParts = 0;
+  for (const m of types.matchAll(OVERRIDE_RE)) {
+    CONTENT_TYPE_ATTR_RE.lastIndex = 0;
+    const typed = CONTENT_TYPE_ATTR_RE.exec(m[0]);
+    const type = typed?.[1] ?? typed?.[2];
+    const named = PART_NAME_ATTR_RE.exec(m[0]);
+    const partName = named?.[1] ?? named?.[2];
+    if (type === MAIN_SHEET) mainPart = partName;
+    if (type === WORKSHEET && partName !== undefined && SHEET_RE.test(partName) && parts.has(partName))
+      sheetParts++;
   }
   if (mainPart === undefined) reject("UNSUPPORTED_FORMAT");
   if (!entries.some((e) => e.name === mainPart)) reject("CORRUPTED");
+  // Rows, cells and DDE are counted in xl/worksheets/: a worksheet declared anywhere else would go unread.
+  if (declared.filter((t) => t === WORKSHEET).length !== sheetParts) reject("UNSUPPORTED_FORMAT");
   let rows = 0;
   let cells = 0;
   let sheets = 0;
@@ -135,6 +177,8 @@ function inspectXls(bytes: Buffer, ceilings: Ceilings): Omit<Inspection, "conten
   const names = cfb.entries.map((e) => e.name.toLowerCase());
   if (names.some((n) => ENCRYPTED_STREAMS.has(n))) reject("ENCRYPTED");
   if (names.some((n) => MACRO_ENTRIES.has(n) || EMBEDDED_NAME(n))) reject("UNSUPPORTED_FORMAT");
+  // Two «Workbook» entries: which one Excel opens depends on the directory tree, so neither is trusted.
+  if (names.filter((n) => n === "workbook").length > 1) reject("CORRUPTED");
   const workbook = cfb.entries.find((e) => e.type === 2 && e.name.toLowerCase() === "workbook");
   // «Book» without «Workbook» is Excel 5/95 or older; neither is another kind of compound file (DOC, MSG).
   if (!workbook) return reject("UNSUPPORTED_FORMAT");
@@ -156,15 +200,21 @@ function inspectXls(bytes: Buffer, ceilings: Ceilings): Omit<Inspection, "conten
     const length = s.readUInt16LE(at + 2);
     const body = at + 4;
     if (body + length > s.length) reject("CORRUPTED");
-    if (type === BOF) substream++;
-    else if (type === FILEPASS && substream === 0) reject("ENCRYPTED");
-    else if (type === BOUNDSHEET && substream === 0) {
+    // FILEPASS, BOUNDSHEET and SUPBOOK belong to the globals only; they are checked wherever they stand, so a stray
+    // BOF before them hides nothing.
+    if (type === BOF) {
+      substream++;
+      // A sheet's own BOF names its kind too: 0x0040 is an Excel 4.0 macro sheet, 0x0006 a VBA module.
+      const kind = length >= 4 ? s.readUInt16LE(body + 2) : 0;
+      if (substream > 0 && (kind === 0x0040 || kind === 0x0006)) reject("UNSUPPORTED_FORMAT");
+    } else if (type === FILEPASS) reject("ENCRYPTED");
+    else if (type === BOUNDSHEET) {
       if (length < 8) reject("CORRUPTED");
       const kind = s[body + 5];
       if (kind === 0x01 || kind === 0x06) reject("UNSUPPORTED_FORMAT");
       sheets++;
       if (sheets > ceilings.xlsSheets) reject("TOO_MANY_SHEETS");
-    } else if (type === SUPBOOK && substream === 0) {
+    } else if (type === SUPBOOK) {
       if (length < 4) reject("CORRUPTED");
       const marker = s.readUInt16LE(body + 2);
       // Only the book's own references (0x0401) and add-in functions (0x3A01); any other is an external link or DDE.

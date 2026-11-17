@@ -48,9 +48,12 @@ describe("sizes on the request stream (ARC-06@PoC FR 4, NFR-15@PoC FR 18, IMP-01
   });
 
   it("ARC-06@PoC FR 4: a request declared over 150 MiB is refused before any byte is read", async () => {
-    expect(await codeOf(async () => uploadBudget(150 * MiB + 1))).toBe("REQUEST_TOO_LARGE");
-    const err = await codeOf(async () => uploadBudget(200 * MiB)).catch(() => null);
-    expect(err).toBe("REQUEST_TOO_LARGE");
+    for (const declared of [150 * MiB + 1, 200 * MiB]) {
+      const { body, state } = stream(1);
+      expect(await codeOf(() => uploadBudget(declared).read(body))).toBe("REQUEST_TOO_LARGE");
+      expect(state.pulled).toBe(0);
+      expect(state.destroyed).toBe(true);
+    }
   });
 
   it("ARC-06@PoC FR 4: files of one request over 150 MiB together are refused on the stream, whatever the declared length", async () => {
