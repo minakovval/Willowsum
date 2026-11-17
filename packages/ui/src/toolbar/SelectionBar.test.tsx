@@ -54,7 +54,7 @@ function Driven() {
 }
 
 describe("CMP-73@PoC SelectionBar", () => {
-  it("CMP-73@PoC AC1: «Вибрано 2 · Сума −238,90 €», one «Дії з вибраними ˅» and «×», no separate action buttons", () => {
+  it("CMP-73@PoC AC1, FR «Вміст»: «Вибрано 2 · Сума −238,90 €» (uk-UA, the currency after the number), one «Дії з вибраними ˅» and «×», no separate action buttons", () => {
     render(bar());
     const toolbar = screen.getByRole("toolbar", { name: "Дії з вибраними записами" });
     expect(plain(toolbar.textContent)).toContain("Вибрано 2· Сума −238,90 €");

@@ -2540,6 +2540,14 @@ button.ws-stepper-step[aria-disabled="true"] {
   width: auto;
 }
 
+.ws-selection-bar .ws-menu {
+  inline-size: max-content;
+}
+
+.ws-selection-bar .ws-menu-label {
+  white-space: nowrap;
+}
+
 .ws-selection-actions {
   position: relative;
   display: inline-flex;

@@ -2964,6 +2964,14 @@
       "x": 14960,
       "y": 12190
     },
+    "PocBulkTexts.dc.html": {
+      "h": 2040,
+      "page": "poc",
+      "title": "S-036 Дії з вибраними · Тексти",
+      "w": 2640,
+      "x": 17680,
+      "y": 12190
+    },
     "PocImportTemplates.dc.html": {
       "h": 800,
       "is_interactive": true,
@@ -4441,6 +4449,7 @@
     "PocBulk.dc.html",
     "PocBulkProgress.dc.html",
     "PocBulkReport.dc.html",
+    "PocBulkTexts.dc.html",
     "PocImportTemplates.dc.html",
     "PocDataImport1.dc.html",
     "PocDataImport2.dc.html",

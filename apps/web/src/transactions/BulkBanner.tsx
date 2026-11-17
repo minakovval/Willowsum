@@ -96,7 +96,7 @@ export function BulkBanner({
           </span>
           <span className="ws-muted bulk-banner-end">{t("bulk.progress.keepWorking")}</span>
         </div>
-        <Progress value={report.processed} max={report.count} label={t("bulk.progress.label")} />
+        <Progress value={report.processed} max={report.count} label={t("bulk.progress.label")} text="" />
       </div>
     );
   }
