@@ -14,7 +14,7 @@ const entry = (over: Partial<LoggedEntry> & Pick<LoggedEntry, "id" | "occurredAt
 });
 
 describe("FIN-03@PoC FR 27: «Історія змін» from the audit log", () => {
-  it("FIN-03@PoC FR 27: entries of the transaction and of its category, oldest first, ties by the entry's id", () => {
+  it("FIN-03@PoC FR 27: entries of the transaction and of its category, oldest first; entries of one millisecond keep the log's order", () => {
     const history = transactionHistory(
       [
         entry({
@@ -22,23 +22,24 @@ describe("FIN-03@PoC FR 27: «Історія змін» from the audit log", () 
           occurredAt: "2026-11-16T10:00:02.000Z",
           changes: [{ field: "categoryId", before: null, after: "c1", masked: false }],
         }),
+        // One millisecond: the log's order (create, then the edit), whatever the ids.
+        entry({
+          id: "00000000-0000-4000-8000-000000000009",
+          occurredAt: "2026-11-16T10:00:01.000Z",
+          action: "create",
+          changes: [{ field: "amount", before: null, after: "-30.00", masked: false }],
+        }),
         entry({
           id: "00000000-0000-4000-8000-000000000002",
           occurredAt: "2026-11-16T10:00:01.000Z",
           changes: [{ field: "amount", before: "-30.00", after: "-25.00", masked: false }],
         }),
-        entry({
-          id: "00000000-0000-4000-8000-000000000001",
-          occurredAt: "2026-11-16T10:00:01.000Z",
-          action: "create",
-          changes: [{ field: "amount", before: null, after: "-30.00", masked: false }],
-        }),
       ],
       READER,
     );
-    expect(history.map((e) => e.id.slice(-1))).toEqual(["1", "2", "3"]);
+    expect(history.map((e) => e.id.slice(-1))).toEqual(["9", "2", "3"]);
     expect(history[0]).toEqual({
-      id: "00000000-0000-4000-8000-000000000001",
+      id: "00000000-0000-4000-8000-000000000009",
       occurredAt: "2026-11-16T10:00:01.000Z",
       actor: "you",
       channel: "web",

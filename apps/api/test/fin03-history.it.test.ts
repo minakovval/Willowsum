@@ -228,10 +228,10 @@ describe("FIN-03@PoC FR 27: «Історія змін» of a transaction", () =>
     const logged = [
       ...(await audit.entriesFor(space.householdId, { type: "transactions.transaction", id })),
       ...(await audit.entriesFor(space.householdId, { type: "categorization.transaction-category", id })),
-    ].sort((a, b) =>
-      a.occurredAt === b.occurredAt ? (a.id < b.id ? -1 : 1) : a.occurredAt < b.occurredAt ? -1 : 1,
-    );
-    expect(items.map((e) => e.id)).toEqual(logged.map((e) => e.id));
+    ];
+    expect(items.map((e) => e.id).sort()).toEqual(logged.map((e) => e.id).sort());
+    const times = items.map((e) => e.occurredAt);
+    expect(times).toEqual([...times].sort());
     expect(items.length).toBe(4);
 
     const [created, edit, categorised, noted] = items;

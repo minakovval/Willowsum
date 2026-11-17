@@ -62,25 +62,22 @@ function actorOf(entry: LoggedEntry, readerId: string): HistoryActor {
   return entry.actorId === readerId ? "you" : "member";
 }
 
+/**
+ * By time (ISO 8601 UTC strings compare as times). The sort is stable: entries of one time keep the order they come
+ * in — the log's own order of each entity (its time to the microsecond, then id), which the milliseconds here lose.
+ */
+const byTime = (a: LoggedEntry, b: LoggedEntry) =>
+  a.occurredAt < b.occurredAt ? -1 : a.occurredAt > b.occurredAt ? 1 : 0;
+
 const mask = (v: string | null) => (v === null ? null : HISTORY_MASK);
 
 /**
- * The history from the log's entries of the transaction (any of `HISTORY_ENTITIES`), oldest first (the log's order:
- * time, then the entry's id). An entry left with no change of its own (a group entry's) is dropped.
+ * The history from the log's entries of the transaction (any of `HISTORY_ENTITIES`, each entity's in the log's order),
+ * oldest first. An update left with no change of its own (a group entry's) is dropped.
  */
 export function transactionHistory(entries: readonly LoggedEntry[], readerId: string): HistoryEntry[] {
   return [...entries]
-    .sort((a, b) =>
-      a.occurredAt === b.occurredAt
-        ? a.id < b.id
-          ? -1
-          : a.id > b.id
-            ? 1
-            : 0
-        : a.occurredAt < b.occurredAt
-          ? -1
-          : 1,
-    )
+    .sort(byTime)
     .filter((e) => ACTIONS.has(e.action))
     .map((e) => ({
       id: e.id,

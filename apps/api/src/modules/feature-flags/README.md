@@ -82,6 +82,8 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 `transactions.review` — `release` (BUD-12@PoC a: «До розбору», `/v1/transaction-review`,
 `/v1/transactions/{id}/review/confirm`, `/reopen`, масова дія «Підтвердити категорії»), потребує `transactions.manual`,
 власник `product-owner`, перегляд до 2027-02-16.
+`transactions.history` — `release` (FIN-03@PoC п. 27: «Історія змін» транзакції, `/v1/transactions/{id}/history`),
+потребує `transactions.manual`, власник `product-owner`, перегляд до 2027-02-17.
 
 Функції без простору (реєстрація і вхід) перевіряють прапорець «для всіх»: `isEnabledForAll(flag)` — увімкнено лише на
 етапі `all` (і так само кожен прапорець із `requires`), бо до входу немає простору для тестової групи чи частки (ADR-0009).
