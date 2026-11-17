@@ -146,8 +146,8 @@ const STATE_FILTER: Record<TxState, string> = {
 /** The `filter` values of the list request for these filters (without the search). */
 export function filterParams(f: TxFilters): string[] {
   const out: string[] = [];
-  if (f.dateFrom) out.push(`date.gte:${f.dateFrom}`);
-  if (f.dateTo) out.push(`date.lte:${f.dateTo}`);
+  if (isDate(f.dateFrom)) out.push(`date.gte:${f.dateFrom}`);
+  if (isDate(f.dateTo)) out.push(`date.lte:${f.dateTo}`);
   if (f.accounts.length === 1) out.push(`accountId.eq:${f.accounts[0]}`);
   else if (f.accounts.length > 1) out.push(`accountId.in:${f.accounts.join(",")}`);
   if (f.type) out.push(`type.eq:${f.type}`);
@@ -216,7 +216,7 @@ export function rowSummary(
   names: FilterNames,
 ): string {
   if (!isSet(f, field)) return t(ANY_LABEL[field]);
-  const date = (v: string) => formatDate(locale, v);
+  const date = (v: string) => (isDate(v) ? formatDate(locale, v) : v);
   const amount = (v: string) => formatNumber(locale, v);
   switch (field) {
     case "period":
