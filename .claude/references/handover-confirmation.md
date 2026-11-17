@@ -1,8 +1,8 @@
 # Handover confirmation
 
-**Створено:** 2026-11-16
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-17
 
-Read when a new lead session takes over; not at a compaction (owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides; [log](../../docs/decisions/log/2026-11-17-owner-compaction-trial.md)). Moved from `pr-pipeline/references/restarts.md` to keep the
+Read when a new lead session takes over; not at a compaction ([restarts](../skills/pr-pipeline/references/restarts.md), «After compaction»). Moved from `pr-pipeline/references/restarts.md` to keep the
 skill within its size limit; since then only the `keep/` exception for security detail was added.
 
 **Handover confirmation** (owner, 2026-11-13/14/15/16, #178,

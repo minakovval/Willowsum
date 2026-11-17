@@ -1,6 +1,6 @@
 # Token economy (model choice and briefs)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17
 
 Read when you choose a model for an agent or write a brief, after every merge, after a compaction, and when a lead
 session starts or finishes.
@@ -95,7 +95,7 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
 
 1. **Segment** (owner, 2026-11-15/16, #178): the unit is the segment between compactions, «ведучий N». At its
    start — a new session or a compaction — save the `get_session` result (no `session_id`) to
-   `keep/snap-N-start.json` (at a new session also post it as a snapshot comment on #180 (lead name, time, `usage` with `cost_usd`); at a compaction the file is enough).
+   `keep/snap-N-start.json` and post it as a snapshot comment on #180 (lead name, time, `usage` with `cost_usd`).
    At its end — the next compaction or the end of the session — save `keep/snap-N-end.json` and add the «Сесії»
    row with `append --sessions` (above): cache read, output and USD are the snapshot difference, agents included;
    «Час агентів» and CI are the sums of the segment's PR rows; a lost snapshot file is rebuilt in the short form
@@ -112,8 +112,6 @@ node tools/token-report/index.mjs archive --body <#180 body file> --out <archive
 
 ## Session retrospective
 
-With the process review ([restarts](restarts.md); owner, 2026-11-14/15, #178; not at a compaction: owner, 2026-11-17,
-trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides), and at the end of a
-session: a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs); proposals with risks,
+With the process review and at the end of a session (owner, 2026-11-14/15, #178; not at a compaction: [restarts](restarts.md), «After compaction»): a comment on #180 — conclusions; productivity (tokens, time, the lead's share, the costliest PRs); proposals with risks,
 downsides and mitigations (→ #178 and item 4 of the handover table); risks — plus the «Сесії» row («Token
 accounting» item 1; that row is written at a compaction too) and a short note to the owner in chat. [Example](https://github.com/minakovval/Willowsum/issues/180#issuecomment-6877918729).
