@@ -1666,4 +1666,13 @@ export const uk = {
   "review.empty.back": "До транзакцій",
   "review.dialog.label": "Категорія",
   "review.nav": "{count} до розбору",
+  "gallery.toast.title": "Спливне повідомлення",
+  "gallery.toast.intro":
+    "Одне повідомлення за раз: нове замінює попереднє. З «Відмінити» зникає через 10 с, без дії — через 8 с, помилка лишається до закриття.",
+  "gallery.toast.show.undo": "Показати з «Відмінити»",
+  "gallery.toast.show.info": "Показати інформацію",
+  "gallery.toast.show.error": "Показати помилку",
+  "gallery.toast.text.undo": "Категорію підтверджено",
+  "gallery.toast.text.info": "Транзакцію пропущено",
+  "gallery.toast.text.error": "Дію не виконано",
 } as const satisfies Record<string, string>;

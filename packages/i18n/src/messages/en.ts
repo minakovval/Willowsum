@@ -1673,4 +1673,13 @@ export const en: Messages = {
   "review.empty.back": "To transactions",
   "review.dialog.label": "Category",
   "review.nav": "{count} to review",
+  "gallery.toast.title": "Toast",
+  "gallery.toast.intro":
+    "One message at a time: a new one replaces the shown one. With “Undo” it closes after 10 s, without an action after 8 s; an error stays until closed.",
+  "gallery.toast.show.undo": "Show with “Undo”",
+  "gallery.toast.show.info": "Show information",
+  "gallery.toast.show.error": "Show an error",
+  "gallery.toast.text.undo": "Category confirmed",
+  "gallery.toast.text.info": "Transaction skipped",
+  "gallery.toast.text.error": "The action failed",
 };
