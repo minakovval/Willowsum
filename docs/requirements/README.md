@@ -198,7 +198,7 @@ item's text when its tests and code were last checked against it:
   retagging a line changes nothing; a change of words, numbers or punctuation does. A renumbered item has a new
   key, so its old and new numbers both need a re-check.
 - Only requirements with release views have fingerprints (plain, not yet migrated files are not checked).
-- CI (job `requirements`) runs `--check-fingerprints`. A PR that changes a requirement's fingerprints needs the
+- CI (job `requirements`) runs `--check-fingerprints --require-fingerprints`. A PR that changes a requirement's fingerprints needs the
   body section `## Why the tests and code still match` (the description check) unless, for each such
   requirement, a changed test or code file (under `apps/`, `packages/`, `tools/`, `infra/`, Markdown aside)
   names its ID in the diff; an unrelated code change does not count. A fingerprints file alone needs no owner

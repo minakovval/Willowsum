@@ -233,8 +233,9 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
     async insert(householdId, t) {
       const row = await one(
         `INSERT INTO transactions (household_id, id, account_id, subaccount_id, amount, currency, occurred_on,
-                                   counterparty, description, status, source, version, note, tag_ids, review)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15) RETURNING ${COLUMNS}`,
+                                   counterparty, description, status, source, version, note, tag_ids, review,
+                                   transfer_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14::uuid[], $15, $16) RETURNING ${COLUMNS}`,
         [
           householdId,
           t.id,
@@ -251,6 +252,8 @@ export function transactionsTx(q: ModuleQueryRunner): TransactionsTx {
           t.note,
           [...t.tagIds],
           t.review,
+          // FIN-03 FR 1, FR 28: a side of a transfer created in one action, its pair written first (insertTransfer).
+          t.transfer?.id ?? null,
         ],
       );
       return row!;

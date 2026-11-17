@@ -13,6 +13,11 @@ export interface MenuItem {
   checked?: boolean;
   /** A key that picks this item while the menu is open, shown on the right (UX-09 item 14). */
   shortcut?: { code: string; label: string };
+  /**
+   * A dangerous action («Закрити рахунок», «Видалити»; CMP-61@PoC «Стани пункту»): `loss` text, after a separator.
+   * The consumer puts it last.
+   */
+  danger?: boolean;
 }
 
 /**
@@ -126,13 +131,18 @@ export function MenuButton({
               </>
             );
             const role = item.checked === undefined ? "menuitem" : "menuitemcheckbox";
-            return (
+            const separator = item.danger ? (
+              <li role="separator" className="ws-menu-separator" key={`${item.id}-separator`} />
+            ) : null;
+            return [
+              separator,
               <li key={item.id} role="none">
                 {item.href !== undefined ? (
                   <a
                     role={role}
                     aria-checked={item.checked}
                     className="ws-menu-item"
+                    data-tone={item.danger ? "danger" : undefined}
                     href={item.href}
                     aria-keyshortcuts={item.shortcut?.label}
                     onClick={() => setOpen(false)}
@@ -145,6 +155,7 @@ export function MenuButton({
                     role={role}
                     aria-checked={item.checked}
                     className="ws-menu-item"
+                    data-tone={item.danger ? "danger" : undefined}
                     aria-keyshortcuts={item.shortcut?.label}
                     onClick={() => {
                       close(true);
@@ -154,8 +165,8 @@ export function MenuButton({
                     {content}
                   </button>
                 )}
-              </li>
-            );
+              </li>,
+            ];
           })}
         </ul>
       ) : null}
