@@ -2,7 +2,8 @@ import { z } from "zod";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
 import { LIST_PAGE_QUERY } from "../../../../platform/lists/list-engine.ts";
-import { GROUP_IDS_MAX, reviewGroupIds, reviewGroups } from "../../application/index.ts";
+import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platform/http/pagination.ts";
+import { reviewGroupIds, reviewGroups } from "../../application/index.ts";
 import { merchantInitials, NO_MERCHANT_GROUP } from "../../domain/index.ts";
 import { merchantsTx } from "../db/store.ts";
 import { merchantsServices } from "./services.ts";
@@ -10,7 +11,7 @@ import { merchantsServices } from "./services.ts";
 /**
  * BUD-12@PoC FR 14–16 (server part): «До розбору» in the mode «Мерчанти». The groups of the queue — one per merchant
  * shown (BUD-14 FR 1, FR 3; one more for the transactions without a merchant) with count, the exact sum per currency
- * and the suggested category — and the ids of a group's transactions, paged by the bound of one bulk action, for
+ * and the suggested category — and the ids of a group's transactions, paged (at most 100 per page, ARC-07), for
  * «Підтвердити» of the group (bulk action `transactions.confirm-category`) and the pencil «Змінити категорію» (bulk
  * action `transactions.set-category`, then the confirmation). «Запам'ятати: <мерчант> → <категорія>» is a rule
  * (`POST /v1/category-rules`, condition «Мерчант дорівнює <назва>»); «Часто для <мерчанта>» — `GET
@@ -24,6 +25,8 @@ const FEATURE = "merchants.review-groups";
 function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
+
+const cursorSchema = z.object({ id: z.uuid() }).strict();
 
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 
@@ -119,42 +122,37 @@ export const listReviewGroupIdsRoute = defineRoute({
   path: "/v1/transaction-review/merchant-groups/{groupId}/transactions",
   operationId: "listTransactionReviewGroupIds",
   summary:
-    "The ids of a merchant group's transactions in «До розбору», at most 500 per page — the selection of «Підтвердити» of the group and of «Змінити категорію» (BUD-12 FR 14, FR 16)",
+    "The ids of a merchant group's transactions in «До розбору», page by page — the selection of «Підтвердити» of the group and of «Змінити категорію» (BUD-12 FR 14, FR 16)",
   access: { permission: "household.data.read", feature: FEATURE },
+  list: true,
   request: {
     params: z.object({
       /** A group's `id`: a merchant shown in the mode (one that joined another is no group — 404), or `none`. */
       groupId: z.union([z.uuid(), z.literal(NO_MERCHANT_GROUP)]),
     }),
-    query: z.object({
-      /** The `next` of the previous page. */
-      after: z.uuid().optional(),
-      /** At most 500 (one bulk action's bound); 500 when absent. */
-      limit: z
-        .string()
-        .regex(/^[1-9][0-9]{0,2}$/)
-        .transform(Number)
-        .pipe(z.number().int().min(1).max(GROUP_IDS_MAX))
-        .optional(),
-    }),
+    query: z.object({ ...pageQuery.shape }),
   },
   response: {
     status: 200,
-    description: "The ids by id; `next` — the `after` of the next page, null on the last",
-    schema: z.object({ ids: z.array(z.uuid()), next: z.uuid().nullable() }),
+    description: "The ids of the group's transactions, by id",
+    schema: pageOf(z.uuid()),
   },
   handler: async ({ params, query }, ctx) => {
     refuseScoped(ctx);
     const { transactions } = merchantsServices(ctx);
     const householdId = ctx.principal.householdId;
+    const after = query.cursor === undefined ? null : decodeCursor(query.cursor, cursorSchema).id;
     const result = await ctx.inHousehold((q) =>
       reviewGroupIds(merchantsTx(q), transactions, householdId, params.groupId, {
-        after: query.after ?? null,
-        limit: query.limit ?? GROUP_IDS_MAX,
+        after,
+        limit: query.limit,
       }),
     );
     if (result === null) throw new ApiProblem("NOT_FOUND");
-    return { ids: [...result.ids], next: result.next };
+    return {
+      items: [...result.ids],
+      nextCursor: result.next === null ? null : encodeCursor({ id: result.next }),
+    };
   },
 });
 

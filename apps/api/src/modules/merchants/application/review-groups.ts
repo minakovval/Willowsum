@@ -13,7 +13,7 @@ import { shownMerchants, type MerchantsTx, type TransactionTextsPort } from "./m
  * in SQL by counterparty and currency; here those slices become one group per shown merchant (BUD-14 FR 1, FR 3), the
  * page's groups get their suggested category from module categorization (its port, wired in main.ts: categorization
  * depends on this module, not the other way), and a group's transaction ids are paged for the bulk actions that
- * confirm the group or change its category (FR 14, FR 16; DAT-03: at most 500 records per action).
+ * confirm the group or change its category (FR 14, FR 16).
  */
 
 /** Module categorization's categories of transactions (`TransactionCategories`): an absent id has none. */
@@ -27,9 +27,6 @@ export interface TransactionCategoriesPort {
  * the answer says `truncated`.
  */
 export const REVIEW_SCAN_MAX = 20_000;
-
-/** The ids of a group per page: the bound of one bulk action (DAT-03 FR 7, NFR-15). */
-export const GROUP_IDS_MAX = 500;
 
 export interface ReviewGroupsPage {
   readonly items: readonly (ReviewGroup & { readonly suggestion: GroupSuggestion })[];

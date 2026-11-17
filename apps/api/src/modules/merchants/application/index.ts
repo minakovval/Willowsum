@@ -16,7 +16,6 @@ export {
   type TransactionTextsPort,
 } from "./merchants.ts";
 export {
-  GROUP_IDS_MAX,
   REVIEW_SCAN_MAX,
   reviewGroupIds,
   reviewGroups,
