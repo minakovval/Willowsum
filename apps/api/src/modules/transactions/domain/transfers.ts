@@ -1,4 +1,11 @@
-import { convert, currencyInfo, Decimal, Money, type ExchangeRate } from "@willowsum/domain-kernel";
+import {
+  convert,
+  currencyInfo,
+  Decimal,
+  DomainError,
+  Money,
+  type ExchangeRate,
+} from "@willowsum/domain-kernel";
 import type { FieldIssue, TransactionStatus } from "./transactions.ts";
 
 /**
@@ -111,11 +118,33 @@ export function transferReceived(
   }
   if (currency === sent.currency) return sent;
   if (forward === null) return "rate_unavailable";
-  const converted = convert(sent, forward, date).to;
-  const received = Money.of(
-    converted.amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
-    currency,
-  );
+  let received: Money;
+  try {
+    const converted = convert(sent, forward, date).to;
+    received = Money.of(
+      converted.amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
+      currency,
+    );
+  } catch (error) {
+    // The converted credit does not fit a stored amount (NUMERIC(38,18)): a field issue, never a 500.
+    if (error instanceof DomainError && error.code === "AMOUNT_OUT_OF_RANGE")
+      return { field: "amount", issue: "invalid" };
+    throw error;
+  }
   // Too small to reach the credit currency's minor unit: a transfer moves money (FR 2).
   return received.isZero() ? { field: "amount", issue: "zero" } : received;
+}
+
+/**
+ * Whether the journal can keep a two-currency transfer's credit: it posts the credit converted into the debit's
+ * currency at the kept rate (fx-transfer, ARC-11), and a value beyond a stored amount (NUMERIC(38,18)) never posts.
+ */
+export function creditFitsJournal(received: Money, rate: ExchangeRate, date: string): boolean {
+  try {
+    convert(received, rate, date);
+    return true;
+  } catch (error) {
+    if (error instanceof DomainError && error.code === "AMOUNT_OUT_OF_RANGE") return false;
+    throw error;
+  }
 }
