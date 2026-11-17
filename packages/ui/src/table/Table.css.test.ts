@@ -31,7 +31,7 @@ describe("CMP-26@PoC Table styles", () => {
     expect(light("line")).toBe("#E5E5E2");
   });
 
-  it("CMP-26@PoC FR «Розміри і стиль»: heading padding 12 × 16 (13/16 label token: no 12 px token), caps, 0.08 em tracking, ink-muted on surface-100; cell 52 px, 16 px sides, line", () => {
+  it("CMP-26@PoC FR «Розміри і стиль»: heading padding 12 × 16 (13/16 label token: no 12 px label token; the 12 px chart-axis and nav-bottom tokens belong to other roles), caps, 0.08 em tracking, ink-muted on surface-100; cell 52 px, 16 px sides, line", () => {
     const th = rule(".ws-dtable th");
     expect(th.padding).toBe("var(--ws-space-3) var(--ws-space-4)");
     expect(th["text-transform"]).toBe("uppercase");
