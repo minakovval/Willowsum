@@ -249,6 +249,13 @@ export interface FieldIssue {
 const given = <T>(v: T | null | undefined): v is T => v !== null && v !== undefined;
 const SIGNED_RE = /^-\d/;
 
+/** The calendar day after a YYYY-MM-DD date (UTC arithmetic on a date without time, so no zone shifts it). */
+function dayAfter(day: string): string {
+  const next = new Date(`${day}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
 function date(text: string): string | null {
   return isCalendarDate(text) && text >= EARLIEST_DATE ? text : null;
 }
@@ -272,12 +279,16 @@ export function openingAmount(kind: AccountKind, amount: string, currency: strin
  */
 export function checkNewAccount(
   input: NewAccountInput,
-  /** «Сьогодні» (YYYY-MM-DD): a balance dated later would make an account whose balance today is 0 (#210). */
+  /**
+   * «Сьогодні» (YYYY-MM-DD): a balance dated after the next day is refused (#210), with the one day of margin of
+   * П-27 (6) — «дата не в майбутньому» allows today + 1.
+   */
   today: string,
 ): { readonly account: NewAccount } | { readonly issues: readonly FieldIssue[] } {
   const issues: FieldIssue[] = [];
   const bad = (field: string, issue = "invalid") => issues.push({ field, issue });
   const kind = input.kind;
+  const latest = dayAfter(today);
   const onlyFor = (field: keyof NewAccountInput, kinds: readonly AccountKind[]) => {
     if (given(input[field]) && !kinds.includes(kind)) bad(field, "not_allowed");
   };
@@ -299,8 +310,8 @@ export function checkNewAccount(
     if (!balance) bad("balance.amount");
     const day = date(input.balanceDate);
     if (!day) bad("balanceDate");
-    else if (day > today) bad("balanceDate", "date_in_future");
-    if (balance && day && day <= today) currencies.push({ balance, date: day });
+    else if (day > latest) bad("balanceDate", "date_in_future");
+    if (balance && day && day <= latest) currencies.push({ balance, date: day });
   }
 
   onlyFor("extraCurrencies", ["current"]);
@@ -316,8 +327,8 @@ export function checkNewAccount(
       const day = date(extra.date);
       if (!balance) bad(`${at}.amount`);
       if (!day) bad(`${at}.date`);
-      else if (day > today) bad(`${at}.date`, "date_in_future");
-      if (balance && day && day <= today) currencies.push({ balance, date: day });
+      else if (day > latest) bad(`${at}.date`, "date_in_future");
+      if (balance && day && day <= latest) currencies.push({ balance, date: day });
     });
   }
 

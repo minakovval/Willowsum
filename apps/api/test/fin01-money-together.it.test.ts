@@ -420,7 +420,7 @@ describe("FIN-01@PoC FR 19, FR 21: the «Кредитні» header and «Дже�
     expect(row.loan).toBeNull();
   });
 
-  it("FIN-01@PoC FR 14: the «Готівкові» group has its own total in the profile currency (#424) — cash accounts only, a card's debt and a loan left out, closed accounts too", async () => {
+  it("FIN-12@PoC FR 1: the «Готівкові» group has its own total in the profile currency (#424) — cash accounts only, a card's debt and a loan left out, closed accounts too", async () => {
     const space = await newSpace();
     await create(space, cash("Щоденний", "5000.10", "EUR"));
     await create(space, cash("Готівка", "0.20", "EUR", { kind: "cash" }));

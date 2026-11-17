@@ -186,15 +186,15 @@ describe("FIN-01@PoC FR 1, FR 7: an account is created with one ledger event «�
   });
 });
 
-describe("#210 follow-up: a balance dated after today never makes an account with a balance of 0", () => {
-  it("FIN-01@PoC FR 7: «На дату» after today (Kyiv 2026-10-17) is refused — the main currency and «+ додати ще валюту»; nothing written", async () => {
+describe("#210 follow-up: a balance dated past the П-27 (6) margin never makes an account with a balance of 0", () => {
+  it("FIN-01@PoC FR 7: «На дату» more than one day after today (Kyiv 2026-10-17) is refused — the main currency and «+ додати ще валюту»; nothing written", async () => {
     const space = await newSpace();
-    const main = await create(space, { ...current, balanceDate: "2026-10-18" });
+    const main = await create(space, { ...current, balanceDate: "2026-10-19" });
     expect(main.statusCode, main.body).toBe(400);
     expect(main.json().errors).toEqual([{ in: "body", path: "balanceDate", issue: "date_in_future" }]);
     const extra = await create(space, {
       ...current,
-      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2027-01-01" }],
+      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-10-19" }],
     });
     expect(extra.statusCode, extra.body).toBe(400);
     expect(extra.json().errors).toEqual([
@@ -210,6 +210,24 @@ describe("#210 follow-up: a balance dated after today never makes an account wit
     expect(res.statusCode, res.body).toBe(201);
     expect(res.json().currencies).toEqual([
       { currency: "EUR", balance: { amount: "1000", currency: "EUR" }, balanceDate: "2026-10-17" },
+    ]);
+  });
+
+  it("FIN-01@PoC FR 7: «На дату» tomorrow is accepted (П-27 (6): one day of margin) — the main currency and «+ додати ще валюту»", async () => {
+    const space = await newSpace();
+    const res = await create(space, {
+      ...current,
+      balanceDate: "2026-10-18",
+      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-10-18" }],
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().currencies.map((c: { balanceDate: string }) => c.balanceDate)).toEqual([
+      "2026-10-18",
+      "2026-10-18",
+    ]);
+    expect((await openingEntries(space.householdId)).map((e) => e.operation_date)).toEqual([
+      "2026-10-18",
+      "2026-10-18",
     ]);
   });
 });

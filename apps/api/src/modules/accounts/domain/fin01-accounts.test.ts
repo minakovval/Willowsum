@@ -166,15 +166,22 @@ describe("FIN-01@PoC FR 3: the fields of «Новий рахунок»", () => {
   });
 });
 
-describe("#210 follow-up: «На дату» is never after today", () => {
-  it("FIN-01@PoC FR 7: a balance dated after today is «date_in_future» — the main currency and every added one; today itself is fine", () => {
-    expect(issues({ balanceDate: "2026-11-18" })).toEqual([
+describe("#210 follow-up: «На дату» is at most one day after today (П-27 (6))", () => {
+  it("FIN-01@PoC FR 7: a balance dated more than one day after today is «date_in_future» — the main currency and every added one; today and tomorrow are fine", () => {
+    expect(issues({ balanceDate: "2026-11-19" })).toEqual([
       { field: "balanceDate", issue: "date_in_future" },
     ]);
     expect(issues({ balanceDate: TODAY })).toEqual([]);
-    expect(issues({ extraCurrencies: [{ amount: "1", currency: "UAH", date: "2027-01-01" }] })).toEqual([
+    expect(issues({ balanceDate: "2026-11-18" })).toEqual([]);
+    expect(issues({ extraCurrencies: [{ amount: "1", currency: "UAH", date: "2026-11-18" }] })).toEqual([]);
+    expect(issues({ extraCurrencies: [{ amount: "1", currency: "UAH", date: "2026-11-19" }] })).toEqual([
       { field: "extraCurrencies.0.date", issue: "date_in_future" },
     ]);
+    // The margin crosses a month and a year end.
+    const yearEnd = checkNewAccount({ ...base, balanceDate: "2027-01-01" }, "2026-12-31");
+    expect("account" in yearEnd).toBe(true);
+    const past = checkNewAccount({ ...base, balanceDate: "2027-01-02" }, "2026-12-31");
+    expect(past).toEqual({ issues: [{ field: "balanceDate", issue: "date_in_future" }] });
   });
 });
 

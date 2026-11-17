@@ -358,7 +358,7 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     expect(screen.queryByText("Керувати підключеннями")).toBeNull();
   });
 
-  it("FIN-01@PoC FR 14: the «Готівкові» header shows the group's total from the API (#424) — no sum made in the browser", async () => {
+  it("FIN-12@PoC FR 1: the «Готівкові» header shows the group's total from the API (#424) — no sum made in the browser", async () => {
     renderAt(
       "#/money/accounts",
       api([current, card], summary({ total: eur("31480.00") }, { card: "1200.00", loan: null }, "32680.00"))

@@ -57,8 +57,8 @@ FIN-01@PoC d) (хвиля 2, рядок 37a; #215): п. 4 — довідник �
   - `POST /v1/accounts` (`createAccount`, дозвіл `household.data.write`, `Idempotency-Key`) — форма «Новий рахунок»
     плоско: `kind`, `name` (1–80), `institution` (`name` 1–100, `country` ISO 3166-1 alpha-2), `balance` (`amount` —
     додатне десяткове з не більше знаків, ніж у валюти; для поточного рахунку може бути від'ємним; для картки й кредиту —
-    борг), `currency` (будь-який код реєстру валют, USDT теж), `balanceDate` (не пізніше «сьогодні» — інакше 400
-    `date_in_future`, #210; так само дата кожної `extraCurrencies`), `extraCurrencies` (лише поточний, до 10 валют разом), `number` (останні 4 символи,
+    борг), `currency` (будь-який код реєстру валют, USDT теж), `balanceDate` (не пізніше завтра — запас в один день
+    за П-27 (6); інакше 400 `date_in_future`, #210; так само дата кожної `extraCurrencies`), `extraCurrencies` (лише поточний, до 10 валют разом), `number` (останні 4 символи,
     IBAN з перевіркою ISO 13616 або номер рахунку 5–34 символи; повний номер платіжної картки — 400
     `card_number_not_allowed`), `note` (до 1 000), за типом — `annualRate` (0–100, два знаки; для кредиту обов'язкова),
     `depositOpenedOn`, `depositMaturesOn`, `creditLimit`, `gracePeriodDays` (0–365), `monthlyPayment` (кредит, > 0).
