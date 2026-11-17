@@ -449,6 +449,23 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(bar.querySelector('button[aria-label="Параметри"]')).not.toBeNull();
   });
 
+  it("CMP-73@PoC gallery: the SelectionBar section shows «Вибрано 10 · Сума», «Вибрати всі 42 за фільтром» and the inactive «Дії з вибраними» of the background state", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-selection-bar")!.textContent).toBe("Панель вибору");
+    const at = container.querySelector<HTMLElement>('[data-case="selection-bar"]')!;
+    const [bar, busy] = within(at).getAllByRole("toolbar", { name: "Дії з вибраними записами" });
+    expect(norm(bar!.textContent)).toContain("Вибрано 10· Сума +2 935,26 €");
+    act(() =>
+      within(bar!)
+        .getByRole("button", { name: /^Вибрати всі 42\sза фільтром$/ })
+        .click(),
+    );
+    expect(norm(bar!.textContent)).toContain("Вибрано всі 42 за фільтром");
+    expect(within(busy!).getByRole("button", { name: "Дії з вибраними" }).getAttribute("aria-disabled")).toBe(
+      "true",
+    );
+  });
+
   it("CMP-32@PoC gallery: the FilterBar section shows «Фільтри · 2» with the chips «Рахунки: 2» and «Тип: списання»; the panel opens with «Рахунки» and «Тип», and «×» removes one filter", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-filter-bar")!.textContent).toBe("Панель фільтрів");

@@ -2226,7 +2226,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-tx-row-table:has(.ws-row-check),
-.ws-tx-head:has(.ws-row-check-spacer) {
+.ws-tx-head:has(.ws-row-check-spacer, .ws-row-check) {
   grid-template-columns:
     var(--ws-space-4) minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr)
     minmax(0, 2fr) calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
@@ -2240,7 +2240,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-tx-row-table.ws-tx-row-noasset:has(.ws-row-check),
-.ws-tx-head.ws-tx-row-noasset:has(.ws-row-check-spacer) {
+.ws-tx-head.ws-tx-row-noasset:has(.ws-row-check-spacer, .ws-row-check) {
   grid-template-columns:
     var(--ws-space-4) minmax(calc(var(--ws-space-8) * 2.5), 3fr) calc(var(--ws-space-8) * 3) minmax(0, 2fr)
     calc(var(--ws-space-8) * 2) calc(var(--ws-space-8) * 2);
@@ -2480,6 +2480,122 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-toolbar-end {
   flex: none;
   margin-inline-start: auto;
+}
+
+/*
+ * CMP-73@PoC SelectionBar: 52 px, 0 8 0 16 px, radius 10, `brand` with `on-brand` Inter 14/20 and tabular figures;
+ * «Дії з вибраними ˅» 36 px (44 px hit area), 0 × 12 px, radius 6, `surface-200`, `brand` 13/18 600; «×» 36 × 36
+ * `on-brand`. On the dark panel the focus ring is `on-brand`: the view names the amber E3A33B, but DS-06 AC4 keeps
+ * `accent` to the goal icon and the small leaf of the mark (PR body, «disagreements»).
+ */
+.ws-toolbar.ws-selection-bar {
+  min-block-size: calc(var(--ws-space-7) + var(--ws-space-1));
+  padding: 0 var(--ws-space-2) 0 var(--ws-space-4);
+  border-radius: calc(var(--ws-radius-md) + var(--ws-space-1) / 2);
+  background: var(--ws-brand);
+  color: var(--ws-on-brand);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-selection-bar .ws-toolbar-start {
+  gap: var(--ws-space-4);
+}
+
+.ws-selection-count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ws-selection-sum {
+  display: inline-flex;
+  gap: var(--ws-space-2);
+  white-space: nowrap;
+}
+
+.ws-selection-sum-updating .ws-tabular {
+  color: color-mix(in srgb, var(--ws-on-brand) 60%, var(--ws-brand));
+}
+
+.ws-selection-link {
+  min-block-size: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-on-brand);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: calc(var(--ws-space-1) / 2);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-selection-bar .ws-toolbar-end {
+  gap: var(--ws-space-2);
+}
+
+.ws-selection-bar .ws-menu-root {
+  width: auto;
+}
+
+.ws-selection-bar .ws-menu {
+  inline-size: max-content;
+}
+
+.ws-selection-bar .ws-menu-label {
+  white-space: nowrap;
+}
+
+.ws-selection-actions {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 var(--ws-space-3);
+  border: 0;
+  border-radius: calc(var(--ws-radius-md) - var(--ws-space-1) / 2);
+  background: var(--ws-surface-200);
+  color: var(--ws-brand);
+  font-family: var(--ws-font-sans);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-selection-actions::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block: calc(var(--ws-space-1) * -1);
+}
+
+.ws-selection-actions[aria-disabled="true"] {
+  background: var(--ws-disabled-bg);
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.ws-selection-bar .ws-selection-clear {
+  color: var(--ws-on-brand);
+}
+
+.ws-selection-bar .ws-selection-clear:hover {
+  background: var(--ws-brand-hover);
+}
+
+.ws-selection-bar :is(button, [tabindex]):focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-on-brand);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+/* The menu of «Дії з вибраними» is on `surface-200`: its items keep the shared `focus` ring (DS-06 FR 4). */
+.ws-selection-bar .ws-menu :focus-visible {
+  outline-color: var(--ws-focus);
 }
 
 /*

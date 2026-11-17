@@ -44,3 +44,90 @@
   color: var(--ws-loss);
   font-weight: 600;
 }
+
+/*
+ * S-036 «Дії з вибраними» (DAT-03@PoC b); canvas PocBulk, PocBulkProgress, PocBulkReport): the strip above the list
+ * — `surface-100` with a 1 px `line` border, radius 10 — and «Що станеться» in the dialog (`surface-inset`).
+ */
+.bulk-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  margin-block-end: var(--ws-space-4);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: calc(var(--ws-radius-md) + var(--ws-space-1) / 2);
+  background: var(--ws-surface-100);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.bulk-banner-progress {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.bulk-banner-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ws-space-3);
+}
+
+.bulk-banner-end {
+  margin-inline-start: auto;
+}
+
+.bulk-banner-text {
+  display: grid;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.bulk-banner-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.bulk-summary {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin-block-start: var(--ws-space-4);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-inset);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.bulk-summary p {
+  margin: 0;
+}
+
+.bulk-summary-title {
+  margin: 0;
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 600;
+}
+
+.bulk-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  color: var(--ws-loss);
+}
+
+.bulk-error p {
+  margin: 0;
+}
+
+.bulk-details {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

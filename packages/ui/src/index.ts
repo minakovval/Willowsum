@@ -114,6 +114,8 @@ export type {
   TransactionSort,
 } from "./list/TransactionRow.tsx";
 export { ListToolbar } from "./toolbar/ListToolbar.tsx";
+export { SelectionBar } from "./toolbar/SelectionBar.tsx";
+export type { SelectionBarProps, SelectionSum } from "./toolbar/SelectionBar.tsx";
 export type { RowMoney } from "./list/rowParts.tsx";
 export { PAGE_SIZES, Pagination } from "./pagination/Pagination.tsx";
 export type { PageSize, PaginationChange, PaginationProps } from "./pagination/Pagination.tsx";
