@@ -2,16 +2,16 @@
 
 **Створено:** 2026-11-16
 
-Read when leads hand over, a compaction included. Moved from `pr-pipeline/references/restarts.md` to keep the
+Read when a new lead session takes over; not at a compaction (owner, 2026-11-17, trial for 3 segments: leads 20–22; then the lead reports the numbers and the owner decides; [log](../../docs/decisions/log/2026-11-17-owner-compaction-trial.md)). Moved from `pr-pipeline/references/restarts.md` to keep the
 skill within its size limit; since then only the `keep/` exception for security detail was added.
 
 **Handover confirmation** (owner, 2026-11-13/14/15/16, #178,
 [comment 6899108018](https://github.com/minakovval/Willowsum/issues/178#issuecomment-6899108018)): every handover
-between leads, a compaction included, is confirmed item by item as a comment on #179 with **only** the table below
+between lead sessions (not a compaction) is confirmed item by item as a comment on #179 with **only** the table below
 — the 10 fixed items in this order, no other rows or free text (owner, 2026-11-16, process review 15, proposal 5).
 The finishing lead fills «Передано», the new lead «Прийнято»: what was done and where, with a link; not acted on →
 «не виконано» and why; a summary does not count. At a new session the confirmation also goes to the owner in chat
-in full; at a compaction the chat gets only the short retrospective (`pr-pipeline` «Мовчання в чаті» (d)). Item 4 lists
+in full (`pr-pipeline` «Мовчання в чаті» (d)). Item 4 lists
 the segment's decisions and each retrospective proposal with its link in #178 (or «не внесено до #178» and why).
 An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries «перенесено N разів»:
 one more than in the previous table. An item carried **≥ 3 handovers** goes to the owner with options (owner,
