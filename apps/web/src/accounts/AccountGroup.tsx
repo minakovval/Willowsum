@@ -253,7 +253,8 @@ function Balance({
 }
 
 /**
- * FR 16, FR 19: a credit card's limit and what is available; a loan's rate and monthly payment
+ * FR 16, FR 19: a credit card's limit, what is available and, when set, the grace period as the number of days the
+ * server returns, with no date (FIN-01 FR 19; the model has no statement date); a loan's rate and monthly payment
  * («4,2 % · 650,00 € / міс.»). No limit or available funds on a loan.
  */
 function Terms({ account: a }: { account: Account }) {
@@ -265,6 +266,9 @@ function Terms({ account: a }: { account: Account }) {
           limit: money(locale, a.creditCard.creditLimit),
           available: money(locale, a.creditCard.available),
         })}
+        {a.creditCard.gracePeriodDays !== null && a.creditCard.gracePeriodDays !== undefined
+          ? ` · ${t("accounts.card.grace", { days: formatNumber(locale, a.creditCard.gracePeriodDays) })}`
+          : null}
       </span>
     );
   if (a.loan && a.loan.annualRate !== null && a.loan.monthlyPayment)

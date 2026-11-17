@@ -434,6 +434,27 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     expect(screen.getByText("4 300,00 ₴", { selector: ".accounts-subrow .accounts-small" })).toBeTruthy();
   });
 
+  it("FIN-01@PoC AC24: a credit card with a 5 000,00 € limit, 1 200,00 € debt and a 55-day grace period shows «пільговий період 55 днів» without a date; a card with no grace period shows none", async () => {
+    const withGrace = account({
+      ...card,
+      name: "Кредитна з пільговим",
+      creditCard: { ...card.creditCard!, gracePeriodDays: 55 },
+    });
+    const without = account({
+      ...card,
+      name: "Кредитна без пільгового",
+      creditCard: { ...card.creditCard!, gracePeriodDays: null },
+    });
+    renderAt("#/money/accounts", api([withGrace, without]).client);
+    const row = (await screen.findByText("Кредитна з пільговим")).closest("tr")!;
+    expect(plain(row.textContent)).toContain(
+      "Ліміт 5 000,00 € · доступно 3 800,00 € · пільговий період 55 днів",
+    );
+    expect(row.textContent).not.toMatch(/\d{1,2}[./]\d{1,2}[./]\d{2,4}|\d{4}-\d{2}-\d{2}/);
+    const bare = screen.getByText("Кредитна без пільгового").closest("tr")!;
+    expect(bare.textContent).not.toContain("пільговий період");
+  });
+
   it("FIN-01@PoC AC14: an account without transactions for 120 days has no «Неактивний» mark and shows as active", async () => {
     const quiet = account({ name: "Тихий", updatedOn: "2026-07-01" });
     renderAt("#/money/accounts", api([quiet]).client);

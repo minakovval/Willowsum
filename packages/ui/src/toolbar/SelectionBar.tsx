@@ -94,7 +94,7 @@ export function SelectionBar({
   return (
     <ListToolbar
       label={t("selection.label")}
-      className="ws-selection-bar"
+      className="ws-selection-bar ws-surface-brand"
       status={announce}
       end={
         <>

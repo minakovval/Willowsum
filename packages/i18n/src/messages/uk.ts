@@ -1255,6 +1255,7 @@ export const uk = {
   "accounts.favourite.remove": "Прибрати з обраного",
   "accounts.favourite.error": "Не вдалося змінити «Обране». Спробуйте ще раз.",
   "accounts.card.terms": "Ліміт {limit} · доступно {available}",
+  "accounts.card.grace": "пільговий період {days} днів",
   "accounts.loan.terms": "{rate} % · {payment} / міс.",
   "accounts.closed": "Закритий",
   "accounts.closed.none": "Закритих рахунків немає",
