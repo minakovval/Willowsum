@@ -316,7 +316,7 @@ function AppearanceForm({
         <legend>{t("categories.appearance.icon")}</legend>
         <div className="cat-choice-grid">
           {icons.map((n) => {
-            const of = owner((c) => c.icon === n);
+            const of = n === "shapes" ? undefined : owner((c) => c.icon === n);
             const label = of
               ? t("categories.appearance.as", { name: of })
               : t("categories.appearance.general");
