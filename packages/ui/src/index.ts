@@ -13,6 +13,8 @@ export {
 export type { IconGroup, IconName, IconTone, PocIconGroup, ProductKind } from "./icons/Icon.tsx";
 export { IconButton } from "./icons/IconButton.tsx";
 export { IconTile } from "./icons/IconTile.tsx";
+export { CATEGORY_ICON_NAMES, CategoryDisc, isCategoryIcon } from "./icons/CategoryIcon.tsx";
+export type { CategoryIconName } from "./icons/CategoryIcon.tsx";
 export { WillowsumMark, Wordmark } from "./brand/Mark.tsx";
 export {
   ThemeProvider,

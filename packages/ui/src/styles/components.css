@@ -2718,3 +2718,26 @@ button.ws-stepper-step[aria-disabled="true"] {
   background: var(--ws-brand);
   color: var(--ws-surface-200);
 }
+
+/* BUD-01@PoC FR 10, AC17: a category's icon on its own colour (data from the API; `--ws-chart-other` until it is known).
+   The icon is white or dark `ink` by the 3 : 1 contrast the API worked out; white is `surface-200` of the light theme
+   (PoC: light only, П-25). */
+.ws-category-disc {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-chart-other);
+  color: var(--ws-surface-200);
+}
+
+.ws-category-disc[data-size="32"] {
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+}
+
+.ws-category-disc[data-icon-tone="ink"] {
+  color: var(--ws-ink);
+}

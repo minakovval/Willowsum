@@ -1,0 +1,190 @@
+/* BUD-01@PoC c) «Категорії» (S-196): canvas PocSettingsCategories. Tokens only (DS-06 item 1, DS-09). */
+
+.cat-page {
+  display: grid;
+  gap: var(--ws-space-4);
+  max-width: calc(var(--ws-content-max) - var(--ws-space-5) * 8 - var(--ws-space-1));
+}
+
+.cat-head {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.cat-head h1,
+.cat-head p,
+.cat-hint,
+.cat-failure p,
+.cat-error p {
+  margin: 0;
+}
+
+.cat-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.cat-search {
+  inline-size: calc(var(--ws-space-8) * 4 + var(--ws-space-5));
+}
+
+.cat-hidden-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: var(--ws-touch-target);
+  margin-inline-start: var(--ws-space-2);
+}
+
+.cat-toolbar-end {
+  display: inline-flex;
+  gap: var(--ws-space-2);
+  margin-inline-start: auto;
+}
+
+.cat-failure,
+.cat-error {
+  display: grid;
+  justify-items: start;
+  gap: var(--ws-space-2);
+}
+
+.cat-error,
+.cat-nothing {
+  margin: 0;
+  padding: var(--ws-space-5);
+}
+
+.cat-tree {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cat-group + .cat-group {
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.cat-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  padding-inline-end: var(--ws-space-2);
+  background: var(--ws-surface-inset);
+}
+
+.cat-group-title {
+  flex: 1;
+  margin: 0;
+  font: inherit;
+}
+
+.cat-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  inline-size: 100%;
+  min-block-size: var(--ws-touch-target);
+  padding: 0 var(--ws-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.cat-group-toggle:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: -3px;
+}
+
+.cat-group-name {
+  font-weight: 600;
+}
+
+.cat-group-meta {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+}
+
+.cat-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: var(--ws-touch-target);
+  padding-inline: calc(var(--ws-space-6) + var(--ws-space-1)) var(--ws-space-2);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.cat-row:hover {
+  background: var(--ws-surface-300);
+}
+
+.cat-name {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.cat-more {
+  margin-inline-start: auto;
+}
+
+.cat-more .ws-menu-root {
+  width: auto;
+}
+
+/* «Іконка і колір»: a grid of round choices; the chosen one has the focus-coloured ring. */
+.cat-choice {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.cat-choice legend {
+  margin-block-end: var(--ws-space-2);
+  padding: 0;
+  font-weight: 600;
+}
+
+.cat-choice-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-1);
+}
+
+.cat-choice-option {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  inline-size: var(--ws-touch-target);
+  block-size: var(--ws-touch-target);
+  border-radius: var(--ws-radius-pill);
+  cursor: pointer;
+}
+
+.cat-choice-option input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.cat-choice-option:has(input:checked) {
+  box-shadow: inset 0 0 0 2px var(--ws-ink);
+}
+
+.cat-choice-option:has(input:focus-visible) {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
