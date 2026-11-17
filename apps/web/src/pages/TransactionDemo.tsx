@@ -4,8 +4,8 @@ import type { SplitCategory, Transaction } from "../transactions/api.ts";
 import { SplitDialog } from "../transactions/SplitDialog.tsx";
 
 /**
- * Gallery (developer tool, synthetic values): «Розділити транзакцію» (S-049) of BUD-13@PoC b) until the details
- * screen (wave 2 row 116) opens it from «Розділити» with `splitAction`. Saving stays on the page.
+ * Gallery (developer tool, synthetic values): «Розділити транзакцію» (S-049) of BUD-13@PoC b); in the app S-047 opens
+ * it from «Розділити» with `splitAction`. Saving stays on the page.
  */
 const CATEGORIES: readonly SplitCategory[] = [
   { id: "c0000000-0000-4000-8000-000000000001", name: "Дім", kind: "expense" },

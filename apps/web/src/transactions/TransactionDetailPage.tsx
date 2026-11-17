@@ -276,10 +276,25 @@ function Card({
           </div>
         ) : null}
         <AttributeRows transaction={tx} locked={attributesLocked} onSaved={replace} />
-        {tx.split ? <SplitRow split={tx.split} names={data.names} /> : null}
+        {tx.split ? (
+          <SplitRow
+            split={tx.split}
+            names={data.names}
+            action={
+              canSplit ? (
+                <Button
+                  label={t("txDetail.unsplit")}
+                  size="sm"
+                  variant="quiet"
+                  onClick={() => void act("unsplit")}
+                />
+              ) : null
+            }
+          />
+        ) : null}
       </dl>
       {canSplit || similar ? (
-        // BUD-13@PoC FR 1, FR 8, FR 10: «Розділити», «Об'єднати назад» once split, «Схожі транзакції» (canvas PocMoneyTxDetail).
+        // BUD-13@PoC FR 1, FR 10: «Розділити» and «Схожі транзакції» (canvas PocMoneyTxDetail).
         <div className="txd-actions txd-attr-actions">
           {canSplit ? (
             <Button
@@ -289,9 +304,6 @@ function Card({
                 setOpen("split");
               }}
             />
-          ) : null}
-          {canSplit && tx.split ? (
-            <Button label={t("txDetail.unsplit")} variant="quiet" onClick={() => void act("unsplit")} />
           ) : null}
           {similar ? <Button label={t("txDetail.similar")} icon="search" href={similar} /> : null}
         </div>

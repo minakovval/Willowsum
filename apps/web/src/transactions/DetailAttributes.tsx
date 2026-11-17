@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { formatMoney, useI18n, useT } from "@willowsum/i18n";
 import { Badge, Button, Icon } from "@willowsum/ui";
 import { useAuthApi, type Outcome } from "../auth/api.ts";
@@ -335,9 +335,12 @@ function NoteRow({
 export function SplitRow({
   split,
   names,
+  action,
 }: {
   split: NonNullable<TransactionDetail["split"]>;
   names: ReadonlyMap<string, string>;
+  /** «Об’єднати назад» (FR 8), under the parts. */
+  action?: ReactNode;
 }) {
   const { t, locale } = useI18n();
   const category = (id: string) => names.get(id) ?? t("transactionRow.uncategorized");
@@ -360,6 +363,7 @@ export function SplitRow({
             </li>
           ))}
         </ol>
+        {action}
       </dd>
     </div>
   );
