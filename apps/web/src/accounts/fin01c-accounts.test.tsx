@@ -568,7 +568,9 @@ describe("FIN-01@PoC S-051 «Додати рахунок»", () => {
     const dialog = await screen.findByRole("dialog", { name: "Додати рахунок" });
     expect(within(dialog).getByRole("button", { name: "Закрити" })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("link", { name: /Додати вручну/ }));
-    await waitFor(() => expect(plain(heading().textContent)).toBe("Новий рахунок"));
+    // S-052 opens over «Рахунки» (FIN-01@PoC c2).
+    expect(await screen.findByRole("dialog", { name: "Новий рахунок" })).toBeTruthy();
+    expect(plain(heading().textContent)).toBe("Рахунки");
   });
 });
 

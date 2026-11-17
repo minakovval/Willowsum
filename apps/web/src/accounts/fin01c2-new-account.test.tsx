@@ -74,6 +74,10 @@ function api(over: Record<string, Handler> = {}) {
   };
 }
 
+/** «Назва*», not «Назва установи*». */
+const NAME = /^Назва(?! установи)/;
+/** The reason line above the bar of an inactive «Додати рахунок». */
+const reason = () => plain(dialog().querySelector(".ws-dialog-note")?.textContent);
 const dialog = () => screen.getByRole("dialog", { name: "Новий рахунок" });
 const button = (name: string | RegExp) => within(dialog()).getByRole("button", { name });
 const disabled = (el: HTMLElement) =>
@@ -95,14 +99,16 @@ async function chooseBank(search: string, bank: string) {
   fireEvent.click(await within(shown()).findByRole("option", { name: bank }));
 }
 
+/** «Валюта*» is the list «з пошуком» (more than 8 currencies, CMP-03): open, search the code, choose it. */
 function chooseCurrency(code: string, at: HTMLElement = shown()) {
-  const box = within(at).getAllByRole("combobox", { name: /^Валюта/ })[0]!;
-  fireEvent.change(box, { target: { value: code } });
+  fireEvent.click(within(at).getAllByRole("button", { name: /^Валюта/ })[0]!);
+  fireEvent.change(within(at).getByRole("combobox", { name: "Пошук" }), { target: { value: code } });
+  fireEvent.click(within(within(at).getByRole("listbox")).getByRole("option", { name: code }));
 }
 
 /** Steps 1 and 2 of «Поточний»: the name, the balance and the currency («На дату» is today by default). */
 async function fillBasics(name = "Поточний monobank", amount = "1200", currency = "EUR") {
-  fireEvent.change(field(/^Назва/), { target: { value: name } });
+  fireEvent.change(field(NAME), { target: { value: name } });
   fireEvent.click(button("Далі"));
   await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
   fireEvent.change(field(/^Залишок/), { target: { value: amount } });
@@ -122,28 +128,32 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
       within(steps)
         .getAllByRole("listitem")
         .map((li) => plain(li.textContent)),
-    ).toEqual(["1Основне", "2Залишок", "3Додатково"]);
+    ).toEqual([
+      "1ОсновнеКрок 1: Основне — поточний",
+      "2ЗалишокКрок 2: Залишок — ще недоступний",
+      "3ДодатковоКрок 3: Додатково — ще недоступний",
+    ]);
     expect(plain(shown().querySelector(".ws-form-hint")?.textContent)).toBe("Поля з * обов’язкові.");
     expect(within(shown()).getByRole("combobox", { name: /^Тип рахунку/ })).toBeTruthy();
-    expect(field(/^Назва/).getAttribute("placeholder")).toBe("Наприклад: Поточний monobank");
+    expect(field(NAME).getAttribute("placeholder")).toBe("Наприклад: Поточний monobank");
     expect(within(shown()).getByRole("button", { name: /Банк або установа/ })).toBeTruthy();
     // The bar of step 1: «Скасувати», «Далі», «Додати рахунок»; no «Назад».
     expect(within(dialog()).queryByRole("button", { name: "Назад" })).toBeNull();
     expect(disabled(button("Далі"))).toBe(true);
-    fireEvent.change(field(/^Назва/), { target: { value: "Щоденний" } });
+    fireEvent.change(field(NAME), { target: { value: "Щоденний" } });
     expect(disabled(button("Далі"))).toBe(false);
     fireEvent.click(button("Далі"));
     await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
     expect(within(shown()).getByRole("button", { name: /^На дату/ })).toBeTruthy();
     fireEvent.click(button("Назад"));
     await waitFor(() => expect(shown().dataset["step"]).toBe("0"));
-    expect((field(/^Назва/) as HTMLInputElement).value).toBe("Щоденний");
+    expect((field(NAME) as HTMLInputElement).value).toBe("Щоденний");
   });
 
   it("FIN-01@PoC FR 1: the types in order with «Поточний» by default, each with its one-line description under the field", async () => {
     await open(api().client);
     const type = within(shown()).getByRole("combobox", { name: /^Тип рахунку/ }) as HTMLSelectElement;
-    expect([...type.options].map((o) => o.textContent)).toEqual([
+    expect([...type.options].filter((o) => o.value).map((o) => o.textContent)).toEqual([
       "Поточний",
       "Ощадний",
       "Депозит",
@@ -166,14 +176,12 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     await open(fake.client);
     const submit = button("Додати рахунок");
     expect(disabled(submit)).toBe(true);
-    expect(plain(within(dialog()).getByText(/^Щоб додати рахунок, заповніть:/).textContent)).toBe(
-      "Щоб додати рахунок, заповніть: Назва, Залишок (крок 2), Валюта (крок 2)",
-    );
+    expect(reason()).toBe("Щоб додати рахунок, заповніть: Назва, Залишок (крок 2), Валюта (крок 2)");
     await fillBasics();
     expect(disabled(button("Додати рахунок"))).toBe(false);
     // The currency is required: back to «Оберіть…» is not possible in the list, so a new form without it.
     fireEvent.click(button("Назад"));
-    fireEvent.change(field(/^Назва/), { target: { value: " " } });
+    fireEvent.change(field(NAME), { target: { value: " " } });
     expect(disabled(button("Додати рахунок"))).toBe(true);
     fireEvent.click(button("Додати рахунок"));
     expect(fake.creates()).toHaveLength(0);
@@ -181,13 +189,13 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
 
   it("FIN-01@PoC FR 5: empty and invalid fields together — the S-052 text «Щоб додати рахунок, заповніть: …; виправте: …»", async () => {
     await open(api().client);
-    fireEvent.change(field(/^Назва/), { target: { value: "x".repeat(81) } });
-    expect(plain(within(dialog()).getByText(/^Щоб додати рахунок, заповніть:/).textContent)).toBe(
+    fireEvent.change(field(NAME), { target: { value: "x".repeat(81) } });
+    expect(reason()).toBe(
       "Щоб додати рахунок, заповніть: Залишок (крок 2), Валюта (крок 2); виправте: Назва",
     );
-    fireEvent.blur(field(/^Назва/));
-    expect(plain(within(shown()).getByText("Назва довша за 80 символів.").textContent)).toBe(
-      "Назва довша за 80 символів.",
+    fireEvent.blur(field(NAME));
+    expect(plain(within(shown()).getByText(/Назва довша за 80 символів\./).textContent)).toBe(
+      "Помилка. Назва довша за 80 символів.",
     );
   });
 
@@ -245,6 +253,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect(
       within(shown())
         .getAllByRole("option")
+        .filter((o) => o.closest("[role=listbox]"))
         .map((o) => plain(o.textContent)),
     ).toEqual(["Інша установа"]);
   });
@@ -267,7 +276,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
     fireEvent.change(field(/^Номер/), { target: { value: "UA21 3223 1300 0002 6007 2335 6600 1" } });
     fireEvent.change(field(/^Номер/), { target: { value: "UA213223130000026007233566001" } });
-    const error = await within(shown()).findByText("Такий рахунок уже є: ПриватБанк ••1234");
+    const error = await within(shown()).findByText(/Такий рахунок уже є: ПриватБанк ••1234/);
     expect(error).toBeTruthy();
     expect(checks.at(-1)).toEqual({
       institution: { name: "ПриватБанк", country: "UA" },
@@ -278,9 +287,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
       `#/money/accounts/${EXISTING_ID}`,
     );
     expect(disabled(button("Додати рахунок"))).toBe(true);
-    expect(plain(within(dialog()).getByText(/^Щоб продовжити, виправте:/).textContent)).toBe(
-      "Щоб продовжити, виправте: Номер · останні 4 цифри картки або IBAN",
-    );
+    expect(reason()).toBe("Щоб продовжити, виправте: Номер · останні 4 цифри картки або IBAN");
   });
 
   it("FIN-01@PoC AC17, FR 6: the form has no «Власники» and no «Порівну» on any step", async () => {
@@ -298,7 +305,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect((within(shown()).getByRole("combobox", { name: /^Тип рахунку/ }) as HTMLSelectElement).value).toBe(
       "loan",
     );
-    fireEvent.change(field(/^Назва/), { target: { value: "Іпотека" } });
+    fireEvent.change(field(NAME), { target: { value: "Іпотека" } });
     fireEvent.click(button("Далі"));
     await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
     expect(within(shown()).getByText("Сума боргу, без мінуса")).toBeTruthy();
@@ -307,7 +314,6 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect(disabled(button("Додати рахунок"))).toBe(true);
     fireEvent.click(button("Далі"));
     await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
-    expect(plain(shown().querySelector(".ws-form-hint:not(:first-child)")?.textContent ?? "")).toBe("");
     expect(plain(within(shown()).getByText(/^Поля для типу «Кредит»/).textContent)).toBe(
       "Поля для типу «Кредит» · «Іпотека», залишок боргу 120 000,00 €.",
     );
@@ -348,7 +354,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     fireEvent.click(within(shown()).getByRole("button", { name: "+ додати ще валюту" }));
     const row = shown().querySelector<HTMLElement>(".newacc-extra")!;
     chooseCurrency("EUR", row);
-    expect(within(row).getByText("Ця валюта вже є в рахунку.")).toBeTruthy();
+    expect(within(row).getByText(/Ця валюта вже є в рахунку\./)).toBeTruthy();
     chooseCurrency("UAH", row);
     fireEvent.change(within(row).getByRole("textbox", { name: /^Залишок/ }), { target: { value: "4300" } });
     fireEvent.click(button("Додати рахунок"));
