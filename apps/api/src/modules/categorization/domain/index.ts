@@ -31,3 +31,12 @@ export {
   type RuleMatcher,
   type RuleSubject,
 } from "./rule.ts";
+export {
+  TOP_CATEGORIES_MAX,
+  frequentCategories,
+  lastManualCategory,
+  recentCategories,
+  topCategories,
+  type HistoryRow,
+  type TopCategories,
+} from "./suggestion.ts";

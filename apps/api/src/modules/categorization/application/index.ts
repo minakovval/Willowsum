@@ -41,3 +41,10 @@ export {
   type RulesTx,
   type StoredRule,
 } from "./rules.ts";
+export {
+  categorySuggestions,
+  type CategorySuggestions,
+  type Suggestion,
+  type SuggestionInput,
+  type SuggestionsTx,
+} from "./suggestions.ts";

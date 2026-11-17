@@ -588,6 +588,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/category-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Нова транзакція» step 2: the category for the counterparty, «Часто для <мерчанта>» or «Нещодавні», and each known merchant's category (FIN-03 FR 30, FR 31) */
+        get: operations["getCategorySuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/debts": {
         parameters: {
             query?: never;
@@ -8113,6 +8130,140 @@ export interface operations {
             };
         };
     };
+    getCategorySuggestions: {
+        parameters: {
+            query?: {
+                accountId?: string;
+                amount?: string;
+                counterparty?: string;
+                currency?: string;
+                type?: "expense" | "income";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The hints */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        merchant: string | null;
+                        merchants: {
+                            name: string;
+                            suggestion: {
+                                /** Format: uuid */
+                                categoryId: string;
+                                rule: {
+                                    /** Format: uuid */
+                                    id: string;
+                                    position: number;
+                                } | null;
+                                /** @enum {string} */
+                                source: "rule" | "merchant";
+                            };
+                        }[];
+                        suggestion: {
+                            /** Format: uuid */
+                            categoryId: string;
+                            rule: {
+                                /** Format: uuid */
+                                id: string;
+                                position: number;
+                            } | null;
+                            /** @enum {string} */
+                            source: "rule" | "merchant";
+                        } | null;
+                        top: {
+                            categoryIds: string[];
+                            /** @enum {string} */
+                            kind: "frequent" | "recent";
+                            merchant: string | null;
+                        };
+                        truncated: boolean;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listDebts: {
         parameters: {
             query?: never;
@@ -10671,7 +10822,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "categorization.rules" | "recurring.payments" | "goals.savings" | "budget.period" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "debts.payoff")[];
                     };
                 };
             };

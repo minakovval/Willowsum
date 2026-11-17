@@ -1,6 +1,6 @@
 # Модуль feature-flags
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (DAT-03: ключ прапорця може містити «_», `FLAG_KEY_PATTERN`; FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`; BUD-14 b1: `categorization.rules`; BUD-12 a: `transactions.review`)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (DAT-03: ключ прапорця може містити «_», `FLAG_KEY_PATTERN`; FIN-01: `accounts.manual`; ACC-05: `identity.profile`; FIN-03: `transactions.manual`, `transactions.states`, `transactions.attributes`, `transactions.transfers`, `transactions.duplicates`; BUD-01: `categories.tree`; DAT-03: `data.bulk_actions`; BUD-05: `goals.savings`; BUD-14 a: `transactions.merchants`; BUD-07 a1: `recurring.payments`; BUD-14 b1: `categorization.rules`; BUD-12 a: `transactions.review`; FIN-03 FR 30, FR 31: `categorization.suggestions`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -79,6 +79,8 @@ CICD-06@PoC (п. 1–3), ARC-01@PoC (п. 7: кожна функція має к�
 `transactions.manual`, власник `product-owner`, перегляд до 2027-02-15.
 `categorization.rules` — `release` (BUD-14@PoC b1: правила категорій, `/v1/category-rules`), потребує
 `transactions.merchants`, власник `product-owner`, перегляд до 2027-02-15.
+`categorization.suggestions` — `release` (FIN-03@PoC FR 30, FR 31: підказки категорії форми «Нова транзакція»,
+`/v1/category-suggestions`), потребує `categorization.rules`, власник `product-owner`, перегляд до 2027-02-17.
 `transactions.review` — `release` (BUD-12@PoC a: «До розбору», `/v1/transaction-review`,
 `/v1/transactions/{id}/review/confirm`, `/reopen`, масова дія «Підтвердити категорії»), потребує `transactions.manual`,
 власник `product-owner`, перегляд до 2027-02-16.
