@@ -209,9 +209,14 @@
   font-weight: 600;
 }
 
-.aclose-error p,
-.abal-subtitle {
+.aclose-error p {
   margin: 0;
+}
+
+/* The account line sits right under the title (board: 8 px below it, 13 px muted), not a body gap away. */
+.abal-subtitle {
+  margin: calc(var(--ws-space-2) - var(--ws-space-5)) 0 0;
+  font-size: var(--ws-text-label-size);
 }
 
 /* S-055a «Оновити залишок» (canvas PocMoneyAccBalance): the difference in a dashed box, the import note below. */

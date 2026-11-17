@@ -4,7 +4,7 @@ import { formatLocaleOf, formatMoney, useI18n, type MessageKey } from "@willowsu
 import { AmountField, Dialog, Icon, Select } from "@willowsum/ui";
 import { useAuthApi } from "../auth/api.ts";
 import type { AccountDetail } from "./card.ts";
-import { maskedNumber, money } from "./format.ts";
+import { maskedNumber, money, negated } from "./format.ts";
 import { updateBalance } from "./manage.ts";
 
 /** «на 2 листопада» (uk), «on 2 November» (en): the day without the year. */
@@ -50,10 +50,21 @@ export function UpdateBalanceDialog({
   const subtitle = [mask ? `${account.name} ${mask}` : account.name, account.institution?.name]
     .filter(Boolean)
     .join(" · ");
-  const difference =
-    current && value !== null
-      ? Money.of(value, current.currency).minus(Money.of(current.balance.amount, current.currency))
-      : null;
+  // A credit card's or a loan's balance is a debt, negative as the holder sees it; the field and the API take the
+  // debt as a positive amount (FIN-12@PoC FR 15: «оновлює залишок боргу так само»), so both are compared as debts.
+  const debt = account.group === "credit";
+  // An amount outside NUMERIC(38,18) throws in the kernel: show no difference and let the server refuse it.
+  let difference: Money | null = null;
+  try {
+    if (current && value !== null) {
+      const entered = Money.of(value, current.currency);
+      difference = (debt ? entered.negated() : entered).minus(
+        Money.of(current.balance.amount, current.currency),
+      );
+    }
+  } catch {
+    difference = null;
+  }
 
   const submit = async () => {
     if (!current) return;
@@ -116,7 +127,7 @@ export function UpdateBalanceDialog({
           <span className="ws-muted">
             {t("accountBalance.now", { date: longDay(formatLocaleOf(locale), today) })}
           </span>
-          <b>{money(locale, current.balance)}</b>
+          <b>{money(locale, debt ? negated(current.balance) : current.balance)}</b>
         </p>
       ) : null}
       {current ? (
@@ -126,7 +137,7 @@ export function UpdateBalanceDialog({
           required
           currency={current.currency}
           value={value}
-          hint={t("accountBalance.hint")}
+          hint={t(debt ? "accountBalance.hint.debt" : "accountBalance.hint")}
           error={required && value === null ? t("accountBalance.error.required") : undefined}
           onChange={(v) => {
             setFailure(null);

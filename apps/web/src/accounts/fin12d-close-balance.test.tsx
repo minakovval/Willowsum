@@ -560,3 +560,68 @@ describe("FIN-12@PoC d) S-055 «Закрити рахунок»", () => {
     );
   });
 });
+
+describe("FIN-12@PoC d) S-055a amounts out of range", () => {
+  it("S-055a: a 21-digit «Поточний залишок» does not take the page down", async () => {
+    const fake = api();
+    renderAt(at, fake.client);
+    await openMenuItem("Оновити залишок");
+    const dialog = screen.getByRole("dialog", { name: "Оновити залишок" });
+    const field = within(dialog).getByRole("textbox", { name: /Поточний залишок/ });
+    fireEvent.change(field, { target: { value: "123456789012345678901" } });
+    expect(screen.queryByRole("dialog", { name: "Оновити залишок" })).not.toBeNull();
+  });
+});
+
+describe("FIN-12@PoC d) S-055a on a debt (review round 1, B1)", () => {
+  it("FIN-12@PoC FR 15 (screen): a credit card's debt 640,00 € → 600,00 € shows +40,00 € and sends 600.00", async () => {
+    const fake = api({
+      [`GET /v1/accounts/${ACCOUNT_ID}`]: {
+        status: 200,
+        body: detail({
+          kind: "credit-card",
+          group: "credit",
+          name: "Кредитка",
+          source: "manual",
+          currencies: [{ currency: "EUR", balance: eur("-640.00"), balanceDate: TODAY }],
+        }),
+      },
+    });
+    renderAt(at, fake.client);
+    await openMenuItem("Оновити залишок");
+    const dialog = screen.getByRole("dialog", { name: "Оновити залишок" });
+    // The debt is shown the way the field asks for it: a positive amount.
+    expect(plain(dialog.querySelector(".abal-now b")?.textContent)).toBe("640,00 €");
+    const field = within(dialog).getByRole("textbox", { name: /Поточний залишок/ });
+    expect(plain(dialog.textContent)).toContain("Сума боргу, яку ви бачите в банку зараз");
+    fireEvent.change(field, { target: { value: "600" } });
+    expect(plain(dialog.querySelector(".abal-diff b")?.textContent)).toBe("+40,00 €");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Оновити залишок" }));
+    await waitFor(() => expect(posts(fake.sent, "/balance")).toHaveLength(1));
+    expect(posts(fake.sent, "/balance")[0]!.body).toEqual({ balance: eur("600.00") });
+  });
+
+  it("FIN-12@PoC FR 15 (screen): a loan's debt 12 000,00 € → 12 310,00 € shows −310,00 €", async () => {
+    renderAt(
+      at,
+      api({
+        [`GET /v1/accounts/${ACCOUNT_ID}`]: {
+          status: 200,
+          body: detail({
+            kind: "loan",
+            group: "credit",
+            name: "Кредит",
+            source: "manual",
+            currencies: [{ currency: "EUR", balance: eur("-12000.00"), balanceDate: TODAY }],
+          }),
+        },
+      }).client,
+    );
+    await openMenuItem("Оновити залишок");
+    const dialog = screen.getByRole("dialog", { name: "Оновити залишок" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Поточний залишок/ }), {
+      target: { value: "12310" },
+    });
+    expect(plain(dialog.querySelector(".abal-diff b")?.textContent)).toBe("−310,00 €");
+  });
+});

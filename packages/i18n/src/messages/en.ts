@@ -1043,6 +1043,7 @@ export const en: Messages = {
   "accountBalance.now": "Now in Willowsum · on {date}",
   "accountBalance.field": "Current balance",
   "accountBalance.hint": "The balance you see in your bank now",
+  "accountBalance.hint.debt": "The debt you see in your bank now",
   "accountBalance.diff":
     "The difference becomes a «Balance adjustment» transaction · not part of income and expenses",
   "accountBalance.import":
