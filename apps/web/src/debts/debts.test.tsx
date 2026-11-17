@@ -126,7 +126,11 @@ describe("BUD-19@PoC S-143 «Борги»", () => {
     const add = screen.getByRole("link", { name: "Додати рахунок" });
     expect(add.getAttribute("href")).toBe("#/money/accounts/new?type=loan");
     window.location.hash = add.getAttribute("href")!;
-    await waitFor(() => expect(heading().textContent).toBe("Новий рахунок"));
+    // S-052 opens over «Рахунки» with «Кредит» chosen (FIN-01@PoC c2).
+    const form = await screen.findByRole("dialog", { name: "Новий рахунок" });
+    expect((within(form).getByRole("combobox", { name: /^Тип рахунку/ }) as HTMLSelectElement).value).toBe(
+      "loan",
+    );
   });
 
   it("BUD-19@PoC FR 1, FR 2: the terms come from the account; a debt without a rate or payment asks for them and is not calculated", async () => {

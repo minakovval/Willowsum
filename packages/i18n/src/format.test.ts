@@ -96,6 +96,11 @@ describe("NFR-09@PoC FR 3: dates and time zones", () => {
     expect(plain(formatDate("en", "2026-10-26"))).toBe("26 Oct 2026");
   });
 
+  it("NFR-09@PoC FR 2: in the pseudo-locale a calendar date is marked like a message, its digits kept", () => {
+    const text = plain(formatDate("en-XA", "2026-11-17"));
+    expect(text).toMatch(/^\[17 Ñóṽ 2026 ~+\]$/);
+  });
+
   it("NFR-09@PoC FR 3: a calendar date never shifts to another day, whatever the machine's time zone", () => {
     // A calendar date has no time zone: it is formatted as is, not as midnight UTC seen from UTC−5.
     expect(plain(formatDate("en", "2026-01-01"))).toBe("1 Jan 2026");

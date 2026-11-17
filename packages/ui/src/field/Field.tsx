@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useRef,
@@ -11,7 +12,14 @@ import { currencySymbolOf, formatNumber, translate, useI18n, type MessageKey } f
 import { Icon } from "../icons/Icon.tsx";
 import { useTooltip } from "../tooltip/Tooltip.tsx";
 import { formatCompactNumber } from "../amount/compact.ts";
-import { currencyPlaces, displayAmount, editAmount, parseAmountInput, type AmountProblem } from "./amount.ts";
+import {
+  currencyPlaces,
+  displayAmount,
+  editAmount,
+  amountInPlaces,
+  parseAmountInput,
+  type AmountProblem,
+} from "./amount.ts";
 
 export interface FieldProps {
   /** The visible label above the field; never moved into it or replaced by the placeholder. */
@@ -283,6 +291,11 @@ export interface AmountFieldProps extends Omit<
   onChange?: ((value: string | null, problem: AmountProblem | null) => void) | undefined;
   /** ISO 4217 code: the digits of the amount and the suffix. */
   currency: string;
+  /**
+   * The digits after the point the amount may have; default: the currency's ISO 4217 minor units from `Intl`. Pass
+   * the server's registry value (`currencyInfo(code).minorUnits`) where the two may differ.
+   */
+  places?: number | undefined;
   /** Shown on the right in `ink-muted`; default: the currency symbol of the language («€», «₴»). */
   suffix?: ReactNode;
 }
@@ -295,11 +308,51 @@ export interface AmountFieldProps extends Omit<
  * than the currency's is shown rounded with «≈». The focus brings back the full value. The value lives in the
  * consumer's state as a decimal string, never as the shown text.
  */
-export function AmountField({ value, onChange, onBlur, currency, suffix, error, ...rest }: AmountFieldProps) {
+export function AmountField({
+  value,
+  onChange,
+  onBlur,
+  currency,
+  places: placesProp,
+  suffix,
+  error,
+  ...rest
+}: AmountFieldProps) {
   const { t, locale } = useI18n();
-  const places = currencyPlaces(currency);
+  const places = placesProp ?? currencyPlaces(currency);
   const [draft, setDraft] = useState<string | null>(null);
   const [problem, setProblem] = useState<AmountProblem | null>(null);
+  // A new currency checks the amount again against its digits (FIN-01 FR 3): «1200,5» stops being valid for JPY,
+  // «1,234» refused for EUR becomes valid for KWD, «1200.50» becomes «1200». The value never keeps the old digits.
+  // The field's own state is adjusted during render; the consumer hears of it once, after the render.
+  const [checkedFor, setCheckedFor] = useState(places);
+  const [recheck, setRecheck] = useState<{ value: string | null; problem: AmountProblem | null } | null>(
+    null,
+  );
+  const reported = useRef<typeof recheck>(null);
+  if (checkedFor !== places) {
+    setCheckedFor(places);
+    if (draft !== null) {
+      const parsed = parseAmountInput(draft, locale, places);
+      if (parsed.problem === null && problem !== null) setDraft(null);
+      setProblem(parsed.problem);
+      setRecheck({ value: parsed.value, problem: parsed.problem });
+    } else if (value !== null) {
+      const fitted = amountInPlaces(value, places);
+      if (fitted === null) {
+        setDraft(editAmount(locale, value, places));
+        setProblem("places");
+        setRecheck({ value: null, problem: "places" });
+      } else if (fitted !== value) {
+        setRecheck({ value: fitted, problem: null });
+      }
+    }
+  }
+  useEffect(() => {
+    if (recheck === null || reported.current === recheck) return;
+    reported.current = recheck;
+    onChange?.(recheck.value, recheck.problem);
+  }, [recheck, onChange]);
   // The text the focus put in the field: leaving it unchanged keeps the value as it was (even «≈ 0,33»).
   const start = useRef<string | null>(null);
 

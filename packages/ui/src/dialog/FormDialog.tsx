@@ -66,6 +66,11 @@ export interface FormDialogProps extends Pick<
         both?: ((empty: string, invalid: string) => string) | undefined;
       }
     | undefined;
+  /**
+   * A step's own hint on top in place of «Поля з * обов’язкові.» (board S-052 «Новий рахунок · Кредит»: «Поля для
+   * типу «Кредит» · …»), by step; still one hint per step. Left out or undefined: the general hint.
+   */
+  hints?: readonly (string | undefined)[] | undefined;
   /** The step's content: the fields of `form.step`, one column, each full width, the label above. */
   children: (form: FormDialogState) => ReactNode;
 }
@@ -108,6 +113,7 @@ export function FormDialog({
   onSubmit,
   editing = false,
   reason,
+  hints,
   children,
 }: FormDialogProps) {
   const { t, locale } = useI18n();
@@ -246,7 +252,11 @@ export function FormDialog({
               inert={i !== current || undefined}
               aria-hidden={i !== current || undefined}
             >
-              {hinted(i) ? <p className="ws-form-hint">{hint}</p> : null}
+              {hints?.[i] !== undefined ? (
+                <p className="ws-form-hint">{hints[i]}</p>
+              ) : hinted(i) ? (
+                <p className="ws-form-hint">{hint}</p>
+              ) : null}
               {children({ step: i, errorOf, leave })}
             </div>
           ))}

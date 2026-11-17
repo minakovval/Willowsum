@@ -6,7 +6,10 @@ import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
+import { kyivToday } from "../recurring/data.ts";
 import { AddAccountDialog } from "./AddAccountDialog.tsx";
+import { NewAccountDialog } from "./NewAccountDialog.tsx";
+import { KINDS, type AccountKind } from "./newAccount.ts";
 import { AccountGroup } from "./AccountGroup.tsx";
 import { useAccounts, useAccountsSummary, useFavourite, type Account, type AccountsSummary } from "./api.ts";
 import { MoneyTogether, RateBanner, Sources } from "./Summary.tsx";
@@ -17,7 +20,13 @@ import "./accounts.css";
  * «Імпортувати виписку» and «Додати рахунок» and no tabs, «Гроші разом» 8 + «Джерела даних» 4, the list toolbar,
  * then the groups «Готівкові» and «Кредитні» on the full 12 columns. No brokerage accounts in «Гроші».
  */
-export function AccountsPage() {
+export function AccountsPage({
+  creating = false,
+  today = kyivToday(),
+}: {
+  creating?: boolean;
+  today?: string;
+}) {
   const t = useT();
   const title = t(ACCOUNTS.label);
   useDocumentTitle(title);
@@ -71,8 +80,29 @@ export function AccountsPage() {
         </div>
       ) : null}
       <AddAccountDialog open={adding} onClose={() => setAdding(false)} />
+      {creating ? (
+        <NewAccountDialog
+          open
+          today={today}
+          initialKind={kindFromHash(window.location.hash)}
+          onClose={() => {
+            window.location.hash = hrefFor(ACCOUNTS.path);
+          }}
+          onCreated={() => {
+            window.location.hash = hrefFor(ACCOUNTS.path);
+            accounts.retry();
+            summary.retry();
+          }}
+        />
+      ) : null}
     </AppLayout>
   );
+}
+
+/** `#/money/accounts/new?type=loan` («Додати кредит» of «Борги») opens the form with that kind chosen. */
+function kindFromHash(hash: string): AccountKind | undefined {
+  const type = new URLSearchParams(hash.split("?")[1] ?? "").get("type");
+  return KINDS.find((k) => k === type);
 }
 
 /**

@@ -1,4 +1,5 @@
 import { languageOf, type Locale } from "./languages.ts";
+import { pseudoLocalize } from "./pseudo.ts";
 import { translate } from "./translate.ts";
 import type { MessageKey } from "./types.ts";
 
@@ -322,7 +323,9 @@ export function maskNumber(number: string): string {
 
 /**
  * A calendar date (`YYYY-MM-DD`, no time zone: a transaction, a payment): «26 жовт. 2026 р.» (uk),
- * «26 Oct 2026» (en). Formatted as written, so it never moves to another day.
+ * «26 Oct 2026» (en). Formatted as written, so it never moves to another day. In the pseudo-locale (NFR-09@PoC
+ * FR 2) the month name is marked like a message («[26 Ôçţ 2026 ~]»), so a date shown through this function is told
+ * apart from a hard-coded text.
  */
 export function formatDate(locale: Locale, isoDate: string): string {
   const m = CALENDAR_DATE.exec(isoDate);
@@ -331,12 +334,13 @@ export function formatDate(locale: Locale, isoDate: string): string {
   const at = new Date(Date.UTC(year, month - 1, day));
   if (at.getUTCFullYear() !== year || at.getUTCMonth() !== month - 1 || at.getUTCDate() !== day)
     throw new RangeError("No such calendar date");
-  return new Intl.DateTimeFormat(formatLocaleOf(locale), {
+  const text = new Intl.DateTimeFormat(formatLocaleOf(locale), {
     day: "numeric",
     month: "short",
     year: "numeric",
     timeZone: "UTC",
   }).format(at);
+  return languageOf(locale).status === "pseudo" ? pseudoLocalize(text) : text;
 }
 
 /**
