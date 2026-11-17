@@ -400,6 +400,16 @@ export interface TransactionRuleInputs {
 export type { RuleInput };
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+/**
+ * BUD-14@PoC FR 5, FR 7, FR 9 (wave 2 row 23 b2): a category rule's tags on a transaction and their «Відмінити», for
+ * module categorization (`categorizationRulePorts`). `db` is the transactions module's own database; `accounts` the
+ * accounts module's directory (a closed account's transactions are read only); behind `transactions.attributes`.
+ */
+export {
+  createRuleTags as createTransactionRuleTags,
+  type TransactionRuleTags,
+} from "./adapters/rules/tags.ts";
+
 export function createTransactionRuleInputs(db: ModuleDatabase): TransactionRuleInputs {
   return {
     inputs: (householdId, ids) => db.inHousehold(householdId, (q) => ruleInputsOf(q, householdId, ids)),

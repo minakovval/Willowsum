@@ -55,13 +55,29 @@ export const TRANSACTION_CREATED_JOB = defineJob({
 const auditSchema = z.strictObject({
   key: z.string().regex(/^categorization\.[A-Za-z0-9:._-]{1,180}$/),
   actorAccountId: z.uuid().nullable(),
-  entity: z.enum(["categorization.rule", "categorization.transaction-category"]),
+  entity: z.enum(["categorization.rule", "categorization.transaction-category", "categorization.rule-run"]),
   entityId: z.uuid(),
-  action: z.enum(["create", "update"]),
+  action: z.enum(["create", "update", "delete"]),
   changes: z
     .array(
       z.strictObject({
-        field: z.enum(["conditions", "position", "categoryId", "accountIds", "enabled", "source", "ruleId"]),
+        field: z.enum([
+          "conditions",
+          "tags",
+          "position",
+          "categoryId",
+          "accountIds",
+          "enabled",
+          "source",
+          "ruleId",
+          // BUD-14 FR 7: a run of «Застосувати до N наявних…» and its «Відмінити» (counts and states only).
+          "count",
+          "changed",
+          "skippedManual",
+          "status",
+          "restored",
+          "notRestored",
+        ]),
         before: z.string().max(1000).nullable(),
         after: z.string().max(1000).nullable(),
         sensitive: z.boolean(),
@@ -71,3 +87,13 @@ const auditSchema = z.strictObject({
 }) satisfies z.ZodType<AuditHandOff>;
 
 export const AUDIT_JOB = defineJob({ name: "categorization.audit", schema: auditSchema });
+
+/**
+ * BUD-14 FR 7, EC1: the next part of a run of «Застосувати до N наявних транзакцій» or of its «Відмінити» (100 records,
+ * application/runs.ts). Keyed by the run, its state and how far it got; idempotent: a part takes only the records
+ * still pending under the run's lock. Dead ones go back with the daily recovery.
+ */
+export const RULE_RUN_PART_JOB = defineJob({
+  name: "categorization.rule-run-part",
+  schema: z.strictObject({ runId: z.uuid() }),
+});

@@ -28,6 +28,8 @@ export interface CategorizationServices {
   readonly rulesAudit: RulesAuditLog;
   /** FR 7 «Показати»: the newest transactions of a space a rule's conditions are matched against. */
   readonly scanMax: number;
+  /** FR 7, AC6: the time of a run and of «Відмінити» (7 days). */
+  readonly clock: { now(): number };
 }
 
 /** BUD-14 FR 7: a rule's matches look at the newest 20 000 transactions of the space (a bound on one request). */
@@ -40,6 +42,7 @@ export function createCategorizationServices(options: {
   /** BUD-14 b: module accounts' directory, module merchants' names, module transactions' rule inputs. */
   readonly rules?: Omit<RuleDeps, "categories">;
   readonly scanMax?: number;
+  readonly clock?: { now(): number };
 }): CategorizationServices {
   return {
     [BRAND]: true,
@@ -48,6 +51,7 @@ export function createCategorizationServices(options: {
     rules: options.rules ? { deps: { ...options.rules, categories: options.categories } } : null,
     rulesAudit: options.audit,
     scanMax: options.scanMax ?? RULE_SCAN_MAX,
+    clock: options.clock ?? { now: () => Date.now() },
   };
 }
 

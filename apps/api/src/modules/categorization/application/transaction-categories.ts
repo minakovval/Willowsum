@@ -22,6 +22,8 @@ export interface StoredTransactionCategory extends TransactionCategory {
   readonly version: number;
   /** BUD-14 FR 13: the rule that set the category (the source «rule»); null otherwise. */
   readonly ruleId: string | null;
+  /** BUD-14 FR 8, AC3: the rule that set the tags («Застосовано правила: №…»); null — none. */
+  readonly tagRuleId?: string | null;
 }
 
 /** A category as written: with the source «rule», the rule that set it (BUD-14 FR 13). */
@@ -51,6 +53,8 @@ export interface CategorizationTx {
   /** FR 8: every row of `sourceId` takes `targetId`; returns how many. */
   move(householdId: string, sourceId: string, targetId: string): Promise<number>;
   enqueueHandOff(householdId: string, handOff: CategoryHandOff): Promise<void>;
+  /** BUD-14 FR 8: the rule that set the transaction's tags (a row is made if none), without a new version. */
+  setTagRule(householdId: string, transactionId: string, ruleId: string | null): Promise<void>;
 }
 
 export type WriteOutcome =

@@ -22,6 +22,7 @@ interface Row {
   account_ids: string[];
   category_id: string;
   enabled: boolean;
+  tags: string[];
   version: number;
   created_at: string;
 }
@@ -49,6 +50,7 @@ const stored = (r: Row): StoredRule => ({
   accountIds: r.account_ids,
   categoryId: r.category_id,
   enabled: r.enabled,
+  tags: r.tags,
   version: r.version,
   createdAt: r.created_at,
 });
@@ -62,7 +64,7 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     },
     async rules(householdId) {
       const { rows } = await q.query<Row>(
-        `SELECT id, position, conditions, account_ids, category_id, enabled, version,
+        `SELECT id, position, conditions, account_ids, category_id, enabled, tags, version,
                 to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') AS created_at FROM rules
           WHERE household_id = $1 ORDER BY position`,
         [householdId],
@@ -71,8 +73,9 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
     },
     async insertRule(householdId, rule, key) {
       await q.query(
-        `INSERT INTO rules (household_id, id, position, conditions, account_ids, category_id, enabled, condition_key)
-         VALUES ($1, $2, $3, $4::jsonb, $5::uuid[], $6, $7, $8)`,
+        `INSERT INTO rules (household_id, id, position, conditions, account_ids, category_id, enabled, condition_key,
+                            tags)
+         VALUES ($1, $2, $3, $4::jsonb, $5::uuid[], $6, $7, $8, $9::text[])`,
         [
           householdId,
           rule.id,
@@ -82,13 +85,14 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
           rule.categoryId,
           rule.enabled,
           key,
+          rule.tags,
         ],
       );
     },
     async updateRule(householdId, rule, key) {
       await q.query(
         `UPDATE rules SET conditions = $3::jsonb, account_ids = $4::uuid[], category_id = $5, enabled = $6,
-                          condition_key = $7, version = $8, updated_at = now()
+                          condition_key = $7, version = $8, tags = $9::text[], updated_at = now()
           WHERE household_id = $1 AND id = $2`,
         [
           householdId,
@@ -99,6 +103,7 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
           rule.enabled,
           key,
           rule.version,
+          rule.tags,
         ],
       );
     },
@@ -110,6 +115,19 @@ export function rulesTx(q: HouseholdQueryRunner): RulesTx {
           WHERE r.household_id = $1 AND r.id = o.id AND r.position <> o.position`,
         [householdId, ids],
       );
+    },
+    async deleteRule(householdId, id) {
+      // FR 15: the transactions it categorized or tagged keep their category and tags; only the reference goes (their
+      // version stays: nothing a bulk action or a run would restore changed).
+      await q.query(
+        `UPDATE transaction_categories SET rule_id = NULL WHERE household_id = $1 AND rule_id = $2`,
+        [householdId, id],
+      );
+      await q.query(
+        `UPDATE transaction_categories SET tag_rule_id = NULL WHERE household_id = $1 AND tag_rule_id = $2`,
+        [householdId, id],
+      );
+      await q.query(`DELETE FROM rules WHERE household_id = $1 AND id = $2`, [householdId, id]);
     },
     async sameConditions(householdId, key, exceptId) {
       const { rows } = await q.query<{ id: string }>(

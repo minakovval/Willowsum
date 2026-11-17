@@ -6,7 +6,8 @@ import type { Money } from "@willowsum/domain-kernel";
  * A rule's conditions all hold («І», FR 5): «Мерчант» and «Опис» (the bank's original description) with «дорівнює» and
  * «містить», any case; «Сума» with «дорівнює», «більше за», «менше за» in one currency, on the amount without its sign
  * (an expense of 59,99 € is «більше за 50 €»); «Рахунок» with «дорівнює». «Лише для рахунків» limits a rule to some
- * accounts. The action is a category (tags come with the transaction tags of BUD-13); there is no «приховати» (FR 12).
+ * accounts. The actions are a category and tags (the space's transaction tags of BUD-13, by name); there is no
+ * «приховати» (FR 12).
  */
 
 export const RULE_FIELDS = ["merchant", "description", "amount", "account"] as const;
@@ -18,6 +19,9 @@ export const RULE_CONDITIONS_MAX = 10;
 export const RULE_ACCOUNTS_MAX = 20;
 /** At most this many rules in a space: the rules of a new transaction are checked one by one. */
 export const RULES_MAX = 500;
+/** «Теги» of a rule: as a transaction's (BUD-13 FR 2) — at most 20, each 1–60 characters on one line. */
+export const RULE_TAGS_MAX = 20;
+export const RULE_TAG_NAME_MAX = 60;
 
 export type RuleCondition =
   | {
@@ -100,6 +104,8 @@ export interface RankedRule extends RuleMatcher {
   readonly id: string;
   readonly categoryId: string;
   readonly enabled: boolean;
+  /** FR 5: the tags the rule adds (names); absent or empty — none. */
+  readonly tags?: readonly string[];
 }
 
 /**
@@ -123,4 +129,45 @@ export function moved(ids: readonly string[], id: string, position: number): str
   const rest = ids.filter((x) => x !== id);
   rest.splice(position - 1, 0, id);
   return rest;
+}
+
+/**
+ * FR 8, AC3: each attribute from the first rule in priority order that sets it — the category from the first enabled
+ * rule that matches and needs no attention, the tags from the first such rule that has tags; null — none.
+ */
+export async function rulesFor<R extends RankedRule>(
+  rules: readonly R[],
+  subject: RuleSubject,
+  attention: (rule: R) => Promise<RuleAttention | null>,
+): Promise<{ readonly category: R | null; readonly tags: R | null }> {
+  let category: R | null = null;
+  let tags: R | null = null;
+  for (const rule of rules) {
+    if (category !== null && tags !== null) break;
+    if (!rule.enabled || !ruleMatches(rule, subject)) continue;
+    if ((await attention(rule)) !== null) continue;
+    category ??= rule;
+    if (tags === null && (rule.tags?.length ?? 0) > 0) tags = rule;
+  }
+  return { category, tags };
+}
+
+/** FR 7, EC1: a run changes up to this many transactions at once; the rest go in the background with progress. */
+export const RUN_FOREGROUND_MAX = 500;
+/** FR 7, AC6: «Відмінити» is there for 7 days after the run ended. */
+export const RUN_UNDO_MS = 7 * 24 * 60 * 60 * 1000;
+
+export type RunStatus = "running" | "completed" | "undoing" | "undone";
+
+/**
+ * FR 7, AC6: whether a run can be undone now — `available` up to 7 days after its end; `expired` («Час для відміни
+ * минув»); `undone` («Запуск уже відмінено»); `running` — not ended yet.
+ */
+export function undoState(
+  run: { readonly status: RunStatus; readonly endedAt: number | null },
+  now: number,
+): "available" | "expired" | "undone" | "running" {
+  if (run.status === "undone" || run.status === "undoing") return "undone";
+  if (run.status === "running" || run.endedAt === null) return "running";
+  return now - run.endedAt <= RUN_UNDO_MS ? "available" : "expired";
 }

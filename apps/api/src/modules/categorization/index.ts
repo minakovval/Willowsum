@@ -11,10 +11,12 @@ import {
   transactionCreated,
   type TransactionLookup,
   type TransactionRuleInputs,
+  type TransactionRuleTags,
 } from "../transactions/index.ts";
 import {
   AUDIT_JOB,
   CATEGORY_MERGED_JOB,
+  RULE_RUN_PART_JOB,
   categorizationAudit,
   categorizationRoutes,
   categorizationTx,
@@ -45,22 +47,24 @@ export type { CategorySource, TransactionCategory } from "./domain/index.ts";
  * The categorization queue's jobs (ARC-04): the audit hand-off of a change, «Категорію об'єднано» (BUD-01 FR 8), the
  * rules of a new transaction and the audit entries of the rules (BUD-14 FR 8).
  */
-export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, TRANSACTION_CREATED_JOB };
+export { AUDIT_JOB, CATEGORY_MERGED_JOB, HAND_OFF_JOB, RULE_RUN_PART_JOB, TRANSACTION_CREATED_JOB };
 
 /** The ports of the category rules (BUD-14 b) — other modules' public interfaces, as the rules read them. */
 export type CategorizationRulePorts = Omit<RuleDeps, "categories">;
 
 /**
  * BUD-14 b: the rules' ports from module accounts' directory (an account exists in the space), module merchants'
- * directory (the shown merchant name of a counterparty) and module transactions' rule inputs (src/main.ts,
- * src/wiring.ts).
+ * directory (the shown merchant name of a counterparty), module transactions' rule inputs and, for the tags action
+ * (BUD-14 b2), module transactions' rule tags — without them the rules add no tags (src/main.ts, src/wiring.ts).
  */
 export function categorizationRulePorts(deps: {
   readonly accounts: AccountDirectory;
   readonly merchants: MerchantDirectory;
   readonly inputs: TransactionRuleInputs;
+  readonly tags?: TransactionRuleTags;
 }): CategorizationRulePorts {
   return {
+    ...(deps.tags ? { tags: deps.tags } : {}),
     accounts: {
       exists: async (householdId, accountId) =>
         (await deps.accounts.postingAccount(householdId, accountId)) !== null,
@@ -124,11 +128,14 @@ export function createCategorizationWorkerQueue(
   rules: CategorizationRulePorts,
   /** The flag runtime (CICD-06): without it the rules apply to no new transaction (fails closed). */
   flags?: { isEnabled(householdId: string, flag: string): Promise<boolean> },
+  /** BUD-14 FR 7: when a background run ends (default: the system clock). */
+  clock: { now(): number } = { now: () => Date.now() },
 ): WorkerQueue {
   return categorizationWorkerQueue(db, categorizationAudit(audit), categories, {
     deps: { ...rules, categories },
     audit,
     enabled: async (householdId) => (flags ? flags.isEnabled(householdId, "categorization.rules") : false),
+    clock,
   });
 }
 

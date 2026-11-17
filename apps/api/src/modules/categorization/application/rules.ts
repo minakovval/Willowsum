@@ -1,11 +1,11 @@
 import { Money } from "@willowsum/domain-kernel";
 import {
   conditionKey,
-  firstRule,
   moved,
   proposalApplies,
   RULES_MAX,
   ruleMatches,
+  rulesFor,
   UNCATEGORIZED,
   categoryAllowed,
   type RankedRule,
@@ -29,6 +29,7 @@ import { writeCategory, type CategorizationTx, type CategoryFactsPort } from "./
  */
 
 export interface StoredRule extends RankedRule {
+  readonly tags: readonly string[];
   readonly position: number;
   readonly version: number;
   /** When the rule was saved (UTC, microseconds, as `RuleInputRow.createdAt`); absent on a rule not read back yet. */
@@ -39,6 +40,8 @@ export interface StoredRule extends RankedRule {
 export interface RuleFields extends RuleMatcher {
   readonly categoryId: string;
   readonly enabled: boolean;
+  /** FR 5: «Додатково» → «Теги» — the tags the rule adds, by name; empty — none. */
+  readonly tags: readonly string[];
 }
 
 /** The audit entry of a change, carried by the job `categorization.audit` (no free text: conditions are masked). */
@@ -46,9 +49,9 @@ export interface AuditHandOff {
   readonly key: string;
   /** The account that made the change; null — the system (a rule applied to a new transaction). */
   readonly actorAccountId: string | null;
-  readonly entity: "categorization.rule" | "categorization.transaction-category";
+  readonly entity: "categorization.rule" | "categorization.transaction-category" | "categorization.rule-run";
   readonly entityId: string;
-  readonly action: "create" | "update";
+  readonly action: "create" | "update" | "delete";
   readonly changes: { field: string; before: string | null; after: string | null; sensitive: boolean }[];
 }
 
@@ -62,6 +65,8 @@ export interface RulesTx {
   updateRule(householdId: string, rule: StoredRule, key: string): Promise<void>;
   /** Renumbers the rules: `ids[i]` gets the position i + 1; each one whose position changes gets its next version. */
   setOrder(householdId: string, ids: readonly string[]): Promise<void>;
+  /** FR 15: the rule goes; the transactions it categorized or tagged keep their values without the reference. */
+  deleteRule(householdId: string, id: string): Promise<void>;
   /** FR 11: the highest-priority other rule with these conditions; null — none. */
   sameConditions(householdId: string, key: string, exceptId: string): Promise<string | null>;
   /** «Застосовано: N транзакцій»: per rule, how many transactions have the category it set now. */
@@ -94,6 +99,11 @@ export interface RuleDeps {
     /** As `names`, read only: a description seen for the first time has the name its merchant would be born with. */
     knownNames(householdId: string, counterparties: readonly string[]): Promise<ReadonlyMap<string, string>>;
   };
+  /**
+   * FR 5, FR 7, FR 9: a rule's tags on a transaction (module transactions' `TransactionRuleTags`); absent — the rules
+   * add no tags.
+   */
+  readonly tags?: RuleTagsPort;
   readonly inputs: {
     inputs(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, RuleInputRow>>;
     candidates(
@@ -101,6 +111,26 @@ export interface RuleDeps {
       limit: number,
     ): Promise<{ readonly items: readonly RuleInputRow[]; readonly more: boolean }>;
   };
+}
+
+export interface RuleTagsPort {
+  addTags(
+    householdId: string,
+    transactionId: string,
+    names: readonly string[],
+    actorAccountId: string | null,
+  ): Promise<
+    | { readonly kind: "changed"; readonly before: string[]; readonly after: string[] }
+    | { readonly kind: "unchanged" }
+    | { readonly kind: "refused" }
+  >;
+  restoreTags(
+    householdId: string,
+    transactionId: string,
+    expected: readonly string[],
+    next: readonly string[],
+    actorAccountId: string,
+  ): Promise<"restored" | "changed">;
 }
 
 /** Stands for the conditions in the job and the entry: they may name a person (a bank description), so masked. */
@@ -170,6 +200,7 @@ const written = (rule: RuleMatcher) =>
     [...rule.accountIds].sort(),
   ]);
 
+/** The tags of a rule are free text: masked like the conditions. */
 const conditionsAudit = (before: RuleMatcher | null, after: RuleMatcher) =>
   before === null || written(before) !== written(after)
     ? [{ field: "conditions", before: before === null ? null : CHANGED, after: CHANGED, sensitive: true }]
@@ -197,7 +228,15 @@ function ruleChanges(before: StoredRule | null, after: StoredRule): AuditHandOff
       sensitive: false,
     },
   ];
-  return [...conditionsAudit(before, after), ...plain.filter((c) => c.before !== c.after)];
+  const tags =
+    before === null ? after.tags.length > 0 : JSON.stringify(before.tags) !== JSON.stringify(after.tags);
+  return [
+    ...conditionsAudit(before, after),
+    ...(tags
+      ? [{ field: "tags", before: before === null ? null : CHANGED, after: CHANGED, sensitive: true }]
+      : []),
+    ...plain.filter((c) => c.before !== c.after),
+  ];
 }
 
 function ruleAudit(
@@ -332,6 +371,42 @@ export async function moveRule(
   return { kind: "ok", rules: after, audit };
 }
 
+/**
+ * «Видалити» (FR 15, AC17): the rule goes, the others keep their order (positions 1…n again); the transactions it
+ * categorized or tagged keep their category and tags without «за правилом №…». The entry: `delete` with the fields
+ * before (conditions and tags masked).
+ */
+export async function deleteRule(
+  tx: RulesTx,
+  input: { readonly householdId: string; readonly actorAccountId: string; readonly id: string },
+): Promise<{ readonly kind: "ok"; readonly audit: AuditHandOff } | { readonly kind: "not-found" }> {
+  await tx.lockRules(input.householdId);
+  const rules = await tx.rules(input.householdId);
+  const current = rules.find((r) => r.id === input.id);
+  if (!current) return { kind: "not-found" };
+  await tx.deleteRule(input.householdId, input.id);
+  await tx.setOrder(
+    input.householdId,
+    rules.filter((r) => r.id !== input.id).map((r) => r.id),
+  );
+  const audit: AuditHandOff = {
+    key: `categorization.rule.delete:${current.id}:${current.version}`,
+    actorAccountId: input.actorAccountId,
+    entity: "categorization.rule",
+    entityId: current.id,
+    action: "delete",
+    changes: [
+      { field: "conditions", before: CHANGED, after: null, sensitive: true },
+      ...(current.tags.length > 0 ? [{ field: "tags", before: CHANGED, after: null, sensitive: true }] : []),
+      { field: "position", before: current.position.toString(), after: null, sensitive: false },
+      { field: "categoryId", before: current.categoryId, after: null, sensitive: false },
+      { field: "enabled", before: String(current.enabled), after: null, sensitive: false },
+    ],
+  };
+  await tx.enqueueAudit(input.householdId, audit);
+  return { kind: "ok", audit };
+}
+
 /** A rule as «Правила категорій» lists it (FR 4, FR 10). */
 export interface ListedRule {
   readonly rule: StoredRule;
@@ -408,6 +483,8 @@ export interface Matches {
   /** The sum of the matching amounts per currency, signed (no conversion). */
   readonly totals: readonly Money[];
   readonly items: readonly RuleInputRow[];
+  /** Every matching transaction, newest first: what «Застосувати до N наявних…» changes. */
+  readonly ids: readonly string[];
   /** The space has more transactions than `scanMax`: only the newest were matched. */
   readonly truncated: boolean;
 }
@@ -435,15 +512,17 @@ export async function matchingTransactions(
     count: matching.length,
     totals: [...totals.values()].sort((a, b) => a.currency.localeCompare(b.currency)),
     items: matching.slice(0, MATCHES_LISTED),
+    ids: matching.map((r) => r.id),
     truncated: more,
   };
 }
 
 /**
- * FR 8, FR 9, FR 10, AC7, AC9, AC12: a new transaction through the rules — the first enabled rule that matches and
- * needs no attention sets its category «за правилом», unless the transaction has a category of a higher source by now
- * (a change by hand wins, FR 9). Run by the job of `transactions.created` in its categorization transaction; running it
- * again changes nothing more. A transaction gone, hidden, split, merged or a side of a transfer takes nothing.
+ * FR 8, FR 9, FR 10, AC3, AC7, AC9, AC12: a new transaction through the rules — each attribute from the first enabled
+ * rule that matches, needs no attention and sets it: the category «за правилом», unless the transaction has a category
+ * of a higher source by now (a change by hand wins, FR 9), and the tags (added after its own, whatever its category).
+ * Run by the job of `transactions.created` in its categorization transaction; running it again changes nothing more.
+ * A transaction gone, hidden, split, merged or a side of a transfer takes nothing.
  */
 export async function applyRulesToNew(
   tx: CategorizationTx,
@@ -463,8 +542,19 @@ export async function applyRulesToNew(
   if (rules.length === 0) return "none";
   const subject = subjectOf(row, await namesOf(deps, householdId, [row]));
   const lookups = memoized(deps);
-  const rule = await firstRule(rules, subject, (r) => attentionOf(lookups, householdId, r));
-  if (rule === null) return "none";
+  const chosen = await rulesFor(rules, subject, (r) => attentionOf(lookups, householdId, r));
+  let applied = false;
+  // The tags first, in their own transactions transaction: a retry finds them there and adds nothing.
+  if (chosen.tags !== null && deps.tags) {
+    const tagged = await deps.tags.addTags(householdId, transactionId, chosen.tags.tags, null);
+    const current = await tx.lock(householdId, transactionId);
+    if (tagged.kind !== "refused" && current?.tagRuleId !== chosen.tags.id) {
+      await tx.setTagRule(householdId, transactionId, chosen.tags.id);
+      applied = true;
+    }
+  }
+  const rule = chosen.category;
+  if (rule === null) return applied ? "applied" : "none";
   const next: TransactionCategory & { ruleId: string } = {
     categoryId: rule.categoryId,
     source: "rule",
@@ -475,23 +565,38 @@ export async function applyRulesToNew(
     !proposalApplies(current, next) ||
     (current.categoryId === next.categoryId && current.source === "rule")
   )
-    return "none";
+    return applied ? "applied" : "none";
   const outcome = await writeCategory(tx, householdId, transactionId, next);
   if (outcome.kind === "conflict") return "conflict";
-  if (outcome.kind === "unchanged") return "none";
-  await rulesTx.enqueueAudit(householdId, {
+  if (outcome.kind === "unchanged") return applied ? "applied" : "none";
+  await rulesTx.enqueueAudit(householdId, categoryAudit(null, transactionId, outcome, next));
+  return "applied";
+}
+
+/** The entry of a category a rule set (the system's on a new transaction, the user's in a run or its undo). */
+export function categoryAudit(
+  actorAccountId: string | null,
+  transactionId: string,
+  outcome: Extract<Awaited<ReturnType<typeof writeCategory>>, { kind: "changed" }>,
+  next: TransactionCategory & { readonly ruleId?: string | null },
+): AuditHandOff {
+  return {
     key: auditKey({ transactionId, version: outcome.row.version }),
-    actorAccountId: null,
+    actorAccountId,
     entity: "categorization.transaction-category",
     entityId: transactionId,
     action: "update",
     changes: [
       { field: "categoryId", before: outcome.before.categoryId, after: next.categoryId, sensitive: false },
       { field: "source", before: outcome.before.source, after: next.source, sensitive: false },
-      { field: "ruleId", before: null, after: rule.id, sensitive: false },
+      {
+        field: "ruleId",
+        before: (outcome.before as { ruleId?: string | null }).ruleId ?? null,
+        after: next.ruleId ?? null,
+        sensitive: false,
+      },
     ].filter((c) => c.before !== c.after),
-  });
-  return "applied";
+  };
 }
 
 export type { RuleCondition };
@@ -504,7 +609,7 @@ export interface RulesAuditLog {
       readonly actor: { readonly kind: "user"; readonly id: string } | { readonly kind: "system" };
       readonly channel: "web" | "system";
       readonly entity: { readonly type: string; readonly id: string };
-      readonly action: "create" | "update";
+      readonly action: "create" | "update" | "delete";
       readonly changes: AuditHandOff["changes"];
       readonly key: string;
     },
