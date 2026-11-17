@@ -9,3 +9,11 @@ export {
   normalizeDescription,
   type NormalizedMerchant,
 } from "./normalize.ts";
+export {
+  groupReviewQueue,
+  NO_MERCHANT_GROUP,
+  suggestGroupCategory,
+  type GroupSuggestion,
+  type QueueSlice,
+  type ReviewGroup,
+} from "./review-groups.ts";

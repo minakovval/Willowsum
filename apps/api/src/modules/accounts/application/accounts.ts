@@ -281,8 +281,11 @@ export type CreateResult =
   | { readonly kind: "invalid"; readonly issues: readonly FieldIssue[] }
   | { readonly kind: "duplicate"; readonly duplicate: Duplicate };
 
-function checkForm(input: NewAccountInput): { account: NewAccount } | { issues: readonly FieldIssue[] } {
-  const checked = checkNewAccount(input);
+function checkForm(
+  input: NewAccountInput,
+  today: string,
+): { account: NewAccount } | { issues: readonly FieldIssue[] } {
+  const checked = checkNewAccount(input, today);
   if ("issues" in checked) return checked;
   if (checked.account.liability) {
     const terms = checkTerms(checked.account.liability);
@@ -332,7 +335,7 @@ export async function createAccount(
   caller: Caller,
   input: NewAccountInput,
 ): Promise<CreateResult> {
-  const checked = checkForm(input);
+  const checked = checkForm(input, deps.today());
   if ("issues" in checked) return { kind: "invalid", issues: checked.issues };
   const draft = checked.account;
   const { householdId } = caller;

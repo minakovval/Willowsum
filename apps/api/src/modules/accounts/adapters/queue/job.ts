@@ -1,3 +1,4 @@
+import { isCurrencyCode } from "@willowsum/domain-kernel";
 import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
@@ -5,7 +6,8 @@ import { handOffKey, type HandOff } from "../../application/index.ts";
 
 const uuid = z.uuid();
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
-const currency = z.string().regex(/^[A-Z]{3}$/);
+/** A code of the currency registry (NFR-06): ISO 4217, metals and crypto-assets such as USDT (#290 item 7). */
+const currency = z.string().max(10).refine(isCurrencyCode);
 const decimal = z.string().regex(/^-?\d{1,20}(\.\d{1,18})?$/);
 const field = z.string().regex(/^[a-zA-Z][a-zA-Z0-9_.]{0,62}$/);
 const value = z.string().max(1000).nullable();

@@ -727,7 +727,7 @@ const KIND_LABEL: Record<AccountKind, MessageKey> = {
 };
 
 /** «Нова категорія» (FR 31): a name and a group of the transaction's kind. */
-function QuickCategory({
+export function QuickCategory({
   groups,
   onCancel,
   onCreated,

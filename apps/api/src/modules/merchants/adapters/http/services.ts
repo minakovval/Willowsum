@@ -6,6 +6,7 @@ import {
   applyHandOff,
   type MerchantAudit,
   type MerchantHandOff,
+  type TransactionCategoriesPort,
   type TransactionTextsPort,
 } from "../../application/index.ts";
 
@@ -19,13 +20,24 @@ export interface MerchantsServices {
   readonly [BRAND]: true;
   readonly transactions: TransactionTextsPort;
   readonly audit: MerchantAudit;
+  /**
+   * BUD-12 FR 14: module categorization's categories of transactions — the suggested category of a group of «До
+   * розбору» (wired in main.ts: categorization depends on merchants). Without it the groups' route answers 500.
+   */
+  readonly categories?: TransactionCategoriesPort;
 }
 
 export function createMerchantsServices(options: {
   readonly transactions: TransactionTextsPort;
   readonly audit: Pick<AuditLog, "record">;
+  readonly categories?: TransactionCategoriesPort;
 }): MerchantsServices {
-  return { [BRAND]: true, transactions: options.transactions, audit: merchantsAudit(options.audit) };
+  return {
+    [BRAND]: true,
+    transactions: options.transactions,
+    audit: merchantsAudit(options.audit),
+    ...(options.categories ? { categories: options.categories } : {}),
+  };
 }
 
 /** The services of a merchants route; without them (never in the API process) the route answers 500. */

@@ -480,6 +480,8 @@ export const accountsSummaryRoute = defineRoute({
           }),
         ),
       }),
+      /** FIN-01 FR 14 (board S-050): the «Готівкові» group's total — «{cash} готівкові − {credit} кредитні». */
+      cash: reportedSumSchema,
       /** FIN-01 FR 19: what is owed on cards, and «Кредити: −<сума>» (both positive debts). */
       credit: z.object({ cardDebt: reportedSumSchema, loanDebt: reportedSumSchema }),
       /** FIN-01 FR 21: active accounts per source. */
@@ -500,6 +502,7 @@ export const accountsSummaryRoute = defineRoute({
         rate: s.moneyTogether.rate,
         breakdown: s.moneyTogether.breakdown.map((b) => ({ ...convertedOut(b), percent: b.percent })),
       },
+      cash: sum(s.cash),
       credit: { cardDebt: sum(s.credit.cardDebt), loanDebt: sum(s.credit.loanDebt) },
       sources: s.sources,
     };

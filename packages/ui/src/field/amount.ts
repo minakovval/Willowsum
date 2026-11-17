@@ -1,3 +1,4 @@
+import { currencyInfo, isCurrencyCode } from "@willowsum/domain-kernel";
 import { formatLocaleOf, type Locale } from "@willowsum/i18n";
 
 /**
@@ -12,11 +13,13 @@ const MINUS = "\u2212";
 const SPACES = /[\s\u00A0\u202F]/g;
 const SPACE = /^[\s\u00A0\u202F]$/;
 
-/** The digits after the point a currency has (ISO 4217 minor units from `Intl`): EUR, UAH 2; JPY 0. */
+/**
+ * The digits after the point a currency has: the minor units of the currency registry (`domain-kernel`, NFR-06), the
+ * same the server checks and rounds with — EUR, UAH 2; JPY 0; IQD 3; BTC 8 (#467: `Intl` says IQD 0, BTC 2 and
+ * refuses USDT). A code the registry does not know has 2 (the server refuses it anyway).
+ */
 export function currencyPlaces(currency: string): number {
-  return (
-    new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions().maximumFractionDigits ?? 2
-  );
+  return isCurrencyCode(currency) ? currencyInfo(currency).minorUnits : 2;
 }
 
 function separatorsOf(locale: Locale): { decimal: string; group: string } {

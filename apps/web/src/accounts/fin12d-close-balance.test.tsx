@@ -625,3 +625,40 @@ describe("FIN-12@PoC d) S-055a on a debt (review round 1, B1)", () => {
     expect(plain(dialog.querySelector(".abal-diff b")?.textContent)).toBe("−310,00 €");
   });
 });
+
+describe("FIN-12@PoC d) S-055a a negative debt (#454, reviewer patch of #445)", () => {
+  it("FIN-12@PoC FR 15 (screen): −600 typed for a credit card's debt — no difference shown, the server's refusal is on the field", async () => {
+    const fake = api({
+      [`GET /v1/accounts/${ACCOUNT_ID}`]: {
+        status: 200,
+        body: detail({
+          kind: "credit-card",
+          group: "credit",
+          source: "manual",
+          currencies: [{ currency: "EUR", balance: eur("-640.00"), balanceDate: TODAY }],
+        }),
+      },
+      [`POST /v1/accounts/${ACCOUNT_ID}/balance`]: {
+        status: 400,
+        body: {
+          type: "urn:willowsum:problem:validation_failed",
+          title: "VALIDATION_FAILED",
+          status: 400,
+          code: "VALIDATION_FAILED",
+          errors: [{ path: "balance.amount", issue: "invalid" }],
+        },
+      },
+    });
+    renderAt(at, fake.client);
+    await openMenuItem("Оновити залишок");
+    const dialog = screen.getByRole("dialog", { name: "Оновити залишок" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Поточний залишок/ }), {
+      target: { value: "-600" },
+    });
+    expect(plain(dialog.querySelector(".abal-diff b")?.textContent)).toBe("—");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Оновити залишок" }));
+    expect(await within(dialog).findByText(/борг вводиться додатною сумою/)).toBeTruthy();
+    // The field's error, not the dialog's generic one.
+    expect(plain(dialog.textContent)).not.toContain("Не вдалося оновити залишок");
+  });
+});

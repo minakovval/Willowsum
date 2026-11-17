@@ -186,6 +186,75 @@ describe("FIN-01@PoC FR 1, FR 7: an account is created with one ledger event «�
   });
 });
 
+describe("#210 follow-up: a balance dated past the П-27 (6) margin never makes an account with a balance of 0", () => {
+  it("FIN-01@PoC FR 7: «На дату» more than one day after today (Kyiv 2026-10-17) is refused — the main currency and «+ додати ще валюту»; nothing written", async () => {
+    const space = await newSpace();
+    const main = await create(space, { ...current, balanceDate: "2026-10-19" });
+    expect(main.statusCode, main.body).toBe(400);
+    expect(main.json().errors).toEqual([{ in: "body", path: "balanceDate", issue: "date_in_future" }]);
+    const extra = await create(space, {
+      ...current,
+      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-10-19" }],
+    });
+    expect(extra.statusCode, extra.body).toBe(400);
+    expect(extra.json().errors).toEqual([
+      { in: "body", path: "extraCurrencies.0.date", issue: "date_in_future" },
+    ]);
+    expect(await count("accounts.accounts", space.householdId)).toBe(0);
+    expect(await openingEntries(space.householdId)).toEqual([]);
+  });
+
+  it("FIN-01@PoC FR 7: «На дату» today is accepted and the balance today is the one entered", async () => {
+    const space = await newSpace();
+    const res = await create(space, { ...current, balanceDate: "2026-10-17" });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().currencies).toEqual([
+      { currency: "EUR", balance: { amount: "1000", currency: "EUR" }, balanceDate: "2026-10-17" },
+    ]);
+  });
+
+  it("FIN-01@PoC FR 7: «На дату» tomorrow is accepted (П-27 (6): one day of margin) — the main currency and «+ додати ще валюту»", async () => {
+    const space = await newSpace();
+    const res = await create(space, {
+      ...current,
+      balanceDate: "2026-10-18",
+      extraCurrencies: [{ amount: "4300.00", currency: "UAH", date: "2026-10-18" }],
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().currencies.map((c: { balanceDate: string }) => c.balanceDate)).toEqual([
+      "2026-10-18",
+      "2026-10-18",
+    ]);
+    expect((await openingEntries(space.householdId)).map((e) => e.operation_date)).toEqual([
+      "2026-10-18",
+      "2026-10-18",
+    ]);
+  });
+});
+
+describe("#290 item 7: a currency code of more than 3 letters (a crypto-asset) goes through the hand-off", () => {
+  it("FIN-01@PoC «Бізнес-правила»: an account in USDT (and a wallet in BTC) is created with its opening events — the hand-off job takes every code of the registry", async () => {
+    const space = await newSpace();
+    const res = await create(space, {
+      ...current,
+      institution: null,
+      balance: { amount: "250.123456", currency: "USDT" },
+      extraCurrencies: [{ amount: "0.01250000", currency: "BTC", date: "2026-10-02" }],
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    expect(res.json().currencies).toEqual([
+      { currency: "USDT", balance: { amount: "250.123456", currency: "USDT" }, balanceDate: "2026-10-01" },
+      { currency: "BTC", balance: { amount: "0.0125", currency: "BTC" }, balanceDate: "2026-10-02" },
+    ]);
+    expect((await openingEntries(space.householdId)).map((e) => e.event_type)).toEqual([
+      "opening-balance",
+      "opening-balance",
+    ]);
+    const read = await call(space, "GET", `/v1/accounts/${res.json().id}`);
+    expect(read.json().currencies).toEqual(res.json().currencies);
+  });
+});
+
 describe("FIN-01@PoC FR 5: «Додати рахунок» is refused until the required fields are filled", () => {
   it("FIN-01@PoC AC2: without a name or a currency no account is created (400; nothing written)", async () => {
     const space = await newSpace();
