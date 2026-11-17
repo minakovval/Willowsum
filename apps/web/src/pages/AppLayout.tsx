@@ -8,6 +8,7 @@ import {
   SECTIONS,
   SETTINGS_PATH,
   START_PATH,
+  TRANSACTIONS,
   type SectionId,
 } from "../routing/routes.ts";
 import { lastPageOf } from "../routing/session.ts";
@@ -15,6 +16,7 @@ import { useGoShortcuts } from "../routing/useGoShortcuts.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
 import { useSpaceName } from "../space/api.ts";
 import { NewTransactionDialog } from "../transactions/NewTransactionDialog.tsx";
+import { useReviewCount } from "../transactions/reviewCount.ts";
 
 /**
  * The PoC user shell (UX-09@PoC, CMP-69@PoC): L1 «Гроші» and «Планування» with the L2 pages of the
@@ -37,6 +39,9 @@ export function AppLayout({
   useGoShortcuts();
   const [adding, setAdding] = useState(false);
 
+  // BUD-12@PoC FR 2, AC9: the number of «До розбору» on «Транзакції» of «Гроші»; none when the queue is empty.
+  const review = useReviewCount(sectionId === "money");
+
   const sections: NavSection[] = SECTIONS.map((s) => {
     const root = rootOf(s).path;
     const current = s.id === sectionId;
@@ -49,7 +54,15 @@ export function AppLayout({
       icon: s.icon,
       href: hrefFor(target),
       onClick: current && path === root ? () => window.scrollTo(0, 0) : undefined,
-      pages: s.pages.map((p) => ({ id: p.id, label: t(p.label), icon: p.icon, href: hrefFor(p.path) })),
+      pages: s.pages.map((p) => ({
+        id: p.id,
+        label: t(p.label),
+        icon: p.icon,
+        href: hrefFor(p.path),
+        ...(p.id === TRANSACTIONS.id && review
+          ? { badge: { count: review, label: t("review.nav", { count: review }) } }
+          : {}),
+      })),
     };
   });
 

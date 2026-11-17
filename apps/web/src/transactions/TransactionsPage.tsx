@@ -44,6 +44,7 @@ import {
 } from "./list.ts";
 import { activeCount, filtersFromHash, NO_FILTERS } from "./filters.ts";
 import { NewTransactionDialog } from "./NewTransactionDialog.tsx";
+import { ReviewQueue } from "./ReviewQueue.tsx";
 import { TransactionFilters } from "./TransactionFilters.tsx";
 import { BulkBanner } from "./BulkBanner.tsx";
 import { BulkDialog } from "./BulkDialog.tsx";
@@ -127,6 +128,8 @@ export function TransactionsPage({
       <PageTabs label={t("tx.tabs")} tabs={tabs} selected={tab} panelId="tx-panel">
         {tab === "list" ? (
           <TransactionsList key={created} onAdd={() => setAdding(true)} />
+        ) : tab === "review" ? (
+          <ReviewQueue />
         ) : (
           <EmptyState icon={TRANSACTIONS.icon} />
         )}

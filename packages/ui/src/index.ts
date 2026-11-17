@@ -102,6 +102,7 @@ export type { BadgeTone } from "./badge/Badge.tsx";
 export { ListRow } from "./list/ListRow.tsx";
 export type { ListRowProps } from "./list/ListRow.tsx";
 export {
+  CategoryChip,
   merchantInitials,
   ReviewAnnouncement,
   TransactionRow,

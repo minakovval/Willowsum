@@ -75,7 +75,8 @@ export function merchantInitials(name: string): string {
     .join("");
 }
 
-function CategoryChip({ category }: { category: TransactionCategory | null | undefined }) {
+/** The category chip of a transaction (CMP-28): its icon on the coloured circle and the name; `null` — the dashed «Без категорії». */
+export function CategoryChip({ category }: { category: TransactionCategory | null | undefined }) {
   const { t } = useI18n();
   if (!category)
     return <span className="ws-tx-category ws-tx-category-none">{t("transactionRow.uncategorized")}</span>;

@@ -67,7 +67,7 @@ export function Toast({ text, tone = "success", action, closeLabel, onDismiss }:
       onKeyDown={onKeyDown}
     >
       <span className="ws-toast-marker" aria-hidden="true">
-        <Icon name={MARKER[tone]} size={12} />
+        <Icon name={MARKER[tone]} size={16} />
       </span>
       <span className="ws-toast-text">{text}</span>
       {action ? (

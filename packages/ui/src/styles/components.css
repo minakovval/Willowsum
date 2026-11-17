@@ -2947,3 +2947,9 @@ button.ws-stepper-step[aria-disabled="true"] {
   outline: var(--ws-focus-ring-width) solid var(--ws-focus);
   outline-offset: var(--ws-focus-ring-offset);
 }
+
+/* The 12 px symbol of the marker (the icon set draws from 16 px). */
+.ws-toast-marker svg {
+  inline-size: var(--ws-space-3);
+  block-size: var(--ws-space-3);
+}
