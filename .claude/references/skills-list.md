@@ -2,9 +2,9 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you look for the skill that fits a task, or add a skill (the list must name it with its description).
+Moved out of AGENTS.md without change. Read when you look for the skill that fits a task, or add a skill (the list must name it with its description).
 
-**Skills** (`.claude/skills/`, owner, 2026-11-12): `implement-requirement` (author), `review-pr` (reviewer),
+**Skills** (`.claude/skills/`): `implement-requirement` (author), `review-pr` (reviewer),
 `security-review` (security reviewer of `sensitive` PRs), `fix-review-findings` (author, after reviews),
 `pr-pipeline` (the lead's loop over these), `browser-task` (instructions for the owner's local Claude session
 with a browser), `sync-branch` (merge `origin/main` into a working branch: merge only, checks, confirmation on the new

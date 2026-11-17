@@ -3,8 +3,7 @@
 **Створено:** 2026-11-01 · **Оновлено:** 2026-11-17
 
 This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
-the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …» (owner,
-2026-11-13). If a task conflicts with these rules, stop and ask the product owner.
+the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …». If a task conflicts with these rules, stop and ask the product owner.
 
 Willowsum is built from scratch, requirement by requirement, following the architecture (ARC) and delivery
 (CICD) requirements. Current phase: PoC development (design approved by the owner on 2026-11-06): build the PoC
@@ -76,9 +75,9 @@ errors) lives only in `packages/domain-kernel`.
    permissions, encryption, money, schema, pipeline, infrastructure) also `security-review`. Every review
    names the full head SHA it reviewed and ends with a line of its own: `Verdict: Ready` or
    `Verdict: Changes requested`, and `Security verdict: Ready` or `Security verdict: Changes requested` (the
-   daily check, ADR-0008, reads exactly these lines; owner, 2026-11-12). Which reviews a PR gets depends on its
-   tier — Фундамент, Функціональність, Локальні інструменти, Документи (lead's proposal on the owner's decision of 2026-11-16):
-   [merge rules](.claude/references/merge-rules.md), «Review tiers». Review rounds (owner, 2026-11-12):
+   daily check, ADR-0008, reads exactly these lines). Which reviews a PR gets depends on its
+   tier — Фундамент, Функціональність, Локальні інструменти, Документи:
+   [merge rules](.claude/references/merge-rules.md), «Review tiers». Review rounds:
    - Exception to «review in a different session», trial 2026-11-17 → 2026-11-19: the reviewer applies small
      patches itself, only in tests, texts, comments, docs, markup and screen styles (never working code in
      sensitive paths), in one commit at the end, at most 60 lines per PR, and lists them in the PR body; the
@@ -89,14 +88,14 @@ errors) lives only in `packages/domain-kernel`.
      round or a commit before the merge by themselves, except the reviewer's one trial patch commit above (merge
      rules, «Merge on Ready, follow up separately»).
    - A re-review checks only the fixes and its own previous findings, in the same reviewer session when only the
-     fixes changed (owner, 2026-11-16, «2 а»; `pr-pipeline` token economy, item 2). At most two rounds; after that
+     fixes changed (`pr-pipeline` token economy, item 2). At most two rounds; after that
      the reviewer supplies a ready fix with a test and confirms it with a verdict on the final head.
    - Mutation testing only for critical modules: data isolation, money, authentication, encryption (tier
      Фундамент).
    - A recurring finding becomes a CI check or a test. Before pushing, run the local check for
      secret-shaped literals (CI job `secrets`) and, before pushing or setting a PR body,
      `git fetch origin main` and `node tools/pr-rules/index.mjs local --title "<title>" --body-file <file>`
-     (what the jobs `traceability` and the label job check; owner, 2026-11-13). A test named by a requirement
+     (what the jobs `traceability` and the label job check). A test named by a requirement
      item that does not exist fails the job `requirements` (`--check-mentions`).
    - Keep PRs small: split a large part (backend and UI) so each PR fits one review round.
 6. All CI checks green (jobs `requirements`, `changes`, `web`, `traceability`, `secrets`, `local-env`, `api`, `infra`, `e2e`;
@@ -105,7 +104,7 @@ errors) lives only in `packages/domain-kernel`.
 7. The lead merges (squash) only when CI is green on the latest commit and both verdicts are Ready **on that
    exact head SHA**; any later commit needs a re-review (a sync that leaves the PR's diff unchanged — docs-only, a
    code PR without `sensitive` with a byte-identical diff and green CI, or a `sensitive` PR whose sync is mechanical and brought no
-   foundation file (owner, 2026-11-16, «1 б») — gets the lead's check and review instead, merge rules). A PR is
+   foundation file — gets the lead's check and review instead, merge rules). A PR is
    synced with `main` only when needed (`pr-pipeline` merge checklist, «Sync only when needed»). PRs that change requirements, AGENTS.md or skills
    (label `owner-decision`) need the owner's decision recorded in the body and the decision log. Only what
    acts on the cloud or production (`tofu apply`, deploy or release, the workflows and trust settings that do
@@ -115,16 +114,15 @@ errors) lives only in `packages/domain-kernel`.
    [merge rules](.claude/references/merge-rules.md) (read when you merge or write «Owner decision»).
 
 The lead writes to the owner in chat only about a merge, a decision needed, a problem or the end of a session;
-no technical messages — `pr-pipeline`, «Мовчання в чаті» (owner, 2026-11-14).
+no technical messages — `pr-pipeline`, «Мовчання в чаті».
 
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
 
-**Parallel branches** (owner, 2026-11-12; 2026-11-16): up to 7 working branches at a time — `claude/adoring-cray-feh4dh`
+**Parallel branches:** up to 7 working branches at a time — `claude/adoring-cray-feh4dh`
 and `claude/adoring-cray-feh4dh-<task>` — each in its own worktree with its own PR, test database
 (`pnpm db:test`; integration tests as `pnpm db:test run -- pnpm test:integration`, roles are cluster-wide) and
-the same rules; a branch is deleted after its PR is merged. How many agents run at once (up to 10), their slots and ports, and UI rows in parallel: `pr-pipeline` §3
-(owner, 2026-11-16).
+the same rules; a branch is deleted after its PR is merged. How many agents run at once (up to 10), their slots and ports, and UI rows in parallel: `pr-pipeline` §3.
 
 **Skills** (`.claude/skills/`): `implement-requirement`, `review-pr`, `security-review`, `fix-review-findings`,
 `pr-pipeline`, `browser-task`, `sync-branch`, `change-requirement`, `deploy`, `screen-from-canvas`, `plan-wave`,
