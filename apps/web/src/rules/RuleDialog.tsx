@@ -131,15 +131,12 @@ type Count =
 export function RuleDialog({
   rule,
   refs,
-  prefill,
   onClose,
   onSaved,
 }: {
   /** The rule to change; `null` — a new one. */
   rule: Rule | null;
   refs: Refs;
-  /** A new rule starting from these conditions (S-047 «Змінити правило» of a transaction without a rule). */
-  prefill?: readonly Condition[] | undefined;
   onClose: () => void;
   onSaved: (saved: Saved) => void;
 }) {
@@ -150,7 +147,7 @@ export function RuleDialog({
   const currencies = [...new Set(refs.accounts.flatMap((a) => a.currencies))].sort();
   const currency = refs.accounts.find((a) => !a.closed)?.currencies[0] ?? currencies[0] ?? "EUR";
   const [rows, setRows] = useState<readonly Row[]>(() => {
-    const start = rule?.conditions ?? prefill ?? [];
+    const start = rule?.conditions ?? [];
     return (start.length > 0 ? start : [null]).map((c, i) => rowOf(c, i, refs, currency));
   });
   const knownCategory = (id: string | undefined) =>
