@@ -8,6 +8,7 @@ import type { ListTotal } from "../../../../platform/lists/list-total.ts";
 import {
   applyHandOff,
   createTransaction,
+  createTransfer,
   deleteTransaction,
   dismissDuplicate,
   markTransfer,
@@ -24,6 +25,7 @@ import {
   type StoredTransaction,
   type TransactionHandOff,
   type TransactionResult,
+  type NewTransferResult,
   type TransferResult,
 } from "../../application/index.ts";
 import {
@@ -253,6 +255,7 @@ export function outcome(
   result:
     | TransactionResult
     | TransferResult
+    | NewTransferResult
     | DuplicateResult
     | { readonly kind: "ok" | "closed" | "in-transfer" | "merged" | "not-found" },
 ): void {
@@ -779,6 +782,71 @@ export const markTransferRoute = defineRoute({
   },
 });
 
+const positiveMoneyInput = moneyInput.extend({
+  amount: z.string().max(48).meta({ description: "A positive plain decimal, e.g. 120.50" }),
+});
+
+/**
+ * «Переказ між рахунками» of «Нова транзакція» (FIN-03@PoC FR 1, FR 28; issue #437): a transfer between two accounts of
+ * the space in one request — both legs, their pair and the journal's one transfer event, or nothing (application
+ * createTransfer). A create route: `Idempotency-Key` (ARC-07 FR 4), so a double submit makes one transfer.
+ */
+export const createTransferRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/transactions/transfers",
+  operationId: "createTransfer",
+  summary:
+    "«Переказ між рахунками»: a transfer between two own accounts in one action — the debit, the credit and one journal event (FIN-03 FR 1, FR 28)",
+  access: { permission: "household.data.write", feature: TRANSFERS_FLAG },
+  create: true,
+  bodyLimitBytes: 16 * 1024,
+  problems: ["ACCOUNT_CLOSED"],
+  request: {
+    body: z
+      .object({
+        /** «Рахунок*»: the account the money leaves. */
+        fromAccountId: z.uuid(),
+        /** The account it reaches: another account of the space. */
+        toAccountId: z.uuid(),
+        /** «Сума*»: positive, in the currency of `fromAccountId` (its subaccount's on a multi-currency account). */
+        amount: positiveMoneyInput,
+        /**
+         * What reaches `toAccountId`, positive, in its currency. Optional: in one currency the amount itself (at most it:
+         * the difference is the fee, FR 8); in two currencies the amount at the official rate of the date, rounded half
+         * to even to the currency's minor units.
+         */
+        received: positiveMoneyInput.optional(),
+        /** «Дата*» (FR 29), of both legs. */
+        date: isoDate,
+        /** «Контрагент»: one line, up to 200 characters; on both legs. */
+        counterparty: optionalText(COUNTERPARTY_MAX),
+        /** «Опис»: up to 1 000 characters; on both legs. */
+        description: optionalText(DESCRIPTION_MAX),
+      })
+      .strict(),
+  },
+  response: {
+    status: 201,
+    description: "The transfer's two transactions: the debit and the credit",
+    schema: z.object({ outflow: transactionSchema, inflow: transactionSchema }),
+  },
+  handler: async ({ body }, ctx) => {
+    refuseScoped(ctx);
+    const deps = transfersWiring(ctx);
+    const result = await createTransfer(
+      deps,
+      (work) => ctx.inHousehold((q) => work(transactionsTx(q))),
+      caller(ctx),
+      body,
+    );
+    outcome(result);
+    if (result.kind !== "ok") throw new ApiProblem("INTERNAL");
+    await handOffNow(ctx, deps, result.handOffs);
+    return { outflow: await shown(ctx, result.outflow), inflow: await shown(ctx, result.inflow) };
+  },
+});
+
 export const unmarkTransferRoute = defineRoute({
   module: MODULE,
   method: "DELETE",
@@ -921,6 +989,7 @@ export const transactionsRoutes = [
   hideTransactionRoute,
   showTransactionRoute,
   markTransferRoute,
+  createTransferRoute,
   unmarkTransferRoute,
   mergeDuplicateRoute,
   unmergeDuplicateRoute,

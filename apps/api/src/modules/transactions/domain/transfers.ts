@@ -1,4 +1,4 @@
-import type { ExchangeRate, Money } from "@willowsum/domain-kernel";
+import { convert, currencyInfo, Decimal, Money, type ExchangeRate } from "@willowsum/domain-kernel";
 import type { FieldIssue, TransactionStatus } from "./transactions.ts";
 
 /**
@@ -86,4 +86,36 @@ export function transferRateRequest(
 ): { from: string; to: string; date: string } | null {
   if (outflow.amount.currency === inflow.amount.currency) return null;
   return { from: inflow.amount.currency, to: outflow.amount.currency, date: transferDate(outflow, inflow) };
+}
+
+/**
+ * «Переказ між рахунками» of the form «Нова транзакція» (FIN-03@PoC FR 1, FR 28; issue #437): the credit of a transfer
+ * created in one action from `sent` — the positive «Сума» in the currency of the account it leaves. `given` is the
+ * credit the user entered, in the currency of the account it reaches: in one currency at most `sent` (the difference is
+ * the fee, FR 8), in two currencies any positive amount (the actual amounts stay, FR 8). Without it: in one currency
+ * `sent` itself; in two currencies `sent` at `forward` — the official rate of the date, 1 unit of the debit's currency
+ * in the credit's (VAL-04 FR 4) — rounded half to even to the credit currency's minor units, as a stored amount is
+ * (owner, 2026-11-16, #419: half to even in calculations and storage). Null `forward` in two currencies: no rate.
+ */
+export function transferReceived(
+  sent: Money,
+  currency: string,
+  given: Money | null,
+  forward: ExchangeRate | null,
+  date: string,
+): Money | FieldIssue | "rate_unavailable" {
+  if (given !== null) {
+    if (given.currency === sent.currency && given.compare(sent) > 0)
+      return { field: "received", issue: "amount_mismatch" };
+    return given;
+  }
+  if (currency === sent.currency) return sent;
+  if (forward === null) return "rate_unavailable";
+  const converted = convert(sent, forward, date).to;
+  const received = Money.of(
+    converted.amount.toDecimalPlaces(currencyInfo(currency).minorUnits, Decimal.ROUND_HALF_EVEN),
+    currency,
+  );
+  // Too small to reach the credit currency's minor unit: a transfer moves money (FR 2).
+  return received.isZero() ? { field: "amount", issue: "zero" } : received;
 }

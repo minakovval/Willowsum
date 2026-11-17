@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -126,6 +126,17 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
     офіційний курс дати переказу (немає — 400 `rate_unavailable`). Закритий рахунок — 409 `ACCOUNT_CLOSED`; сторона
     змінилася між читанням курсу і зміною — 409 `VERSION_CONFLICT`. → 200 транзакція з `transfer` (`id`, `side` —
     `outflow` / `inflow`, `counterpartId`, `date` — дата ранішої сторони, `fee` — комісія ≤ 0 або null, `rate` або null).
+  - `POST /v1/transactions/transfers` (`createTransfer`; прапорець і ключ `transactions.transfers`, дозвіл
+    `household.data.write`, `Idempotency-Key`) — FIN-03 п. 1, 28 «Переказ між рахунками» однією дією (#437):
+    `fromAccountId`, `toAccountId`, `amount` (додатна, у валюті рахунку списання), `received` (необов'язкова, додатна, у
+    валюті рахунку зарахування; в одній валюті не більша за `amount` — інакше 400 `received: amount_mismatch`, різниця —
+    комісія; без неї — сама сума, у двох валютах — сума за офіційним курсом дати, округлена до парного до копійок
+    валюти), `date`, `counterparty`, `description` (на обох сторонах). Обидві сторони «Проведена», пара і дві задачі
+    передачі — в одній транзакції модуля, або нічого; журнал — одна подія `transfer` / `fx-transfer` (у двох валютах —
+    курс дати, немає — 400 `date: rate_unavailable`). Рахунок іншого простору чи невідомий — 404; той самий —
+    400 `toAccountId: same_account`; закритий — 409 `ACCOUNT_CLOSED`; решта полів — як у `createTransaction` (`amount` —
+    `sign`, `zero`, `invalid`, `amount.currency` / `received.currency` — `currency_mismatch`, `date`). Запис аудиту —
+    `create` кожної сторони з `transfer.side` і `transfer.with`. → 201 `{ outflow, inflow }`.
   - `DELETE /v1/transactions/{transactionId}/transfer` (`unmarkTransfer`) — п. 9: обидві знову дохід і витрата; без
     позначки — нічого.
   - Сторона переказу: `hide`, `split`, `DELETE` і зміна рахунку, суми, дати чи статусу — 409 `TRANSACTION_IN_TRANSFER`
