@@ -24,7 +24,7 @@ const openDialog = (role: "dialog" | "alertdialog", name: string) => {
 };
 const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
 
-/** One demo section alone, in the providers the gallery gives it (see `renderDialogSection`). */
+/** One demo alone in the I18n provider; the full-page test checks that the demo sits in its gallery section. */
 const renderSection = (demo: ReactNode) => render(<I18nProvider initialLocale="uk">{demo}</I18nProvider>);
 
 /**
@@ -53,8 +53,13 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
-    // The title of the Progress section (its demo is tested alone, without the rest of the page).
+    // The Progress and Dialog sections are on the page with their demos (their other tests render the demos alone).
+    const section = (id: string) => document.getElementById(id)!.closest("section")!;
     expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
+    expect(section("g-progress").querySelector('[data-case="queue"]')).not.toBeNull();
+    expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
+    for (const c of ["delete", "form", "word", "error"])
+      expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
