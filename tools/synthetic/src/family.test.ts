@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { encodeCp1251, excelSerial, generateFamily, type FamilyTruth, type RenderedStatement } from "./family/index.ts";
 
 // ARC-03 FR 6: a family-scale synthetic dataset — 4 banks, 2–3 years, a credit card and a loan, transfers
-// between the family's own accounts, several currencies — written as the banks' statement files (IMP-01 FR 3,
-// IMP-06, IMP-10 FR 11) with the ground truth an importer must read from them.
+// between the family's own accounts, several currencies — written as the banks' statement files (IMP-01,
+// IMP-06, IMP-10: formats and banks) with the ground truth an importer must read from them.
 
 const two = generateFamily({ seed: "willowsum", start: "2024-01-01", years: 2 });
 const three = generateFamily({ seed: "willowsum", start: "2024-07-01", years: 3 });
@@ -161,7 +161,7 @@ describe("ARC-03@PoC FR 6: a family-scale synthetic dataset of bank statements",
       ["2026-01-01", "2026-12-31"],
       ["2027-01-01", "2027-06-30"],
     ]);
-    // IMP-01 FR 13: a file stays far below the 20 000-row ceiling.
+    // A file stays far below the importer's 20 000-row ceiling (IMP-01).
     for (const f of three.truth.files) expect(f.rows.length).toBeLessThan(20_000);
   });
 
@@ -288,6 +288,17 @@ describe("ARC-03@PoC FR 6: a family-scale synthetic dataset of bank statements",
     }
   });
 
+  it("ARC-03@PoC FR 6: every statement lists its transactions in the order the file declares (newest or oldest first)", () => {
+    for (const { truth, statements } of [two, three]) {
+      const tx = byId(truth);
+      for (const s of statements) {
+        const moments = s.file.rows.flatMap((r) => ("transaction" in r ? [`${tx.get(r.transaction)!.date} ${tx.get(r.transaction)!.time}`] : []));
+        const sorted = [...moments].sort();
+        expect(moments, s.file.path).toEqual(s.file.order === "oldest-first" ? sorted : sorted.reverse());
+      }
+    }
+  });
+
   it("ARC-03@PoC FR 6: file formats — monobank UTF-8 with BOM, Revolut UTF-8, Raiffeisen Windows-1251 with «;», BBVA XLSX", () => {
     const pick = (path: string) => two.statements.find((s) => s.file.path === path)!;
     const raif = pick("raiffeisen-ua/raif-uah-2024.csv");
@@ -297,7 +308,7 @@ describe("ARC-03@PoC FR 6: a family-scale synthetic dataset of bank statements",
     expect(text).toMatch(/;\d{1,3}( \d{3})+,\d{2};/); // «1 234,56»
     expect(text.split("\r\n").at(-2)).toMatch(/^Вихідний залишок;/);
     expect(raif.file.rows.filter((r) => "skip" in r)).toHaveLength(2);
-    // The same text is not valid UTF-8: the importer has to detect the encoding (IMP-06 AC12).
+    // The same text is not valid UTF-8: the importer has to detect the encoding (IMP-06).
     expect(() => new TextDecoder("utf-8", { fatal: true }).decode(raif.bytes)).toThrow();
 
     expect(pick("monobank/mono-black-2024.csv").file).toMatchObject({ encoding: "utf-8-bom", order: "newest-first" });
