@@ -2,10 +2,9 @@
 
 **Створено:** 2026-11-13 · **Оновлено:** 2026-11-13
 
-Moved out of AGENTS.md without change (owner, 2026-11-13: shorter AGENTS.md and skills). Read when you work on design, the canvas or a release whose design is not approved yet.
+Moved out of AGENTS.md without change. Read when you work on design, the canvas or a release whose design is not approved yet.
 
-Owner decisions of 2026-11-02 (design session; items 10–11 from the «Гроші» review; item 10 changed by the
-owner on 2026-11-06):
+Design rules:
 
 1. Design comes first, as mockups on the canvas; changes and clarifications happen there. Turning a
    design into code is a separate step that starts only after every detail is approved.
@@ -25,8 +24,7 @@ owner on 2026-11-06):
 8. A design concept is not development. Status updates about design work do not talk about "code" until
    development has started.
 9. No tests with real families for now.
-10. Navigation between screens is not prototyped on the canvas: boards are not made clickable (owner
-   2026-11-06: clickability is inconvenient on this board) and there is no separate screen diagram. For
+10. Navigation between screens is not prototyped on the canvas: boards are not made clickable (clickability is inconvenient on this board) and there is no separate screen diagram. For
    every screen it must be known how the user gets there: its entry points are written into the screen's
    or flow's requirement and the screen map.
 11. Do not invent a new UI element when a suitable one already exists in the design system or on other

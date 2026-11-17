@@ -14,26 +14,25 @@ The container can restart and agents' context is lost. Recover state from durabl
 Then continue from the first step that is not done; re-subscribe only to open PRs that wait for merge (no agent on
 them, SKILL.md step 3). An agent cut off by a limit or a restart: save its uncommitted work at once with a WIP
 commit on its branch (in its worktree: `git add -A && git commit -m "WIP: <task> (agent cut off)"`, then push),
-and brief the next agent from it (owner, 2026-11-14, #178, #197).
+and brief the next agent from it.
 
 **350 k**: from ~350 k tokens of context the lead only rewrites the #179 body before each long step; there is no stop
 on new tasks (trial for 3 segments, leads 20–22, below).
 
-**Lead state** (owner, 2026-11-16, process review 15, proposal 5): one place — the **body** of #179, rewritten in full
+**Lead state**: one place — the **body** of #179, rewritten in full
 each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a comment.
 It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions, follow-ups, the
 next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178). Rewrite it after every 3
 merges (with the #180 rows), whenever an owner question changes and, from ~350 k, before each long step. The handover
 tables stay comments on #179 — they are the history, not the state; at a compaction there is no table (below).
 
-**After compaction** ([log](../../../../docs/decisions/log/2026-11-17-owner-compaction-trial.md); trial for 3 segments,
+**After compaction** (trial for 3 segments,
 leads 20–22): at ~400 k tokens
 the platform compacts the context automatically (`CLAUDE_CODE_AUTO_COMPACT_WINDOW=400000`, set by the owner; the
 threshold stays); the lead does not stop the session. The `SessionStart` hook (`.claude/settings.json`, matcher
 `compact`) reminds the agent; the lead then, in the same session:
 1. re-reads «Lead state» (#179), the `pr-pipeline` skill and [lead-communication.md](lead-communication.md)
-   («Ukrainian only» and the rest: after a compaction the lead twice wrote to the owner in English; owner,
-   2026-11-16, `2026-11-16-owner-sensitive-sync-language-card.md`), then the sources above as needed;
+   («Ukrainian only» and the rest), then the sources above as needed;
 2. becomes lead N+1 (the numbering continues) and renames the session with `set_session_title` to
    `Willowsum · ведучий N+1 · <з чого продовжує>`;
 3. adds one row for lead N to «Сесії» in #180 («Token accounting» item 1);
@@ -63,8 +62,8 @@ new follow-up items per day, how much CI time was added, and how many reviewer c
 other work: `get_session` (no `session_id`) gives the id and title; rename with `set_session_title` (the name «Lead
 state» proposes, or this format); record the starting snapshot ([token economy](token-economy.md), «Token accounting»
 item 1). Check `get_session` → `external_metadata.rate_limit_info`: on a warning, at most 2–3 authors at once (reviews
-are not cut), and agents commit WIP after each step (SKILL.md step 2; owner, 2026-11-14, #178). **After a limit
-cut-off** (owner, 2026-11-15, #178): `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that
+are not cut), and agents commit WIP after each step (SKILL.md step 2). **After a limit
+cut-off**: `send_later` at `rate_limit_info.resetsAt` + 5 minutes to resume; delete that
 scheduled task (`delete_trigger`) after the wake-up.
 
 **Process review.** Due when **both** hold: at least 40 PRs were merged and at least 24 hours passed since the

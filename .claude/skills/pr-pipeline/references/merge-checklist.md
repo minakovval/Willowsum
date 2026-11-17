@@ -5,9 +5,9 @@
 Read when you are about to merge. The merge conditions and approvals themselves: AGENTS.md step 7 and
 [merge rules](../../../references/merge-rules.md) (including «Merge on Ready, follow up separately»).
 
-6. **Merge** (squash) only when all hold on the **current head SHA** (owner, 2026-11-13):
+6. **Merge** (squash) only when all hold on the **current head SHA**:
    - CI green (a path-skipped job counts as passed, `.claude/references/ci-minutes.md`). Wait for the CI of
-     several PRs with one background command, not a turn per PR (owner, 2026-11-13); read its output when it exits:
+     several PRs with one background command, not a turn per PR; read its output when it exits:
      ```bash
      shas="<head-sha-1> <head-sha-2> <head-sha-3>"
      while :; do left=0
@@ -27,15 +27,14 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    - for `owner-decision` PRs the body and the decision log record the owner's decision; cloud or production
      actions need the owner's approval (AGENTS.md step 7);
    - no owner «stop» or question on the PR: you are not subscribed while an agent works on it (SKILL.md step 3), so
-     before every merge read its comments (owner, 2026-11-14, #178),
+     before every merge read its comments,
      `gh api repos/{owner}/{repo}/issues/<n>/comments --jq '.[] | [.user.login, .created_at, .body[0:200]] | @tsv'`,
      and the review bodies.
-   **Order** (owner, 2026-11-14/15, #178, #265): code PRs with Ready before docs PRs (otherwise their syncs and
+   **Order**: code PRs with Ready before docs PRs (otherwise their syncs and
    confirmations repeat, #203); a docs PR with decisions that code depends on — at once. Among code PRs, a
    `sensitive` PR whose verdict is expected within ≈ 1 h merges first and the PR without `sensitive` is synced
    after it; if that verdict is not expected so soon, merge the ready PR at once.
-   **Sync only when needed** (Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)):
-   replaces «Quiet `main`» of process review 15; full syncs and their review rounds were the largest waste).
+   **Sync only when needed** (full syncs and their review rounds were the largest waste).
    Before every merge check `gh api repos/{owner}/{repo}/pulls/<n> --jq .mergeable_state` (`dirty` is a conflict, CI
    does not run on it, #249; `unknown` → ask again after a few seconds) and run the check below. Sync only when the
    PR conflicts, when GitHub refuses the merge, or when `main` changed since the PR's merge-base any of: the PR's own
@@ -66,18 +65,16 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    new head: the lead's own («The lead confirms a sync itself» below) or a round (`review-pr` «6. Confirmation
    rounds»). A branch that updates from `main` with no conflicts and no regenerated files the lead updates itself (as
    #255, #256), otherwise an agent; when a fix round is due anyway, the fix agent syncs (SKILL.md step 4); a
-   `sensitive` PR's confirmation round goes to one agent for both verdicts (SKILL.md step 5) (owner, 2026-11-15, #178).
+   `sensitive` PR's confirmation round goes to one agent for both verdicts (SKILL.md step 5).
    **The lead confirms a sync itself**, with no agent, posting a PR **review** (not a comment, so the daily check
    of `main`, ADR-0008, finds a verdict on the merged head): `Reviewed head: <new>`, both SHAs, the command below and
    its output `unchanged`, and `Verdict: Ready` on its own last line. It applies to (any other output, a changed
    diff or conflicts → the usual confirmation round by an agent):
-   - **a docs-only PR** (owner, 2026-11-13, #178): every file passes `isDocsOnly` (`tools/pr-rules/lib/ci-paths.mjs`:
+   - **a docs-only PR**: every file passes `isDocsOnly` (`tools/pr-rules/lib/ci-paths.mjs`:
      `docs/`, `design/`, `.claude/`, root `*.md`), no `sensitive` label, and `main`'s changes do not touch its files;
-   - **a code PR without `sensitive`** (owner, 2026-11-16, «1 а», [log](../../../../docs/decisions/log/2026-11-16-owner-sync-confirm-215.md))
+   - **a code PR without `sensitive`**
      whose diff against its merge-base is byte-identical before and after the sync, with CI green on the new head;
-   - **a `sensitive` PR** (owner, 2026-11-16, «1 б», [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md);
-     for this case it replaces the exclusion «1 а» of [2026-11-16](../../../../docs/decisions/log/2026-11-16-owner-sensitive-sync-language-card.md))
-     when all hold: every merge since the reviewed head is mechanical (`git merge-tree` = the commit's tree) and
+   - **a `sensitive` PR** when all hold: every merge since the reviewed head is mechanical (`git merge-tree` = the commit's tree) and
      nothing else was committed, the patch-id of the PR's diff against `main` is unchanged, no file `main` brought
      is among the PR's files, CI is green on the new head, **and** `main` brought no foundation file
      ([merge rules](../../../references/merge-rules.md), «Foundation files»). Run the second command below too; it
@@ -113,7 +110,7 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    ```
 
    **The lead's check of a Документи PR** (tier Документи, [merge rules](../../../references/merge-rules.md),
-   «Review tiers»; Рішення ведучого (2026-11-16; власник не схвалював; [log](../../../../docs/decisions/log/2026-11-16-owner-process-light.md)):
+   «Review tiers»):
    no review session; the lead reads the diff and posts a PR review on the head with `Reviewed head: <sha>`, this
    list and `Verdict: Ready` on its own last line: every file passes `isDocsOnly` and none is under
    `docs/requirements/`, `.claude/` or `AGENTS.md` (those keep their own review); owner words are quoted exactly as
