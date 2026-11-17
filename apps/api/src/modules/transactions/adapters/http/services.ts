@@ -23,6 +23,9 @@ export const DUPLICATES_FLAG = "transactions.duplicates";
 /** The release flag and feature key of «До розбору» (BUD-12 a, wave 2 row 24); requires `transactions.manual`. */
 export const REVIEW_FLAG = "transactions.review";
 
+/** The release flag and feature key of «Історія змін» (FIN-03 FR 27, #439); requires `transactions.manual`. */
+export const HISTORY_FLAG = "transactions.history";
+
 /** The categories of transactions (categorization's `TransactionCategories`, by shape: no import of that module). */
 export interface ReviewCategories {
   categoriesOf(householdId: string, ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
@@ -50,6 +53,8 @@ export interface TransactionsServices {
   readonly categoryOf: ReviewCategories | null;
   /** The profile currency of the totals (EUR for every space in this release, ACC-06). */
   readonly reportingCurrency: string;
+  /** «Історія змін» (FIN-03 FR 27): the audit log's entries of one entity; null when the log given cannot read. */
+  readonly history: Pick<AuditLog, "entriesFor"> | null;
 }
 
 export function createTransactionsServices(options: {
@@ -57,7 +62,8 @@ export function createTransactionsServices(options: {
   readonly ledger: TransactionsDeps["ledger"];
   /** `createListTotals` of platform/lists with fx-rates' `officialDatedRates`, on the same clock. */
   readonly totals: ListTotals;
-  readonly audit: Pick<AuditLog, "record">;
+  /** The audit log; with `entriesFor` (the API process's) it is also the source of «Історія змін» (FIN-03 FR 27). */
+  readonly audit: Pick<AuditLog, "record"> & Partial<Pick<AuditLog, "entriesFor">>;
   readonly clock: { now(): number };
   readonly newId: () => string;
   /** The categories module's directory, for the categories of split parts; without it «Розділити» answers 500. */
@@ -95,6 +101,7 @@ export function createTransactionsServices(options: {
     totals: options.totals,
     categoryOf: options.categoryOf ?? null,
     reportingCurrency: REPORTING_CURRENCY,
+    history: options.audit.entriesFor ? { entriesFor: options.audit.entriesFor.bind(options.audit) } : null,
   };
 }
 

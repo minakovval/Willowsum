@@ -136,6 +136,14 @@ export const FLAGS = {
     description:
       "Розбір транзакцій (BUD-12@PoC a): черга «До розбору», «Підтвердити» і «Відмінити», лічильник; /v1/transaction-review, /v1/transactions/{id}/review/confirm, /reopen, масова дія «Підтвердити категорії»",
   },
+  "transactions.history": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-17",
+    requires: "transactions.manual",
+    description:
+      "«Історія змін» транзакції (FIN-03@PoC п. 27): записи журналу аудиту транзакції і її категорії; /v1/transactions/{id}/history",
+  },
   "categories.tree": {
     kind: "release",
     owner: "product-owner",
