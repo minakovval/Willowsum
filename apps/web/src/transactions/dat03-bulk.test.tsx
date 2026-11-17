@@ -221,7 +221,11 @@ beforeEach(() => {
   resetTracked();
   vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  // A failed assertion in a fake-clock test must not leave the clock fake for the next test.
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe("DAT-03@PoC b): the selection panel of «Транзакції»", () => {
   it("DAT-03@PoC AC12: with 3 transactions ticked «Дії з вибраними» has exactly «Змінити категорію», «Додати теги», «Підтвердити категорії», and the panel has no separate action buttons", async () => {
