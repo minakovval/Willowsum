@@ -1921,6 +1921,14 @@
       "x": 2720,
       "y": 21180
     },
+    "PocMoneyRulesTexts.dc.html": {
+      "h": 2912,
+      "page": "poc",
+      "title": "S-197 Правила категорій і S-198 Правило категорії · Тексти",
+      "w": 3960,
+      "x": 4080,
+      "y": 21180
+    },
     "PocMoneyRules.dc.html": {
       "h": 900,
       "is_interactive": true,
@@ -4492,6 +4500,7 @@
     "PocDataImport4.dc.html",
     "PocDataImport5.dc.html",
     "PocMoneyTxTexts.dc.html",
+    "PocMoneyRulesTexts.dc.html",
     "PocTableTexts.dc.html"
   ],
   "pages": [

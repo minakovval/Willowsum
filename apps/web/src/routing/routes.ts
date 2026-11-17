@@ -90,6 +90,7 @@ export type ChildId =
   | "importHistory"
   | "review"
   | "pairs"
+  | "rules"
   | "transaction"
   | "transactionHistory"
   | "newTransaction"
@@ -117,6 +118,8 @@ export const CHILDREN: readonly ChildDef[] = [
   // FIN-03@PoC FR 21: the tabs «До розбору · N» (S-058, wave 2 row 121) and «Пари · N» (S-059, row 139) of «Транзакції».
   { id: "review", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/review`, title: "tx.tab.review" },
   { id: "pairs", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/pairs`, title: "tx.tab.pairs" },
+  // BUD-14@PoC FR 4: «Гроші › Транзакції › Правила» (S-197), from «…» of «Транзакції» → «Правила категорій».
+  { id: "rules", parent: TRANSACTIONS, path: `${TRANSACTIONS.path}/rules`, title: "rules.title" },
   {
     id: "newTransaction",
     parent: TRANSACTIONS,
