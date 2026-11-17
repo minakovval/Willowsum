@@ -15,3 +15,10 @@ export {
   type TransactionMerchant,
   type TransactionTextsPort,
 } from "./merchants.ts";
+export {
+  REVIEW_SCAN_MAX,
+  reviewGroupIds,
+  reviewGroups,
+  type ReviewGroupsPage,
+  type TransactionCategoriesPort,
+} from "./review-groups.ts";
