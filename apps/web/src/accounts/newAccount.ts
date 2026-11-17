@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { operations } from "@willowsum/api-contract";
 import type { MessageKey } from "@willowsum/i18n";
+import { currencyInfo } from "@willowsum/domain-kernel";
+import { amountInPlaces } from "@willowsum/ui";
 import { outcome, type useAuthApi } from "../auth/api.ts";
 
 /**
@@ -218,6 +220,15 @@ export function institutionOf(
   return bank ? { name: bank.name, country: bank.country } : null;
 }
 
+/**
+ * An amount with exactly the digits of its currency as the server counts them (`domain-kernel`): «1200.00» for JPY is
+ * sent as «1200». A value with more significant digits is never valid in the form (FR 3); it is sent as it is only if
+ * that check were bypassed, and the server refuses it.
+ */
+function amountIn(amount: string, currency: string): string {
+  return amount && currency ? (amountInPlaces(amount, currencyInfo(currency).minorUnits) ?? amount) : amount;
+}
+
 /** The request of «Додати рахунок»: only the fields of the chosen kind (the server refuses a field of another kind). */
 export function bodyOf(v: NewAccountValues, banks: readonly Bank[]): NewAccountBody {
   const k = v.kind;
@@ -229,20 +240,22 @@ export function bodyOf(v: NewAccountValues, banks: readonly Bank[]): NewAccountB
     kind: k,
     name: v.name.normalize("NFC").trim(),
     institution: institutionOf(v, banks),
-    balance: { amount: v.balance ?? "", currency: v.currency },
+    balance: { amount: amountIn(v.balance ?? "", v.currency), currency: v.currency },
     balanceDate: v.date,
     ...(number ? { number } : {}),
     ...(note ? { note } : {}),
     ...(hasRate(k) && rate !== null ? { annualRate: rate } : {}),
     ...(hasDepositDates(k) && v.openedOn ? { depositOpenedOn: v.openedOn } : {}),
     ...(hasDepositDates(k) && v.maturesOn ? { depositMaturesOn: v.maturesOn } : {}),
-    ...(hasCardTerms(k) && v.creditLimit !== null ? { creditLimit: v.creditLimit } : {}),
+    ...(hasCardTerms(k) && v.creditLimit !== null
+      ? { creditLimit: amountIn(v.creditLimit, v.currency) }
+      : {}),
     ...(hasCardTerms(k) && grace !== null ? { gracePeriodDays: grace } : {}),
-    ...(hasMonthly(k) && v.monthly !== null ? { monthlyPayment: v.monthly } : {}),
+    ...(hasMonthly(k) && v.monthly !== null ? { monthlyPayment: amountIn(v.monthly, v.currency) } : {}),
     ...(hasExtraCurrencies(k) && v.extras.length > 0
       ? {
           extraCurrencies: v.extras.map((e) => ({
-            amount: e.amount ?? "",
+            amount: amountIn(e.amount ?? "", e.currency),
             currency: e.currency,
             date: v.date,
           })),

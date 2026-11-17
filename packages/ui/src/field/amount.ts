@@ -73,6 +73,16 @@ const format = (locale: Locale, value: string, min: number, max: number) =>
 const significantPlaces = (value: string) => (value.split(".")[1] ?? "").replace(/0+$/, "").length;
 
 /**
+ * A decimal string («1200.50») with exactly `places` digits after the point («1200» for 0, «1200.500» for 3), or
+ * null when it has more significant digits than that («1200.5» for 0): a value never gains or loses a digit.
+ */
+export function amountInPlaces(value: string, places: number): string | null {
+  if (significantPlaces(value) > places) return null;
+  const [int = "0", frac = ""] = value.split(".");
+  return places > 0 ? `${int}.${frac.replace(/0+$/, "").padEnd(places, "0")}` : int;
+}
+
+/**
  * The text of a field that is not being edited: the amount with the currency's digits and the language's
  * grouping («4 512 300 000,00»); a value with more digits than that is
  * rounded and flagged `approx`, and the field shows it with «≈» («≈ 0,33»).

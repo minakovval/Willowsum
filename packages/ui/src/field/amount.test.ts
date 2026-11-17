@@ -1,11 +1,19 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { currencyPlaces, displayAmount, editAmount, parseAmountInput } from "./amount.ts";
+import { amountInPlaces, currencyPlaces, displayAmount, editAmount, parseAmountInput } from "./amount.ts";
 
 /** CMP-02@PoC amount field text: decimal strings in and out, never JS numbers. */
 const norm = (s: string) => s.replace(/[\u00A0\u202F]/g, " ");
 
 describe("CMP-02@PoC amount text", () => {
+  it("CMP-02@PoC AC2: amountInPlaces pads or trims zeros to the currency digits and refuses a value that would lose one", () => {
+    expect(amountInPlaces("1200.00", 0)).toBe("1200");
+    expect(amountInPlaces("1200.50", 0)).toBeNull();
+    expect(amountInPlaces("1.234", 3)).toBe("1.234");
+    expect(amountInPlaces("1.2", 3)).toBe("1.200");
+    expect(amountInPlaces("-7", 2)).toBe("-7.00");
+  });
+
   it("CMP-02@PoC FR «Вміст»: the currency's digits come from ISO 4217 (EUR and UAH 2, JPY 0)", () => {
     expect(currencyPlaces("EUR")).toBe(2);
     expect(currencyPlaces("UAH")).toBe(2);

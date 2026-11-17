@@ -1,9 +1,10 @@
 import { useMemo, useRef, useState } from "react";
-import { knownCurrencies } from "@willowsum/domain-kernel";
+import { currencyInfo, knownCurrencies } from "@willowsum/domain-kernel";
 import { newIdempotencyKey } from "@willowsum/api-contract";
 import { formatLocaleOf, formatMoney, useI18n, type MessageKey } from "@willowsum/i18n";
 import {
   AmountField,
+  amountInPlaces,
   Button,
   DateField,
   Field,
@@ -53,7 +54,8 @@ import {
 /**
  * «+ додати ще валюту» in the form adds one more currency: a second row would make step 3 taller than the dialog may
  * be at 1280 × 720 (CMP-21 п. 7, FIN-01 FR 3 — three steps, owner 2026-11-13). Further currencies are added on the
- * account (FR 12, «+ додати ще валюту» of its settings, up to 10). Agent decision, owner question in the PR.
+ * account (FR 12, «+ додати ще валюту» of its settings, up to 10). Lead decision 2026-11-17
+ * (`docs/decisions/log/2026-11-17-s052-new-account.md`).
  */
 const EXTRAS_IN_FORM = 1;
 
@@ -62,7 +64,20 @@ const MAIN = 0;
 const BALANCE = 1;
 const EXTRA = 2;
 
-const CURRENCY_OPTIONS = knownCurrencies().map((c) => ({ value: c.code, label: c.code }));
+/**
+ * «Валюта*» (код ISO 4217, FR 3): the ISO 4217 currencies of the registry only — no metals and no crypto-assets,
+ * which are not ISO 4217 codes (`Intl` cannot format USDT) and have other digits (BTC 8).
+ */
+const CURRENCY_OPTIONS = knownCurrencies()
+  .filter((c) => c.kind === "fiat")
+  .map((c) => ({ value: c.code, label: c.code }));
+
+/** The digits after the point of a currency, as the server checks them (`domain-kernel`); EUR's 2 before one is chosen. */
+const placesOf = (currency: string): number => (currency ? currencyInfo(currency).minorUnits : 2);
+
+/** An amount with more significant digits than its chosen currency has: never sent (FR 3, `balance.amount`). */
+const unfit = (amount: string | null, currency: string): boolean =>
+  amount !== null && currency !== "" && amountInPlaces(amount, placesOf(currency)) === null;
 
 /**
  * S-052 «Новий рахунок» (FIN-01@PoC FR 1, FR 3–6, FR 8, FR 12, FR 25; canvas PocMoneyNewAcc, PocMoneyNewAccStep3,
@@ -91,6 +106,8 @@ export function NewAccountDialog({
   const [v, setV] = useState<NewAccountValues>(() => initialValues(today, initialKind));
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{ key: MessageKey; code?: string | undefined } | null>(null);
+  /** The duplicate check that `POST /v1/accounts` refused with 409 `ACCOUNT_DUPLICATE` (FR 25), and its text. */
+  const [refused, setRefused] = useState<{ key: string; text: string } | null>(null);
   const sent = useRef<{ body: string; key: string } | null>(null);
   const nextKey = useRef(0);
   const { banks, loading: banksLoading } = useBanks(api, open);
@@ -111,15 +128,17 @@ export function NewAccountDialog({
   const numberError = numberProblem(v.number);
   const extras = hasExtraCurrencies(kind) ? v.extras : [];
   const currencies = [v.currency, ...extras.map((e) => e.currency)].filter(Boolean);
-  const { duplicate } = useDuplicate(
-    api,
+  const duplicateQuery =
     open && v.number.trim() !== "" && !numberError && currencies.length > 0
       ? { institution, number: normalNumber(v.number), currencies }
-      : null,
-  );
+      : null;
+  const duplicateKey = duplicateQuery ? JSON.stringify(duplicateQuery) : "";
+  const { duplicate, recheck } = useDuplicate(api, duplicateQuery);
   const duplicateText = duplicate
     ? t("newAccount.duplicate", { institution: duplicate.institution, last4: duplicate.last4 })
-    : null;
+    : refused && refused.key === duplicateKey
+      ? refused.text
+      : null;
 
   const nameError = nameProblem(v.name);
   const balanceNegative = !debt && kind !== "current" && isNegative(v.balance);
@@ -170,11 +189,12 @@ export function NewAccountDialog({
       required: true,
       empty: v.balance === null && !v.balanceProblem,
       emptyError: t("newAccount.error.balance.empty"),
-      error: v.balanceProblem
-        ? t(debt ? "newAccount.balance.debt" : "newAccount.balance")
-        : balanceNegative || debtNegative
-          ? t("newAccount.error.balance.negative")
-          : null,
+      error:
+        v.balanceProblem || unfit(v.balance, v.currency)
+          ? t(debt ? "newAccount.balance.debt" : "newAccount.balance")
+          : balanceNegative || debtNegative
+            ? t("newAccount.error.balance.negative")
+            : null,
     },
     {
       id: "currency",
@@ -221,11 +241,12 @@ export function NewAccountDialog({
             required: true,
             empty: v.monthly === null && !v.monthlyProblem,
             emptyError: t("newAccount.error.monthly"),
-            error: v.monthlyProblem
-              ? t("newAccount.monthly")
-              : v.monthly !== null && !isPositive(v.monthly)
-                ? t("newAccount.error.monthly")
-                : null,
+            error:
+              v.monthlyProblem || unfit(v.monthly, v.currency)
+                ? t("newAccount.monthly")
+                : v.monthly !== null && !isPositive(v.monthly)
+                  ? t("newAccount.error.monthly")
+                  : null,
           },
         ]
       : []),
@@ -248,7 +269,10 @@ export function NewAccountDialog({
             label: t("newAccount.creditLimit"),
             step: EXTRA,
             empty: v.creditLimit === null && !v.creditLimitProblem,
-            error: v.creditLimitProblem || isNegative(v.creditLimit) ? t("newAccount.creditLimit") : null,
+            error:
+              v.creditLimitProblem || isNegative(v.creditLimit) || unfit(v.creditLimit, v.currency)
+                ? t("newAccount.creditLimit")
+                : null,
           },
           {
             id: "grace",
@@ -276,7 +300,7 @@ export function NewAccountDialog({
         required: true,
         empty: e.amount === null && !e.amountProblem,
         emptyError: t("newAccount.error.balance.empty"),
-        error: e.amountProblem ? t("newAccount.balance") : null,
+        error: e.amountProblem || unfit(e.amount, e.currency) ? t("newAccount.balance") : null,
       },
     ]),
     { id: "note", label: t("newAccount.note"), step: EXTRA, empty: v.note.trim() === "" },
@@ -300,6 +324,17 @@ export function NewAccountDialog({
     }
     if (o.kind === "network") {
       setFailure({ key: "newAccount.error.network" });
+      return;
+    }
+    if (o.problem.code === "ACCOUNT_DUPLICATE") {
+      // FR 25 on the save path: the check failed or was still running. The same text under «Номер» until the
+      // number, institution or currency changes; the check runs again for the existing account's «Відкрити наявний».
+      const number = normalNumber(v.number);
+      setRefused({
+        key: duplicateKey,
+        text: t("newAccount.duplicate", { institution: institution?.name ?? "—", last4: number.slice(-4) }),
+      });
+      recheck();
       return;
     }
     setFailure({ key: "newAccount.error.save", code: o.supportId });
@@ -395,6 +430,7 @@ export function NewAccountDialog({
               label={t(debt ? "newAccount.balance.debt" : "newAccount.balance")}
               required
               currency={v.currency || "EUR"}
+              places={placesOf(v.currency)}
               {...(v.currency ? {} : { suffix: null })}
               value={v.balance}
               hint={debt ? t("newAccount.balance.debtHint") : undefined}
@@ -482,6 +518,7 @@ export function NewAccountDialog({
                 label={t("newAccount.monthly")}
                 required
                 currency={v.currency || "EUR"}
+                places={placesOf(v.currency)}
                 value={v.monthly}
                 onChange={(value, problem) =>
                   setV((old) => ({ ...old, monthly: value, monthlyProblem: problem !== null }))
@@ -515,6 +552,7 @@ export function NewAccountDialog({
             <AmountField
               label={t("newAccount.creditLimit")}
               currency={v.currency || "EUR"}
+              places={placesOf(v.currency)}
               value={v.creditLimit}
               onChange={(value, problem) =>
                 setV((old) => ({ ...old, creditLimit: value, creditLimitProblem: problem !== null }))
@@ -572,7 +610,9 @@ export function NewAccountDialog({
       submitLabel={t("newAccount.submit")}
       busy={busy}
       error={
-        failure ? (
+        refused && refused.key === duplicateKey && !duplicate ? (
+          <p>{refused.text}</p>
+        ) : failure ? (
           <>
             <p>{t(failure.key)}</p>
             {failure.code ? <p>{t("newAccount.error.code", { code: failure.code })}</p> : null}
@@ -628,6 +668,7 @@ function ExtraCurrencies({
             label={t("newAccount.balance")}
             required
             currency={e.currency || "EUR"}
+            places={placesOf(e.currency)}
             {...(e.currency ? {} : { suffix: null })}
             value={e.amount}
             onChange={(value, problem) => onChange(e.key, { amount: value, amountProblem: problem !== null })}

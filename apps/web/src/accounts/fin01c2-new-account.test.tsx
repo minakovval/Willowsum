@@ -1,4 +1,5 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { currencyInfo } from "@willowsum/domain-kernel";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
 import { plain, renderAt, resetAuthState, SUPPORT_ID, type Reply } from "../auth/testing.tsx";
@@ -426,6 +427,91 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect(a).toMatch(/^[\x21-\x7e]{1,128}$/);
     expect(b).toBe(a);
     expect(c).not.toBe(a);
+  });
+
+  it("FIN-01@PoC FR 3: «Валюта*» offers ISO 4217 codes only — no crypto (USDT, BTC) and no metals (XAU)", async () => {
+    await open(api().client);
+    fireEvent.change(field(NAME), { target: { value: "Щоденний" } });
+    fireEvent.click(button("Далі"));
+    await waitFor(() => expect(shown().dataset["step"]).toBe("1"));
+    fireEvent.click(within(shown()).getAllByRole("button", { name: /^Валюта/ })[0]!);
+    const codes = within(within(shown()).getByRole("listbox"))
+      .getAllByRole("option")
+      .map((o) => plain(o.textContent));
+    expect(codes).toEqual(expect.arrayContaining(["UAH", "EUR", "USD", "JPY", "KWD"]));
+    for (const code of ["USDT", "USDC", "BTC", "ETH", "SOL", "XAU", "XAG", "XPT", "XPD"]) {
+      expect(codes).not.toContain(code);
+    }
+    expect(codes.every((c) => currencyInfo(c).kind === "fiat")).toBe(true);
+  });
+
+  it('FIN-01@PoC FR 3: «1200,5» typed before JPY (0 decimals) is refused once JPY is chosen, and «Залишок» is named; «1200» is sent as "1200"', async () => {
+    const fake = api();
+    await open(fake.client);
+    await fillBasics("Єна", "1200,5", "JPY");
+    expect(disabled(button("Додати рахунок"))).toBe(true);
+    expect(reason()).toBe("Щоб продовжити, виправте: Залишок");
+    fireEvent.click(button("Додати рахунок"));
+    expect(fake.creates()).toHaveLength(0);
+    fireEvent.focus(field(/^Залишок/));
+    fireEvent.change(field(/^Залишок/), { target: { value: "1200" } });
+    fireEvent.blur(field(/^Залишок/));
+    expect(disabled(button("Додати рахунок"))).toBe(false);
+    fireEvent.click(button("Додати рахунок"));
+    await waitFor(() => expect(fake.creates()).toHaveLength(1));
+    expect((fake.creates()[0]!.body as { balance: unknown }).balance).toEqual({
+      amount: "1200",
+      currency: "JPY",
+    });
+  });
+
+  it('FIN-01@PoC FR 3: «1,234» typed before KWD (3 decimals) is valid once KWD is chosen and is sent as "1.234"', async () => {
+    const fake = api();
+    await open(fake.client);
+    await fillBasics("Динар", "1,234", "KWD");
+    expect(disabled(button("Додати рахунок"))).toBe(false);
+    fireEvent.click(button("Додати рахунок"));
+    await waitFor(() => expect(fake.creates()).toHaveLength(1));
+    expect((fake.creates()[0]!.body as { balance: unknown }).balance).toEqual({
+      amount: "1.234",
+      currency: "KWD",
+    });
+  });
+
+  it("FIN-01@PoC FR 25: a 409 ACCOUNT_DUPLICATE on «Додати рахунок» says «Такий рахунок уже є: …», not the general save error", async () => {
+    let duplicate = false;
+    const fake = api({
+      "POST /v1/accounts/duplicate-check": () => ({
+        status: 200,
+        body: {
+          duplicate: duplicate
+            ? { accountId: EXISTING_ID, institution: "ПриватБанк", maskedNumber: "••1234" }
+            : null,
+        },
+      }),
+      "POST /v1/accounts": () => {
+        duplicate = true;
+        return {
+          status: 409,
+          body: { type: "about:blank", title: "ACCOUNT_DUPLICATE", status: 409, code: "ACCOUNT_DUPLICATE" },
+          headers: { "content-type": "application/problem+json" },
+        };
+      },
+    });
+    await open(fake.client);
+    await chooseBank("Приват", "ПриватБанк");
+    await fillBasics("Гривневий", "100", "UAH");
+    fireEvent.click(button("Далі"));
+    await waitFor(() => expect(shown().dataset["step"]).toBe("2"));
+    fireEvent.change(field(/^Номер/), { target: { value: "UA213223130000026007233566001" } });
+    await waitFor(() => expect(fake.sent.some((c) => c.path === "/v1/accounts/duplicate-check")).toBe(true));
+    fireEvent.click(button("Додати рахунок"));
+    await waitFor(() => expect(fake.creates()).toHaveLength(1));
+    expect(await within(dialog()).findAllByText(/Такий рахунок уже є: ПриватБанк ••1234/)).not.toHaveLength(
+      0,
+    );
+    expect(within(dialog()).queryByText(/Не вдалося зберегти/)).toBeNull();
+    expect(disabled(button("Додати рахунок"))).toBe(true);
   });
 
   it("FIN-01@PoC FR 3: no connection keeps the form and says «Не вдалося з’єднатися. Спробуйте ще раз»", async () => {

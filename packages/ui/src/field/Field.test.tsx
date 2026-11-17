@@ -118,6 +118,42 @@ describe("CMP-02@PoC Field", () => {
     expect(spy).toHaveBeenLastCalledWith(null, "places");
   });
 
+  it("CMP-02@PoC AC2: a new currency checks the amount again — «1200,5» is refused for JPY, «1,234» refused for EUR is valid for KWD; `places` overrides the digits of `Intl`", () => {
+    const spy = vi.fn();
+    const { rerender } = render(wrap(<Amount label="Сума" currency="EUR" spy={spy} />));
+    const input = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "1200,5" } });
+    fireEvent.blur(input);
+    expect(screen.getByTestId("state").textContent).toBe("1200.50");
+    rerender(wrap(<Amount label="Сума" currency="JPY" spy={spy} />));
+    expect(spy).toHaveBeenLastCalledWith(null, "places");
+    expect(norm(input.value)).toBe("1 200,5");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+
+    cleanup();
+    spy.mockClear();
+    const second = render(wrap(<Amount label="Сума" currency="EUR" spy={spy} />));
+    const field = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(field);
+    fireEvent.change(field, { target: { value: "1,234" } });
+    fireEvent.blur(field);
+    expect(spy).toHaveBeenLastCalledWith(null, "places");
+    second.rerender(wrap(<Amount label="Сума" currency="KWD" spy={spy} />));
+    expect(spy).toHaveBeenLastCalledWith("1.234", null);
+    expect(field.getAttribute("aria-invalid")).toBeNull();
+    expect(norm(field.value)).toBe("1,234");
+
+    cleanup();
+    spy.mockClear();
+    render(wrap(<Amount label="Сума" currency="HUF" places={2} spy={spy} />));
+    const huf = screen.getByRole<HTMLInputElement>("textbox", { name: "Сума" });
+    fireEvent.focus(huf);
+    fireEvent.change(huf, { target: { value: "100,5" } });
+    fireEvent.blur(huf);
+    expect(spy).toHaveBeenLastCalledWith("100.50", null);
+  });
+
   it("CMP-02@PoC AC3: 4 512 300 000,00 in a 120 px amount field shows «4,51 млрд» underlined, the full value on hover and for editing on focus", () => {
     widths(120);
     render(wrap(<Amount label="Сума" currency="EUR" initial="4512300000.00" />));
