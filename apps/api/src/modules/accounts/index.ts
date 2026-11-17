@@ -141,6 +141,15 @@ export function createAccountStatements(db: ModuleDatabase, services: AccountsSe
  * An account as another module posts money to it (FIN-03@PoC FR 2, edge case 2; module transactions): its state and
  * each currency (subaccount) with its journal account. Read only; another space's account is null, like an unknown one.
  */
+/**
+ * FIN-01@PoC EC4, FIN-12@PoC FR 7, FR 8, FR 14 (wave 2 row 198): the one lock of an account's money, for every module
+ * that changes it, taken in that module's own transaction (adapters/db/account-lock.ts: the order that keeps it free of
+ * deadlocks). Module transactions takes it before it reads an account's state through `AccountDirectory` and holds it
+ * until its change has committed, so a closing, «Оновити залишок» or a wallet's removal runs before or after the change,
+ * never across it.
+ */
+export { lockAccounts } from "./adapters/index.ts";
+
 export interface PostingAccount {
   readonly accountId: string;
   /** Its kind: a cash account («Готівкові») or a credit one (FIN-01 FR 14) — e.g. a goal's account is a cash one. */
