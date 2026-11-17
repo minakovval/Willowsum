@@ -35,7 +35,7 @@
 - [PoC–PoC v2] Спільні правила: П-7, П-8, П-13, П-14, П-24, П-25, П-26, CMP-22, CMP-23, CMP-24
 - [PoC–PoC v2] Сценарії: UC-DAT-20, UC-DAT-21, UC-DAT-23
 - [лише PoC] Модуль: feature-flags
-- [лише PoC] Перевіряється: apps/api/test/not-found.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/test/no-coming-soon.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06-r2.test.ts
+- [лише PoC] Перевіряється: apps/api/test/not-found.it.test.ts, apps/api/test/api-flags.test.ts, apps/api/test/no-coming-soon.test.ts, apps/api/src/modules/feature-flags/feature-flags.it.test.ts, apps/api/test/security-cicd06.test.ts, apps/api/test/security-cicd06-r2.test.ts, packages/ui/src/states/States.test.tsx, apps/web/src/pages/noAccess.test.tsx, apps/web/src/gallery.test.tsx
 - [лише PoC v2] Модуль: feature-flags, support
 - [лише MVP] Розширює: DAT-05@PoC v2
 - [лише v1-mobile] Розширює: DAT-05@MVP
