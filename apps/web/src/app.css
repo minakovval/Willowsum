@@ -1935,3 +1935,34 @@ code {
 .gallery-table__box--flat {
   inline-size: calc(var(--ws-space-8) * 6.25);
 }
+
+/* DAT-05@PoC: the «Стани екранів» section of the gallery, and S-029 «Немає доступу». */
+.gallery-states {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-states p {
+  margin: 0;
+}
+
+.gallery-states__grid,
+.gallery-states__pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--ws-space-8) * 4), 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-states__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
+.no-access-page {
+  display: grid;
+  place-items: center;
+  min-block-size: calc(var(--ws-space-8) * 9);
+}

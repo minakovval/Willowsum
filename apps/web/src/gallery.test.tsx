@@ -192,6 +192,25 @@ describe("/gallery/tokens (DS-22)", () => {
     );
   });
 
+  it("DAT-05@PoC gallery: the states section shows empty (area, block, without rights), loading, error beside a working card, partial data and «Немає доступу»", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-states")!.textContent).toBe("Стани екранів");
+    const at = (c: string) => within(container.querySelector<HTMLElement>(`[data-case="state-${c}"]`)!);
+    expect(at("empty-area").getByRole("heading", { level: 2 }).textContent).toBe("Транзакцій ще немає");
+    expect(at("empty-area").getAllByRole("button")).toHaveLength(2);
+    expect(at("empty-block").getByRole("button", { name: "Створити бюджет" })).toBeTruthy();
+    expect(at("empty-no-rights").queryByRole("button")).toBeNull();
+    expect(at("loading").getByText("Ще завантажується…")).toBeTruthy();
+    expect(at("error-area").getByText("Код: TX-503")).toBeTruthy();
+    expect(at("error-block").getByText("Код: BUD-500")).toBeTruthy();
+    expect(at("error-block").getByText("12 480,00 ₴")).toBeTruthy();
+    expect(at("partial").getByText("Частина даних не оновлена")).toBeTruthy();
+    expect(at("no-access-page").getByRole("heading", { name: "Немає доступу" })).toBeTruthy();
+    expect(at("no-access-widget").queryByRole("link")).toBeNull();
+    // The page still has one h1 (the «Немає доступу» module demo is an h2 here).
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
   it("CMP-22@PoC gallery: the Skeleton section shows every variant, the slow line, and swaps the skeleton for its content", () => {
     const { container } = render(<App />);
     expect(container.querySelector("#g-skeleton")!.textContent).toBe("Скелетон");

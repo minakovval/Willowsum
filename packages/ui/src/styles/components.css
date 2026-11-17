@@ -3193,3 +3193,132 @@ button.ws-stepper-step[aria-disabled="true"] {
   inline-size: var(--ws-space-3);
   block-size: var(--ws-space-3);
 }
+
+/*
+ * DAT-05@PoC «Стани екранів» (canvas «PoC · Стани», S-029): the shared layout of the empty, error and «Немає доступу»
+ * states and the partial-data banner. `block` (a widget or card): aligned to the start, 12 px apart, at most 480 px;
+ * `area` (a whole list or page): centred, 14 px apart. S-029 is the `page` scope of «Немає доступу»: a 440 px column
+ * aligned to the start on the board.
+ */
+.ws-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  max-inline-size: calc(var(--ws-space-8) * 7.5);
+  color: var(--ws-ink);
+}
+
+.ws-state[data-placement="area"] {
+  align-items: center;
+  gap: calc(var(--ws-space-3) + var(--ws-space-1) / 2);
+  margin-inline: auto;
+  padding-block: var(--ws-space-7);
+  text-align: center;
+}
+
+.ws-state-tile {
+  display: grid;
+  place-items: center;
+  inline-size: var(--ws-space-8);
+  block-size: var(--ws-space-8);
+  border-radius: var(--ws-radius-xl);
+  background: var(--ws-tint-info);
+}
+
+.ws-state[data-state="no-access"] .ws-state-tile {
+  inline-size: calc(var(--ws-space-7) + var(--ws-space-2));
+  block-size: calc(var(--ws-space-7) + var(--ws-space-2));
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-surface-300);
+}
+
+.ws-state[data-state="no-access"][data-scope="page"] {
+  gap: var(--ws-space-4);
+  max-inline-size: calc(var(--ws-space-8) * 6.875);
+}
+
+.ws-state-title {
+  margin: 0;
+  font-family: var(--ws-text-heading-3-family);
+  font-size: var(--ws-text-heading-3-size);
+  line-height: var(--ws-text-heading-3-line);
+  font-weight: var(--ws-text-heading-3-weight);
+  letter-spacing: var(--ws-text-heading-3-tracking);
+}
+
+.ws-state[data-placement="area"] .ws-state-title,
+.ws-state[data-state="no-access"][data-scope="page"] .ws-state-title {
+  font-size: var(--ws-text-heading-2-size);
+  line-height: var(--ws-text-heading-2-line);
+}
+
+.ws-state[data-state="no-access"][data-scope="page"] .ws-state-title {
+  font-size: var(--ws-text-heading-1-size);
+  line-height: var(--ws-text-heading-1-line);
+}
+
+.ws-state[data-state="error"] .ws-state-title {
+  color: var(--ws-loss);
+  font-family: var(--ws-text-body-family);
+  font-weight: 600;
+}
+
+.ws-state-text {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-state[data-placement="area"] .ws-state-text {
+  max-inline-size: calc(var(--ws-space-8) * 6.5625);
+}
+
+.ws-state[data-state="no-access"][data-scope="page"] .ws-state-text {
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-size);
+  line-height: var(--ws-text-body-line);
+}
+
+.ws-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
+.ws-state-code {
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-body-sm-line);
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
+/* Partial data: a warning band above what is shown; the symbol and the words carry the meaning, not the tint. */
+.ws-state-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-warning-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-tint-warning);
+  color: var(--ws-on-warning);
+}
+
+.ws-state-banner p {
+  margin: 0;
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.ws-state-banner-title {
+  font-weight: 600;
+}
+
+.ws-state-banner .ws-link {
+  color: inherit;
+  text-decoration: underline;
+}
