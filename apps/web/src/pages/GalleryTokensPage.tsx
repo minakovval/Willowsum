@@ -63,6 +63,7 @@ import { TooltipDemo } from "./TooltipDemo.tsx";
 import { ToastDemo } from "./ToastDemo.tsx";
 import { TransactionRowDemo } from "./TransactionRowDemo.tsx";
 import { TransactionDemo } from "./TransactionDemo.tsx";
+import { TableDemo } from "./TableDemo.tsx";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 
 const THEME_LABEL: Record<ThemeName, MessageKey> = { light: "theme.light", dark: "theme.dark" };
@@ -386,6 +387,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-tooltip" title={t("gallery.tooltip.title")}>
         <TooltipDemo />
+      </Section>
+
+      <Section id="g-table" title={t("gallery.table.title")}>
+        <TableDemo />
       </Section>
 
       <Section id="g-skeleton" title={t("gallery.skeleton.title")}>

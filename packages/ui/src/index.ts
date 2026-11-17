@@ -139,3 +139,5 @@ export type {
 } from "./filter/FilterBar.tsx";
 export { Toast } from "./toast/Toast.tsx";
 export type { ToastProps, ToastTone } from "./toast/Toast.tsx";
+export { Table } from "./table/Table.tsx";
+export type { TableColumn, TableProps, TableRow, TableSortDirection } from "./table/Table.tsx";

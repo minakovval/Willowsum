@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { expect, h1, test } from "./fixtures.ts";
 
 /** NFR-07@PoC: the desktop layout at a window 1280 px wide (П-25), in Chromium and WebKit. */
@@ -97,5 +98,53 @@ test.describe("NFR-07@PoC: desktop layout at 1280 px", () => {
     expect(form.x + Math.min(form.width, 820)).toBeLessThanOrEqual(layout.x + layout.width + 1);
     expect(head!.y + head!.height).toBeLessThanOrEqual(nav.y);
     expect(Math.round(nav.y)).toBe(Math.round(form.y));
+  });
+
+  /** Measures the regions of a «Планування» page on the 12 columns of 1280 px: a span of n columns is n·c + (n−1)·24. */
+  const planning = async (page: Page, path: string, title: string) => {
+    await page.goto(`/#${path}`);
+    await expect(h1(page)).toHaveText(title);
+    return page.evaluate(() => {
+      const grid = document.querySelector("[data-plan-page]")!.getBoundingClientRect();
+      const regions = Object.fromEntries(
+        [...document.querySelectorAll("[data-plan-page] > [data-plan-region]")].map((e) => {
+          const r = e.getBoundingClientRect();
+          return [
+            (e as HTMLElement).dataset.planRegion,
+            { x: r.x - grid.x, y: r.y, w: r.width, h: r.height },
+          ];
+        }),
+      );
+      return {
+        width: grid.width,
+        regions,
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      };
+    });
+  };
+  const span = (width: number, n: number) => ((width - 11 * 24) / 12) * n + (n - 1) * 24;
+
+  test("GRID-04@PoC AC1, FR 1: «Бюджет» — three blocks of 4 columns and one height, the categories on 12", async ({
+    page,
+  }) => {
+    const { width, regions, overflow } = await planning(page, "/planning/budget", "Бюджет");
+    for (const name of ["spendable", "income", "recurring"]) {
+      expect(regions[name]!.w).toBeCloseTo(span(width, 4), 0);
+      expect(regions[name]!.h).toBeCloseTo(regions.spendable!.h, 0);
+      expect(regions[name]!.y).toBeCloseTo(regions.spendable!.y, 0);
+    }
+    expect(regions.income!.x - (regions.spendable!.x + regions.spendable!.w)).toBeCloseTo(24, 0);
+    expect(regions.categories!.w).toBeCloseTo(width, 0);
+    expect(regions.categories!.y).toBeGreaterThan(regions.spendable!.y + regions.spendable!.h);
+    expect(overflow).toBe(0);
+  });
+
+  test("GRID-04@PoC AC1, FR 3: «Цілі» — the list on 4 columns, the detail on 8", async ({ page }) => {
+    const { width, regions, overflow } = await planning(page, "/planning/goals", "Цілі");
+    expect(regions.list!.w).toBeCloseTo(span(width, 4), 0);
+    expect(regions.detail!.w).toBeCloseTo(span(width, 8), 0);
+    expect(regions.detail!.x - (regions.list!.x + regions.list!.w)).toBeCloseTo(24, 0);
+    expect(regions.detail!.y).toBeCloseTo(regions.list!.y, 0);
+    expect(overflow).toBe(0);
   });
 });

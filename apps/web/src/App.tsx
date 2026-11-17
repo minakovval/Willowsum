@@ -24,11 +24,15 @@ import { SettingsPage } from "./settings/SettingsPage.tsx";
 import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx";
 import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
+import { BudgetPage } from "./planning/BudgetPage.tsx";
+import { GoalsPage } from "./planning/GoalsPage.tsx";
 import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
 import {
   ACCOUNTS,
   canonicalPath,
+  BUDGET,
   DEBTS,
+  GOALS,
   RECURRING,
   resolveRoute,
   TRANSACTIONS,
@@ -86,6 +90,9 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
   switch (route.kind) {
     case "page":
       if (route.page.id === DEBTS.id) return <DebtsScreen tab="list" />;
+      // GRID-04@PoC FR 1, FR 3: the grids of S-121 «Бюджет» and S-136 «Цілі».
+      if (route.page.id === BUDGET.id) return <BudgetPage />;
+      if (route.page.id === GOALS.id) return <GoalsPage />;
       // FIN-01@PoC c), GRID-02@PoC FR 1: S-050 «Рахунки».
       if (route.page.id === ACCOUNTS.id) return <AccountsPage />;
       // BUD-07@PoC c): S-141 «Регулярні платежі».

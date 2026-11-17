@@ -16,6 +16,7 @@ import {
   type Proposal,
   type RecurringData,
 } from "./data.ts";
+import { PlanGrid, PlanRegion } from "../planning/PlanGrid.tsx";
 import { LoadError } from "./LoadError.tsx";
 import { counted, expectedText, FREQUENCY_KEYS, monthTitle, shortDate } from "./format.ts";
 
@@ -70,7 +71,17 @@ export function RecurringPage({ today = kyivToday() }: { today?: string }) {
               <Proposals data={result.data} onDecided={decided} />
             </section>
           ) : null}
-          <PaymentsTable data={result.data} />
+          {/* GRID-04@PoC FR 5: the calendar 8 and the totals with the nearest charges 4, the details on 12. */}
+          <PlanGrid page="recurring">
+            <PlanRegion name="calendar" span={8} />
+            <div className="plan-region plan-span-4 plan-stack" data-plan-region="side">
+              <PlanRegion name="summary" span={12} />
+              <PlanRegion name="upcoming" span={12} />
+            </div>
+            <PlanRegion name="details" span={12}>
+              <PaymentsTable data={result.data} />
+            </PlanRegion>
+          </PlanGrid>
         </>
       )}
     </AppLayout>

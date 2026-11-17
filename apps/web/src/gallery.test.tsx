@@ -681,4 +681,37 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       vi.useRealTimers();
     }
   });
+
+  it("CMP-26@PoC gallery: the Table section shows the wide table that sorts, the 768 and 480 px containers, flat, and the loading, empty and error states", () => {
+    const { container } = render(<App />);
+    expect(container.querySelector("#g-table")!.textContent).toBe("Таблиця");
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    const wide = at("table-wide");
+    expect(norm(wide.querySelector("[data-testid='table-summary']")!.textContent)).toBe(
+      "128 записів · 1 284 560,00 €",
+    );
+    const head = within(wide).getByRole("columnheader", { name: /Вартість/ });
+    expect(head.getAttribute("aria-sort")).toBe("descending");
+    act(() =>
+      within(wide)
+        .getByRole("button", { name: /Дата і час/ })
+        .click(),
+    );
+    expect(
+      within(wide)
+        .getByRole("columnheader", { name: /Дата і час/ })
+        .getAttribute("aria-sort"),
+    ).toBe("descending");
+    expect(within(wide).getByRole("checkbox", { name: "Вибрати Кредитна ··9021" })).toHaveProperty(
+      "checked",
+      true,
+    );
+    expect(at("table-768").querySelector("table")).not.toBeNull();
+    expect(at("table-480").querySelector(".ws-dtable-wrap")).not.toBeNull();
+    expect(at("table-flat").querySelector(".ws-dtable-wrap--flat")).not.toBeNull();
+    expect(at("table-loading").querySelector("[aria-busy='true']")).not.toBeNull();
+    expect(at("table-empty").textContent).toContain("Записів немає");
+    const error = within(at("table-error")).getByRole("alert");
+    expect(error.textContent).toContain("Код: WS-4F2A");
+  });
 });
