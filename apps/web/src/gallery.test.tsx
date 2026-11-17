@@ -7,6 +7,7 @@ import { App } from "./App.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
 import { StatesDemo } from "./pages/StatesDemo.tsx";
+import { TableDemo } from "./pages/TableDemo.tsx";
 
 /** No-break spaces (DS-08 item 11) compare as ordinary spaces. */
 const norm = (s: string | null) => (s ?? "").replace(/&nbsp;|\u00A0|\u202F/g, " ");
@@ -54,12 +55,14 @@ describe("/gallery/tokens (DS-22)", () => {
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
     expect(screen.getAllByRole("heading", { level: 1 }).map((h) => h.textContent)).toEqual(["Дизайн-токени"]);
     expect(document.head.querySelector('meta[name="robots"]')!.getAttribute("content")).toContain("noindex");
-    // The Progress, Dialog and states sections are on the page with their demos (their other tests render the demos alone).
+    // The Progress, Dialog, states and Table sections are on the page with their demos (their other tests render the demos alone).
     const section = (id: string) => document.getElementById(id)!.closest("section")!;
     expect(document.getElementById("g-progress")!.textContent).toBe("Прогрес");
     expect(section("g-progress").querySelector('[data-case="queue"]')).not.toBeNull();
     expect(document.getElementById("g-states")!.textContent).toBe("Стани екранів");
     expect(section("g-states").querySelector('[data-case="state-empty-area"]')).not.toBeNull();
+    expect(document.getElementById("g-table")!.textContent).toBe("Таблиця");
+    expect(section("g-table").querySelector('[data-case="table-wide"]')).not.toBeNull();
     expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
     for (const c of ["delete", "form", "word", "error"])
       expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
@@ -683,8 +686,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
   });
 
   it("CMP-26@PoC gallery: the Table section shows the wide table that sorts, the 768 and 480 px containers, flat, and the loading, empty and error states", () => {
-    const { container } = render(<App />);
-    expect(container.querySelector("#g-table")!.textContent).toBe("Таблиця");
+    const { container } = renderSection(<TableDemo />);
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     const wide = at("table-wide");
     expect(norm(wide.querySelector("[data-testid='table-summary']")!.textContent)).toBe(
