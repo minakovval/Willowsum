@@ -101,7 +101,9 @@ export type ChildId =
   | "debtsPlan"
   | "debtsStrategy"
   | "debtsProgress"
-  | "newRecurring";
+  | "newRecurring"
+  | "budgetAccounts"
+  | "budgetGeneral";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -134,6 +136,19 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "debtsProgress", parent: DEBTS, path: `${DEBTS.path}/progress`, title: "debts.tab.progress" },
   // BUD-07@PoC FR 6: «Додати вручну» on S-141.
   { id: "newRecurring", parent: RECURRING, path: `${RECURRING.path}/new`, title: "page.newRecurring" },
+  // BUD-02@PoC f) FR 14: «Налаштування бюджету» (S-128 «Рахунки бюджету», S-288 «Загальне»), the gear of «Бюджет».
+  {
+    id: "budgetAccounts",
+    parent: BUDGET,
+    path: `${BUDGET.path}/accounts`,
+    title: "planning.budget.settings.title",
+  },
+  {
+    id: "budgetGeneral",
+    parent: BUDGET,
+    path: `${BUDGET.path}/general`,
+    title: "planning.budget.settings.title",
+  },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 
