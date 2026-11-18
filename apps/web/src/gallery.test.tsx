@@ -135,11 +135,29 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
     for (const c of ["delete", "form", "word", "error"])
       expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
-    // The Icons, icon-only buttons, Transaction row and Toolbar sections are on the page (their tests render the part alone).
+    // The Icons, icon-only buttons, Transaction row and Toolbar sections are on the page (their tests render the part alone);
+    // CMP-33@PoC: the page itself lists the PoC set and names the same seven buttons as the rebuilt parts.
     const codes = [...section("g-icons").querySelectorAll("code")].map((c) => c.textContent);
     expect(codes).toContain("mortgage");
+    for (const name of ["property", "wine", "insurance-health", "investment-public"])
+      expect(
+        codes.some((c) => c?.includes(name)),
+        name,
+      ).toBe(false);
     expect(within(section("g-icons")).getByText("Інше")).toBeTruthy();
-    expect(within(section("g-icon-buttons")).getAllByRole("button")).toHaveLength(7);
+    for (const icon of section("g-icons").querySelectorAll(".ws-icon"))
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+    const iconButtons = within(section("g-icon-buttons")).getAllByRole("button");
+    expect(iconButtons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
+      "Параметри",
+      "Колонки",
+      "Сортувати",
+      "Фільтр",
+      "Редагувати",
+      "Налаштування рахунку",
+      "Закрити",
+    ]);
+    for (const b of iconButtons) expect(b.textContent).toBe("");
     expect(document.getElementById("g-transaction-row")!.textContent).toBe("Рядок транзакції");
     expect(section("g-transaction-row").querySelector('[data-case="tx-table-sortable"]')).not.toBeNull();
     expect(document.getElementById("g-toolbar")!.textContent).toBe("Панель списку");
