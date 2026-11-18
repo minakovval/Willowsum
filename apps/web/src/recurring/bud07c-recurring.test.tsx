@@ -741,7 +741,7 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     expect(cells(rowOf("^YouTube"))[4]).toBe("");
     expect(within(screen.getByRole("table")).queryByText("Можливо, скасований")).toBeNull();
     expect(screen.queryByText("Прострочених списань немає.")).toBeNull();
-    expect(screen.getByRole("note").textContent).toContain("Списання не завантажено для: ");
+    expect(screen.getByRole("note").textContent).toMatch(/^Списання не завантажено для: .*YouTube.*\.$/);
   });
 
   it("BUD-07@PoC FR 9: with the statuses loaded and nothing overdue the summary says so; a variable amount of the nearest charges has «≈»", async () => {
@@ -751,6 +751,8 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     renderAt(PAGE, client);
     await screen.findByRole("table");
     expect(screen.getByText("Прострочених списань немає.")).toBeTruthy();
+    // Every payment's charges loaded: no «не завантажено» note above the calendar.
+    expect(screen.queryByText(/Списання не завантажено/)).toBeNull();
     expect(plain(screen.getByRole("region", { name: "Найближчі" }).textContent)).toContain("≈ 90,00 €");
   });
 

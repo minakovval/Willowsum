@@ -384,7 +384,7 @@ function PaymentRow({
 }
 
 /**
- * FR 21: «Позначити пропущеним» on each overdue charge of the payment (the API takes any overdue charge by its date) (the API refuses it for anyone but the Owner); FR 10: «Залишити» on
+ * FR 21: «Позначити пропущеним» on each overdue charge of the payment, by its date (the API refuses it for anyone but the Owner); FR 10: «Залишити» on
  * a payment «Можливо, скасований». Neither has a body; a refusal is said at the top of the page.
  */
 function PaymentActions({
