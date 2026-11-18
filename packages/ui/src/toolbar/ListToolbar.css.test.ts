@@ -16,4 +16,12 @@ describe("CMP-60@PoC Toolbar styles", () => {
     expect(bar).not.toMatch(/background|border/);
     expect(rule(".ws-toolbar-start,\n.ws-toolbar-end")).toMatch(/gap:\s*var\(--ws-space-2\)/);
   });
+
+  it("CMP-60@PoC AC1: the toolbar is one flex row — the start group takes the space, «Параметри» sits at the end — and its row does not wrap", () => {
+    const bar = rule(".ws-toolbar");
+    expect(bar).toMatch(/display:\s*flex/);
+    expect(bar).not.toMatch(/flex-wrap:\s*wrap/);
+    expect(css).toMatch(/\.ws-toolbar-start\s*\{[^}]*flex:\s*1 1 auto/);
+    expect(css).toMatch(/\.ws-toolbar-end\s*\{[^}]*flex:\s*none;[^}]*margin-inline-start:\s*auto/);
+  });
 });
