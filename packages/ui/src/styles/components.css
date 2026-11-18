@@ -836,6 +836,24 @@
 }
 
 /*
+ * GRID-00@PoC FR 18 / DS-05: the name ladder, set by `TruncatedText maxLines={2}` through `data-fit`: one line,
+ * one line at 85 %, two lines at 85 % (a name without spaces breaks by characters), then the ellipsis.
+ */
+.ws-truncate--name[data-fit="smaller"],
+.ws-truncate--name[data-fit="two"] {
+  font-size: 85%;
+}
+
+.ws-truncate--name[data-fit="two"] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/*
  * CMP-22@PoC: Skeleton, on the DS-13 `.ws-skeleton` bar (12 px, 6 px radius, `skeleton` colour, shimmer that stops
  * with reduced motion). The variants only change size and shape; they add no motion of their own.
  */
