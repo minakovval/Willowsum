@@ -133,6 +133,27 @@ function needsColumn(row: HTMLElement): boolean {
   return widest * buttons.length + gap * (buttons.length - 1) > row.clientWidth + 0.5;
 }
 
+/** Role (explicit, else the tag) and accessible name (aria-label, else the text) of the element that opened a dialog. */
+function openerIdentity(node: HTMLElement) {
+  return {
+    tag: node.tagName,
+    role: node.getAttribute("role"),
+    name: (node.getAttribute("aria-label") ?? node.textContent ?? "").trim(),
+  };
+}
+
+/** The connected element with the same role and name as a redrawn opener; none if there is no such element. */
+function findSuccessor(key: ReturnType<typeof openerIdentity>): HTMLElement | null {
+  if (!key.name) return null;
+  const all = document.querySelectorAll<HTMLElement>(key.tag.toLowerCase());
+  return (
+    [...all].find(
+      (n) =>
+        !n.closest("dialog") && openerIdentity(n).role === key.role && openerIdentity(n).name === key.name,
+    ) ?? null
+  );
+}
+
 /**
  * CMP-21@PoC Dialog — the base: one template for every dialog (scrim with a 2 px blur, the 16 px container with
  * `shadow-dialog`, the icon tile, title and explanation, optional content, the light action bar), opened as a modal
@@ -193,6 +214,7 @@ export function Dialog({
     const el = ref.current;
     if (!shown || !el) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const openerKey = opener ? openerIdentity(opener) : null;
     if (typeof el.showModal === "function") {
       if (!el.open) el.showModal();
     } else el.setAttribute("open", "");
@@ -210,7 +232,9 @@ export function Dialog({
     return () => {
       document.removeEventListener("focusin", keepIn);
       if (typeof el.close === "function" && el.open) el.close();
+      // DS-14@PoC EC1: an opener redrawn while the dialog was open is replaced by the element with the same role and name.
       if (opener?.isConnected) opener.focus();
+      else if (openerKey) findSuccessor(openerKey)?.focus();
     };
     // `initialFocus` is read once on opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps

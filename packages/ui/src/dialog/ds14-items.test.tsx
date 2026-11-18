@@ -115,6 +115,46 @@ describe("DS-14@PoC dialogs: focus goes in, stays, and returns", () => {
     },
   );
 
+  it("DS-14@PoC EC1: the opener was redrawn while the dialog was open — focus returns to the new element with the same role and name", () => {
+    function Redrawn() {
+      const [open, setOpen] = useState(false);
+      const [gen, setGen] = useState(0);
+      return (
+        <>
+          <button
+            type="button"
+            key={gen}
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            Додати витрату
+          </button>
+          <button type="button" onClick={() => setGen(1)}>
+            Перемалювати
+          </button>
+          <Dialog
+            open={open}
+            onClose={() => setOpen(false)}
+            title="Нова витрата"
+            closeLabel="Закрити"
+            actions={[{ label: "Скасувати", onClick: () => setOpen(false) }]}
+          >
+            <p>Текст</p>
+          </Dialog>
+        </>
+      );
+    }
+    const old = openIt(<Redrawn />);
+    act(() => screen.getByRole("button", { name: "Перемалювати" }).click());
+    const fresh = screen.getByRole("button", { name: "Додати витрату", hidden: true });
+    expect(fresh).not.toBe(old);
+    expect(old.isConnected).toBe(false);
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(dialogEl()).toBeNull();
+    expect(document.activeElement).toBe(fresh);
+  });
+
   it("DS-09@PoC EC2: two dialogs in a row — the new one is the only one open, above the page, and after it closes focus is back on the button that opened the first", () => {
     function Chain() {
       const [step, setStep] = useState<0 | 1 | 2>(0);

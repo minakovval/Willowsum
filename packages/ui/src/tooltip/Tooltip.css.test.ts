@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { colors, contrastRatio, CONTRAST_PAIRS, layers, radii, space } from "../tokens/index.ts";
 
-/** CMP-25@PoC Tooltip: the styles, from tokens only. */
+/** DS-09@PoC FR 7 (tooltip layer) and CMP-25@PoC Tooltip: the styles, from tokens only. */
 const read = (rel: string) =>
   readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
 const css = read("../styles/components.css");
@@ -12,6 +12,7 @@ const rule = (selector: string) =>
     new RegExp(`(?:^|\\n)${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`),
   )?.[1] ?? "";
 const tip = () => rule(".ws-tooltip");
+const tokensCss = read("../styles/tokens.css");
 
 describe("CMP-25@PoC Tooltip styles", () => {
   it("CMP-25@PoC AC1: at most 320 px wide (space-8 × 5) and never wider than the window; longer text wraps", () => {
@@ -29,9 +30,15 @@ describe("CMP-25@PoC Tooltip styles", () => {
     expect(tip()).toMatch(/border-radius:\s*var\(--ws-radius-md\)/);
     expect(radii["radius-md"]).toBe(8);
     expect(tip()).toMatch(/box-shadow:\s*var\(--ws-shadow-popover\)/);
-    expect(tip()).toMatch(/z-index:\s*var\(--ws-layer-tooltip\)/);
+    expect(tip()).toMatch(/z-index:\s*var\(--ws-layer-top\)/);
     expect(tip()).toMatch(/position:\s*fixed/);
-    expect(layers["layer-tooltip"]).toBeGreaterThan(layers["layer-sticky"]);
+    expect(layers["layer-top"]).toBeGreaterThan(layers["layer-sticky"]);
+  });
+
+  it("DS-09@PoC FR 7: the floating full-value tooltip sits on the service top layer, 1000 — above the sticky bar", () => {
+    expect(tip()).toMatch(/z-index:\s*var\(--ws-layer-top\)/);
+    expect(layers["layer-top"]).toBe(1000);
+    expect(tokensCss).toMatch(/--ws-layer-top:\s*1000;/);
   });
 
   it("CMP-25@PoC FR «Розміри і стиль»: 6 px top and bottom, 10 px at the sides", () => {
