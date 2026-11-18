@@ -709,7 +709,7 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     expect(within(cell).getByText("Статус: Пропущено")).toBeTruthy();
   });
 
-  it("BUD-07@PoC FR 7, FR 9: the calendar shows the charges of the month and the legend has three groups", async () => {
+  it("BUD-07@PoC S-141 calendar (the calendar part of the seventh item), FR 9: the calendar shows the charges of the month and the legend has three groups", async () => {
     renderAt(PAGE, statusApi().client);
     await screen.findByRole("table");
     const grid = screen.getByRole("grid", { name: "Календар" });
@@ -738,5 +738,20 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     await screen.findByRole("table");
     expect(cells(rowOf("^YouTube"))[4]).toBe("");
     expect(within(screen.getByRole("table")).queryByText("Можливо, скасований")).toBeNull();
+  });
+
+  it("BUD-07@PoC FR 14: a payment belongs to the whole space: no share and no «Хто компенсує» anywhere on the screen", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    const page = plain(document.body.textContent);
+    expect(page).not.toMatch(/Хто компенсує|частка|Частка/);
+  });
+
+  it("BUD-07@PoC FR 18: the screen has no notification setting or control for regular payments", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    expect(screen.queryByRole("checkbox", { name: /сповіщ/i })).toBeNull();
+    expect(screen.queryByRole("switch", { name: /сповіщ/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /сповіщ/i })).toBeNull();
   });
 });
