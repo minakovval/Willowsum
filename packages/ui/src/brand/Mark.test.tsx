@@ -51,9 +51,11 @@ describe("CMP-71@PoC the mark and the name", () => {
     const { container } = render(<WillowsumMark size={24} decorative />);
     const drawn = [...container.querySelectorAll("path")].map((p) => p.getAttribute("d"));
     expect(drawn).toHaveLength(3);
-    // The assets equal the design-system file (design/design-system/assets/Logos): checked by
-    // tools/pr-rules/test/brand-mark.test.mjs, which runs on every PR (heavy jobs read nothing under design/).
-    for (const file of ["packages/ui/src/brand/assets/mark-light.svg", "apps/web/public/favicon.svg"]) {
+    for (const file of [
+      "design/design-system/assets/Logos/mark-light.svg",
+      "packages/ui/src/brand/assets/mark-light.svg",
+      "apps/web/public/favicon.svg",
+    ]) {
       expect(pathsOf(read(file)), file).toEqual(drawn);
     }
     // No other source file of the apps and packages carries the mark's outline.

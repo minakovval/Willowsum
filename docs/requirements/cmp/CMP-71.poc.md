@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/brand/Mark.test.tsx, tools/pr-rules/test/brand-mark.test.mjs
+- Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/brand/Mark.test.tsx
 
 **Мета.** Як користувач, я хочу впізнавати продукт за послідовним знаком і назвою на всіх екранах і в обох темах, щоб довіряти, що я в правильному застосунку.
 
