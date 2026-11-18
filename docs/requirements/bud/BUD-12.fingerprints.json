@@ -22,6 +22,8 @@
   "PoC/AC 8": "abb4d294629bd034",
   "PoC/AC 9": "1e55772e35ac22a9",
   "PoC/AC 10": "3108806a1dc722d2",
+  "PoC/AC 11": "76f8d1e5e79efd82",
+  "PoC/AC 12": "6251bd019f3aa300",
   "PoC/EC 2": "13de4ea407d01336",
   "PoC v2/FR 2": "7d7a42b5ee9bc6ee",
   "PoC v2/FR 3": "0d155bdc04e305fa",
@@ -40,6 +42,7 @@
   "PoC v2/AC 8": "abb4d294629bd034",
   "PoC v2/AC 9": "1e55772e35ac22a9",
   "PoC v2/AC 10": "3108806a1dc722d2",
+  "PoC v2/AC 11": "76f8d1e5e79efd82",
   "PoC v2/EC 2": "13de4ea407d01336",
   "MVP/FR 3": "0d155bdc04e305fa",
   "MVP/FR 4": "9b71cd53d2921918",
@@ -53,6 +56,7 @@
   "MVP/AC 10": "abb4d294629bd034",
   "MVP/AC 11": "1e55772e35ac22a9",
   "MVP/AC 12": "3108806a1dc722d2",
+  "MVP/AC 13": "76f8d1e5e79efd82",
   "v1-mobile/FR 4": "9b71cd53d2921918",
   "v1-mobile/FR 5": "d58a5a6c03e6d3fe",
   "v1-mobile/FR 9": "bb48a896b1b7b351",
@@ -64,6 +68,7 @@
   "v1-mobile/AC 13": "abb4d294629bd034",
   "v1-mobile/AC 14": "1e55772e35ac22a9",
   "v1-mobile/AC 15": "3108806a1dc722d2",
+  "v1-mobile/AC 16": "76f8d1e5e79efd82",
   "v1/FR 4": "9b71cd53d2921918",
   "v1/FR 5": "d58a5a6c03e6d3fe",
   "v1/FR 12": "dcacf7031ec54e00",
@@ -73,5 +78,6 @@
   "v1/AC 6": "1f27389662b63c03",
   "v1/AC 13": "abb4d294629bd034",
   "v1/AC 14": "1e55772e35ac22a9",
-  "v1/AC 15": "3108806a1dc722d2"
+  "v1/AC 15": "3108806a1dc722d2",
+  "v1/AC 16": "76f8d1e5e79efd82"
 }
