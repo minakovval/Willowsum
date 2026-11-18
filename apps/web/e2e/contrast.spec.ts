@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import {
   AUTH_PATHS,
   canonicalPath,
@@ -37,8 +37,33 @@ const routes: readonly string[] = [
 async function expectNoContrastProblems(page: Page): Promise<void> {
   // Fonts and the first paint settle before measuring.
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  // A control that is changing state (a button going from disabled to enabled, a dialog opening) is measured on the
+  // colours it is fading through, not on its final ones: wait until no finite transition or animation is running.
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            document
+              .getAnimations()
+              .filter(
+                (a) => a.playState === "running" && a.effect?.getComputedTiming().iterations !== Infinity,
+              ).length,
+        ),
+      { message: "transitions and animations finished before the contrast is measured" },
+    )
+    .toBe(0);
   const problems: ContrastProblem[] = await page.evaluate(findContrastProblems);
   expect(problems, JSON.stringify(problems, null, 2)).toEqual([]);
+}
+
+/**
+ * «Підтвердити» is `aria-disabled` while the request runs and returns to its colour after it: measured in between, it
+ * is grey on grey (2.99), so the state change has to be over first. (Absent once the dialog locks, then it is gone.)
+ */
+async function expectConfirmIdle(dialog: Locator): Promise<void> {
+  const confirm = dialog.getByRole("button", { name: "Підтвердити" });
+  await expect(confirm).not.toHaveAttribute("aria-disabled", "true");
 }
 
 test.describe("DS-06@PoC AC2: contrast of every route, light theme, 1280 px", () => {
@@ -208,11 +233,13 @@ test.describe("DS-06@PoC AC2: «Налаштування», «Профіль» a
     const dialog = page.getByRole("dialog", { name: "Підтвердіть, що це ви" });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByLabel(/^Поточний пароль/)).toBeFocused();
+    await expectConfirmIdle(dialog);
     await expectNoContrastProblems(page);
 
     await dialog.getByLabel(/^Поточний пароль/).fill("synthetic-wrong");
     await dialog.getByRole("button", { name: "Підтвердити" }).click();
     await expect(dialog.getByText("Пароль неправильний")).toBeVisible();
+    await expectConfirmIdle(dialog);
     await expectNoContrastProblems(page);
 
     await dialog.getByLabel(/^Поточний пароль/).fill("synthetic-wrong");
