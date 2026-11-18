@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Icon, type IconName } from "../icons/Icon.tsx";
 
 export interface MenuItem {
@@ -40,6 +48,7 @@ export function MenuButton({
 }: {
   menuLabel: string;
   items: readonly MenuItem[];
+  /** Where the menu opens by default; it turns over when it would not be fully visible there (CMP-61@PoC AC5). */
   placement: "down" | "up";
   /** Which edge of the button the menu lines up with; `end` for a button at the right of a toolbar. */
   align?: "start" | "end";
@@ -59,6 +68,27 @@ export function MenuButton({
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+
+  // CMP-61@PoC AC5: the opened menu is measured before paint; it goes to the side with room, and when neither side
+  // holds it, it takes the larger side and scrolls. Set on the element (no state in an effect).
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const button = buttonRef.current;
+    if (!open || !menu || !button) return;
+    const rect = button.getBoundingClientRect();
+    const height = menu.getBoundingClientRect().height;
+    const gap = 4;
+    const margin = 8;
+    const below = window.innerHeight - rect.bottom - gap - margin;
+    const above = rect.top - gap - margin;
+    let side = placement;
+    if (placement === "down" ? height > below && above > below : height > above && below > above)
+      side = placement === "down" ? "up" : "down";
+    menu.classList.remove("ws-menu-up", "ws-menu-down");
+    menu.classList.add(`ws-menu-${side}`);
+    const room = side === "down" ? below : above;
+    menu.style.maxBlockSize = height > room && room > 0 ? `${room}px` : "";
+  }, [open, placement]);
 
   useEffect(() => {
     if (!open) return;

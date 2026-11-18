@@ -345,6 +345,7 @@
 
 .ws-menu {
   position: absolute;
+  overflow-y: auto;
   inset-inline-start: 0;
   z-index: var(--ws-layer-tooltip);
   min-width: calc(var(--ws-sidebar-width) - var(--ws-space-5));
@@ -462,4 +463,11 @@ button.ws-menu-item {
 
 .ws-breadcrumbs a {
   color: inherit;
+}
+
+/* CMP-61@PoC AC10: the pencil and the «…» of a table row sit together at its end. */
+.ws-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
 }

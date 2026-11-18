@@ -40,6 +40,7 @@ import { ListToolbarDemo } from "./pages/ListToolbarDemo.tsx";
 import { TransactionRowDemo } from "./pages/TransactionRowDemo.tsx";
 import { StatusDemo } from "./pages/StatusDemo.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
+import { MoreActionsDemo } from "./pages/MoreActionsDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
 import { StatesDemo } from "./pages/StatesDemo.tsx";
 import { TableDemo } from "./pages/TableDemo.tsx";
@@ -468,6 +469,24 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(toast().textContent).toContain("Дію не виконано");
     act(() => within(toast()).getByRole("button", { name: "Закрити" }).click());
     expect(document.querySelector(".ws-toast")).toBeNull();
+  });
+
+  it("CMP-74@PoC AC7 gallery: the estimated total reads «612 з ~900» without «лишилось»", () => {
+    const { container } = renderSection(<ProgressDemo />);
+    const text = container.querySelector('[data-case="estimate"] .ws-progress-text')!.textContent;
+    expect(norm(text)).toBe("612 з ~900");
+  });
+
+  it("CMP-61@PoC AC10, AC11 gallery: a single action is a named button, several are «Ще дії»; the row has the pencil and «…» at its end", () => {
+    const { container } = renderSection(<MoreActionsDemo />);
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    expect(within(at("one")).getByRole("button", { name: "Експортувати" })).toBeTruthy();
+    expect(within(at("many")).getByRole("button", { name: "Ще дії" })).toBeTruthy();
+    expect(
+      within(at("row"))
+        .getAllByRole("button")
+        .map((b) => b.getAttribute("aria-label")),
+    ).toEqual(["Редагувати суму", "Ще дії"]);
   });
 
   it("CMP-74@PoC gallery: the Progress section shows running, counting, stacked, done and error, and a live case that steps, fails and finishes", () => {
