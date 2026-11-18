@@ -214,7 +214,7 @@ describe("BUD-05@PoC FR 4, GRID-04@PoC FR 7: the bar and the amber", () => {
     const bar = (await screen.findByLabelText("Прогрес цілі «Ноутбук для Соні»")) as HTMLElement;
     const fill = bar.querySelector<HTMLElement>(".goal-bar-fill")!;
     expect(fill.style.inlineSize).toBe("100%");
-    expect(fill.style.backgroundColor).toBeDefined();
+    expect(fill.style.backgroundColor).toBe("var(--ws-goal-100)");
     expect(screen.getByText("+ 50,00 € понад ціль")).toBeTruthy();
     expect(screen.getAllByText("✓ Досягнуто").length).toBeGreaterThan(0);
   });
@@ -245,7 +245,10 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(text).toContain("238 € / міс.");
     expect(text).toContain("15 черв. 2027");
     expect(text).toContain("250,00 € / міс.");
-    expect(within(card).getByRole("progressbar", { name: "Прогрес цілі «Відпустка в Італії»" })).toBeTruthy();
+    const bar = within(card).getByRole("progressbar", { name: "Прогрес цілі «Відпустка в Італії»" });
+    expect(bar.querySelector<HTMLElement>(".goal-bar-fill")!.style.backgroundColor).toBe(
+      goalColor(barPercent("52.5")),
+    );
   });
 
   it("BUD-05@PoC FR 2, FR 4: «Де лежать гроші» names the account and the free balance; the history lists contributions and the starting amount", async () => {
@@ -261,7 +264,8 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(plain(history.getAllByRole("listitem")[2]!.textContent)).toContain("+1 000,00 €");
   });
 
-  it("BUD-05@PoC FR 6, AC15: a goal on a separate account has no «Внести»; the hint names the account and «Додати переказ» opens a transfer to it", async () => {
+  // Criterion 15 stays open: the form «Нова транзакція» does not read `type`/`to` yet (FIN-03 follow-up), so no AC claim.
+  it("BUD-05@PoC FR 6: a goal on a separate account has no «Внести»; the hint names the account and «Додати переказ» links to a transfer to it", async () => {
     open(api([CUSHION]));
     const hint = await screen.findByText(/Щоб поповнити ціль, додайте переказ на рахунок ··5562/);
     expect(screen.queryByRole("button", { name: "Внести" })).toBeNull();
@@ -269,7 +273,8 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(link.getAttribute("href")).toBe(`#/money/transactions/new?type=transfer&to=${ACC_RESERVE}`);
   });
 
-  it("BUD-05@PoC FR 13, AC7: an achieved goal has «✓ Досягнуто», a quiet «Внести» and the menu «⋯» with «Закрити без витрати» and «Видалити»; no pause", async () => {
+  // Criterion 7 needs «Змінити ціль» in the menu (S-138, the second PR of row 128); its server part is in bud05-goals.it.test.ts.
+  it("BUD-05@PoC FR 13: an achieved goal has «✓ Досягнуто», a quiet «Внести» and the menu «⋯» with «Закрити без витрати» and «Видалити»; no pause", async () => {
     open(api([LAPTOP]));
     const card = (await screen.findByRole("heading", { level: 2, name: "Ноутбук для Соні" })).closest(
       "section",
