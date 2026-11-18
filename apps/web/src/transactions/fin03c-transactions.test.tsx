@@ -429,9 +429,15 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(table().querySelector(".ws-tx-head")).toBeTruthy();
   });
 
-  it("DAT-01@PoC FR 8, FR 10, GRID-02@PoC FR 11: the columns are fixed by the list — no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
+  it("DAT-01@PoC FR 8, FR 10, GRID-02@PoC FR 11, AC6: the columns are fixed by the list — its own set, no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
     open();
     await loaded();
+    const head = table().querySelector(".ws-tx-head")!;
+    expect(
+      [...head.children]
+        .filter((c) => !c.matches(".ws-row-check"))
+        .map((c) => c.textContent?.replace(/,.*$/, "")),
+    ).toEqual(["Контрагент", "Категорія", "Рахунок", "Дата і час", "Сума"]);
     expect(screen.queryByRole("button", { name: "Колонки" })).toBeNull();
     expect(within(toolbar()).queryByRole("button", { name: "Параметри" })).toBeNull();
     expect(screen.queryByText(/Колонк/)).toBeNull();
@@ -600,6 +606,30 @@ describe("FIN-03@PoC c): the totals and the states of the list", () => {
     );
     act(() => within(error).getByRole("button", { name: "Спробувати ще раз" }).click());
     await loaded();
+  });
+});
+
+describe("GRID-02@PoC the table of «Транзакції» on narrow containers", () => {
+  it("GRID-02@PoC FR 7, AC2: the table is the container of its rows, and below 520 px of that container a row is a card — the header leaves the layout, the row wraps, nothing scrolls sideways", async () => {
+    open();
+    await loaded();
+    expect(table().classList.contains("ws-tx-table")).toBe(true);
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const ui = readFileSync(join(dir, "../../../../packages/ui/src/styles/components.css"), "utf8").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(ui).toContain(".ws-tx-table { container-type: inline-size;");
+    const narrow = ui.slice(ui.indexOf("@container (max-width: 519px) { .ws-tx-table .ws-tx-head {"));
+    expect(narrow).toContain(
+      ".ws-tx-table .ws-tx-row-table.ws-tx-row-table { display: flex; flex-wrap: wrap;",
+    );
+    // The threshold is the container's, not a window media query; the wide form still has its fixed columns.
+    expect(ui).not.toMatch(/@media \(max-width: 5\d\d px\) \{ \.ws-tx-/);
+    expect(table().style.overflowX).toBe("");
+    expect(readFileSync(join(dir, "transactions.css"), "utf8").match(/\.tx-table \{[^}]*\}/)![0]).toContain(
+      "overflow: hidden",
+    );
   });
 });
 

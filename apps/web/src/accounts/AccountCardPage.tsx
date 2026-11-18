@@ -8,7 +8,7 @@ import {
   MenuButton,
   Skeleton,
   Tooltip,
-  TransactionRow,
+  TransactionTableHead,
 } from "@willowsum/ui";
 import {
   ACCOUNTS,
@@ -37,6 +37,7 @@ import { CloseAccountDialog } from "./CloseAccountDialog.tsx";
 import { UpdateBalanceDialog } from "./UpdateBalanceDialog.tsx";
 import { kyivToday } from "../recurring/data.ts";
 import { filteredTransactionsPath } from "../transactions/filters.ts";
+import { TransactionTableRow } from "../transactions/TransactionTableRow.tsx";
 import "./accounts.css";
 import "./account-card.css";
 
@@ -156,7 +157,7 @@ function Card({
           <div className="acard-grid">
             <BalanceCard account={account.data} />
             <InfoCard account={account.data} />
-            <TransactionsCard accountId={accountId} />
+            <TransactionsCard accountId={accountId} account={accountLabel(account.data)} />
             <RecurringCard accountId={accountId} />
           </div>
         </>
@@ -287,6 +288,9 @@ function IconLink({
   );
 }
 
+/** «Поточний ··4417»: the account as the transactions table names it. */
+const accountLabel = (a: AccountDetail) => (a.number ? `${a.name} ··${a.number.last4}` : a.name);
+
 /**
  * «Баланс» (8 columns): the balance of the day the API counted it for, in the account's currency; a multi-currency
  * account lists each currency under the main one. The balance chart with «1М · 3М · 1Р · Усе» (GRID-02@PoC FR 16,
@@ -365,10 +369,10 @@ function InfoCard({ account: a }: { account: AccountDetail }) {
 }
 
 /**
- * «Транзакції» (8 columns, GRID-02@PoC FR 17): the newest transactions of the account as rows of the transactions list
- * (CMP-28), «N з M», and «Усі N транзакцій рахунку» under them.
+ * «Транзакції» (8 columns, GRID-02@PoC FR 6, FR 17): the newest transactions of the account in the same table as the
+ * list «Транзакції» (CMP-28 columns, the category column of a fixed width, amounts on the right), «N з M», and «Усі N транзакцій рахунку» under them.
  */
-function TransactionsCard({ accountId }: { accountId: string }) {
+function TransactionsCard({ accountId, account }: { accountId: string; account: string }) {
   const { t, locale } = useI18n();
   const titleId = useId();
   const { state, retry } = useAccountTransactions(accountId);
@@ -398,23 +402,18 @@ function TransactionsCard({ accountId }: { accountId: string }) {
         <p className="ws-muted acard-empty">{t("accountCard.tx.empty")}</p>
       ) : (
         <>
-          <div className="acard-rows">
+          <div className="acard-rows ws-tx-table">
+            <TransactionTableHead withAsset={false} />
             {state.data.rows.map(({ item, category }) => (
-              <TransactionRow
+              <TransactionTableRow
                 key={item.id}
-                merchant={item.counterparty ?? t("accountCard.tx.noCounterparty")}
-                date={item.date}
+                item={item}
                 category={
                   category
                     ? { name: category.name, icon: isIconName(category.icon) ? category.icon : undefined }
                     : null
                 }
-                amount={{ value: item.amount.amount, currency: item.amount.currency }}
-                pending={item.status === "pending"}
-                transfer={item.transfer !== null}
-                split={item.split !== null}
-                tags={item.tags.map((tag) => tag.name)}
-                note={item.note !== null && item.note !== ""}
+                account={account}
               />
             ))}
           </div>

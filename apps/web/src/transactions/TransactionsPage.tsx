@@ -18,7 +18,6 @@ import {
   Pagination,
   SelectionBar,
   Skeleton,
-  TransactionRow,
   TransactionTableHead,
   useRestoredListState,
   type PageTab,
@@ -26,7 +25,7 @@ import {
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
 import { useRuleCount } from "../rules/api.ts";
-import { childPath, IMPORT_WIZARD_PATH, TRANSACTIONS, transactionPath } from "../routing/routes.ts";
+import { childPath, IMPORT_WIZARD_PATH, TRANSACTIONS } from "../routing/routes.ts";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import {
@@ -47,6 +46,7 @@ import {
 import { activeCount, filtersFromHash, NO_FILTERS } from "./filters.ts";
 import { NewTransactionDialog } from "./NewTransactionDialog.tsx";
 import { ReviewQueue } from "./ReviewQueue.tsx";
+import { TransactionTableRow } from "./TransactionTableRow.tsx";
 import { TransactionFilters } from "./TransactionFilters.tsx";
 import { BulkBanner } from "./BulkBanner.tsx";
 import { BulkDialog } from "./BulkDialog.tsx";
@@ -320,7 +320,7 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
               }}
             />
           ) : null}
-          <div className="ws-card tx-table" ref={rowsRef}>
+          <div className="ws-card tx-table ws-tx-table" ref={rowsRef}>
             <TransactionTableHead
               withAsset={false}
               sort={view.sort}
@@ -334,9 +334,11 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
               selectPageRef={headCheck}
             />
             {ready.rows.map((row) => (
-              <Row
+              <TransactionTableRow
                 key={row.item.id}
-                row={row}
+                item={row.item}
+                category={row.category}
+                account={row.account}
                 selected={isSelected(row.item.id)}
                 onSelectedChange={(on) => tick([row], on)}
               />
@@ -372,47 +374,6 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
 
 /** The row's name as the list shows it, for the examples of «Що станеться». */
 const nameOf = (row: ListRow) => row.item.counterparty ?? "—";
-
-function Row({
-  row,
-  selected,
-  onSelectedChange,
-}: {
-  row: ListRow;
-  selected: boolean;
-  onSelectedChange: (selected: boolean) => void;
-}) {
-  const { t, locale } = useI18n();
-  const { item } = row;
-  const time = timeOf(locale, item.recordedAt);
-  return (
-    <TransactionRow
-      layout="table"
-      selected={selected}
-      onSelectedChange={onSelectedChange}
-      withAsset={false}
-      merchant={item.counterparty ?? t("accountCard.tx.noCounterparty")}
-      date={item.date}
-      time={time}
-      category={row.category}
-      account={row.account}
-      amount={{ value: item.amount.amount, currency: item.amount.currency }}
-      pending={item.status === "pending"}
-      transfer={item.transfer !== null}
-      split={item.split ? (item.split.mode === "months" ? item.split.parts.length : true) : undefined}
-      tags={item.tags.map((tag) => tag.name)}
-      note={item.note !== null && item.note !== ""}
-      href={hrefFor(transactionPath(item.id))}
-    />
-  );
-}
-
-/** The time under the date: when the transaction was recorded, in the browser's time zone («09:14»). */
-function timeOf(locale: Locale, instant: string): string | undefined {
-  const at = new Date(instant);
-  if (Number.isNaN(at.getTime())) return undefined;
-  return new Intl.DateTimeFormat(formatLocaleOf(locale), { hour: "2-digit", minute: "2-digit" }).format(at);
-}
 
 /**
  * The totals above the table (FIN-03@PoC FR 13, DAT-01@PoC FR 12): «Надходження», «Списання» and «Різниця» in the

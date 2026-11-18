@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { fakeApi, plain, renderAt, resetAuthState, type Call, type Reply } from "../auth/testing.tsx";
@@ -244,6 +247,38 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     expect(plain(within(toolbar()).getByRole("status").textContent)).toBe("Знайдено 10 транзакцій");
   });
 
+  it("GRID-02@PoC FR 8: the filters are one button «Фільтри · N» in the toolbar with the panel aligned to that button and a quiet row of chips of the active filters beside it", async () => {
+    open();
+    await loaded();
+    expect(within(toolbar()).getAllByRole("button", { name: /^Фільтри/ })).toHaveLength(1);
+    fireEvent.click(filtersButton());
+    check("Рахунки", "Поточний ··4417");
+    check("Тип", "Списання");
+    apply();
+    await waitFor(() => expect(filtersButton().textContent).toBe("Фільтри · 2"));
+    const bar = filtersButton().closest(".ws-filter-bar")!;
+    // The button is first in the bar, the chips follow it as a list in the same row.
+    expect(bar.firstElementChild).toBe(filtersButton());
+    const list = within(bar as HTMLElement).getByRole("list", { name: /./ });
+    expect(list.classList.contains("ws-filter-chips")).toBe(true);
+    expect(filtersButton().compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect([...list.querySelectorAll(".ws-filter-chip")].map((c) => plain(c.textContent))).toEqual([
+      "Рахунок: Поточний ··4417",
+      "Тип: списання",
+    ]);
+    // The panel belongs to the bar and starts at the button's edge, right under it.
+    fireEvent.click(filtersButton());
+    expect(panel().parentElement).toBe(bar);
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../../packages/ui/src/styles/components.css"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(css).toContain(".ws-filter-bar { position: relative;");
+    expect(css).toMatch(
+      /\.ws-filter-panel \{ position: absolute; inset-inline-start: 0; inset-block-start: calc\(100% \+ var\(--ws-space-2\)\);/,
+    );
+  });
+
   it("filter panel: one button «Фільтри» opens the panel under it with rows «підпис — випадний список» Період, Рахунки, Тип, Сума, Стан, Теги, Мерчант; unset ones say «Будь-який», «Усі» or «Будь-які» in grey; no «Умова»", async () => {
     open();
     await loaded();
@@ -374,7 +409,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
     expect(filtersButton().textContent).toBe("Фільтри");
   });
 
-  it("FIN-03@PoC «Стани інтерфейсу», DAT-01@PoC «Стани інтерфейсу»: filters that match nothing show «Нічого не знайдено» and «Скинути фільтри», not the empty state of a space without transactions; the button resets the filters", async () => {
+  it("FIN-03@PoC «Стани інтерфейсу», DAT-01@PoC «Стани інтерфейсу», GRID-02@PoC EC2: filters that match nothing show «Нічого не знайдено» and «Скинути фільтри», not the empty state of a space without transactions; the button resets the filters", async () => {
     const { lastFilters } = open();
     await loaded();
     fireEvent.click(filtersButton());

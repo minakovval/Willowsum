@@ -245,6 +245,17 @@ describe("DAT-03@PoC b): the selection panel of «Транзакції»", () =>
     ]);
   });
 
+  it("GRID-02@PoC AC4: three transactions ticked — the panel above the table says «Вибрано 3» and the sum of the selected, with the list's filters row above it", async () => {
+    open(5);
+    await loaded();
+    tickRows(3, 4, 5);
+    await waitFor(() => expect(plain(bar().textContent)).toContain("Вибрано 3"));
+    await waitFor(() => expect(plain(bar().textContent)).toContain("· Сума −"));
+    const filters = screen.getByRole("toolbar", { name: "Керування списком" });
+    expect(filters.compareDocumentPosition(bar()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bar().compareDocumentPosition(headCheck()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("CMP-73@PoC AC1: two ticked transactions show «Вибрано 2 · Сума −8,00 €» from the server's sum of the selection, with «Дії з вибраними» and «×»", async () => {
     const api = open(4);
     await loaded();

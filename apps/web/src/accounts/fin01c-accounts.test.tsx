@@ -691,9 +691,13 @@ describe("GRID-02@PoC «Рахунки» page grid", () => {
     expect(head.querySelector(".ws-button-primary")?.textContent).toBe("Додати рахунок");
   });
 
-  it("GRID-02@PoC FR 10: the list's columns are fixed — no «Колонки» button and no «Змінити порядок»", async () => {
+  it("GRID-02@PoC FR 10, AC6: the list's columns are fixed — its own set, no «Колонки» button and no «Змінити порядок»", async () => {
     renderAt("#/money/accounts", api([current]).client);
     await screen.findByText("Щоденний");
+    const heads = [...document.querySelectorAll(".accounts-table")]
+      .flatMap((t) => [...t.querySelectorAll("thead th:not(:has(.ws-visually-hidden))")])
+      .map((th) => plain(th.textContent));
+    expect(heads).toEqual(["Рахунок", "Тип", "Валюта", "Джерело", "Баланс, EUR"]);
     expect(screen.queryByRole("button", { name: /Колонки/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
     expect(screen.getAllByRole("menuitemcheckbox").map((i) => plain(i.textContent))).toEqual([

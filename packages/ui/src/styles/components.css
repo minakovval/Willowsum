@@ -2585,6 +2585,73 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink);
 }
 
+/*
+ * GRID-02@PoC FR 7, AC2: the transactions table is the container of its rows; below 520 px of the container (not of
+ * the window) a row is a card — the merchant and the amount, then the category, the account and the date. The header
+ * leaves the layout (its sort buttons stay reachable by Tab); nothing scrolls sideways.
+ */
+.ws-tx-table {
+  container-type: inline-size;
+  min-inline-size: 0;
+}
+
+@container (max-width: 519px) {
+  .ws-tx-table .ws-tx-head {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ws-tx-table .ws-tx-head:focus-within {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table.ws-tx-row-table {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ws-space-2) var(--ws-space-3);
+  }
+
+  .ws-tx-table .ws-tx-row-table.ws-tx-row-table::after {
+    content: "";
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-row-check {
+    order: 0;
+    flex: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-who {
+    order: 1;
+    flex: 1 1 0;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-row-money {
+    order: 2;
+    inline-size: auto;
+    flex: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-cell {
+    order: 3;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-when {
+    order: 4;
+    margin-inline-start: auto;
+    text-align: end;
+  }
+}
+
 /* CMP-02@PoC «Тип «дата»»: the calendar icon on the left of the 40 px frame, the grey «· сьогодні». */
 .ws-date .ws-select-control {
   padding-inline-start: var(--ws-space-3);

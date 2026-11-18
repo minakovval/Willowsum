@@ -395,3 +395,69 @@ describe("FIN-12@PoC c) S-053 «Картка рахунку»", () => {
     expect(route.kind === "child" && route.child.id).toBe("account");
   });
 });
+
+describe("GRID-02@PoC S-053 «Транзакції» block: the table of the list «Транзакції»", () => {
+  const uiCss = readFileSync(join(dir, "../../../../packages/ui/src/styles/components.css"), "utf8").replace(
+    /\s+/g,
+    " ",
+  );
+
+  it("GRID-02@PoC FR 6, AC3: the transactions of the account are the table of the list «Транзакції» — the same header columns without «Актив», the same cells in each row, the account column filled", async () => {
+    renderAt(at, api().client);
+    const block = await screen.findByRole("region", { name: "Транзакції" });
+    await within(block).findByText("Магазин 1");
+    const table = block.querySelector(".ws-tx-table")!;
+    const head = table.querySelector(".ws-tx-head")!;
+    expect([...head.children].map((c) => plain(c.textContent))).toEqual([
+      "Контрагент",
+      "Категорія",
+      "Рахунок",
+      "Дата і час",
+      "Сума",
+    ]);
+    const rows = [...table.querySelectorAll(".ws-tx-row:not(.ws-tx-head)")];
+    expect(rows).toHaveLength(6);
+    for (const row of rows) {
+      expect(row.classList.contains("ws-tx-row-table")).toBe(true);
+      expect(row.classList.contains("ws-tx-row-noasset")).toBe(true);
+      // Контрагент · Категорія · Рахунок · Дата і час · Сума, as in the list.
+      expect(row.querySelectorAll(".ws-tx-who, .ws-tx-cell, .ws-row-money")).toHaveLength(5);
+      expect(plain(row.querySelectorAll(".ws-tx-cell-text")[0]!.textContent)).toBe("Щоденний ··4417");
+      expect(row.querySelector(".ws-row-check")).toBeNull();
+    }
+    // A row opens the transaction, as in the list.
+    expect(
+      within(block)
+        .getByRole("link", { name: /^Магазин 1,/ })
+        .getAttribute("href"),
+    ).toMatch(/^#\/money\/transactions\/00000000-/);
+  });
+
+  it("GRID-02@PoC FR 17: the «Категорія» column has a fixed width and holds the icon chip, the amounts stand on the right; «Усі N транзакцій рахунку» is under the table and opens the list with the account filter", async () => {
+    renderAt(at, api().client);
+    const block = await screen.findByRole("region", { name: "Транзакції" });
+    await within(block).findByText("Магазин 1");
+    const row = block.querySelector(".ws-tx-row-table:not(.ws-tx-head)")!;
+    expect(row.querySelector(".ws-tx-cell .ws-tx-category-dot")).not.toBeNull();
+    expect(plain(row.querySelector(".ws-tx-cell")!.textContent)).toBe("Продукти");
+    expect(plain(block.querySelector(".ws-tx-head-amount")!.textContent)).toBe("Сума");
+    // The columns of the table form: the category's is a fixed width (not a share), the amount's is the last one.
+    expect(uiCss).toMatch(
+      /\.ws-tx-row-table\.ws-tx-row-noasset \{ grid-template-columns: minmax\(calc\(var\(--ws-space-8\) \* 2\.5\), 3fr\) calc\(var\(--ws-space-8\) \* 3\) minmax\(0, 2fr\) calc\(var\(--ws-space-8\) \* 2\) calc\(var\(--ws-space-8\) \* 2\);/,
+    );
+    expect(uiCss).toContain(".ws-tx-head-amount { text-align: end; }");
+    const all = within(block).getByRole("link", { name: /^Усі 28\s+транзакцій рахунку$/ });
+    expect(all.closest(".acard-all")!.previousElementSibling!.classList.contains("ws-tx-table")).toBe(true);
+    expect(all.getAttribute("href")).toBe(`#/money/transactions?account=${ACCOUNT_ID}`);
+  });
+
+  it("GRID-02@PoC AC2: the card's table is a stack of cards below 520 px of its own container, like the list's", () => {
+    expect(uiCss).toContain(".ws-tx-table { container-type: inline-size;");
+    expect(uiCss).toMatch(
+      /@container \(max-width: 519px\) \{ \.ws-tx-table \.ws-tx-head \{ position: absolute;/,
+    );
+    expect(uiCss).toContain(
+      ".ws-tx-table .ws-tx-row-table.ws-tx-row-table { display: flex; flex-wrap: wrap;",
+    );
+  });
+});
