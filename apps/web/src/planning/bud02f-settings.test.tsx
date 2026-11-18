@@ -277,6 +277,26 @@ describe("BUD-02@PoC f) the way in", () => {
     await waitFor(() => expect((switchOf("Ощадний") as HTMLInputElement).checked).toBe(true));
   });
 
+  it("BUD-02@PoC AC14: the «Не збережено для рахунків» alert goes away when the draft changes or «Скасувати» is pressed", async () => {
+    mount("accounts", {
+      [`PUT /v1/budget/accounts/${id(2)}`]: problem(500, "INTERNAL"),
+    });
+    await screen.findByRole("table");
+    const fail = async () => {
+      fireEvent.click(switchOf("Кредитна"));
+      fireEvent.click(screen.getByRole("button", { name: "Зберегти зміни" }));
+      await screen.findByText(/Не збережено для рахунків/);
+    };
+    await fail();
+    fireEvent.click(switchOf("Ощадний"));
+    expect(screen.queryByText(/Не збережено для рахунків/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect((switchOf("Ощадний") as HTMLInputElement).checked).toBe(false));
+    await fail();
+    fireEvent.click(screen.getByRole("button", { name: "Скасувати" }));
+    expect(screen.queryByText(/Не збережено для рахунків/)).toBeNull();
+  });
+
   it("BUD-02@PoC AC15: the groups follow the saved state, not the draft: a switched row stays in its group until it is saved", async () => {
     mount("accounts");
     await screen.findByRole("table");
@@ -322,7 +342,7 @@ describe("BUD-02@PoC f) the way in", () => {
     expect(row("Поточний")).not.toContain("5 200");
   });
 
-  it("BUD-02@PoC FR 17: closed accounts are requested, and a closed one still in the budget is listed so it can be switched off; a closed one outside the budget is not", async () => {
+  it("BUD-02@PoC FR 10: closed accounts are requested, and a closed one still in the budget is listed so it can be switched off; a closed one outside the budget is not", async () => {
     const closed = (n: number, name: string) => ({
       ...account(n, name, "current", "0.00", null),
       status: "closed",
