@@ -231,7 +231,7 @@ describe("UX-09@PoC focus mode", () => {
     return onClose;
   };
 
-  it("UX-09@PoC AC 6: with unsaved data «×» asks «Зберегти зміни?» inside the page with «Редагувати далі», «Не зберігати», «Зберегти»; nothing closes until a choice", () => {
+  it("UX-09@PoC FR 10: with unsaved data «×» asks «Зберегти зміни?» inside the page with «Редагувати далі», «Не зберігати», «Зберегти»; nothing closes until a choice", () => {
     const onSave = vi.fn();
     const onClose = renderFocus({ onSave });
     expect(screen.queryByRole("navigation")).toBeNull();

@@ -66,7 +66,7 @@ describe("PageTabs in the shell (UX-09@PoC)", () => {
     ],
   };
 
-  it("UX-09@PoC FR 3: the tabs of every page look the same — one tablist of pill links with the same classes, whatever the section", () => {
+  it("PageTabs: the «Транзакції» and «Борги» tab sets get one tablist of pill links with the same classes (only part of the navigation item on tabs: the «Бюджет» tabs do not exist yet, so it stays uncovered)", () => {
     const shapes = Object.entries(sets).map(([name, list]) => {
       const { container, unmount } = render(
         <PageTabs

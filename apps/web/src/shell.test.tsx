@@ -395,7 +395,7 @@ describe("GRID-00@PoC shell", () => {
     expect(nav().className).toContain("ws-nav-sidebar");
   });
 
-  it("GRID-00 AC8, DS-14@PoC AC5: the first focusable element is «Перейти до вмісту»; after navigation the focus moves to main", () => {
+  it("GRID-00 AC8, DS-14@PoC AC5, UX-09@PoC FR 13: the first focusable element is «Перейти до вмісту»; after navigation the focus moves to main", () => {
     render(<App />);
     const focusables = document.querySelectorAll<HTMLElement>("a[href], button");
     expect(focusables[0]!.textContent).toBe("Перейти до вмісту");
