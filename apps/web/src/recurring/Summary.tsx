@@ -16,8 +16,8 @@ const addDays = (isoDate: string, days: number): string => {
  * nearest charges of the next 30 days. The sums for a month and a year wait for the API (they need the occurrences
  * and the rates of payments in other currencies), so no total is shown rather than a wrong one.
  */
-export function Summary({ data, today }: { data: RecurringData; today: string }) {
-  const { t, locale } = useI18n();
+export function Summary({ data }: { data: RecurringData }) {
+  const { t } = useI18n();
   const byId = new Map(data.payments.map((p) => [p.id, p]));
   let overdue = 0;
   let missing = 0;
@@ -26,6 +26,25 @@ export function Summary({ data, today }: { data: RecurringData; today: string })
     if (byId.get(id)?.type === "income") missing++;
     else overdue++;
   }
+  return (
+    <section className="ws-card rec-card rec-summary" aria-labelledby="rec-sum-title">
+      <div className="rec-section-head">
+        <h2 id="rec-sum-title" className="rec-label">
+          {t("recurring.summary.title")}
+        </h2>
+      </div>
+      <div className="rec-summary-body">
+        {overdue > 0 ? <StatusMark id="d.summaryOverdue" params={{ count: overdue }} /> : null}
+        {missing > 0 ? <StatusMark id="d.summaryMissing" params={{ count: missing }} /> : null}
+        {overdue === 0 && missing === 0 ? <p className="ws-muted">{t("recurring.summary.none")}</p> : null}
+      </div>
+    </section>
+  );
+}
+
+/** FR 7: the nearest charges of the next 30 days, each by its next date. */
+export function Nearest({ data, today }: { data: RecurringData; today: string }) {
+  const { t, locale } = useI18n();
   const to = addDays(today, NEAREST_DAYS);
   const nearest: Payment[] = data.payments
     .filter((p) => p.nextDate !== null && p.nextDate >= today && p.nextDate <= to)
@@ -38,18 +57,14 @@ export function Summary({ data, today }: { data: RecurringData; today: string })
     );
   const shown = nearest.slice(0, SHOWN);
   return (
-    <section className="ws-card rec-card rec-summary" aria-labelledby="rec-sum-title">
+    <section className="ws-card rec-card rec-summary" aria-labelledby="rec-near-title">
       <div className="rec-section-head">
-        <h2 id="rec-sum-title" className="rec-label">
-          {t("recurring.summary.title")}
+        <h2 id="rec-near-title" className="rec-label">
+          {t("recurring.nearest.title")}
         </h2>
+        <p className="ws-muted rec-hint">{t("recurring.nearest.hint", { count: nearest.length })}</p>
       </div>
       <div className="rec-summary-body">
-        {overdue > 0 ? <StatusMark id="d.summaryOverdue" params={{ count: overdue }} /> : null}
-        {missing > 0 ? <StatusMark id="d.summaryMissing" params={{ count: missing }} /> : null}
-        {overdue === 0 && missing === 0 ? <p className="ws-muted">{t("recurring.summary.none")}</p> : null}
-        <h3 className="rec-label">{t("recurring.nearest.title")}</h3>
-        <p className="ws-muted rec-hint">{t("recurring.nearest.hint", { count: nearest.length })}</p>
         <ul className="rec-nearest">
           {shown.map((p) => (
             <li key={p.id}>

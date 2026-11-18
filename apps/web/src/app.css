@@ -1376,7 +1376,7 @@ code {
   gap: var(--ws-space-1);
   min-height: 5rem;
   padding: var(--ws-space-1);
-  border: 1px solid var(--ws-border-subtle);
+  border: 1px solid var(--ws-line);
   border-radius: var(--ws-radius-sm);
 }
 

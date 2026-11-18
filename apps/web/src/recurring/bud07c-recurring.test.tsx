@@ -222,7 +222,7 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     expect(region("calendar").className).toContain("plan-span-8");
     expect(region("side").className).toContain("plan-span-4");
     expect(region("details").className).toContain("plan-span-12");
-    expect(region("calendar").dataset.empty).toBe("true");
+    expect(within(region("calendar")).getByRole("grid", { name: "Календар" })).toBeTruthy();
     expect([...region("side").children].map((c) => c.getAttribute("data-plan-region"))).toEqual([
       "summary",
       "upcoming",
@@ -326,7 +326,7 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     expect(screen.getByRole("button", { name: "Не регулярний: Megogo" })).toBeTruthy();
   });
 
-  it("BUD-07@PoC S-141 list (the list part of the seventh item; calendar and totals wait for row 26): «Підписки», other payments and income, each by the next date, with frequency, account and amount", async () => {
+  it("BUD-07@PoC S-141 list (the list part of the seventh item): «Підписки», other payments and income, each by the next date, with frequency, account and amount", async () => {
     renderAt(PAGE, api().client);
     const table = await screen.findByRole("table");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Регулярні платежі");
@@ -338,7 +338,7 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     const head = within(table.querySelector("thead")!)
       .getAllByRole("columnheader")
       .map((h) => plain(h.textContent));
-    expect(head).toEqual(["Платіж", "Частота", "Наступне", "Рахунок", "Сума"]);
+    expect(head).toEqual(["Платіж", "Частота", "Наступне", "Рахунок", "Сума", "Останнє списання", "Дії"]);
     const order = screen.getAllByRole("rowheader").map((h) => plain(h.textContent));
     expect(order).toEqual([
       "YYouTubeПідписки",
@@ -350,19 +350,40 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
       plain(b.querySelector("th[scope='colgroup']")?.textContent),
     );
     expect(groups).toEqual(["Підписки · 2", "Інші платежі · 1", "Доходи · 1"]);
-    expect(cells(rowOf("^YouTube"))).toEqual(["щомісяця", "18 лист.", "Кредитна ··9021", "17,99 €"]);
-    expect(cells(rowOf("^Квартплата"))).toEqual(["щомісяця", "28 лист.", "Поточний ··4417", "≈ 90,00 €"]);
-    expect(cells(rowOf("^Зарплата"))).toEqual(["щомісяця", "1 груд.", "Поточний ··4417", "+3 400,00 €"]);
+    expect(cells(rowOf("^YouTube"))).toEqual(["щомісяця", "18 лист.", "Кредитна ··9021", "17,99 €", "", ""]);
+    expect(cells(rowOf("^Квартплата"))).toEqual([
+      "щомісяця",
+      "28 лист.",
+      "Поточний ··4417",
+      "≈ 90,00 €",
+      "",
+      "",
+    ]);
+    expect(cells(rowOf("^Зарплата"))).toEqual([
+      "щомісяця",
+      "1 груд.",
+      "Поточний ··4417",
+      "+3 400,00 €",
+      "",
+      "",
+    ]);
     expect(screen.getByRole("link", { name: "Додати вручну" }).getAttribute("href")).toBe(FORM);
   });
 
-  it("BUD-07@PoC S-141 list (the list part of the seventh item; calendar and totals wait for row 26): without account and category names (their lists failed) the payments still show", async () => {
+  it("BUD-07@PoC S-141 list (the list part of the seventh item): without account and category names (their lists failed) the payments still show", async () => {
     renderAt(
       PAGE,
       api({ "GET /v1/accounts": problem(500, "INTERNAL"), "GET /v1/categories": "network" }).client,
     );
     await screen.findByRole("table");
-    expect(cells(rowOf("^YouTube"))).toEqual(["щомісяця", "18 лист.", "Рахунок не вказано", "17,99 €"]);
+    expect(cells(rowOf("^YouTube"))).toEqual([
+      "щомісяця",
+      "18 лист.",
+      "Рахунок не вказано",
+      "17,99 €",
+      "",
+      "",
+    ]);
     expect(plain(rowOf("^YouTube").textContent)).toContain("Без категорії");
   });
 
@@ -551,5 +572,171 @@ describe("BUD-07@PoC c) S-141 «Регулярні платежі»", () => {
     for (const b of screen.getAllByRole("button", { name: /Megogo/ })) expect(b.tagName).toBe("BUTTON");
     // The initials tile is decorative: the name is read once, from the text.
     expect(rowOf("^YouTube").querySelector(".rec-tile")!.getAttribute("aria-hidden")).toBe("true");
+  });
+});
+
+const charge = (over: Record<string, unknown>) => ({
+  dueOn: "2026-11-05",
+  expectedAmount: money("17.99"),
+  status: "expected",
+  transactionId: null,
+  paidOn: null,
+  amount: null,
+  overdueDays: null,
+  markedOn: null,
+  approximate: false,
+  amountChange: null,
+  ...over,
+});
+
+const status = (paymentId: string, over: Record<string, unknown>) => ({
+  paymentId,
+  state: "active",
+  expectedAmount: money("17.99"),
+  amountChange: null,
+  missesInRow: 0,
+  approximate: false,
+  lastCharge: null,
+  nextCharge: null,
+  ...over,
+});
+
+const OVERDUE = charge({ dueOn: "2026-11-10", status: "overdue", overdueDays: 6 });
+const STATUSES = [
+  status("p1", {
+    lastCharge: charge({ dueOn: "2026-10-18", status: "paid", paidOn: "2026-10-18" }),
+    amountChange: { from: money("15.99"), to: money("17.99"), on: "2026-10-18", transactionId: "t1" },
+  }),
+  status("p2", { lastCharge: charge({ dueOn: "2026-11-03", status: "paid-late", paidOn: "2026-11-12" }) }),
+  status("p3", { state: "possibly-cancelled", lastCharge: OVERDUE, missesInRow: 2 }),
+  status("p4", {
+    lastCharge: charge({
+      dueOn: "2026-11-10",
+      status: "overdue",
+      overdueDays: 6,
+      expectedAmount: money("3400.00"),
+    }),
+  }),
+];
+const CHARGES: Record<string, unknown[]> = {
+  p3: [charge({ dueOn: "2026-10-10", status: "skipped", markedOn: "2026-11-01" }), OVERDUE],
+  p4: [charge({ dueOn: "2026-11-10", status: "overdue", overdueDays: 6 })],
+};
+function statusApi(over: Record<string, Handler> = {}) {
+  const handlers: Record<string, Handler> = {
+    "GET /v1/recurring/statuses": { status: 200, body: { items: STATUSES } },
+    ...over,
+  };
+  for (const p of PAYMENTS)
+    handlers[`GET /v1/recurring/payments/${p.id}/charges`] = {
+      status: 200,
+      body: { paymentId: p.id, items: CHARGES[p.id] ?? [] },
+    };
+  return api(handlers);
+}
+
+describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
+  it("BUD-07@PoC FR 9, AC13: «Останнє списання» shows only the payment; a change of the amount is a mark beside the amount with its tooltip", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    const youtube = cells(rowOf("^YouTube"));
+    expect(youtube[3]).toBe("17,99 €▲2,00 €Статус: Сума зросла з 15,99 € (18 жовт.)");
+    expect(youtube[4]).toBe("✓Сплачено 18 жовт.Статус: Сплачено 18 жовт.");
+    expect(cells(rowOf("^Spotify"))[4]).toContain("Сплачено із запізненням · 12 лист.");
+    expect(cells(rowOf("^Квартплата"))[4]).toContain("Прострочено на 6 дн.");
+    expect(cells(rowOf("^Зарплата"))[4]).toContain("Дохід не надійшов · 6 дн.");
+    expect(within(rowOf("^YouTube")).getByTitle("Сума зросла з 15,99 € (18 жовт.)")).toBeTruthy();
+  });
+
+  it("BUD-07@PoC FR 9, FR 10, AC4: a payment «Можливо, скасований» has the badge beside its name", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    expect(within(rowOf("^Квартплата")).getByText("Можливо, скасований")).toBeTruthy();
+    expect(within(rowOf("^YouTube")).queryByText("Можливо, скасований")).toBeNull();
+  });
+
+  it("BUD-07@PoC FR 10: «Залишити» keeps the payment and the list is read again", async () => {
+    const keep = vi.fn(() => ({ status: 200, body: PAYMENTS[2] }));
+    const { client, calls } = statusApi({ "POST /v1/recurring/payments/p3/keep": keep });
+    renderAt(PAGE, client);
+    await screen.findByRole("table");
+    fireEvent.click(within(rowOf("^Квартплата")).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Залишити" }));
+    await waitFor(() => expect(keep).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === "/v1/recurring/payments").length).toBeGreaterThan(1),
+    );
+    expect(document.getElementById("rec-notice")!.textContent).toBe(
+      "«Квартплата» лишається в регулярних платежах.",
+    );
+  });
+
+  it("BUD-07@PoC FR 21, AC16: «Позначити пропущеним» is offered only for an overdue charge and sends its date", async () => {
+    const skip = vi.fn(() => ({ status: 200, body: charge({ dueOn: "2026-11-10", status: "skipped" }) }));
+    const { client } = statusApi({ "POST /v1/recurring/payments/p4/charges/2026-11-10/skip": skip });
+    renderAt(PAGE, client);
+    await screen.findByRole("table");
+    expect(within(rowOf("^YouTube")).queryByRole("button", { name: "Ще дії" })).toBeNull();
+    fireEvent.click(within(rowOf("^Зарплата")).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Позначити пропущеним" }));
+    await waitFor(() => expect(skip).toHaveBeenCalledTimes(1));
+    expect(plain(document.getElementById("rec-notice")!.textContent)).toBe(
+      "Списання «Зарплата · Олена» за 10 лист. позначено пропущеним.",
+    );
+  });
+
+  it("BUD-07@PoC FR 21: a refused «Позначити пропущеним» is said and nothing else changes", async () => {
+    const { client } = statusApi({
+      "POST /v1/recurring/payments/p4/charges/2026-11-10/skip": problem(409, "RECURRING_CHARGE_NOT_OVERDUE"),
+    });
+    renderAt(PAGE, client);
+    await screen.findByRole("table");
+    fireEvent.click(within(rowOf("^Зарплата")).getByRole("button", { name: "Ще дії" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Позначити пропущеним" }));
+    await waitFor(() =>
+      expect(document.getElementById("rec-notice")!.textContent).toContain("Не вдалося зберегти рішення."),
+    );
+  });
+
+  it("GRID-04@PoC AC 4: a skipped payment is «Пропущено» in the calendar, by word and marker", async () => {
+    vi.setSystemTime(new Date("2026-10-16T10:00:00Z"));
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    const cell = document.querySelector("[role='gridcell'][data-date='2026-10-10']") as HTMLElement;
+    expect(cell).toBeTruthy();
+    expect(within(cell).getByText("Квартплата")).toBeTruthy();
+    expect(plain(cell.textContent)).toContain("!");
+    expect(within(cell).getByText("Статус: Пропущено")).toBeTruthy();
+  });
+
+  it("BUD-07@PoC FR 7, FR 9: the calendar shows the charges of the month and the legend has three groups", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    const grid = screen.getByRole("grid", { name: "Календар" });
+    const cell = grid.querySelector("[data-date='2026-11-10']") as HTMLElement;
+    expect(within(cell).getByText("Зарплата · Олена")).toBeTruthy();
+    expect(within(cell).getByText("Статус: Дохід не надійшов · 6 днів")).toBeTruthy();
+    expect(grid.querySelector("[data-today]")?.getAttribute("data-date")).toBe("2026-11-16");
+    const legend = document.querySelector(".rec-legend") as HTMLElement;
+    const titles = [...legend.querySelectorAll(".rec-legend-group > .rec-label")].map((e) => e.textContent);
+    expect(titles).toEqual(["Статус списання", "Зміна суми", "Стан платежу"]);
+  });
+
+  it("BUD-07@PoC FR 9: the summary counts the overdue charges and lists the nearest ones of the 30 days", async () => {
+    renderAt(PAGE, statusApi().client);
+    await screen.findByRole("table");
+    const summary = screen.getByRole("region", { name: "Підсумок" });
+    expect(plain(summary.textContent)).toContain("Прострочено · 1");
+    expect(plain(summary.textContent)).toContain("Дохід не надійшов · 1");
+    const nearest = screen.getByRole("region", { name: "Найближчі" });
+    expect(plain(nearest.textContent)).toContain("наступні 30 днів · 4");
+    expect(within(nearest).getAllByRole("listitem")[0]?.textContent).toContain("YouTube");
+  });
+
+  it("BUD-07@PoC S-141: when the statuses and the charges fail the payments still show, without status", async () => {
+    renderAt(PAGE, api().client);
+    await screen.findByRole("table");
+    expect(cells(rowOf("^YouTube"))[4]).toBe("");
+    expect(within(screen.getByRole("table")).queryByText("Можливо, скасований")).toBeNull();
   });
 });

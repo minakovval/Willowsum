@@ -20,7 +20,7 @@ import {
 import { PlanGrid, PlanRegion } from "../planning/PlanGrid.tsx";
 import { RecurringCalendar } from "./Calendar.tsx";
 import { LoadError } from "./LoadError.tsx";
-import { Summary } from "./Summary.tsx";
+import { Nearest, Summary } from "./Summary.tsx";
 import { AmountChange, ChargeStatus } from "./status.tsx";
 import { counted, expectedText, FREQUENCY_KEYS, monthTitle, shortDate } from "./format.ts";
 
@@ -85,7 +85,10 @@ export function RecurringPage({ today = kyivToday() }: { today?: string }) {
             </PlanRegion>
             <div className="plan-region plan-span-4 plan-stack" data-plan-region="side">
               <PlanRegion name="summary" span={12}>
-                <Summary data={result.data} today={today} />
+                <Summary data={result.data} />
+              </PlanRegion>
+              <PlanRegion name="upcoming" span={12}>
+                <Nearest data={result.data} today={today} />
               </PlanRegion>
             </div>
             <PlanRegion name="details" span={12}>
