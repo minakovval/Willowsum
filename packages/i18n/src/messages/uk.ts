@@ -615,8 +615,14 @@ export const uk = {
     "Типові групи категорій без сум. Ліміти й план доходу ви задасте самі.",
   "planning.budget.wizard.period.title": "Період бюджету",
   "planning.budget.wizard.period.calendar": "Бюджет рахується за календарними місяцями.",
-  "planning.budget.wizard.period.mid":
+  "planning.budget.wizard.period.mid.one":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} день з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.few":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} дні з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.many":
     "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} днів з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.other":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} дня з {all}. Як порахувати перший період?",
   "planning.budget.wizard.period.mid.label": "Ви починаєте посеред періоду",
   "planning.budget.wizard.period.choose": "Оберіть, як порахувати перший період",
   "planning.budget.wizard.start.period": "З 1 {month}",

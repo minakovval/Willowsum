@@ -616,7 +616,13 @@ export const en: Messages = {
     "Standard category groups without amounts. You set the limits and the income plan yourself.",
   "planning.budget.wizard.period.title": "Budget period",
   "planning.budget.wizard.period.calendar": "The budget runs on calendar months.",
-  "planning.budget.wizard.period.mid":
+  "planning.budget.wizard.period.mid.one":
+    "You are starting mid-period: today is {month} {day}, {left} day of {all} is left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.few":
+    "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.many":
+    "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.other":
     "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
   "planning.budget.wizard.period.mid.label": "You are starting mid-period",
   "planning.budget.wizard.period.choose": "Choose how to count the first period",
@@ -640,7 +646,7 @@ export const en: Messages = {
   "planning.budget.wizard.limits.col.limit": "Monthly limit",
   "planning.budget.wizard.limits.of": "Limit: {category}",
   "planning.budget.wizard.limits.outside":
-    "Categories without a limit go to the group «Outside the plan»; their spending also reduces «Can spend».",
+    "Categories without a limit go to the group «Outside the plan»; their spending also reduces «Safe to spend».",
   "planning.budget.wizard.error.create": "Could not create the budget. Try again",
   "planning.budget.month.01.gen": "January",
   "planning.budget.month.02.gen": "February",

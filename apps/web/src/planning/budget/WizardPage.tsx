@@ -1,10 +1,10 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatLocaleOf, formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
 import { AmountField, Button, FocusShell, Skeleton, Stepper, type StepState } from "@willowsum/ui";
 import { useAuthApi } from "../../auth/api.ts";
 import { failureOf } from "../../auth/failure.ts";
 import { Icon } from "@willowsum/ui";
-import { kyivToday, useLoad } from "../../recurring/data.ts";
+import { useLoad } from "../../recurring/data.ts";
 import { BUDGET } from "../../routing/routes.ts";
 import { useDocumentTitle } from "../../useDocumentTitle.ts";
 import "./budget.css";
@@ -28,7 +28,7 @@ const monthWord = (t: Translate, locale: string, period: string): string => {
  * API's; the entered amounts go to `POST /v1/budget` as decimal strings. «Розподіл» (S-287) and the bottom strip of the
  * limits step wait for the server part of row 31; until then the limits step ends with «Створити бюджет».
  */
-export function BudgetWizardPage({ today = kyivToday() }: { today?: string }) {
+export function BudgetWizardPage() {
   const { t } = useI18n();
   const title = t("planning.budget.wizard.title");
   useDocumentTitle(title);
@@ -38,7 +38,10 @@ export function BudgetWizardPage({ today = kyivToday() }: { today?: string }) {
     window.location.hash = BUDGET.path;
   };
   const data = result.state === "ready" ? result.data : null;
-  if (data?.kind === "exists") window.location.replace(`#${BUDGET.path}`);
+  const exists = data?.kind === "exists";
+  useEffect(() => {
+    if (exists) window.location.replace(`#${BUDGET.path}`);
+  }, [exists]);
   return (
     <FocusShell title={title} closeLabel={t("shell.close")} onClose={close}>
       {result.state === "error" ? (
@@ -59,7 +62,7 @@ export function BudgetWizardPage({ today = kyivToday() }: { today?: string }) {
           ) : null}
         </section>
       ) : data?.kind === "ready" ? (
-        <Wizard data={data} today={today} onClose={close} />
+        <Wizard data={data} onClose={close} />
       ) : (
         <Skeleton variant="row" lines={4} />
       )}
@@ -67,7 +70,7 @@ export function BudgetWizardPage({ today = kyivToday() }: { today?: string }) {
   );
 }
 
-function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose: () => void }) {
+function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const { wizard, currency } = data;
@@ -77,6 +80,9 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
   const [startId, setStartId] = useState<Start["start"] | null>(null);
   const [income, setIncome] = useState<string | null>(null);
   const [limits, setLimits] = useState<ReadonlyMap<string, string | null>>(new Map());
+  // Fields whose text does not parse (AmountField reports a problem): the budget cannot be created while any is there.
+  const [problems, setProblems] = useState<ReadonlySet<string>>(new Set());
+  const [opened, setOpened] = useState<Method | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const key = useRef<{ body: string; key: string } | null>(null);
@@ -85,9 +91,27 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
     ? (wizard.starts.find((s) => s.start === startId) ?? null)
     : (wizard.starts[0] ?? null);
   const money = (m: { amount: string; currency: string }) => formatMoney(locale, m.amount, m.currency);
+  // The months of the history come from the server's «today», not from the device's clock.
+  const today = wizard.today;
+  const months = [shiftMonth(monthOf(today), -3), shiftMonth(monthOf(today), -1)] as const;
+  const setProblem = (field: string, problem: boolean) =>
+    setProblems((old) => {
+      if (old.has(field) === problem) return old;
+      const next = new Set(old);
+      if (problem) next.add(field);
+      else next.delete(field);
+      return next;
+    });
 
-  // The limits step opens with the server's suggestion («за моїми витратами») or empty («з нуля»).
+  // The limits step opens with the server's suggestion («за моїми витратами») or empty («з нуля»); going back
+  // and forward keeps what was edited, and a changed method starts over.
   const openLimits = () => {
+    if (opened === method) {
+      setStep(2);
+      return;
+    }
+    setOpened(method);
+    setProblems(new Set());
     if (method === "spending") {
       setIncome(spending.incomePlan?.amount ?? null);
       setLimits(
@@ -106,7 +130,7 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
   };
 
   const submit = async () => {
-    if (busy || start === null) return;
+    if (busy || start === null || problems.size > 0) return;
     setBusy(true);
     setFailed(false);
     const body = createBody({ start, currency, income, limits });
@@ -134,24 +158,24 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
         onSelect={(i) => (i < step ? setStep(i) : undefined)}
       />
       {step === 0 ? (
-        <MethodStep
-          method={method}
-          onChange={setMethod}
-          data={data}
-          months={[shiftMonth(monthOf(today), -3), shiftMonth(monthOf(today), -1)]}
-          money={money}
-        />
+        <MethodStep method={method} onChange={setMethod} data={data} months={months} money={money} />
       ) : step === 1 ? (
-        <PeriodStep wizard={wizard} today={today} startId={startId} onStart={setStartId} />
+        <PeriodStep wizard={wizard} startId={startId} onStart={setStartId} />
       ) : (
         <LimitsStep
           data={data}
           method={method}
           income={income}
-          onIncome={setIncome}
+          onIncome={(v, problem) => {
+            setProblem("income", problem);
+            if (!problem) setIncome(v);
+          }}
           limits={limits}
-          onLimit={(id, value) => setLimits((old) => new Map(old).set(id, value))}
-          months={[shiftMonth(monthOf(today), -3), shiftMonth(monthOf(today), -1)]}
+          onLimit={(id, v, problem) => {
+            setProblem(id, problem);
+            if (!problem) setLimits((old) => new Map(old).set(id, v));
+          }}
+          months={months}
           money={money}
         />
       )}
@@ -184,6 +208,20 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
             variant="primary"
             onClick={() => void submit()}
             loading={busy}
+            {...(problems.size > 0
+              ? {
+                  disabled: true as const,
+                  disabledReason: t("dialog.form.reason.fix", {
+                    fields: [
+                      ...(problems.has("income") ? [t("planning.budget.wizard.limits.income")] : []),
+                      ...data.groups
+                        .flatMap((g) => g.categories)
+                        .filter((c) => problems.has(c.id))
+                        .map((c) => c.name),
+                    ].join(", "),
+                  }),
+                }
+              : {})}
             label={t("planning.budget.wizard.create")}
           />
         )}
@@ -200,7 +238,11 @@ const rangeOf = (
   t: Translate,
   locale: string,
   [from, to]: readonly [string, string] | readonly string[],
-): string => `${monthWord(t, locale, from!)}–${monthWord(t, locale, to!)}`;
+  form: "nominative" | "genitive" = "nominative",
+): string =>
+  form === "genitive"
+    ? `${genitive(t, from!)}–${genitive(t, to!)}`
+    : `${monthWord(t, locale, from!)}–${monthWord(t, locale, to!)}`;
 
 function MethodStep({
   method,
@@ -274,39 +316,47 @@ function MethodStep({
 
 function PeriodStep({
   wizard,
-  today,
   startId,
   onStart,
 }: {
   wizard: Ready["wizard"];
-  today: string;
   startId: Start["start"] | null;
   onStart: (s: Start["start"]) => void;
 }) {
   const { t, locale } = useI18n();
-  const month = monthWord(t, locale, monthOf(today));
-  const day = Number(today.slice(8, 10));
-  const proportional = wizard.starts.find((s) => s.start === "proportional");
+  // Every label is built from the server's `today` and starts (`from`, `to`), not from the device's clock.
+  const at = (id: Start["start"]) => wizard.starts.find((x) => x.start === id);
+  const current = monthOf(at("period-start")?.from ?? wizard.today);
+  const nextPeriod = at("next-period");
+  const proportional = at("proportional");
+  const left = proportional?.days ?? 0;
+  const rule = new Intl.PluralRules(formatLocaleOf(locale)).select(left);
   const params = {
-    day: String(day),
-    month: genitive(t, monthOf(today)),
+    day: String(Number(wizard.today.slice(8, 10))),
+    month: genitive(t, current),
     left: String(proportional?.days ?? ""),
     all: String(proportional?.daysInPeriod ?? ""),
   };
-  const nextMonth = shiftMonth(monthOf(today), 1);
   const labels: Record<Start["start"], { title: string; body: string }> = {
     "period-start": {
-      title: t("planning.budget.wizard.start.period", { month: genitive(t, monthOf(today)) }),
-      body: t("planning.budget.wizard.start.period.body", { month, gen: genitive(t, monthOf(today)) }),
+      title: t("planning.budget.wizard.start.period", { month: genitive(t, current) }),
+      body: t("planning.budget.wizard.start.period.body", {
+        month: monthWord(t, locale, current),
+        gen: genitive(t, current),
+      }),
     },
     "next-period": {
-      title: t("planning.budget.wizard.start.next", { next: `1 ${genitive(t, nextMonth)}` }),
-      body: t("planning.budget.wizard.start.next.body", { month }),
+      title: t("planning.budget.wizard.start.next", {
+        next: `${Number((nextPeriod?.from ?? "").slice(8, 10))} ${genitive(t, monthOf(nextPeriod?.from ?? wizard.today))}`,
+      }),
+      body: t("planning.budget.wizard.start.next.body", {
+        month: t(`planning.budget.month.${current.slice(5, 7)}` as MessageKey),
+      }),
     },
     proportional: {
       title: t("planning.budget.wizard.start.proportional", {
-        from: String(day),
-        to: String(proportional?.daysInPeriod ?? ""),
+        from: String(Number((proportional?.from ?? "").slice(8, 10))),
+        to: String(Number((proportional?.to ?? "").slice(8, 10))),
         month: params.month,
         left: params.left,
         all: params.all,
@@ -323,12 +373,15 @@ function PeriodStep({
       {wizard.midPeriod ? (
         <>
           <p>
-            {t("planning.budget.wizard.period.mid", {
-              day: params.day,
-              month: params.month,
-              left: params.left,
-              all: params.all,
-            })}
+            {t(
+              `planning.budget.wizard.period.mid.${rule === "zero" || rule === "two" ? "other" : rule}` as MessageKey,
+              {
+                day: params.day,
+                month: params.month,
+                left: params.left,
+                all: params.all,
+              },
+            )}
           </p>
           <div
             role="radiogroup"
@@ -369,15 +422,16 @@ function LimitsStep({
   data: Ready;
   method: Method;
   income: string | null;
-  onIncome: (v: string | null) => void;
+  onIncome: (v: string | null, problem: boolean) => void;
   limits: ReadonlyMap<string, string | null>;
-  onLimit: (id: string, v: string | null) => void;
+  onLimit: (id: string, v: string | null, problem: boolean) => void;
   months: readonly string[];
   money: (m: { amount: string; currency: string }) => string;
 }) {
   const { t, locale } = useI18n();
   const spending = method === "spending";
   const range = rangeOf(t, locale, months);
+  const rangeGen = rangeOf(t, locale, months, "genitive");
   return (
     <section aria-labelledby="bud-wiz-h">
       <h2 id="bud-wiz-h" className="ws-text-heading-2">
@@ -386,7 +440,7 @@ function LimitsStep({
       <p className="ws-muted">
         {spending
           ? t("planning.budget.wizard.limits.spending", {
-              months: range,
+              months: rangeGen,
               unit: money({ amount: "10", currency: data.currency }),
             })
           : t("planning.budget.wizard.limits.zero")}
@@ -396,7 +450,7 @@ function LimitsStep({
           label={t("planning.budget.wizard.limits.income")}
           currency={data.currency}
           value={income}
-          onChange={(v) => onIncome(v)}
+          onChange={(v, problem) => onIncome(v, problem !== null)}
           hint={spending ? t("planning.budget.wizard.limits.income.hint", { months: range }) : undefined}
         />
         {spending && data.wizard.fromSpending.incomeIrregular ? (
@@ -428,7 +482,7 @@ function LimitsStep({
                     labelHidden
                     currency={data.currency}
                     value={limits.get(c.id) ?? null}
-                    onChange={(v) => onLimit(c.id, v)}
+                    onChange={(v, problem) => onLimit(c.id, v, problem !== null)}
                   />
                 </td>
               </tr>

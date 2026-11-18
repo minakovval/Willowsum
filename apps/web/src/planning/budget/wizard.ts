@@ -95,7 +95,8 @@ export function createBody(args: {
     // A first of the month has the one start; `period-start` is the current month, `next-period` the next one.
     firstPeriod: args.start.firstPeriod,
     proportional: args.start.start === "proportional",
-    incomePlan: { amount: args.income ?? "0", currency: args.currency },
+    // An empty income plan is left out: the server's default is 0 (BUD-02 POST), not a figure of the client.
+    ...(args.income !== null ? { incomePlan: { amount: args.income, currency: args.currency } } : {}),
     limits,
   };
 }

@@ -106,7 +106,7 @@ const wizard = (over: { available?: boolean; months?: number; mid?: boolean } = 
   },
 });
 
-function mount(over: Record<string, Reply> = {}, today = "2026-11-18") {
+function mount(over: Record<string, Reply> = {}) {
   const api = fakeApi({
     "GET /v1/budget": { status: 200, body: { budget: null } },
     "GET /v1/budget/wizard": { status: 200, body: wizard() },
@@ -118,7 +118,7 @@ function mount(over: Record<string, Reply> = {}, today = "2026-11-18") {
   render(
     <I18nProvider>
       <AuthApiProvider value={api.client}>
-        <BudgetWizardPage today={today} />
+        <BudgetWizardPage />
       </AuthApiProvider>
     </I18nProvider>,
   );
@@ -137,7 +137,7 @@ const postBody = (api: ReturnType<typeof mount>) =>
   api.calls.find((c) => c.method === "POST" && c.path === "/v1/budget")?.body as {
     firstPeriod: string;
     proportional: boolean;
-    incomePlan: { amount: string; currency: string };
+    incomePlan?: { amount: string; currency: string };
     limits: { categoryId: string; amount: { amount: string } }[];
   };
 
@@ -190,7 +190,7 @@ describe("BUD-02@PoC e) S-123 «Період»", () => {
   });
 
   it("BUD-02@PoC FR 5: on the first of a month there is no choice of a start", async () => {
-    mount({ "GET /v1/budget/wizard": { status: 200, body: wizard({ mid: false }) } }, "2026-11-01");
+    mount({ "GET /v1/budget/wizard": { status: 200, body: wizard({ mid: false }) } });
     await screen.findByRole("heading", { name: "Як створити бюджет?" });
     next();
     await screen.findByRole("heading", { name: "Період бюджету" });
@@ -201,6 +201,65 @@ describe("BUD-02@PoC e) S-123 «Період»", () => {
 });
 
 describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
+  async function toLimits(api = mount()) {
+    await screen.findByRole("heading", { name: "Як створити бюджет?" });
+    next();
+    fireEvent.click((await screen.findAllByRole("radio"))[2]!);
+    next();
+    await screen.findByRole("heading", { name: "Ліміти категорій" });
+    return api;
+  }
+
+  it("BUD-02@PoC AC1: an amount that does not parse keeps «Створити бюджет» inactive and nothing is sent in its place", async () => {
+    const api = await toLimits();
+    const income = screen.getByRole("textbox", { name: /План доходу на місяць/ });
+    fireEvent.change(income, { target: { value: "12,345" } });
+    fireEvent.blur(income);
+    const limit = screen.getByRole("textbox", { name: "Ліміт: Продукти" });
+    fireEvent.change(limit, { target: { value: "abc" } });
+    fireEvent.blur(limit);
+    const create = screen.getByRole("button", { name: /Створити бюджет/ });
+    expect(create.getAttribute("aria-disabled") === "true" || (create as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+    expect(plain(document.body.textContent)).toContain(
+      "Щоб продовжити, виправте: План доходу на місяць, Продукти",
+    );
+    fireEvent.click(create);
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    // Corrected: the button works again and the corrected amounts go as typed.
+    fireEvent.change(income, { target: { value: "5000" } });
+    fireEvent.blur(income);
+    fireEvent.change(limit, { target: { value: "300" } });
+    fireEvent.blur(limit);
+    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await waitFor(() => expect(postBody(api)).toBeTruthy());
+    expect(postBody(api).incomePlan?.amount).toBe("5000.00");
+    expect(postBody(api).limits[0]!.amount.amount).toBe("300.00");
+  });
+
+  it("BUD-02@PoC AC1: an empty income plan is not sent as 0", async () => {
+    const api = await toLimits();
+    const income = screen.getByRole("textbox", { name: /План доходу на місяць/ });
+    fireEvent.change(income, { target: { value: "" } });
+    fireEvent.blur(income);
+    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await waitFor(() => expect(postBody(api)).toBeTruthy());
+    expect(postBody(api).incomePlan).toBeUndefined();
+  });
+
+  it("BUD-02@PoC AC1: «Назад» and «Далі» keep the edited limits", async () => {
+    await toLimits();
+    const field = screen.getByRole("textbox", { name: "Ліміт: Транспорт" });
+    fireEvent.change(field, { target: { value: "170" } });
+    fireEvent.blur(field);
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    next();
+    expect(plain((screen.getByRole("textbox", { name: "Ліміт: Транспорт" }) as HTMLInputElement).value)).toBe(
+      "170,00",
+    );
+  });
+
   it("BUD-02@PoC AC1: «За моїми витратами» fills the limits and the income plan with the server's figures; they can be changed and go as decimal strings", async () => {
     const api = mount();
     await screen.findByRole("heading", { name: "Як створити бюджет?" });
@@ -247,7 +306,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     const body = postBody(api);
     expect(body.limits).toEqual([]);
     expect(body.proportional).toBe(false);
-    expect(body.incomePlan.amount).toBe("0");
+    expect(body.incomePlan).toBeUndefined();
   });
 
   it("BUD-02 e) error state: a refused creation shows the error and keeps the entered amounts", async () => {
