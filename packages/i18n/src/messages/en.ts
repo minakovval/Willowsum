@@ -556,7 +556,7 @@ export const en: Messages = {
   "planning.budget.filter.typeField": "Type",
   "planning.budget.filter.stateField": "State",
   "planning.budget.filter.groupField": "Group",
-  "planning.budget.shown.one": "Showing {shown} of {total} categories",
+  "planning.budget.shown.one": "Showing {shown} of {total} category",
   "planning.budget.shown.few": "Showing {shown} of {total} categories",
   "planning.budget.shown.many": "Showing {shown} of {total} categories",
   "planning.budget.shown.other": "Showing {shown} of {total} categories",

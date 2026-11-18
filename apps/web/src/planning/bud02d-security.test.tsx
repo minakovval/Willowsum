@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { fakeApi, problem, renderAt, resetAuthState, type Reply } from "../auth/testing.tsx";
-import { optionalLimits, overspend, periodFromHash, type Row } from "./budget/model.ts";
+import { optionalLimits, overspend, periodFromHash, stateOf, type Row } from "./budget/model.ts";
 
 /** Security probes of PR 545 (BUD-02@PoC d)): what S-121 asks the API, what it shows on a refusal, text not HTML, money. */
 const G = "9a000000-0000-4000-8000-000000000001";
@@ -224,5 +224,18 @@ describe("BUD-02@PoC d) security probes PR545", () => {
   it("BUD-02@PoC FR 1, FR 19: remainders in two currencies are never added into one amount", () => {
     const mixed = overspend([row(eur("-10.00")), row({ amount: "-400.00", currency: "UAH" })]);
     expect(mixed === null || mixed.amount !== "410").toBe(true);
+  });
+
+  it("BUD-02@PoC FR 1 (DS-23 FR 4): limits in two currencies are never added into the base of the overspend shade", () => {
+    const limits = [
+      row(null, { limit: eur("10.00") }),
+      row(null, { limit: { amount: "400.00", currency: "UAH" } }),
+    ];
+    expect(optionalLimits(limits)).not.toBe("410");
+  });
+
+  it("BUD-02@PoC FR 9 (owner 2026-11-18): a limit of 0 is «перевищено» only with spending", () => {
+    expect(stateOf(eur("150.00"), eur("0.00"), false)).toBe("over");
+    expect(stateOf(eur("0.00"), eur("0.00"), false)).toBe("notStarted");
   });
 });
