@@ -25,7 +25,7 @@ const KIND: Record<string, MessageKey> = {
 };
 
 /**
- * BUD-02@PoC f) FR 14, AC13, AC14, AC15 (wave 2, row 125): S-128 «Налаштування бюджету · Рахунки бюджету» and S-288
+ * BUD-02@PoC f) FR 17, AC13, AC14, AC15 (wave 2, row 125): S-128 «Налаштування бюджету · Рахунки бюджету» and S-288
  * «Загальне». «Рахунки бюджету» switches an account in or out of the budget (a draft until «Зберегти зміни»; each
  * changed account is one `PUT /v1/budget/accounts/{id}`); «Загальне» holds only «Видалити бюджет» behind a
  * confirmation (`DELETE /v1/budget`). The page has no «Режим без бюджету», «Новий старт», method or period (FR 17).

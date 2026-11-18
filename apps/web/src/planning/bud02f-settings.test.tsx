@@ -108,7 +108,8 @@ describe("BUD-02@PoC f) S-128 «Рахунки бюджету»", () => {
     expect(rows[1]).toContain("−640,00 €");
     expect((switchOf("Поточний") as HTMLInputElement).checked).toBe(true);
     expect((switchOf("Ощадний") as HTMLInputElement).checked).toBe(false);
-    expect(screen.queryByText(/Режим без бюджету|Новий старт/)).toBeNull();
+    // AC14: no change of method or period on this page.
+    expect(screen.queryByText(/Режим без бюджету|Новий старт|Метод|Період/)).toBeNull();
   });
 
   it("BUD-02@PoC AC14: «Зберегти зміни» sends one PUT per changed account and nothing else; «Скасувати» drops the draft", async () => {
@@ -177,17 +178,28 @@ describe("BUD-02@PoC f) S-288 «Загальне»", () => {
     expect(api.calls.filter((c) => c.method === "DELETE").length).toBe(1);
   });
 
+  it("BUD-02@PoC AC13: «Скасувати» in the confirmation deletes nothing and stays on the page", async () => {
+    const api = mount("general", { "DELETE /v1/budget": { status: 200, body: { deleted: true } } });
+    fireEvent.click(await screen.findByRole("button", { name: "Видалити бюджет…" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Скасувати" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(api.calls.some((c) => c.method === "DELETE")).toBe(false);
+    expect(window.location.hash).toBe("#/planning/budget/accounts");
+  });
+
   it("BUD-02@PoC AC13: a refused delete keeps the dialog open with the reason", async () => {
     mount("general", { "DELETE /v1/budget": problem(403, "FORBIDDEN") });
     fireEvent.click(await screen.findByRole("button", { name: "Видалити бюджет…" }));
     const dialog = await screen.findByRole("alertdialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Видалити бюджет" }));
-    expect(await within(dialog).findByText(/Не вдалося видалити бюджет/)).toBeTruthy();
+    // CMP-21@PoC AC6: the message inside the dialog starts with «Помилка».
+    expect((await within(dialog).findByText(/Не вдалося видалити бюджет/)).textContent).toMatch(/^Помилка/);
     expect(window.location.hash).toBe("#/planning/budget/accounts");
   });
 });
 
-describe("BUD-02@PoC f) FR 14 the way in", () => {
+describe("BUD-02@PoC f) the way in", () => {
   it("BUD-02@PoC FR 17: the gear «Налаштування бюджету» in the heading of «Бюджет» opens «Рахунки бюджету»", async () => {
     const api = fakeApi({
       "GET /v1/budget": { status: 200, body: BUDGET },
@@ -205,7 +217,7 @@ describe("BUD-02@PoC f) FR 14 the way in", () => {
     expect(gear.getAttribute("href")).toBe("#/planning/budget/accounts");
   });
 
-  it("BUD-02@PoC FR 14: «Налаштування бюджету» has two addresses under «Бюджет», one per tab", () => {
+  it("BUD-02@PoC FR 17: «Налаштування бюджету» has two addresses under «Бюджет», one per tab", () => {
     for (const [path, id] of [
       ["/planning/budget/accounts", "budgetAccounts"],
       ["/planning/budget/general", "budgetGeneral"],

@@ -536,7 +536,7 @@ export const en: Messages = {
   "planning.budget.settings.delete.text":
     "The limits, the plan and the period snapshots will be deleted. Transactions, accounts and goals stay. This cannot be undone.",
   "planning.budget.settings.deleting": "Deleting…",
-  "planning.budget.settings.delete.error": "Could not delete the budget. Try again",
+  "planning.budget.settings.delete.error": "Error. Could not delete the budget. Try again",
   "planning.budget.beforeStart": "The budget did not exist yet on this date",
   "planning.budget.past.note": "Plan versus actual · {month}",
   "planning.budget.future.hint":

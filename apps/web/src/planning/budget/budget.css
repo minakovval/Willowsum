@@ -211,9 +211,17 @@
   background: var(--ws-surface-100);
 }
 
-.bud-num {
+.bud-accounts-table .bud-num {
   text-align: end;
   font-variant-numeric: tabular-nums;
+}
+
+/* The board: the switch column is narrow, at the right edge, after the right-aligned balance. */
+.bud-accounts-table thead th:last-child,
+.bud-accounts-table td:last-child {
+  inline-size: 1%;
+  white-space: nowrap;
+  text-align: end;
 }
 
 .bud-account-cell {

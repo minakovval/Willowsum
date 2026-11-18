@@ -535,7 +535,7 @@ export const uk = {
   "planning.budget.settings.delete.text":
     "Буде видалено ліміти, план і знімки періодів. Транзакції, рахунки й цілі залишаться. Дію не можна скасувати.",
   "planning.budget.settings.deleting": "Видаляємо…",
-  "planning.budget.settings.delete.error": "Не вдалося видалити бюджет. Спробуйте ще раз",
+  "planning.budget.settings.delete.error": "Помилка. Не вдалося видалити бюджет. Спробуйте ще раз",
   "planning.budget.beforeStart": "Бюджет ще не існував на цю дату",
   "planning.budget.past.note": "План проти факту · {month}",
   "planning.budget.future.hint": "«Можна витратити» з’явиться {date}. Суми можна змінити в «Бюджет → План».",
