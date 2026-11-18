@@ -56,6 +56,7 @@ import { ListToolbarDemo } from "./ListToolbarDemo.tsx";
 import { MoreActionsDemo } from "./MoreActionsDemo.tsx";
 import { SelectionBarDemo } from "./SelectionBarDemo.tsx";
 import { DateFieldDemo } from "./DateFieldDemo.tsx";
+import { PopoverDemo } from "./PopoverDemo.tsx";
 import { ProgressDemo } from "./ProgressDemo.tsx";
 import { StatusDemo } from "./StatusDemo.tsx";
 import { SelectDemo } from "./SelectDemo.tsx";
@@ -438,6 +439,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-states" title={t("gallery.states.title")}>
         <StatesDemo />
+      </Section>
+
+      <Section id="g-popover" title={t("gallery.popover.title")}>
+        <PopoverDemo />
       </Section>
 
       <Section id="g-progress" title={t("gallery.progress.title")}>

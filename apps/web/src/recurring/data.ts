@@ -22,6 +22,8 @@ export const FREQUENCIES: readonly Frequency[] = ["week", "two-weeks", "month", 
 export interface AccountLabel {
   readonly id: string;
   readonly label: string;
+  /** «··5562» (BUD-05 goal card: «додайте переказ на рахунок ··5562»), or `null` without a number. */
+  readonly mask: string | null;
   /** Loans and closed accounts are not offered for a new payment (the API refuses them: `loan`, `closed`). */
   readonly selectable: boolean;
   readonly currency: string | undefined;
@@ -65,6 +67,7 @@ function accountLabel(a: AccountItem): AccountLabel {
   return {
     id: a.id,
     label: mask ? `${a.name} ${mask}` : a.name,
+    mask,
     selectable: a.kind !== "loan" && a.status === "active",
     currency: a.currencies[0]?.currency,
   };
@@ -78,7 +81,7 @@ function categoryLabels(groups: CategoryGroups): Map<string, CategoryLabel> {
 }
 
 /** Accounts of every page (the list is paged by cursor); a failure leaves the labels out. */
-async function loadAccounts(api: ApiClient): Promise<Map<string, AccountLabel>> {
+export async function loadAccounts(api: ApiClient): Promise<Map<string, AccountLabel>> {
   const out = new Map<string, AccountLabel>();
   let cursor: string | undefined;
   for (let page = 0; page < 20; page++) {

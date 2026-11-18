@@ -186,6 +186,15 @@ describe("FIN-12@PoC d) the «…» menu of S-053", () => {
 });
 
 describe("FIN-12@PoC d) S-055a «Оновити залишок»", () => {
+  it("CMP-61@PoC AC8: «Оновити залишок» opens as a modal dialog over the page, not as a popover", async () => {
+    renderAt(at, api().client);
+    await openMenuItem("Оновити залишок");
+    const dialog = screen.getByRole("dialog", { name: "Оновити залишок" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.closest(".ws-popover-host")).toBeNull();
+    expect(dialog.classList.contains("ws-popover")).toBe(false);
+  });
+
   it("FIN-12@PoC AC13 (screen): 5 200,00 € in Willowsum, 5 150,00 € entered — the difference −50,00 €, one request, the card reads again", async () => {
     const fake = api();
     renderAt(at, fake.client);

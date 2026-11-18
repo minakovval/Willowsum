@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { brandColors, colors, contrastRatio, cssDeclarations, type ColorTokenName } from "./index.ts";
+import { ACCENT_SELECTORS } from "./roles.ts";
 
 /**
  * DS-06@PoC items 1, 3, 5 and 6 (colour tokens): checked on the real stylesheets, the sources and the
@@ -73,6 +74,8 @@ describe("DS-06@PoC colour tokens (items 1, 3, 5, 6)", () => {
     expect(
       decls
         .filter((d) => COLOUR_PROPERTY.test(d.property) && /--ws-accent\b/.test(d.value))
+        // The goal icon of «Цілі» is the one fill (GRID-04@PoC FR 7; ACCENT_SELECTORS).
+        .filter((d) => !ACCENT_SELECTORS.some((re) => re.test(d.selector)))
         .map((d) => d.selector),
     ).toEqual([]);
     // The sum is not painted: no amount selector has a colour from `gain` or `loss`.
