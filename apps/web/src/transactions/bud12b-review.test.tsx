@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { formatDate } from "@willowsum/i18n";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
@@ -449,6 +452,35 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
     expect(within(dialog).getByRole("group", { name: "Дім і транспорт" })).toBeTruthy();
     const all = within(dialog).getAllByRole("option");
     expect(all[all.length - 1]!.textContent).toContain("Нова категорія");
+  });
+
+  it("GRID-02@PoC FR 4: header | progress | the queue 4 + the card 8; the progress «K з N · лишилось M» is always shown, the switch «Мерчанти / По одній» stands above the queue", async () => {
+    const { api } = space({ queue: twelve(), groups: groupsOfTwelve() });
+    open(api);
+    const queue = await screen.findByRole("region", { name: "Черга" });
+    const review = document.querySelector(".review")!;
+    const [head, groups] = [...review.children];
+    // The head of the queue (progress and switch), then the grid of the queue and the card.
+    expect(head!.classList.contains("review-head")).toBe(true);
+    expect(groups!.classList.contains("review-groups")).toBe(true);
+    expect(head!.querySelector(".ws-progress")).not.toBeNull();
+    expect(head!.querySelector(".review-mode")).not.toBeNull();
+    expect(progress()).toBe("0 з 12 · лишилось 12");
+    expect(queue.closest(".review-groups")).toBe(groups);
+    expect(queue.className).toContain("review-group-list");
+    // One card in the grid after the queue.
+    expect(groups!.querySelector(".review-group")).not.toBeNull();
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "transactions.css"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(css).toContain(
+      "@media (min-width: 1024px) { .review-groups { grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr)); } .review-groups > .review-group-list { grid-column: span 4; } .review-groups > .review-group { grid-column: span 8; }",
+    );
+    // «По одній»: the progress stays.
+    act(() => screen.getByRole("radio", { name: "По одній" }).click());
+    await screen.findByRole("region", { name: "Starbucks" });
+    expect(progress()).toBe("0 з 12 · лишилось 12");
   });
 
   it("BUD-12@PoC FR 14: «Мерчанти» by default when a merchant has more than one transaction; the switch «Мерчанти / По одній» is a radio group", async () => {

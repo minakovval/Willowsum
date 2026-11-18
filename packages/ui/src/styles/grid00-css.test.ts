@@ -91,12 +91,13 @@ describe("GRID-00@PoC grid tokens and the shell that applies them", () => {
         .map((d) => ({ file: f, selector: d.selector, value: d.value })),
     );
     expect(columns.filter((c) => !c.value.startsWith("repeat(var(--ws-columns)"))).toEqual([]);
-    // The four page grids (shell page, «Планування», «Рахунки», «Картка рахунку») all follow the width class.
+    // The five page grids (shell page, «Планування», «Рахунки», «Картка рахунку», «До розбору») all follow the width class.
     expect(columns.map((c) => c.file).sort()).toEqual([
       "accounts/account-card.css",
       "accounts/accounts.css",
       "app.css",
       "planning/planning.css",
+      "transactions/transactions.css",
     ]);
     const planning = cssDeclarations(readFileSync(dir + "planning/planning.css", "utf8"));
     expect(planning.find((d) => d.selector === ".plan-grid" && d.property === "gap")?.value).toBe(
