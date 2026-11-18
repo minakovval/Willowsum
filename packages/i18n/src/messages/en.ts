@@ -669,6 +669,7 @@ export const en: Messages = {
   "planning.budget.settings.noChanges": "No changes",
   "planning.budget.settings.saved": "Changes saved",
   "planning.budget.settings.saveError": "Could not save the changes. Try again",
+  "planning.budget.settings.notSaved": "Not saved for: {names}. The changes are kept in the draft",
   "planning.budget.settings.noBudget": "There is no budget yet",
   "planning.budget.settings.toBudget": "To the budget",
   "planning.budget.settings.accounts.title": "Space accounts",
@@ -862,6 +863,8 @@ export const en: Messages = {
   "planning.goals.spend.error.save": "Could not write off from the goal. Try again",
   "planning.goals.spend.error.close":
     "The spend is written, but the goal could not be closed. Close it from the “⋯” menu",
+  "planning.goals.spend.locked":
+    "The spend is written, so the choice is locked. Closing the goal uses these transactions",
   "planning.goals.menu.spend": "Spend",
   "planning.goals.menu.edit": "Edit goal",
   "planning.goals.new.templates": "Goal templates",
@@ -888,6 +891,7 @@ export const en: Messages = {
   "planning.goals.new.account": "Account",
   "planning.goals.new.account.none": "No open accounts in {currency}",
   "planning.goals.new.start": "Starting amount",
+  "planning.goals.new.start.negative": "The starting amount cannot be negative",
   "planning.goals.new.freeAfter": "the free balance will be {free}",
   "planning.goals.new.startProgress": "starting amount {start} · progress {percent} %",
   "planning.goals.new.accountProgress": "collected {collected} · progress {percent} %",

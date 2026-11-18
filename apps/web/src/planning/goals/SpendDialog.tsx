@@ -198,6 +198,7 @@ export function SpendDialog({
                         type="checkbox"
                         className="ws-row-check"
                         checked={chosen.has(r.id)}
+                        disabled={spent}
                         aria-label={t("planning.goals.spend.pick", { name: r.merchant, amount })}
                         onChange={(e) => toggle(r, e.target.checked)}
                       />
@@ -228,6 +229,11 @@ export function SpendDialog({
               ) : null}
             </ul>
           )}
+          {spent ? (
+            <p role="note" className="ws-muted goal-spend-locked">
+              {t("planning.goals.spend.locked")}
+            </p>
+          ) : null}
           {chosenLine}
         </>
       );

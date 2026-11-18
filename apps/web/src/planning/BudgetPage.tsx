@@ -84,7 +84,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
         {data && data.kind !== "none" ? (
           <a
             className="ws-icon-button"
-            href={hrefFor(childPath("budgetAccounts"))}
+            href={hrefFor(childPath("budgetGeneral"))}
             aria-label={t("planning.budget.settings.open")}
             title={t("planning.budget.settings.open")}
           >

@@ -29,7 +29,9 @@ async function loadAccounts(api: ApiClient): Promise<Outcome<readonly Account[]>
   let cursor: string | undefined;
   for (let page = 0; page < MAX_PAGES; page++) {
     const o = await outcome(
-      api.GET("/v1/accounts", { params: { query: { limit: 100, ...(cursor ? { cursor } : {}) } } }),
+      api.GET("/v1/accounts", {
+        params: { query: { limit: 100, includeClosed: "true", ...(cursor ? { cursor } : {}) } },
+      }),
     );
     if (!o.ok) return o;
     rows.push(...o.data.items);
@@ -51,7 +53,8 @@ export async function loadSettings(api: ApiClient): Promise<Load<SettingsData>> 
   if (!accounts.ok) return { state: "error", failure: accounts };
   const included = new Map(switches.data.accounts.map((a) => [a.accountId, a.included]));
   const rows = accounts.data
-    .filter((a) => a.status === "active" && included.has(a.id))
+    // A closed account that is still in the budget is listed so it can be switched off; other closed ones are not.
+    .filter((a) => included.has(a.id) && (a.status === "active" || included.get(a.id) === true))
     .map((account) => ({ account, included: included.get(account.id) === true }));
   return { state: "ready", data: { kind: "ready", currency: budget.data.budget.currency, rows } };
 }

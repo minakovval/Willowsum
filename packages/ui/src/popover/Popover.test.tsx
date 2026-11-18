@@ -86,6 +86,36 @@ describe("CMP-61@PoC Popover", () => {
     expect(middle.defaultPrevented).toBe(false);
   });
 
+  it("CMP-61@PoC FR 8: the Tab cycle skips items that are aria-disabled or disabled, at the start and at the end", () => {
+    const anchor = { current: document.body };
+    render(
+      <Popover open onClose={() => undefined} label="Внести у ціль" anchor={anchor}>
+        <button type="button" aria-disabled="true">
+          Недоступно спочатку
+        </button>
+        <input aria-label="Сума" />
+        <button type="button">Додати внесок</button>
+        <button type="button" aria-disabled="true">
+          Недоступно наприкінці
+        </button>
+        <button type="button" disabled>
+          Вимкнено
+        </button>
+      </Popover>,
+    );
+    const first = screen.getByRole("textbox", { name: "Сума" });
+    const last = screen.getByRole("button", { name: "Додати внесок" });
+    last.focus();
+    const tab = createEvent.keyDown(last, { key: "Tab" });
+    fireEvent(last, tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+    const back = createEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    fireEvent(first, back);
+    expect(back.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(last);
+  });
+
   it("CMP-61@PoC FR 8: a scroll of the page closes the popover and focus returns to the button; a scroll inside it does not", () => {
     render(<Case />);
     const button = screen.getByRole("button", { name: "Внести" });

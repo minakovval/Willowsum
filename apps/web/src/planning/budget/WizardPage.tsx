@@ -107,6 +107,8 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   // and forward keeps what was edited, and a changed method starts over.
   const openLimits = () => {
     if (opened === method) {
+      // The fields mount again with the stored amounts (an invalid text is not stored), so an old problem is gone.
+      setProblems(new Set());
       setStep(2);
       return;
     }
