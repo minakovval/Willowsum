@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cssDeclarations } from "@willowsum/ui/tokens";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import {
   fakeApi,
@@ -425,13 +429,14 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(table().querySelector(".ws-tx-head")).toBeTruthy();
   });
 
-  it("DAT-01@PoC FR 8, FR 10: the columns are fixed by the list — no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
+  it("DAT-01@PoC FR 8, FR 10, GRID-02@PoC FR 11: the columns are fixed by the list — no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
     open();
     await loaded();
     expect(screen.queryByRole("button", { name: "Колонки" })).toBeNull();
     expect(within(toolbar()).queryByRole("button", { name: "Параметри" })).toBeNull();
     expect(screen.queryByText(/Колонк/)).toBeNull();
     expect(screen.queryByText("Показати оригінальні валюти")).toBeNull();
+    expect(screen.queryByText(/Створити звіт/)).toBeNull();
   });
 });
 
@@ -595,5 +600,44 @@ describe("FIN-03@PoC c): the totals and the states of the list", () => {
     );
     act(() => within(error).getByRole("button", { name: "Спробувати ще раз" }).click());
     await loaded();
+  });
+});
+
+describe("GRID-02@PoC the «Гроші» section: root, menu and tabs", () => {
+  const navPages = () =>
+    [...document.querySelectorAll(".ws-nav-page")].map((e) => e.querySelector(".ws-nav-label")!.textContent);
+
+  it("GRID-02@PoC FR 12, FR 13, AC5, AC8: the section opens «Транзакції»; with 0 in the queue and 2 pair proposals the menu has «Транзакції» (no counter) and «Рахунки», the tabs «Транзакції», «До розбору» and «Пари · 2»", async () => {
+    const h = handlers(ALL, {
+      "GET /v1/transfer-proposals": { status: 200, body: { items: [], count: 2, more: false } },
+    });
+    const api = fakeApi(h);
+    renderAt("#/money", api.client);
+    // Entering the section for the first time in the session opens its root.
+    expect(window.location.hash).toBe("#/money/transactions");
+    await loaded();
+    expect(navPages()).toEqual(["Транзакції", "Рахунки"]);
+    expect(document.querySelector(".ws-nav-page .ws-nav-badge")).toBeNull();
+    const tabs = within(screen.getByRole("tablist", { name: "Розділи транзакцій" })).getAllByRole("tab");
+    await waitFor(() =>
+      expect(tabs.map((t) => t.textContent)).toEqual(["Транзакції", "До розбору", "Пари · 2"]),
+    );
+  });
+
+  it("GRID-02@PoC FR 12, FR 13, AC5: with 5 in the queue the counter «5» is beside «Транзакції» and in the tab; the badge is plain muted text, never amber", async () => {
+    const h = handlers(ALL, { "GET /v1/transaction-review": { status: 200, body: { count: 5 } } });
+    open(h);
+    await loaded();
+    const link = await screen.findByRole("link", { name: /^Транзакції,\s5\sдо\sрозбору$/ });
+    expect(link.querySelector(".ws-nav-badge")!.textContent).toBe("5");
+    expect(screen.getByRole("tab", { name: "До розбору · 5" })).toBeTruthy();
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const shell = cssDeclarations(
+      readFileSync(join(dir, "../../../../packages/ui/src/styles/shell.css"), "utf8"),
+    );
+    const badge = shell.filter((d) => d.selector === ".ws-nav-badge" && d.atRules.length === 0);
+    expect(badge.find((d) => d.property === "color")?.value).toBe("var(--ws-ink-muted)");
+    expect(badge.some((d) => d.value.includes("accent"))).toBe(false);
+    expect(badge.some((d) => d.property === "background" || d.property === "border")).toBe(false);
   });
 });

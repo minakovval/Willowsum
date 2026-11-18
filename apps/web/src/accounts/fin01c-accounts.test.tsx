@@ -651,6 +651,30 @@ describe("GRID-02@PoC «Рахунки» page grid", () => {
     ).toEqual(["Гроші разом", "Джерела даних", "Готівкові", "Кредитні"]);
   });
 
+  it("GRID-02@PoC FR 7: the accounts table is a stack of cards below 520 px of its container — every cell carries its column heading, the wrapper is the container", async () => {
+    renderAt("#/money/accounts", api([current, card]).client);
+    await screen.findByText("Кредитна");
+    const table = document.querySelector<HTMLTableElement>(".accounts-table")!;
+    expect(table.parentElement!.classList.contains("ws-table-wrap")).toBe(true);
+    const heads = [...table.querySelectorAll("thead th:not(:has(.ws-visually-hidden))")].map((th) =>
+      plain(th.textContent),
+    );
+    const labels = [...table.querySelectorAll("tbody tr")[0]!.querySelectorAll("td")].map((td) =>
+      td.getAttribute("data-label"),
+    );
+    // The card's captions are the column headings, not separate strings.
+    for (const head of heads.filter((h) => !h.startsWith("Баланс"))) expect(labels).toContain(head);
+    expect(labels.filter((l) => l !== null && l !== "")).toHaveLength(5);
+    // The threshold is the container's 520 px (519 and below), not a window media query.
+    const ui = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../../packages/ui/src/styles/components.css"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(ui).toContain(".ws-table-wrap { container-type: inline-size;");
+    expect(ui).toContain("@container (max-width: 519px) { .ws-table thead {");
+    expect(ui).toContain("content: attr(data-label);");
+  });
+
   it("GRID-02@PoC FR 5: «Рахунки» has no «Підключення» tab and no tabs at all", async () => {
     renderAt("#/money/accounts", api([current]).client);
     await screen.findByText("Щоденний");

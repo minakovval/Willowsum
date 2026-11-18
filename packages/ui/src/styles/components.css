@@ -301,6 +301,12 @@
   vertical-align: baseline;
 }
 
+/* GRID-00@PoC FR 19, AC6: an abbreviated amount (the only state in which it takes focus) has a dashed underline. */
+.ws-amount-fit[tabindex] > .ws-amount {
+  text-decoration: underline dashed;
+  text-underline-offset: var(--ws-space-1);
+}
+
 .ws-amount-fit__probe {
   position: absolute;
   inset-block-start: 0;
