@@ -1,6 +1,6 @@
 import { useT } from "@willowsum/i18n";
 import { AppLayout } from "../pages/AppLayout.tsx";
-import { EmptyState } from "../pages/SectionPage.tsx";
+import { PlanEmpty } from "./PlanEmpty.tsx";
 import { BUDGET } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
@@ -24,9 +24,9 @@ export function BudgetPage() {
         <PlanRegion name="spendable" span={4} />
         <PlanRegion name="income" span={4} />
         <PlanRegion name="recurring" span={4} />
-        {/* Until BUD-02 d) (row 123) fills the page it keeps the shell's empty state (DS-01 FR 7). */}
+        {/* Until BUD-02 d) (row 123) fills the page it shows its own empty state (GRID-04 EC1, EC2). */}
         <PlanRegion name="categories" span={12}>
-          <EmptyState icon={BUDGET.icon} />
+          <PlanEmpty icon={BUDGET.icon} page="budget" />
         </PlanRegion>
       </PlanGrid>
     </AppLayout>

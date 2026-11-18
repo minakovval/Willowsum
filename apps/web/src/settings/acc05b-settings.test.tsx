@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -112,6 +112,22 @@ describe("GRID-05@PoC S-186 «Налаштування»", () => {
     });
     expect(item.getAttribute("href")).toBe("#/settings");
     expect(within(main).queryByRole("link", { name: "Ще" })).toBeNull();
+  });
+
+  it("GRID-05@PoC FR 3: the pages of «Налаштування» name no plan and no plan limit — they are not set in the page code", async () => {
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const source = readdirSync(dir)
+      .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+      .map((f) => readFileSync(join(dir, f), "utf8"))
+      .join("\n");
+    // The plan names of 00-general «Плани» and the keys of the plan matrix come from the plan service, never from here.
+    expect(source).not.toMatch(
+      /["'`](Free|Plus|Family|Trial)["'`]|plan-catalog|FEATURE_KEYS|planLimits|PLAN_LIMITS/,
+    );
+    const api = fakeApi({ "GET /v1/profile": ok(PROFILE) });
+    renderAt("#/settings", api.client);
+    await screen.findByText(PROFILE.email);
+    expect(document.body.textContent).not.toMatch(/\b(Free|Plus|Family|Trial)\b/);
   });
 
   it("ACC-05@PoC AC2: no «Мова і формати» section and no language choice on «Налаштування»", async () => {

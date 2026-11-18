@@ -466,6 +466,13 @@ export const uk = {
   "action.importHistory": "Історія імпорту",
   "shell.empty.title": "Тут поки нічого немає",
   "shell.empty.body": "Коли ви додасте дані, вони з’являться в цьому розділі.",
+  // GRID-04@PoC EC1, EC2: the empty states of «Бюджет» and «Цілі» (boards PocPlanBudgetEmpty, PocPlanGoalsEmpty)
+  "planning.budget.empty.title": "Бюджету ще немає",
+  "planning.budget.empty.body":
+    "Бюджет показує, скільки можна витратити до кінця місяця і скільки лишилось у кожній категорії. Ліміти можна запропонувати за середніми витратами останніх 3 місяців або задати з нуля.",
+  "planning.goals.empty.title": "Додайте першу ціль",
+  "planning.goals.empty.body":
+    "Відкладайте на подорож, покупку чи подушку безпеки — побачите, скільки вже зібрано і чи встигаєте до дати.",
 
   "privacy.hideAmounts": "Приховати суми",
   "privacy.showAmounts": "Показати суми",
