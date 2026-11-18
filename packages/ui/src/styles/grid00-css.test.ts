@@ -152,10 +152,7 @@ describe("GRID-00@PoC grid tokens and the shell that applies them", () => {
   it("GRID-00@PoC FR 9: tabs are the one intentional sideways scroll — no other rule of the design system scrolls sideways", () => {
     const scrolling = sheets.components
       .filter(
-        (d) =>
-          (d.property === "overflow-x" || d.property === "overflow") &&
-          /^(auto|scroll)\b/.test(d.value) &&
-          d.property === "overflow-x",
+        (d) => (d.property === "overflow-x" || d.property === "overflow") && /^(auto|scroll)\b/.test(d.value),
       )
       .map((d) => d.selector);
     expect(scrolling).toEqual([".ws-page-tabs"]);
