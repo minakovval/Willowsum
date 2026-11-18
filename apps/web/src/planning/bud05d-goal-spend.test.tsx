@@ -131,14 +131,20 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     expect(plain(within(dialog()).getByText(/^−640,00\s€$/).textContent)).toBe("−640,00 €");
     expect(within(dialog()).getByRole("searchbox", { name: "Пошук транзакцій" })).toBeTruthy();
     const more = within(dialog()).getByRole("button", { name: /^Ще\s5\sтранзакцій · показати наступні\s6$/ });
+    const before = dialog().querySelectorAll(".goal-spend-list > li");
+    expect(before).toHaveLength(7);
+    expect(before[6]!.contains(more)).toBe(true);
     // The goal's account only, outgoing, not a transfer, newest first.
     const list = fake.calls.find((c) => c.path === "/v1/transactions")!;
     expect(list.method).toBe("GET");
     fireEvent.click(more);
     expect(rows()).toHaveLength(11);
     expect(within(dialog()).queryByRole("button", { name: /показати наступні/ })).toBeNull();
-    // No scrolling list inside the dialog.
-    expect(dialog().querySelector(".goal-spend-list")?.getAttribute("style")).toBeNull();
+    // The real no-scroll check is e2e/goal-spend.spec.ts (jsdom has no layout): here, the structure the board has —
+    // «Ще N…» is the list's last row, inside the list, and the list is the only list of rows.
+    const items = dialog().querySelectorAll(".goal-spend-list > li");
+    expect(items).toHaveLength(11);
+    expect(dialog().querySelector("button.goal-spend-more")).toBeNull();
   });
 
   it("BUD-05@PoC FR 8: the request asks for the part's account, outgoing non-transfer posted visible transactions, newest first; a goal of marks asks for any account", async () => {
@@ -196,8 +202,9 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     await pick(/Booking\.com/);
     expect(disabled(button("Списати з цілі"))).toBe(false);
     await pick(/Wizz Air/);
-    const sum = plain(dialog().querySelector(".goal-spend-sum")?.textContent);
-    expect(sum).toBe("Обрано 2 · 1 026,40 € · у цілі залишиться 1 073,60 €");
+    const line = dialog().querySelector(".goal-spend-sum[aria-live]")!;
+    expect(plain(line.children[0]!.textContent)).toBe("Обрано 2 · 1 026,40 €");
+    expect(plain(line.children[1]!.textContent)).toBe("у цілі залишиться 1 073,60 €");
     fireEvent.click(button("Списати з цілі"));
     await waitFor(() => expect(done.spent).toHaveBeenCalledTimes(1));
     expect(spends(fake)).toHaveLength(1);
@@ -255,6 +262,55 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     expect(
       fake.calls.map((c) => `${c.method} ${c.path.replace(GOAL, "{id}")}`).filter((c) => c.includes("goals")),
     ).toEqual(["POST /v1/goals/{id}/spends", "POST /v1/goals/{id}/close"]);
+  });
+
+  it("BUD-05@PoC FR 9: a failed «Закрити ціль» keeps the dialog open with the error, a second try only closes (no second spend), and leaving reloads the card", async () => {
+    let closes = 0;
+    const fake = api(all, {
+      "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": (() =>
+        closes++ === 0 ? problem(500, "INTERNAL") : { status: 200, body: { closed: true } }) as never,
+    });
+    const g = goal();
+    const changed = vi.fn();
+    const gone = vi.fn();
+    render(
+      <AuthApiProvider value={fake.client}>
+        <GoalCard
+          goal={g}
+          goals={[g]}
+          accounts={accounts}
+          today="2026-11-02"
+          onChanged={changed}
+          onGone={gone}
+        />
+      </AuthApiProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Витратити" }));
+    await pick(/Booking\.com/);
+    fireEvent.click(button("Далі"));
+    fireEvent.click(within(dialog()).getByRole("switch", { name: /Закрити ціль/ }));
+    fireEvent.click(button("Списати з цілі"));
+    expect(await within(dialog()).findByText(/Витрату записано, але ціль закрити не вдалося/)).toBeTruthy();
+    expect(changed).not.toHaveBeenCalled();
+    fireEvent.click(button("Списати з цілі"));
+    await waitFor(() => expect(gone).toHaveBeenCalledTimes(1));
+    expect(spends(fake)).toHaveLength(1);
+    expect(closes).toBe(2);
+  });
+
+  it("BUD-05@PoC FR 9: leaving the dialog after a spend whose closing failed reloads the card", async () => {
+    const fake = api(all, {
+      "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": problem(500, "INTERNAL"),
+    });
+    const done = open(fake);
+    await pick(/Booking\.com/);
+    fireEvent.click(button("Далі"));
+    fireEvent.click(within(dialog()).getByRole("switch", { name: /Закрити ціль/ }));
+    fireEvent.click(button("Списати з цілі"));
+    await within(dialog()).findByText(/Витрату записано, але ціль закрити не вдалося/);
+    fireEvent.click(button("Скасувати"));
+    expect(done.spent).toHaveBeenCalledTimes(1);
+    expect(done.closed).not.toHaveBeenCalled();
   });
 
   it("BUD-05@PoC FR 8: the amounts go to the API as the API gave them and a spend refused as over the goal's money shows the error and keeps the dialog", async () => {

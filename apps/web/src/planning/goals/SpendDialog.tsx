@@ -48,6 +48,8 @@ export function SpendDialog({
   const [chosen, setChosen] = useState<ReadonlyMap<string, SpendRow>>(() => new Map());
   const [closing, setClosing] = useState(false);
   const [busy, setBusy] = useState(false);
+  // The spend is written (a later try only closes the goal); the card reloads when the dialog is left.
+  const [spent, setSpent] = useState(false);
   const [failure, setFailure] = useState<{ key: MessageKey; params?: Record<string, string> } | null>(null);
   const money = (m: Money) => formatMoney(locale, m.amount, m.currency);
   const currency = goal.target.currency;
@@ -89,12 +91,14 @@ export function SpendDialog({
     if (busy || count === 0) return;
     setBusy(true);
     setFailure(null);
-    const done = await outcome(
-      api.POST("/v1/goals/{goalId}/spends", {
-        params: { path: { goalId: goal.id }, header: { "Idempotency-Key": key.current } },
-        body: spendBody(picked),
-      }),
-    );
+    const done = spent
+      ? { ok: true as const }
+      : await outcome(
+          api.POST("/v1/goals/{goalId}/spends", {
+            params: { path: { goalId: goal.id }, header: { "Idempotency-Key": key.current } },
+            body: spendBody(picked),
+          }),
+        );
     if (!done.ok) {
       setBusy(false);
       const code = done.kind === "problem" ? done.problem.code : null;
@@ -109,15 +113,15 @@ export function SpendDialog({
       if (code === "VALIDATION_FAILED") setReload((n) => n + 1);
       return;
     }
+    setSpent(true);
     if (closing) {
       const closed = await outcome(
         api.POST("/v1/goals/{goalId}/close", { params: { path: { goalId: goal.id } } }),
       );
       setBusy(false);
       if (!closed.ok) {
-        // The spend is written; only the closing failed: the goal stays, the dialog says so.
+        // The spend is written; only the closing failed: the dialog stays open and says so (a try closes only).
         setFailure({ key: "planning.goals.spend.error.close" });
-        onSpent();
         return;
       }
       onGone();
@@ -131,9 +135,11 @@ export function SpendDialog({
   const rest = rows.state === "ready" ? Math.max(0, rows.rows.length - shown) : 0;
   const chosenLine = (
     <span className="goal-spend-sum" aria-live="polite">
-      {t("planning.goals.spend.chosen", { count: String(count) })} ·{" "}
-      <b>{money(sum ?? { amount: "0", currency })}</b>
-      <span className="ws-muted"> · {t("planning.goals.spend.left", { left: money(left) })}</span>
+      <span>
+        {t("planning.goals.spend.chosen", { count: String(count) })} ·{" "}
+        <b>{money(sum ?? { amount: "0", currency })}</b>
+      </span>
+      <span className="ws-muted">{t("planning.goals.spend.left", { left: money(left) })}</span>
     </span>
   );
 
@@ -147,17 +153,19 @@ export function SpendDialog({
               target: money(goal.target),
             })}
           </p>
-          <label className="goal-spend-search">
-            <Icon name="search" size={16} />
-            <input
-              type="search"
-              aria-label={t("planning.goals.spend.search")}
-              placeholder={t("planning.goals.spend.search.placeholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-          <p className="ws-muted goal-spend-caption">{t("planning.goals.spend.caption")}</p>
+          <div className="goal-spend-find">
+            <label className="goal-spend-search">
+              <Icon name="search" size={16} />
+              <input
+                type="search"
+                aria-label={t("planning.goals.spend.search")}
+                placeholder={t("planning.goals.spend.search.placeholder")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <p className="ws-muted goal-spend-caption">{t("planning.goals.spend.caption")}</p>
+          </div>
           {rows.state === "loading" ? (
             <p role="status" className="ws-muted">
               {t("planning.goals.spend.loading")}
@@ -207,13 +215,19 @@ export function SpendDialog({
                   </li>
                 );
               })}
+              {rest > 0 ? (
+                <li>
+                  <button
+                    type="button"
+                    className="goal-spend-more"
+                    onClick={() => setShown((n) => n + SPEND_PAGE)}
+                  >
+                    {t(`planning.goals.spend.more.${plural(rest)}` as MessageKey, { count: String(rest) })}
+                  </button>
+                </li>
+              ) : null}
             </ul>
           )}
-          {rest > 0 ? (
-            <button type="button" className="goal-spend-more" onClick={() => setShown((n) => n + SPEND_PAGE)}>
-              {t(`planning.goals.spend.more.${plural(rest)}` as MessageKey, { count: String(rest) })}
-            </button>
-          ) : null}
           {chosenLine}
         </>
       );
@@ -256,7 +270,7 @@ export function SpendDialog({
   return (
     <FormDialog
       open
-      onClose={onClose}
+      onClose={spent ? onSpent : onClose}
       title={t("planning.goals.spend.title", { name: goal.name })}
       closeLabel={t("planning.goals.dialog.close")}
       steps={[

@@ -190,6 +190,11 @@
   margin: 0;
 }
 
+.goal-spend-find {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
 .goal-spend-search {
   display: flex;
   align-items: center;
@@ -226,7 +231,7 @@
   align-items: center;
   gap: var(--ws-space-3);
   min-block-size: var(--ws-touch-target);
-  padding: var(--ws-space-2) var(--ws-space-3);
+  padding: var(--ws-space-1) var(--ws-space-3);
   border-block-end: 1px solid var(--ws-line);
   cursor: pointer;
 }
@@ -258,14 +263,26 @@
   white-space: nowrap;
 }
 
+.goal-spend-list > li:last-child > .goal-spend-row {
+  border-block-end: 0;
+}
+
+.goal-spend-what .ws-muted {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+/* «Ще N транзакцій»: the last row of the list (board PocPlanGoalSpend), not a button of its own. */
 .goal-spend-more {
-  padding: var(--ws-space-3);
-  border: 1px solid var(--ws-line);
-  border-radius: var(--ws-radius-lg);
+  inline-size: 100%;
+  min-block-size: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 0;
+  border-block-start: 1px solid var(--ws-line);
   background: transparent;
-  text-align: center;
   color: var(--ws-link);
   font: inherit;
+  text-align: center;
   cursor: pointer;
 }
 

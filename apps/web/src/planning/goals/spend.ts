@@ -1,5 +1,5 @@
 import type { ApiClient } from "@willowsum/api-contract";
-import { Decimal, Money as KernelMoney, sumMoney } from "@willowsum/domain-kernel";
+import { currencyInfo, Decimal, Money as KernelMoney, sumMoney } from "@willowsum/domain-kernel";
 import { outcome, type Outcome } from "../../auth/api.ts";
 import type { Goal, Money } from "./model.ts";
 
@@ -58,7 +58,10 @@ export async function loadSpendRows(
       accountId: t.accountId,
       merchant: t.counterparty ?? t.description ?? "",
       date: t.date,
-      amount: { amount: new Decimal(t.amount.amount).abs().toFixed(2), currency: t.amount.currency },
+      amount: {
+        amount: new Decimal(t.amount.amount).abs().toFixed(currencyInfo(t.amount.currency).minorUnits),
+        currency: t.amount.currency,
+      },
     }));
   return { ok: true, data: rows };
 }
