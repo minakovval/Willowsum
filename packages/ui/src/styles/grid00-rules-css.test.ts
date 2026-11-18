@@ -63,7 +63,11 @@ describe("GRID-00@PoC FR 1, AC1: one layout from 1280 px; nothing scrolls sidewa
     // Only the tabs may scroll sideways (FR 9, checked in grid00-css.test.ts); nowhere does the page or the main area.
     for (const sel of ["html", "body", ".ws-shell", ".ws-shell-body", ".ws-main", ".ws-main-inner"]) {
       for (const prop of ["overflow", "overflow-x"]) {
-        expect(["scroll", "auto"], `${sel} ${prop}`).not.toContain(rule(all(shipped), sel, prop));
+        // Every rule of the selector, in every sheet and media query, not only the first one found.
+        const values = all(shipped)
+          .filter((d) => d.selector.split(",").some((s) => s.trim() === sel) && d.property === prop)
+          .map((d) => d.value.split(/\s+/)[0]);
+        for (const v of values) expect(["scroll", "auto"], `${sel} ${prop}`).not.toContain(v);
       }
     }
     const components = sheet("components");
@@ -158,6 +162,8 @@ describe("GRID-00@PoC FR 22: amber is for goals only", () => {
     const uses = all(shippedExceptTokens).filter(
       (d) => /--ws-(accent|mark-small)\b/.test(d.value) || d.value.toLowerCase().includes(amber),
     );
+    // The goal mark uses the amber fill, so the check below is not empty.
+    expect(uses.length).toBeGreaterThan(0);
     for (const d of uses) {
       expect(d.property, `${d.file} ${d.selector}`).toMatch(/^(background|background-color|fill)$/);
       expect(d.selector, d.file).not.toMatch(/badge|count|chip|input|text|link|button/);

@@ -221,14 +221,28 @@ describe("GRID-00@PoC FR 18, AC5, EC2: a name takes at most two lines", () => {
     expect(el.getAttribute("tabindex")).toBe("0");
   });
 
-  it("GRID-00@PoC FR 18: when the box grows the name goes back up the ladder", () => {
+  it("GRID-00@PoC FR 18: when the box grows the same name goes back up the ladder", () => {
+    let resized: ResizeObserverCallback | null = null;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: ResizeObserverCallback) {
+          resized = cb;
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
     layoutOf(700);
-    const { el, rerender } = name("Довга назва");
+    const { el } = name("Довга назва");
     expect(el.dataset["fit"]).toBe("two");
+    expect(el.getAttribute("tabindex")).toBe("0");
+    // The same text in a wider box: the box is measured again from the first step of the ladder.
     layoutOf(150);
-    act(() => void rerender(<TruncatedText text="Коротка" maxLines={2} />));
+    act(() => resized!([], {} as ResizeObserver));
     expect(el.dataset["fit"]).toBe("one");
     expect(el.hasAttribute("tabindex")).toBe(false);
+    vi.unstubAllGlobals();
   });
 
   it("GRID-00@PoC FR 18: the default stays one line with an ellipsis — no ladder, no name class", () => {
