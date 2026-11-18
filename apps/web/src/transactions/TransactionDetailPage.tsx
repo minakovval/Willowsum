@@ -270,10 +270,8 @@ export function Card({
             {data.categorySource !== "none" ? (
               <span className="ws-muted">{t(SOURCE_KEYS[data.categorySource])}</span>
             ) : null}
-            {tx.counterparty ? (
-              // BUD-14@PoC FR 13: the pencil opens the rule of this merchant, or a new one with the merchant filled in.
-              <IconButton icon="edit" label={t("rules.edit")} onClick={() => setRuleOpen(true)} />
-            ) : null}
+            {/* BUD-14@PoC FR 13: the pencil opens the rule of this merchant, or a new one with the merchant filled in. */}
+            <IconButton icon="edit" label={t("rules.edit")} onClick={() => setRuleOpen(true)} />
           </dd>
         </div>
         {tx.description ? (
@@ -315,9 +313,7 @@ export function Card({
           {similar ? <Button label={t("txDetail.similar")} icon="search" href={similar} /> : null}
         </div>
       ) : null}
-      {ruleOpen && tx.counterparty ? (
-        <ChangeRuleDialog merchant={tx.counterparty} onClose={() => setRuleOpen(false)} />
-      ) : null}
+      {ruleOpen ? <ChangeRuleDialog transactionId={tx.id} onClose={() => setRuleOpen(false)} /> : null}
       {open === "split" ? (
         <SplitDialog
           transaction={tx}

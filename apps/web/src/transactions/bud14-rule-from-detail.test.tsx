@@ -87,9 +87,33 @@ const storedRule = {
   tags: [],
 };
 
-function show(counterparty: string | null, rules: unknown[], over: Record<string, Reply> = {}) {
+function show(
+  counterparty: string | null,
+  rules: unknown[],
+  merchant: string | null = counterparty,
+  over: Record<string, Reply> = {},
+) {
   const fake = fakeApi({
     "GET /v1/category-rules": { status: 200, body: { items: rules } },
+    [`GET /v1/transactions/${TX}/merchant`]: {
+      status: 200,
+      body: {
+        transactionId: TX,
+        channel: null,
+        joinedFrom: null,
+        originalDescription: counterparty,
+        merchant:
+          merchant === null
+            ? null
+            : {
+                id: "00000000-0000-4000-8000-0000000000b1",
+                initials: "М",
+                intermediary: false,
+                mergedInto: null,
+                name: merchant,
+              },
+      },
+    },
     "GET /v1/categories": { status: 200, body: { groups: GROUPS } },
     "GET /v1/accounts": {
       status: 200,
@@ -143,7 +167,7 @@ describe("BUD-14@PoC FR 13: S-047 «Змінити правило»", () => {
   });
 
   it("BUD-14@PoC FR 13: without a rule of the merchant the pencil opens a new rule with «Мерчант дорівнює <мерчант>» filled in", async () => {
-    const fake = show("ТОВ Ромашка", [storedRule], {
+    const fake = show("ТОВ Ромашка", [storedRule], "Ромашка", {
       "POST /v1/category-rules": {
         status: 201,
         body: { ...storedRule, id: "00000000-0000-4000-8000-0000000000e2", duplicateOf: null },
@@ -152,7 +176,7 @@ describe("BUD-14@PoC FR 13: S-047 «Змінити правило»", () => {
     fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
     const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
     expect((within(dialog).getByRole("textbox", { name: "Значення" }) as HTMLInputElement).value).toBe(
-      "ТОВ Ромашка",
+      "Ромашка",
     );
     expect(within(dialog).getByRole("combobox", { name: "Поле" }).textContent).toContain("Мерчант");
     expect(within(dialog).getByRole("combobox", { name: "Оператор" }).textContent).toContain("дорівнює");
@@ -169,15 +193,92 @@ describe("BUD-14@PoC FR 13: S-047 «Змінити правило»", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
-  it("BUD-14@PoC FR 13: a transaction without a merchant has no pencil", () => {
-    show(null, []);
-    expect(screen.queryByRole("button", { name: "Змінити правило" })).toBeNull();
+  it("BUD-14@PoC FR 13: the merchant is the cleaned name the server matches, not the raw counterparty — lookup and prefill both use it", async () => {
+    const starbucks = {
+      ...storedRule,
+      conditions: [{ field: "merchant", operator: "equals", value: "Starbucks" }],
+    };
+    show("SUMUP *STARBUCKS 1234 MADRID ES", [starbucks], "starbucks");
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
+    // Found by the cleaned name (case ignored): the stored rule is open, with its category.
+    expect((within(dialog).getByRole("textbox", { name: "Значення" }) as HTMLInputElement).value).toBe(
+      "Starbucks",
+    );
+    expect(within(dialog).getByRole("button", { name: /Категорія/ }).textContent).toContain("Продукти");
   });
 
-  it("BUD-14@PoC FR 13: when the rules cannot be read the pencil shows the load error, not an empty editor", async () => {
-    show("Сільпо", [], { "GET /v1/category-rules": { status: 500, body: {} } });
+  it("BUD-14@PoC FR 13: a new rule from a transaction whose counterparty differs from its merchant is prefilled with the merchant", async () => {
+    show("SUMUP *STARBUCKS 1234 MADRID ES", [], "Starbucks");
     fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("Не вдалося завантажити правила");
+    const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
+    expect((within(dialog).getByRole("textbox", { name: "Значення" }) as HTMLInputElement).value).toBe(
+      "Starbucks",
+    );
+  });
+
+  it("BUD-14@PoC FR 13: a rule with more conditions or a disabled one is not opened — a new prefilled rule is", async () => {
+    const more = {
+      ...storedRule,
+      conditions: [
+        { field: "merchant", operator: "equals", value: "Сільпо" },
+        { field: "amount", operator: "greater", value: { amount: "40.00", currency: "EUR" } },
+      ],
+    };
+    const off = { ...storedRule, id: "00000000-0000-4000-8000-0000000000e3", position: 2, enabled: false };
+    show("Сільпо", [more, off]);
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
+    expect(within(dialog).getAllByRole("textbox", { name: "Значення" })).toHaveLength(1);
+    expect(within(dialog).getByRole("button", { name: /Категорія/ }).textContent).not.toContain("Продукти");
+  });
+
+  it("BUD-14@PoC FR 13: among several rules of the merchant the enabled one with the single condition is opened", async () => {
+    const more = {
+      ...storedRule,
+      conditions: [
+        { field: "merchant", operator: "equals", value: "Сільпо" },
+        { field: "description", operator: "contains", value: "KYIV" },
+      ],
+    };
+    show("Сільпо", [
+      more,
+      { ...storedRule, id: "00000000-0000-4000-8000-0000000000e4", position: 2, tags: ["їжа"] },
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
+    expect(within(dialog).getAllByRole("textbox", { name: "Значення" })).toHaveLength(1);
+    expect(within(dialog).getByRole("button", { name: /Категорія/ }).textContent).toContain("Продукти");
+  });
+
+  it("BUD-14@PoC FR 13: a transaction with no merchant opens a new rule with no condition filled in", async () => {
+    show(null, [], null);
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    const dialog = await screen.findByRole("dialog", { name: "Правило категорії" });
+    expect((within(dialog).getByRole("textbox", { name: "Значення" }) as HTMLInputElement).value).toBe("");
+  });
+
+  it("BUD-14@PoC FR 13: while the rules and the merchant load the pencil shows a loading state", async () => {
+    show("Сільпо", [storedRule]);
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    expect(screen.getByRole("status", { name: "Правило категорії" }).getAttribute("aria-busy")).toBe("true");
+    await screen.findByRole("dialog", { name: "Правило категорії" });
+  });
+
+  it("BUD-14@PoC FR 13: when the rules cannot be read the pencil shows the error with «Спробувати ще раз», and the retry opens the editor", async () => {
+    let fail = true;
+    show("Сільпо", [], "Сільпо", {
+      "GET /v1/category-rules": (() =>
+        fail
+          ? { status: 500, body: {} }
+          : { status: 200, body: { items: [storedRule] } }) as unknown as Reply,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Змінити правило" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Не вдалося завантажити правила");
     expect(screen.queryByRole("dialog")).toBeNull();
+    fail = false;
+    fireEvent.click(within(alert).getByRole("button", { name: "Спробувати ще раз" }));
+    await screen.findByRole("dialog", { name: "Правило категорії" });
   });
 });
