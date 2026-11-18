@@ -12,6 +12,8 @@ type Json<T> = T extends { responses: { 200: { content: { "application/json": in
 
 export type Payment = Json<operations["listRecurringPayments"]>["items"][number];
 export type Proposal = Json<operations["listRecurringProposals"]>["items"][number];
+export type Status = Json<operations["listRecurringStatuses"]>["items"][number];
+export type Charge = Json<operations["listRecurringCharges"]>["items"][number];
 export type Frequency = Payment["frequency"];
 type AccountItem = Json<operations["listAccounts"]>["items"][number];
 type CategoryGroups = Json<operations["listCategories"]>["groups"];
@@ -43,6 +45,10 @@ export interface RecurringData {
   readonly more: boolean;
   readonly accounts: ReadonlyMap<string, AccountLabel>;
   readonly categories: ReadonlyMap<string, CategoryLabel>;
+  /** FR 8–12: the status of each payment by its id; empty when the statuses failed (the list still shows). */
+  readonly statuses: ReadonlyMap<string, Status>;
+  /** The charges of each payment through the next one (FR 7, the calendar); a payment whose read failed is absent. */
+  readonly charges: ReadonlyMap<string, readonly Charge[]>;
 }
 
 export type Load<T> =
@@ -103,15 +109,38 @@ async function loadCategories(api: ApiClient): Promise<Map<string, CategoryLabel
   return o.ok ? categoryLabels(o.data.groups) : new Map();
 }
 
+async function loadStatuses(api: ApiClient): Promise<Map<string, Status>> {
+  const o = await outcome(api.GET("/v1/recurring/statuses"));
+  return new Map(o.ok ? o.data.items.map((s): [string, Status] => [s.paymentId, s]) : []);
+}
+
+async function loadCharges(api: ApiClient, ids: readonly string[]): Promise<Map<string, readonly Charge[]>> {
+  const out = new Map<string, readonly Charge[]>();
+  await Promise.all(
+    ids.map(async (paymentId) => {
+      const o = await outcome(
+        api.GET("/v1/recurring/payments/{paymentId}/charges", { params: { path: { paymentId } } }),
+      );
+      if (o.ok) out.set(paymentId, o.data.items);
+    }),
+  );
+  return out;
+}
+
 export async function loadRecurring(api: ApiClient): Promise<Load<RecurringData>> {
-  const [payments, proposals, accounts, categories] = await Promise.all([
+  const [payments, proposals, accounts, categories, statuses] = await Promise.all([
     outcome(api.GET("/v1/recurring/payments")),
     outcome(api.GET("/v1/recurring/proposals")),
     loadAccounts(api),
     loadCategories(api),
+    loadStatuses(api),
   ]);
   if (!payments.ok) return { state: "error", failure: payments };
   if (!proposals.ok) return { state: "error", failure: proposals };
+  const charges = await loadCharges(
+    api,
+    payments.data.items.map((p) => p.id),
+  );
   return {
     state: "ready",
     data: {
@@ -120,6 +149,8 @@ export async function loadRecurring(api: ApiClient): Promise<Load<RecurringData>
       more: proposals.data.more,
       accounts,
       categories,
+      statuses,
+      charges,
     },
   };
 }
