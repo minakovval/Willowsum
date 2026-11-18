@@ -133,7 +133,7 @@ function needsColumn(row: HTMLElement): boolean {
   return widest * buttons.length + gap * (buttons.length - 1) > row.clientWidth + 0.5;
 }
 
-/** Role (explicit, else the tag) and accessible name (aria-label, else the text) of the element that opened a dialog. */
+/** Tag, explicit role and name (aria-label, else the text) of the element that opened a dialog. */
 function openerIdentity(node: HTMLElement) {
   return {
     tag: node.tagName,
@@ -142,16 +142,21 @@ function openerIdentity(node: HTMLElement) {
   };
 }
 
-/** The connected element with the same role and name as a redrawn opener; none if there is no such element. */
-function findSuccessor(key: ReturnType<typeof openerIdentity>): HTMLElement | null {
+/**
+ * The one connected element with the same tag, explicit role and name as a redrawn opener. Elements inside the
+ * closing dialog and inert, hidden, disabled or invisible ones are skipped. Several equal matches (a «Змінити» per
+ * row) cannot be told apart, so none is chosen: focus then takes the item's fallback.
+ */
+function findSuccessor(key: ReturnType<typeof openerIdentity>, closing: HTMLElement): HTMLElement | null {
   if (!key.name) return null;
-  const all = document.querySelectorAll<HTMLElement>(key.tag.toLowerCase());
-  return (
-    [...all].find(
-      (n) =>
-        !n.closest("dialog") && openerIdentity(n).role === key.role && openerIdentity(n).name === key.name,
-    ) ?? null
-  );
+  const hits = [...document.querySelectorAll<HTMLElement>(key.tag.toLowerCase())].filter((n) => {
+    if (closing.contains(n) || n.closest("[inert], [hidden], [aria-hidden='true']")) return false;
+    if (n.matches(":disabled") || (typeof n.checkVisibility === "function" && !n.checkVisibility()))
+      return false;
+    const id = openerIdentity(n);
+    return id.role === key.role && id.name === key.name;
+  });
+  return hits.length === 1 ? hits[0]! : null;
 }
 
 /**
@@ -234,7 +239,7 @@ export function Dialog({
       if (typeof el.close === "function" && el.open) el.close();
       // DS-14@PoC EC1: an opener redrawn while the dialog was open is replaced by the element with the same role and name.
       if (opener?.isConnected) opener.focus();
-      else if (openerKey) findSuccessor(openerKey)?.focus();
+      else if (openerKey) findSuccessor(openerKey, el)?.focus();
     };
     // `initialFocus` is read once on opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps

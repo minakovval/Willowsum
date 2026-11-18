@@ -155,6 +155,53 @@ describe("DS-14@PoC dialogs: focus goes in, stays, and returns", () => {
     expect(document.activeElement).toBe(fresh);
   });
 
+  it.each(["redrawn", "removed"] as const)(
+    "DS-14@PoC EC1: several equal buttons, the opener %s — focus is not moved to another one",
+    (how) => {
+      function Rows() {
+        const [open, setOpen] = useState(false);
+        const [gen, setGen] = useState(0);
+        const [gone, setGone] = useState(false);
+        return (
+          <>
+            <button type="button" onClick={() => setOpen(true)}>
+              Змінити
+            </button>
+            <button type="button" onClick={() => setOpen(true)}>
+              Змінити
+            </button>
+            {gone ? null : (
+              <button type="button" key={gen} onClick={() => setOpen(true)}>
+                Змінити
+              </button>
+            )}
+            <button type="button" onClick={() => (how === "redrawn" ? setGen(1) : setGone(true))}>
+              Далі
+            </button>
+            <Dialog
+              open={open}
+              onClose={() => setOpen(false)}
+              title="Рядок"
+              closeLabel="Закрити"
+              actions={[{ label: "Скасувати", onClick: () => setOpen(false) }]}
+            >
+              <p>Текст</p>
+            </Dialog>
+          </>
+        );
+      }
+      render(<Rows />);
+      const rows = screen.getAllByRole("button", { name: "Змінити" });
+      rows[2]!.focus();
+      act(() => rows[2]!.click());
+      act(() => screen.getByRole("button", { name: "Далі", hidden: true }).click());
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(dialogEl()).toBeNull();
+      expect(document.activeElement).not.toBe(rows[0]);
+      expect(document.activeElement).not.toBe(rows[1]);
+    },
+  );
+
   it("DS-09@PoC EC2: two dialogs in a row — the new one is the only one open, above the page, and after it closes focus is back on the button that opened the first", () => {
     function Chain() {
       const [step, setStep] = useState<0 | 1 | 2>(0);
