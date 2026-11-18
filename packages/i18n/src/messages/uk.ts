@@ -656,7 +656,7 @@ export const uk = {
   "planning.goals.new.name": "Назва",
   "planning.goals.new.target": "Цільова сума",
   "planning.goals.new.target.positive": "Введіть суму більшу за нуль",
-  "planning.goals.new.months": "Скільки місяців витрат",
+  "planning.goals.new.months": "Місяців витрат",
   "planning.goals.new.months.error": "Введіть ціле число від 1 до 120",
   "planning.goals.new.date": "Дата",
   "planning.goals.new.date.hint": "без дати покажемо лише прогрес і темп",

@@ -658,7 +658,7 @@ export const en: Messages = {
   "planning.goals.new.name": "Name",
   "planning.goals.new.target": "Target amount",
   "planning.goals.new.target.positive": "Enter an amount above zero",
-  "planning.goals.new.months": "How many months of expenses",
+  "planning.goals.new.months": "Months of expenses",
   "planning.goals.new.months.error": "Enter a whole number from 1 to 120",
   "planning.goals.new.date": "Date",
   "planning.goals.new.date.hint": "without a date we show only progress and pace",

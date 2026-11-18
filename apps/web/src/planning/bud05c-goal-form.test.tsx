@@ -336,19 +336,19 @@ describe("BUD-05@PoC c) S-138 «Нова ціль»: the form dialog", () => {
     expect(await within(dialog()).findByText(/Цей рахунок уже зайнятий/)).toBeTruthy();
   });
 
-  it("BUD-05@PoC c) the template «Подушка безпеки» has «Скільки місяців витрат» (3 by default) that goes with the goal", async () => {
+  it("BUD-05@PoC c) the template «Подушка безпеки» has «Місяців витрат» (3 by default) that goes with the goal", async () => {
     const fake = api([]);
     open(fake);
     // The empty state offers the four templates; the chosen one is preselected.
     fireEvent.click(await screen.findByRole("button", { name: /^Подушка безпеки/ }));
     await screen.findByRole("dialog", { name: "Нова ціль" });
     expect(select(/^Шаблон/).value).toBe("emergency");
-    expect((field(/^Скільки місяців витрат/) as HTMLInputElement).value).toBe("3");
+    expect((field(/^Місяців витрат/) as HTMLInputElement).value).toBe("3");
     fireEvent.change(field(/^Назва/), { target: { value: "Подушка безпеки" } });
     fireEvent.change(field(/^Цільова сума/), { target: { value: "12600" } });
-    fireEvent.change(field(/^Скільки місяців витрат/), { target: { value: "0" } });
+    fireEvent.change(field(/^Місяців витрат/), { target: { value: "0" } });
     expect(disabled(button("Створити ціль"))).toBe(true);
-    fireEvent.change(field(/^Скільки місяців витрат/), { target: { value: "3" } });
+    fireEvent.change(field(/^Місяців витрат/), { target: { value: "3" } });
     fireEvent.click(button("Створити ціль"));
     await waitFor(() => expect(posts(fake)).toHaveLength(1));
     expect(posts(fake)[0]!.body).toMatchObject({ template: "emergency", emergencyMonths: 3 });
