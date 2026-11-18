@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { formatDate, formatMoney, formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
-import { ConfirmDialog, Icon, MoreActions } from "@willowsum/ui";
+import { Button, ConfirmDialog, Icon, MoreActions } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../../auth/api.ts";
 import { TRANSACTIONS } from "../../routing/routes.ts";
 import { hrefFor } from "../../routing/useHashPath.ts";
 import type { AccountLabel } from "../../recurring/data.ts";
 import { GoalDialog } from "./GoalDialog.tsx";
+import { SpendDialog } from "./SpendDialog.tsx";
 import { ContributeButton } from "./ContributePopover.tsx";
 import { barPercent, goalColor, type Goal, type Money } from "./model.ts";
 
@@ -47,8 +48,7 @@ export function partLabel(goal: Goal): MessageKey {
  * S-137 «Картка цілі» (BUD-05@PoC FR 4, FR 6, FR 13; canvas PocPlanGoalCard, PocPlanGoalCardContribute,
  * PocPlanGoalCardAchieved): the name, the template and the part, collected / target with the percent and the bar, the
  * date, the required monthly contribution, the forecast and the pace, «Внести» (a popover) or — for a separate account —
- * the hint about a transfer, and the menu «⋯» with «Змінити ціль» (S-138; BUD-05 FR 13, AC 7), «Закрити без витрати» and «Видалити». «Витратити» is
- * row 129 (S-139).
+ * the hint about a transfer, and the menu «⋯» with «Змінити ціль» (S-138; BUD-05 FR 13, AC 7), «Закрити без витрати» and «Видалити». «Витратити» (S-139, BUD-05@PoC d)) opens `SpendDialog`: primary on an achieved goal, secondary otherwise.
  */
 export function GoalCard({
   goal,
@@ -69,6 +69,7 @@ export function GoalCard({
   const api = useAuthApi();
   const [asking, setAsking] = useState<"close" | "delete" | null>(null);
   const [editing, setEditing] = useState(false);
+  const [spending, setSpending] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const account = goal.part.accountId !== null ? accounts.get(goal.part.accountId) : undefined;
@@ -184,6 +185,12 @@ export function GoalCard({
         ))}
       </dl>
       <div className="goal-card-actions">
+        <Button
+          label={t("planning.goals.menu.spend")}
+          variant={goal.achieved ? "primary" : "secondary"}
+          icon="check"
+          onClick={() => setSpending(true)}
+        />
         {goal.part.kind === "account" ? (
           <p className="goal-transfer">
             {t("planning.goals.transfer.hint", { mask: mask ?? "" })}{" "}
@@ -199,6 +206,21 @@ export function GoalCard({
           <ContributeButton goal={goal} today={today} quiet={goal.achieved} onAdded={onChanged} />
         )}
       </div>
+      {spending ? (
+        <SpendDialog
+          goal={goal}
+          accounts={accounts}
+          onClose={() => setSpending(false)}
+          onSpent={() => {
+            setSpending(false);
+            onChanged();
+          }}
+          onGone={() => {
+            setSpending(false);
+            onGone();
+          }}
+        />
+      ) : null}
       {editing ? (
         <GoalDialog
           goal={goal}

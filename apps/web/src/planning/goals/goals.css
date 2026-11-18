@@ -183,3 +183,142 @@
 .goal-form-note {
   margin: 0;
 }
+
+/* BUD-05@PoC d), S-139 «Витратити»: the list of outgoing transactions with checkboxes (no scrolling, 6 rows). Tokens only. */
+.goal-spend-collected,
+.goal-spend-caption {
+  margin: 0;
+}
+
+.goal-spend-caption {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+.goal-spend-find {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+/* 40 px as the board and the DS field box (`.ws-field-box`); the caption 13/16 under it, as the board. */
+.goal-spend-search {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  padding-inline: var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink-muted);
+}
+
+.goal-spend-search input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+}
+
+.goal-spend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  overflow: hidden;
+}
+
+.goal-spend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+  cursor: pointer;
+}
+
+.goal-spend-row[data-checked] {
+  background: var(--ws-surface-100);
+}
+
+.goal-spend-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  font-weight: 600;
+}
+
+.goal-spend-what {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.goal-spend-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.goal-spend-list > li:last-child > .goal-spend-row {
+  border-block-end: 0;
+}
+
+.goal-spend-what .ws-muted {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+/* «Ще N транзакцій»: the last row of the list (board PocPlanGoalSpend), not a button of its own. */
+.goal-spend-more {
+  inline-size: 100%;
+  min-block-size: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 0;
+  border-block-start: 1px solid var(--ws-line);
+  background: transparent;
+  color: var(--ws-link);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.goal-spend-note {
+  display: flex;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+}
+
+.goal-spend-close {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+}
+
+.goal-spend-close-hint {
+  display: block;
+}
+
+.goal-spend-error {
+  display: grid;
+  gap: var(--ws-space-2);
+  justify-items: start;
+}
+
+.goal-spend-sum[aria-live] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ws-space-1) var(--ws-space-3);
+}
