@@ -245,54 +245,63 @@ describe("CMP-61@PoC Menu items", () => {
 });
 
 describe("CMP-61@PoC Menu placement", () => {
-  const rectOf = (top: number, bottom: number) =>
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
-      top,
-      bottom,
-      left: 0,
-      right: 40,
-      width: 40,
-      height: bottom - top,
-      x: 0,
-      y: top,
-      toJSON: () => ({}),
+  /** The button is `top`…`top + 40`; the menu, once open, is `menuHeight` tall. */
+  const layout = (top: number, menuHeight: number, innerHeight: number) => {
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(innerHeight);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const h = this.getAttribute("role") === "menu" ? menuHeight : 40;
+      const t = this.getAttribute("role") === "menu" ? 0 : top;
+      return {
+        top: t,
+        bottom: t + h,
+        left: 0,
+        right: 40,
+        width: 40,
+        height: h,
+        x: 0,
+        y: t,
+        toJSON: () => ({}),
+      };
     });
+  };
+  const open = () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    return screen.getByRole("menu");
+  };
 
   afterEach(() => {
     vi.restoreAllMocks();
     cleanup();
   });
 
-  it("CMP-61@PoC AC5: a button near the bottom edge of the window opens the menu above it, a button with room below opens it below", () => {
-    vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
-    rectOf(760, 800);
-    render(<Menu />);
-    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
-    expect(screen.getByRole("menu").className).toContain("ws-menu-up");
-    expect(screen.getByRole("menu").className).not.toContain("ws-menu-down");
-    // The CSS puts `up` above the button, 4 px from its top edge.
-    expect(shellCss).toMatch(/\.ws-menu-up\s*\{[^}]*inset-block-end:\s*calc\(100% \+ var\(--ws-space-1\)\)/);
+  it("CMP-61@PoC AC5: the menu is measured when it opens — near the bottom edge it opens above the button, with room below it stays below", () => {
+    layout(760, 283, 800);
+    const up = open();
+    expect(up.className).toContain("ws-menu-up");
+    expect(up.className).not.toContain("ws-menu-down");
+    expect(up.style.maxBlockSize).toBe("");
+    expect(shellCss).toMatch(/\.ws-menu-up \{[^}]*inset-block-end: calc\(100% \+ var\(--ws-space-1\)\)/);
     cleanup();
 
-    rectOf(100, 140);
-    render(<Menu />);
-    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
-    expect(screen.getByRole("menu").className).toContain("ws-menu-down");
+    layout(100, 283, 800);
+    expect(open().className).toContain("ws-menu-down");
   });
 
-  it("CMP-61@PoC AC5: a menu that fits below stays below, and one that fits neither way opens on the side with more room", () => {
-    vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
-    rectOf(300, 340);
-    render(<Menu />);
-    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
-    expect(screen.getByRole("menu").className).toContain("ws-menu-down");
+  it("CMP-61@PoC AC5: the measured height decides, not a guess — a menu of 283 px fits below a button at 400 px but not below one at 540 px", () => {
+    layout(400, 283, 800);
+    expect(open().className).toContain("ws-menu-down");
     cleanup();
+    layout(540, 283, 800);
+    expect(open().className).toContain("ws-menu-up");
+  });
 
-    vi.spyOn(window, "innerHeight", "get").mockReturnValue(200);
-    rectOf(100, 140);
-    render(<Menu />);
-    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
-    expect(screen.getByRole("menu").className).toContain("ws-menu-up");
+  it("CMP-61@PoC AC5: when neither side holds the menu it opens on the larger side with a max-height and scrolls", () => {
+    layout(100, 500, 300);
+    const menu = open();
+    expect(menu.className).toContain("ws-menu-down");
+    expect(menu.style.maxBlockSize).toBe("148px");
+    expect(shellCss).toMatch(/\.ws-menu \{[^}]*overflow-y: auto/);
   });
 });
 

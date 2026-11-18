@@ -56,7 +56,9 @@ export function Progress({
   const current: ProgressState = state ?? (known ? "running" : "counting");
   const determinate = known && current !== "counting";
   const total = known ? Math.floor(max) : 0;
-  const done = current === "done" ? total : Math.min(total, Math.max(0, Math.floor(value)));
+  // An estimate can be passed: the real count is shown, the fill waits below full until the process is done.
+  const reached = Math.max(0, Math.floor(value));
+  const done = current === "done" ? total : estimated ? reached : Math.min(total, reached);
   const num = (n: number) => formatNumber(locale, String(n));
   const counts = { done: num(done), total: num(total), left: num(total - done) };
   const counted = (n: number) => (unit ? t("progress.withUnit", { count: num(n), unit }) : num(n));
@@ -70,7 +72,8 @@ export function Progress({
   }
   const announcement = useThrottledAnnouncement(spoken, current === "done" || current === "error");
 
-  const percent = determinate ? Math.round((done / total) * 10000) / 100 : 0;
+  const share = determinate ? Math.round((done / total) * 10000) / 100 : 0;
+  const percent = estimated && current === "running" ? Math.min(share, 99) : share;
 
   const status =
     current === "counting" ? (
@@ -85,7 +88,9 @@ export function Progress({
       <span className="ws-progress-text">{text}</span>
     ) : estimated ? (
       <span className="ws-progress-text">
-        <b className="ws-progress-count">{t("progress.countEstimated", counts)}</b>
+        <b className="ws-progress-count" aria-hidden="true">
+          {t("progress.countEstimated", counts)}
+        </b>
       </span>
     ) : (
       <span className="ws-progress-text">
@@ -100,7 +105,7 @@ export function Progress({
       aria-label={label}
       aria-valuemin={0}
       aria-valuemax={determinate ? total : undefined}
-      aria-valuenow={determinate ? done : undefined}
+      aria-valuenow={determinate ? Math.min(done, total) : undefined}
       aria-valuetext={determinate ? spoken : undefined}
     >
       {determinate && (

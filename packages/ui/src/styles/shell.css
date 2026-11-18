@@ -345,6 +345,7 @@
 
 .ws-menu {
   position: absolute;
+  overflow-y: auto;
   inset-inline-start: 0;
   z-index: var(--ws-layer-tooltip);
   min-width: calc(var(--ws-sidebar-width) - var(--ws-space-5));

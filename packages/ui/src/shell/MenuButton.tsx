@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Icon, type IconName } from "../icons/Icon.tsx";
 
 export interface MenuItem {
@@ -60,20 +68,27 @@ export function MenuButton({
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
-  const [side, setSide] = useState(placement);
 
-  // CMP-61@PoC AC5: a button near the bottom (or the top) edge of the window opens the menu on the side with room. The
-  // height is the items' (44 px touch target each, separators 1 px, the note about 56 px) plus the 4 px padding.
-  const chooseSide = () => {
-    const button = buttonRef.current?.getBoundingClientRect();
-    if (!button) return placement;
-    const height =
-      items.length * 44 + items.filter((i) => i.danger || i.separator).length + (note ? 57 : 0) + 8;
-    const below = window.innerHeight - button.bottom;
-    const above = button.top;
-    if (placement === "down") return height > below && above > below ? "up" : "down";
-    return height > above && below > above ? "down" : "up";
-  };
+  // CMP-61@PoC AC5: the opened menu is measured before paint; it goes to the side with room, and when neither side
+  // holds it, it takes the larger side and scrolls. Set on the element (no state in an effect).
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    const button = buttonRef.current;
+    if (!open || !menu || !button) return;
+    const rect = button.getBoundingClientRect();
+    const height = menu.getBoundingClientRect().height;
+    const gap = 4;
+    const margin = 8;
+    const below = window.innerHeight - rect.bottom - gap - margin;
+    const above = rect.top - gap - margin;
+    let side = placement;
+    if (placement === "down" ? height > below && above > below : height > above && below > above)
+      side = placement === "down" ? "up" : "down";
+    menu.classList.remove("ws-menu-up", "ws-menu-down");
+    menu.classList.add(`ws-menu-${side}`);
+    const room = side === "down" ? below : above;
+    menu.style.maxBlockSize = height > room && room > 0 ? `${room}px` : "";
+  }, [open, placement]);
 
   useEffect(() => {
     if (!open) return;
@@ -127,10 +142,7 @@ export function MenuButton({
         aria-controls={open ? id : undefined}
         aria-label={ariaLabel}
         title={title}
-        onClick={() => {
-          if (!open) setSide(chooseSide());
-          setOpen((v) => !v);
-        }}
+        onClick={() => setOpen((v) => !v)}
       >
         {children}
       </button>
@@ -141,7 +153,7 @@ export function MenuButton({
           role="menu"
           aria-label={menuLabel}
           aria-describedby={note ? `${id}-note` : undefined}
-          className={`ws-menu ws-menu-${side}${align === "end" ? " ws-menu-end" : ""}`}
+          className={`ws-menu ws-menu-${placement}${align === "end" ? " ws-menu-end" : ""}`}
           onKeyDown={onMenuKeyDown}
         >
           {items.map((item) => {
