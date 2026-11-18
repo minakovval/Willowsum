@@ -11,6 +11,7 @@ import {
 } from "@willowsum/ui";
 import {
   filterCount,
+  hasScale,
   matches,
   NO_FILTERS,
   optionalLimits,
@@ -56,6 +57,13 @@ function overIn(t: Translate, locale: string, count: number): string {
   const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(count);
   const form = (SUMMARY_FORMS as readonly string[]).includes(rule) ? rule : "other";
   return t(`planning.budget.sum.overIn.${form}` as MessageKey, { count });
+}
+
+/** «Показано 4 з 15 категорій»: the noun follows the total («з 1 категорії», «з 5 категорій»). */
+function shownText(t: Translate, locale: string, shown: number, count: number): string {
+  const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(count);
+  const form = (SUMMARY_FORMS as readonly string[]).includes(rule) ? rule : "other";
+  return t(`planning.budget.shown.${form}` as MessageKey, { shown, total: count });
 }
 
 /**
@@ -245,13 +253,15 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
                     {label(row)}
                     {row.mandatory ? <StatusMark id="v.mandatory" /> : null}
                   </span>
-                  {!plan && row.spent && row.limit && row.state !== "outOfPlan" ? (
+                  {!plan && row.spent && row.limit && hasScale(row) ? (
                     <UsageStatus
                       spent={row.spent.amount}
                       limit={row.limit.amount}
                       mandatory={row.mandatory}
                       optionalLimits={optional}
                     />
+                  ) : !plan && row.state && row.state !== "outOfPlan" && row.state !== "limitReached" ? (
+                    <StatusMark id={`a.${row.state}`} />
                   ) : null}
                 </th>
                 {columns.slice(1).map((c) => (
@@ -307,7 +317,7 @@ export function CategoriesCard({ view, plan }: { view: BudgetView; plan: boolean
       </table>
       {plan || active === 0 ? null : (
         <p className="bud-foot">
-          <span className="bud-note">{t("planning.budget.shown", { shown, total: all.length })}</span>
+          <span className="bud-note">{shownText(t, locale, shown, all.length)}</span>
           <button type="button" className="ws-card-filter-reset" onClick={reset}>
             {t("planning.budget.resetFilters")}
           </button>

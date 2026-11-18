@@ -98,7 +98,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
               <h2 id="bud-error-title" className="ws-text-heading-3 bud-card-title">
                 <Icon name="close" size={16} /> {t("planning.budget.error.title")}
               </h2>
-              <p className="ws-muted">{t(failureOf(result.failure).key)}</p>
+              <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
               <p>
                 <button type="button" className="ws-button" onClick={reload}>
                   {t("planning.budget.error.retry")}
@@ -132,6 +132,14 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
   );
 }
 
+/** The refusal in the budget's words: «Реєстрація і вхід недоступні» of the sign-in is not about the budget. */
+function budgetFailureKey(failure: Parameters<typeof failureOf>[0]): MessageKey {
+  const key = failureOf(failure).key;
+  return key === "auth.error.unavailable" || key === "auth.error.captcha"
+    ? "planning.budget.error.body"
+    : key;
+}
+
 /** The future month's banner (S-289), the note of a past month and the approximate-rate marks (BUD-02 AC3, AC8). */
 function PeriodNotes({ view, month }: { view: BudgetView; month: string }) {
   const { t, locale } = useI18n();
@@ -148,7 +156,13 @@ function PeriodNotes({ view, month }: { view: BudgetView; month: string }) {
           <p>
             <StatusMark id="g.futureMonth" params={{ month: inSentence }} />
           </p>
-          <p className="ws-muted">{t("planning.budget.future.hint")}</p>
+          <p className="ws-muted">
+            {t("planning.budget.future.hint", {
+              date: t("planning.budget.firstDay", {
+                month: t(`planning.budget.monthOf.${period.slice(5, 7)}` as MessageKey),
+              }),
+            })}
+          </p>
         </div>
       ) : null}
       {mode === "past" ? <p className="bud-note">{t("planning.budget.past.note", { month })}</p> : null}

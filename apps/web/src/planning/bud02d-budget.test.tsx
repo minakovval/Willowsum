@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { Decimal } from "@willowsum/domain-kernel";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { fakeApi, plain, problem, renderAt, resetAuthState, type Reply } from "../auth/testing.tsx";
 
@@ -53,7 +54,7 @@ const CATS: Cat[] = [
   cat("Подарунки", G_FAMILY, "100.00", "0.00"),
 ];
 
-const left = (c: Cat) => (Number(c.limit) - Number(c.spent)).toFixed(2);
+const left = (c: Cat) => new Decimal(c.limit).minus(c.spent).toFixed(2);
 const tree = (cats: Cat[]) => ({
   groups: [
     ["Житло і рахунки", G_HOME],
@@ -276,6 +277,7 @@ describe("BUD-02@PoC d) FR 16: the budget period", () => {
     fireEvent.click(screen.getByRole("button", { name: "Наступний місяць" }));
     await waitFor(() => expect(screen.getByText("Грудень 2026")).toBeTruthy());
     expect((await screen.findAllByText(/Це план на грудень — витрат ще немає/)).length).toBeGreaterThan(0);
+    expect(screen.getByText(/з’явиться 1 грудня/)).toBeTruthy();
     expect(window.location.hash).toBe("#/planning/budget?period=2026-12");
     expect(heads()).toEqual(["Категорія", "План"]);
     expect(screen.queryByText("Можна витратити")).toBeNull();
@@ -447,5 +449,73 @@ describe("BUD-02@PoC d) FR 9, FR 20: sorting and the filter of the card «Кат
     expect(screen.getByText("За цими фільтрами категорій немає")).toBeTruthy();
     expect(screen.getByText("Показано 0 з 15 категорій")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Скинути фільтри" })).toBeTruthy();
+  });
+});
+
+describe("BUD-02@PoC d) owner decisions of 2026-11-18 and the fix round", () => {
+  const zero = cat("Подорожі", G_DAILY, "0.00", "150.00");
+  const withZero = (extra: Cat[]) => [...CATS, ...extra];
+  const zeroPeriod = (cats: Cat[]) => ({
+    "GET /v1/budget/periods/2026-11": { status: 200, body: period("2026-11", "current", { cats }) } as Reply,
+  });
+
+  it("BUD-02@PoC FR 9, FR 19, FR 20: a category with a limit of 0 € and spending is «перевищено» — the row, the state filter and the overspend agree", async () => {
+    const cats = withZero([zero]);
+    await open(zeroPeriod(cats), PAGE, cats);
+    const row = rowOf("Подорожі");
+    expect(row.getAttribute("data-state")).toBe("over");
+    expect(row.textContent).toContain("перевищено");
+    expect(cellsOf(row)).toEqual(["150,00 €", "0,00 €", "−150,00 €"]);
+    expect(plain(document.querySelector(".bud-summary")!.textContent)).toContain(
+      "Перевитрата226,17 €у 5 категоріях",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Фільтри" }));
+    expect(screen.getByRole("menuitemcheckbox", { name: /Перевищено/ }).textContent).toContain("5");
+    expect(screen.getByRole("menuitemcheckbox", { name: /Поза планом/ }).textContent).toContain("0");
+  });
+
+  it("BUD-02@PoC FR 20: «Поза планом» rows count as «Необов’язкові» for «Тип» and a «Групи» filter hides them", async () => {
+    const trips = cat("Подорожі", G_DAILY, "0.00", "150.00");
+    await open(
+      {
+        "GET /v1/budget/periods/2026-11": {
+          status: 200,
+          body: period("2026-11", "current", { outside: [{ id: trips.id, spent: "150.00" }] }),
+        },
+      },
+      PAGE,
+      [...CATS, trips],
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Фільтри" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Необов/ }));
+    expect(names()).toContain("Подорожі");
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Щоденне/ }));
+    expect(names()).not.toContain("Подорожі");
+  });
+
+  it("BUD-02@PoC FR 16: the future month has no category filter", async () => {
+    await open({}, "#/planning/budget?period=2026-12");
+    await screen.findAllByText(/Це план на грудень/);
+    expect(screen.queryByRole("button", { name: /Фільтри/ })).toBeNull();
+  });
+
+  it("BUD-02@PoC FR 20: «Показано N з M категорій» follows the plural of the total", async () => {
+    const one = [CATS[0]!];
+    await open(
+      {
+        "GET /v1/budget/periods/2026-11": { status: 200, body: period("2026-11", "current", { cats: one }) },
+      },
+      PAGE,
+      one,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Фільтри" }));
+    fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Вичерпано/ }));
+    expect(screen.getByText("Показано 1 з 1 категорії")).toBeTruthy();
+  });
+
+  it("BUD-02@PoC UI error: a 404 on the budget is shown in the budget's words, not as a sign-in outage", async () => {
+    renderAt(PAGE, api({ "GET /v1/budget": problem(404, "NOT_FOUND") }).client);
+    expect(await screen.findByText("Бюджет зараз недоступний. Спробуйте пізніше")).toBeTruthy();
+    expect(screen.queryByText(/Реєстрація і вхід/)).toBeNull();
   });
 });

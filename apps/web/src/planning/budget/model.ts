@@ -66,10 +66,15 @@ export function periodFromHash(hash: string): string | null {
   return value !== null && PERIOD.test(value) ? value : null;
 }
 
+/** A limit above zero has the usage scale (bar); a zero limit shows only the word of its state. */
+export const hasScale = (row: Row): boolean => row.limit !== null && new Decimal(row.limit.amount).gt(0);
+
 export function stateOf(spent: Money | null, limit: Money | null, mandatory: boolean): RowState | null {
   if (limit === null) return "outOfPlan";
   if (spent === null) return null;
-  return new Decimal(limit.amount).gt(0) ? usageState(spent.amount, limit.amount, mandatory) : "outOfPlan";
+  // Owner decision 2026-11-18: a category with a limit of 0 and spending is «перевищено», not «поза планом».
+  if (!new Decimal(limit.amount).gt(0)) return new Decimal(spent.amount).gt(0) ? "over" : "notStarted";
+  return usageState(spent.amount, limit.amount, mandatory);
 }
 
 function build(period: Period, tree: Tree): Omit<BudgetView, "firstPeriod"> {
@@ -217,6 +222,8 @@ export function overspend(rows: readonly Row[]): (Money & { count: number }) | n
   let currency = "";
   for (const row of rows) {
     if (row.remaining === null || !new Decimal(row.remaining.amount).lt(0)) continue;
+    // One budget — one currency (BUD-02 FR 1): amounts of two currencies are never added; no figure is better than a wrong one.
+    if (count > 0 && row.remaining.currency !== currency) return null;
     sum = sum.plus(row.remaining.amount);
     currency = row.remaining.currency;
     count += 1;
@@ -226,7 +233,14 @@ export function overspend(rows: readonly Row[]): (Money & { count: number }) | n
 
 /** The sum of the limits of the optional categories: the base of the overspend shade (DS-23 FR 4). */
 export function optionalLimits(rows: readonly Row[]): string {
-  return rows
-    .reduce((sum, r) => (r.mandatory || r.limit === null ? sum : sum.plus(r.limit.amount)), new Decimal("0"))
-    .toFixed();
+  let sum = new Decimal("0");
+  let currency = "";
+  for (const r of rows) {
+    if (r.mandatory || r.limit === null) continue;
+    // One budget, one currency (BUD-02 FR 1): amounts of two currencies are never added.
+    if (currency !== "" && r.limit.currency !== currency) return "0";
+    currency = r.limit.currency;
+    sum = sum.plus(r.limit.amount);
+  }
+  return sum.toFixed();
 }
