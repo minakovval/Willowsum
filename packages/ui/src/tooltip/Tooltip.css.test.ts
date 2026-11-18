@@ -32,10 +32,12 @@ describe("CMP-25@PoC Tooltip styles", () => {
     expect(tip()).toMatch(/box-shadow:\s*var\(--ws-shadow-popover\)/);
     expect(tip()).toMatch(/z-index:\s*var\(--ws-layer-top\)/);
     expect(tip()).toMatch(/position:\s*fixed/);
-    expect(layers["layer-top"]).toBeGreaterThan(layers["layer-sticky"]);
+    // «шар поверх усього вмісту»: above every page layer of the scale.
+    for (const [k, v] of Object.entries(layers))
+      if (k !== "layer-top") expect(layers["layer-top"], k).toBeGreaterThan(v);
   });
 
-  it("DS-09@PoC FR 7: the floating full-value tooltip sits on the service top layer, 1000 — above the sticky bar", () => {
+  it("DS-09@PoC FR 7, EC1: the floating full-value tooltip sits on the service top layer, 1000 — not hidden under the sticky bar", () => {
     expect(tip()).toMatch(/z-index:\s*var\(--ws-layer-top\)/);
     expect(layers["layer-top"]).toBe(1000);
     expect(tokensCss).toMatch(/--ws-layer-top:\s*1000;/);
