@@ -47,17 +47,14 @@ describe("CMP-71@PoC the mark and the name", () => {
     expect(tokens).toMatch(/--ws-font-display:\s*"Inter Tight"/);
   });
 
-  it("CMP-71@PoC AC5: the mark in the code is the mark of the design-system file — the same three paths — and no other source file draws its own copy", () => {
+  it("CMP-71@PoC AC5: the mark in the code is the mark of the brand assets (light mark, favicon) — the same three paths — and no other source file draws its own copy", () => {
     const { container } = render(<WillowsumMark size={24} decorative />);
     const drawn = [...container.querySelectorAll("path")].map((p) => p.getAttribute("d"));
     expect(drawn).toHaveLength(3);
-    for (const file of [
-      "design/design-system/assets/Logos/mark-light.svg",
-      "packages/ui/src/brand/assets/mark-light.svg",
-      "apps/web/public/favicon.svg",
-    ]) {
+    for (const file of ["packages/ui/src/brand/assets/mark-light.svg", "apps/web/public/favicon.svg"]) {
       expect(pathsOf(read(file)), file).toEqual(drawn);
     }
+    // The comparison with the design-system file is not made here: heavy CI jobs read nothing under design/.
     // No other source file of the apps and packages carries the mark's outline.
     const outline = drawn[0]!;
     const found: string[] = [];
