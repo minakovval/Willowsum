@@ -478,6 +478,18 @@ export const en: Messages = {
   "planning.budget.empty.body":
     "The budget shows how much you can spend until the end of the month and how much is left in each category. Limits can be suggested from your average spending over the last 3 months or set from scratch.",
   // BUD-02@PoC d), S-121 / S-289: the budget screen (variants of the agent, need approval: board PocPlanBudgetTexts)
+  "planning.budget.month.01": "January",
+  "planning.budget.month.02": "February",
+  "planning.budget.month.03": "March",
+  "planning.budget.month.04": "April",
+  "planning.budget.month.05": "May",
+  "planning.budget.month.06": "June",
+  "planning.budget.month.07": "July",
+  "planning.budget.month.08": "August",
+  "planning.budget.month.09": "September",
+  "planning.budget.month.10": "October",
+  "planning.budget.month.11": "November",
+  "planning.budget.month.12": "December",
   "planning.budget.period.group": "Budget period",
   "planning.budget.period.prev": "Previous month",
   "planning.budget.period.next": "Next month",

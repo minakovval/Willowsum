@@ -1,5 +1,5 @@
 import { useCallback, useSyncExternalStore } from "react";
-import { formatMoney, useI18n } from "@willowsum/i18n";
+import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
 import { Icon, IconButton, Skeleton, StatusMark } from "@willowsum/ui";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
@@ -7,7 +7,7 @@ import { BUDGET } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { failureOf } from "../auth/failure.ts";
 import { kyivToday, useLoad } from "../recurring/data.ts";
-import { monthTitle } from "../recurring/format.ts";
+import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
@@ -25,7 +25,11 @@ const subscribe = (onChange: () => void) => {
 };
 const readHash = () => window.location.hash;
 
-const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
+/** The month of a period in the words of the catalogue (so that a pseudo-locale shows it too): «Листопад». */
+const monthName = (t: Translate, period: string): string =>
+  t(`planning.budget.month.${period.slice(5, 7)}` as MessageKey);
+/** «Листопад 2026» (S-121 title of the period). */
+const monthYear = (t: Translate, period: string): string => `${monthName(t, period)} ${period.slice(0, 4)}`;
 
 /**
  * GRID-04@PoC FR 1, BUD-02@PoC d) FR 9, FR 16, S-121 / S-289 «Бюджет» (template Dashboard): the header with the
@@ -36,7 +40,7 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
  * BUD-03 (row 126) and BUD-07 (row 130); the tabs are the next rows.
  */
 export function BudgetPage({ today = kyivToday() }: { today?: string }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const title = t(BUDGET.label);
   useDocumentTitle(title);
   const hash = useSyncExternalStore(subscribe, readHash, () => "");
@@ -53,7 +57,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
   const go = (month: string) => {
     window.location.hash = `${BUDGET.path}?period=${month}`;
   };
-  const monthLabel = capital(monthTitle(locale, `${period}-01`));
+  const monthLabel = monthYear(t, period);
   const atStart = data?.kind === "ready" && period <= data.firstPeriod;
 
   return (
@@ -118,7 +122,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             </section>
           ) : (
             <>
-              <PeriodNotes view={data} month={capital(monthTitle(locale, `${period}-01`))} />
+              <PeriodNotes view={data} month={monthYear(t, data.period.period)} />
               <CategoriesCard key={data.period.period} view={data} plan={data.period.mode === "future"} />
             </>
           )}
@@ -132,10 +136,9 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
 function PeriodNotes({ view, month }: { view: BudgetView; month: string }) {
   const { t, locale } = useI18n();
   const { mode, approximate, period } = view.period;
-  const monthName = new Intl.DateTimeFormat(locale === "uk" ? "uk-UA" : "en", {
-    month: "long",
-    timeZone: "UTC",
-  }).format(new Date(`${period}-01T00:00:00Z`));
+  const name = monthName(t, period);
+  // «Це план на грудень»: the month in the sentence is lower case in Ukrainian.
+  const inSentence = locale === "uk" ? name.toLocaleLowerCase("uk-UA") : name;
   const rule = new Intl.PluralRules(locale === "uk" ? "uk-UA" : "en").select(approximate.nearestRateCount);
   const form = rule === "one" || rule === "few" || rule === "many" ? rule : "other";
   return (
@@ -143,7 +146,7 @@ function PeriodNotes({ view, month }: { view: BudgetView; month: string }) {
       {mode === "future" ? (
         <div className="bud-banner" role="status">
           <p>
-            <StatusMark id="g.futureMonth" params={{ month: monthName }} />
+            <StatusMark id="g.futureMonth" params={{ month: inSentence }} />
           </p>
           <p className="ws-muted">{t("planning.budget.future.hint")}</p>
         </div>

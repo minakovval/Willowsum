@@ -1,12 +1,68 @@
 import { useState } from "react";
 import { useT } from "@willowsum/i18n";
-import { FilterBar, FilterChecks, FilterRow, type FilterChipItem } from "@willowsum/ui";
+import {
+  CardFilter,
+  CardFilterChips,
+  FilterBar,
+  FilterChecks,
+  FilterRow,
+  type FilterChipItem,
+} from "@willowsum/ui";
 
 /**
  * CMP-32@PoC FilterBar in the design-system gallery, on synthetic values: «Фільтри · N» with the chips of the applied
  * filters, the panel with «Рахунки» (several values) and «Тип» (one value), «Скинути все» and «Застосувати».
  */
 export function FilterBarDemo() {
+  return (
+    <>
+      <FilterBarPanelDemo />
+      <CardFilterDemo />
+    </>
+  );
+}
+
+/** The variant «у картці» (CMP-32 FR 8): the menu with check items and their counts; a choice acts at once. */
+function CardFilterDemo() {
+  const t = useT();
+  const [state, setState] = useState<readonly string[]>(["over"]);
+  const options = [
+    { id: "notStarted", label: t("planning.budget.filter.notStarted"), count: 2 },
+    { id: "over", label: t("planning.budget.filter.over"), count: 4 },
+  ];
+  const toggle = (_section: string, id: string) =>
+    setState((v) => (v.includes(id) ? v.filter((x) => x !== id) : [...v, id]));
+  const chips: FilterChipItem[] = state.map((id) => {
+    const value = (options.find((o) => o.id === id)?.label ?? "").toLowerCase();
+    return {
+      id,
+      field: t("planning.budget.filter.stateField"),
+      value,
+      text: t("planning.budget.filter.chipState", { value }),
+    };
+  });
+  return (
+    <div className="ws-card gallery-filter-bar" data-case="card-filter">
+      <CardFilter
+        count={state.length}
+        sections={[
+          {
+            id: "state",
+            label: t("planning.budget.filter.state"),
+            options: options.map((o) => ({ ...o, checked: state.includes(o.id) })),
+          },
+        ]}
+        onToggle={toggle}
+        onReset={() => setState([])}
+        shown={state.length === 0 ? 15 : 4}
+        all={15}
+      />
+      <CardFilterChips chips={chips} onRemove={(id) => toggle("state", id)} />
+    </div>
+  );
+}
+
+function FilterBarPanelDemo() {
   const t = useT();
   const accounts = [
     { value: "a1", label: t("gallery.filterBar.acc1") },

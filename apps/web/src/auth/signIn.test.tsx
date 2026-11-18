@@ -51,7 +51,9 @@ describe("ACC-01@PoC S-004 sign-in", () => {
     await waitFor(() => expect(window.location.hash).toBe("#/planning/budget"));
     // After it, the shell only reads the space's name for the profile (ACC-08@PoC FR 2), and the start page reads the
     // session (ACC-04@PoC: the session keeper), which neither extends nor signs in.
-    const notSpace = () => calls.filter((c) => !(c.method === "GET" && c.path === "/v1/space"));
+    // The start page «Бюджет» also reads the budget (BUD-02@PoC d)): a body-less GET.
+    const notSpace = () =>
+      calls.filter((c) => !(c.method === "GET" && (c.path === "/v1/space" || c.path === "/v1/budget")));
     await waitFor(() => expect(notSpace()).toHaveLength(2));
     expect(notSpace()).toEqual([
       {

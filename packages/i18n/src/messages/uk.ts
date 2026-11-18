@@ -477,6 +477,18 @@ export const uk = {
   "planning.budget.empty.body":
     "Бюджет показує, скільки можна витратити до кінця місяця і скільки лишилось у кожній категорії. Ліміти можна запропонувати за середніми витратами останніх 3 місяців або задати з нуля.",
   // BUD-02@PoC d), S-121 / S-289: the budget screen (variants of the agent, need approval: board PocPlanBudgetTexts)
+  "planning.budget.month.01": "Січень",
+  "planning.budget.month.02": "Лютий",
+  "planning.budget.month.03": "Березень",
+  "planning.budget.month.04": "Квітень",
+  "planning.budget.month.05": "Травень",
+  "planning.budget.month.06": "Червень",
+  "planning.budget.month.07": "Липень",
+  "planning.budget.month.08": "Серпень",
+  "planning.budget.month.09": "Вересень",
+  "planning.budget.month.10": "Жовтень",
+  "planning.budget.month.11": "Листопад",
+  "planning.budget.month.12": "Грудень",
   "planning.budget.period.group": "Бюджетний період",
   "planning.budget.period.prev": "Попередній місяць",
   "planning.budget.period.next": "Наступний місяць",

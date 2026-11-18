@@ -1,3 +1,4 @@
+import "./budget.css";
 import { useMemo, useState } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
 import {
