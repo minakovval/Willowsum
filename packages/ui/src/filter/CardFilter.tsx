@@ -128,7 +128,9 @@ export function CardFilter({ count, sections, onToggle, onReset, shown, all, cla
             <button type="button" className="ws-card-filter-reset" onClick={onReset}>
               {t("filter.card.reset")}
             </button>
-            <span className="ws-muted">{t("filter.card.shown", { shown, total: all })}</span>
+            <span className="ws-muted" aria-live="polite">
+              {t("filter.card.shown", { shown, total: all })}
+            </span>
           </div>
         </div>
       ) : null}

@@ -239,7 +239,7 @@ describe("BUD-02@PoC d) S-121 «Бюджет»: the current month", () => {
     expect(sum).toContain("Перевитрата76,17 €у 4 категоріях");
   });
 
-  it("BUD-02@PoC FR 3 (AC3): approximate amounts are marked «приблизно» with the number of transactions at the nearest rate", async () => {
+  it("BUD-02@PoC AC3: approximate amounts are marked «приблизно» with the number of transactions at the nearest rate", async () => {
     await open({
       "GET /v1/budget/periods/2026-11": {
         status: 200,
@@ -432,6 +432,10 @@ describe("BUD-02@PoC d) FR 9, FR 20: sorting and the filter of the card «Кат
     fireEvent.click(screen.getByRole("menuitemcheckbox", { name: /Родина/ }));
     expect(names().sort()).toEqual(["Освіта", "Здоров’я"].sort());
     expect(screen.getByRole("button", { name: "Фільтри · 2" })).toBeTruthy();
+    // BUD-02 AC10: the totals row counts every category, not the 1 overspent one left in the table.
+    expect(plain(document.querySelector(".bud-summary")!.textContent)).toContain(
+      "Перевитрата76,17 €у 4 категоріях",
+    );
     fireEvent.click(screen.getByRole("button", { name: "Прибрати фільтр: Група — родина" }));
     expect(names()).toHaveLength(7);
   });

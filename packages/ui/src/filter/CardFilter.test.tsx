@@ -49,7 +49,8 @@ describe("CMP-32@PoC FR 8 variant «у картці»", () => {
     expect(item.getAttribute("aria-checked")).toBe("false");
     expect(item.textContent).toContain("4");
     expect(within(menu).queryByRole("button", { name: /Застосувати|Показати/ })).toBeNull();
-    expect(within(menu).getByText("Показано 15 з 15")).toBeTruthy();
+    // CMP-32 «Клавіатура і екранний читач»: the count after a change is announced politely.
+    expect(within(menu).getByText("Показано 15 з 15").getAttribute("aria-live")).toBe("polite");
   });
 
   it("CMP-32@PoC FR 8, AC8: a choice acts at once — «Фільтри · 1», the chip and «Показано 4 з 15» — and the menu stays open", () => {

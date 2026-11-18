@@ -508,7 +508,6 @@ export const uk = {
   "planning.budget.income.plan": "План доходу",
   "planning.budget.income.actual": "Отримано",
   "planning.budget.categories.title": "Категорії",
-  "planning.budget.categories.subtitle": "обов’язкові {mandatory} · необов’язкові {optional}",
   "planning.budget.col.category": "Категорія",
   "planning.budget.col.spent": "Витрачено",
   "planning.budget.col.limit": "Ліміт",

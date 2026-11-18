@@ -509,7 +509,6 @@ export const en: Messages = {
   "planning.budget.income.plan": "Income plan",
   "planning.budget.income.actual": "Received",
   "planning.budget.categories.title": "Categories",
-  "planning.budget.categories.subtitle": "mandatory {mandatory} · optional {optional}",
   "planning.budget.col.category": "Category",
   "planning.budget.col.spent": "Spent",
   "planning.budget.col.limit": "Limit",
