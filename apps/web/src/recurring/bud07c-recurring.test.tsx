@@ -740,7 +740,35 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     await screen.findByRole("table");
     expect(cells(rowOf("^YouTube"))[4]).toBe("");
     expect(within(screen.getByRole("table")).queryByText("Можливо, скасований")).toBeNull();
+    expect(screen.queryByText("Прострочених списань немає.")).toBeNull();
+    expect(screen.getByRole("note").textContent).toContain("Списання не завантажено для: ");
   });
+
+  it("BUD-07@PoC FR 9: with the statuses loaded and nothing overdue the summary says so; a variable amount of the nearest charges has «≈»", async () => {
+    const { client } = statusApi({
+      "GET /v1/recurring/statuses": { status: 200, body: { items: [status("p1", {})] } },
+    });
+    renderAt(PAGE, client);
+    await screen.findByRole("table");
+    expect(screen.getByText("Прострочених списань немає.")).toBeTruthy();
+    expect(plain(screen.getByRole("region", { name: "Найближчі" }).textContent)).toContain("≈ 90,00 €");
+  });
+
+  it("BUD-07@PoC FR 21: every overdue charge of a payment can be marked skipped by its date (the API takes any overdue charge)", async () => {
+    const skip = vi.fn(() => ({ status: 200, body: charge({ dueOn: "2026-10-10", status: "skipped" }) }));
+    const before = CHARGES.p3;
+    onTestFinished(() => {
+      CHARGES.p3 = before!;
+    });
+    CHARGES.p3 = [charge({ dueOn: "2026-10-10", status: "overdue", overdueDays: 37 }), OVERDUE];
+    const { client } = statusApi({ "POST /v1/recurring/payments/p3/charges/2026-10-10/skip": skip });
+    renderAt(PAGE, client);
+    await screen.findByRole("table");
+    fireEvent.click(within(rowOf("^Квартплата")).getByRole("button", { name: "Ще дії" }));
+    expect(await screen.findByRole("menuitem", { name: /Позначити пропущеним: 10\s+лист/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("menuitem", { name: /Позначити пропущеним: 10\s+жовт/ }));
+    await waitFor(() => expect(skip).toHaveBeenCalledTimes(1));
+  }, 20000);
 
   it("BUD-07@PoC FR 14: a payment belongs to the whole space: no share and no «Хто компенсує» anywhere on the screen", async () => {
     renderAt(PAGE, statusApi().client);

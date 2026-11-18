@@ -15,6 +15,7 @@ import {
   type Payment,
   type Proposal,
   type RecurringData,
+  type Charge,
   type Status,
 } from "./data.ts";
 import { PlanGrid, PlanRegion } from "../planning/PlanGrid.tsx";
@@ -376,46 +377,52 @@ function PaymentRow({
       </td>
       <td data-label={columns[5]}>{last ? <ChargeStatus type={p.type} charge={last} /> : null}</td>
       <td data-label={columns[6]} className="rec-actions">
-        <PaymentActions payment={p} status={status} onDecided={onDecided} />
+        <PaymentActions payment={p} status={status} charges={data.charges.get(p.id)} onDecided={onDecided} />
       </td>
     </tr>
   );
 }
 
 /**
- * FR 21: «Позначити пропущеним» on an overdue charge (the API refuses it for anyone but the Owner); FR 10: «Залишити» on
+ * FR 21: «Позначити пропущеним» on each overdue charge of the payment (the API takes any overdue charge by its date) (the API refuses it for anyone but the Owner); FR 10: «Залишити» on
  * a payment «Можливо, скасований». Neither has a body; a refusal is said at the top of the page.
  */
 function PaymentActions({
   payment: p,
   status,
+  charges,
   onDecided,
 }: {
   payment: Payment;
   status: Status | undefined;
+  charges: readonly Charge[] | undefined;
   onDecided: (message: string) => void;
 }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const items: MenuItem[] = [];
-  const overdue = status?.lastCharge?.status === "overdue" ? status.lastCharge : null;
+  const known = charges ?? (status?.lastCharge ? [status.lastCharge] : []);
+  const overdue = known.filter((c) => c.status === "overdue");
   const run = async (call: Promise<Outcome<unknown>>, done: string) => {
     const o = await call;
     onDecided(o.ok ? done : `${t("recurring.action.error")} ${t(failureOf(o).key)}`);
   };
-  if (overdue)
+  for (const charge of overdue)
     items.push({
-      id: "skip",
-      label: t("recurring.action.skip"),
+      id: `skip-${charge.dueOn}`,
+      label:
+        overdue.length > 1
+          ? t("recurring.action.skip.dated", { date: shortDate(locale, charge.dueOn) })
+          : t("recurring.action.skip"),
       icon: "check",
       onSelect: () =>
         void run(
           outcome(
             api.POST("/v1/recurring/payments/{paymentId}/charges/{dueOn}/skip", {
-              params: { path: { paymentId: p.id, dueOn: overdue.dueOn } },
+              params: { path: { paymentId: p.id, dueOn: charge.dueOn } },
             }),
           ),
-          t("recurring.notice.skipped", { name: p.name, date: shortDate(locale, overdue.dueOn) }),
+          t("recurring.notice.skipped", { name: p.name, date: shortDate(locale, charge.dueOn) }),
         ),
     });
   if (status?.state === "possibly-cancelled")

@@ -48,6 +48,7 @@ export function RecurringCalendar({ data, today }: { data: RecurringData; today:
       list.push({ paymentId: p.id, name: p.name, type: p.type, charge });
       byDate.set(charge.dueOn, list);
     }
+  const missing = data.payments.filter((p) => !data.charges.has(p.id)).map((p) => p.name);
   const weekdays = (weeks[0] ?? []).map((c) =>
     new Intl.DateTimeFormat(formatLocaleOf(locale), { weekday: "short", timeZone: "UTC" }).format(
       new Date(`${c.date}T00:00:00Z`),
@@ -64,6 +65,11 @@ export function RecurringCalendar({ data, today }: { data: RecurringData; today:
         </p>
         <p className="ws-muted rec-hint">{t("recurring.calendar.partial")}</p>
       </div>
+      {missing.length > 0 ? (
+        <p className="ws-muted rec-hint" role="note">
+          {t("recurring.calendar.missing", { names: missing.join(", ") })}
+        </p>
+      ) : null}
       <div className="rec-cal" role="grid" aria-labelledby="rec-cal-title">
         <div role="row" className="rec-cal-row rec-cal-head">
           {weekdays.map((w, i) => (

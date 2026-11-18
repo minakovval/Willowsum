@@ -1214,6 +1214,8 @@ export const uk = {
   "recurring.change.rose": "Сума зросла з {from} ({date})",
   "recurring.change.fell": "Сума зменшилась з {from} ({date})",
   "recurring.action.skip": "Позначити пропущеним",
+  "recurring.action.skip.dated": "Позначити пропущеним: {date}",
+  "recurring.calendar.missing": "Списання не завантажено для: {names}.",
   "recurring.action.keep": "Залишити",
   "recurring.notice.skipped": "Списання «{name}» за {date} позначено пропущеним.",
   "recurring.notice.kept": "«{name}» лишається в регулярних платежах.",

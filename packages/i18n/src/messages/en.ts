@@ -1218,6 +1218,8 @@ export const en: Messages = {
   "recurring.change.rose": "Amount rose from {from} ({date})",
   "recurring.change.fell": "Amount fell from {from} ({date})",
   "recurring.action.skip": "Mark as skipped",
+  "recurring.action.skip.dated": "Mark as skipped: {date}",
+  "recurring.calendar.missing": "Charges not loaded for: {names}.",
   "recurring.action.keep": "Keep",
   "recurring.notice.skipped": "The {date} charge of “{name}” is marked as skipped.",
   "recurring.notice.kept": "“{name}” stays in the regular payments.",

@@ -1,7 +1,7 @@
-import { formatMoney, useI18n } from "@willowsum/i18n";
+import { useI18n } from "@willowsum/i18n";
 import { StatusMark } from "@willowsum/ui";
 import type { Payment, RecurringData } from "./data.ts";
-import { shortDate } from "./format.ts";
+import { expectedText, shortDate } from "./format.ts";
 
 const NEAREST_DAYS = 30;
 const SHOWN = 6;
@@ -36,7 +36,9 @@ export function Summary({ data }: { data: RecurringData }) {
       <div className="rec-summary-body">
         {overdue > 0 ? <StatusMark id="d.summaryOverdue" params={{ count: overdue }} /> : null}
         {missing > 0 ? <StatusMark id="d.summaryMissing" params={{ count: missing }} /> : null}
-        {overdue === 0 && missing === 0 ? <p className="ws-muted">{t("recurring.summary.none")}</p> : null}
+        {data.statuses.size > 0 && overdue === 0 && missing === 0 ? (
+          <p className="ws-muted">{t("recurring.summary.none")}</p>
+        ) : null}
       </div>
     </section>
   );
@@ -71,9 +73,7 @@ export function Nearest({ data, today }: { data: RecurringData; today: string })
               <span className="rec-nearest-date">{p.nextDate ? shortDate(locale, p.nextDate) : ""}</span>
               <span className="rec-nearest-name">{p.name}</span>
               <span className="rec-amount">
-                {formatMoney(locale, p.expectedAmount.amount, p.expectedAmount.currency, {
-                  signed: p.type === "income",
-                })}
+                {expectedText(t, locale, p.expectedAmount, p.type, p.variable)}
               </span>
             </li>
           ))}
