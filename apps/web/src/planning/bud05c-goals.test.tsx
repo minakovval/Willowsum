@@ -273,7 +273,7 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(link.getAttribute("href")).toBe(`#/money/transactions/new?type=transfer&to=${ACC_RESERVE}`);
   });
 
-  // Criterion 7 (the menu with «Змінити ціль», the quiet «Внести») is asserted in bud05c-goal-form.test.tsx; its main action «Витратити» is row 129.
+  // Criterion 7 in part (the menu with «Змінити ціль», the quiet «Внести»); its main action «Витратити» is row 129, so the tests name FR 13.
   it("BUD-05@PoC FR 13: an achieved goal has «✓ Досягнуто», a quiet «Внести» and the menu «⋯» with «Змінити ціль», «Закрити без витрати» and «Видалити»; no pause", async () => {
     open(api([LAPTOP]));
     const card = (await screen.findByRole("heading", { level: 2, name: "Ноутбук для Соні" })).closest(

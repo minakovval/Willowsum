@@ -372,7 +372,8 @@ describe("BUD-05@PoC c) S-138 «Змінити ціль»", () => {
     await screen.findByRole("dialog", { name: "Змінити ціль" });
   }
 
-  it("BUD-05@PoC AC7: the menu «⋯» of a goal, an achieved one too, starts with «Змінити ціль»; an achieved goal keeps a quiet «Внести»", async () => {
+  // Criterion 7 in part: its main action «Витратити» is row 129, so this test is named by FR 13, not by the criterion.
+  it("BUD-05@PoC FR 13: the menu «⋯» of a goal, an achieved one too, starts with «Змінити ціль»; an achieved goal keeps a quiet «Внести»", async () => {
     open(api([LAPTOP]));
     const card = (await screen.findByRole("heading", { level: 2, name: "Ноутбук для Соні" })).closest(
       "section",
