@@ -633,6 +633,64 @@ describe("GRID-02@PoC the table of «Транзакції» on narrow containers
   });
 });
 
+describe("GRID-02@PoC the sort button of «Транзакції» in the card form", () => {
+  const sortButton = () => within(toolbar()).getByRole("button", { name: "Сортування" });
+
+  it("GRID-02@PoC AC 7: the toolbar has a «Сортування» menu button whose options are the sortable headers; the card form's container query is what shows it (CSS, not JS), and the table form has no such button", async () => {
+    open();
+    await loaded();
+    const button = sortButton();
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    act(() => button.click());
+    const menu = screen.getByRole("menu", { name: "Сортування" });
+    expect(
+      within(menu)
+        .getAllByRole("menuitemcheckbox")
+        .map((i) => i.textContent),
+    ).toEqual(headButtons().map((b) => b.title));
+    cleanup();
+    // The button hides in the table form and shows below 520 px of the container, in the same query as the cards.
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(join(dir, "transactions.css"), "utf8").replace(/\s+/g, " ");
+    expect(css).toMatch(/\.tx-list \{[^}]*container-type: inline-size/);
+    expect(css).toContain(".tx-sort { display: none; }");
+    expect(css).toContain("@container (max-width: 519px) { .tx-sort { display: contents; } }");
+    expect(css).not.toMatch(/@media[^{]*\{[^}]*\.tx-sort/);
+  });
+
+  it("GRID-02@PoC AC 7: a menu option sorts like the header — the first pick ascending, the same again descending; the menu closes and the focus returns to the button", async () => {
+    const { lastQuery } = open();
+    await loaded();
+    act(() => sortButton().click());
+    act(() => screen.getByRole("menuitemcheckbox", { name: "Сортувати за: контрагент" }).click());
+    await waitFor(() => expect(lastQuery().get("sort")).toBe("counterparty"));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(sortButton());
+    expect(headButton("Контрагент").dataset.sort).toBe("asc");
+    act(() => sortButton().click());
+    const active = screen.getByRole("menuitemcheckbox", { name: "Сортувати за: контрагент" });
+    expect(active.getAttribute("aria-checked")).toBe("true");
+    act(() => active.click());
+    await waitFor(() => expect(lastQuery().get("sort")).toBe("-counterparty"));
+  });
+
+  it("GRID-02@PoC AC 7: the menu opens from the keyboard, the arrow moves between the options, Esc closes it and the focus returns to the button", async () => {
+    open();
+    await loaded();
+    const button = sortButton();
+    button.focus();
+    fireEvent.keyDown(button, { key: "Enter" });
+    act(() => button.click());
+    const items = within(screen.getByRole("menu", { name: "Сортування" })).getAllByRole("menuitemcheckbox");
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(items[0]!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(items[1]!, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+});
+
 describe("GRID-02@PoC the «Гроші» section: root, menu and tabs", () => {
   const navPages = () =>
     [...document.querySelectorAll(".ws-nav-page")].map((e) => e.querySelector(".ws-nav-label")!.textContent);

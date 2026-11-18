@@ -104,6 +104,7 @@ export const uk = {
   "tx.found.many": "Знайдено {count} транзакцій",
   "tx.found.other": "Знайдено {count} транзакції",
   "tx.options": "Параметри",
+  "tx.sort": "Сортування",
   "menu.moreActions": "Ще дії",
   "gallery.moreActions.title": "Дії сутності і рядка",
   "gallery.moreActions.intro":

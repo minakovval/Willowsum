@@ -2,6 +2,19 @@
 .tx-list {
   display: grid;
   margin-block-start: var(--ws-space-4);
+  /* GRID-02@PoC AC7: the toolbar answers to the same container width as the card form of the rows below it. */
+  container-type: inline-size;
+}
+
+/* GRID-02@PoC FR 9, AC7: the sort button is only for the card form (below 520 px of the container); the table has the headers. */
+.tx-sort {
+  display: none;
+}
+
+@container (max-width: 519px) {
+  .tx-sort {
+    display: contents;
+  }
 }
 
 .tx-totals {
