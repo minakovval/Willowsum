@@ -166,16 +166,17 @@ describe("DS-09@PoC scales (stylesheets)", () => {
     const used = decls.filter((d) => d.property === "z-index");
     expect(used.length).toBeGreaterThan(10);
     for (const d of used) expect(d.value, d.selector).toMatch(/^var\(--ws-layer-[a-z0-9-]+\)$/);
-    // Quick navigation 40, inline tip 30, toast 60, the skip link 1000; local layers inside components 1–2.
-    // Not met (PR follow-up): FR 7 puts the floating full-value tooltip on 1000; `.ws-tooltip` serves both kinds on 30.
+    // Quick navigation 40, anchored panels and labels 30, toast 60; the skip link and the floating full-value tooltip 1000;
+    // local layers inside components 1–2.
     expect(z(".ws-nav")).toBe(40);
-    expect(z(".ws-tooltip")).toBe(30);
+    for (const sel of [".ws-menu", ".ws-dropdown-panel", ".ws-filter-panel"]) expect(z(sel), sel).toBe(30);
+    expect(z(".ws-tooltip")).toBe(1000);
     expect(z(".ws-toast")).toBe(60);
     expect(z(".ws-skip")).toBe(1000);
     expect(z(".ws-segmented-option input")).toBe(1);
     expect(z(".ws-select-chevron")).toBe(2);
     expect(z(".ws-toast")).toBeGreaterThan(z(".ws-nav"));
-    expect(z(".ws-nav")).toBeGreaterThan(z(".ws-tooltip"));
+    expect(z(".ws-nav")).toBeGreaterThan(z(".ws-menu"));
     // Modal dialogs and sheets use the browser's top layer: no z-index on the dialog.
     expect(find(".ws-dialog", "z-index")).toBeUndefined();
   });
@@ -226,8 +227,8 @@ describe("DS-09@PoC criteria (stylesheets)", () => {
     expect(find(".ws-dialog::backdrop", "background")).toBe("var(--ws-scrim)");
     expect(find(".ws-dialog::backdrop", "backdrop-filter")).toBe("blur(var(--ws-scrim-blur))");
     expect(vars.get("--ws-scrim-blur")).toBe("2px");
-    // Nothing the page sets can outrank the top layer: the highest page layer is the skip link, which is not shown with a dialog open.
-    expect(Math.max(z(".ws-nav"), z(".ws-toast"), z(".ws-tooltip"))).toBeLessThan(layers["layer-top"]);
+    // A dialog sits in the browser's top layer, above any z-index; the page layers it covers are all below 1000.
+    expect(Math.max(z(".ws-nav"), z(".ws-toast"), z(".ws-menu"))).toBeLessThan(layers["layer-top"]);
   });
 
   it("DS-09@PoC AC4: the focused «Перейти до вмісту» link is on layer 1000, at least 44 px tall, and fixed above every page layer", () => {
@@ -235,7 +236,10 @@ describe("DS-09@PoC criteria (stylesheets)", () => {
     expect(find(".ws-skip", "position")).toBe("fixed");
     expect(find(".ws-skip", "min-height")).toBe("var(--ws-touch-target)");
     expect(layout["touch-target"]).toBeGreaterThanOrEqual(44);
-    for (const d of decls.filter((x) => x.property === "z-index" && x.selector !== ".ws-skip"))
+    // Only the floating full-value tooltip shares layer 1000 (FR 7); every other page layer is below it.
+    for (const d of decls.filter(
+      (x) => x.property === "z-index" && ![".ws-skip", ".ws-tooltip"].includes(x.selector),
+    ))
       expect(px(d.value), d.selector).toBeLessThan(1000);
     expect(find(".ws-skip:focus", "transform")).toBe("none");
   });

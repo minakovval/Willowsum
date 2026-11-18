@@ -781,7 +781,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--ws-layer-tooltip);
+  z-index: var(--ws-layer-top);
   box-sizing: border-box;
   inline-size: max-content;
   max-inline-size: min(calc(var(--ws-space-8) * 5), calc(100vw - 2 * var(--ws-space-2)));

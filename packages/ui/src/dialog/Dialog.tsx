@@ -133,6 +133,32 @@ function needsColumn(row: HTMLElement): boolean {
   return widest * buttons.length + gap * (buttons.length - 1) > row.clientWidth + 0.5;
 }
 
+/** Tag, explicit role and name (aria-label, else the text) of the element that opened a dialog. */
+function openerIdentity(node: HTMLElement) {
+  return {
+    tag: node.tagName,
+    role: node.getAttribute("role"),
+    name: (node.getAttribute("aria-label") ?? node.textContent ?? "").trim(),
+  };
+}
+
+/**
+ * The one connected element with the same tag, explicit role and name as a redrawn opener. Elements inside the
+ * closing dialog and inert, hidden, disabled or invisible ones are skipped. Several equal matches (a «Змінити» per
+ * row) cannot be told apart, so none is chosen: focus then takes the item's fallback.
+ */
+function findSuccessor(key: ReturnType<typeof openerIdentity>, closing: HTMLElement): HTMLElement | null {
+  if (!key.name) return null;
+  const hits = [...document.querySelectorAll<HTMLElement>(key.tag.toLowerCase())].filter((n) => {
+    if (closing.contains(n) || n.closest("[inert], [hidden], [aria-hidden='true']")) return false;
+    if (n.matches(":disabled") || (typeof n.checkVisibility === "function" && !n.checkVisibility()))
+      return false;
+    const id = openerIdentity(n);
+    return id.role === key.role && id.name === key.name;
+  });
+  return hits.length === 1 ? hits[0]! : null;
+}
+
 /**
  * CMP-21@PoC Dialog — the base: one template for every dialog (scrim with a 2 px blur, the 16 px container with
  * `shadow-dialog`, the icon tile, title and explanation, optional content, the light action bar), opened as a modal
@@ -193,6 +219,7 @@ export function Dialog({
     const el = ref.current;
     if (!shown || !el) return;
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const openerKey = opener ? openerIdentity(opener) : null;
     if (typeof el.showModal === "function") {
       if (!el.open) el.showModal();
     } else el.setAttribute("open", "");
@@ -210,7 +237,9 @@ export function Dialog({
     return () => {
       document.removeEventListener("focusin", keepIn);
       if (typeof el.close === "function" && el.open) el.close();
+      // DS-14@PoC EC1: an opener redrawn while the dialog was open is replaced by the element with the same role and name.
       if (opener?.isConnected) opener.focus();
+      else if (openerKey) findSuccessor(openerKey, el)?.focus();
     };
     // `initialFocus` is read once on opening.
     // eslint-disable-next-line react-hooks/exhaustive-deps
