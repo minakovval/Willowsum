@@ -580,6 +580,85 @@ export const uk = {
   "planning.budget.error.title": "Не вдалося завантажити бюджет",
   "planning.budget.error.retry": "Спробувати ще раз",
   "planning.budget.error.code": "Код: {code}",
+  // BUD-02@PoC e), S-122 … S-124: the wizard «Новий бюджет». Texts of the boards PocPlanBudgetWiz1, Wiz1NoHist, Wiz2, Wiz3;
+  // what the boards lack (marked «варіант агента») is on PocPlanBudgetTexts and waits for the owner.
+  "planning.budget.wizard.title": "Новий бюджет",
+  "planning.budget.wizard.steps": "Кроки майстра бюджету",
+  "planning.budget.wizard.step.method": "Спосіб",
+  "planning.budget.wizard.step.period": "Період",
+  "planning.budget.wizard.step.limits": "Ліміти",
+  "planning.budget.wizard.back": "Назад",
+  "planning.budget.wizard.cancel": "Скасувати",
+  "planning.budget.wizard.next": "Далі",
+  "planning.budget.wizard.create": "Створити бюджет",
+  "planning.budget.wizard.method.title": "Як створити бюджет?",
+  "planning.budget.wizard.method.currency": "Валюта бюджету — {currency}.",
+  "planning.budget.wizard.method.spending": "Створити за моїми витратами",
+  "planning.budget.wizard.method.spending.body":
+    "Ліміт кожної категорії — середні витрати за {months}, округлені до {unit}. План доходу — середній дохід за ці місяці: {income}. До збереження кожну суму можна змінити.",
+  "planning.budget.wizard.method.spending.none":
+    "Ліміт кожної категорії — середні витрати за останні 3 повні місяці, округлені до {unit}. План доходу — середній дохід за ці місяці.",
+  "planning.budget.wizard.method.history.one": "Є {count} повний місяць категоризованих транзакцій.",
+  "planning.budget.wizard.method.history.few": "Є {count} повні місяці категоризованих транзакцій.",
+  "planning.budget.wizard.method.history.many": "Є {count} повних місяців категоризованих транзакцій.",
+  "planning.budget.wizard.method.history.other": "Є {count} повного місяця категоризованих транзакцій.",
+  "planning.budget.wizard.method.needHistory.one":
+    "Потрібно щонайменше 3 місяці категоризованих транзакцій · зараз є {count} повний місяць",
+  "planning.budget.wizard.method.needHistory.few":
+    "Потрібно щонайменше 3 місяці категоризованих транзакцій · зараз є {count} повні місяці",
+  "planning.budget.wizard.method.needHistory.many":
+    "Потрібно щонайменше 3 місяці категоризованих транзакцій · зараз є {count} повних місяців",
+  "planning.budget.wizard.method.needHistory.other":
+    "Потрібно щонайменше 3 місяці категоризованих транзакцій · зараз є {count} повного місяця",
+  "planning.budget.wizard.method.zero": "Почати з нуля",
+  "planning.budget.wizard.method.zero.body":
+    "Типові групи категорій без сум. Ліміти й план доходу ви задасте самі.",
+  "planning.budget.wizard.period.title": "Період бюджету",
+  "planning.budget.wizard.period.calendar": "Бюджет рахується за календарними місяцями.",
+  "planning.budget.wizard.period.mid.one":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} день з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.few":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} дні з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.many":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} днів з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.other":
+    "Ви починаєте посеред періоду: сьогодні {day} {month}, до кінця місяця {left} дня з {all}. Як порахувати перший період?",
+  "planning.budget.wizard.period.mid.label": "Ви починаєте посеред періоду",
+  "planning.budget.wizard.period.choose": "Оберіть, як порахувати перший період",
+  "planning.budget.wizard.start.period": "З 1 {month}",
+  "planning.budget.wizard.start.period.body":
+    "Перший період — увесь {month}; витрати з 1 {gen} вже враховуються.",
+  "planning.budget.wizard.start.next": "З наступного місяця ({next})",
+  "planning.budget.wizard.start.next.body": "{month} не рахується.",
+  "planning.budget.wizard.start.proportional": "Пропорційно на {from}–{to} {month} ({left}/{all})",
+  "planning.budget.wizard.start.proportional.body":
+    "Ліміти, план доходу і заощадження × {left}/{all}. З наступного місяця — повні суми.",
+  "planning.budget.wizard.limits.title": "Ліміти категорій",
+  "planning.budget.wizard.limits.spending":
+    "Запропоновано за середніми витратами {months}, округлено до {unit}.",
+  "planning.budget.wizard.limits.zero": "Ліміти й план доходу ви задасте самі.",
+  "planning.budget.wizard.limits.income": "План доходу на місяць",
+  "planning.budget.wizard.limits.income.hint": "середній дохід за {months}",
+  "planning.budget.wizard.limits.income.irregular": "Дохід нерегулярний — перевірте план доходу.",
+  "planning.budget.wizard.limits.col.category": "Категорія",
+  "planning.budget.wizard.limits.col.average": "Середнє 3 міс.",
+  "planning.budget.wizard.limits.col.limit": "Ліміт на місяць",
+  "planning.budget.wizard.limits.of": "Ліміт: {category}",
+  "planning.budget.wizard.limits.outside":
+    "Категорії без ліміту — у групі «Поза планом»; їхні витрати теж зменшують «Можна витратити».",
+  "planning.budget.wizard.error.create": "Не вдалося створити бюджет. Спробуйте ще раз",
+  "planning.budget.month.01.gen": "січня",
+  "planning.budget.month.02.gen": "лютого",
+  "planning.budget.month.03.gen": "березня",
+  "planning.budget.month.04.gen": "квітня",
+  "planning.budget.month.05.gen": "травня",
+  "planning.budget.month.06.gen": "червня",
+  "planning.budget.month.07.gen": "липня",
+  "planning.budget.month.08.gen": "серпня",
+  "planning.budget.month.09.gen": "вересня",
+  "planning.budget.month.10.gen": "жовтня",
+  "planning.budget.month.11.gen": "листопада",
+  "planning.budget.month.12.gen": "грудня",
   "planning.budget.settings.title": "Налаштування бюджету",
   "planning.budget.settings.open": "Налаштування бюджету: рахунки, загальне",
   "planning.budget.settings.subtitle": "Бюджет · {currency}",

@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Icon, IconButton, Skeleton, StatusMark } from "@willowsum/ui";
+import { Button, Icon, IconButton, Skeleton, StatusMark } from "@willowsum/ui";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
@@ -126,7 +126,20 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
               <Skeleton variant="row" lines={6} />
             </section>
           ) : data.kind === "none" ? (
-            <PlanEmpty icon={BUDGET.icon} page="budget" />
+            <PlanEmpty icon={BUDGET.icon} page="budget">
+              <div className="bud-wiz-cta">
+                <Button
+                  variant="primary"
+                  href={hrefFor(childPath("budgetNew"))}
+                  label={t("planning.budget.wizard.method.spending")}
+                />
+                <Button
+                  variant="secondary"
+                  href={hrefFor(childPath("budgetNew"))}
+                  label={t("planning.budget.wizard.method.zero")}
+                />
+              </div>
+            </PlanEmpty>
           ) : data.kind === "before" ? (
             <section className="ws-card bud-card">
               <p role="status">{t("planning.budget.beforeStart")}</p>

@@ -582,6 +582,84 @@ export const en: Messages = {
   "planning.budget.error.title": "Could not load the budget",
   "planning.budget.error.retry": "Try again",
   "planning.budget.error.code": "Code: {code}",
+  // BUD-02@PoC e), S-122 … S-124: the wizard «New budget» (English of the Ukrainian texts of the boards).
+  "planning.budget.wizard.title": "New budget",
+  "planning.budget.wizard.steps": "Budget wizard steps",
+  "planning.budget.wizard.step.method": "Method",
+  "planning.budget.wizard.step.period": "Period",
+  "planning.budget.wizard.step.limits": "Limits",
+  "planning.budget.wizard.back": "Back",
+  "planning.budget.wizard.cancel": "Cancel",
+  "planning.budget.wizard.next": "Next",
+  "planning.budget.wizard.create": "Create budget",
+  "planning.budget.wizard.method.title": "How do you want to create the budget?",
+  "planning.budget.wizard.method.currency": "Budget currency — {currency}.",
+  "planning.budget.wizard.method.spending": "Create from my spending",
+  "planning.budget.wizard.method.spending.body":
+    "Each category limit is the average spending for {months}, rounded to {unit}. The income plan is the average income for those months: {income}. You can change every amount before saving.",
+  "planning.budget.wizard.method.spending.none":
+    "Each category limit is the average spending over the last 3 full months, rounded to {unit}. The income plan is the average income for those months.",
+  "planning.budget.wizard.method.history.one": "{count} full month of categorised transactions.",
+  "planning.budget.wizard.method.history.few": "{count} full months of categorised transactions.",
+  "planning.budget.wizard.method.history.many": "{count} full months of categorised transactions.",
+  "planning.budget.wizard.method.history.other": "{count} full months of categorised transactions.",
+  "planning.budget.wizard.method.needHistory.one":
+    "At least 3 months of categorised transactions are needed · now {count} full month",
+  "planning.budget.wizard.method.needHistory.few":
+    "At least 3 months of categorised transactions are needed · now {count} full months",
+  "planning.budget.wizard.method.needHistory.many":
+    "At least 3 months of categorised transactions are needed · now {count} full months",
+  "planning.budget.wizard.method.needHistory.other":
+    "At least 3 months of categorised transactions are needed · now {count} full months",
+  "planning.budget.wizard.method.zero": "Start from scratch",
+  "planning.budget.wizard.method.zero.body":
+    "Standard category groups without amounts. You set the limits and the income plan yourself.",
+  "planning.budget.wizard.period.title": "Budget period",
+  "planning.budget.wizard.period.calendar": "The budget runs on calendar months.",
+  "planning.budget.wizard.period.mid.one":
+    "You are starting mid-period: today is {month} {day}, {left} day of {all} is left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.few":
+    "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.many":
+    "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.other":
+    "You are starting mid-period: today is {month} {day}, {left} days of {all} are left this month. How should the first period be counted?",
+  "planning.budget.wizard.period.mid.label": "You are starting mid-period",
+  "planning.budget.wizard.period.choose": "Choose how to count the first period",
+  "planning.budget.wizard.start.period": "From {month} 1",
+  "planning.budget.wizard.start.period.body":
+    "The first period is the whole of {month}; spending since {gen} 1 is already counted.",
+  "planning.budget.wizard.start.next": "From next month ({next})",
+  "planning.budget.wizard.start.next.body": "{month} is not counted.",
+  "planning.budget.wizard.start.proportional": "Pro rata for {month} {from}–{to} ({left}/{all})",
+  "planning.budget.wizard.start.proportional.body":
+    "Limits, income plan and savings × {left}/{all}. From next month — the full amounts.",
+  "planning.budget.wizard.limits.title": "Category limits",
+  "planning.budget.wizard.limits.spending":
+    "Suggested from the average spending for {months}, rounded to {unit}.",
+  "planning.budget.wizard.limits.zero": "You set the limits and the income plan yourself.",
+  "planning.budget.wizard.limits.income": "Income plan for the month",
+  "planning.budget.wizard.limits.income.hint": "average income for {months}",
+  "planning.budget.wizard.limits.income.irregular": "Income is irregular — check the income plan.",
+  "planning.budget.wizard.limits.col.category": "Category",
+  "planning.budget.wizard.limits.col.average": "3-month average",
+  "planning.budget.wizard.limits.col.limit": "Monthly limit",
+  "planning.budget.wizard.limits.of": "Limit: {category}",
+  "planning.budget.wizard.limits.outside":
+    "Categories without a limit go to the group «Outside the plan»; their spending also reduces «Safe to spend».",
+  "planning.budget.wizard.error.create": "Could not create the budget. Try again",
+  "planning.budget.month.01.gen": "January",
+  "planning.budget.month.02.gen": "February",
+  "planning.budget.month.03.gen": "March",
+  "planning.budget.month.04.gen": "April",
+  "planning.budget.month.05.gen": "May",
+  "planning.budget.month.06.gen": "June",
+  "planning.budget.month.07.gen": "July",
+  "planning.budget.month.08.gen": "August",
+  "planning.budget.month.09.gen": "September",
+  "planning.budget.month.10.gen": "October",
+  "planning.budget.month.11.gen": "November",
+  "planning.budget.month.12.gen": "December",
   "planning.budget.settings.title": "Budget settings",
   "planning.budget.settings.open": "Budget settings: accounts, general",
   "planning.budget.settings.subtitle": "Budget · {currency}",

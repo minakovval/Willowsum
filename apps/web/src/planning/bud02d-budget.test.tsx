@@ -325,6 +325,14 @@ describe("BUD-02@PoC d) «Стани інтерфейсу»", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
+  it("BUD-02@PoC FR 2: the empty state offers «Створити за моїми витратами» and «Почати з нуля»; both open the wizard", async () => {
+    renderAt(PAGE, api({ "GET /v1/budget": { status: 200, body: { budget: null } } }).client);
+    for (const name of ["Створити за моїми витратами", "Почати з нуля"]) {
+      const link = await screen.findByRole("link", { name });
+      expect(link.getAttribute("href")).toBe("#/planning/budget/new");
+    }
+  });
+
   it("BUD-02@PoC UI loading: a skeleton of the groups while the period comes", async () => {
     let release: () => void = () => undefined;
     const gate = new Promise<void>((r) => (release = r));

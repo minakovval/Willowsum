@@ -266,3 +266,93 @@
   font-size: var(--ws-text-body-sm-size);
   font-weight: 600;
 }
+
+/* BUD-02@PoC e) (row 124): the wizard «Новий бюджет» S-122 … S-124 (PocPlanBudgetWiz1 … Wiz3). Tokens only. */
+.bud-wiz {
+  display: grid;
+  gap: var(--ws-space-5);
+  max-inline-size: calc(var(--ws-space-8) * 12);
+  margin-inline: auto;
+  /* The stepper overlapped the focus title by 7 px at 1280 px. */
+  padding-block-start: var(--ws-space-4);
+}
+
+.bud-wiz-options {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.bud-wiz-option {
+  display: flex;
+  gap: var(--ws-space-3);
+  align-items: flex-start;
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-100);
+  cursor: pointer;
+}
+
+.bud-wiz-option > span {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-wiz-option[data-checked="true"] {
+  border: 2px solid var(--ws-brand);
+}
+
+.bud-wiz-option[data-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.bud-wiz-option input {
+  /* A long description must not squeeze the radio (1280 px review: 13 × 24 px). */
+  flex: none;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  margin: 0;
+}
+
+.bud-wiz-actions {
+  display: flex;
+  gap: var(--ws-space-3);
+  align-items: center;
+  padding-block-start: var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.bud-wiz-grow {
+  flex: 1;
+}
+
+.bud-wiz-error {
+  color: var(--ws-loss);
+}
+
+.bud-wiz-income {
+  max-inline-size: calc(var(--ws-space-8) * 5);
+}
+
+.bud-wiz-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.bud-wiz-table th,
+.bud-wiz-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  text-align: start;
+  border-block-end: 1px solid var(--ws-line);
+}
+
+/* Amounts right-aligned, as on PocPlanBudgetWiz3 (the rule above outranks `.bud-num`). */
+.bud-wiz-table .bud-num {
+  text-align: end;
+}
+
+.bud-wiz-cta {
+  display: flex;
+  gap: var(--ws-space-3);
+  justify-content: center;
+}
