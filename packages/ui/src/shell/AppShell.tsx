@@ -4,6 +4,7 @@ import { WillowsumMark } from "../brand/Mark.tsx";
 import { Icon, type IconName } from "../icons/Icon.tsx";
 import { IconButton } from "../icons/IconButton.tsx";
 import { readStorage, writeStorage } from "../storage.ts";
+import { Dialog } from "../dialog/Dialog.tsx";
 import { MenuButton, type MenuItem } from "./MenuButton.tsx";
 
 /** An L2 page of a section (UX-09@PoC item 2). */
@@ -220,19 +221,30 @@ export function AppShell({
   );
 }
 
-/** Focus mode (UX-09@PoC item 10, GRID-00@PoC item 12): no navigation, a title and «×». */
+/**
+ * Focus mode (UX-09@PoC item 10, GRID-00@PoC item 12): no navigation, a title and «×». With `unsaved`
+ * (the page holds unsaved data) «×» first asks «Зберегти зміни?» in a dialog inside the page (UX-09@PoC AC6):
+ * «Редагувати далі» stays, «Не зберігати» leaves, «Зберегти» runs `onSave` and leaves.
+ */
 export function FocusShell({
   title,
   closeLabel,
   onClose,
+  unsaved,
   children,
 }: {
   title: string;
   closeLabel: string;
   onClose: () => void;
+  unsaved?: { onSave: () => void } | undefined;
   children: ReactNode;
 }) {
   const t = useT();
+  const [asking, setAsking] = useState(false);
+  const leave = () => {
+    setAsking(false);
+    onClose();
+  };
   return (
     <div className="ws-shell ws-focus" data-nav="none">
       <a className="ws-skip" href={`#${MAIN_ID}`} onClick={focusTarget(MAIN_ID)}>
@@ -242,11 +254,34 @@ export function FocusShell({
         <div className="ws-focus-inner">
           <div className="ws-focus-head">
             <h1>{title}</h1>
-            <IconButton icon="close" label={closeLabel} onClick={onClose} />
+            <IconButton icon="close" label={closeLabel} onClick={unsaved ? () => setAsking(true) : onClose} />
           </div>
           {children}
         </div>
       </main>
+      {unsaved ? (
+        <Dialog
+          open={asking}
+          onClose={() => setAsking(false)}
+          title={t("shell.unsaved.title")}
+          text={t("shell.unsaved.text")}
+          icon="edit"
+          alert
+          closeLabel={closeLabel}
+          actions={[
+            { label: t("shell.unsaved.edit"), onClick: () => setAsking(false) },
+            { label: t("shell.unsaved.discard"), variant: "danger", onClick: leave },
+            {
+              label: t("shell.unsaved.save"),
+              variant: "primary",
+              onClick: () => {
+                unsaved.onSave();
+                leave();
+              },
+            },
+          ]}
+        />
+      ) : null}
     </div>
   );
 }

@@ -55,6 +55,11 @@ export const uk = {
   "space.currency.label": "Валюта",
   "space.currency.value": "{currency} — задається під час створення простору і не змінюється",
   "shell.close": "Закрити",
+  "shell.unsaved.title": "Зберегти зміни?",
+  "shell.unsaved.text": "Ви змінили дані. Збережіть їх, вийдіть без збереження або редагуйте далі.",
+  "shell.unsaved.edit": "Редагувати далі",
+  "shell.unsaved.discard": "Не зберігати",
+  "shell.unsaved.save": "Зберегти",
 
   "button.busy": "Виконується",
 

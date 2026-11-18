@@ -54,6 +54,11 @@ export const en: Messages = {
   "space.currency.label": "Currency",
   "space.currency.value": "{currency} — set when the space is created and never changes",
   "shell.close": "Close",
+  "shell.unsaved.title": "Save changes?",
+  "shell.unsaved.text": "You changed the data. Save it, leave without saving or keep editing.",
+  "shell.unsaved.edit": "Keep editing",
+  "shell.unsaved.discard": "Don’t save",
+  "shell.unsaved.save": "Save",
 
   "button.busy": "In progress",
 
