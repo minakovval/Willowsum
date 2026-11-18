@@ -9,7 +9,10 @@ import { AppLayout } from "../pages/AppLayout.tsx";
 import { EmptyState } from "../pages/SectionPage.tsx";
 import { useDebts, type DebtsState } from "./api.ts";
 import { DebtsList } from "./DebtsList.tsx";
+import "./debts.css";
+import { DebtsPlan } from "./DebtsPlan.tsx";
 import { DebtsProgress } from "./DebtsProgress.tsx";
+import { DebtsStrategy } from "./DebtsStrategy.tsx";
 import { TABS, tabPath, type DebtsTab } from "./parts.tsx";
 
 export type { DebtsTab };
@@ -23,7 +26,7 @@ const PANEL_ID = "debts-panel";
  */
 export function DebtsScreen({ tab }: { tab: DebtsTab }) {
   const t = useT();
-  const { state, retry } = useDebts();
+  const { state, retry, refresh } = useDebts();
   const def = TABS.find((x) => x.id === tab)!;
   const title = t(def.label);
   useDocumentTitle(title);
@@ -69,7 +72,7 @@ export function DebtsScreen({ tab }: { tab: DebtsTab }) {
           {/* GRID-04@PoC: S-143 is one column of 12: the summary, the warning and the table, one under another. */}
           <PlanGrid page="debts">
             <PlanRegion name="content" span={12}>
-              <TabContent tab={tab} state={state} retry={retry} />
+              <TabContent tab={tab} state={state} retry={retry} refresh={refresh} />
             </PlanRegion>
           </PlanGrid>
         </PageTabs>
@@ -82,18 +85,20 @@ function TabContent({
   tab,
   state,
   retry,
+  refresh,
 }: {
   tab: DebtsTab;
   state: DebtsState;
   retry: () => void;
+  refresh: () => void;
 }): ReactNode {
   if (state.kind === "loading") return <DebtsLoading />;
   if (state.kind === "error") return <DebtsError supportId={state.supportId} retry={retry} />;
   if (state.kind !== "ready") return null;
   if (tab === "list") return <DebtsList debts={state.debts} />;
   if (tab === "progress") return <DebtsProgress debts={state.debts} />;
-  // S-144 and S-145 are the next slices of wave 2 row 131.
-  return <EmptyState icon="debts" />;
+  if (tab === "plan") return <DebtsPlan debts={state.debts} refresh={refresh} />;
+  return <DebtsStrategy debts={state.debts} />;
 }
 
 /** FR 11, AC10: «Боргів не додано» with «Додати рахунок», which opens «Новий рахунок» with the type «Кредит». */

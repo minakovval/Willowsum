@@ -1,7 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
+import { AuthApiProvider } from "../auth/api.ts";
 import { fakeApi, plain, problem, renderAt, resetAuthState, SUPPORT_ID } from "../auth/testing.tsx";
 import type { Debt } from "./api.ts";
+import { DebtsScreen } from "./DebtsScreen.tsx";
 
 /**
  * BUD-19@PoC b) — the page «Борги» (S-143) and its tab «Прогрес» (S-146) on `GET /v1/debts` (canvas PocPlanDebts,
@@ -236,5 +238,483 @@ describe("BUD-19@PoC S-146 «Прогрес»", () => {
   it("BUD-19@PoC FR 10: «Прогрес» is marked as a calculation from the data entered, not advice", async () => {
     renderAt("#/planning/debts/progress", withDebts([loan]).client);
     expect(await screen.findByText("Розрахунок за введеними даними, не фінансова порада.")).toBeTruthy();
+  });
+});
+
+/**
+ * BUD-19@PoC b) part 2 — «План погашення» (S-144) and «Стратегія» (S-145) on `POST /v1/debts/{id}/scenario`, `PUT
+ * /v1/debts/{id}/plan` and `POST /v1/debts/strategy` (boards PocPlanDebtPlan, PocPlanDebtPlanGrows,
+ * PocPlanDebtStrategy). The screen is rendered alone, without the whole App. Every figure comes from the fake server:
+ * the browser calculates nothing.
+ */
+const VISA = "3c4d5e6f-7a8b-4c3d-9e4f-5a6b7c8d9e0f";
+const MASTER = "4d5e6f7a-8b9c-4d4e-8f5a-6b7c8d9e0f1a";
+const GBP_LOAN = "5e6f7a8b-9c0d-4e5f-9a6b-7c8d9e0f1a2b";
+const at = (balance: string) => ({ amount: balance, currency: "EUR" });
+const calc = (
+  months: number,
+  month: string,
+  interest: string,
+  schedule: [string, string][] = [
+    ["2027-01", "4750.00"],
+    ["2027-02", "4400.00"],
+  ],
+) => ({
+  status: "paid" as const,
+  months,
+  payoffMonth: month,
+  totalInterest: at(interest),
+  schedule: schedule.map(([m, b]) => ({ month: m, balance: at(b) })),
+  cappedOneOffs: [] as string[],
+});
+const stuck = {
+  status: "not-decreasing" as const,
+  months: null,
+  payoffMonth: null,
+  totalInterest: null,
+  schedule: [],
+  cappedOneOffs: [] as string[],
+};
+const visa: Debt = {
+  ...loan,
+  accountId: VISA,
+  kind: "credit-card",
+  name: "Visa",
+  balance: at("5000.00"),
+  annualRate: "24",
+  monthlyPayment: at("250.00"),
+  base: calc(26, "2029-01", "1449.37"),
+  plan: null,
+};
+const master: Debt = {
+  ...visa,
+  accountId: MASTER,
+  name: "Mastercard",
+  balance: at("1500.00"),
+  annualRate: "18",
+  monthlyPayment: at("40.00"),
+};
+const renderTab = (tab: "plan" | "strategy", client: ReturnType<typeof fakeApi>["client"]) =>
+  render(
+    <AuthApiProvider value={client}>
+      <DebtsScreen tab={tab} />
+    </AuthApiProvider>,
+  );
+const scenarioPath = (id: string) => `POST /v1/debts/${id}/scenario`;
+const planApi = (over: Parameters<typeof fakeApi>[0] = {}) =>
+  fakeApi({
+    "GET /v1/debts": { status: 200, body: { debts: [visa] } },
+    [scenarioPath(VISA)]: { status: 200, body: { base: visa.base, scenario: visa.base, saving: null } },
+    ...over,
+  });
+const field = (name: RegExp) => screen.getByRole("textbox", { name });
+
+describe("BUD-19@PoC S-144 «План погашення»", () => {
+  it("BUD-19@PoC AC1: «Visa» 5 000 € at 24 % and 250 € — «Погашення через 26 міс.», the month, «Відсотки за весь строк», marked as a calculation", async () => {
+    const api = planApi();
+    renderTab("plan", api.client);
+    expect(await screen.findByText("Погашення через 26 міс.")).toBeTruthy();
+    expect(plain(screen.getByText(/січень 2029/).textContent)).toContain("відсотки за весь строк 1 449,37 €");
+    expect(field(/Залишок/).getAttribute("value")).toMatch(/5.000,00/);
+    expect(field(/Ставка річних/).getAttribute("value")).toBe("24");
+    expect(field(/Регулярний платіж/).getAttribute("value")).toMatch(/250,00/);
+    expect(screen.getByText("Розрахунок за введеними даними, не фінансова порада.")).toBeTruthy();
+    // The debt's own data is sent as it is: no override.
+    expect(api.calls.find((c) => c.path === `/v1/debts/${VISA}/scenario`)?.body).toEqual({});
+  });
+
+  it("BUD-19@PoC FR 1: the card has «Додатковий платіж / міс.», «Додати разовий платіж», «Як рахуємо» and the link to the account's settings", async () => {
+    renderTab("plan", planApi().client);
+    await screen.findByText("Погашення через 26 міс.");
+    expect(field(/Додатковий платіж/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Додати разовий платіж" })).toBeTruthy();
+    const how = screen.getByRole("button", { name: "Як рахуємо" });
+    expect(how.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(how);
+    expect(screen.getByText(/залишок × ставка річних ÷ 12/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Налаштування рахунку" }).getAttribute("href")).toBe(
+      `#/money/accounts/${VISA}/settings`,
+    );
+  });
+
+  it("BUD-19@PoC AC2: an extra 100 € / month asks the server for the scenario; «На 9 міс. раніше, економія на відсотках 502,38 €» and both lines on the chart", async () => {
+    const api = planApi({
+      [scenarioPath(VISA)]: (call: { body?: unknown }) => ({
+        status: 200,
+        body:
+          call.body && "extraMonthly" in (call.body as object)
+            ? {
+                base: visa.base,
+                scenario: calc(17, "2028-04", "946.99", [["2027-01", "4650.00"]]),
+                saving: { months: 9, interest: at("502.38") },
+              }
+            : { base: visa.base, scenario: visa.base, saving: null },
+      }),
+    });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    fireEvent.change(field(/Додатковий платіж/), { target: { value: "100" } });
+    expect(await screen.findByText("Погашення через 17 міс.")).toBeTruthy();
+    expect(plain(screen.getByText(/відсотки за весь строк 946,99/).textContent)).toContain("946,99 €");
+    expect(plain(screen.getByText(/На 9 міс. раніше/).textContent)).toBe(
+      "На 9 міс. раніше, економія на відсотках 502,38 €",
+    );
+    expect(api.calls.filter((c) => c.path === `/v1/debts/${VISA}/scenario`).at(-1)?.body).toEqual({
+      extraMonthly: "100.00",
+    });
+    const chart = screen.getByRole("img", { name: /Графік залишку боргу/ });
+    expect(chart.querySelectorAll("path")).toHaveLength(2);
+    expect(api.calls.some((c) => c.method === "PUT" || c.method === "PATCH")).toBe(false);
+  });
+
+  it("BUD-19@PoC FR 4: a one-off payment is sent as a month and a decimal string; a one-off above the balance is capped with a hint", async () => {
+    const api = planApi({
+      [scenarioPath(VISA)]: {
+        status: 200,
+        body: {
+          base: visa.base,
+          scenario: { ...calc(20, "2028-09", "1000.00"), cappedOneOffs: ["5000.00"] },
+          saving: { months: 6, interest: at("449.37") },
+        },
+      },
+    });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    fireEvent.click(screen.getByRole("button", { name: "Додати разовий платіж" }));
+    fireEvent.change(screen.getByLabelText("Місяць разового платежу"), { target: { value: "2027-06-01" } });
+    fireEvent.change(field(/Сума разового платежу/), { target: { value: "9000" } });
+    await screen.findByText("Погашення через 20 міс.");
+    expect(api.calls.filter((c) => c.path === `/v1/debts/${VISA}/scenario`).at(-1)?.body).toEqual({
+      oneOffs: [{ month: "2027-06", amount: "9000.00" }],
+    });
+    expect(screen.getByText("Разовий платіж більший за залишок — враховано лише залишок.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Прибрати разовий платіж" }));
+    expect(screen.queryByLabelText("Місяць разового платежу")).toBeNull();
+  });
+
+  it("BUD-19@PoC AC4: a payment below the monthly interest shows no date — «За цих умов борг не зменшується»", async () => {
+    const api = planApi({
+      [scenarioPath(VISA)]: { status: 200, body: { base: stuck, scenario: stuck, saving: null } },
+    });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("За цих умов борг не зменшується")).toBeTruthy();
+    expect(screen.queryByText(/Погашення через/)).toBeNull();
+    expect(screen.getByText("Графіка немає: за цих умов борг не зменшується")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Зберегти план" }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("BUD-19@PoC AC5: a card without a payment asks for the rate and the payment; nothing is calculated until both are there", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [parents] } },
+      [scenarioPath(PARENTS)]: {
+        status: 200,
+        body: { base: stuck, scenario: calc(20, "2028-09", "700.00"), saving: null },
+      },
+    });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("Вкажіть ставку і платіж, щоб розрахувати план")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.change(field(/Ставка річних/), { target: { value: "7,5" } });
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.change(field(/Регулярний платіж/), { target: { value: "50" } });
+    expect(await screen.findByText("Погашення через 20 міс.")).toBeTruthy();
+    expect(api.calls.find((c) => c.method === "POST")?.body).toEqual({
+      annualRate: "7.5",
+      monthlyPayment: "50.00",
+    });
+    expect(screen.queryByText("Вкажіть ставку і платіж, щоб розрахувати план")).toBeNull();
+  });
+
+  it("BUD-19@PoC FR 2: a rate outside 0–100 is refused in the field and not sent", async () => {
+    const api = planApi();
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    const before = api.calls.length;
+    fireEvent.change(field(/Ставка річних/), { target: { value: "120" } });
+    expect(screen.getByText(/Введіть ставку від 0 до 100/)).toBeTruthy();
+    expect(api.calls.length).toBe(before);
+  });
+
+  it("BUD-19@PoC AC6: «Зберегти план» with a 20 % rate saves the assumption and «Додати до запланованих витрат»; the debt's own data is not written", async () => {
+    const api = planApi({
+      [`PUT /v1/debts/${VISA}/plan`]: { status: 200, body: {} },
+    });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    const planned = screen.getByRole("checkbox", { name: /Додати до запланованих витрат/ });
+    expect((planned as HTMLInputElement).disabled).toBe(true);
+    fireEvent.change(field(/Ставка річних/), { target: { value: "20" } });
+    fireEvent.change(field(/Додатковий платіж/), { target: { value: "100" } });
+    await waitFor(() => expect((planned as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(planned);
+    const gets = api.calls.filter((c) => c.method === "GET").length;
+    await waitFor(() => expect(screen.getByRole("button", { name: "Зберегти план" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Зберегти план" }));
+    expect(await screen.findByText("План збережено")).toBeTruthy();
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({
+      annualRate: "20",
+      extraMonthly: "100.00",
+      addToPlannedExpenses: true,
+    });
+    // The debts are read again for «Збережений план»; nothing else is written (the account's rate stays 24 %).
+    await waitFor(() => expect(api.calls.filter((c) => c.method === "GET").length).toBeGreaterThan(gets));
+    expect(api.calls.filter((c) => c.method !== "GET" && c.method !== "POST" && c.method !== "PUT")).toEqual(
+      [],
+    );
+  });
+
+  it("BUD-19@PoC FR 5: a plan that fails to save says «Не вдалося зберегти план — повторіть спробу»", async () => {
+    const api = planApi({ [`PUT /v1/debts/${VISA}/plan`]: problem(500, "INTERNAL") });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    fireEvent.click(screen.getByRole("button", { name: "Зберегти план" }));
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Не вдалося зберегти план — повторіть спробу",
+    );
+  });
+
+  it("BUD-19@PoC FR 2: a saved plan fills the fields with its assumptions and is marked «Збережений план»", async () => {
+    const saved: Debt = {
+      ...visa,
+      plan: {
+        id: "6f7a8b9c-0d1e-4f6a-8b7c-8d9e0f1a2b3c",
+        addToPlannedExpenses: true,
+        annualRate: "20",
+        balance: at("5000.00"),
+        extraMonthly: at("100.00"),
+        monthlyPayment: at("250.00"),
+        months: 16,
+        oneOffs: [],
+        payoffMonth: "2028-03",
+        startMonth: "2026-11",
+        totalInterest: at("800.00"),
+        version: 1,
+      },
+    };
+    const api = planApi({ "GET /v1/debts": { status: 200, body: { debts: [saved] } } });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("Збережений план")).toBeTruthy();
+    expect(field(/Ставка річних/).getAttribute("value")).toBe("20");
+    expect(field(/Додатковий платіж/).getAttribute("value")).toMatch(/100,00/);
+    expect(api.calls.find((c) => c.path === `/v1/debts/${VISA}/scenario`)?.body).toEqual({
+      annualRate: "20",
+      extraMonthly: "100.00",
+    });
+  });
+
+  it("BUD-19@PoC AC11: the chart's view button is inactive with the tooltip and the name «Вигляд: Лінії»; no view menu opens", async () => {
+    renderTab("plan", planApi().client);
+    await screen.findByText("Погашення через 26 міс.");
+    const view = screen.getByRole("button", { name: "Вигляд: Лінії" });
+    expect(view.getAttribute("aria-disabled")).toBe("true");
+    fireEvent.focus(view);
+    expect(screen.getByRole("tooltip").textContent).toBe("Вигляд: Лінії");
+    fireEvent.click(view);
+    fireEvent.keyDown(view, { key: "Enter" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(view.getAttribute("aria-expanded")).toBeNull();
+  });
+
+  it("BUD-19@PoC FR 10: the text alternative of the chart is the table of the balance by month", async () => {
+    renderTab("plan", planApi().client);
+    await screen.findByText("Погашення через 26 міс.");
+    const table = within(screen.getByText("Таблиця залишку за місяцями").closest("details")!).getByRole(
+      "table",
+    );
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(3);
+    expect(plain(rows[1]!.textContent)).toContain("4 750,00 €");
+  });
+
+  it("BUD-19@PoC FR 4: a recalculation shows an indicator on the chart; a failed one says so and «Спробувати ще раз» asks again", async () => {
+    let attempts = 0;
+    const api = planApi({
+      [scenarioPath(VISA)]: () => {
+        attempts += 1;
+        return attempts === 1
+          ? { status: 200, body: { base: visa.base, scenario: visa.base, saving: null } }
+          : attempts === 2
+            ? problem(500, "INTERNAL")
+            : {
+                status: 200,
+                body: { base: visa.base, scenario: calc(17, "2028-04", "946.99"), saving: null },
+              };
+      },
+    });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    fireEvent.change(field(/Додатковий платіж/), { target: { value: "100" } });
+    expect(screen.getByText("Перераховуємо…")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toContain("Не вдалося розрахувати сценарій");
+    fireEvent.click(screen.getByRole("button", { name: "Спробувати ще раз" }));
+    expect(await screen.findByText("Погашення через 17 міс.")).toBeTruthy();
+  });
+
+  it("BUD-19@PoC EC6: a calculation over 1200 months stops with «Розрахунок перевищує 100 років — збільште платіж»", async () => {
+    const over = { ...stuck, status: "over-limit" as const };
+    const api = planApi({
+      [scenarioPath(VISA)]: { status: 200, body: { base: over, scenario: over, saving: null } },
+    });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("Розрахунок перевищує 100 років — збільште платіж")).toBeTruthy();
+  });
+
+  it("BUD-19@PoC FR 1: with several debts the card is chosen from the list and shows that debt's terms", async () => {
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [visa, master] } },
+      [scenarioPath(VISA)]: { status: 200, body: { base: visa.base, scenario: visa.base, saving: null } },
+      [scenarioPath(MASTER)]: {
+        status: 200,
+        body: { base: calc(40, "2030-03", "900.00"), scenario: calc(40, "2030-03", "900.00"), saving: null },
+      },
+    });
+    renderTab("plan", api.client);
+    await screen.findByText("Погашення через 26 міс.");
+    fireEvent.change(screen.getByRole("combobox", { name: "Борг" }), { target: { value: MASTER } });
+    expect(await screen.findByText("Погашення через 40 міс.")).toBeTruthy();
+    expect(field(/Ставка річних/).getAttribute("value")).toBe("18");
+  });
+});
+
+describe("BUD-19@PoC S-145 «Стратегія»", () => {
+  const strategy = {
+    avalanche: {
+      status: "paid",
+      months: 24,
+      payoffMonth: "2028-11",
+      totalInterest: at("1581.51"),
+      debts: [
+        { accountId: MASTER, months: 13, payoffMonth: "2027-12" },
+        { accountId: VISA, months: 24, payoffMonth: "2028-11" },
+      ],
+    },
+    snowball: {
+      status: "paid",
+      months: 25,
+      payoffMonth: "2028-12",
+      totalInterest: at("1728.57"),
+      debts: [
+        { accountId: MASTER, months: 9, payoffMonth: "2027-08" },
+        { accountId: VISA, months: 25, payoffMonth: "2028-12" },
+      ],
+    },
+    excluded: [{ accountId: PARENTS, reason: "terms-missing" }],
+    included: [VISA, MASTER],
+  };
+  const v100: Debt = { ...visa, monthlyPayment: at("100.00") };
+  const m40: Debt = { ...master, monthlyPayment: at("40.00") };
+  const strategyApi = (debts: Debt[] = [v100, m40, parents]) =>
+    fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts } },
+      "POST /v1/debts/strategy": { status: 200, body: strategy },
+    });
+
+  it("BUD-19@PoC FR 6: «Усього на борги / міс.» starts at the sum of the minimum payments, the rest goes to one debt; the minimum payments cannot be edited", async () => {
+    const api = strategyApi();
+    renderTab("strategy", api.client);
+    const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
+    expect(total.getAttribute("value")).toMatch(/140,00/);
+    expect(plain(screen.getByText(/мінімальні платежі 140/).textContent)).toBe(
+      "мінімальні платежі 140,00 € · решта 0,00 € — на один борг за стратегією",
+    );
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
+    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+      total: { amount: "140", currency: "EUR" },
+    });
+  });
+
+  it("BUD-19@PoC AC3: 340 € for the two cards — Avalanche 24 міс. / 1 581,51 €, Snowball 25 міс. / 1 728,57 €; the difference 147,06 € is neutral, with no «рекомендовано»", async () => {
+    const api = strategyApi();
+    renderTab("strategy", api.client);
+    fireEvent.change(await screen.findByRole("textbox", { name: /Усього на борги/ }), {
+      target: { value: "340" },
+    });
+    expect(await screen.findByText("Усі борги погашено за 24 міс.")).toBeTruthy();
+    expect(screen.getByText("Усі борги погашено за 25 міс.")).toBeTruthy();
+    expect(plain(screen.getByText(/відсотки 1 581,51/).textContent)).toBe(
+      "листопад 2028 р. · відсотки 1 581,51 €",
+    );
+    expect(plain(screen.getByText(/відсотки 1 728,57/).textContent)).toContain("1 728,57 €");
+    expect(plain(screen.getByText(/різниця у відсотках/).textContent)).toBe(
+      "Avalanche — 24 міс., Snowball — 25 міс.; різниця у відсотках — 147,06 €.",
+    );
+    expect(screen.queryByText(/рекомендова/i)).toBeNull();
+    expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({
+      total: { amount: "340", currency: "EUR" },
+    });
+  });
+
+  it("BUD-19@PoC FR 6: the switch «Avalanche» / «Snowball» shows the payoff order of the chosen strategy; Mastercard closes earlier under Snowball", async () => {
+    renderTab("strategy", strategyApi().client);
+    await screen.findByText("Усі борги погашено за 24 міс.");
+    const rowsOf = () =>
+      within(screen.getByRole("heading", { name: /Порядок погашення/ }).closest("section")!)
+        .getAllByRole("row")
+        .slice(1)
+        .map((r) => plain(r.textContent));
+    expect(screen.getByRole("heading", { name: "Порядок погашення · Avalanche" })).toBeTruthy();
+    expect(rowsOf()[0]).toContain("Mastercard");
+    expect(rowsOf()[0]).toContain("через 13 міс.");
+    fireEvent.click(screen.getByRole("radio", { name: /Snowball/ }));
+    expect(screen.getByRole("heading", { name: "Порядок погашення · Snowball" })).toBeTruthy();
+    expect(rowsOf()[0]).toContain("через 9 міс.");
+    expect((screen.getByRole("radio", { name: /Snowball/ }) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("BUD-19@PoC AC5: a debt without a rate or a payment is not in the calculation and says why", async () => {
+    renderTab("strategy", strategyApi().client);
+    const row = (await screen.findByText("Позика від батьків")).closest("tr")!;
+    expect(plain(row.textContent)).toContain("не бере участі в розрахунку · Немає ставки або платежу");
+  });
+
+  it("BUD-19@PoC FR 6: a total below the minimum payments is refused in the field and nothing is calculated", async () => {
+    const api = strategyApi();
+    renderTab("strategy", api.client);
+    const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
+    await screen.findByText("Усі борги погашено за 24 міс.");
+    const before = api.calls.length;
+    fireEvent.change(total, { target: { value: "100" } });
+    expect(plain(screen.getByText(/Сума менша за мінімальні платежі/).textContent)).toContain("140,00 €");
+    expect(api.calls.length).toBe(before);
+  });
+
+  it("BUD-19@PoC FR 6: debts in two currencies are never added: the total counts one currency, chosen in «Валюта»", async () => {
+    const gbp: Debt = {
+      ...visa,
+      accountId: GBP_LOAN,
+      name: "Barclays",
+      balance: { amount: "900.00", currency: "GBP" },
+      monthlyPayment: { amount: "60", currency: "GBP" },
+    };
+    const api = strategyApi([v100, gbp]);
+    renderTab("strategy", api.client);
+    const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
+    expect(total.getAttribute("value")).toMatch(/100,00/);
+    fireEvent.change(screen.getByRole("combobox", { name: "Валюта" }), { target: { value: "GBP" } });
+    expect(screen.getByRole("textbox", { name: /Усього на борги/ }).getAttribute("value")).toMatch(/60,00/);
+    await waitFor(() =>
+      expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({
+        total: { amount: "60", currency: "GBP" },
+      }),
+    );
+  });
+
+  it("BUD-19@PoC FR 10: «Стратегія» is marked as a calculation from the data entered, not advice", async () => {
+    renderTab("strategy", strategyApi().client);
+    expect(await screen.findByText("Розрахунок за введеними даними, не фінансова порада.")).toBeTruthy();
+  });
+
+  it("BUD-19@PoC FR 6: a strategy that fails to calculate says so and «Спробувати ще раз» asks again", async () => {
+    let n = 0;
+    const api = fakeApi({
+      "GET /v1/debts": { status: 200, body: { debts: [v100, m40] } },
+      "POST /v1/debts/strategy": () =>
+        ++n === 1 ? problem(500, "INTERNAL") : { status: 200, body: strategy },
+    });
+    renderTab("strategy", api.client);
+    expect((await screen.findByRole("alert")).textContent).toContain("Не вдалося розрахувати стратегії");
+    fireEvent.click(screen.getByRole("button", { name: "Спробувати ще раз" }));
+    expect(await screen.findByText("Усі борги погашено за 24 міс.")).toBeTruthy();
   });
 });
