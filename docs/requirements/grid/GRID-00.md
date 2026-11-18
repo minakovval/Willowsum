@@ -30,7 +30,7 @@
 - [MVP] Спільні правила: П-13, П-16, DS-09, DS-10
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/styles/grid00-css.test.ts, packages/ui/src/grid00-components.test.tsx, packages/ui/src/styles/grid00-rules-css.test.ts, packages/ui/src/grid00-rules.test.tsx, apps/web/src/browser/grid00-browsers.test.ts
+- [лише PoC] Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/styles/grid00-css.test.ts, packages/ui/src/grid00-components.test.tsx, packages/ui/src/styles/grid00-rules-css.test.ts, packages/ui/src/grid00-rules.test.tsx, apps/web/src/browser/grid00-browsers.test.ts, apps/web/src/accounts/fin01c-accounts.test.tsx
 - [MVP] Перевіряється: —
 
 **Мета.** Як користувач вебзастосунку на будь-якому пристрої, я хочу, щоб кожна сторінка мала однакову передбачувану сітку, навігацію і поведінку елементів, щоб інтерфейс не ламався на вузькому екрані, нічого не прокручувалося вбік і я одразу знаходив головне.

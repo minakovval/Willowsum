@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-09
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/styles/grid00-css.test.ts, packages/ui/src/grid00-components.test.tsx, packages/ui/src/styles/grid00-rules-css.test.ts, packages/ui/src/grid00-rules.test.tsx, apps/web/src/browser/grid00-browsers.test.ts
+- Перевіряється: apps/web/src/shell.test.tsx, packages/ui/src/styles/grid00-css.test.ts, packages/ui/src/grid00-components.test.tsx, packages/ui/src/styles/grid00-rules-css.test.ts, packages/ui/src/grid00-rules.test.tsx, apps/web/src/browser/grid00-browsers.test.ts, apps/web/src/accounts/fin01c-accounts.test.tsx
 
 **Мета.** Як користувач вебзастосунку на будь-якому пристрої, я хочу, щоб кожна сторінка мала однакову передбачувану сітку, навігацію і поведінку елементів, щоб інтерфейс не ламався на вузькому екрані, нічого не прокручувалося вбік і я одразу знаходив головне.
 
