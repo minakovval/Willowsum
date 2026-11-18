@@ -59,12 +59,15 @@ function space({
   total,
   undo = {},
   undoReply,
+  setUndoReply,
 }: {
   g: ReturnType<typeof group>;
   n: number;
   total: number;
   undo?: Record<string, unknown>;
   undoReply?: Reply;
+  /** A mixed group: «Підтвердити» sets the category first (action a0), then confirms it (a1). */
+  setUndoReply?: Reply;
 }) {
   const members = ids(500, n);
   const state = { groups: [g, group("g-rest", "Нова пошта", total - n, null)], left: total };
@@ -112,7 +115,9 @@ function space({
       body: { items: members, nextCursor: null },
     },
     "POST /v1/category-rules": { status: 201, body: { id: "r1" } },
-    "POST /v1/bulk-actions": () => {
+    "POST /v1/bulk-actions": (call) => {
+      if ((call.body as { action: string }).action === "transactions.set-category")
+        return { status: 201, body: report("a0", "transactions.set-category", n, undo) };
       state.groups = state.groups.slice(1);
       state.left -= n;
       return { status: 201, body: report("a1", "transactions.confirm-category", n, undo) };
@@ -124,6 +129,7 @@ function space({
         state.left += n;
         return { status: 200, body: report("a1", "transactions.confirm-category", n, { restored: n }) };
       }),
+    ...(setUndoReply ? { "POST /v1/bulk-actions/a0/undo": setUndoReply } : {}),
   });
   return { api, state };
 }
@@ -236,5 +242,24 @@ describe("BUD-12@PoC b): «Відмінити» after a group", () => {
     await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
     await waitFor(() => expect(progress()).toBe("0 з 12 · лишилось 12"));
     expect(undoCalls(api)).toHaveLength(1);
+  });
+
+  it("BUD-12@PoC FR 6: a mixed group undoes confirm-category before set-category; when the second undo fails, the queue is reloaded and the error shows", async () => {
+    const { api } = space({
+      g: { ...group("g-silpo", "Сільпо", 18, FOOD), mixedCategories: true },
+      n: 18,
+      total: 103,
+      setUndoReply: problem(500, "INTERNAL"),
+    });
+    open(api);
+    await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
+    await confirmGroup(18);
+    await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
+    await waitFor(() => expect(toastText()).toContain(`Дію не виконано · Код: ${SUPPORT_ID}`));
+    const undos = api.calls.filter((c) => c.method === "POST" && c.path.endsWith("/undo")).map((c) => c.path);
+    expect(undos).toEqual(["/v1/bulk-actions/a1/undo", "/v1/bulk-actions/a0/undo"]);
+    // The confirmations came back before the failure: progress and the group show them.
+    expect(progress()).toBe("0 з 103 · лишилось 103");
+    await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
   });
 });

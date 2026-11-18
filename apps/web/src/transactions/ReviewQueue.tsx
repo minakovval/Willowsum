@@ -700,7 +700,7 @@ function CardsView({
       show(t(previous !== undefined ? "review.toast.changed" : "review.toast.confirmed"), () => {
         void (async () => {
           const back = await reopenCard(api, after);
-          if (!back.ok) return show(failureText(t, back), undefined);
+          if (!back.ok) return show(failureText(t, back), undefined, "error");
           if (previous !== undefined) await setCategory(api, card.item.id, previous);
           backOnTop({ ...was, item: back.data as TransactionItem });
           onConfirmed(-1);
