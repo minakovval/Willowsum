@@ -247,9 +247,33 @@ function TransactionsList({ onAdd }: { onAdd: () => void }) {
   };
   // CMP-60@PoC «Стани», GRID-02@PoC FR 11: «Параметри» has one item, «Показати оригінальні валюти», which needs a
   // converted amount per row from the server; until the list returns one, the item and so the button are not shown.
+  // GRID-02@PoC FR 9, AC7: when a narrow container shows the rows as cards the header is gone, so the toolbar has a
+  // sort button with the same options; CSS shows it (the card form's container query), never JS.
+  const sortItems = SORTABLE.map((column) => ({
+    id: column,
+    label: t(`transactionRow.sortBy.${column}`),
+    icon: "sort" as const,
+    checked: view.sort.column === column,
+    onSelect: () => setView((v) => ({ ...v, sort: nextSort(v.sort, column), page: 1 })),
+  }));
   const toolbar = (
     <ListToolbar
       label={t("tx.toolbar")}
+      end={
+        <span className="tx-sort">
+          <MenuButton
+            menuLabel={t("tx.sort")}
+            ariaLabel={t("tx.sort")}
+            title={t("tx.sort")}
+            placement="down"
+            align="end"
+            className="ws-icon-button"
+            items={sortItems}
+          >
+            <Icon name="sort" size={16} />
+          </MenuButton>
+        </span>
+      }
       status={
         ready && (view.search !== "" || filtered) ? counted(t, locale, "tx.found", ready.count) : undefined
       }

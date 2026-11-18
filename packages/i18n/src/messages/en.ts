@@ -103,6 +103,7 @@ export const en: Messages = {
   "tx.found.many": "{count} transactions found",
   "tx.found.other": "{count} transactions found",
   "tx.options": "Options",
+  "tx.sort": "Sort",
   "menu.moreActions": "More actions",
   "gallery.moreActions.title": "Entity and row actions",
   "gallery.moreActions.intro":

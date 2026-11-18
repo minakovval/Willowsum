@@ -2,6 +2,21 @@
 .tx-list {
   display: grid;
   margin-block-start: var(--ws-space-4);
+  /* GRID-02@PoC AC7: the toolbar answers to the same container width as the card form of the rows below it. */
+  container-type: inline-size;
+}
+
+/* GRID-02@PoC FR 9, AC7: the sort button is only for the card form (below 520 px of the container); the table has the headers. */
+.tx-sort {
+  display: none;
+}
+
+/* The rows are cards below 520 px of the table's own box; the table (.ws-card) has a 1 px border on each side, so
+   that is 521 px of .tx-list. */
+@container (max-width: 521px) {
+  .tx-sort {
+    display: contents;
+  }
 }
 
 .tx-totals {
