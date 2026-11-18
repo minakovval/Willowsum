@@ -1749,6 +1749,9 @@ export const en: Messages = {
   "review.toast.skipped": "Transaction skipped",
   "review.toast.group": "Category confirmed for {transactions}",
   "review.undo": "Undo",
+  "review.undo.partial":
+    "Partly undone: the transactions are back in the queue, but their category was not restored",
+  "review.undo.partialCount": "Partly undone: {notRestored} not restored. The category was not restored",
   "review.error.body": "Could not load the queue",
   "review.empty.title": "All reviewed",
   "review.empty.done.one": "{count} transaction confirmed. New ones appear here after the next import.",
