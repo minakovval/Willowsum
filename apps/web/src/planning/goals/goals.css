@@ -190,16 +190,22 @@
   margin: 0;
 }
 
+.goal-spend-caption {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
 .goal-spend-find {
   display: grid;
   gap: var(--ws-space-1);
 }
 
+/* 40 px as the board and the DS field box (`.ws-field-box`); the caption 13/16 under it, as the board. */
 .goal-spend-search {
   display: flex;
   align-items: center;
   gap: var(--ws-space-2);
-  block-size: var(--ws-touch-target);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
   padding-inline: var(--ws-space-3);
   border: 1px solid var(--ws-border-control);
   border-radius: var(--ws-radius-md);
@@ -231,7 +237,7 @@
   align-items: center;
   gap: var(--ws-space-3);
   min-block-size: var(--ws-touch-target);
-  padding: var(--ws-space-1) var(--ws-space-3);
+  padding: var(--ws-space-2) var(--ws-space-3);
   border-block-end: 1px solid var(--ws-line);
   cursor: pointer;
 }
