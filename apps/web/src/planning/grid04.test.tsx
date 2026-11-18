@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { fakeApi, renderAt, resetAuthState } from "../auth/testing.tsx";
 
@@ -46,8 +46,8 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
       "income",
       "recurring",
     ]);
-    // The page is not blank until its screen comes: the shell's empty state stays.
-    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
+    // The page is not blank until its screen comes: its own empty state shows (EC1).
+    expect(screen.getByRole("heading", { level: 2, name: "Бюджету ще немає" })).toBeTruthy();
     expect(css).toContain("align-items: stretch;");
     expect(css).toContain("grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));");
     expect(css).toContain("gap: var(--ws-gutter);");
@@ -56,7 +56,7 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
   it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", () => {
     renderAt("#/planning/goals", fakeApi({}).client);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Цілі");
-    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
     expect(regions("goals")).toEqual([
       ["list", "4"],
       ["detail", "8"],
@@ -80,6 +80,20 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     renderAt("#/planning/budget", fakeApi({}).client);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\d+px(?!\))/);
+  });
+
+  it("GRID-04@PoC EC1: without a budget the page shows the empty state with an explanation, in the categories region", () => {
+    renderAt("#/planning/budget", fakeApi({}).client);
+    const region = document.querySelector<HTMLElement>("[data-plan-region='categories']")!;
+    expect(within(region).getByRole("heading", { level: 2, name: "Бюджету ще немає" })).toBeTruthy();
+    expect(region.textContent).toContain("Бюджет показує, скільки можна витратити до кінця місяця");
+  });
+
+  it("GRID-04@PoC EC2: without goals the list region shows «Додайте першу ціль» with an explanation", () => {
+    renderAt("#/planning/goals", fakeApi({}).client);
+    const region = document.querySelector<HTMLElement>("[data-plan-region='list']")!;
+    expect(within(region).getByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
+    expect(region.textContent).toContain("Відкладайте на подорож, покупку чи подушку безпеки");
   });
 
   it("GRID-04@PoC FR 4: there is no page «Чи можу я дозволити» in this release", () => {

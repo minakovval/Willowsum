@@ -2552,6 +2552,14 @@
       "page": "poc",
       "title": "S-136 Цілі · порожньо",
       "w": 1280,
+      "x": 2720,
+      "y": 62910
+    },
+    "PocPlanGoalsTexts.dc.html": {
+      "h": 520,
+      "page": "poc",
+      "title": "S-136 Цілі · Тексти",
+      "w": 1280,
       "x": 1360,
       "y": 62910
     },
@@ -4441,6 +4449,7 @@
     "PocPlanGoalCardAuto.dc.html",
     "PocPlanGoalsArchive.dc.html",
     "PocPlanGoalsEmpty.dc.html",
+    "PocPlanGoalsTexts.dc.html",
     "PocPlanGoalNew.dc.html",
     "PocPlanGoalNewForm.dc.html",
     "PocPlanGoalNewFormStep2.dc.html",

@@ -468,6 +468,13 @@ export const en: Messages = {
   "action.importHistory": "Import history",
   "shell.empty.title": "Nothing here yet",
   "shell.empty.body": "When you add data, it will appear in this section.",
+  // GRID-04@PoC EC1, EC2: the empty states of «Budget» and «Goals»
+  "planning.budget.empty.title": "No budget yet",
+  "planning.budget.empty.body":
+    "The budget shows how much you can spend until the end of the month and how much is left in each category. Limits can be suggested from your average spending over the last 3 months or set from scratch.",
+  "planning.goals.empty.title": "Add your first goal",
+  "planning.goals.empty.body":
+    "Save for a trip, a purchase or a safety cushion — you will see how much is saved and whether you will make it by the date.",
 
   "privacy.hideAmounts": "Hide amounts",
   "privacy.showAmounts": "Show amounts",

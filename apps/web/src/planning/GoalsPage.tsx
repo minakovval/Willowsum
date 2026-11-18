@@ -1,6 +1,6 @@
 import { useT } from "@willowsum/i18n";
 import { AppLayout } from "../pages/AppLayout.tsx";
-import { EmptyState } from "../pages/SectionPage.tsx";
+import { PlanEmpty } from "./PlanEmpty.tsx";
 import { GOALS } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
@@ -19,9 +19,9 @@ export function GoalsPage() {
         <h1>{title}</h1>
       </div>
       <PlanGrid page="goals">
-        {/* Until BUD-05 c) (row 128) fills the page it keeps the shell's empty state (DS-01 FR 7). */}
+        {/* Until BUD-05 c) (row 128) fills the page it shows its own empty state (GRID-04 EC1, EC2). */}
         <PlanRegion name="list" span={4}>
-          <EmptyState icon={GOALS.icon} />
+          <PlanEmpty icon={GOALS.icon} page="goals" />
         </PlanRegion>
         <div className="plan-region plan-span-8 plan-stack" data-plan-region="detail">
           <PlanRegion name="goal" span={12} />
