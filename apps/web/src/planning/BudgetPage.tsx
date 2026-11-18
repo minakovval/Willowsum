@@ -1,9 +1,10 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
 import { Icon, IconButton, Skeleton, StatusMark } from "@willowsum/ui";
+import { hrefFor } from "../routing/useHashPath.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
-import { BUDGET } from "../routing/routes.ts";
+import { BUDGET, childPath } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { failureOf } from "../auth/failure.ts";
 import { kyivToday, useLoad } from "../recurring/data.ts";
@@ -80,6 +81,16 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             onClick={() => go(shiftMonth(period, 1))}
           />
         </div>
+        {data && data.kind !== "none" ? (
+          <a
+            className="ws-icon-button"
+            href={hrefFor(childPath("budgetAccounts"))}
+            aria-label={t("planning.budget.settings.open")}
+            title={t("planning.budget.settings.open")}
+          >
+            <Icon name="settings" size={20} />
+          </a>
+        ) : null}
       </div>
       <div className="plan-tabs-slot" data-plan-region="tabs" />
       <PlanGrid page="budget">

@@ -174,3 +174,95 @@
   margin: 0;
   color: var(--ws-ink-muted);
 }
+
+/* BUD-02@PoC f), S-128 / S-288: «Налаштування бюджету». Tokens only. */
+.bud-settings-title {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-settings-actions {
+  display: inline-flex;
+  gap: var(--ws-space-2);
+}
+
+.bud-caps {
+  margin: 0;
+  font-size: var(--ws-text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ws-ink-muted);
+}
+
+.bud-accounts-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.bud-accounts-table th,
+.bud-accounts-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  text-align: start;
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.bud-group-row th {
+  background: var(--ws-surface-100);
+}
+
+.bud-accounts-table .bud-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The board: the switch column is narrow, at the right edge, after the right-aligned balance. */
+.bud-accounts-table thead th:last-child,
+.bud-accounts-table td:last-child {
+  inline-size: 1%;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.bud-account-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.bud-account-stack {
+  display: grid;
+}
+
+.bud-danger {
+  border-color: var(--ws-loss);
+}
+
+.bud-danger-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-4);
+  justify-content: space-between;
+}
+
+.bud-danger-text {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-danger-text .bud-card-title {
+  color: var(--ws-loss);
+}
+
+.bud-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ws-space-6);
+  height: var(--ws-space-6);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 600;
+}
