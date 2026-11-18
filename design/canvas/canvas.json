@@ -2596,7 +2596,7 @@
       "page": "poc",
       "title": "S-141 Регулярні платежі · порожньо",
       "w": 1280,
-      "x": 2720,
+      "x": 4080,
       "y": 75550
     },
     "PocPlanRecurringOverdue.dc.html": {
@@ -2605,7 +2605,7 @@
       "page": "poc",
       "title": "S-141 Регулярні платежі · прострочено",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 75550
     },
     "PocPlanRecurringPayment.dc.html": {
@@ -2616,6 +2616,14 @@
       "w": 1280,
       "x": 0,
       "y": 78000
+    },
+    "PocPlanRecurringTexts.dc.html": {
+      "h": 2480,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 75550
     },
     "PocPlanTrend.dc.html": {
       "h": 1360,
@@ -4461,6 +4469,7 @@
     "PocPlanGoalSpend.dc.html",
     "PocPlanGoalSpendStep2.dc.html",
     "PocPlanRecurring.dc.html",
+    "PocPlanRecurringTexts.dc.html",
     "PocPlanRecurringOverdue.dc.html",
     "PocPlanRecurringPayment.dc.html",
     "PocPlanRecurringCancel.dc.html",

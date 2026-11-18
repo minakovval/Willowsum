@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { newIdempotencyKey } from "@willowsum/api-contract";
 import { useI18n, type MessageKey } from "@willowsum/i18n";
-import { Icon, Skeleton } from "@willowsum/ui";
+import { Icon, RowActions, Skeleton, StatusMark, type MenuItem } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../auth/api.ts";
 import { failureOf } from "../auth/failure.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
@@ -15,16 +15,24 @@ import {
   type Payment,
   type Proposal,
   type RecurringData,
+  type Charge,
+  type Status,
 } from "./data.ts";
 import { PlanGrid, PlanRegion } from "../planning/PlanGrid.tsx";
+import { RecurringCalendar } from "./Calendar.tsx";
 import { LoadError } from "./LoadError.tsx";
+import { Nearest, Summary } from "./Summary.tsx";
+import { AmountChange, ChargeStatus } from "./status.tsx";
 import { counted, expectedText, FREQUENCY_KEYS, monthTitle, shortDate } from "./format.ts";
 
 /**
  * BUD-07@PoC c), S-141 «Регулярні платежі» (boards PocPlanRecurring, PocPlanRecurringEmpty): the proposals found in
  * the transactions with «Не регулярний» and «Підтвердити» (FR 4), the payments by group (FR 7: «Підписки», other
  * payments, income) with their next date, account and amount, «Додати вручну» (FR 6) and the states of the view.
- * The calendar, the totals, the statuses of charges and the payment details wait for their API (wave 2, row 26).
+ * The statuses of charges (FR 8–10, 21) with «Залишити» and «Позначити пропущеним», the change of an amount, the
+ * calendar of the month with «Пропущено» (GRID-04 AC 4), the legend and the nearest charges come from the statuses and
+ * charges of the API. What the API lacks (the totals for a month and a year, payments in other currencies, the
+ * occurrences of a week ahead, pause and «Позначити скасованим», the payment details) is the next slice.
  */
 export function RecurringPage({ today = kyivToday() }: { today?: string }) {
   const { t } = useI18n();
@@ -73,13 +81,19 @@ export function RecurringPage({ today = kyivToday() }: { today?: string }) {
           ) : null}
           {/* GRID-04@PoC FR 5: the calendar 8 and the totals with the nearest charges 4, the details on 12. */}
           <PlanGrid page="recurring">
-            <PlanRegion name="calendar" span={8} />
+            <PlanRegion name="calendar" span={8}>
+              <RecurringCalendar data={result.data} today={today} />
+            </PlanRegion>
             <div className="plan-region plan-span-4 plan-stack" data-plan-region="side">
-              <PlanRegion name="summary" span={12} />
-              <PlanRegion name="upcoming" span={12} />
+              <PlanRegion name="summary" span={12}>
+                <Summary data={result.data} />
+              </PlanRegion>
+              <PlanRegion name="upcoming" span={12}>
+                <Nearest data={result.data} today={today} />
+              </PlanRegion>
             </div>
             <PlanRegion name="details" span={12}>
-              <PaymentsTable data={result.data} />
+              <PaymentsTable data={result.data} onDecided={decided} />
             </PlanRegion>
           </PlanGrid>
         </>
@@ -245,7 +259,7 @@ const byNext = (a: Payment, b: Payment): number => {
 };
 
 /** FR 7 (part): «Підписки», the other payments and the income, each by the next date. */
-function PaymentsTable({ data }: { data: RecurringData }) {
+function PaymentsTable({ data, onDecided }: { data: RecurringData; onDecided: (message: string) => void }) {
   const { t } = useI18n();
   const sorted = [...data.payments].sort(byNext);
   const groups: { id: string; key: MessageKey; items: Payment[] }[] = [
@@ -267,6 +281,8 @@ function PaymentsTable({ data }: { data: RecurringData }) {
     "recurring.column.next",
     "recurring.column.account",
     "recurring.column.amount",
+    "recurring.column.last",
+    "recurring.column.actions",
   ];
   return (
     <section className="ws-card rec-card rec-all" aria-labelledby="rec-all-title">
@@ -282,7 +298,11 @@ function PaymentsTable({ data }: { data: RecurringData }) {
             <tr>
               {columns.map((c) => (
                 <th key={c} scope="col" className={c === "recurring.column.amount" ? "rec-num" : undefined}>
-                  {t(c)}
+                  {c === "recurring.column.actions" ? (
+                    <span className="ws-visually-hidden">{t(c)}</span>
+                  ) : (
+                    t(c)
+                  )}
                 </th>
               ))}
             </tr>
@@ -297,7 +317,13 @@ function PaymentsTable({ data }: { data: RecurringData }) {
                   </th>
                 </tr>
                 {g.items.map((p) => (
-                  <PaymentRow key={p.id} payment={p} data={data} columns={columns.map((c) => t(c))} />
+                  <PaymentRow
+                    key={p.id}
+                    payment={p}
+                    data={data}
+                    columns={columns.map((c) => t(c))}
+                    onDecided={onDecided}
+                  />
                 ))}
               </tbody>
             ))}
@@ -311,12 +337,16 @@ function PaymentRow({
   payment: p,
   data,
   columns,
+  onDecided,
 }: {
   payment: Payment;
   data: RecurringData;
   columns: string[];
+  onDecided: (message: string) => void;
 }) {
   const { t, locale } = useI18n();
+  const status = data.statuses.get(p.id);
+  const last = status?.lastCharge ?? null;
   const category = p.categoryId ? data.categories.get(p.categoryId)?.name : undefined;
   const under = [category ?? t("recurring.noCategory"), p.variable ? t("recurring.variableAmount") : null]
     .filter((x): x is string => x !== null)
@@ -328,7 +358,10 @@ function PaymentRow({
         <span className="rec-payment">
           <Tile name={p.name} />
           <span className="rec-payment-text">
-            <span className="rec-payment-name">{p.name}</span>
+            <span className="rec-payment-name">
+              {p.name}
+              {status?.state === "possibly-cancelled" ? <StatusMark id="f.maybeCancelled" /> : null}
+            </span>
             <span className="ws-muted rec-meta">{under}</span>
           </span>
         </span>
@@ -340,7 +373,70 @@ function PaymentRow({
       </td>
       <td data-label={columns[4]} className="rec-num rec-amount">
         {expectedText(t, locale, p.expectedAmount, p.type, p.variable)}
+        {status?.amountChange ? <AmountChange type={p.type} change={status.amountChange} /> : null}
+      </td>
+      <td data-label={columns[5]}>{last ? <ChargeStatus type={p.type} charge={last} /> : null}</td>
+      <td data-label={columns[6]} className="rec-actions">
+        <PaymentActions payment={p} status={status} charges={data.charges.get(p.id)} onDecided={onDecided} />
       </td>
     </tr>
   );
+}
+
+/**
+ * FR 21: «Позначити пропущеним» on each overdue charge of the payment, by its date (the API refuses it for anyone but the Owner); FR 10: «Залишити» on
+ * a payment «Можливо, скасований». Neither has a body; a refusal is said at the top of the page.
+ */
+function PaymentActions({
+  payment: p,
+  status,
+  charges,
+  onDecided,
+}: {
+  payment: Payment;
+  status: Status | undefined;
+  charges: readonly Charge[] | undefined;
+  onDecided: (message: string) => void;
+}) {
+  const { t, locale } = useI18n();
+  const api = useAuthApi();
+  const items: MenuItem[] = [];
+  const known = charges ?? (status?.lastCharge ? [status.lastCharge] : []);
+  const overdue = known.filter((c) => c.status === "overdue");
+  const run = async (call: Promise<Outcome<unknown>>, done: string) => {
+    const o = await call;
+    onDecided(o.ok ? done : `${t("recurring.action.error")} ${t(failureOf(o).key)}`);
+  };
+  for (const charge of overdue)
+    items.push({
+      id: `skip-${charge.dueOn}`,
+      label:
+        overdue.length > 1
+          ? t("recurring.action.skip.dated", { date: shortDate(locale, charge.dueOn) })
+          : t("recurring.action.skip"),
+      icon: "check",
+      onSelect: () =>
+        void run(
+          outcome(
+            api.POST("/v1/recurring/payments/{paymentId}/charges/{dueOn}/skip", {
+              params: { path: { paymentId: p.id, dueOn: charge.dueOn } },
+            }),
+          ),
+          t("recurring.notice.skipped", { name: p.name, date: shortDate(locale, charge.dueOn) }),
+        ),
+    });
+  if (status?.state === "possibly-cancelled")
+    items.push({
+      id: "keep",
+      label: t("recurring.action.keep"),
+      icon: "check",
+      onSelect: () =>
+        void run(
+          outcome(
+            api.POST("/v1/recurring/payments/{paymentId}/keep", { params: { path: { paymentId: p.id } } }),
+          ),
+          t("recurring.notice.kept", { name: p.name }),
+        ),
+    });
+  return items.length > 0 ? <RowActions items={items} /> : null;
 }
