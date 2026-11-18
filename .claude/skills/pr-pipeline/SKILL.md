@@ -148,7 +148,9 @@ count agents: give each a slot `k` (1–10) in its brief and keep a table slot �
 has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
 (k = 10: `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and
 worktree, and stops only the processes it started, by PID. Choose parts in different modules; two PRs that change
-the same files go one after the other. Integration tests, repeated runs and load probes run only as
+the same files go one after the other: before starting an author, the lead checks the brief's files against the files of
+open PRs (`gh api repos/{owner}/{repo}/pulls/N/files`); tests for a screen go in that screen's own test file, not in
+`apps/web/src/shell.test.tsx`. Integration tests, repeated runs and load probes run only as
 `pnpm db:test run -- …` (cluster lock, own database; roles are cluster-wide), never on a hand-made database.
 **UI in parallel:** a UI row whose server part is merged
 may run alongside the server rows — 3–4 UI authors on stages 1–3, within the limits above; which rows and when,
