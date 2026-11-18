@@ -15,13 +15,13 @@ import {
 } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { I18nProvider, useI18n, type MessageKey } from "@willowsum/i18n";
+import { App } from "./App.tsx";
 import {
   AmountsSection,
   ColorsSection,
   ContrastSection,
   GalleryControls,
   GalleryHeader,
-  GalleryTokensPage,
   Section,
 } from "./pages/GalleryTokensPage.tsx";
 import { AmountFitDemo } from "./pages/AmountFitDemo.tsx";
@@ -171,7 +171,8 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
-    renderGallery(<GalleryTokensPage />);
+    // The app itself at `#/gallery/tokens`: only the router shows that the page opens outside the app shell.
+    render(<App />);
     // The only `nav` landmarks are the Pagination demos (CMP-13); there is no app navigation.
     for (const nav of screen.queryAllByRole("navigation"))
       expect(nav.getAttribute("aria-label")).toBe("Сторінки списку");
@@ -217,6 +218,22 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(section("g-transaction-row").querySelector('[data-case="tx-table-sortable"]')).not.toBeNull();
     expect(document.getElementById("g-toolbar")!.textContent).toBe("Панель списку");
     expect(section("g-toolbar").querySelector('[data-case="toolbar"]')).not.toBeNull();
+    // The sections whose tests render the demo alone in its section (#533) hold that demo on the page.
+    for (const [id, demo] of [
+      ["g-fit", ".gallery-fit"],
+      ["g-tooltip", '[data-case="cut"]'],
+      ["g-skeleton", '[data-case="tile"]'],
+      ["g-toast", ".gallery-toast"],
+      ["g-select", '[data-case="default"]'],
+      ["g-button", '[data-case="button-sizes"]'],
+      ["g-pagination", '[data-case="pagination-live"]'],
+      ["g-field", '[data-case^="field-"]'],
+      ["g-date", ".gallery-select__grid"],
+      ["g-list-row", '[data-case="list-row-opened"]'],
+      ["g-selection-bar", '[data-case="selection-bar"]'],
+      ["g-filter-bar", '[data-case="filter-bar"]'],
+    ] as const)
+      expect(section(id).querySelector(demo), id).not.toBeNull();
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
