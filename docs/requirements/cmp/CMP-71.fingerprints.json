@@ -1,4 +1,16 @@
 {
+  "PoC/FR 1": "1de7af89bbc2e3c8",
+  "PoC/FR 2": "4f6d0c4d8e1cb306",
   "PoC/FR 3": "5dc03b2f0a4234fa",
-  "PoC/AC 3": "5dc03b2f0a4234fa"
+  "PoC/FR 5": "7e32b00625e1b0a4",
+  "PoC/AC 1": "1de7af89bbc2e3c8",
+  "PoC/AC 2": "4f6d0c4d8e1cb306",
+  "PoC/AC 3": "5dc03b2f0a4234fa",
+  "PoC/AC 5": "7e32b00625e1b0a4",
+  "MVP/FR 2": "1de7af89bbc2e3c8",
+  "MVP/FR 3": "4f6d0c4d8e1cb306",
+  "MVP/FR 6": "7e32b00625e1b0a4",
+  "MVP/AC 2": "1de7af89bbc2e3c8",
+  "MVP/AC 3": "4f6d0c4d8e1cb306",
+  "MVP/AC 6": "7e32b00625e1b0a4"
 }

@@ -129,7 +129,7 @@ export function MenuButton({
           {items.map((item) => {
             const content = (
               <>
-                <Icon name={item.icon} size={20} />
+                <Icon name={item.icon} size={16} />
                 <span className="ws-menu-label">{item.label}</span>
                 {item.checked ? <Icon name="check" size={16} /> : null}
                 {item.shortcut ? (

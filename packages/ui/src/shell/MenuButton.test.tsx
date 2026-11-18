@@ -135,3 +135,110 @@ describe("MenuButton separators and note", () => {
     expect(screen.getAllByRole("menuitem")).toHaveLength(2);
   });
 });
+
+const ITEMS = [
+  { id: "a", label: "Перший", icon: "edit", onSelect: () => {} },
+  { id: "b", label: "Другий", icon: "eye", onSelect: () => {} },
+  { id: "c", label: "Третій", icon: "lock", onSelect: () => {} },
+] as const;
+
+function Menu() {
+  return (
+    <>
+      <button type="button">Раніше</button>
+      <MenuButton
+        menuLabel="Параметри"
+        ariaLabel="Параметри"
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={ITEMS}
+      >
+        ⚙
+      </MenuButton>
+    </>
+  );
+}
+
+describe("CMP-61@PoC Menu keyboard", () => {
+  it("CMP-61@PoC AC1: «Параметри» is a native button — Enter and Space press it — and pressing it opens `role=menu` with the focus on the first item", () => {
+    render(<Menu />);
+    const button = screen.getByRole("button", { name: "Параметри" });
+    // A native `<button type="button">` turns Enter and Space into a click in the browser; jsdom does not, so the click stands in for the key.
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(screen.queryByRole("menu")).toBeNull();
+    button.focus();
+    fireEvent.click(button);
+    const menu = screen.getByRole("menu", { name: "Параметри" });
+    expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(3);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Перший" }));
+  });
+
+  it("CMP-61@PoC AC2: ↓ on the last item moves the focus to the first, ↑ on the first to the last", () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    const [first, second, third] = screen.getAllByRole("menuitem");
+    const menu = screen.getByRole("menu");
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(third);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(third);
+  });
+
+  it("CMP-61@PoC AC3: Esc closes the menu and the focus goes back to the button, not to the item or the page", () => {
+    render(<Menu />);
+    const button = screen.getByRole("button", { name: "Параметри" });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Другий" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(button);
+  });
+});
+
+describe("CMP-61@PoC Menu items", () => {
+  it("CMP-61@PoC AC6: every item has a 16 px icon to the left of its text", () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    for (const item of screen.getAllByRole("menuitem")) {
+      const icon = item.querySelector("svg")!;
+      expect(icon.getAttribute("width"), item.textContent ?? "").toBe("16");
+      expect(icon.getAttribute("height")).toBe("16");
+      const wrap = item.firstElementChild!;
+      expect(wrap.className).toBe("ws-icon");
+      expect(wrap.getAttribute("data-size")).toBe("16");
+      expect(wrap.contains(icon)).toBe(true);
+      expect(wrap.nextElementSibling!.className).toBe("ws-menu-label");
+    }
+  });
+
+  it("CMP-61@PoC AC9: a «…» button is read and shown as «Ще дії», says it opens a menu and whether it is open", () => {
+    render(
+      <MenuButton
+        menuLabel="Ще дії"
+        ariaLabel="Ще дії"
+        title="Ще дії"
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={ITEMS}
+      >
+        …
+      </MenuButton>,
+    );
+    const button = screen.getByRole("button", { name: "Ще дії" });
+    expect(button.getAttribute("title")).toBe("Ще дії");
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("menu", { name: "Ще дії" })).toBeTruthy();
+  });
+});

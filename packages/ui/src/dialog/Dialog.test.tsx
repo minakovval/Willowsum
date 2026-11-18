@@ -457,6 +457,41 @@ describe("CMP-21@PoC Dialog — alignment and sizes", () => {
     expect(within(dialog).queryByRole("button", { name: "Скасувати" })).toBeNull();
   });
 
+  it("CMP-21@PoC AC8: leaving a form with changes asks «Зберегти зміни?» with its text and exactly three buttons, no «Скасувати»; each button runs its own action", () => {
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(496);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return { width: this.classList.contains("ws-dialog-action-label") ? 100 : 0 } as DOMRect;
+    });
+    const onStay = vi.fn();
+    const onDiscard = vi.fn();
+    const onSave = vi.fn();
+    render(
+      <Dialog
+        open
+        onClose={vi.fn()}
+        title="Зберегти зміни?"
+        text="Збережіть їх, вийдіть без збереження або редагуйте далі."
+        actions={[
+          { label: "Редагувати далі", onClick: onStay },
+          { label: "Не зберігати", variant: "danger", onClick: onDiscard },
+          { label: "Зберегти", variant: "primary", onClick: onSave },
+        ]}
+      />,
+    );
+    const dialog = screen.getByRole("dialog", { name: "Зберегти зміни?" });
+    expect(within(dialog).getByText("Збережіть їх, вийдіть без збереження або редагуйте далі.")).toBeTruthy();
+    const row = dialog.querySelector(".ws-dialog-actions")!;
+    expect(row.getAttribute("data-layout")).toBe("row");
+    const buttons = [...row.querySelectorAll("button")];
+    expect(buttons.map((b) => b.textContent)).toEqual(["Редагувати далі", "Не зберігати", "Зберегти"]);
+    expect(buttons.map((b) => b.getAttribute("data-variant"))).toEqual(["secondary", "danger", "primary"]);
+    expect(buttons[2]!.className).toContain("ws-button-primary");
+    expect(buttons[1]!.className).not.toContain("ws-button-primary");
+    expect(within(dialog).queryByRole("button", { name: "Скасувати" })).toBeNull();
+    for (const b of buttons) fireEvent.click(b);
+    expect([onStay, onDiscard, onSave].map((f) => f.mock.calls.length)).toEqual([1, 1, 1]);
+  });
+
   it("CMP-21@PoC AC25: 640 px only as `split`, 900 px only as `wide`; every other dialog is the 560 px default", () => {
     const one = (size?: DialogProps["size"]) => {
       render(

@@ -85,6 +85,20 @@ describe("CMP-21@PoC Dialog styles", () => {
     expect(text).toContain("line-height: calc(var(--ws-space-5) - var(--ws-space-1) / 2);");
   });
 
+  it("CMP-21@PoC AC8: «Зберегти зміни?» — three equal buttons in one row; «Не зберігати» text B23A3A, «Зберегти» filled 0B2545, no «Скасувати»", () => {
+    const row = rule(".ws-dialog-actions");
+    expect(row).toContain("grid-auto-flow: column;");
+    expect(row).toContain("grid-auto-columns: minmax(0, 1fr);");
+    expect(rule(".ws-dialog-action")).toContain("white-space: nowrap;");
+    expect(rule('.ws-dialog-action[data-variant="danger"]:not([aria-disabled="true"])')).toContain(
+      "color: var(--ws-loss);",
+    );
+    expect(light("loss")).toBe("#B23A3A");
+    const primary = components.match(/\.ws-button-primary\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(primary).toContain("background: var(--ws-brand);");
+    expect(light("brand")).toBe("#0B2545");
+  });
+
   it("CMP-21@PoC AC9: a centred dialog centres the icon, the title and the text", () => {
     const head = rule('.ws-dialog[data-align="center"] .ws-dialog-head');
     expect(head).toContain("align-items: center;");

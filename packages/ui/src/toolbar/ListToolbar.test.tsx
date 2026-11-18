@@ -51,4 +51,18 @@ describe("CMP-60@PoC Toolbar", () => {
     rerender(<Bar status="Знайдено 42 транзакції" />);
     expect(status.textContent).toBe("Знайдено 42 транзакції");
   });
+
+  it("CMP-60@PoC AC1: a list shown as a table has search, filters and «Параметри» in one toolbar row — the first two at the start, «Параметри» at the end — and no «Колонки» and no «Картки / Таблиця» switch", () => {
+    render(<Bar />);
+    const bar = screen.getByRole("toolbar", { name: "Керування списком" });
+    const start = bar.querySelector(".ws-toolbar-start")!;
+    const end = bar.querySelector(".ws-toolbar-end")!;
+    expect([...bar.children].slice(0, 2)).toEqual([start, end]);
+    expect(start.querySelector('input[type="search"]')).not.toBeNull();
+    expect(start.textContent).toContain("Фільтри");
+    expect(end.querySelector('button[aria-label="Параметри"]')).not.toBeNull();
+    expect(screen.queryByRole("button", { name: "Колонки" })).toBeNull();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Картки|Таблиця/ })).toBeNull();
+  });
 });

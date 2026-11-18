@@ -315,6 +315,27 @@ describe("ACC-05@PoC FR 5 password change with step-up (S-032)", () => {
     expect(callsTo(calls, "/v1/profile/password")).toEqual([]);
   });
 
+  it("CMP-21@PoC AC26: a wrong password in step-up shows «Пароль неправильний» under «Поточний пароль» with no hints; focus stays in the field and the message is announced", async () => {
+    await openProfile({
+      "POST /v1/session/step-up": problem(403, "STEP_UP_PASSWORD_INVALID"),
+    });
+    await startPasswordChange();
+    confirmWith("wrong-password");
+    await within(dialog()).findByText("Пароль неправильний");
+    const field = within(dialog()).getByLabelText(/^Поточний пароль/);
+    expect(document.activeElement).toBe(field);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    const wrap = field.closest(".auth-field")!;
+    // No live region: the error is read when the focus lands on the field, through `aria-describedby`.
+    const described = field
+      .getAttribute("aria-describedby")!
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(described.replace(/\s+/g, " ").trim()).toBe("Помилка. Пароль неправильний");
+    expect(wrap.textContent).not.toMatch(/спроб|залиш|attempt|\d+ з/);
+  });
+
   it("NFR-01@PoC AC6: at the lockout the dialog says «Вхід тимчасово заблоковано. Спробуйте через N хв» and offers only «Закрити»", async () => {
     const { calls } = await openProfile({
       "POST /v1/session/step-up": problem(429, "SIGN_IN_LOCKED", { "Retry-After": "840" }),
