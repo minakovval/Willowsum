@@ -651,7 +651,7 @@ export const en: Messages = {
   "planning.goals.spend.step.after": "After the spend",
   "planning.goals.spend.collected": "Saved {collected} of {target}.",
   "planning.goals.spend.search": "Search transactions",
-  "planning.goals.spend.search.placeholder": "Search by name or amount",
+  "planning.goals.spend.search.placeholder": "Search by merchant or description",
   "planning.goals.spend.caption": "outgoing transactions of the goal’s account · newest first",
   "planning.goals.spend.more.one": "{count} more transaction · show the next 6",
   "planning.goals.spend.more.few": "{count} more transactions · show the next 6",

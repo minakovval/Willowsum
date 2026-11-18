@@ -348,6 +348,14 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     });
     expect(chosenSum([], "EUR")).toBeNull();
     expect(chosenSum([row("a", "640.00"), row("b", "386.40")], "EUR")).toEqual(eur("1026.4"));
+    // Decimal, not floats (0.1 + 0.2), and one currency: a row in another currency throws instead of being added.
+    expect(chosenSum([row("a", "0.10"), row("b", "0.20")], "EUR")).toEqual(eur("0.3"));
+    expect(() =>
+      chosenSum(
+        [row("a", "1.00"), { ...row("b", "1.00"), amount: { amount: "1.00", currency: "USD" } }],
+        "EUR",
+      ),
+    ).toThrow();
     expect(leftAfter(goal(), eur("1026.40"))).toEqual(eur("1073.6"));
     expect(leftAfter(goal(), null)).toEqual(eur("2100.00"));
     expect(spendBody([row("a", "1.00")])).toEqual({ transactions: [{ transactionId: "a", accountId: ACC }] });

@@ -649,7 +649,7 @@ export const uk = {
   "planning.goals.spend.step.after": "Після витрати",
   "planning.goals.spend.collected": "Зібрано {collected} з {target}.",
   "planning.goals.spend.search": "Пошук транзакцій",
-  "planning.goals.spend.search.placeholder": "Пошук за назвою або сумою",
+  "planning.goals.spend.search.placeholder": "Пошук за мерчантом або описом",
   "planning.goals.spend.caption": "вихідні транзакції рахунку цілі · найновіші спершу",
   "planning.goals.spend.more.one": "Ще {count} транзакція · показати наступні 6",
   "planning.goals.spend.more.few": "Ще {count} транзакції · показати наступні 6",
