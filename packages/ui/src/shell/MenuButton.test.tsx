@@ -270,7 +270,7 @@ describe("CMP-61@PoC Menu placement", () => {
     fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
     expect(screen.getByRole("menu").className).toContain("ws-menu-up");
     expect(screen.getByRole("menu").className).not.toContain("ws-menu-down");
-    // Closing and opening again near the bottom edge keeps the choice; the CSS puts `up` above the button.
+    // The CSS puts `up` above the button, 4 px from its top edge.
     expect(shellCss).toMatch(/\.ws-menu-up\s*\{[^}]*inset-block-end:\s*calc\(100% \+ var\(--ws-space-1\)\)/);
     cleanup();
 

@@ -211,6 +211,16 @@ describe("CMP-74@PoC Progress", () => {
     expect(norm(bar().getAttribute("aria-valuetext"))).toBe("612 з 1 214, лишилось 602");
   });
 
+  it("CMP-74@PoC AC7 en: the estimated total reads «612 of ~900» and speaks «612 of about 900»", () => {
+    const { container } = render(
+      <I18nProvider initialLocale="en">
+        <Progress label="Sync" value={612} max={900} estimated />
+      </I18nProvider>,
+    );
+    expect(norm(status(container).textContent)).toBe("612 of ~900");
+    expect(norm(bar().getAttribute("aria-valuetext"))).toBe("612 of about 900");
+  });
+
   it("CMP-74@PoC: colour is never the only sign — every state is named in text", () => {
     const states = [
       [<Progress key="r" label="x" value={1} max={3} />, "1 з 3 · лишилось 2"],
