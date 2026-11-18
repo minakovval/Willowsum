@@ -92,10 +92,10 @@ export function goalFromHash(hash: string): string | null {
 
 /** The sum after a contribution, for the line under the form: a client calculation, one currency only. */
 export function afterContribution(goal: Goal, amount: string): { collected: Money; percent: string } | null {
-  const added = new Decimal(amount);
-  const target = new Decimal(goal.target.amount);
-  if (!added.isFinite() || added.lt(0) || !target.gt(0)) return null;
   try {
+    const added = new Decimal(amount);
+    const target = new Decimal(goal.target.amount);
+    if (!added.isFinite() || added.lt(0) || !target.gt(0)) return null;
     const collected = KernelMoney.of(goal.collected.amount, goal.collected.currency).plus(
       KernelMoney.of(added, goal.collected.currency),
     );

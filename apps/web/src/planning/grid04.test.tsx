@@ -8,6 +8,9 @@ import { fakeApi, renderAt, resetAuthState } from "../auth/testing.tsx";
 /** Without a budget: `GET /v1/budget` answers `null` (BUD-02 d), the empty state of #541). */
 const noBudget = () => fakeApi({ "GET /v1/budget": { status: 200, body: { budget: null } } }).client;
 
+/** Without goals: `GET /v1/goals` answers an empty list (BUD-05 c), the empty state of #541). */
+const noGoals = () => fakeApi({ "GET /v1/goals": { status: 200, body: { goals: [] } } }).client;
+
 /**
  * GRID-04@PoC: the page grids of «Планування». The measured layout at 1280 px (AC1) is in e2e/layout.spec.ts; here
  * the regions, the empty slots and the CSS rules that make the columns. S-141 is in recurring/bud07c-recurring.test.tsx.
@@ -56,10 +59,10 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     expect(css).toContain("gap: var(--ws-gutter);");
   });
 
-  it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", () => {
-    renderAt("#/planning/goals", fakeApi({}).client);
+  it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", async () => {
+    renderAt("#/planning/goals", noGoals());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Цілі");
-    expect(screen.getByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
     expect(regions("goals")).toEqual([
       ["list", "4"],
       ["detail", "8"],
@@ -92,10 +95,10 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     expect(region.textContent).toContain("Бюджет показує, скільки можна витратити до кінця місяця");
   });
 
-  it("GRID-04@PoC EC2: without goals the list region shows «Додайте першу ціль» with an explanation", () => {
-    renderAt("#/planning/goals", fakeApi({}).client);
+  it("GRID-04@PoC EC2: without goals the list region shows «Додайте першу ціль» with an explanation", async () => {
+    renderAt("#/planning/goals", noGoals());
     const region = document.querySelector<HTMLElement>("[data-plan-region='list']")!;
-    expect(within(region).getByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
+    expect(await within(region).findByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
     expect(region.textContent).toContain("Відкладайте на подорож, покупку чи подушку безпеки");
   });
 

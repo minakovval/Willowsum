@@ -34,7 +34,7 @@ export function GoalBar({ goal, label }: { goal: Goal; label: string }) {
 /** The goal's amber icon: amber is only for goals (GRID-04@PoC FR 7). */
 export const GoalIcon = () => (
   <span className="goal-icon">
-    <Icon name="goals" size={20} />
+    <Icon name="goals" size={16} />
   </span>
 );
 
@@ -83,7 +83,11 @@ export function GoalCard({
   if (goal.requiredMonthly !== null && !goal.achieved)
     rows.push({
       key: "planning.goals.required",
-      value: t("planning.goals.perMonth", { amount: money(locale, goal.requiredMonthly) }),
+      value: t("planning.goals.perMonth", {
+        amount: formatMoney(locale, goal.requiredMonthly.amount, goal.requiredMonthly.currency, {
+          digits: 0,
+        }),
+      }),
       hint: t("planning.goals.requiredHint"),
     });
   if (goal.forecastDate !== null && !goal.achieved)

@@ -49,9 +49,17 @@
   border-radius: var(--ws-radius-pill);
 }
 
-/* GRID-04@PoC FR 7: amber is only for the goal icon. */
+/* GRID-04@PoC FR 7: amber is only for the goal icon — an amber disc (a fill, never text or a border). */
 .goal-icon {
-  color: var(--ws-accent);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-accent);
+  color: var(--ws-on-accent);
 }
 
 .goal-achieved {
