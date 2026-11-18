@@ -1,9 +1,22 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
-import { colors, COLOR_TOKEN_NAMES, contrastRatio, formatRatio, STATUS_DICTIONARY } from "@willowsum/ui";
+import {
+  colors,
+  COLOR_TOKEN_NAMES,
+  contrastRatio,
+  formatRatio,
+  HideAmountsProvider,
+  Icon,
+  IconButton,
+  POC_ICON_GROUPS,
+  PRODUCT_ICONS,
+  STATUS_DICTIONARY,
+} from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
-import { I18nProvider } from "@willowsum/i18n";
+import { I18nProvider, useI18n } from "@willowsum/i18n";
 import { App } from "./App.tsx";
+import { ListToolbarDemo } from "./pages/ListToolbarDemo.tsx";
+import { TransactionRowDemo } from "./pages/TransactionRowDemo.tsx";
 import { StatusDemo } from "./pages/StatusDemo.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
@@ -28,7 +41,60 @@ const openDialog = (role: "dialog" | "alertdialog", name: string) => {
 const controls = () => within(document.querySelector<HTMLElement>("section.gallery-controls")!);
 
 /** One demo alone in the I18n provider; the full-page test checks that the demo sits in its gallery section. */
-const renderSection = (demo: ReactNode) => render(<I18nProvider initialLocale="uk">{demo}</I18nProvider>);
+const renderSection = (demo: ReactNode) =>
+  render(
+    <I18nProvider initialLocale="uk">
+      <HideAmountsProvider>{demo}</HideAmountsProvider>
+    </I18nProvider>,
+  );
+
+/** The icon set of the «Іконки» section with its captions (the section is inline in the page, so the set is rebuilt here). */
+function IconSet() {
+  const { t } = useI18n();
+  return (
+    <ul>
+      {Object.values(POC_ICON_GROUPS)
+        .flat()
+        .map((name) => (
+          <li key={name}>
+            <Icon name={name} size={24} />
+            <code>{name}</code>
+          </li>
+        ))}
+      {Object.entries(PRODUCT_ICONS).map(([kind, name]) => (
+        <li key={kind}>
+          <Icon name={name} size={24} />
+          <span>{t(`gallery.icons.product.${kind}` as Parameters<typeof t>[0])}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The seven icon-only buttons of «Кнопки лише з іконкою» (inline in the page), with the filter that toggles. */
+function IconOnlyButtons() {
+  const { t, setLocale } = useI18n();
+  const [filtered, setFiltered] = useState(false);
+  return (
+    <section>
+      <IconButton icon="options" label={t("gallery.iconButtons.options")} />
+      <IconButton icon="columns" label={t("gallery.iconButtons.columns")} />
+      <IconButton icon="sort" label={t("gallery.iconButtons.sort")} />
+      <IconButton
+        icon="filter"
+        label={t("gallery.iconButtons.filter")}
+        pressed={filtered}
+        onClick={() => setFiltered((v) => !v)}
+      />
+      <IconButton icon="edit" label={t("gallery.iconButtons.edit")} />
+      <IconButton icon="settings" label={t("gallery.iconButtons.settings")} />
+      <IconButton icon="close" label={t("gallery.iconButtons.close")} />
+      <button type="button" onClick={() => setLocale("en")}>
+        English
+      </button>
+    </section>
+  );
+}
 
 /**
  * The Dialog section alone, not the whole gallery: its tests only open dialogs from the section's buttons, and
@@ -69,6 +135,33 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(document.getElementById("g-dialog")!.textContent).toBe("Діалог");
     for (const c of ["delete", "form", "word", "error"])
       expect(section("g-dialog").querySelector(`button[data-case="${c}"]`)).not.toBeNull();
+    // The Icons, icon-only buttons, Transaction row and Toolbar sections are on the page (their tests render the part alone);
+    // CMP-33@PoC: the page itself lists the PoC set and names the same seven buttons as the rebuilt parts.
+    const codes = [...section("g-icons").querySelectorAll("code")].map((c) => c.textContent);
+    expect(codes).toContain("mortgage");
+    for (const name of ["property", "wine", "insurance-health", "investment-public"])
+      expect(
+        codes.some((c) => c?.includes(name)),
+        name,
+      ).toBe(false);
+    expect(within(section("g-icons")).getByText("Інше")).toBeTruthy();
+    for (const icon of section("g-icons").querySelectorAll(".ws-icon"))
+      expect(icon.getAttribute("aria-hidden")).toBe("true");
+    const iconButtons = within(section("g-icon-buttons")).getAllByRole("button");
+    expect(iconButtons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
+      "Параметри",
+      "Колонки",
+      "Сортувати",
+      "Фільтр",
+      "Редагувати",
+      "Налаштування рахунку",
+      "Закрити",
+    ]);
+    for (const b of iconButtons) expect(b.textContent).toBe("");
+    expect(document.getElementById("g-transaction-row")!.textContent).toBe("Рядок транзакції");
+    expect(section("g-transaction-row").querySelector('[data-case="tx-table-sortable"]')).not.toBeNull();
+    expect(document.getElementById("g-toolbar")!.textContent).toBe("Панель списку");
+    expect(section("g-toolbar").querySelector('[data-case="toolbar"]')).not.toBeNull();
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
@@ -149,8 +242,13 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-33@PoC, DS-12@PoC FR 9: «Іконки» shows the PoC set — no asset-type, insurance or investment icons; products end with «Інше»", () => {
-    const { container } = render(<App />);
-    const icons = container.querySelector("#g-icons")!.parentElement!;
+    // The set the Icons section lists (POC_ICON_GROUPS, PRODUCT_ICONS) rendered with its captions, not the whole gallery.
+    const { container } = render(
+      <I18nProvider initialLocale="uk">
+        <IconSet />
+      </I18nProvider>,
+    );
+    const icons = container;
     const codes = [...icons.querySelectorAll("code")].map((c) => c.textContent);
     expect(codes).toContain("mortgage");
     expect(codes).toContain("options");
@@ -167,9 +265,15 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-33@PoC AC3, DS-12@PoC AC2: «Кнопки лише з іконкою» — every icon-only button has a name and the same tooltip", () => {
-    const { container } = render(<App />);
-    const section = container.querySelector("#g-icon-buttons")!.parentElement as HTMLElement;
-    const buttons = within(section).getAllByRole("button");
+    const { container } = render(
+      <I18nProvider initialLocale="uk">
+        <IconOnlyButtons />
+      </I18nProvider>,
+    );
+    const section = container.firstElementChild as HTMLElement;
+    const buttons = within(section)
+      .getAllByRole("button")
+      .filter((b) => b.textContent === "");
     expect(buttons.map((b) => norm(b.getAttribute("aria-label")))).toEqual([
       "Параметри",
       "Колонки",
@@ -190,7 +294,7 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(filter.getAttribute("aria-pressed")).toBe("false");
     act(() => filter.click());
     expect(filter.getAttribute("aria-pressed")).toBe("true");
-    act(() => controls().getByLabelText("English").click());
+    act(() => within(section).getByRole("button", { name: "English" }).click());
     expect(within(section).getByRole("button", { name: "Options" })).toBeTruthy();
   });
 
@@ -521,7 +625,12 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("DAT-01@PoC FR 3 gallery: the «Транзакції» table sorts in its headers and has no «Актив»; CMP-60 gallery: the toolbar with the search and «Параметри»", () => {
-    const { container } = render(<App />);
+    const { container } = renderSection(
+      <>
+        <TransactionRowDemo />
+        <ListToolbarDemo />
+      </>,
+    );
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     const head = at("tx-table-sortable").querySelector(".ws-tx-head")!;
     expect([...head.children].map((c) => c.textContent?.replace(/,.*$/, ""))).toEqual([
@@ -534,7 +643,6 @@ describe("/gallery/tokens (DS-22)", () => {
     const merchant = head.querySelector<HTMLButtonElement>('.ws-tx-sort[title="Сортувати за: контрагент"]')!;
     act(() => merchant.click());
     expect(merchant.dataset.sort).toBe("asc");
-    expect(container.querySelector("#g-toolbar")!.textContent).toBe("Панель списку");
     const bar = at("toolbar").querySelector('[role="toolbar"]')!;
     expect(bar.getAttribute("aria-label")).toBe("Керування списком");
     expect(bar.querySelector('input[type="search"]')!.getAttribute("placeholder")).toBe(
