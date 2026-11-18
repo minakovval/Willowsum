@@ -471,6 +471,8 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect((await screen.findByRole("alert")).textContent).toBe(
       "Не вдалося зберегти план — повторіть спробу",
     );
+    // FR 5: without an extra payment there is nothing to add to the planned expenses.
+    expect(api.calls.find((c) => c.method === "PUT")?.body).toEqual({ addToPlannedExpenses: false });
   });
 
   it("BUD-19@PoC FR 2: a saved plan fills the fields with its assumptions and is marked «Збережений план»", async () => {
