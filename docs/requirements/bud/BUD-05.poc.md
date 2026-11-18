@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-14, П-17, П-18, П-24, П-25, П-26, DS-01
 - Сценарії: UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-27, UC-BUD-29, UC-BUD-30
 - Модуль: goals
-- Перевіряється: apps/api/src/modules/goals/domain/bud05-goals.test.ts, apps/api/test/bud05-goals.it.test.ts, apps/api/test/bud05b-goals-spend.it.test.ts, apps/api/test/bud05-goals-account-lock.it.test.ts
+- Перевіряється: apps/api/src/modules/goals/domain/bud05-goals.test.ts, apps/api/test/bud05-goals.it.test.ts, apps/api/test/bud05b-goals-spend.it.test.ts, apps/api/test/bud05-goals-account-lock.it.test.ts, apps/web/src/planning/bud05d-goal-spend.test.tsx
 
 **Мета.** Як власник бюджету, я хочу відкладати на подорожі, великі покупки та подушку безпеки і бачити, скільки вже зібрано і чи встигаю до потрібної дати.
 

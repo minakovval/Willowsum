@@ -52,7 +52,7 @@
 - [лише MVP] Сценарії: UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-29, UC-BUD-30, UC-BUD-118, UC-BUD-119, UC-BUD-28
 - [v1] Сценарії: UC-BUD-22, UC-BUD-23, UC-BUD-24, UC-BUD-25, UC-BUD-26, UC-BUD-27, UC-BUD-29, UC-BUD-30, UC-BUD-118, UC-BUD-119, UC-BUD-21, UC-BUD-28
 - Модуль: goals
-- [лише PoC] Перевіряється: apps/api/src/modules/goals/domain/bud05-goals.test.ts, apps/api/test/bud05-goals.it.test.ts, apps/api/test/bud05b-goals-spend.it.test.ts, apps/api/test/bud05-goals-account-lock.it.test.ts
+- [лише PoC] Перевіряється: apps/api/src/modules/goals/domain/bud05-goals.test.ts, apps/api/test/bud05-goals.it.test.ts, apps/api/test/bud05b-goals-spend.it.test.ts, apps/api/test/bud05-goals-account-lock.it.test.ts, apps/web/src/planning/bud05d-goal-spend.test.tsx
 - [PoC v2] Перевіряється: —
 
 **Мета.** Як власник бюджету, я хочу відкладати на подорожі, великі покупки та подушку безпеки і бачити, скільки вже зібрано і чи встигаю до потрібної дати.
