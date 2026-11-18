@@ -46,6 +46,7 @@ export { FitAmount } from "./amount/FitAmount.tsx";
 export { Delta } from "./amount/Delta.tsx";
 export { formatCompactAmount, formatCompactNumber } from "./amount/compact.ts";
 export { chooseFit } from "./amount/fit.ts";
+export { formatPeriodMonth, formatPeriodRange } from "./period/period.ts";
 export { placeTooltip, Tooltip, TruncatedText, useTooltip } from "./tooltip/Tooltip.tsx";
 export type { TooltipTriggerProps } from "./tooltip/Tooltip.tsx";
 export { EmptyState } from "./states/EmptyState.tsx";

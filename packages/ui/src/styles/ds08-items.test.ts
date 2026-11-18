@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { cssDeclarations, rem } from "../tokens/index.ts";
+import { colors, contrastRatio, cssDeclarations, rem } from "../tokens/index.ts";
 
 /**
  * DS-08@PoC items 1, 3, 4, 5 and 9, checked on the generated token CSS and the stylesheets (the page-heading
@@ -109,6 +109,28 @@ describe("DS-08@PoC typography items", () => {
     expect(components.find((d) => d.selector === ".ws-tooltip" && d.property === "font-size")?.value).toBe(
       "var(--ws-text-tooltip-size)",
     );
+  });
+
+  it("DS-08@PoC FR 4: the sub-line under a card or widget title is 12/16 px, 400, ink-muted and a block of its own, from the tokens, readable on both card surfaces", () => {
+    expect([token("subline", "size"), token("subline", "line"), token("subline", "weight")]).toEqual([
+      rem(12),
+      rem(16),
+      "400",
+    ]);
+    const sub = Object.fromEntries(
+      base
+        .filter((d) => d.selector === ".ws-subline" && d.atRules.length === 0)
+        .map((d) => [d.property, d.value]),
+    );
+    expect(sub).toMatchObject({
+      display: "block", // its own line under the title, never inline in the title line
+      color: "var(--ws-ink-muted)",
+      "font-size": "var(--ws-text-subline-size)",
+      "line-height": "var(--ws-text-subline-line)",
+      "font-weight": "var(--ws-text-subline-weight)",
+    });
+    for (const bg of ["surface-100", "surface-200"] as const)
+      expect(contrastRatio(colors["ink-muted"].light, colors[bg].light), bg).toBeGreaterThanOrEqual(4.5);
   });
 
   it("DS-08@PoC FR 5: every amount style has tabular figures and the amount component uses them", () => {

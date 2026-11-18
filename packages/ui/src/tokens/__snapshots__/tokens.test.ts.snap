@@ -76,6 +76,11 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   --ws-text-chart-axis-line: 1rem;
   --ws-text-chart-axis-weight: 400;
   --ws-text-chart-axis-tracking: 0em;
+  --ws-text-subline-family: var(--ws-font-sans);
+  --ws-text-subline-size: 0.75rem;
+  --ws-text-subline-line: 1rem;
+  --ws-text-subline-weight: 400;
+  --ws-text-subline-tracking: 0em;
   --ws-text-tooltip-family: var(--ws-font-sans);
   --ws-text-tooltip-size: 0.8125rem;
   --ws-text-tooltip-line: 1.125rem;
@@ -669,6 +674,13 @@ exports[`design tokens > generated CSS snapshot 1`] = `
   letter-spacing: var(--ws-text-chart-axis-tracking);
   font-variant-numeric: tabular-nums;
 }
+.ws-text-subline {
+  font-family: var(--ws-text-subline-family);
+  font-size: var(--ws-text-subline-size);
+  line-height: var(--ws-text-subline-line);
+  font-weight: var(--ws-text-subline-weight);
+  letter-spacing: var(--ws-text-subline-tracking);
+}
 .ws-text-tooltip {
   font-family: var(--ws-text-tooltip-family);
   font-size: var(--ws-text-tooltip-size);
@@ -1121,6 +1133,14 @@ exports[`design tokens > snapshot of every token (a change here must be a delibe
       "tracking": 0,
       "usage": "Sidebar item (CMP-69)",
       "weight": 500,
+    },
+    "subline": {
+      "family": "sans",
+      "lineHeight": 16,
+      "size": 12,
+      "tracking": 0,
+      "usage": "Sub-line under a card or widget title: a counter, «оновлено о …», a period, a date (DS-08@PoC FR 4)",
+      "weight": 400,
     },
     "tooltip": {
       "family": "sans",
