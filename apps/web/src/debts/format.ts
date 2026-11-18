@@ -19,3 +19,7 @@ export const money = (locale: Locale, value: MoneyValue): string =>
 
 /** The later of two `YYYY-MM` months (they compare as text). */
 export const laterMonth = (a: string | null, b: string): string => (a === null || b > a ? b : a);
+
+/** An amount given as a decimal string and a currency code. */
+export const formatAmount = (locale: Locale, amount: string, currency: string): string =>
+  formatMoney(locale, amount, currency);

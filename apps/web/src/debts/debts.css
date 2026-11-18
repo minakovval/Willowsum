@@ -1,0 +1,238 @@
+/* BUD-19@PoC S-144 «План погашення» and S-145 «Стратегія»: tokens only (DS-06). */
+.debts-pick,
+.debts-scenario,
+.debts-result,
+.debts-chart,
+.debts-prompt,
+.debts-calc-error,
+.debts-outcome {
+  margin-block-end: var(--ws-space-4);
+}
+
+.debts-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--ws-space-3);
+}
+
+.debts-pick > :first-child {
+  flex: 1 1 16rem;
+}
+
+.debts-scenario {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.debts-scenario-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ws-space-3);
+}
+
+.debts-fields,
+.debts-oneoff {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--ws-space-4);
+  align-items: start;
+}
+
+.debts-oneoff {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  align-items: end;
+}
+
+.debts-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.debts-link {
+  min-height: var(--ws-touch-target);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ws-link);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.debts-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+}
+
+.debts-check > span {
+  display: grid;
+}
+
+.debts-saved {
+  margin: 0;
+  color: var(--ws-gain);
+}
+
+.debts-saved--error {
+  color: var(--ws-loss);
+}
+
+.debts-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.debts-result-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.debts-outcome p {
+  margin: 0;
+}
+
+.debts-outcome--chosen {
+  border-color: var(--ws-brand);
+}
+
+.debts-big--warning {
+  color: var(--ws-on-warning);
+}
+
+.debts-saving {
+  margin: var(--ws-space-3) 0 0;
+  font-weight: 600;
+}
+
+.debts-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.debts-chart-head .ws-icon-button[aria-disabled="true"] {
+  color: var(--ws-disabled-ink);
+  cursor: not-allowed;
+}
+
+.debts-chart-svg {
+  width: 100%;
+  height: 12.5rem;
+}
+
+.debts-line {
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.debts-line--base {
+  stroke: var(--ws-ink-muted);
+  stroke-dasharray: 6 4;
+}
+
+.debts-line--scenario {
+  stroke: var(--ws-brand);
+}
+
+.debts-chart-axis {
+  display: flex;
+  justify-content: space-between;
+}
+
+.debts-legend {
+  display: flex;
+  gap: var(--ws-space-4);
+  margin: var(--ws-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.debts-swatch {
+  display: inline-block;
+  inline-size: var(--ws-space-5);
+  margin-inline-end: var(--ws-space-2);
+  vertical-align: middle;
+  border-block-start: 2px solid var(--ws-brand);
+}
+
+.debts-swatch--base {
+  border-block-start: 2px dashed var(--ws-ink-muted);
+}
+
+.debts-chart-table {
+  margin-block-start: var(--ws-space-3);
+}
+
+.debts-chart-table summary {
+  min-height: var(--ws-touch-target);
+  cursor: pointer;
+}
+
+@media (max-width: 40rem) {
+  .debts-oneoff {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* S-144: the scenario on the left (4 of 12), the result and the chart on the right (8). */
+.debts-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+  gap: var(--ws-space-4);
+  align-items: start;
+}
+
+.debts-plan-grid .debts-fields {
+  grid-template-columns: 1fr;
+}
+
+.debts-result .debts-card-title {
+  margin-block-end: var(--ws-space-4);
+}
+
+.debts-result-cols + .debts-saving {
+  margin-block-start: var(--ws-space-4);
+}
+
+.debts-chart-plot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ws-space-2);
+}
+
+.debts-chart-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: end;
+}
+
+.debts-gridline {
+  stroke: var(--ws-line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.debts-strategy-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ws-space-5);
+}
+
+.debts-strategy-head .debts-fields {
+  flex: 1 1 20rem;
+}
+
+@media (max-width: 60rem) {
+  .debts-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
