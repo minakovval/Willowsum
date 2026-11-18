@@ -325,6 +325,16 @@ describe("BUD-05@PoC: a goal, its part and what it shows", () => {
     expect(await goalAudit(space.householdId, "goals.contribution", "create")).toBe(2);
   });
 
+  it("BUD-05@PoC FR 2: a negative starting amount is refused by the server as a field error and nothing is stored", async () => {
+    const space = await newSpace();
+    for (const startAmount of ["-100.00", "-0.01"]) {
+      const res = await call(space, "POST", "/v1/goals", travel({ part: { kind: "marks", startAmount } }));
+      expect(res.statusCode).toBe(400);
+      expect(res.json().errors).toEqual([{ in: "body", path: "part.startAmount", issue: "invalid" }]);
+    }
+    expect(await n("goals.goals WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+
   it("BUD-05@PoC AC9: a goal has exactly one part — a request with a second part (or a list of parts) is refused", async () => {
     const space = await newSpace();
     const g = await goal(space, travel());

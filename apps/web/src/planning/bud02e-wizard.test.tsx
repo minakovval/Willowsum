@@ -260,6 +260,19 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     );
   });
 
+  it("BUD-02@PoC AC1: an invalid amount left behind by «Назад» does not keep «Створити бюджет» inactive when the step opens again", async () => {
+    const api = await toLimits();
+    const limit = screen.getByRole("textbox", { name: "Ліміт: Продукти" });
+    fireEvent.change(limit, { target: { value: "abc" } });
+    fireEvent.blur(limit);
+    expect(plain(document.body.textContent)).toContain("Щоб продовжити, виправте");
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
+    next();
+    expect(plain(document.body.textContent)).not.toContain("Щоб продовжити, виправте");
+    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await waitFor(() => expect(postBody(api)).toBeTruthy());
+  });
+
   it("BUD-02@PoC AC1: «За моїми витратами» fills the limits and the income plan with the server's figures; they can be changed and go as decimal strings", async () => {
     const api = mount();
     await screen.findByRole("heading", { name: "Як створити бюджет?" });

@@ -291,6 +291,24 @@ describe("BUD-05@PoC c) S-138 «Нова ціль»: the form dialog", () => {
     });
   });
 
+  it("BUD-05@PoC FR 2: a negative starting amount shows its own error, blocks «Створити ціль» and sends nothing", async () => {
+    const fake = api([]);
+    await openNew(fake);
+    fillMain("Відпустка в Італії", "4000");
+    await toStep(1);
+    fireEvent.change(select(/^Де лежать гроші/), { target: { value: "envelope" } });
+    fireEvent.change(select(/^Рахунок/), { target: { value: ACC_SAVE } });
+    const start = field(/^Стартова сума/);
+    fireEvent.change(start, { target: { value: "-100" } });
+    fireEvent.blur(start);
+    expect(plain(shown().textContent)).toContain("Стартова сума не може бути від'ємною");
+    fireEvent.click(button("Створити ціль"));
+    expect(posts(fake)).toHaveLength(0);
+    fireEvent.change(start, { target: { value: "100" } });
+    fireEvent.blur(start);
+    expect(plain(shown().textContent)).not.toContain("не може бути від'ємною");
+  });
+
   it("BUD-05@PoC AC4: an envelope over the balance is refused by the server and the dialog says «Сума конвертів перевищує залишок рахунку на 300,00 €» and stays open", async () => {
     const fake = api([], {
       "POST /v1/goals": {

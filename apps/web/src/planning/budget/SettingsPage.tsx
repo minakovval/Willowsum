@@ -41,7 +41,8 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
   const section = sectionOf(BUDGET);
   const [draft, setDraft] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [busy, setBusy] = useState(false);
-  const [saveFailed, setSaveFailed] = useState(false);
+  // The accounts «Зберегти зміни» did not save (the failed one and those after it), by name.
+  const [unsaved, setUnsaved] = useState<readonly string[]>([]);
   const [toast, setToast] = useState<{ key: number; text: string } | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [deleteFailed, setDeleteFailed] = useState(false);
@@ -60,9 +61,11 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
 
   const save = async () => {
     setBusy(true);
-    setSaveFailed(false);
-    let failed = false;
-    for (const r of changed) {
+    setUnsaved([]);
+    // One PUT per account, in order; the first failure stops, so the failed and the unsent ones stay in the draft.
+    const kept = new Map(draft);
+    let failedAt = -1;
+    for (const [i, r] of changed.entries()) {
       const o = await outcome(
         api.PUT("/v1/budget/accounts/{accountId}", {
           params: { path: { accountId: r.account.id } },
@@ -70,14 +73,15 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
         }),
       );
       if (!o.ok) {
-        failed = true;
+        failedAt = i;
         break;
       }
+      kept.delete(r.account.id);
     }
     setBusy(false);
-    setDraft(new Map());
+    setDraft(kept);
     reload();
-    if (failed) setSaveFailed(true);
+    if (failedAt >= 0) setUnsaved(changed.slice(failedAt).map((r) => r.account.name));
     else setToast((p) => ({ key: (p?.key ?? 0) + 1, text: t("planning.budget.settings.saved") }));
   };
 
@@ -164,9 +168,10 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
           </section>
         ) : tab === "accounts" ? (
           <>
-            {saveFailed ? (
+            {unsaved.length > 0 ? (
               <p role="alert" className="bud-note">
-                {t("planning.budget.settings.saveError")}
+                {t("planning.budget.settings.saveError")}.{" "}
+                {t("planning.budget.settings.notSaved", { names: unsaved.join(", ") })}
               </p>
             ) : null}
             <AccountsCard rows={rows} valueOf={valueOf} onToggle={toggle} busy={busy} />

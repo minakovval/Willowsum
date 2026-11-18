@@ -185,7 +185,11 @@ function GoalForm({
             label: t("planning.goals.new.start"),
             step: WHERE,
             empty: v.start === null && !v.startProblem,
-            error: v.startProblem ? t("planning.goals.new.start") : null,
+            error: v.startProblem
+              ? t("planning.goals.new.start")
+              : v.start?.trim().startsWith("-")
+                ? t("planning.goals.new.start.negative")
+                : null,
           },
         ]
       : []),
