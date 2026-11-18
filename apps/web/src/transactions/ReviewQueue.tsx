@@ -600,7 +600,7 @@ function CardsView({
 }: {
   categories: Categories;
   onConfirmed: (n: number) => void;
-  show: (text: string, undo?: () => void) => void;
+  show: (text: string, undo?: () => void, tone?: ToastTone) => void;
   reloadCategories: () => Promise<void>;
   reloadCount: () => void;
 }) {
