@@ -777,10 +777,10 @@ describe("CMP-32@PoC AC1: a filter over 10 000 records answers with its count an
     const took = performance.now() - started;
     expect(res.statusCode).toBe(200);
     const list = res.json();
-    // n % 600 gives each of the 600 days 16 or 17 records; 2025-03-01 … 2025-12-31 is 306 days.
-    expect(list.count).toBeGreaterThan(4800);
-    expect(list.count).toBeLessThan(5300);
-    expect(Number(list.summary.expense.total.amount)).toBeLessThan(0);
+    // Days 59 … 364 of `n % 600` (2025-03-01 … 2025-12-31): 16 full cycles × 306 + 306 of the last 400 = 5202
+    // records; their amounts −(1 + n % 50) add up to −131 325.
+    expect(list.count).toBe(5202);
+    expect(list.summary.expense.total).toEqual({ amount: "-131325", currency: "EUR" });
     expect(list.summary.income.total.amount).toBe("0");
     expect(took).toBeLessThan(1000);
   });
