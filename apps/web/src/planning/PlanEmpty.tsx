@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { useT, type MessageKey } from "@willowsum/i18n";
 import { Icon, type IconName } from "@willowsum/ui";
 
@@ -12,7 +12,16 @@ const KEYS = {
   goals: { title: "planning.goals.empty.title", body: "planning.goals.empty.body" },
 } as const satisfies Record<string, { title: MessageKey; body: MessageKey }>;
 
-export function PlanEmpty({ icon, page }: { icon: IconName; page: keyof typeof KEYS }) {
+export function PlanEmpty({
+  icon,
+  page,
+  children,
+}: {
+  icon: IconName;
+  page: keyof typeof KEYS;
+  /** The actions of the board (BUD-05 c): the templates and «Нова ціль». */
+  children?: ReactNode;
+}) {
   const id = useId();
   const t = useT();
   return (
@@ -22,6 +31,7 @@ export function PlanEmpty({ icon, page }: { icon: IconName; page: keyof typeof K
         {t(KEYS[page].title)}
       </h2>
       <p className="ws-muted">{t(KEYS[page].body)}</p>
+      {children}
     </section>
   );
 }

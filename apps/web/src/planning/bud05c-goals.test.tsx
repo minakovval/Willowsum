@@ -12,7 +12,7 @@ import { afterContribution, barPercent, collectedTotal, goalColor } from "./goal
  * BUD-05@PoC c) (wave 2, row 128): S-136 «Цілі» and the card S-137 on the goals API (`GET /v1/goals`, `POST
  * /v1/goals/{id}/contributions`, close, delete), GRID-04@PoC FR 7 (amber only for goals, the bar in the goal scale)
  * and CMP-61@PoC FR 8 / AC8 (the popover of «Внести»). Boards: PocPlanGoals, PocPlanGoalCard,
- * PocPlanGoalCardContribute, PocPlanGoalCardAchieved. «Нова ціль» (S-138) is the second PR of row 128. The goals are
+ * PocPlanGoalCardContribute, PocPlanGoalCardAchieved. «Нова ціль» and «Змінити ціль» (S-138) are in bud05c-goal-form.test.tsx. The goals are
  * synthetic. Today is 2026-11-02.
  */
 const here = dirname(fileURLToPath(import.meta.url));
@@ -273,8 +273,8 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(link.getAttribute("href")).toBe(`#/money/transactions/new?type=transfer&to=${ACC_RESERVE}`);
   });
 
-  // Criterion 7 needs «Змінити ціль» in the menu (S-138, the second PR of row 128); its server part is in bud05-goals.it.test.ts.
-  it("BUD-05@PoC FR 13: an achieved goal has «✓ Досягнуто», a quiet «Внести» and the menu «⋯» with «Закрити без витрати» and «Видалити»; no pause", async () => {
+  // Criterion 7 (the menu with «Змінити ціль», the quiet «Внести») is asserted in bud05c-goal-form.test.tsx; its main action «Витратити» is row 129.
+  it("BUD-05@PoC FR 13: an achieved goal has «✓ Досягнуто», a quiet «Внести» and the menu «⋯» with «Змінити ціль», «Закрити без витрати» and «Видалити»; no pause", async () => {
     open(api([LAPTOP]));
     const card = (await screen.findByRole("heading", { level: 2, name: "Ноутбук для Соні" })).closest(
       "section",
@@ -283,7 +283,7 @@ describe("BUD-05@PoC FR 4, FR 6, FR 13: the card", () => {
     expect(within(card).getByRole("button", { name: "Внести" }).className).not.toContain("ws-button-primary");
     fireEvent.click(within(card).getByRole("button", { name: "Ще дії" }));
     const items = within(screen.getByRole("menu")).getAllByRole("menuitem");
-    expect(items.map((i) => i.textContent)).toEqual(["Закрити без витрати", "Видалити"]);
+    expect(items.map((i) => i.textContent)).toEqual(["Змінити ціль", "Закрити без витрати", "Видалити"]);
     expect(screen.queryByText(/пауз/i)).toBeNull();
     expect(screen.queryByText(/Відстає|Автовнесок|Архів/)).toBeNull();
   });
