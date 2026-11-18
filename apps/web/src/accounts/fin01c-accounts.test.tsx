@@ -430,6 +430,35 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     for (const r of subs) expect(toggle.getAttribute("aria-controls")).toContain(r.id);
   });
 
+  it("GRID-00@PoC FR 31: optional detail takes the least room — a multi-currency account is one line, its sub-accounts stay out of the page until the user opens them, and closing them takes them away again", async () => {
+    renderAt("#/money/accounts", api([multi]).client);
+    await screen.findByText("Мультивалютний");
+    const row = rowOf("Мультивалютний");
+    const toggle = within(row).getByRole("button", { name: "Показати субрахунки" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(0);
+    fireEvent.click(toggle);
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(2);
+    fireEvent.click(within(row).getByRole("button", { name: "Сховати субрахунки" }));
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(0);
+  });
+
+  it("GRID-00@PoC FR 32: the list's settings icon «Параметри» stands in the toolbar right above the list it configures, not in the page header or the shell menu", async () => {
+    renderAt("#/money/accounts", api([current]).client);
+    await screen.findByText("Щоденний");
+    const options = screen.getByRole("button", { name: "Параметри" });
+    const toolbar = options.closest(".accounts-toolbar")!;
+    expect(toolbar).toBeTruthy();
+    expect(toolbar.parentElement!.classList.contains("accounts-grid")).toBe(true);
+    expect(options.closest(".accounts-head")).toBeNull();
+    expect(options.closest("nav, header")).toBeNull();
+    // The list it configures follows the toolbar in the same grid.
+    expect(toolbar.parentElement!.contains(rowOf("Щоденний"))).toBe(true);
+    expect(
+      toolbar.compareDocumentPosition(rowOf("Щоденний")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("FIN-01@PoC AC4: the list shows the multi-currency account 1 000 EUR + 4 300 UAH as one row in EUR; opening it shows 1 000 EUR and 4 300 UAH", async () => {
     renderAt("#/money/accounts", api([multi]).client);
     await screen.findByText("Мультивалютний");
