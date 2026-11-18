@@ -3613,6 +3613,12 @@ button.ws-stepper-step[aria-disabled="true"] {
   box-shadow: var(--ws-shadow-popover);
 }
 
+/* No room below the button: above it (set by `Popover` after measuring). */
+.ws-popover[data-placement="above"] {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + var(--ws-space-1));
+}
+
 .ws-popover--start {
   inset-inline-start: 0;
 }

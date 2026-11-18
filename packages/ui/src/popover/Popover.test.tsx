@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
 import { Popover } from "./Popover.tsx";
 
@@ -30,7 +30,10 @@ function Case({ onClose = () => undefined }: { onClose?: () => void }) {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("CMP-61@PoC Popover", () => {
   it("CMP-61@PoC AC8: opens from the button as a dialog with no backdrop and focuses its first field", () => {
@@ -59,5 +62,69 @@ describe("CMP-61@PoC Popover", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
     fireEvent.pointerDown(screen.getByText("Поза поповером"));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("CMP-61@PoC FR 8: Tab goes round the content of the popover and Shift+Tab back, never out of it", () => {
+    render(<Case />);
+    fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+    const first = screen.getByRole("textbox", { name: "Сума" });
+    const last = screen.getByRole("button", { name: "Додати внесок" });
+    expect(document.activeElement).toBe(first);
+    last.focus();
+    const tab = createEvent.keyDown(last, { key: "Tab" });
+    fireEvent(last, tab);
+    expect(tab.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(first);
+    const back = createEvent.keyDown(first, { key: "Tab", shiftKey: true });
+    fireEvent(first, back);
+    expect(back.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(last);
+    // In the middle the browser's own Tab moves on: nothing is taken over.
+    first.focus();
+    const middle = createEvent.keyDown(first, { key: "Tab" });
+    fireEvent(first, middle);
+    expect(middle.defaultPrevented).toBe(false);
+  });
+
+  it("CMP-61@PoC FR 8: a scroll of the page closes the popover and focus returns to the button; a scroll inside it does not", () => {
+    render(<Case />);
+    const button = screen.getByRole("button", { name: "Внести" });
+    fireEvent.click(button);
+    fireEvent.scroll(screen.getByRole("dialog"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    fireEvent.scroll(document);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  describe("flip above the button", () => {
+    /** The popover is 100 px tall and sits 10 px under a button that spans `buttonTop`…`buttonTop + 40`. */
+    function place(buttonTop: number, viewport = 700) {
+      vi.spyOn(window, "innerHeight", "get").mockReturnValue(viewport);
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+        const rect = (top: number, height: number) =>
+          ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top }) as DOMRect;
+        return this.classList.contains("ws-popover")
+          ? rect(buttonTop + 50, 100)
+          : this.classList.contains("ws-popover-host")
+            ? rect(buttonTop, 40)
+            : rect(0, 0);
+      });
+      render(<Case />);
+      fireEvent.click(screen.getByRole("button", { name: "Внести" }));
+      return screen.getByRole("dialog");
+    }
+
+    it("CMP-61@PoC FR 8: with no room below the button and room above, the popover opens above it", () => {
+      expect(place(600).dataset["placement"]).toBe("above");
+    });
+
+    it("CMP-61@PoC FR 8: with room below it stays under the button", () => {
+      expect(place(300).dataset["placement"]).toBeUndefined();
+    });
+
+    it("CMP-61@PoC FR 8: with room neither below nor above it stays under the button, next to it", () => {
+      expect(place(60, 120).dataset["placement"]).toBeUndefined();
+    });
   });
 });
