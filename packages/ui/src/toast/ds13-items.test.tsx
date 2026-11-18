@@ -46,6 +46,18 @@ describe("DS-13@PoC motion items (components)", () => {
     expect(plain).toHaveBeenCalledTimes(1);
     unmount();
 
+    // Hover stops the timer too.
+    const hovered = vi.fn();
+    const hover = render(<Toast text="Збережено" closeLabel="Закрити" onDismiss={hovered} />);
+    act(() => vi.advanceTimersByTime(7000));
+    fireEvent.mouseEnter(hover.container.querySelector(".ws-toast")!);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(hovered).not.toHaveBeenCalled();
+    fireEvent.mouseLeave(hover.container.querySelector(".ws-toast")!);
+    act(() => vi.advanceTimersByTime(1000));
+    expect(hovered).toHaveBeenCalledTimes(1);
+    hover.unmount();
+
     const undo = vi.fn();
     render(
       <Toast

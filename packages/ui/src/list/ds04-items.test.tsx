@@ -10,7 +10,7 @@ const norm = (s: string | null | undefined) => (s ?? "").replace(/[\u00A0\u202F]
 afterEach(cleanup);
 
 describe("DS-04@PoC items", () => {
-  it("DS-04@PoC FR 8: a list of transactions is one continuous list with the date in each row, no day groups", () => {
+  it("DS-04@PoC FR 8: each transaction row shows its own date, also after a row of the same day", () => {
     const dates = ["2026-10-26", "2026-10-26", "2026-10-25", "2026-09-30"];
     const { container } = render(
       <I18nProvider>
@@ -40,13 +40,11 @@ describe("DS-04@PoC items", () => {
       expect.stringContaining("25 жовт. 2026 р."),
       expect.stringContaining("30 вер. 2026 р."),
     ]);
-    // No day heading, separator or group between the rows.
+    // A row adds no day heading or separator of its own. That the page does not group rows by day is checked
+    // on the real list: «FIN-03@PoC AC13, DS-04@PoC FR 8» in apps/web/src/transactions/fin03c-transactions.test.tsx.
     expect(
-      container.querySelectorAll(
-        "h1, h2, h3, h4, h5, h6, [role='heading'], [role='separator'], hr, [role='group']",
-      ),
+      container.querySelectorAll("h1, h2, h3, h4, h5, h6, [role='heading'], [role='separator'], hr"),
     ).toHaveLength(0);
-    expect(container.querySelector("[role='list']")!.children).toHaveLength(4);
   });
 
   it("DS-04@PoC FR 12: a number with more digits than shown is marked «≈» («≈ 0,33»); an exact one is not", () => {
