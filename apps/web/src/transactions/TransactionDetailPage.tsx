@@ -15,6 +15,7 @@ import {
   Button,
   ConfirmDialog,
   Icon,
+  IconButton,
   MenuButton,
   merchantInitials,
   Skeleton,
@@ -34,6 +35,7 @@ import {
 } from "../routing/routes.ts";
 import { hrefFor, useHashPath } from "../routing/useHashPath.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
+import { ChangeRuleDialog } from "../rules/ChangeRuleDialog.tsx";
 import { splitAction } from "./api.ts";
 import { AttributeRows, SplitRow } from "./DetailAttributes.tsx";
 import {
@@ -147,7 +149,7 @@ function whenOf(locale: Locale, date: string, recordedAt: string): string {
 
 type Open = "none" | "delete" | "split";
 
-function Card({
+export function Card({
   data,
   reload,
   replace,
@@ -162,6 +164,7 @@ function Card({
   const titleId = useId();
   const [open, setOpen] = useState<Open>("none");
   const [busy, setBusy] = useState(false);
+  const [ruleOpen, setRuleOpen] = useState(false);
   const [failure, setFailure] = useState<{ supportId?: string } | null>(null);
   const tx = data.transaction;
   const merchant = counterpartyOf(t, data);
@@ -267,6 +270,8 @@ function Card({
             {data.categorySource !== "none" ? (
               <span className="ws-muted">{t(SOURCE_KEYS[data.categorySource])}</span>
             ) : null}
+            {/* BUD-14@PoC FR 13: the pencil opens the rule of this merchant, or a new one with the merchant filled in. */}
+            <IconButton icon="edit" label={t("rules.edit")} onClick={() => setRuleOpen(true)} />
           </dd>
         </div>
         {tx.description ? (
@@ -308,6 +313,7 @@ function Card({
           {similar ? <Button label={t("txDetail.similar")} icon="search" href={similar} /> : null}
         </div>
       ) : null}
+      {ruleOpen ? <ChangeRuleDialog transactionId={tx.id} onClose={() => setRuleOpen(false)} /> : null}
       {open === "split" ? (
         <SplitDialog
           transaction={tx}
