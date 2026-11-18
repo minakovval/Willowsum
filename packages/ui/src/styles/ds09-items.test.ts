@@ -167,6 +167,7 @@ describe("DS-09@PoC scales (stylesheets)", () => {
     expect(used.length).toBeGreaterThan(10);
     for (const d of used) expect(d.value, d.selector).toMatch(/^var\(--ws-layer-[a-z0-9-]+\)$/);
     // Quick navigation 40, inline tip 30, toast 60, the skip link 1000; local layers inside components 1–2.
+    // Not met (PR follow-up): FR 7 puts the floating full-value tooltip on 1000; `.ws-tooltip` serves both kinds on 30.
     expect(z(".ws-nav")).toBe(40);
     expect(z(".ws-tooltip")).toBe(30);
     expect(z(".ws-toast")).toBe(60);

@@ -61,6 +61,12 @@ const outlineRemovers = stylesheets.flatMap((css) =>
     .filter((m) => /(^|[;\s])outline:\s*(none|0)\s*(;|$)/.test(m[2]!))
     .flatMap((m) => m[1]!.split(",").map((s) => s.trim().replace(/:focus(-visible|-within)?/g, ""))),
 );
+/** The selectors of every rule that pins an element (`position: fixed` or `sticky`) and so could cover a stop. */
+const pinners = stylesheets.flatMap((css) =>
+  [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((m) => /(^|[;\s])position:\s*(fixed|sticky)\s*(;|$)/.test(m[2]!))
+    .flatMap((m) => m[1]!.split(",").map((s) => s.trim())),
+);
 const matchesSafely = (el: Element, selector: string) => {
   try {
     return el.matches(selector);
@@ -80,7 +86,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("DS-14@PoC «додати витрату»", () => {
-  it("DS-14@PoC AC1: every Tab stop of the «Нова транзакція» form is a visible control inside the dialog that keeps the shared focus ring and is not covered by anything", async () => {
+  it("DS-14@PoC AC1: every Tab stop of the «Нова транзакція» form is a visible control inside the dialog that keeps the shared focus ring, with nothing in the dialog pinned over it", async () => {
     const api = fakeApi({
       "GET /v1/accounts": { status: 200, body: { items: [account], nextCursor: null } },
       "GET /v1/merchants": { status: 200, body: { items: [] } },
@@ -124,8 +130,14 @@ describe("DS-14@PoC «додати витрату»", () => {
         expect(el.matches(".ws-field-input"), `${el.className} loses its ring`).toBe(true);
         expect(el.closest(".ws-field-box"), "the box carries the ring").not.toBeNull();
       }
-      // Focus does not scroll the page behind or hide the control under a bar: the dialog has no sticky parts.
-      expect(getComputedStyle(el).position).not.toBe("fixed");
+      // Nothing inside the dialog is pinned over the stop (jsdom loads no CSS, so the stylesheets are read).
+      // That the stop is not covered at its centre on a real 1280 px page is left to e2e (PR follow-ups).
+      expect(pinners.length).toBeGreaterThan(0);
+      // The only pinned things shown are tooltips, placed beside their trigger, never over it.
+      const pinned = [...document.querySelectorAll("body *")].filter(
+        (n) => !n.closest("[hidden]") && pinners.some((sel) => matchesSafely(n, sel)),
+      );
+      for (const n of pinned) expect(n.getAttribute("role"), n.className).toBe("tooltip");
     }
   });
 });
