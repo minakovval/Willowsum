@@ -61,6 +61,8 @@ export type { PartialDataBannerProps } from "./states/PartialDataBanner.tsx";
 export type { StateAction } from "./states/StateAction.tsx";
 export { Skeleton } from "./skeleton/Skeleton.tsx";
 export type { SkeletonProps, SkeletonVariant } from "./skeleton/Skeleton.tsx";
+export { Popover } from "./popover/Popover.tsx";
+export type { PopoverProps } from "./popover/Popover.tsx";
 export { Progress } from "./progress/Progress.tsx";
 export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";
 export { PageTabs } from "./tabs/PageTabs.tsx";

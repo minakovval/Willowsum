@@ -1,0 +1,144 @@
+/* BUD-05@PoC c), S-136 / S-137: the list of goals, the card, the bar of the goal scale, the popover form. Tokens only. */
+.goal-list {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-row {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-200);
+  color: inherit;
+  text-decoration: none;
+}
+
+.goal-row[aria-current="true"] {
+  border-color: var(--ws-brand);
+}
+
+.goal-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.goal-row-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.goal-bar {
+  display: block;
+  overflow: hidden;
+  block-size: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-surface-300);
+}
+
+.goal-bar-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--ws-radius-pill);
+}
+
+/* GRID-04@PoC FR 7: amber is only for the goal icon. */
+.goal-icon {
+  color: var(--ws-accent);
+}
+
+.goal-achieved {
+  color: var(--ws-gain);
+  font-weight: 600;
+}
+
+.goal-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  align-content: start;
+  padding: var(--ws-space-5);
+}
+
+.goal-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.goal-card-title {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.goal-card-title > * {
+  margin: 0;
+}
+
+.goal-card-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ws-space-3);
+}
+
+.goal-facts {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.goal-facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.goal-facts dt {
+  min-inline-size: calc(var(--ws-space-8) * 2);
+}
+
+.goal-facts dd {
+  margin: 0;
+}
+
+.goal-links {
+  display: grid;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+}
+
+.goal-links h3 {
+  margin: 0;
+}
+
+.goal-history {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-history li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--ws-space-3);
+}
+
+.goal-contribute {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.goal-contribute-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}

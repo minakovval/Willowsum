@@ -3594,3 +3594,29 @@ button.ws-stepper-step[aria-disabled="true"] {
   font-size: var(--ws-text-label-size);
   line-height: var(--ws-text-label-line);
 }
+
+/* CMP-61@PoC FR 8: the popover of a button — a dialog with no backdrop, under its button. */
+.ws-popover-host {
+  position: relative;
+  display: inline-block;
+}
+
+.ws-popover {
+  position: absolute;
+  inset-block-start: calc(100% + var(--ws-space-1));
+  z-index: var(--ws-layer-tooltip);
+  min-inline-size: calc(var(--ws-space-8) * 5);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+}
+
+.ws-popover--start {
+  inset-inline-start: 0;
+}
+
+.ws-popover--end {
+  inset-inline-end: 0;
+}
