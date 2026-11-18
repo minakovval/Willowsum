@@ -79,3 +79,24 @@ describe("CMP-71@PoC the mark and the name", () => {
     ]);
   });
 });
+
+describe("CMP-71@PoC the mark and reduced motion", () => {
+  it("CMP-71@PoC AC4: the mark is never animated — no animation or transition on it anywhere, so with reduced motion the loading screen shows it still", () => {
+    const all = ["components.css", "shell.css", "base.css"]
+      .map((f) => read("packages/ui/src/styles", f))
+      .join("\n");
+    const bare = all.replace(/\/\*[\s\S]*?\*\//g, "");
+    // No rule that targets the mark (or its leaves) sets an animation or a transition.
+    const rules = [...bare.matchAll(/([^{}]*\.ws-mark[^{}]*)\{([^}]*)\}/g)];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const [, selector, body] of rules) {
+      expect(body, selector).not.toMatch(/animation|transition/);
+    }
+    // The markup carries no SMIL or CSS animation either.
+    const { container } = render(<WillowsumMark size={64} />);
+    expect(container.querySelector("animate, animateTransform, animateMotion, set")).toBeNull();
+    expect(container.querySelector("svg")!.getAttribute("style")).toBeNull();
+    // And the global reduced-motion rule is there for anything a screen puts around it.
+    expect(bare).toMatch(/@media \(prefers-reduced-motion: reduce\)/);
+  });
+});

@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { FilterBar } from "../filter/FilterBar.tsx";
 import { MenuButton } from "./MenuButton.tsx";
 
 /** The menu button's action items (FIN-01@PoC FR 22: «Параметри» → «Показати закриті» on «Рахунки»). */
@@ -240,5 +241,88 @@ describe("CMP-61@PoC Menu items", () => {
     fireEvent.click(button);
     expect(button.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("menu", { name: "Ще дії" })).toBeTruthy();
+  });
+});
+
+describe("CMP-61@PoC Menu placement", () => {
+  const rectOf = (top: number, bottom: number) =>
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      top,
+      bottom,
+      left: 0,
+      right: 40,
+      width: 40,
+      height: bottom - top,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it("CMP-61@PoC AC5: a button near the bottom edge of the window opens the menu above it, a button with room below opens it below", () => {
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+    rectOf(760, 800);
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    expect(screen.getByRole("menu").className).toContain("ws-menu-up");
+    expect(screen.getByRole("menu").className).not.toContain("ws-menu-down");
+    // Closing and opening again near the bottom edge keeps the choice; the CSS puts `up` above the button.
+    expect(shellCss).toMatch(/\.ws-menu-up\s*\{[^}]*inset-block-end:\s*calc\(100% \+ var\(--ws-space-1\)\)/);
+    cleanup();
+
+    rectOf(100, 140);
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    expect(screen.getByRole("menu").className).toContain("ws-menu-down");
+  });
+
+  it("CMP-61@PoC AC5: a menu that fits below stays below, and one that fits neither way opens on the side with more room", () => {
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(800);
+    rectOf(300, 340);
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    expect(screen.getByRole("menu").className).toContain("ws-menu-down");
+    cleanup();
+
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(200);
+    rectOf(100, 140);
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    expect(screen.getByRole("menu").className).toContain("ws-menu-up");
+  });
+});
+
+const components = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../styles/components.css"),
+  "utf8",
+);
+
+describe("CMP-61@PoC Popover of the filters", () => {
+  it("CMP-61@PoC AC7: the filter panel opens under its button, lined up with the button's edge, and a drop-down in it opens under its own row", () => {
+    render(
+      <FilterBar count={2} chips={[]} onRemove={() => {}} onApply={() => {}} onReset={() => {}}>
+        <span>rows</span>
+      </FilterBar>,
+    );
+    const button = screen.getByRole("button", { name: /^Фільтри/ });
+    fireEvent.click(button);
+    const panel = screen.getByRole("dialog");
+    // The bar is the positioning box and the button its first child: the panel's start edge is the button's.
+    expect(panel.parentElement).toBe(button.parentElement);
+    expect(button.parentElement!.firstElementChild).toBe(button);
+    expect(components).toMatch(/\.ws-filter-bar\s*\{[^}]*position:\s*relative/);
+    const panelRule = /\n\.ws-filter-panel\s*\{([^}]*)\}/.exec(components)![1]!;
+    expect(panelRule).toMatch(/position:\s*absolute/);
+    expect(panelRule).toMatch(/inset-inline-start:\s*0/);
+    expect(panelRule).toMatch(/inset-block-start:\s*calc\(100% \+ var\(--ws-space-2\)\)/);
+    // A drop-down panel hangs under the control of its row, the full width of that control.
+    const dropdown = /\n\.ws-dropdown-panel\s*\{([^}]*)\}/.exec(components)![1]!;
+    expect(dropdown).toMatch(/inset-inline:\s*0/);
+    expect(dropdown).toMatch(/inset-block-start:\s*calc\(100% \+ var\(--ws-space-1\)\)/);
+    expect(/\n\.ws-filter-row__control\s*\{([^}]*)\}/.exec(components)![1]).toMatch(/position:\s*relative/);
   });
 });

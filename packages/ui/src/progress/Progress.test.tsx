@@ -197,6 +197,20 @@ describe("CMP-74@PoC Progress", () => {
     expect(c2.querySelector("[role=progressbar]")!.hasAttribute("aria-valuenow")).toBe(false);
   });
 
+  it("CMP-74@PoC AC7: 612 of an estimated 900 reads «612 з ~900» without «лишилось», fills 68 %, speaks «612 з приблизно 900»; the exact 1 214 gives «612 з 1 214 · лишилось 602»", () => {
+    const { container, rerender } = render(
+      <Progress label="Синхронізація" value={612} max={900} estimated />,
+    );
+    expect(norm(status(container).textContent)).toBe("612 з ~900");
+    expect(status(container).textContent).not.toContain("лишилось");
+    expect(Math.round(parseFloat(fill(container).style.inlineSize))).toBe(68);
+    expect(norm(bar().getAttribute("aria-valuetext"))).toBe("612 з приблизно 900");
+
+    rerender(<Progress label="Синхронізація" value={612} max={1214} />);
+    expect(norm(status(container).textContent)).toBe("612 з 1 214 · лишилось 602");
+    expect(norm(bar().getAttribute("aria-valuetext"))).toBe("612 з 1 214, лишилось 602");
+  });
+
   it("CMP-74@PoC: colour is never the only sign — every state is named in text", () => {
     const states = [
       [<Progress key="r" label="x" value={1} max={3} />, "1 з 3 · лишилось 2"],

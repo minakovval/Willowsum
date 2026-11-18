@@ -463,3 +463,10 @@ button.ws-menu-item {
 .ws-breadcrumbs a {
   color: inherit;
 }
+
+/* CMP-61@PoC AC10: the pencil and the «…» of a table row sit together at its end. */
+.ws-row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}

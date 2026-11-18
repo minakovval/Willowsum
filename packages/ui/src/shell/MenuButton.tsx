@@ -40,6 +40,7 @@ export function MenuButton({
 }: {
   menuLabel: string;
   items: readonly MenuItem[];
+  /** Where the menu opens by default; it turns over when it would not be fully visible there (CMP-61@PoC AC5). */
   placement: "down" | "up";
   /** Which edge of the button the menu lines up with; `end` for a button at the right of a toolbar. */
   align?: "start" | "end";
@@ -59,6 +60,20 @@ export function MenuButton({
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
+  const [side, setSide] = useState(placement);
+
+  // CMP-61@PoC AC5: a button near the bottom (or the top) edge of the window opens the menu on the side with room. The
+  // height is the items' (44 px touch target each, separators 1 px, the note about 56 px) plus the 4 px padding.
+  const chooseSide = () => {
+    const button = buttonRef.current?.getBoundingClientRect();
+    if (!button) return placement;
+    const height =
+      items.length * 44 + items.filter((i) => i.danger || i.separator).length + (note ? 57 : 0) + 8;
+    const below = window.innerHeight - button.bottom;
+    const above = button.top;
+    if (placement === "down") return height > below && above > below ? "up" : "down";
+    return height > above && below > above ? "down" : "up";
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -112,7 +127,10 @@ export function MenuButton({
         aria-controls={open ? id : undefined}
         aria-label={ariaLabel}
         title={title}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) setSide(chooseSide());
+          setOpen((v) => !v);
+        }}
       >
         {children}
       </button>
@@ -123,7 +141,7 @@ export function MenuButton({
           role="menu"
           aria-label={menuLabel}
           aria-describedby={note ? `${id}-note` : undefined}
-          className={`ws-menu ws-menu-${placement}${align === "end" ? " ws-menu-end" : ""}`}
+          className={`ws-menu ws-menu-${side}${align === "end" ? " ws-menu-end" : ""}`}
           onKeyDown={onMenuKeyDown}
         >
           {items.map((item) => {

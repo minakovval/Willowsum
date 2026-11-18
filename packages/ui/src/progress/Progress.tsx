@@ -16,6 +16,8 @@ export interface ProgressProps {
   value?: number;
   /** All steps. Without it the process is `counting`. */
   max?: number;
+  /** `max` is the source's estimate, not the exact total yet: «612 з ~900», no «лишилось» (CMP-74@PoC AC7). */
+  estimated?: boolean;
   /** Default: `counting` without `max`, otherwise `running`. */
   state?: ProgressState | undefined;
   /** What is counted, for the announcement of the completion («транзакцій» → «Готово, 1 214 транзакцій»). */
@@ -41,6 +43,7 @@ export function Progress({
   label,
   value = 0,
   max,
+  estimated = false,
   state,
   unit,
   text,
@@ -62,6 +65,7 @@ export function Progress({
   if (determinate) {
     if (current === "done") spoken = t("progress.spoken.done", { count: counted(total) });
     else if (current === "error") spoken = t("progress.spoken.error", counts);
+    else if (estimated) spoken = t("progress.spoken.estimated", counts);
     else spoken = t("progress.spoken.running", counts);
   }
   const announcement = useThrottledAnnouncement(spoken, current === "done" || current === "error");
@@ -79,6 +83,10 @@ export function Progress({
       <span className="ws-progress-text ws-progress-text--error">{t("progress.error", counts)}</span>
     ) : text !== undefined ? (
       <span className="ws-progress-text">{text}</span>
+    ) : estimated ? (
+      <span className="ws-progress-text">
+        <b className="ws-progress-count">{t("progress.countEstimated", counts)}</b>
+      </span>
     ) : (
       <span className="ws-progress-text">
         <b className="ws-progress-count">{t("progress.count", counts)}</b> {t("progress.left", counts)}
