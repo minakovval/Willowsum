@@ -452,11 +452,9 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     expect(toolbar.parentElement!.classList.contains("accounts-grid")).toBe(true);
     expect(options.closest(".accounts-head")).toBeNull();
     expect(options.closest("nav, header")).toBeNull();
-    // The list it configures follows the toolbar in the same grid.
+    // The list it configures comes right after the toolbar in the same grid, with nothing in between.
     expect(toolbar.parentElement!.contains(rowOf("Щоденний"))).toBe(true);
-    expect(
-      toolbar.compareDocumentPosition(rowOf("Щоденний")) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(toolbar.nextElementSibling).toBe(rowOf("Щоденний").closest(".accounts-group"));
   });
 
   it("FIN-01@PoC AC4: the list shows the multi-currency account 1 000 EUR + 4 300 UAH as one row in EUR; opening it shows 1 000 EUR and 4 300 UAH", async () => {
