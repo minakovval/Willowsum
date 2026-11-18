@@ -5,6 +5,7 @@ import { outcome, useAuthApi } from "../../auth/api.ts";
 import { TRANSACTIONS } from "../../routing/routes.ts";
 import { hrefFor } from "../../routing/useHashPath.ts";
 import type { AccountLabel } from "../../recurring/data.ts";
+import { GoalDialog } from "./GoalDialog.tsx";
 import { ContributeButton } from "./ContributePopover.tsx";
 import { barPercent, goalColor, type Goal, type Money } from "./model.ts";
 
@@ -46,17 +47,19 @@ export function partLabel(goal: Goal): MessageKey {
  * S-137 «Картка цілі» (BUD-05@PoC FR 4, FR 6, FR 13; canvas PocPlanGoalCard, PocPlanGoalCardContribute,
  * PocPlanGoalCardAchieved): the name, the template and the part, collected / target with the percent and the bar, the
  * date, the required monthly contribution, the forecast and the pace, «Внести» (a popover) or — for a separate account —
- * the hint about a transfer, and the menu «⋯» with «Закрити без витрати» and «Видалити». «Витратити» is row 129 (S-139),
- * «Змінити ціль» is S-138 («Нова ціль», the second PR of row 128).
+ * the hint about a transfer, and the menu «⋯» with «Змінити ціль» (S-138; BUD-05 FR 13, AC 7), «Закрити без витрати» and «Видалити». «Витратити» is
+ * row 129 (S-139).
  */
 export function GoalCard({
   goal,
   accounts,
+  goals,
   today,
   onChanged,
   onGone,
 }: {
   goal: Goal;
+  goals: readonly Goal[];
   accounts: ReadonlyMap<string, AccountLabel>;
   today: string;
   onChanged: () => void;
@@ -65,6 +68,7 @@ export function GoalCard({
   const { t, locale } = useI18n();
   const api = useAuthApi();
   const [asking, setAsking] = useState<"close" | "delete" | null>(null);
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const account = goal.part.accountId !== null ? accounts.get(goal.part.accountId) : undefined;
@@ -134,6 +138,12 @@ export function GoalCard({
         <MoreActions
           items={[
             {
+              id: "edit",
+              label: t("planning.goals.menu.edit"),
+              icon: "edit",
+              onSelect: () => setEditing(true),
+            },
+            {
               id: "close",
               label: t("planning.goals.menu.close"),
               icon: "check",
@@ -189,6 +199,19 @@ export function GoalCard({
           <ContributeButton goal={goal} today={today} quiet={goal.achieved} onAdded={onChanged} />
         )}
       </div>
+      {editing ? (
+        <GoalDialog
+          goal={goal}
+          goals={goals}
+          today={today}
+          fallbackCurrency={goal.target.currency}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onChanged();
+          }}
+        />
+      ) : null}
       <ConfirmDialog
         open={asking !== null}
         onClose={() => setAsking(null)}
