@@ -1349,6 +1349,112 @@ code {
   text-align: end;
 }
 
+/* BUD-07@PoC c) S-141: the calendar of the month, its legend, the summary and the status column. Tokens only. */
+.rec-cal {
+  display: grid;
+  padding: 0 var(--ws-space-4) var(--ws-space-3);
+}
+
+.rec-cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--ws-space-1);
+}
+
+.rec-cal-head {
+  padding-block-end: var(--ws-space-1);
+}
+
+.rec-cal-wd {
+  color: var(--ws-ink-muted);
+  text-transform: capitalize;
+}
+
+.rec-cal-cell {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-1);
+  min-height: 5rem;
+  padding: var(--ws-space-1);
+  border: 1px solid var(--ws-border-subtle);
+  border-radius: var(--ws-radius-sm);
+}
+
+.rec-cal-cell[data-outside] {
+  color: var(--ws-ink-muted);
+  background: var(--ws-surface-100);
+}
+
+.rec-cal-cell[data-today] {
+  border-color: var(--ws-brand);
+}
+
+.rec-cal-items {
+  display: grid;
+  gap: var(--ws-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-cal-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--ws-space-1);
+  min-width: 0;
+}
+
+.rec-cal-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rec-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3) var(--ws-space-6);
+  padding: var(--ws-space-3) var(--ws-space-4) var(--ws-space-4);
+}
+
+.rec-legend-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2) var(--ws-space-3);
+}
+
+.rec-summary-body {
+  display: grid;
+  gap: var(--ws-space-2);
+  padding: 0 var(--ws-space-4) var(--ws-space-4);
+}
+
+.rec-nearest {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rec-nearest li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: var(--ws-space-2);
+}
+
+.rec-change {
+  margin-inline-start: var(--ws-space-2);
+}
+
+.rec-actions {
+  text-align: end;
+}
+
 .rec-form {
   max-width: calc(var(--ws-space-8) * 10);
 }
