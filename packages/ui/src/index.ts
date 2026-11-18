@@ -139,6 +139,8 @@ export type {
   FilterChipItem,
   FilterRowProps,
 } from "./filter/FilterBar.tsx";
+export { CardFilter, CardFilterChips } from "./filter/CardFilter.tsx";
+export type { CardFilterOption, CardFilterProps, CardFilterSection } from "./filter/CardFilter.tsx";
 export { Toast } from "./toast/Toast.tsx";
 export type { ToastProps, ToastTone } from "./toast/Toast.tsx";
 export { NO_MARKER, STATUS_DICTIONARY, STATUS_FAMILIES, statusEntry } from "./status/dictionary.ts";
