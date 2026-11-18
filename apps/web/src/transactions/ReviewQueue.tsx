@@ -475,8 +475,10 @@ function GroupDetail({
       setError(failureText(t, o));
     };
     if (!ids.ok) return fail(ids);
-    if (remember && group.merchant && target) {
-      const rule = await rememberRule(api, group.merchant.name, target);
+    // The rule is for the category the label «Запам'ятати: <мерчант> → <категорія>» shows (the group's suggestion), never
+    // for the pencil's pick the user was not shown next to the checkbox (#498 item 1).
+    if (remember && group.merchant && suggested) {
+      const rule = await rememberRule(api, group.merchant.name, suggested);
       if (!rule.ok) return fail(rule);
     }
     // A category chosen with the pencil, or a group with different categories: the category goes to all of them first

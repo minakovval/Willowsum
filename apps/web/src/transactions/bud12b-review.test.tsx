@@ -611,6 +611,66 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
     ]);
   });
 
+  it("BUD-12@PoC FR 14: «Запам'ятати» creates the rule for the category its label shows, also when the pencil confirms the group with another one", async () => {
+    const shell = [1, 2, 3, 4].map((n) => txId(700 + n));
+    const { api } = space({
+      queue: [],
+      extra: 5,
+      groups: [
+        group("g-shell", "Shell", 4, "-208.40", { suggestedCategoryId: FOOD }),
+        group("g-x", "Uber", 1, "-1.00"),
+      ],
+      over: {
+        "GET /v1/transaction-review/merchant-groups/g-shell/transactions": {
+          status: 200,
+          body: { items: shell, nextCursor: null },
+        },
+        "POST /v1/category-rules": { status: 201, body: { id: RULE } },
+        "POST /v1/bulk-actions": (call) => {
+          const body = call.body as { action: string };
+          return {
+            status: 201,
+            body: {
+              id: "a1",
+              action: body.action,
+              background: false,
+              status: "completed",
+              count: 4,
+              processed: 4,
+              changed: 4,
+              skipped: { unavailable: 0, unchanged: 0, conflict: 0, invalid: 0 },
+              skippedRecords: [],
+              undo: { available: true, until: "2026-11-18T12:00:00Z", restored: 0, notRestored: 0 },
+              createdAt: "2026-11-17T12:00:00Z",
+              endedAt: "2026-11-17T12:00:00Z",
+            },
+          };
+        },
+      },
+    });
+    open(api);
+    await screen.findByRole("heading", { name: nm("Shell · 4 транзакції") });
+    act(() =>
+      screen.getByRole("checkbox", { name: "Запам’ятати: Shell → Продукти для нових транзакцій" }).click(),
+    );
+    act(() => screen.getByRole("button", { name: "Змінити категорію" }).click());
+    const dialog = await screen.findByRole("dialog", { name: "Змінити категорію" });
+    act(() =>
+      within(dialog)
+        .getByRole("button", { name: /^Категорія/ })
+        .click(),
+    );
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Знайти категорію" }), {
+      target: { value: "Паль" },
+    });
+    await act(async () => within(dialog).getAllByRole("option", { name: "Пальне" })[0]!.click());
+    await waitFor(() => expect(posts(api, "/v1/category-rules")).toHaveLength(1));
+    expect(posts(api, "/v1/category-rules")[0]!.body).toEqual({
+      conditions: [{ field: "merchant", operator: "equals", value: "Shell" }],
+      categoryId: FOOD,
+    });
+  });
+
   it("BUD-12@PoC FR 14: a group with different categories gets its suggestion on all of them before it is confirmed", async () => {
     const ids = [txId(701), txId(702)];
     const actions: string[] = [];
