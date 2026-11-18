@@ -1219,6 +1219,7 @@ export const uk = {
   "recurring.notice.kept": "«{name}» лишається в регулярних платежах.",
   "recurring.calendar.title": "Календар",
   "recurring.calendar.hint": "списання за датами · {month}",
+  "recurring.calendar.partial": "Для кожного платежу показано списання до найближчого включно.",
   "recurring.calendar.more": "ще {count}",
   "recurring.legend.charge": "Статус списання",
   "recurring.legend.change": "Зміна суми",

@@ -62,6 +62,7 @@ export function RecurringCalendar({ data, today }: { data: RecurringData; today:
         <p className="ws-muted rec-hint">
           {t("recurring.calendar.hint", { month: monthTitle(locale, today) })}
         </p>
+        <p className="ws-muted rec-hint">{t("recurring.calendar.partial")}</p>
       </div>
       <div className="rec-cal" role="grid" aria-labelledby="rec-cal-title">
         <div role="row" className="rec-cal-row rec-cal-head">

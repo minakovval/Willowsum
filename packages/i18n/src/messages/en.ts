@@ -1223,6 +1223,7 @@ export const en: Messages = {
   "recurring.notice.kept": "“{name}” stays in the regular payments.",
   "recurring.calendar.title": "Calendar",
   "recurring.calendar.hint": "charges by date · {month}",
+  "recurring.calendar.partial": "Each payment shows its charges up to and including the next one.",
   "recurring.calendar.more": "{count} more",
   "recurring.legend.charge": "Charge status",
   "recurring.legend.change": "Amount change",

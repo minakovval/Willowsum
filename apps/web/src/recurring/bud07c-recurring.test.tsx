@@ -2,6 +2,8 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { colors, contrastRatio } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { createAuthClient } from "../auth/api.ts";
+import { amountChangeMark, chargeMark } from "./status.tsx";
+import { translate, type Translate } from "@willowsum/i18n";
 import {
   fakeApi,
   plain,
@@ -753,5 +755,27 @@ describe("BUD-07@PoC c) S-141 statuses, calendar and actions", () => {
     expect(screen.queryByRole("checkbox", { name: /сповіщ/i })).toBeNull();
     expect(screen.queryByRole("switch", { name: /сповіщ/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /сповіщ/i })).toBeNull();
+  });
+});
+
+describe("BUD-07@PoC FR 9 (reviewer): the words of income charges and the one-currency guard of the change mark", () => {
+  it("BUD-07@PoC FR 9, AC13: income is «Отримано», «Отримано із запізненням», «Очікується», «Пропущено»; expense keeps its words", () => {
+    const id = (type: "income" | "expense", over: Record<string, unknown>) =>
+      chargeMark("uk", type, charge(over) as never).id;
+    expect(id("income", { status: "paid", paidOn: "2026-11-01" })).toBe("e.received");
+    expect(id("income", { status: "paid-late", paidOn: "2026-11-12" })).toBe("e.receivedLate");
+    expect(id("income", { status: "expected" })).toBe("e.expected");
+    expect(id("income", { status: "skipped" })).toBe("e.skipped");
+    expect(id("expense", { status: "paid", paidOn: "2026-11-01" })).toBe("d.paid");
+    expect(id("expense", { status: "paid-late", paidOn: "2026-11-12" })).toBe("d.paidLate");
+  });
+
+  it("BUD-07@PoC FR 9: a change across currencies shows no figure", () => {
+    const t: Translate = (key, params) => translate("uk", key, params);
+    const change = { from: money("9.99", "GBP"), to: money("11.99"), on: "2026-10-30", transactionId: "t1" };
+    expect(amountChangeMark(t, "uk", "expense", change)).toBeNull();
+    expect(amountChangeMark(t, "uk", "expense", { ...change, from: money("9.99") })?.amount).toMatch(
+      /^2,00\s€$/,
+    );
   });
 });
