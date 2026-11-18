@@ -111,7 +111,7 @@ const SAMPLE = {
 
 const swatch = (token: string): CSSProperties => ({ background: cssVar(token) });
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section className="gallery-section" aria-labelledby={id}>
       <h2 id={id}>{title}</h2>
@@ -279,10 +279,115 @@ function CurrentWidth() {
   return <p aria-live="polite">{t("gallery.currentWidth", { cls: t(WIDTH_LABEL[cls]) })}</p>;
 }
 
+/** The page header: the one h1 and the document title. */
+export function GalleryHeader() {
+  const { t } = useI18n();
+  useDocumentTitle(t("gallery.title"));
+  return (
+    <header className="gallery-header">
+      <WillowsumMark size={40} />
+      <h1>{t("gallery.title")}</h1>
+      <p className="ws-muted gallery-intro">{t("gallery.intro")}</p>
+    </header>
+  );
+}
+
+/** The page controls: theme, language, «Приховати суми». */
+export function GalleryControls() {
+  const { t, locale, setLocale } = useI18n();
+  return (
+    <section className="gallery-controls ws-card" aria-label={t("gallery.controls")}>
+      <ThemeSwitch />
+      <fieldset className="ws-segmented">
+        <legend className="ws-segmented-legend">{t("language.label")}</legend>
+        <div className="ws-segmented-options">
+          {offeredLanguages(import.meta.env.MODE).map((l) => (
+            <label key={l.code} className="ws-segmented-option" lang={l.code}>
+              <input
+                type="radio"
+                name="gallery-language"
+                value={l.code}
+                checked={locale === l.code}
+                onChange={() => setLocale(l.code)}
+              />
+              <span>{l.nativeName}</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <HideAmountsSwitch />
+    </section>
+  );
+}
+
+export function ColorsSection() {
+  const { t } = useI18n();
+  return (
+    <Section id="g-colors" title={t("gallery.section.colors")}>
+      <div className="gallery-themes">
+        {THEMES.map((theme) => (
+          <ThemePanel key={theme} theme={theme}>
+            <ColorSwatches theme={theme} />
+          </ThemePanel>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+export function ContrastSection() {
+  const { t } = useI18n();
+  return (
+    <Section id="g-contrast" title={t("gallery.section.contrast")}>
+      <div className="gallery-themes">
+        {THEMES.map((theme) => (
+          <ThemePanel key={theme} theme={theme}>
+            <ContrastTable theme={theme} />
+          </ThemePanel>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+export function AmountsSection() {
+  const { t } = useI18n();
+  return (
+    <Section id="g-amounts" title={t("gallery.section.amounts")}>
+      <dl className="gallery-amounts">
+        <div>
+          <dt className="ws-text-label ws-muted">{t("gallery.amounts.total")}</dt>
+          <dd>
+            <Amount value={SAMPLE.total} size="amount-xl" />
+          </dd>
+        </div>
+        <div>
+          <dt className="ws-text-label ws-muted">{t("gallery.amounts.account")}</dt>
+          <dd>
+            <Amount value={SAMPLE.account} size="amount-l" />
+          </dd>
+        </div>
+        <div>
+          <dt className="ws-text-label ws-muted">{t("gallery.amounts.row")}</dt>
+          <dd>
+            <Amount value={SAMPLE.row} size="amount-s" />
+          </dd>
+        </div>
+        <div>
+          <dt className="ws-text-label ws-muted">{t("gallery.amounts.change")}</dt>
+          <dd className="ws-gain ws-text-amount-s">
+            <span aria-hidden="true">▲ </span>
+            <Percent value={SAMPLE.changePercent} /> (<Amount value={SAMPLE.change} />)
+          </dd>
+        </div>
+      </dl>
+    </Section>
+  );
+}
+
 /** DS-22: the design-system sample page. Not linked from the app navigation; closed to indexing. */
 export function GalleryTokensPage() {
-  const { t, locale, setLocale } = useI18n();
-  useDocumentTitle(t("gallery.title"));
+  const { t } = useI18n();
 
   useEffect(() => {
     const meta = document.createElement("meta");
@@ -294,53 +399,13 @@ export function GalleryTokensPage() {
 
   return (
     <main id={MAIN_ID} className="gallery" tabIndex={-1}>
-      <header className="gallery-header">
-        <WillowsumMark size={40} />
-        <h1>{t("gallery.title")}</h1>
-        <p className="ws-muted gallery-intro">{t("gallery.intro")}</p>
-      </header>
+      <GalleryHeader />
 
-      <section className="gallery-controls ws-card" aria-label={t("gallery.controls")}>
-        <ThemeSwitch />
-        <fieldset className="ws-segmented">
-          <legend className="ws-segmented-legend">{t("language.label")}</legend>
-          <div className="ws-segmented-options">
-            {offeredLanguages(import.meta.env.MODE).map((l) => (
-              <label key={l.code} className="ws-segmented-option" lang={l.code}>
-                <input
-                  type="radio"
-                  name="gallery-language"
-                  value={l.code}
-                  checked={locale === l.code}
-                  onChange={() => setLocale(l.code)}
-                />
-                <span>{l.nativeName}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <HideAmountsSwitch />
-      </section>
+      <GalleryControls />
 
-      <Section id="g-colors" title={t("gallery.section.colors")}>
-        <div className="gallery-themes">
-          {THEMES.map((theme) => (
-            <ThemePanel key={theme} theme={theme}>
-              <ColorSwatches theme={theme} />
-            </ThemePanel>
-          ))}
-        </div>
-      </Section>
+      <ColorsSection />
 
-      <Section id="g-contrast" title={t("gallery.section.contrast")}>
-        <div className="gallery-themes">
-          {THEMES.map((theme) => (
-            <ThemePanel key={theme} theme={theme}>
-              <ContrastTable theme={theme} />
-            </ThemePanel>
-          ))}
-        </div>
-      </Section>
+      <ContrastSection />
 
       <Section id="g-chart" title={t("gallery.section.chart")}>
         <div className="gallery-themes">
@@ -352,35 +417,7 @@ export function GalleryTokensPage() {
         </div>
       </Section>
 
-      <Section id="g-amounts" title={t("gallery.section.amounts")}>
-        <dl className="gallery-amounts">
-          <div>
-            <dt className="ws-text-label ws-muted">{t("gallery.amounts.total")}</dt>
-            <dd>
-              <Amount value={SAMPLE.total} size="amount-xl" />
-            </dd>
-          </div>
-          <div>
-            <dt className="ws-text-label ws-muted">{t("gallery.amounts.account")}</dt>
-            <dd>
-              <Amount value={SAMPLE.account} size="amount-l" />
-            </dd>
-          </div>
-          <div>
-            <dt className="ws-text-label ws-muted">{t("gallery.amounts.row")}</dt>
-            <dd>
-              <Amount value={SAMPLE.row} size="amount-s" />
-            </dd>
-          </div>
-          <div>
-            <dt className="ws-text-label ws-muted">{t("gallery.amounts.change")}</dt>
-            <dd className="ws-gain ws-text-amount-s">
-              <span aria-hidden="true">▲ </span>
-              <Percent value={SAMPLE.changePercent} /> (<Amount value={SAMPLE.change} />)
-            </dd>
-          </div>
-        </dl>
-      </Section>
+      <AmountsSection />
 
       <Section id="g-fit" title={t("gallery.fit.title")}>
         <AmountFitDemo />

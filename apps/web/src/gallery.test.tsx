@@ -11,10 +11,31 @@ import {
   POC_ICON_GROUPS,
   PRODUCT_ICONS,
   STATUS_DICTIONARY,
+  ThemeProvider,
 } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
-import { I18nProvider, useI18n } from "@willowsum/i18n";
+import { I18nProvider, useI18n, type MessageKey } from "@willowsum/i18n";
 import { App } from "./App.tsx";
+import {
+  AmountsSection,
+  ColorsSection,
+  ContrastSection,
+  GalleryControls,
+  GalleryHeader,
+  Section,
+} from "./pages/GalleryTokensPage.tsx";
+import { AmountFitDemo } from "./pages/AmountFitDemo.tsx";
+import { ButtonDemo } from "./pages/ButtonDemo.tsx";
+import { DateFieldDemo } from "./pages/DateFieldDemo.tsx";
+import { FieldDemo } from "./pages/FieldDemo.tsx";
+import { FilterBarDemo } from "./pages/FilterBarDemo.tsx";
+import { ListRowDemo } from "./pages/ListRowDemo.tsx";
+import { PaginationDemo } from "./pages/PaginationDemo.tsx";
+import { SelectDemo } from "./pages/SelectDemo.tsx";
+import { SelectionBarDemo } from "./pages/SelectionBarDemo.tsx";
+import { SkeletonDemo } from "./pages/SkeletonDemo.tsx";
+import { ToastDemo } from "./pages/ToastDemo.tsx";
+import { TooltipDemo } from "./pages/TooltipDemo.tsx";
 import { ListToolbarDemo } from "./pages/ListToolbarDemo.tsx";
 import { TransactionRowDemo } from "./pages/TransactionRowDemo.tsx";
 import { StatusDemo } from "./pages/StatusDemo.tsx";
@@ -46,6 +67,40 @@ const renderSection = (demo: ReactNode) =>
     <I18nProvider initialLocale="uk">
       <HideAmountsProvider>{demo}</HideAmountsProvider>
     </I18nProvider>,
+  );
+
+/** The gallery parts the page is made of, with the providers the page gets from the app (no routing is read by them). */
+const renderGallery = (parts: ReactNode) =>
+  render(
+    <I18nProvider initialLocale="uk">
+      <ThemeProvider>
+        <HideAmountsProvider>{parts}</HideAmountsProvider>
+      </ThemeProvider>
+    </I18nProvider>,
+  );
+
+/** One gallery section as the page builds it: its heading from the same message key, then the demo. */
+function GallerySection({
+  id,
+  titleKey,
+  children,
+}: {
+  id: string;
+  titleKey: MessageKey;
+  children: ReactNode;
+}) {
+  const { t } = useI18n();
+  return (
+    <Section id={id} title={t(titleKey)}>
+      {children}
+    </Section>
+  );
+}
+const renderDemo = (id: string, titleKey: MessageKey, demo: ReactNode) =>
+  renderGallery(
+    <GallerySection id={id} titleKey={titleKey}>
+      {demo}
+    </GallerySection>,
   );
 
 /** The icon set of the «Іконки» section with its captions (the section is inline in the page, so the set is rebuilt here). */
@@ -116,6 +171,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("is outside the app navigation, has one h1 and is closed to indexing", () => {
+    // The app itself at `#/gallery/tokens`: only the router shows that the page opens outside the app shell.
     render(<App />);
     // The only `nav` landmarks are the Pagination demos (CMP-13); there is no app navigation.
     for (const nav of screen.queryAllByRole("navigation"))
@@ -162,10 +218,31 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(section("g-transaction-row").querySelector('[data-case="tx-table-sortable"]')).not.toBeNull();
     expect(document.getElementById("g-toolbar")!.textContent).toBe("Панель списку");
     expect(section("g-toolbar").querySelector('[data-case="toolbar"]')).not.toBeNull();
+    // The sections whose tests render the demo alone in its section (#533) hold that demo on the page.
+    for (const [id, demo] of [
+      ["g-fit", ".gallery-fit"],
+      ["g-tooltip", '[data-case="cut"]'],
+      ["g-skeleton", '[data-case="tile"]'],
+      ["g-toast", ".gallery-toast"],
+      ["g-select", '[data-case="default"]'],
+      ["g-button", '[data-case="button-sizes"]'],
+      ["g-pagination", '[data-case="pagination-live"]'],
+      ["g-field", '[data-case^="field-"]'],
+      ["g-date", ".gallery-select__grid"],
+      ["g-list-row", '[data-case="list-row-opened"]'],
+      ["g-selection-bar", '[data-case="selection-bar"]'],
+      ["g-filter-bar", '[data-case="filter-bar"]'],
+    ] as const)
+      expect(section(id).querySelector(demo), id).not.toBeNull();
   });
 
   it("shows every colour token in both themes with computed contrast ratios", () => {
-    const { container } = render(<App />);
+    const { container } = renderGallery(
+      <>
+        <ColorsSection />
+        <ContrastSection />
+      </>,
+    );
     const panels = container.querySelectorAll("#g-colors ~ .gallery-themes > [data-theme]");
     expect([...panels].map((p) => p.getAttribute("data-theme"))).toEqual(["light", "dark"]);
     for (const name of COLOR_TOKEN_NAMES) {
@@ -181,7 +258,12 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("switches the page theme and hides amounts while keeping percentages", () => {
-    const { container } = render(<App />);
+    const { container } = renderGallery(
+      <>
+        <GalleryControls />
+        <AmountsSection />
+      </>,
+    );
     act(() => controls().getByLabelText("Темна").click());
     expect(document.documentElement.getAttribute("data-theme")).toBe("dark");
 
@@ -201,7 +283,12 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       return { width: (this.textContent ?? "").length * 10 } as DOMRect;
     });
-    const { container } = render(<App />);
+    const { container } = renderGallery(
+      <>
+        <GalleryControls />
+        <AmountFitDemo />
+      </>,
+    );
     const fit = () => norm(container.querySelector(".gallery-fit")!.innerHTML);
     expect(fit()).toContain("12,35 трлн €");
     expect(fit()).toContain("1,23 млн ₴");
@@ -217,7 +304,7 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       return { width: (this.textContent ?? "").length * 10 } as DOMRect;
     });
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-fit", "gallery.fit.title", <AmountFitDemo />);
     const section = container.querySelector("#g-fit")!;
     expect(section.textContent).toBe("Великі суми і скорочення");
     const cases = [...container.querySelectorAll(".gallery-fit__case")];
@@ -307,7 +394,7 @@ describe("/gallery/tokens (DS-22)", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
       return { width: (this.textContent ?? "").length * 10 } as DOMRect;
     });
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-tooltip", "gallery.tooltip.title", <TooltipDemo />);
     expect(container.querySelector("#g-tooltip")!.textContent).toBe("Підказка");
     const at = (c: string) => container.querySelector(`[data-case="${c}"]`)!;
     const cut = at("cut").querySelector<HTMLElement>(".ws-truncate")!;
@@ -344,7 +431,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-22@PoC gallery: the Skeleton section shows every variant, the slow line, and swaps the skeleton for its content", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-skeleton", "gallery.skeleton.title", <SkeletonDemo />);
     expect(container.querySelector("#g-skeleton")!.textContent).toBe("Скелетон");
     const at = (c: string) => container.querySelector(`[data-case="${c}"]`)!;
     expect(at("tile").querySelectorAll(".ws-skeleton-row > .ws-skeleton--tile")).toHaveLength(4);
@@ -365,7 +452,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("BUD-12@PoC FR 6 gallery: the Toast section shows one message at a time, with «Відмінити», information and an error", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-toast", "gallery.toast.title", <ToastDemo />);
     const section = container.querySelector<HTMLElement>("#g-toast")!.closest("section")!;
     expect(container.querySelector("#g-toast")!.textContent).toBe("Спливне повідомлення");
     const show = (c: string) =>
@@ -449,7 +536,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-03@PoC gallery: the Select section shows the native list in every state, «з пошуком» and the list buttons", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-select", "gallery.select.title", <SelectDemo />);
     const section = container.querySelector("#g-select")!.closest("section")!;
     expect(container.querySelector("#g-select")!.textContent).toBe("Список вибору");
     const at = (c: string) => section.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
@@ -476,7 +563,7 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("CMP-01@PoC gallery: the Button section shows each variant at rest, with an icon, disabled with its reason and loading; sizes, icon-only, a row and a live case", () => {
     vi.useFakeTimers();
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-button", "gallery.button.title", <ButtonDemo />);
     expect(container.querySelector("#g-button")!.textContent).toBe("Кнопка");
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     for (const [variant, name] of [
@@ -512,7 +599,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-02@PoC gallery: the date section shows today with its calendar, an empty required date with its error and a disabled one with its reason", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-date", "gallery.date.title", <DateFieldDemo />);
     expect(container.querySelector("#g-date")!.textContent).toBe("Поле дати");
     const section = container.querySelector("#g-date")!.closest("section")!;
     const fields = within(section as HTMLElement).getAllByRole("button", { name: /^Дата/ });
@@ -530,7 +617,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-02@PoC gallery: the Field section shows empty, required with counter, error, disabled, read-only, search and the amount cases", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-field", "gallery.field.title", <FieldDemo />);
     expect(container.querySelector("#g-field")!.textContent).toBe("Поле введення");
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="field-${c}"]`)!;
     const state = (c: string) => at(c).querySelector<HTMLElement>(".ws-field")!.dataset.state;
@@ -567,7 +654,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-27@PoC gallery: the ListRow section shows an account, a debt with a real minus, a selected row, an archived record, a long name and the loading skeleton", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-list-row", "gallery.listRow.title", <ListRowDemo />);
     expect(container.querySelector("#g-list-row")!.textContent).toBe("Рядок списку");
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     expect(norm(within(at("list-row-account")).getByRole("button").getAttribute("aria-label"))).toBe(
@@ -589,7 +676,11 @@ describe("/gallery/tokens (DS-22)", () => {
 
   it("CMP-28@PoC gallery: the TransactionRow section shows the states, a queue whose «Підтвердити» waits for the server, and the table columns", async () => {
     vi.useFakeTimers();
-    const { container } = render(<App />);
+    const { container } = renderDemo(
+      "g-transaction-row",
+      "gallery.transactionRow.title",
+      <TransactionRowDemo />,
+    );
     expect(container.querySelector("#g-transaction-row")!.textContent).toBe("Рядок транзакції");
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     const states = at("tx-states");
@@ -652,7 +743,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-73@PoC gallery: the SelectionBar section shows «Вибрано 10 · Сума», «Вибрати всі 42 за фільтром» and the inactive «Дії з вибраними» of the background state", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-selection-bar", "gallery.selectionBar.title", <SelectionBarDemo />);
     expect(container.querySelector("#g-selection-bar")!.textContent).toBe("Панель вибору");
     const at = container.querySelector<HTMLElement>('[data-case="selection-bar"]')!;
     const [bar, busy] = within(at).getAllByRole("toolbar", { name: "Дії з вибраними записами" });
@@ -669,7 +760,7 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("CMP-32@PoC gallery: the FilterBar section shows «Фільтри · 2» with the chips «Рахунки: 2» and «Тип: списання»; the panel opens with «Рахунки» and «Тип», and «×» removes one filter", () => {
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-filter-bar", "gallery.filterBar.title", <FilterBarDemo />);
     expect(container.querySelector("#g-filter-bar")!.textContent).toBe("Панель фільтрів");
     const at = container.querySelector<HTMLElement>('[data-case="filter-bar"]')!;
     const button = within(at).getByRole("button", { name: "Фільтри · 2" });
@@ -696,7 +787,7 @@ describe("/gallery/tokens (DS-22)", () => {
   it("CMP-13@PoC gallery: the Pagination section shows the first, last, loading and empty cases and a live list that loads, focuses the first row and announces the range", () => {
     vi.useFakeTimers();
     sessionStorage.clear();
-    const { container } = render(<App />);
+    const { container } = renderDemo("g-pagination", "gallery.pagination.title", <PaginationDemo />);
     expect(container.querySelector("#g-pagination")!.textContent).toBe("Пагінація");
     const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
     expect(norm(at("pagination-first").textContent)).toContain("1–25 з 1 240");
@@ -729,7 +820,12 @@ describe("/gallery/tokens (DS-22)", () => {
   });
 
   it("switches language to English", () => {
-    render(<App />);
+    renderGallery(
+      <>
+        <GalleryHeader />
+        <GalleryControls />
+      </>,
+    );
     act(() => controls().getByLabelText("English").click());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Design tokens");
     expect(document.documentElement.lang).toBe("en");
