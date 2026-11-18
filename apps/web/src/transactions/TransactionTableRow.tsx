@@ -6,8 +6,7 @@ import type { TransactionItem } from "./list.ts";
 
 /**
  * One row of the transactions table (CMP-28 `table` form, columns Контрагент · Категорія · Рахунок · Дата і час · Сума).
- * GRID-02@PoC FR 6, AC3: the list «Транзакції» and the «Транзакції» block of «Картка рахунку» render their rows here,
- * so the two tables have the same columns and behaviour. Without `onSelectedChange` the row has no checkbox.
+ * Without `onSelectedChange` the row has no checkbox.
  */
 export function TransactionTableRow({
   item,

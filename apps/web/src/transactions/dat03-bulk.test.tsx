@@ -245,7 +245,7 @@ describe("DAT-03@PoC b): the selection panel of «Транзакції»", () =>
     ]);
   });
 
-  it("GRID-02@PoC AC4: three transactions ticked — the panel above the table says «Вибрано 3» and the sum of the selected, with the list's filters row above it", async () => {
+  it("GRID-02@PoC AC4 (canvas PocMoneyTx: the selection is a separate bar, not in the filters row): three transactions ticked — the bar above the table says «Вибрано 3» and the sum of the selected, with the list's filters row above it", async () => {
     open(5);
     await loaded();
     tickRows(3, 4, 5);
