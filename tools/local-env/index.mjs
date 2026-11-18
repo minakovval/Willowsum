@@ -9,6 +9,8 @@
 //   pnpm local:dev     the whole app for a person to click through: starts the services above, then the API, worker,
 //                      scheduler and web dev server on the persistent database ws_dev (apps/api/scripts/local-dev.ts);
 //                      `--fresh` starts with an empty database. With WS_TEST_PG_ADMIN_URL: that server, no Docker
+//   pnpm local:backup [file]            a copy of the pnpm local:dev database ws_dev in a file (lib/backup.mjs)
+//   pnpm local:restore <file> [--yes]   replace ws_dev with the copy; asks first unless --yes
 //   pnpm db:test       a throwaway test database for this agent; prints DATABASE_URL with the password hidden and
 //                      writes the full URL to infra/local/.state/db-test/<name>.env (0600, git-ignored; lib/db-test.mjs)
 //                      `pnpm db:test drop <name>`, `pnpm db:test list`,
@@ -21,6 +23,22 @@ import { REPO_ROOT, STATE_DIR, compose, composeArgs, dockerAvailable, dockerRunn
 import { ensureBucket, ensureWritable } from './lib/s3.mjs';
 import { connectionInfo } from './lib/info.mjs';
 import { ensureState, readState } from './lib/state.mjs';
+import {
+  DEV_DATABASE,
+  confirmQuestion,
+  defaultBackupPath,
+  dumpArgs,
+  fileMessage,
+  isYes,
+  parseBackupArgs,
+  parseRestoreArgs,
+  recreateSql,
+  restoreArgs,
+  rolesDumpArgs,
+  rolesFile,
+  toolCommand,
+} from './lib/backup.mjs';
+import readline from 'node:readline/promises';
 import { HOLDER_PID_ENV, LOCK_DATABASE } from '../test-guards/cluster-lock.mjs';
 import {
   LOCK_NAME,
@@ -217,6 +235,103 @@ async function dev() {
   await new Promise((resolve) => child.on('exit', (code) => resolve((process.exitCode = code ?? 1))));
 }
 
+// ---- pnpm local:backup / pnpm local:restore ----
+
+/** The server of `pnpm local:dev`: the same choice as `dev` (WS_TEST_PG_ADMIN_URL, local only, or the compose stack). */
+function backupServer() {
+  const server = resolveServer({ env: process.env, docker: dockerAvailable() });
+  if (server.kind === 'none') fail(server.message);
+  if (server.kind === 'url') {
+    if (spawnSync('pg_dump', ['--version']).error || spawnSync('pg_restore', ['--version']).error) fail('pg_dump and pg_restore are required with WS_TEST_PG_ADMIN_URL.');
+    return server;
+  }
+  requireDocker();
+  const state = readState(STATE_DIR);
+  if (!state) fail('Local environment was never started. Run `pnpm local:dev` first.');
+  const res = compose(state.envPath, ['up', '-d', '--wait', '--wait-timeout', '180', 'postgres']);
+  if (res.status !== 0) fail('PostgreSQL did not become healthy; see `pnpm local:status`.');
+  return { kind: 'compose', user: state.values.WS_LOCAL_PG_USER, composeArgs: (a) => composeArgs(state.envPath, a) };
+}
+
+/** Runs a client tool; `stdin` and `stdout` are file descriptors or 'pipe'. Returns the spawn result. */
+function runTool(server, tool, db, args, { stdin = 'ignore', stdout = 'pipe', input } = {}) {
+  const [cmd, argv, env] = toolCommand(server, tool, db, args);
+  return spawnSync(cmd, argv, { env: { ...process.env, ...env }, stdio: [input !== undefined ? 'pipe' : stdin, stdout, 'pipe'], input, encoding: input ? 'utf8' : undefined, maxBuffer: 1 << 30 });
+}
+
+const stderrOf = (res) => String(res.stderr ?? res.error?.message ?? '').trim();
+
+function hasDevDatabase(server) {
+  const res = runTool(server, 'psql', 'postgres', ['-X', '-q', '-At', '-c', `SELECT 1 FROM pg_database WHERE datname = '${DEV_DATABASE}'`]);
+  if (res.status !== 0) fail(`psql failed: ${stderrOf(res)}`);
+  return String(res.stdout).trim() === '1';
+}
+
+async function backup() {
+  const parsed = parseBackupArgs(process.argv.slice(3));
+  if (parsed.error) fail(parsed.error);
+  const file = path.resolve(parsed.file ?? defaultBackupPath());
+  if (fs.existsSync(file) || fs.existsSync(rolesFile(file))) fail(`${file} already exists; it is never overwritten. Give another file name.`);
+  const server = backupServer();
+  if (!hasDevDatabase(server)) fail(`The database ${DEV_DATABASE} does not exist yet: run \`pnpm local:dev\` first.`);
+  fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  const tmp = `${file}.${process.pid}.tmp`;
+  const fd = fs.openSync(tmp, 'wx', 0o600);
+  let res;
+  try {
+    res = runTool(server, 'pg_dump', DEV_DATABASE, dumpArgs(), { stdout: fd });
+  } finally {
+    fs.closeSync(fd);
+  }
+  if (res.status !== 0) {
+    fs.rmSync(tmp, { force: true });
+    fail(`pg_dump failed: ${stderrOf(res)}`);
+  }
+  const roles = runTool(server, 'pg_dumpall', 'postgres', rolesDumpArgs());
+  if (roles.status !== 0) {
+    fs.rmSync(tmp, { force: true });
+    fail(`pg_dumpall failed: ${stderrOf(roles)}`);
+  }
+  fs.writeFileSync(rolesFile(file), roles.stdout, { mode: 0o600 });
+  fs.renameSync(tmp, file);
+  console.log(fileMessage('Saved', file, fs.statSync(file).size));
+  console.log(fileMessage('Roles (no passwords)', rolesFile(file), fs.statSync(rolesFile(file)).size));
+  console.log(`Restore with: pnpm local:restore ${file}`);
+}
+
+async function restore() {
+  const parsed = parseRestoreArgs(process.argv.slice(3));
+  if (parsed.error) fail(parsed.error);
+  const file = path.resolve(parsed.file);
+  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) fail(`No such file: ${file}`);
+  const server = backupServer();
+  const open = () => fs.openSync(file, 'r');
+  // Check the file is a PostgreSQL archive before anything is dropped.
+  let fd = open();
+  const check = runTool(server, 'pg_restore', 'postgres', ['--list'], { stdin: fd });
+  fs.closeSync(fd);
+  if (check.status !== 0) fail(`${file} is not a readable PostgreSQL backup (pg_restore --list failed): ${stderrOf(check)}`);
+  console.log(fileMessage('Backup', file, fs.statSync(file).size));
+  if (!parsed.yes) {
+    if (!process.stdin.isTTY) fail('Restore replaces the database: run it in a terminal and answer, or add --yes.');
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await rl.question(confirmQuestion(file));
+    rl.close();
+    if (!isYes(answer)) fail('Cancelled; the database is unchanged.');
+  }
+  const drop = runTool(server, 'psql', 'postgres', ['-X', '-q', '-v', 'ON_ERROR_STOP=1'], { input: recreateSql() });
+  if (drop.status !== 0) fail(`Could not recreate ${DEV_DATABASE} (is \`pnpm local:dev\` still running? stop it): ${stderrOf(drop)}`);
+  // Module roles belong to the cluster: after a deleted volume they are gone. Errors «already exists» are fine.
+  if (fs.existsSync(rolesFile(file))) {
+    runTool(server, 'psql', 'postgres', ['-X', '-q'], { input: fs.readFileSync(rolesFile(file), 'utf8') });
+  }
+  fd = open();
+  const res = runTool(server, 'pg_restore', DEV_DATABASE, restoreArgs(), { stdin: fd });
+  fs.closeSync(fd);
+  if (res.status !== 0) fail(`pg_restore failed: ${stderrOf(res)}\nThe database ${DEV_DATABASE} is incomplete; run the restore again.`);
+  console.log(`Restored ${DEV_DATABASE} from ${file}. Start the app: pnpm local:dev`);
+}
+
 const commands = {
   up,
   down: () => down(),
@@ -231,6 +346,8 @@ const commands = {
   smoke,
   'db-test': dbTest,
   dev,
+  backup,
+  restore,
 };
 
 const name = process.argv[2];
