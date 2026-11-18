@@ -1129,6 +1129,7 @@
   background: var(--ws-surface-200);
   color: var(--ws-ink);
   cursor: text;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
 }
 
 .ws-field-box[data-size="search"] {

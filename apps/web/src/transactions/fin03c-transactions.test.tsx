@@ -213,7 +213,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
-  it("FIN-03@PoC AC13: columns «Контрагент, Категорія, Рахунок, Дата і час, Сума», newest first by «Дата і час» (highlighted with its arrow), the other sortable columns with the grey double arrow, no grouping by days and no sort menu", async () => {
+  it("FIN-03@PoC AC13, DS-04@PoC FR 8: columns «Контрагент, Категорія, Рахунок, Дата і час, Сума», newest first by «Дата і час» (highlighted with its arrow), the other sortable columns with the grey double arrow, no grouping by days and no sort menu", async () => {
     const { lastQuery } = open();
     await loaded();
     const head = table().querySelector(".ws-tx-head")!;
