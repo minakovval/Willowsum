@@ -2345,7 +2345,7 @@
       "page": "poc",
       "title": "S-144 План погашення",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 82860
     },
     "PocPlanDebtProgress.dc.html": {
@@ -2380,6 +2380,14 @@
       "is_interactive": true,
       "page": "poc",
       "title": "S-143 Борги · порожньо",
+      "w": 1280,
+      "x": 2720,
+      "y": 81730
+    },
+    "PocPlanDebtsTexts.dc.html": {
+      "h": 5880,
+      "page": "poc",
+      "title": "S-143 Борги · Тексти",
       "w": 1280,
       "x": 1360,
       "y": 81730
@@ -4480,6 +4488,7 @@
     "PocPlanAffordShort.dc.html",
     "PocPlanAffordInstalment.dc.html",
     "PocPlanDebts.dc.html",
+    "PocPlanDebtsTexts.dc.html",
     "PocPlanDebtsEmpty.dc.html",
     "PocPlanDebtPlan.dc.html",
     "PocPlanDebtPlanGrows.dc.html",
