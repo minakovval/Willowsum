@@ -10,7 +10,7 @@
 - Спільні правила: П-5, П-6, П-13, П-16, П-24, П-25, П-26
 - Сценарії: —
 - Модуль: —
-- Перевіряється: apps/web/src/accounts/fin01c-accounts.test.tsx, apps/web/src/accounts/fin12c-account-card.test.tsx, apps/web/src/accounts/fin12d-close-balance.test.tsx
+- Перевіряється: apps/web/src/accounts/fin01c-accounts.test.tsx, apps/web/src/accounts/fin12c-account-card.test.tsx, apps/web/src/accounts/fin12d-close-balance.test.tsx, apps/web/src/transactions/fin03c-transactions.test.tsx, apps/web/src/transactions/fin03c-filters.test.tsx
 
 **Мета.** Як користувач, я хочу, щоб сторінки рахунків, транзакцій, черги «До розбору», пар і підключень мали зручну розкладку на будь-якій ширині, щоб швидко знаходити рахунок чи транзакцію і розбирати їх без прокрутки вбік.
 

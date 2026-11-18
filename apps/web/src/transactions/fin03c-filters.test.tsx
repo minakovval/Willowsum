@@ -395,7 +395,7 @@ describe("S-046 «Транзакції»: the filters built so far — not yet �
 });
 
 describe("FIN-03@PoC FR 33, DAT-01@PoC FR 7: filters from a link and back", () => {
-  it("FIN-03@PoC FR 33: «Усі N транзакцій рахунку» opens this page with the active filter «Рахунок: <назва>» as a chip with «×»; the link's query is dropped from the address", async () => {
+  it("FIN-03@PoC FR 33, GRID-02@PoC AC10: «Усі N транзакцій рахунку» opens this page with the active filter «Рахунок: <назва>» as a chip with «×»; the link's query is dropped from the address", async () => {
     expect(filteredTransactionsPath({ account: ACC })).toBe(`/money/transactions?account=${ACC}`);
     const { lists, lastFilters } = open(`#${filteredTransactionsPath({ account: ACC })}`);
     await waitFor(() => expect(lastFilters()).toEqual([`accountId.eq:${ACC}`]));
