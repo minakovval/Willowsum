@@ -315,6 +315,29 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     expect(spends(fake)).toHaveLength(1);
   });
 
+  it("BUD-05@PoC FR 9: the selection is locked while the spend request runs, so a choice made then cannot be shown as spent when the close fails", async () => {
+    let release: (r: Reply) => void = () => undefined;
+    const fake = api(all, {
+      "POST /v1/goals/a0000000-0000-4000-8000-000000000001/spends": (() =>
+        new Promise<Reply>((r) => (release = r))) as never,
+      "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": problem(500, "INTERNAL"),
+    });
+    open(fake);
+    await pick(/Booking\.com/);
+    fireEvent.click(button("Далі"));
+    fireEvent.click(within(dialog()).getByRole("switch", { name: /Закрити ціль/ }));
+    fireEvent.click(button("Списати з цілі"));
+    await waitFor(() => expect(spends(fake)).toHaveLength(1));
+    // «Назад» is inactive while busy, but the step indicator still returns to step 1.
+    fireEvent.click(within(dialog()).getAllByRole("button", { name: /^Крок 1/ })[0]!);
+    const boxes = within(dialog()).queryAllByRole("checkbox") as HTMLInputElement[];
+    const plain = boxes.filter((b) => b.getAttribute("role") !== "switch");
+    expect(plain.length).toBeGreaterThan(0);
+    expect(plain.every((b) => b.disabled)).toBe(true);
+    release({ status: 201, body: goal() });
+    await within(dialog()).findByText(/Витрату записано, але ціль закрити не вдалося/);
+  });
+
   it("BUD-05@PoC FR 9: leaving the dialog after a spend whose closing failed reloads the card", async () => {
     const fake = api(all, {
       "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": problem(500, "INTERNAL"),

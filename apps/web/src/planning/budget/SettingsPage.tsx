@@ -51,13 +51,15 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
   const changed = rows.filter((r) => draft.has(r.account.id) && draft.get(r.account.id) !== r.included);
   const valueOf = (r: SettingsRow) => draft.get(r.account.id) ?? r.included;
 
-  const toggle = (r: SettingsRow, on: boolean) =>
+  const toggle = (r: SettingsRow, on: boolean) => {
+    setUnsaved([]);
     setDraft((prev) => {
       const next = new Map(prev);
       if (on === r.included) next.delete(r.account.id);
       else next.set(r.account.id, on);
       return next;
     });
+  };
 
   const save = async () => {
     setBusy(true);
@@ -139,7 +141,14 @@ export function BudgetSettingsPage({ tab }: { tab: Tab }) {
         </div>
         {tab === "accounts" && data?.kind === "ready" ? (
           <div className="bud-settings-actions">
-            <Button label={t("dialog.form.cancel")} variant="secondary" onClick={() => setDraft(new Map())} />
+            <Button
+              label={t("dialog.form.cancel")}
+              variant="secondary"
+              onClick={() => {
+                setUnsaved([]);
+                setDraft(new Map());
+              }}
+            />
             <Button
               label={t("planning.budget.settings.save")}
               variant="primary"
