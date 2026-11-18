@@ -654,7 +654,8 @@ describe("GRID-02@PoC the sort button of «Транзакції» in the card fo
     const css = readFileSync(join(dir, "transactions.css"), "utf8").replace(/\s+/g, " ");
     expect(css).toMatch(/\.tx-list \{[^}]*container-type: inline-size/);
     expect(css).toContain(".tx-sort { display: none; }");
-    expect(css).toContain("@container (max-width: 519px) { .tx-sort { display: contents; } }");
+    // 521 px of .tx-list = 519 px inside the table's 1 px border, where the rows turn into cards (checked in Chromium).
+    expect(css).toContain("@container (max-width: 521px) { .tx-sort { display: contents; } }");
     expect(css).not.toMatch(/@media[^{]*\{[^}]*\.tx-sort/);
   });
 
@@ -679,6 +680,7 @@ describe("GRID-02@PoC the sort button of «Транзакції» in the card fo
     await loaded();
     const button = sortButton();
     button.focus();
+    // jsdom has no default action for Enter on a button; a browser turns it into this click (checked in Chromium).
     fireEvent.keyDown(button, { key: "Enter" });
     act(() => button.click());
     const items = within(screen.getByRole("menu", { name: "Сортування" })).getAllByRole("menuitemcheckbox");

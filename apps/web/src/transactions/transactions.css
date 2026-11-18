@@ -11,7 +11,9 @@
   display: none;
 }
 
-@container (max-width: 519px) {
+/* The rows are cards below 520 px of the table's own box; the table (.ws-card) has a 1 px border on each side, so
+   that is 521 px of .tx-list. */
+@container (max-width: 521px) {
   .tx-sort {
     display: contents;
   }
