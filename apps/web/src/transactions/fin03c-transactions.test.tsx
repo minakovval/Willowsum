@@ -625,7 +625,7 @@ describe("GRID-02@PoC the table of «Транзакції» on narrow containers
       ".ws-tx-table .ws-tx-row-table.ws-tx-row-table { display: flex; flex-wrap: wrap;",
     );
     // The threshold is the container's, not a window media query; the wide form still has its fixed columns.
-    expect(ui).not.toMatch(/@media \(max-width: 5\d\d px\) \{ \.ws-tx-/);
+    expect(ui).not.toMatch(/@media \(max-width: \d+px\) \{ \.ws-tx-/);
     expect(table().style.overflowX).toBe("");
     expect(readFileSync(join(dir, "transactions.css"), "utf8").match(/\.tx-table \{[^}]*\}/)![0]).toContain(
       "overflow: hidden",
