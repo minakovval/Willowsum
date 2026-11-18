@@ -1,10 +1,17 @@
 import { useId, useState } from "react";
 import { Money } from "@willowsum/domain-kernel";
 import { formatPercent, useI18n, type MessageKey } from "@willowsum/i18n";
-import { AmountField, Select } from "@willowsum/ui";
+import { AmountField, Field, Select } from "@willowsum/ui";
 import { useStrategies, type Debt, type Strategies } from "./api.ts";
 import { formatAmount, formatMonth, money } from "./format.ts";
-import { minimumTotal, strategyCurrencies } from "./model.ts";
+import {
+  initialEntries,
+  minimumTotal,
+  parseRate,
+  strategyCurrencies,
+  strategyDebts,
+  type Entries,
+} from "./model.ts";
 import { DebtName, Disclaimer } from "./parts.tsx";
 
 type Kind = "avalanche" | "snowball";
@@ -17,15 +24,18 @@ const KINDS: readonly { id: Kind; label: MessageKey; hint: MessageKey }[] = [
  * S-145 «Стратегія» (BUD-19@PoC FR 6, AC3, AC5): the debts with their minimum payments, «Усього на борги / міс.»
  * and the switch «Avalanche» / «Snowball». Both strategies are calculated together by the server
  * (`POST /v1/debts/strategy`); the difference is shown neutrally, with no «recommended» mark and no advice.
- * The minimum payments are fixed: they are the debts' own payments.
+ * The minimum payments are fixed: a debt's own payment, or for a debt that has none (a credit card: FIN-01 gives it no
+ * payment; owner 2026-11-16, «3 а») the minimum payment and the rate entered here, sent as `debts[]`.
  */
 export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
   const { t, locale } = useI18n();
-  const currencies = strategyCurrencies(debts);
+  const [entries, setEntries] = useState<Entries>(() => initialEntries(debts, locale === "uk"));
+  const currencies = strategyCurrencies(debts, entries);
   const [picked, setPicked] = useState<string | null>(null);
   const currency =
     picked && currencies.includes(picked) ? picked : (currencies[0] ?? debts[0]!.balance.currency);
-  const minimum = minimumTotal(debts, currency);
+  const minimum = minimumTotal(debts, currency, entries);
+  const needs = debts.filter((d) => d.monthlyPayment === null || d.annualRate === null);
   const [typed, setTyped] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("avalanche");
   const group = useId();
@@ -33,7 +43,14 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
   const tooLow = total.compare(minimum) < 0;
   const asked = currencies.length > 0 && !total.isZero() && !tooLow;
   const { calc, retry } = useStrategies(
-    asked ? { total: { amount: total.toDecimalString(), currency } } : null,
+    asked
+      ? {
+          total: { amount: total.toDecimalString(), currency },
+          ...(strategyDebts(debts, entries, currency).length > 0
+            ? { debts: strategyDebts(debts, entries, currency) }
+            : {}),
+        }
+      : null,
   );
   const result: Strategies | null =
     calc.kind === "ready" ? calc.data : calc.kind === "idle" ? null : calc.last;
@@ -41,8 +58,8 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
 
   return (
     <>
-      <section className="ws-card debts-scenario" aria-label={t("debts.strategy.total")}>
-        <div className="debts-fields">
+      <section className="ws-card debts-scenario debts-strategy-head" aria-label={t("debts.strategy.total")}>
+        <div className="debts-fields debts-fields--strategy">
           <AmountField
             label={t("debts.strategy.total")}
             value={total.toDecimalString()}
@@ -85,6 +102,43 @@ export function DebtsStrategy({ debts }: { debts: readonly Debt[] }) {
           </div>
         </fieldset>
       </section>
+
+      {needs.length > 0 ? (
+        <section className="ws-card debts-scenario" aria-label={t("debts.strategy.enter")}>
+          <p className="ws-muted debts-small">{t("debts.strategy.enter")}</p>
+          {needs.map((d) => {
+            const e = entries[d.accountId] ?? { min: null, rate: "" };
+            const set = (patch: Partial<typeof e>) =>
+              setEntries((cur) => {
+                const was = cur[d.accountId] ?? e;
+                const next = { ...was, ...patch };
+                return next.min === was.min && next.rate === was.rate ? cur : { ...cur, [d.accountId]: next };
+              });
+            return (
+              <div key={d.accountId} className="debts-fields">
+                <span className="debts-strong">{d.name}</span>
+                {d.annualRate === null ? (
+                  <Field
+                    label={t("debts.strategy.rateOf", { name: d.name })}
+                    value={e.rate}
+                    inputMode="decimal"
+                    onChange={(rate) => set({ rate })}
+                    error={e.rate !== "" && parseRate(e.rate) === null ? t("debts.plan.rateError") : null}
+                  />
+                ) : null}
+                {d.monthlyPayment === null ? (
+                  <AmountField
+                    label={t("debts.strategy.minOf", { name: d.name })}
+                    value={e.min}
+                    currency={d.balance.currency}
+                    onChange={(min) => set({ min })}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </section>
+      ) : null}
 
       {calc.kind === "error" ? (
         <div role="alert" className="ws-card debts-calc-error">

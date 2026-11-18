@@ -367,7 +367,7 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(api.calls.some((c) => c.method === "PUT" || c.method === "PATCH")).toBe(false);
   });
 
-  it("BUD-19@PoC FR 4: a one-off payment is sent as a month and a decimal string; a one-off above the balance is capped with a hint", async () => {
+  it("BUD-19@PoC EC5: a one-off payment is sent as a month and a decimal string; a one-off above the balance is capped with a hint", async () => {
     const api = planApi({
       [scenarioPath(VISA)]: {
         status: 200,
@@ -401,6 +401,16 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(screen.queryByText(/Погашення через/)).toBeNull();
     expect(screen.getByText("Графіка немає: за цих умов борг не зменшується")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Зберегти план" }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("BUD-19@PoC EC1: a payment that does not cover the monthly interest (90 € against 100 €) has no payoff date", async () => {
+    const api = planApi({
+      [scenarioPath(VISA)]: { status: 200, body: { base: stuck, scenario: stuck, saving: null } },
+    });
+    renderTab("plan", api.client);
+    expect(await screen.findByText("За цих умов борг не зменшується")).toBeTruthy();
+    expect(screen.queryByText(/Погашення через/)).toBeNull();
+    expect(screen.queryByText(/2029|2028/)).toBeNull();
   });
 
   it("BUD-19@PoC AC5: a card without a payment asks for the rate and the payment; nothing is calculated until both are there", async () => {
@@ -603,32 +613,45 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     excluded: [{ accountId: PARENTS, reason: "terms-missing" }],
     included: [VISA, MASTER],
   };
-  const v100: Debt = { ...visa, monthlyPayment: at("100.00") };
-  const m40: Debt = { ...master, monthlyPayment: at("40.00") };
+  // A credit card has no payment of its own (FIN-01): the minimum is entered on the screen.
+  const v100: Debt = { ...visa, monthlyPayment: null };
+  const m40: Debt = { ...master, monthlyPayment: null };
+  const minimum = (name: string) =>
+    screen.findByRole("textbox", { name: new RegExp(`Мін. платіж: ${name}`) });
+  const typeMinimum = async (name: string, value: string) =>
+    fireEvent.change(await minimum(name), { target: { value } });
+  const enterMinimums = async (api: ReturnType<typeof strategyApi>) => {
+    renderTab("strategy", api.client);
+    await typeMinimum("Visa", "100");
+    await typeMinimum("Mastercard", "40");
+  };
   const strategyApi = (debts: Debt[] = [v100, m40, parents]) =>
     fakeApi({
       "GET /v1/debts": { status: 200, body: { debts } },
       "POST /v1/debts/strategy": { status: 200, body: strategy },
     });
 
-  it("BUD-19@PoC FR 6: «Усього на борги / міс.» starts at the sum of the minimum payments, the rest goes to one debt; the minimum payments cannot be edited", async () => {
+  it("BUD-19@PoC FR 6: «Усього на борги / міс.» starts at the sum of the entered minimum payments, the rest goes to one debt; the minimums reach the request as decimal strings", async () => {
     const api = strategyApi();
-    renderTab("strategy", api.client);
+    await enterMinimums(api);
     const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
     expect(total.getAttribute("value")).toMatch(/140,00/);
     expect(plain(screen.getByText(/мінімальні платежі 140/).textContent)).toBe(
       "мінімальні платежі 140,00 € · решта 0,00 € — на один борг за стратегією",
     );
-    expect(screen.getAllByRole("textbox")).toHaveLength(1);
     await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
-    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+    expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({
       total: { amount: "140", currency: "EUR" },
+      debts: [
+        { accountId: VISA, minimumPayment: "100.00" },
+        { accountId: MASTER, minimumPayment: "40.00" },
+      ],
     });
   });
 
   it("BUD-19@PoC AC3: 340 € for the two cards — Avalanche 24 міс. / 1 581,51 €, Snowball 25 міс. / 1 728,57 €; the difference 147,06 € is neutral, with no «рекомендовано»", async () => {
     const api = strategyApi();
-    renderTab("strategy", api.client);
+    await enterMinimums(api);
     fireEvent.change(await screen.findByRole("textbox", { name: /Усього на борги/ }), {
       target: { value: "340" },
     });
@@ -642,13 +665,13 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
       "Avalanche — 24 міс., Snowball — 25 міс.; різниця у відсотках — 147,06 €.",
     );
     expect(screen.queryByText(/рекомендова/i)).toBeNull();
-    expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toEqual({
+    expect(api.calls.filter((c) => c.path === "/v1/debts/strategy").at(-1)?.body).toMatchObject({
       total: { amount: "340", currency: "EUR" },
     });
   });
 
   it("BUD-19@PoC FR 6: the switch «Avalanche» / «Snowball» shows the payoff order of the chosen strategy; Mastercard closes earlier under Snowball", async () => {
-    renderTab("strategy", strategyApi().client);
+    await enterMinimums(strategyApi());
     await screen.findByText("Усі борги погашено за 24 міс.");
     const rowsOf = () =>
       within(screen.getByRole("heading", { name: /Порядок погашення/ }).closest("section")!)
@@ -664,15 +687,41 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
     expect((screen.getByRole("radio", { name: /Snowball/ }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it("BUD-19@PoC AC5: a debt without a rate or a payment is not in the calculation and says why", async () => {
-    renderTab("strategy", strategyApi().client);
-    const row = (await screen.findByText("Позика від батьків")).closest("tr")!;
+  it("BUD-19@PoC AC5: a card without a minimum payment is asked for it and takes no part until it is entered; the debt the server leaves out says why", async () => {
+    const api = strategyApi();
+    renderTab("strategy", api.client);
+    expect(await screen.findByText(/Вкажіть мінімальний платіж і ставку/)).toBeTruthy();
+    expect(await minimum("Visa")).toBeTruthy();
+    expect(screen.getByText("Немає боргів зі ставкою і платежем для розрахунку")).toBeTruthy();
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    await typeMinimum("Visa", "100");
+    await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
+    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+      total: { amount: "100", currency: "EUR" },
+      debts: [{ accountId: VISA, minimumPayment: "100.00" }],
+    });
+    const row = await screen.findByRole("row", { name: /Позика від батьків/ });
     expect(plain(row.textContent)).toContain("не бере участі в розрахунку · Немає ставки або платежу");
+  });
+
+  it("BUD-19@PoC EC2: a debt without a rate is asked for the rate too and sends it as a decimal string", async () => {
+    const api = strategyApi([{ ...v100, annualRate: null }]);
+    renderTab("strategy", api.client);
+    await typeMinimum("Visa", "100");
+    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.change(screen.getByRole("textbox", { name: /Ставка річних, %: Visa/ }), {
+      target: { value: "24" },
+    });
+    await waitFor(() => expect(api.calls.some((c) => c.path === "/v1/debts/strategy")).toBe(true));
+    expect(api.calls.find((c) => c.path === "/v1/debts/strategy")?.body).toEqual({
+      total: { amount: "100", currency: "EUR" },
+      debts: [{ accountId: VISA, minimumPayment: "100.00", annualRate: "24" }],
+    });
   });
 
   it("BUD-19@PoC FR 6: a total below the minimum payments is refused in the field and nothing is calculated", async () => {
     const api = strategyApi();
-    renderTab("strategy", api.client);
+    await enterMinimums(api);
     const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
     await screen.findByText("Усі борги погашено за 24 міс.");
     const before = api.calls.length;
@@ -689,8 +738,9 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
       balance: { amount: "900.00", currency: "GBP" },
       monthlyPayment: { amount: "60", currency: "GBP" },
     };
-    const api = strategyApi([v100, gbp]);
+    const api = strategyApi([v100, { ...gbp, monthlyPayment: { amount: "60.00", currency: "GBP" } }]);
     renderTab("strategy", api.client);
+    await typeMinimum("Visa", "100");
     const total = await screen.findByRole("textbox", { name: /Усього на борги/ });
     expect(total.getAttribute("value")).toMatch(/100,00/);
     fireEvent.change(screen.getByRole("combobox", { name: "Валюта" }), { target: { value: "GBP" } });
@@ -710,7 +760,7 @@ describe("BUD-19@PoC S-145 «Стратегія»", () => {
   it("BUD-19@PoC FR 6: a strategy that fails to calculate says so and «Спробувати ще раз» asks again", async () => {
     let n = 0;
     const api = fakeApi({
-      "GET /v1/debts": { status: 200, body: { debts: [v100, m40] } },
+      "GET /v1/debts": { status: 200, body: { debts: [{ ...v100, monthlyPayment: at("100.00") }] } },
       "POST /v1/debts/strategy": () =>
         ++n === 1 ? problem(500, "INTERNAL") : { status: 200, body: strategy },
     });

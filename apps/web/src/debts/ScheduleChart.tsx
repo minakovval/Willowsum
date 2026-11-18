@@ -54,31 +54,44 @@ export function ScheduleChart({
         <p className="ws-muted">{t("debts.chart.empty")}</p>
       ) : (
         <>
-          <svg
-            className="debts-chart-svg"
-            viewBox={`0 0 ${SIZE.width} ${SIZE.height}`}
-            role="img"
-            aria-label={t("debts.chart.alt")}
-            preserveAspectRatio="none"
-          >
-            {base.length > 0 ? (
-              <path
-                className="debts-line debts-line--base"
-                d={linePath(base, months, max, SIZE)}
-                fill="none"
+          <div className="debts-chart-plot">
+            <div className="debts-chart-scale ws-muted debts-small" aria-hidden="true">
+              <span>{formatAmount(locale, max, currency)}</span>
+              <span>{formatAmount(locale, "0", currency)}</span>
+            </div>
+            <svg
+              className="debts-chart-svg"
+              viewBox={`0 0 ${SIZE.width} ${SIZE.height}`}
+              role="img"
+              aria-label={t("debts.chart.alt")}
+              preserveAspectRatio="none"
+            >
+              <line className="debts-gridline" x1="0" x2={SIZE.width} y1={SIZE.pad} y2={SIZE.pad} />
+              <line
+                className="debts-gridline"
+                x1="0"
+                x2={SIZE.width}
+                y1={Number(SIZE.height) - Number(SIZE.pad)}
+                y2={Number(SIZE.height) - Number(SIZE.pad)}
               />
-            ) : null}
-            {scenario.length > 0 ? (
-              <path
-                className="debts-line debts-line--scenario"
-                d={linePath(scenario, months, max, SIZE)}
-                fill="none"
-              />
-            ) : null}
-          </svg>
+              {base.length > 0 ? (
+                <path
+                  className="debts-line debts-line--base"
+                  d={linePath(base, months, max, SIZE)}
+                  fill="none"
+                />
+              ) : null}
+              {scenario.length > 0 ? (
+                <path
+                  className="debts-line debts-line--scenario"
+                  d={linePath(scenario, months, max, SIZE)}
+                  fill="none"
+                />
+              ) : null}
+            </svg>
+          </div>
           <div className="debts-chart-axis ws-muted debts-small">
             <span>{first ? formatMonth(locale, first) : ""}</span>
-            <span>{formatAmount(locale, max, currency)}</span>
             <span>{last ? formatMonth(locale, last) : ""}</span>
           </div>
           <ul className="debts-legend" aria-hidden="true">

@@ -531,6 +531,10 @@ export const uk = {
   "debts.strategy.reason.currency": "Інша валюта",
   "debts.strategy.reason.paid-off": "Уже погашено",
   "debts.strategy.none": "Немає боргів зі ставкою і платежем для розрахунку",
+  "debts.strategy.enter":
+    "Вкажіть мінімальний платіж і ставку боргам, які їх не мають, — тоді вони візьмуть участь у розрахунку",
+  "debts.strategy.minOf": "Мін. платіж: {name}",
+  "debts.strategy.rateOf": "Ставка річних, %: {name}",
   "debts.strategy.error": "Не вдалося розрахувати стратегії — повторіть спробу",
   "page.newRecurring": "Новий регулярний платіж",
   "page.importHistory": "Імпорт",

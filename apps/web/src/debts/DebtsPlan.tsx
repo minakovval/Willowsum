@@ -77,187 +77,193 @@ function ScenarioPanel({ debt, refresh }: { debt: Debt; refresh: () => void }) {
 
   return (
     <>
-      <section className="ws-card debts-scenario" aria-labelledby="debts-scenario-title">
-        <header className="debts-scenario-head">
-          <h2 id="debts-scenario-title" className="debts-card-title">
-            {t("debts.plan.scenario")}
-          </h2>
-          <span className="ws-muted debts-small">{t("debts.plan.scenarioHint")}</span>
-        </header>
-        <div className="debts-fields">
-          <AmountField
-            label={t("debts.plan.field.balance")}
-            value={a.balance}
-            currency={currency}
-            onChange={(balance) => set({ balance })}
-          />
-          <Field
-            label={t("debts.plan.field.rate")}
-            value={a.rate}
-            inputMode="decimal"
-            onChange={(rate) => set({ rate })}
-            error={a.rate !== "" && parseRate(a.rate) === null ? t("debts.plan.rateError") : null}
-          />
-          <AmountField
-            label={t("debts.plan.field.payment")}
-            value={a.payment}
-            currency={currency}
-            onChange={(payment) => set({ payment })}
-          />
-          <AmountField
-            label={t("debts.plan.field.extra")}
-            value={a.extra}
-            currency={currency}
-            onChange={(extra) => set({ extra })}
-          />
-        </div>
-        {a.oneOffs.map((o) => (
-          <div key={o.id} className="debts-oneoff">
-            <Field
-              label={t("debts.plan.oneOff.month")}
-              type="date"
-              value={o.month}
-              onChange={(month) =>
-                set({ oneOffs: a.oneOffs.map((x) => (x.id === o.id ? { ...x, month } : x)) })
-              }
-            />
-            <AmountField
-              label={t("debts.plan.oneOff.amount")}
-              value={o.amount}
-              currency={currency}
-              onChange={(amount) =>
-                set({ oneOffs: a.oneOffs.map((x) => (x.id === o.id ? { ...x, amount } : x)) })
-              }
-            />
-            <button
-              type="button"
-              className="ws-icon-button"
-              aria-label={t("debts.plan.oneOff.remove")}
-              title={t("debts.plan.oneOff.remove")}
-              onClick={() => set({ oneOffs: a.oneOffs.filter((x) => x.id !== o.id) })}
-            >
-              <Icon name="trash" size={20} />
-            </button>
-          </div>
-        ))}
-        {result && result.scenario.cappedOneOffs.length > 0 ? (
-          <p className="ws-muted debts-small" role="note">
-            {t("debts.plan.oneOff.capped")}
-          </p>
-        ) : null}
-        <div className="debts-actions">
-          <Button
-            label={t("debts.plan.oneOff.add")}
-            onClick={() => {
-              set({ oneOffs: [...a.oneOffs, { id: nextId, month: "", amount: null }] });
-              setNextId(nextId + 1);
-            }}
-          />
-          <button
-            type="button"
-            className="debts-link"
-            aria-expanded={how}
-            aria-controls="debts-how"
-            onClick={() => setHow(!how)}
-          >
-            {t("debts.plan.how")}
-          </button>
-        </div>
-        {how ? (
-          <p id="debts-how" className="ws-muted debts-small">
-            {t("debts.plan.howText")}
-          </p>
-        ) : null}
-        <label className="debts-check">
-          <input
-            type="checkbox"
-            checked={a.addPlanned && hasExtra}
-            disabled={!hasExtra}
-            onChange={(e) => set({ addPlanned: e.target.checked })}
-          />
-          <span>
-            <span className="debts-strong">{t("debts.plan.addPlanned")}</span>
-            <span className="ws-muted debts-small">{t("debts.plan.addPlannedHint")}</span>
-          </span>
-        </label>
-        <div className="debts-actions">
-          {canSave ? (
-            <Button
-              label={t("debts.plan.save")}
-              variant="primary"
-              loading={saving}
-              onClick={() => void onSave()}
-            />
-          ) : (
-            <Button
-              label={t("debts.plan.save")}
-              variant="primary"
-              disabled
-              disabledReason={t("debts.plan.saveWhy")}
-            />
-          )}
-          {saved === "saved" ? (
-            <p role="status" className="debts-saved">
-              {t("debts.plan.saved")}
-            </p>
-          ) : null}
-          {saved === "error" ? (
-            <p role="alert" className="debts-saved debts-saved--error">
-              {t("debts.plan.saveError")}
-            </p>
-          ) : null}
-        </div>
-      </section>
-
-      {body === null ? (
-        <p className="ws-card debts-prompt" role="note">
-          <Icon name="info" size={20} />
-          <span>{t("debts.result.prompt")}</span>
-        </p>
-      ) : (
-        <section className="ws-card debts-result" aria-labelledby="debts-result-title" aria-busy={busy}>
-          <h2 id="debts-result-title" className="debts-card-title">
-            {t("debts.result.title")}
-          </h2>
-          {calc.kind === "error" ? (
-            <div role="alert" className="debts-calc-error">
-              <p>{t("debts.result.error")}</p>
-              <button type="button" className="ws-button" onClick={retry}>
-                {t("debts.result.retry")}
+      <div className="debts-plan-grid">
+        <div className="debts-plan-side">
+          <section className="ws-card debts-scenario" aria-labelledby="debts-scenario-title">
+            <header className="debts-scenario-head">
+              <h2 id="debts-scenario-title" className="debts-card-title">
+                {t("debts.plan.scenario")}
+              </h2>
+              <span className="ws-muted debts-small">{t("debts.plan.scenarioHint")}</span>
+            </header>
+            <div className="debts-fields">
+              <AmountField
+                label={t("debts.plan.field.balance")}
+                value={a.balance}
+                currency={currency}
+                onChange={(balance) => set({ balance })}
+              />
+              <Field
+                label={t("debts.plan.field.rate")}
+                value={a.rate}
+                inputMode="decimal"
+                onChange={(rate) => set({ rate })}
+                error={a.rate !== "" && parseRate(a.rate) === null ? t("debts.plan.rateError") : null}
+              />
+              <AmountField
+                label={t("debts.plan.field.payment")}
+                value={a.payment}
+                currency={currency}
+                onChange={(payment) => set({ payment })}
+              />
+              <AmountField
+                label={t("debts.plan.field.extra")}
+                value={a.extra}
+                currency={currency}
+                onChange={(extra) => set({ extra })}
+              />
+            </div>
+            {a.oneOffs.map((o) => (
+              <div key={o.id} className="debts-oneoff">
+                <Field
+                  label={t("debts.plan.oneOff.month")}
+                  type="date"
+                  value={o.month}
+                  onChange={(month) =>
+                    set({ oneOffs: a.oneOffs.map((x) => (x.id === o.id ? { ...x, month } : x)) })
+                  }
+                />
+                <AmountField
+                  label={t("debts.plan.oneOff.amount")}
+                  value={o.amount}
+                  currency={currency}
+                  onChange={(amount) =>
+                    set({ oneOffs: a.oneOffs.map((x) => (x.id === o.id ? { ...x, amount } : x)) })
+                  }
+                />
+                <button
+                  type="button"
+                  className="ws-icon-button"
+                  aria-label={t("debts.plan.oneOff.remove")}
+                  title={t("debts.plan.oneOff.remove")}
+                  onClick={() => set({ oneOffs: a.oneOffs.filter((x) => x.id !== o.id) })}
+                >
+                  <Icon name="trash" size={20} />
+                </button>
+              </div>
+            ))}
+            {result && result.scenario.cappedOneOffs.length > 0 ? (
+              <p className="ws-muted debts-small" role="note">
+                {t("debts.plan.oneOff.capped")}
+              </p>
+            ) : null}
+            <div className="debts-actions">
+              <Button
+                label={t("debts.plan.oneOff.add")}
+                onClick={() => {
+                  set({ oneOffs: [...a.oneOffs, { id: nextId, month: "", amount: null }] });
+                  setNextId(nextId + 1);
+                }}
+              />
+              <button
+                type="button"
+                className="debts-link"
+                aria-expanded={how}
+                aria-controls="debts-how"
+                onClick={() => setHow(!how)}
+              >
+                {t("debts.plan.how")}
               </button>
             </div>
-          ) : null}
-          {result ? (
-            <div className="debts-result-cols">
-              <Outcome title={t("debts.result.base")} calc={result.base} currency={currency} />
-              {changed ? (
-                <Outcome title={t("debts.result.scenario")} calc={result.scenario} currency={currency} />
+            {how ? (
+              <p id="debts-how" className="ws-muted debts-small">
+                {t("debts.plan.howText")}
+              </p>
+            ) : null}
+            <label className="debts-check">
+              <input
+                type="checkbox"
+                checked={a.addPlanned && hasExtra}
+                disabled={!hasExtra}
+                onChange={(e) => set({ addPlanned: e.target.checked })}
+              />
+              <span>
+                <span className="debts-strong">{t("debts.plan.addPlanned")}</span>
+                <span className="ws-muted debts-small">{t("debts.plan.addPlannedHint")}</span>
+              </span>
+            </label>
+            <div className="debts-actions">
+              {canSave ? (
+                <Button
+                  label={t("debts.plan.save")}
+                  variant="primary"
+                  loading={saving}
+                  onClick={() => void onSave()}
+                />
+              ) : (
+                <Button
+                  label={t("debts.plan.save")}
+                  variant="primary"
+                  disabled
+                  disabledReason={t("debts.plan.saveWhy")}
+                />
+              )}
+              {saved === "saved" ? (
+                <p role="status" className="debts-saved">
+                  {t("debts.plan.saved")}
+                </p>
+              ) : null}
+              {saved === "error" ? (
+                <p role="alert" className="debts-saved debts-saved--error">
+                  {t("debts.plan.saveError")}
+                </p>
               ) : null}
             </div>
-          ) : null}
-          {result?.saving && changed ? (
-            <p className="debts-saving">
-              {result.saving.months > 0
-                ? t("debts.result.saving", {
-                    months: String(result.saving.months),
-                    amount: formatAmount(locale, result.saving.interest.amount, currency),
-                  })
-                : t("debts.result.savingSame", {
-                    amount: formatAmount(locale, result.saving.interest.amount, currency),
-                  })}
-            </p>
-          ) : null}
-        </section>
-      )}
+          </section>
+        </div>
 
-      {body !== null && result ? (
-        <ScheduleChart
-          base={result.base.schedule}
-          scenario={changed ? result.scenario.schedule : []}
-          currency={currency}
-          busy={busy}
-        />
-      ) : null}
+        <div className="debts-plan-main">
+          {body === null ? (
+            <p className="ws-card debts-prompt" role="note">
+              <Icon name="info" size={20} />
+              <span>{t("debts.result.prompt")}</span>
+            </p>
+          ) : (
+            <section className="ws-card debts-result" aria-labelledby="debts-result-title" aria-busy={busy}>
+              <h2 id="debts-result-title" className="debts-card-title">
+                {t("debts.result.title")}
+              </h2>
+              {calc.kind === "error" ? (
+                <div role="alert" className="debts-calc-error">
+                  <p>{t("debts.result.error")}</p>
+                  <button type="button" className="ws-button" onClick={retry}>
+                    {t("debts.result.retry")}
+                  </button>
+                </div>
+              ) : null}
+              {result ? (
+                <div className="debts-result-cols">
+                  <Outcome title={t("debts.result.base")} calc={result.base} currency={currency} />
+                  {changed ? (
+                    <Outcome title={t("debts.result.scenario")} calc={result.scenario} currency={currency} />
+                  ) : null}
+                </div>
+              ) : null}
+              {result?.saving && changed ? (
+                <p className="debts-saving">
+                  {result.saving.months > 0
+                    ? t("debts.result.saving", {
+                        months: String(result.saving.months),
+                        amount: formatAmount(locale, result.saving.interest.amount, currency),
+                      })
+                    : t("debts.result.savingSame", {
+                        amount: formatAmount(locale, result.saving.interest.amount, currency),
+                      })}
+                </p>
+              ) : null}
+            </section>
+          )}
+
+          {body !== null && result ? (
+            <ScheduleChart
+              base={result.base.schedule}
+              scenario={changed ? result.scenario.schedule : []}
+              currency={currency}
+              busy={busy}
+            />
+          ) : null}
+        </div>
+      </div>
       <Disclaimer />
     </>
   );

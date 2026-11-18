@@ -147,23 +147,74 @@ export function linePath(
     .join(" ");
 }
 
-/**
- * «Усього на борги / міс.» by default: the regular payments of the debts that have terms, in one currency
- * (the one-currency guard of #545: `Money` refuses to add two currencies, and the debts are filtered by currency first).
- */
-export function minimumTotal(debts: readonly Debt[], currency: string): Money {
-  return debts
-    .filter(
-      (d) => d.monthlyPayment !== null && d.annualRate !== null && d.monthlyPayment.currency === currency,
-    )
-    .reduce((sum, d) => sum.plus(Money.of(d.monthlyPayment!.amount, currency)), Money.zero(currency));
+/** What the user typed on «Стратегія» for one debt that has no payment or rate of its own (a card has none). */
+export interface Entry {
+  readonly min: string | null;
+  readonly rate: string;
+}
+export type Entries = Readonly<Record<string, Entry>>;
+
+/** A saved plan's payment and rate prefill the entries of a debt that lacks them. */
+export function initialEntries(debts: readonly Debt[], comma: boolean): Entries {
+  return Object.fromEntries(
+    debts.map((d) => [
+      d.accountId,
+      { min: d.plan?.monthlyPayment.amount ?? null, rate: rateText(d.plan?.annualRate ?? null, comma) },
+    ]),
+  );
 }
 
-/** The currencies of the debts that can take part in the strategy, the first debt's currency first. */
-export function strategyCurrencies(debts: readonly Debt[]): string[] {
-  return [
-    ...new Set(
-      debts.filter((d) => !d.termsMissing && d.monthlyPayment !== null).map((d) => d.balance.currency),
-    ),
-  ];
+/** The payment and the rate the calculation would use: the debt's own, else what was entered. */
+export function termsOf(
+  debt: Debt,
+  entry: Entry | undefined,
+): { payment: string | null; rate: string | null } {
+  const payment = debt.monthlyPayment?.amount ?? entry?.min ?? null;
+  return {
+    payment: payment !== null && new Decimal(payment).gt(0) ? payment : null,
+    rate: debt.annualRate ?? (entry ? parseRate(entry.rate) : null),
+  };
+}
+
+const takesPart = (d: Debt, entries: Entries): boolean => {
+  const t = termsOf(d, entries[d.accountId]);
+  return t.payment !== null && t.rate !== null;
+};
+
+/**
+ * «Усього на борги / міс.» by default: the minimum payments of the debts that take part, in one currency (the
+ * one-currency guard of #545: `Money` refuses to add two currencies, and the debts are filtered by currency first).
+ */
+export function minimumTotal(debts: readonly Debt[], currency: string, entries: Entries): Money {
+  return debts
+    .filter((d) => d.balance.currency === currency && takesPart(d, entries))
+    .reduce(
+      (sum, d) => sum.plus(Money.of(termsOf(d, entries[d.accountId]).payment!, currency)),
+      Money.zero(currency),
+    );
+}
+
+/** The currencies of the debts that take part in the strategy, the first debt's currency first. */
+export function strategyCurrencies(debts: readonly Debt[], entries: Entries): string[] {
+  return [...new Set(debts.filter((d) => takesPart(d, entries)).map((d) => d.balance.currency))];
+}
+
+/** `debts[]` of the request: the minimum payment and the rate entered for the debts that lack them (decimal strings). */
+export function strategyDebts(
+  debts: readonly Debt[],
+  entries: Entries,
+  currency: string,
+): { accountId: string; minimumPayment?: string; annualRate?: string }[] {
+  return debts
+    .filter((d) => d.balance.currency === currency)
+    .flatMap((d) => {
+      const e = entries[d.accountId];
+      const t = termsOf(d, e);
+      const item: { accountId: string; minimumPayment?: string; annualRate?: string } = {
+        accountId: d.accountId,
+      };
+      if (d.monthlyPayment === null && t.payment !== null) item.minimumPayment = t.payment;
+      if (d.annualRate === null && t.rate !== null) item.annualRate = t.rate;
+      return item.minimumPayment !== undefined || item.annualRate !== undefined ? [item] : [];
+    });
 }

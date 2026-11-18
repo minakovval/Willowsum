@@ -533,6 +533,10 @@ export const en: Messages = {
   "debts.strategy.reason.currency": "Another currency",
   "debts.strategy.reason.paid-off": "Already paid off",
   "debts.strategy.none": "No debts with a rate and a payment to calculate",
+  "debts.strategy.enter":
+    "Enter the minimum payment and the rate for debts that have none — then they take part in the calculation",
+  "debts.strategy.minOf": "Min. payment: {name}",
+  "debts.strategy.rateOf": "Annual rate, %: {name}",
   "debts.strategy.error": "Could not calculate the strategies — try again",
   "page.newRecurring": "New regular payment",
   "page.importHistory": "Import",
