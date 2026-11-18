@@ -240,14 +240,24 @@ export function undoableReports(reports: readonly BulkReport[]): { ids: string[]
 export async function undoBulk(
   api: ApiClient,
   ids: readonly string[],
-): Promise<{ restored: number; failure: Exclude<Outcome<unknown>, { ok: true }> | null }> {
+): Promise<{
+  restored: number;
+  /** How many actions were undone before the refusal, and the sum of their `undo.notRestored`. */
+  undone: number;
+  notRestored: number;
+  failure: Exclude<Outcome<unknown>, { ok: true }> | null;
+}> {
   let restored = 0;
+  let undone = 0;
+  let notRestored = 0;
   for (const actionId of [...ids].reverse()) {
     const o = await outcome(api.POST("/v1/bulk-actions/{actionId}/undo", { params: { path: { actionId } } }));
-    if (!o.ok) return { restored, failure: o };
+    if (!o.ok) return { restored, undone, notRestored, failure: o };
+    undone += 1;
+    notRestored += o.data.undo.notRestored;
     if (o.data.action === "transactions.confirm-category") restored += o.data.undo.restored;
   }
-  return { restored, failure: null };
+  return { restored, undone, notRestored, failure: null };
 }
 
 /** FR 14 «Запам'ятати: <мерчант> → <категорія>»: a rule for new transactions of the merchant. */

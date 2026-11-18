@@ -1742,6 +1742,8 @@ export const uk = {
   "review.toast.skipped": "Транзакцію пропущено",
   "review.toast.group": "Категорію підтверджено для {transactions}",
   "review.undo": "Відмінити",
+  "review.undo.partial": "Відмінено частково: транзакції знову в черзі, але категорію не повернуто",
+  "review.undo.partialCount": "Відмінено частково: не відновлено {notRestored}. Категорію не повернуто",
   "review.error.body": "Не вдалося завантажити чергу",
   "review.empty.title": "Усе розібрано",
   "review.empty.done.one": "{count} транзакцію підтверджено. Нові з’являться тут після наступного імпорту.",

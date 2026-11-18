@@ -244,7 +244,7 @@ describe("BUD-12@PoC b): «Відмінити» after a group", () => {
     expect(undoCalls(api)).toHaveLength(1);
   });
 
-  it("BUD-12@PoC FR 6: a mixed group undoes confirm-category before set-category; when the second undo fails, the queue is reloaded and the error shows", async () => {
+  it("BUD-12@PoC FR 6: a mixed group undoes confirm-category before set-category; when the second undo fails, the queue is reloaded and the partial-undo text shows", async () => {
     const { api } = space({
       g: { ...group("g-silpo", "Сільпо", 18, FOOD), mixedCategories: true },
       n: 18,
@@ -255,11 +255,49 @@ describe("BUD-12@PoC b): «Відмінити» after a group", () => {
     await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
     await confirmGroup(18);
     await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
-    await waitFor(() => expect(toastText()).toContain(`Дію не виконано · Код: ${SUPPORT_ID}`));
+    await waitFor(() => expect(toastText()).toContain("Відмінено частково"));
     const undos = api.calls.filter((c) => c.method === "POST" && c.path.endsWith("/undo")).map((c) => c.path);
     expect(undos).toEqual(["/v1/bulk-actions/a1/undo", "/v1/bulk-actions/a0/undo"]);
     // The confirmations came back before the failure: progress and the group show them.
     expect(progress()).toBe("0 з 103 · лишилось 103");
     await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
+  });
+
+  it("BUD-12@PoC FR 6: a partial undo (confirm-category undone, set-category refused) shows its own text, not «Дію не виконано»", async () => {
+    const { api } = space({
+      g: { ...group("g-silpo", "Сільпо", 18, FOOD), mixedCategories: true },
+      n: 18,
+      total: 103,
+      setUndoReply: problem(500, "INTERNAL"),
+    });
+    open(api);
+    await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
+    await confirmGroup(18);
+    await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
+    await waitFor(() =>
+      expect(toastText()).toBe("Відмінено частково: транзакції знову в черзі, але категорію не повернуто"),
+    );
+    expect(toastText()).not.toContain("Дію не виконано");
+  });
+
+  it("BUD-12@PoC FR 6: a partial undo with `undo.notRestored` = 3 shows that count", async () => {
+    const { api } = space({
+      g: { ...group("g-silpo", "Сільпо", 18, FOOD), mixedCategories: true },
+      n: 18,
+      total: 103,
+      // The first undo (confirm-category) reports 3 transactions it could not restore.
+      undoReply: {
+        status: 200,
+        body: report("a1", "transactions.confirm-category", 18, { restored: 15, notRestored: 3 }),
+      },
+      setUndoReply: problem(500, "INTERNAL"),
+    });
+    open(api);
+    await screen.findByRole("heading", { name: nm("Сільпо · 18 транзакцій") });
+    await confirmGroup(18);
+    await act(async () => screen.getByRole("button", { name: "Відмінити" }).click());
+    await waitFor(() =>
+      expect(toastText()).toBe("Відмінено частково: не відновлено 3. Категорію не повернуто"),
+    );
   });
 });

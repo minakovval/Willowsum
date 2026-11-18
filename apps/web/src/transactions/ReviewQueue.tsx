@@ -251,7 +251,16 @@ export function ReviewQueue() {
                       const back = await undoBulk(api, undoable.ids);
                       if (back.restored > 0) confirmed(-back.restored);
                       await reloadGroups();
-                      if (back.failure) show(failureText(t, back.failure), undefined, "error");
+                      // The first undo passed and a later one failed: the group is back, its category is not.
+                      if (back.failure && back.undone > 0)
+                        show(
+                          back.notRestored > 0
+                            ? t("review.undo.partialCount", { notRestored: back.notRestored })
+                            : t("review.undo.partial"),
+                          undefined,
+                          "error",
+                        );
+                      else if (back.failure) show(failureText(t, back.failure), undefined, "error");
                     })();
                   }
                 : undefined,
