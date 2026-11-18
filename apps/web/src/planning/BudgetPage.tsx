@@ -129,6 +129,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             <PlanEmpty icon={BUDGET.icon} page="budget">
               <div className="bud-wiz-cta">
                 <Button
+                  variant="primary"
                   href={hrefFor(childPath("budgetNew"))}
                   label={t("planning.budget.wizard.method.spending")}
                 />

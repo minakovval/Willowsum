@@ -273,6 +273,8 @@
   gap: var(--ws-space-5);
   max-inline-size: calc(var(--ws-space-8) * 12);
   margin-inline: auto;
+  /* The stepper overlapped the focus title by 7 px at 1280 px. */
+  padding-block-start: var(--ws-space-4);
 }
 
 .bud-wiz-options {
@@ -305,6 +307,8 @@
 }
 
 .bud-wiz-option input {
+  /* A long description must not squeeze the radio (1280 px review: 13 × 24 px). */
+  flex: none;
   inline-size: var(--ws-space-5);
   block-size: var(--ws-space-5);
   margin: 0;
@@ -340,6 +344,11 @@
   padding: var(--ws-space-2) var(--ws-space-3);
   text-align: start;
   border-block-end: 1px solid var(--ws-line);
+}
+
+/* Amounts right-aligned, as on PocPlanBudgetWiz3 (the rule above outranks `.bud-num`). */
+.bud-wiz-table .bud-num {
+  text-align: end;
 }
 
 .bud-wiz-cta {

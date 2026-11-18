@@ -172,6 +172,7 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
         <Button variant="secondary" onClick={onClose} label={t("planning.budget.wizard.cancel")} />
         {step < 2 ? (
           <Button
+            variant="primary"
             onClick={next}
             {...(step === 1 && periodBlocked
               ? { disabled: true as const, disabledReason: t("planning.budget.wizard.period.choose") }
@@ -179,7 +180,12 @@ function Wizard({ data, today, onClose }: { data: Ready; today: string; onClose:
             label={t("planning.budget.wizard.next")}
           />
         ) : (
-          <Button onClick={() => void submit()} loading={busy} label={t("planning.budget.wizard.create")} />
+          <Button
+            variant="primary"
+            onClick={() => void submit()}
+            loading={busy}
+            label={t("planning.budget.wizard.create")}
+          />
         )}
       </div>
     </div>
