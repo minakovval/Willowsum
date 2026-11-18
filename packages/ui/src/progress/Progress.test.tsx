@@ -230,6 +230,13 @@ describe("CMP-74@PoC Progress", () => {
     expect(container.querySelector(".ws-progress-count")!.getAttribute("aria-hidden")).toBe("true");
   });
 
+  it("CMP-74@PoC: an error after the count passed the estimate keeps the fill below full", () => {
+    const { container } = render(
+      <Progress label="Синхронізація" value={950} max={900} estimated state="error" />,
+    );
+    expect(parseFloat(fill(container).style.inlineSize)).toBeLessThan(100);
+  });
+
   it("CMP-74@PoC: colour is never the only sign — every state is named in text", () => {
     const states = [
       [<Progress key="r" label="x" value={1} max={3} />, "1 з 3 · лишилось 2"],

@@ -73,7 +73,7 @@ export function Progress({
   const announcement = useThrottledAnnouncement(spoken, current === "done" || current === "error");
 
   const share = determinate ? Math.round((done / total) * 10000) / 100 : 0;
-  const percent = estimated && current === "running" ? Math.min(share, 99) : share;
+  const percent = estimated && current !== "done" ? Math.min(share, 99) : share;
 
   const status =
     current === "counting" ? (
