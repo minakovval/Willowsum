@@ -387,6 +387,26 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     expect(lastYear.largest).toEqual([]);
   });
 
+  it("BUD-06@PoC FR 5: «Той самий період минулого року» is available once there is data a year ago", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const acc = await account(space);
+    await spend(space, acc, "-25.00", "2025-11-03", "Продукти");
+    await spend(space, acc, "-35.00", "2026-11-03", "Продукти");
+    const view = await compare(space, "type=month&period=2026-11&base=last-year");
+    expect(view.bases.find((b) => b.base === "last-year")).toEqual({
+      base: "last-year",
+      available: true,
+      reason: null,
+      months: null,
+    });
+    expect(view.base.window).toEqual({ from: "2025-11-01", to: "2025-11-12" });
+    expect(rowOf(view.expenses.categories, await category(space, "Продукти"))).toMatchObject({
+      current: eur("35"),
+      base: eur("25"),
+    });
+  });
+
   it("BUD-06@PoC AC6: on 31 March the base «Попередній період» is 1–28 February", async () => {
     now = at("2027-03-31");
     const space = await newSpace();

@@ -1,6 +1,6 @@
 # Модуль budget
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-06@PoC a: «Порівняння» — `GET /v1/budget/compare`, `GET /v1/budget/compare/year`, прапорець `budget.compare`; BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -32,6 +32,13 @@ BUD-03@PoC a) (рядок 34, ядро розрахунку): `spendable` (`doma
 BUD-16@PoC a) (рядок 32, серверна частина): п. 1 (метод лише «Ліміти» — не зберігається, не обирається), 2 (без
 перенесення), 4 («План місяця» = сума лімітів місяця, завершений — зі знімка; без історії методів і позначок зміни),
 5 (лише факти); AC1 (серверна частина). UI «Тренду» — рядок 133.
+BUD-06@PoC a) (рядок 36, серверна частина): п. 1 (типи періоду, бази за типом, таблиця категорій: поточна сума, «План»
+за знімком і «± до плану», база й різниця однією зміною — сума, відсоток, стрілка, колір «краще / гірше» з кроком 10 % і
+«без змін»), 2 і 3 (та сама дата, «Повний попередній період», дні 29–31), 4 (середнє за завершені цілі місяці після
+початку історії, «за N міс.»; без «Одноразових витрат» — коли з'явиться позначка, п. 8), 5 (база минулого року лише з
+даними там), 6 (сортування за абсолютною різницею, три найбільші зміни з кількістю транзакцій; тексти — на сторінці), 11
+(«Рік: план і факт»), бізнес-правила; AC1, AC2, AC5–AC11, AC13–AC15 (серверні частини), граничні випадки 1–3. UI —
+рядок 132; п. 8 і AC4 («Одноразова витрата»), п. 9 («з цілі») — далі (follow-ups PR).
 Далі: запис розподілу (внески в цілі, «Заощадження без цілі», додатковий платіж за боргом) і ліміти окремого місяця — з
 BUD-17 (рядок 35); «Можна витратити в <місяць> ≈» — BUD-03 (рядок 34); UI (рядки 123–125).
 
@@ -86,10 +93,26 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     `not_expense`) → `currency`, `months` (`period`, `mode`, `plan` — сума лімітів місяця, завершений — зі знімка, з
     фільтром — ліміт категорії, null — до бюджету або без ліміту; `spent` — усі витрати, з «Поза планом» і «Без
     категорії», null — майбутній; `income`), `approximate` за всі місяці. Знімки завершених місяців — як у періоду.
+  - `GET /v1/budget/compare` (`getBudgetCompare`; прапорець випуску і ключ функції `budget.compare`, вимагає
+    `budget.period`) — `type` (`month`, `quarter`, `ytd`, `year`, `custom`), `period` (YYYY-MM, YYYY-Qn, YYYY; `ytd` —
+    лише цей рік), `from`/`to` (лише `custom`, до 366 днів), `base` (`previous`, `last-year`, `avg3`, `avg6`, `avg12`;
+    типово `previous`, для `year` і `ytd` — `last-year`; `custom` без середнього; інакше 400 `base: not_for_type`),
+    `full` (база повністю). 400 `period`/`from`: `invalid`, `future`; `to`: `invalid`, `too_long`. Без бюджету — 404. →
+    `currency`, `type`, `window` (до сьогодні, поки період триває), `inProgress`, `finished`, `year` (для «Рік: план і
+    факт»), `finishedPeriods` (0 — порожній стан), `bases` (`available`, `reason` — `no_history` / `no_finished_periods`,
+    `months` середнього), `base` (`window`, `months`, `full`), `expenses` і `income` (`overall` і `categories`:
+    `current`, `plan` — сума `monthPlan` місяців вікна, null — «Поза планом» чи «Власний»; `planDifference`, `base`,
+    `difference` — `amount`, `percent` (1 знак, null проти 0), `direction`, `tone`; `transactions`), `largest` (до 3),
+    `approximate` (обидва вікна; суми поза межами — як #586).
+  - `GET /v1/budget/compare/year` (`getBudgetCompareYear`, той самий прапорець) — `year` (YYYY) → `months` (12, `mode`),
+    `income`, `groups` (у порядку дерева, «Без категорії» — `groupId` null, останньою) з `categories`, `expenses`:
+    рядок — 12 `cells` (`fact`, null — майбутній; `plan`; `difference`), `total`, `plan`, `difference` за завершені
+    місяці; `approximate`.
 - `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations? })` →
   `BudgetServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories`
   (categories), `AccountList` (accounts), `BudgetTransactions` (transactions), `TransactionCategories`
   (categorization), `FxReporting.total` (fx-rates); «сьогодні» — дата за Києвом; валюта — `SPACE_REPORTING_CURRENCY`;
+  `BudgetTransactions.firstDate` (transactions) — початок історії для середніх і бази минулого року (BUD-06);
   `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
   (`recurring`: `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).

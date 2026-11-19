@@ -346,6 +346,39 @@ describe("BUD-06@PoC a): the table of categories", () => {
     expect(t.expenses.total).toMatchObject({ current: eur("1780"), base: eur("1200") });
   });
 
+  it("BUD-06@PoC FR 6: at most three largest changes, by the absolute difference; ties by the amount now", () => {
+    const t = compareTable({
+      currency: "EUR",
+      current: sums([
+        ["cafes", "-50"],
+        ["fuel", "-10"],
+        ["gifts", "-120"],
+        ["travel", "-200"],
+        ["groceries", "-70"],
+      ]),
+      base: {
+        sums: sums([
+          ["cafes", "-10"],
+          ["fuel", "-50"],
+          ["gifts", "-80"],
+          ["travel", "-200"],
+          ["groceries", "-100"],
+        ]),
+        divisor: 1,
+      },
+      plans: null,
+    });
+    // cafes +40, fuel −40, gifts +40 (now 120 — first of the ties), groceries −30, travel 0.
+    expect(t.expenses.categories.map((r) => r.categoryId)).toEqual([
+      "gifts",
+      "cafes",
+      "fuel",
+      "groceries",
+      "travel",
+    ]);
+    expect(t.largest.map((l) => l.categoryId)).toEqual(["gifts", "cafes", "fuel"]);
+  });
+
   it("BUD-06@PoC FR 4: an average is exact — a third of 100 € is not rounded to cents", () => {
     const t = compareTable({
       currency: "EUR",
