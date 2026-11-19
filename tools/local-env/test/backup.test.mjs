@@ -108,3 +108,45 @@ test('CICD-04 local: backup never overwrites an existing file', () => {
   assert.match(res.stderr, /never overwritten/);
   assert.equal(fs.readFileSync(file, 'utf8'), 'keep');
 });
+
+// Reviewer patch (PR #520): stub PostgreSQL clients on PATH log each call and its stdin, so the order of restore steps
+// is checked without a server. `pg_restore --list` fails when FAIL_LIST is set.
+const stubs = (extra = {}) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ws-bk-bin-'));
+  const log = path.join(dir, 'calls.log');
+  const body = { psql: `cat >> "${log}"; echo 1`, pg_dump: 'printf PGDMP', pg_dumpall: 'echo "CREATE ROLE r;"', pg_restore: 'case "$*" in *--list*) [ -z "$FAIL_LIST" ] ;; esac' };
+  for (const [name, cmd] of Object.entries(body)) fs.writeFileSync(path.join(dir, name), `#!/bin/sh\necho "${name} $*" >> "${log}"\n${cmd}\n`, { mode: 0o755 });
+  const env = { PATH: `${dir}:${process.env.PATH}`, WS_TEST_PG_ADMIN_URL: 'postgres://postgres@127.0.0.1:1/postgres', ...extra };
+  return { env, calls: () => (fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '') };
+};
+
+test('CICD-04 local: restore without --yes and without a terminal stops before the database is dropped', () => {
+  const file = tmpFile();
+  fs.writeFileSync(file, 'PGDMP');
+  const s = stubs();
+  const res = run(['restore', file], s.env);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /add --yes/);
+  assert.doesNotMatch(s.calls(), /DROP DATABASE/);
+  const yes = stubs();
+  assert.equal(run(['restore', file, '--yes'], yes.env).status, 0, 'the stubs reach the drop with --yes');
+  assert.match(yes.calls(), /DROP DATABASE IF EXISTS ws_dev;[\s\S]*pg_restore .*ws_dev/);
+});
+
+test('CICD-04 local: restore of a file that is not a backup stops before the database is dropped', () => {
+  const file = tmpFile();
+  fs.writeFileSync(file, 'not a dump');
+  const s = stubs({ FAIL_LIST: '1' });
+  const res = run(['restore', file, '--yes'], s.env);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /not a readable PostgreSQL backup/);
+  assert.doesNotMatch(s.calls(), /DROP DATABASE/);
+});
+
+test('CICD-04 local: the backup and its roles file are readable by the owner only', () => {
+  const out = tmpFile();
+  const res = run(['backup', out], stubs().env);
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(fs.statSync(out).mode & 0o777, 0o600);
+  assert.equal(fs.statSync(rolesFile(out)).mode & 0o777, 0o600);
+});
