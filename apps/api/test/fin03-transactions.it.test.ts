@@ -13,6 +13,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createTransactionsErasure, createTransactionsServices } from "../src/modules/transactions/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC a) (wave 2 row 15), through the real API on a real PostgreSQL: a transaction entered by hand is one
@@ -613,7 +614,7 @@ describe("FIN-03@PoC FR 13, FR 22: the list on the universal list engine (DAT-01
     ]) {
       const res = await call(space, "GET", `/v1/transactions?${q}`);
       expect(res.statusCode, q).toBe(400);
-      expect(res.body).not.toContain("household_id");
+      expect(leakText(res.body)).not.toContain("household_id");
     }
   });
 });
@@ -633,7 +634,7 @@ describe("FIN-03@PoC «Права доступу»: the Owner works with transac
       const unknown = await call(b, method, `/v1/transactions/${randomUUID()}`, body);
       expect([foreign.statusCode, unknown.statusCode]).toEqual([404, 404]);
       expect(strip(foreign.body)).toEqual(strip(unknown.body));
-      expect(foreign.body).not.toContain("Сільпо");
+      expect(leakText(foreign.body)).not.toContain("Сільпо");
     }
     // An account of another space is unknown too: nothing written in either space.
     const into = await call(b, "POST", "/v1/transactions", tx(account, "-1.00"));
@@ -704,7 +705,7 @@ describe("FIN-03@PoC «Права доступу»: the Owner works with transac
     const getOne = await call(space, "GET", `/v1/transactions/${t.id}`, undefined, scoped);
     const list = await call(space, "GET", "/v1/transactions", undefined, scoped);
     expect([getOne.statusCode, list.statusCode]).toEqual([404, 404]);
-    expect(list.body).not.toContain("count");
+    expect(leakText(list.body)).not.toContain("count");
     expect((await call(space, "POST", "/v1/transactions", tx(account, "-2.00"), scoped)).statusCode).toBe(
       403,
     );

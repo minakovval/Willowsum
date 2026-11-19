@@ -17,6 +17,7 @@ import { createAccountDirectory, createAccountsServices } from "../src/modules/a
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import { createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-13@PoC a) (wave 2 row 21), through the real API on a real PostgreSQL: «Нотатка» and «Теги» of a transaction, the
@@ -447,7 +448,7 @@ describe("BUD-13@PoC AC7: another space's transactions and tags are not found", 
     expect(read.statusCode).toBe(404);
     const write = await attributes(stranger, t.id, { note: "x", tags: ["чуже"] });
     expect(write.statusCode).toBe(404);
-    expect(write.body).not.toContain("секрет");
+    expect(leakText(write.body)).not.toContain("секрет");
     expect(await tagsOf(stranger)).toEqual([]);
     expect((await call(stranger, "PATCH", `/v1/transaction-tags/${tag!.id}`, { name: "x" })).statusCode).toBe(
       404,

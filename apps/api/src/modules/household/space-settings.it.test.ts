@@ -7,6 +7,7 @@ import { fakeFlags, principalHeader, testAuthenticate } from "../../../test/http
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../../../test/real-modules.ts";
 import { createAuditLog, type AuditLog } from "../audit/index.ts";
 import { createHouseholdServices, type HouseholdSpaces } from "./index.ts";
+import { leakText } from "../../../test/leak-text.ts";
 
 /**
  * ACC-08@PoC FR 2, FR 4, FR 5 and AC5, server side, through the real API on a real PostgreSQL: the space's name for
@@ -128,7 +129,7 @@ describe("ACC-08@PoC FR 5: the Owner renames the space in «Налаштуван
       expect(res.statusCode, JSON.stringify(name)).toBe(400);
       expect(res.json()).toMatchObject({ code: "VALIDATION_FAILED" });
       // The problem never echoes what was sent.
-      expect(res.body).not.toContain("Коваль\\nі");
+      expect(leakText(res.body)).not.toContain("Коваль\\nі");
     }
     expect(await nameOf(space.householdId)).toBe("Родина Коваль");
     expect(await renames(space.householdId)).toEqual([]);
@@ -170,7 +171,7 @@ describe("ACC-08@PoC FR 5: the Owner renames the space in «Налаштуван
     auditDown = true;
     const res = await call(space, "PATCH", { name: "Нова назва" });
     expect(res.statusCode).toBe(500);
-    expect(res.body).not.toContain("audit unavailable");
+    expect(leakText(res.body)).not.toContain("audit unavailable");
     auditDown = false;
     expect(await nameOf(space.householdId)).toBe("Родина Аудитна");
     expect(await renames(space.householdId)).toEqual([]);

@@ -17,6 +17,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createTransactionLookup, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-05@PoC b) (wave 2 row 28), the server part: «Витратити» from a goal, «Скасувати витрату», the automatic cancel when
@@ -519,7 +520,7 @@ describe("BUD-05@PoC AC6: the space's boundary of «Витратити» and clo
     ] as const) {
       const res = await call(stranger, method, url, body);
       expect(res.statusCode, `${method} ${url}`).toBe(404);
-      expect(res.body).not.toContain("1800");
+      expect(leakText(res.body)).not.toContain("1800");
     }
     expect((await getGoal(space, g.id)).spends).toHaveLength(1);
   });

@@ -18,6 +18,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR #295 (BUD-05@PoC a, module goals): FR 3 under concurrency (the account's lock), the schema's
@@ -347,7 +348,7 @@ describe("PR #295 security: idempotency keys", () => {
     // A stranger with the same key on the owner's goal: not found, never the stored response.
     const leak = await call(stranger, "POST", `/v1/goals/${g}/contributions`, { amount: eur("123.45") }, key);
     expect(leak.statusCode).toBe(404);
-    expect(leak.body).not.toContain("123.45");
+    expect(leakText(leak.body)).not.toContain("123.45");
     expect(leak.headers["idempotent-replayed"]).toBeUndefined();
   });
 

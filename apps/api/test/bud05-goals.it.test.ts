@@ -16,6 +16,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-05@PoC a) (wave 2 row 27), the server part of the module `goals`, through the real API on a real PostgreSQL: a
@@ -618,7 +619,7 @@ describe("BUD-05@PoC AC6: the space's boundary", () => {
     ] as const) {
       const res = await call(stranger, method, url, body);
       expect(res.statusCode, `${method} ${url}`).toBe(404);
-      expect(res.body).not.toContain("1000");
+      expect(leakText(res.body)).not.toContain("1000");
     }
     // An account of another space is unknown as a part's account.
     const theirs = await account(owner, "5000.00");

@@ -9,6 +9,7 @@ import { defineRoute } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { principalHeader, testApiOptions, testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR #85 (NFR-10 FR 1, FR 4; ARC-09 FR 3): client trace headers of every format are
@@ -121,7 +122,7 @@ describe("sec85: NFR-10 FR 4 — no client id is ever accepted", () => {
     for (const id of ids) expect(id).toMatch(/^[0-9a-f]{32}$/);
     expect(ids).toEqual(serverSpans().map((s) => s.spanContext().traceId));
     const probe = await app.inject({ method: "GET", url: "/health/live" });
-    expect(probe.body).not.toContain("supportId");
+    expect(probe.body).not.toContain("supportId"); // leak-guard: raw (asserts the field itself is absent)
   });
 
   // Review of PR #85, fixed (was Low): a URL Fastify cannot decode answers with Fastify's own body (which echoes
@@ -131,7 +132,7 @@ describe("sec85: NFR-10 FR 4 — no client id is ever accepted", () => {
     // NOT_FOUND, as for an unknown path (DAT-05 FR 7; lead's decision on review of PR #85).
     expect(res.statusCode).toBe(404);
     expect(res.json().supportId).toMatch(/^[0-9a-f]{32}$/);
-    expect(res.body).not.toContain("olha");
+    expect(leakText(res.body)).not.toContain("olha");
     expect(serverSpans()).toHaveLength(1);
   });
 });
