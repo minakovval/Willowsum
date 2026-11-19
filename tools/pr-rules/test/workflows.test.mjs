@@ -242,3 +242,37 @@ test('owner, 2026-11-13: a typical implementer start (AGENTS.md + implement-requ
   // Before the split: 506 lines (324 + 182). The owner asked for at least 30 % less: at most 354.
   assert.ok(total <= 354, `AGENTS.md + implement-requirement: ${total} lines`);
 });
+
+// PRC-02 (owner decision 2026-11-19, docs/decisions/log/2026-11-19-owner-dashboard-coverage.md): the progress page
+// headlines PoC coverage; CI writes it to gh-pages after each merge to main, with the least privilege.
+test('PRC-02 (owner, 2026-11-19): main publishes the progress page and coverage.json to gh-pages, write token only in `publish`', () => {
+  const wf = read('.github/workflows/progress-dashboard.yml');
+  assert.match(wf, /^on:\n {2}push:\n {4}branches: \[main\]\n {2}workflow_dispatch:\n/m);
+  assert.match(wf, /^permissions: \{\}$/m);
+  assert.match(wf, /^concurrency:\n {2}group: progress-dashboard\n/m);
+  assert.deepEqual(jobPermissions(wf, 'build'), { contents: 'read' });
+  assert.deepEqual(jobPermissions(wf, 'publish'), { contents: 'write' });
+  for (const job of ['build', 'publish']) {
+    assert.match(wf, new RegExp(`^ {2}${job}:\\n(?: {4}.*\\n)*? {4}if: github\\.ref == 'refs/heads/main'\\n`, 'm'), job);
+    assert.match(wf, new RegExp(`^ {2}${job}:\\n(?: {4}.*\\n)*? {4}timeout-minutes: \\d+\\n`, 'm'), job);
+  }
+  assert.match(wf, /index\.mjs --quiet --coverage-json "\$RUNNER_TEMP\/site\/coverage\.json" --sha "\$GITHUB_SHA"/);
+  // The job with the write token runs no repository code: no setup-node, no node, no pnpm; it pushes only to gh-pages.
+  const publish = /^ {2}publish:\n((?: {4,}.*\n|\s*\n)*)/m.exec(wf)[1];
+  assert.doesNotMatch(publish, /setup-node|\bnode |pnpm|npm /);
+  assert.match(publish, /ref: gh-pages\n/);
+  assert.match(publish, /push origin HEAD:gh-pages\n/);
+  assert.equal([...wf.matchAll(/\bpush origin\b/g)].length, 1);
+  // No secret beyond the job token, no OIDC, never on PR events.
+  assert.doesNotMatch(wf.replace(/#.*$/gm, ''), /secrets\.|id-token|pull_request|pages: write/);
+});
+
+test('PRC-02 (owner, 2026-11-19): the progress page headlines coverage.json, shows «немає даних» without it, no made-up total', () => {
+  const page = read('tools/progress-dashboard/index.html');
+  assert.match(page, /Вимоги PoC покриті тестами/);
+  assert.match(page, /var COVERAGE = 'coverage\.json';/);
+  assert.match(page, /немає даних/);
+  assert.match(page, />Темп</);
+  // The old fallback for the plan estimate is gone: no number stands in for missing data.
+  assert.doesNotMatch(page, /FALLBACK|\b251\b/);
+});

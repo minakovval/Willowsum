@@ -139,3 +139,24 @@ export function renderCoverage(cov) {
   L.push('');
   return L.join('\n');
 }
+
+/**
+ * Coverage per release as JSON for the progress dashboard (PRC-02, owner decision 2026-11-19): FR, AC and EC
+ * covered / total per release, the time it was computed and the main commit it was computed on. The page shows
+ * only these numbers; it never estimates one that is missing.
+ * @param {ReturnType<typeof computeCoverage>} cov
+ * @param {{sha?: string|null, generatedAt?: string}} [meta]
+ */
+export function coverageSummary(cov, { sha = null, generatedAt = new Date().toISOString() } = {}) {
+  const releases = [];
+  for (const release of SLICE_RELEASES) {
+    const rs = cov.rows.filter((x) => x.release === release);
+    if (!rs.length) continue;
+    const sum = (k) => ({ covered: rs.reduce((a, x) => a + x[k].covered, 0), total: rs.reduce((a, x) => a + x[k].total, 0) });
+    const FR = sum('FR');
+    const AC = sum('AC');
+    const EC = sum('EC');
+    releases.push({ release, slices: rs.length, FR, AC, EC, items: { covered: FR.covered + AC.covered + EC.covered, total: FR.total + AC.total + EC.total } });
+  }
+  return { schema: 1, generatedAt, sha, releases };
+}

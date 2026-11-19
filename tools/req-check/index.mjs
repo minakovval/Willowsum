@@ -14,6 +14,9 @@
 //                                                        move items to another release (changes their tags), write the
 //                                                        views, report dependents
 //   node tools/req-check/index.mjs --coverage            per-item and per-release coverage by tests named by item
+//   node tools/req-check/index.mjs --coverage-json <file> [--sha <commit>]
+//                                                        per-release FR/AC/EC covered and total as JSON for the progress
+//                                                        dashboard (tools/progress-dashboard), with the time and commit
 //   node tools/req-check/index.mjs --show <ID@release>   one slice: its view, dependencies, the decisions that cite
 //                                                        it and its coverage line (instead of reading whole folders)
 //   node tools/req-check/index.mjs --check-mentions      fail (exit 1) on a test that names an item its requirement
@@ -43,7 +46,7 @@ import { renderTraceability } from './lib/traceability.mjs';
 import { computeImpact, renderImpact } from './lib/impact.mjs';
 import { convertRequirement, viewFileName } from './lib/source.mjs';
 import { moveItems } from './lib/move.mjs';
-import { findMentions, computeCoverage, renderCoverage, danglingMentions } from './lib/coverage.mjs';
+import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary } from './lib/coverage.mjs';
 import { SLICE_FILE_RE } from './lib/config.mjs';
 import { resolveSlice, decisionMentions, renderShow } from './lib/show.mjs';
 import { buildModel } from './lib/model.mjs';
@@ -93,7 +96,7 @@ function isLink(p) {
 }
 
 export function parseArgs(argv) {
-  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, checkMentions: false, checkFingerprints: false, requireFingerprints: false, updateFingerprints: null, fingerprintItems: [], show: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
+  const opts = { root: process.cwd(), requirements: 'docs/requirements', baseline: path.join(here, 'baseline.json'), facts: path.join(here, 'facts.json'), report: null, impact: null, views: false, convert: null, move: null, items: null, to: null, from: null, coverage: false, coverageJson: null, sha: null, checkMentions: false, checkFingerprints: false, requireFingerprints: false, updateFingerprints: null, fingerprintItems: [], show: null, traceability: false, traceabilityDir: 'docs/traceability', updateBaseline: false, useBaseline: true, quiet: false, migratedBase: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -115,6 +118,8 @@ export function parseArgs(argv) {
     else if (a === '--to') opts.to = next();
     else if (a === '--from') opts.from = next();
     else if (a === '--coverage') opts.coverage = true;
+    else if (a === '--coverage-json') opts.coverageJson = next();
+    else if (a === '--sha') opts.sha = next();
     else if (a === '--check-mentions') opts.checkMentions = true;
     else if (a === '--check-fingerprints') opts.checkFingerprints = true;
     else if (a === '--require-fingerprints') opts.requireFingerprints = true;
@@ -255,7 +260,7 @@ export function loadDecisionFiles(root) {
 export function main(argv = process.argv.slice(2), log = console.log) {
   const opts = parseArgs(argv);
   if (opts.help) {
-    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--show ID@release] [--coverage] [--check-mentions] [--check-fingerprints [--require-fingerprints]] [--update-fingerprints ID [items…]] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
+    log('usage: node tools/req-check/index.mjs [--report file.md] [--impact ID|S-id|board|П-n|UC-id|module] [--traceability] [--traceability-dir dir] [--views] [--show ID@release] [--coverage] [--coverage-json file.json [--sha commit]] [--check-mentions] [--check-fingerprints [--require-fingerprints]] [--update-fingerprints ID [items…]] [--update-baseline] [--no-baseline] [--migrated-base base-migrated.json] [--root dir]');
     return 0;
   }
   if (opts.convert) {
@@ -338,6 +343,16 @@ export function main(argv = process.argv.slice(2), log = console.log) {
     for (const f of r.findings) printFinding(log, f, 'error');
     log(`req-check: ${r.checked} fingerprinted items checked, ${r.changed} changed items; ${r.missing} items named by tests have no fingerprint yet${opts.requireFingerprints ? ' (required)' : ' (not required until the initial fingerprints are set)'}; ${r.findings.length} errors.`);
     fingerprintExit = r.findings.length ? 1 : 0;
+    if (!opts.coverage && !opts.checkMentions) return fingerprintExit;
+  }
+
+  if (opts.coverageJson) {
+    const cov = computeCoverage(result.model, findMentions(loadTestFiles(opts.root)));
+    if (opts.sha !== null && !/^[0-9a-f]{40}$/.test(opts.sha)) throw new Error('--sha needs a full commit hash');
+    const out = path.resolve(opts.root, opts.coverageJson);
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, `${JSON.stringify(coverageSummary(cov, { sha: opts.sha }), null, 2)}\n`);
+    log(`req-check: coverage JSON written to ${opts.coverageJson}`);
     if (!opts.coverage && !opts.checkMentions) return fingerprintExit;
   }
 
