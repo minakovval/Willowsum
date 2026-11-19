@@ -259,6 +259,7 @@ export function SpendDialog({
             type="checkbox"
             role="switch"
             checked={closing}
+            disabled={busy}
             onChange={(e) => setClosing(e.target.checked)}
           />
           <span className="ws-switch-track" aria-hidden="true" />

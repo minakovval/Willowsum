@@ -1,6 +1,6 @@
 # Local environment
 
-**Створено:** 2026-11-06 · **Оновлено:** 2026-11-16 (`pnpm local:dev`; free ports, closing the window, leftovers — #363)
+**Створено:** 2026-11-06 · **Оновлено:** 2026-11-18 (`pnpm local:backup`, `pnpm local:restore`; 2026-11-16: `pnpm local:dev`; free ports, closing the window, leftovers — #363)
 
 CICD-04, row «Локальне»: the backing services the app needs, started with one command, holding only
 synthetic data.
@@ -22,6 +22,8 @@ Requires Docker with the compose plugin and Node 22.18 or newer, 22 or 24 LTS (m
 | `pnpm local:smoke` | End-to-end check: SQL query, mail over SMTP, S3 put/get, and refusal without credentials. |
 | `pnpm local:down` | Stops; data is kept. |
 | `pnpm local:reset` | Stops, deletes all local data (volumes), starts empty. |
+| `pnpm local:backup [file]` | A copy of the `pnpm local:dev` database in a file (below). |
+| `pnpm local:restore <file> [--yes]` | Replaces the `pnpm local:dev` database with a copy from a file (below). |
 | `pnpm local:dev` | The whole app to click through: the services above, then the API, worker, scheduler and web app (below). |
 
 ## The whole app (`pnpm local:dev`)
@@ -87,6 +89,36 @@ CAPTCHA service, no mail, no exchange-rate service — nothing leaves the machin
 - Port 5173 must be free (the browser opens it): the command checks it on `127.0.0.1`, `::1` and every address and
   names the program to look for (`lsof -nP -iTCP:5173 -sTCP:LISTEN`). If a process fails to start or is not ready in
   60 s, the command stops and prints the end of its log and the reason from `/health/ready`.
+
+## Копія бази і відновлення (`pnpm local:backup`, `pnpm local:restore`)
+
+Для власника: ваша ручна робота в `pnpm local:dev` лежить у базі `ws_dev`. `pnpm local:reset` або видалення тома
+Docker стирає її без вороття, тому час від часу зберігайте копію у файл. Команди чіпають лише `ws_dev` на цьому
+комп'ютері; тестові бази і чужі сервери — ніколи.
+
+**Зберегти копію**
+
+1. Запустіть `pnpm local:dev` хоча б раз, щоб база існувала (Docker Desktop відкритий).
+2. У папці репозиторію: `pnpm local:backup` (файл `~/Willowsum-backups/ws_dev-<дата і час>.dump`) або
+   `pnpm local:backup ~/Documents/moya-kopiya.dump`.
+3. Команда друкує шлях і розмір файлу, поряд кладе `<файл>.roles.sql` (ролі модулів без паролів). Існуючий файл
+   вона не перезаписує. Файл не зашифрований і містить усе з `ws_dev` (облікові записи, хеші паролів, сесії):
+   тримайте його лише на своєму комп'ютері, не завантажуйте в хмару і не діліться ним, поки самі його не зашифрували.
+
+**Відновити з файлу**
+
+1. Зупиніть `pnpm local:dev` (Ctrl+C). Docker Desktop відкритий.
+2. `pnpm local:restore ~/Willowsum-backups/ws_dev-….dump`. Команда перевіряє файл, друкує шлях і розмір і питає
+   «yes» перед тим, як замінити базу. Без питання: додайте `--yes` (або коротко `-y`).
+3. Дочекайтеся «Restored ws_dev», далі `pnpm local:dev`: програма стартує з вашими даними. Копія спершу
+   відновлюється в окрему базу `ws_dev_restore`, і `ws_dev` замінюється лише після успіху: якщо файл пошкоджений
+   або відновлення перервалося, команда пише «ws_dev is unchanged», і ваша база лишається як була.
+4. Том видалено? Спершу `pnpm local:up`, потім пункт 2: ролі беруться з `.roles.sql` поряд із файлом.
+   Збережіть обидва файли разом.
+
+Без Docker: ті самі команди з `WS_TEST_PG_ADMIN_URL=postgres://<superuser>@127.0.0.1:5432/postgres` і клієнтами
+`pg_dump`, `pg_restore`, `psql` у PATH. Помилка «database is being accessed by other users» — `pnpm local:dev` ще
+працює: зупиніть його.
 
 ## Test database per agent (`pnpm db:test`)
 

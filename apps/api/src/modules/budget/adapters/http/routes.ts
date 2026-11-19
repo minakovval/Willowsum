@@ -8,8 +8,10 @@ import {
   createBudget,
   deleteBudget,
   isIncluded,
+  CHOSEN_MAX,
   LIMITS_MAX,
   periodPlan,
+  previewAllocation,
   setBudgetAccount,
   updatePlan,
   wizard,
@@ -17,7 +19,15 @@ import {
   type Result,
   type StoredBudget,
 } from "../../application/index.ts";
-import { isPeriod, periodFigures, periodMode, shareFrom, type StartChoice } from "../../domain/index.ts";
+import {
+  categoriesSummary,
+  expectedPayments,
+  isPeriod,
+  periodFigures,
+  periodMode,
+  shareFrom,
+  type StartChoice,
+} from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
@@ -36,10 +46,9 @@ const BODY_LIMIT = 64 * 1024;
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const moneyInput = z
   .object({
-    amount: z
-      .string()
-      .max(48)
-      .meta({ description: "A plain non-negative decimal, at most the currency's minor units" }),
+    amount: z.string().max(48).meta({
+      description: "A plain non-negative decimal, at most 15 integer digits and the currency's minor units",
+    }),
     currency: z
       .string()
       .max(10)
@@ -337,6 +346,54 @@ const periodSchema = z.object({
   }),
   totals: z.object({ limits: moneySchema, spent: moneySchema.nullable(), remaining: moneySchema.nullable() }),
   /**
+   * FR 19, AC9: the totals row over the categories table — «Витрачено A з B», «Перевитрата C у N категоріях», «Ще
+   * потрібно на обов'язкові D», «Вільний залишок E» (B − A − D, negative with «−»). Null for a future month. The filter
+   * of the card (FR 20) acts on the table only and never changes it.
+   */
+  summary: z
+    .object({
+      /** A: spent in the categories with a limit. */
+      spent: moneySchema,
+      /** B: the sum of the limits. */
+      limits: moneySchema,
+      /** C (a positive amount) and N: the negative remainders only; 0 and 0 — none. */
+      overspend: z.object({ amount: moneySchema, count: z.number().int() }),
+      /** The limits of the optional categories: the base of the overspend shade (FR 9). */
+      optionalLimits: moneySchema,
+      mandatoryRemaining: moneySchema.meta({
+        description:
+          "Σ max(0, limit − spent) of the mandatory categories, without regular payments. Not «Ще потрібно на обов'язкові»: never show it as D",
+      }),
+      unpaidRecurring: moneySchema.nullable().meta({
+        description:
+          "Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0",
+      }),
+      mandatoryNeeded: moneySchema.nullable().meta({
+        description:
+          "D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining",
+      }),
+      free: moneySchema.nullable().meta({
+        description:
+          "E «Вільний залишок» = limits − spent − D, negative with «−». Null with D: show «—», never 0",
+      }),
+    })
+    .nullable()
+    .meta({ description: "FR 19: the totals row. Null — a future month (plan only, no fact)" }),
+  /**
+   * FR 16, AC8: «Очікувані платежі» — the regular payments expected in the month by category (categoryId null — none)
+   * and their total; null — the regular payments are not connected yet.
+   */
+  expectedPayments: z
+    .object({
+      categories: z.array(z.object({ categoryId: z.uuid().nullable(), amount: moneySchema })),
+      total: moneySchema,
+    })
+    .nullable()
+    .meta({
+      description:
+        "FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0",
+    }),
+  /**
    * AC3: «приблизно» — `nearestRateCount` amounts converted at the nearest available rate («N транзакцій за найближчим
    * курсом»); `unavailableCount` amounts left out until their currency has a rate («Курс недоступний»).
    */
@@ -386,6 +443,20 @@ export const getPeriodRoute = defineRoute({
       );
     }
     const figures = periodFigures(plan, categories, counted?.amounts ?? null);
+    const obligations = deps.obligations
+      ? await deps.obligations.month(
+          householdId,
+          params.period,
+          budget.currency,
+          countsFrom(budget, params.period),
+        )
+      : null;
+    // FR 16: a past month is «план проти факту» — no «Ще потрібно» or «Вільний залишок» (D, E null).
+    const summary =
+      mode === "future"
+        ? null
+        : categoriesSummary(figures.lines, budget.currency, mode === "past" ? null : obligations);
+    const expected = obligations ? expectedPayments(obligations, budget.currency) : null;
     const order = new Map(categoryList.map((c, i) => [c.groupId, i]));
     const groups = new Map<string | null, z.input<typeof lineSchema>[]>();
     for (const l of [...figures.lines].sort(
@@ -420,6 +491,20 @@ export const getPeriodRoute = defineRoute({
         limits: money(t.limits),
         spent: orNull(t.spent),
         remaining: t.spent === null ? null : money(t.limits.minus(t.spent)),
+      },
+      summary: summary && {
+        spent: money(summary.spent),
+        limits: money(summary.limits),
+        overspend: { amount: money(summary.overspend.amount), count: summary.overspend.count },
+        optionalLimits: money(summary.optionalLimits),
+        mandatoryRemaining: money(summary.mandatoryRemaining),
+        unpaidRecurring: orNull(summary.unpaidRecurring),
+        mandatoryNeeded: orNull(summary.mandatoryNeeded),
+        free: orNull(summary.free),
+      },
+      expectedPayments: expected && {
+        categories: expected.categories.map((c) => ({ categoryId: c.categoryId, amount: money(c.amount) })),
+        total: money(expected.total),
       },
       approximate: {
         nearestRateCount: counted?.nearestRateCount ?? 0,
@@ -499,9 +584,110 @@ export const getWizardRoute = defineRoute({
   },
 });
 
+const allocationSchema = z.object({
+  /** The first period of the plan (as POST /v1/budget takes it). */
+  period: z.string(),
+  /** The income plan the figures use: × the share of days for a proportional first period (FR 14). */
+  incomePlan: moneySchema,
+  /** The sum of the limits, as the income plan. */
+  limits: moneySchema,
+  /** Null — the regular payments and debt minimums are not connected yet: no difference is shown without them. */
+  balance: z
+    .object({
+      /** «Регулярні платежі поза лімітами»: the month's payments whose category has no limit. */
+      recurringOutsideLimits: moneySchema,
+      /** FR 3, AC6: the bar of the limits step — income plan − limits − regular payments outside limits. */
+      unallocated: moneySchema,
+      /** «Мінімальні платежі за боргами». */
+      debtMinimums: moneySchema,
+      /** FR 15: unallocated − debt minimums; negative — a deficit. */
+      difference: moneySchema,
+      /** «профіцит N» / «Звідки візьмуться N?» / nothing to allocate. */
+      kind: z.enum(["surplus", "deficit", "balanced"]),
+      /** N = |difference|. */
+      amount: moneySchema,
+    })
+    .nullable()
+    .meta({
+      description:
+        "Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead",
+    }),
+  /**
+   * FR 15, AC7: the chosen amounts against N — `exact`: a deficit is covered in full («Створити бюджет» active);
+   * `short`: a surplus's rest stays «Не розподілено», a deficit is not covered yet; `over`: more than N. Null without
+   * `chosen` in the request or without `balance`.
+   */
+  choice: z
+    .object({ chosen: moneySchema, rest: moneySchema, status: z.enum(["short", "exact", "over"]) })
+    .nullable()
+    .meta({
+      description:
+        "Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`",
+    }),
+});
+
+export const previewAllocationRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/budget/allocation",
+  operationId: "previewBudgetAllocation",
+  summary:
+    "The wizard's «Розподіл»: the bar of the limits step and the surplus or deficit of the plan not saved yet (FR 3, FR 15; AC6, AC7)",
+  access: { permission: "household.data.read", feature: FEATURE },
+  bodyLimitBytes: BODY_LIMIT,
+  request: {
+    body: z
+      .object({
+        /** As POST /v1/budget: the current or the next month. */
+        firstPeriod: periodText,
+        /** As POST /v1/budget: the proportional first period (the plan × the share of days). */
+        proportional: z.boolean().optional(),
+        incomePlan: moneyInput.optional(),
+        limits: z.array(limitInput).max(LIMITS_MAX).optional(),
+        chosen: z.array(moneyInput).max(CHOSEN_MAX).optional().meta({
+          description:
+            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here",
+        }),
+      })
+      .strict(),
+  },
+  response: {
+    status: 200,
+    description: "The figures; nothing is saved and nothing is moved",
+    schema: allocationSchema,
+  },
+  handler: async ({ body }, ctx) => {
+    refuseScoped(ctx);
+    const { deps } = budgetServices(ctx);
+    const householdId = ctx.principal.householdId;
+    const categories = byId(await deps.reads.categories(householdId));
+    const p = value(await previewAllocation(deps, householdId, body, categories));
+    const b = p.balance;
+    return {
+      period: p.period,
+      incomePlan: money(p.incomePlan),
+      limits: money(p.limits),
+      balance: b && {
+        recurringOutsideLimits: money(b.recurringOutsideLimits),
+        unallocated: money(b.unallocated),
+        debtMinimums: money(b.debtMinimums),
+        difference: money(b.difference),
+        kind: b.kind,
+        amount: money(b.amount),
+      },
+      choice: p.choice && {
+        chosen: money(p.choice.chosen),
+        rest: money(p.choice.rest),
+        status: p.choice.status,
+      },
+    };
+  },
+});
+
 export const budgetRoutes = [
   getBudgetRoute,
   getWizardRoute,
+  previewAllocationRoute,
   createBudgetRoute,
   updatePlanRoute,
   deleteBudgetRoute,

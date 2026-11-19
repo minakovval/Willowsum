@@ -2,3 +2,4 @@
 // @willowsum/domain-kernel, zod, decimal.js.
 export * from "./budget.ts";
 export * from "./wizard.ts";
+export * from "./allocation.ts";

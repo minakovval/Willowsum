@@ -54,7 +54,12 @@ export function periodsToSnapshot(
 export const DEFAULT_BUDGET_KINDS: readonly string[] = ["current", "credit-card", "cash"];
 export const includedByDefault = (kind: string): boolean => DEFAULT_BUDGET_KINDS.includes(kind);
 
-const AMOUNT_RE = /^\d{1,20}(?:\.\d{1,18})?$/;
+/**
+ * At most 15 integer digits: a sum of every amount one request or one plan holds (≤ 300 limits, an income plan, ≤ 100
+ * chosen) stays within NUMERIC(38,18), so a total never overflows into a 500 (#565).
+ */
+export const AMOUNT_INTEGER_DIGITS_MAX = 15;
+const AMOUNT_RE = /^\d{1,15}(?:\.\d{1,18})?$/;
 
 export interface BudgetIssue {
   readonly field: string;
