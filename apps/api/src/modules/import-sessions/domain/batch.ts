@@ -55,6 +55,22 @@ export function takesFiles(state: BatchState): boolean {
   return state === "uploaded";
 }
 
+/**
+ * «Видалити» (FR 12) and the daily cleanup (FR 20, IMP-19 FR 6) take only a batch that was never applied: an applied
+ * batch is rolled back first, and an applied or rolled-back one is never removed by the cleanup.
+ */
+export function isUnapplied(state: BatchState): boolean {
+  return state !== "applied" && state !== "rolled-back";
+}
+
+/** FR 20, IMP-19 FR 6: an unapplied batch goes with its originals 30 days after its last action. */
+export const UNAPPLIED_RETENTION_DAYS = 30;
+
+/** The moment before which a batch's last action makes it stale (FR 20), from the task's own clock. */
+export function staleBefore(now: Date): Date {
+  return new Date(now.getTime() - UNAPPLIED_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+}
+
 /** FR 13: a batch holds up to 50 files and 150 MB of accepted originals together (binary units, as file-storage). */
 export const BATCH_LIMITS = Object.freeze({ files: 50, bytes: 150 * 1024 * 1024 });
 

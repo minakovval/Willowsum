@@ -6,7 +6,10 @@ export {
   BATCH_STATES,
   BatchStateError,
   canMove,
+  isUnapplied,
   move,
+  staleBefore,
   takesFiles,
+  UNAPPLIED_RETENTION_DAYS,
 } from "./batch.ts";
 export type { BatchRejectionCode, BatchState } from "./batch.ts";

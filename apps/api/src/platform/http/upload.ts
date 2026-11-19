@@ -9,9 +9,13 @@ import type { UploadInput, UploadPart } from "./route.ts";
  * (MIT, the multipart reader of Fastify and undici, no dependencies) straight from the request stream. Files come one
  * by one, each as a stream the module reads under its own size budget; nothing is buffered here. Fields, more than
  * `maxFiles` files or more than `maxBytes` bytes of the request (counted on the raw stream, skipped files too) end the
- * request: 400 or 413, and the file being read fails with the same problem.
+ * request: 400 or 413, and the file being read fails with the same problem; over the byte limit the rest is dropped for
+ * `OVER_LIMIT_LINGER_MS`, then the connection ends.
  */
 export const MULTIPART_RE = /^multipart\/form-data\s*;/i;
+
+/** How long a request over its byte limit is still read (and dropped) after the 413, before its connection ends. */
+export const OVER_LIMIT_LINGER_MS = 5_000;
 
 export function uploadInput(
   raw: Readable,
@@ -55,11 +59,18 @@ async function* readFiles(
     notify();
   };
   let total = 0;
+  let over = false;
   const count = (chunk: Buffer) => {
     total += chunk.length;
-    if (total > limits.maxBytes) {
+    if (total > limits.maxBytes && !over) {
+      over = true;
       fail(new ApiProblem("PAYLOAD_TOO_LARGE"));
-      raw.destroy();
+      // The client gets its 413 (#582 item 8): the rest of the request is read and dropped for a short while
+      // («lingering close»), so the answer reaches a client still sending; then the connection ends. The ceiling holds:
+      // nothing past it reaches a file.
+      const linger = setTimeout(() => raw.destroy(), OVER_LIMIT_LINGER_MS);
+      linger.unref();
+      raw.once("close", () => clearTimeout(linger));
     }
   };
   raw.on("data", count);

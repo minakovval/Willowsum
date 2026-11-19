@@ -1,3 +1,5 @@
+import { createServer, request as httpRequest } from "node:http";
+import type { AddressInfo } from "node:net";
 import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -82,6 +84,68 @@ describe("ARC-06@PoC FR 4: the files of an upload request, one by one on the str
     const err = await collect(m.raw, m.headers, { maxFiles: 5, maxBytes: 100_000 }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiProblem);
     expect((err as ApiProblem).code).toBe("PAYLOAD_TOO_LARGE");
+  });
+
+  it("NFR-15@PoC FR 18: over the limit on a real socket the client still gets its 413, not a reset (issue 582)", async () => {
+    const limit = 64 * 1024;
+    let stored = 0;
+    const server = createServer((req, res) => {
+      void (async () => {
+        try {
+          for await (const part of uploadInput(req, req.headers, { maxFiles: 5, maxBytes: limit }).files)
+            for await (const c of part.stream) stored += c.length;
+          res.writeHead(201).end();
+        } catch (error) {
+          res.writeHead(error instanceof ApiProblem && error.code === "PAYLOAD_TOO_LARGE" ? 413 : 500).end();
+        }
+      })();
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const { port } = server.address() as AddressInfo;
+      const boundary = "ws-boundary";
+      const outcome = await new Promise<string>((resolve) => {
+        const req = httpRequest(
+          {
+            host: "127.0.0.1",
+            port,
+            method: "POST",
+            path: "/",
+            headers: {
+              "content-type": `multipart/form-data; boundary=${boundary}`,
+              "transfer-encoding": "chunked",
+            },
+          },
+          (res) => {
+            res.resume();
+            resolve(`status ${res.statusCode}`);
+          },
+        );
+        req.on("error", (e: NodeJS.ErrnoException) => resolve(`socket ${e.code}`));
+        req.write(
+          `--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="big.csv"\r\n\r\n`,
+        );
+        const chunk = Buffer.alloc(16 * 1024, 0x61);
+        let sent = 0;
+        const pump = (): void => {
+          while (sent < 4 * 1024 * 1024) {
+            if (req.destroyed) return;
+            sent += chunk.length;
+            if (!req.write(chunk)) {
+              req.once("drain", pump);
+              return;
+            }
+          }
+          req.end(`\r\n--${boundary}--\r\n`);
+        };
+        pump();
+      });
+      expect(outcome).toBe("status 413");
+      expect(stored).toBeLessThanOrEqual(limit);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 
   it("ARC-06@PoC FR 4: a field instead of a file is refused; more files than the route takes is 413", async () => {

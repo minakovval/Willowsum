@@ -1,6 +1,6 @@
 # Модуль import-sessions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-01 b: партії імпорту, хвиля 2, рядок 39, частина 1)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-01 b: скасування, видалення і щоденне прибирання партій, хвиля 2, рядок 39, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -13,8 +13,9 @@
 Партії імпорту (IMP-01@PoC b, рядок 39 плану хвилі 2): створення партії, завантаження одного чи багатьох файлів (multipart,
 на потоці, під одним бюджетом запиту), оригінали лише через `file-storage` (вид «виписка»), підписані посилання ≤ 15 хв на
 оригінал, стани партії (IMP-19@PoC п. 5) і «не вдалося розібрати», коли відхилено всі файли (п. 6). Записи аудиту — через
-чергу модуля (ADR-0015) з щоденним поверненням мертвих завдань. За прапорцем випуску `data.import`. «Скасувати», «Видалити» і
-щоденне прибирання через 30 днів (п. 12, п. 20, IMP-19 п. 6) — частина 2 рядка 39; розбір рядків — рядок 40.
+чергу модуля (ADR-0015) з щоденним поверненням мертвих завдань. За прапорцем випуску `data.import`. «Скасувати», «Видалити»
+незастосованої партії з оригіналами і щоденне прибирання незастосованих партій через 30 днів від останньої дії (п. 12, п. 20,
+IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — рядок 40.
 
 ## Вимоги
 
@@ -25,13 +26,18 @@
 `index.ts`:
 
 - `importSessionsModule` — маршрути `/v1/import/batches` (створити, список, одна партія), `/v1/import/batches/{batchId}/files`
-  (multipart, до 50 файлів), `/v1/import/batches/{batchId}/files/{fileId}/link` (підписане посилання),
+  (multipart, до 50 файлів), `POST /v1/import/batches/{batchId}/cancel` («Скасувати»), `DELETE /v1/import/batches/{batchId}`
+  («Видалити» з оригіналами; застосовану чи відкочену — 409), `/v1/import/batches/{batchId}/files/{fileId}/link` (підписане посилання),
   `/v1/import/originals/{token}` (відкрити оригінал як завантаження). Права: `household.data.read` / `write`; учасник з
   областю доступу партій не бачить (404). Партія чи файл іншого простору — 404.
 - `createImportSessionsServices({ files, audit, clock, newId })` → `ImportSessionsServices` (src/api.ts, main.ts).
 - `createImportSessionsWorkerQueue(db, audit)` — черга воркера (`import-sessions.hand-off`, `HAND_OFF_JOB`).
 - `createImportSessionsHandOffRecovery(db, households)` — щоденне повернення мертвих завдань (до `queue.retention-cleanup`).
-- `BATCH_LIMITS` (50 файлів, 150 МіБ), `BATCH_STATES`, `canMove`; тип `BatchState`.
+- `createImportSessionsCleanup({ db, files, audit, households, now, newId })` — щоденна задача `import-sessions.cleanup`
+  (src/wiring.ts, лише з `files`): незастосовані партії через 30 днів (`UNAPPLIED_RETENTION_DAYS`) від останньої дії — з
+  оригіналами; дописує видалення, що зупинилося на півдорозі. Записи аудиту — від системи.
+- `BATCH_LIMITS` (50 файлів — рядків партії, прийнятих і відхилених; 150 МіБ), `BATCH_STATES`, `canMove`,
+  `UNAPPLIED_RETENTION_DAYS`; тип `BatchState`.
 
 ## Залежності
 
@@ -53,7 +59,7 @@ file-storage (збереження, видалення, посилання й в
 Схема `import_sessions`; міграції — `adapters/db/migrations/NNNN_slug.sql`.
 
 - `batches` — партія: назва (необов'язкова, ≤ 120), стан (8 станів IMP-19 п. 5), хто створив, версія, час створення й
-  останньої дії.
+  останньої дії; `deleting_at` — позначка видалення (крок 1 з 3: позначка, оригінали, рядки): позначена партія «не знайдена».
 - `batch_files` — файл партії за порядком: прийнятий — id оригіналу у file-storage, формат і розмір; відхилений — лише код
   причини. Назва файлу очищена так само, як у file-storage. Байтів у базі немає.
 - `jobs`, `outbox_events` — черга модуля (ARC-04, міграція платформи дослівно); `idempotency_keys` — ключі ідемпотентності
@@ -62,4 +68,5 @@ file-storage (збереження, видалення, посилання й в
 ## Тести
 
 `domain/imp01-batch-states.test.ts` (кожен перехід станів, дозволений і заборонений), `test/imp01-import-batches.it.test.ts`
-(маршрути на PostgreSQL), `src/platform/http/upload.test.ts` (читання multipart).
+(маршрути на PostgreSQL), `test/imp01-import-batch-lifecycle.it.test.ts` (скасування, видалення, щоденне прибирання),
+`src/platform/http/upload.test.ts` (читання multipart).
