@@ -110,7 +110,7 @@
     },
     "import-recipes": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["file-parsers"]
     },
     "import-sessions": {
       "layer": "subject",
