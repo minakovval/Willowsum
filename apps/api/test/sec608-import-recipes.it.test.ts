@@ -251,7 +251,7 @@ describe("SEC-608: hostile recipe input", () => {
     for (const [label, recipe, status] of cases) {
       const res = await post(space, { name: "Банк", recipe });
       expect(res.statusCode, `${label}: ${res.body}`).toBe(status);
-      expect(res.body, label).not.toContain("\\u0000");
+      expect(leakText(res.body), label).not.toContain("\\u0000");
     }
     // 5 000 levels in the raw body: refused, the process answers.
     const raw = `{"name":"x","recipe":${"[".repeat(5000)}${"]".repeat(5000)}}`;

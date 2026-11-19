@@ -39,6 +39,18 @@ describe("IMP-06@PoC FR 14: control characters in a recipe's texts", () => {
       expect(unsafeText(text)).toBe(true);
   });
 
+  it("IMP-06@PoC FR 14: a key with a control character is not echoed back when its value or length is refused", () => {
+    for (const [key, code] of [
+      ["\u0001$", 123],
+      ["\u0001$", "usd"],
+      ["\u0001".repeat(9), "USD"],
+    ] as const)
+      expect(checkRecipe({ schemaVersion: 1, numbers: { currencySymbols: { [key]: code } } })).toEqual({
+        ok: false,
+        errors: [{ code: "INVALID_VALUE", path: "numbers.currencySymbols" }],
+      });
+  });
+
   it("IMP-06@PoC FR 14: every refused text is listed, with the other errors of the recipe", () => {
     const check = checkRecipe({
       schemaVersion: 1,

@@ -341,17 +341,19 @@ export function checkRecipe(input: unknown): RecipeCheck {
   const parsed = recipeSchema.safeParse(value);
   if (!parsed.success) {
     const errors: RecipeError[] = [];
+    // A key with a control character is never echoed back (an unknown one, or one of `numbers.currencySymbols`):
+    // the path stops at its parent.
+    const shown = (path: readonly PropertyKey[]): string => {
+      const cut = path.findIndex((p) => typeof p === "string" && unsafeText(p));
+      return fieldPath(cut < 0 ? path : path.slice(0, cut));
+    };
     for (const issue of parsed.error.issues) {
       if (issue.code === "unrecognized_keys") {
-        // An unknown key with a control character is never echoed back: the parent's path.
         for (const key of issue.keys)
-          errors.push({
-            code: "UNKNOWN_FIELD",
-            path: fieldPath(unsafeText(key) ? issue.path : [...issue.path, key]),
-          });
+          errors.push({ code: "UNKNOWN_FIELD", path: shown([...issue.path, key]) });
       } else if (valueAt(value, issue.path) === undefined) {
-        errors.push({ code: "MISSING_FIELD", path: fieldPath(issue.path) });
-      } else errors.push({ code: "INVALID_VALUE", path: fieldPath(issue.path) });
+        errors.push({ code: "MISSING_FIELD", path: shown(issue.path) });
+      } else errors.push({ code: "INVALID_VALUE", path: shown(issue.path) });
     }
     return fail(...errors);
   }
