@@ -3847,3 +3847,96 @@ button.ws-stepper-step[aria-disabled="true"] {
   display: grid;
   align-items: center;
 }
+
+/* CMP-72@PoC: PeriodPicker — one 38 px group, 1 px border-control, radius 8, surface-200; each control's hit area is 44 px. */
+.ws-period-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-block-size: calc(var(--ws-space-6) + var(--ws-space-1) * 1.5);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+}
+
+.ws-period-current {
+  display: inline-flex;
+  align-items: center;
+  border-inline-start: 1px solid var(--ws-line);
+  padding-inline: var(--ws-space-1);
+}
+
+.ws-period-current .ws-icon-button {
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+}
+
+.ws-period-control {
+  position: relative;
+}
+
+.ws-period-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: var(--ws-touch-target);
+  padding-inline: var(--ws-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ws-period-button:focus-visible,
+.ws-period-option:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.ws-period-list {
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 0;
+  z-index: var(--ws-layer-local-4);
+  min-inline-size: 100%;
+  max-block-size: calc(var(--ws-touch-target) * 7);
+  overflow-y: auto;
+  margin: var(--ws-space-1) 0 0;
+  padding: var(--ws-space-1);
+  list-style: none;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+}
+
+.ws-period-option {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  inline-size: 100%;
+  min-block-size: var(--ws-touch-target);
+  padding-inline: var(--ws-space-2);
+  border: 0;
+  border-radius: var(--ws-radius-sm);
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-period-option[aria-selected="true"] {
+  font-weight: 600;
+}
+
+.ws-period-option:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-period-mark {
+  inline-size: var(--ws-space-3);
+}

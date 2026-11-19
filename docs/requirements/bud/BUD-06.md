@@ -37,7 +37,7 @@
 - [MVP] Спільні правила: П-10, П-17, CHT-01, CMP-72, DS-01, NFR-01
 - Сценарії: UC-BUD-31, UC-BUD-32, UC-BUD-33, UC-BUD-115
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud06a-compare.test.ts`, `apps/api/src/modules/budget/domain/bud06b-ytd.test.ts`, `apps/api/src/modules/budget/domain/sec605-compare.test.ts`, `apps/api/src/modules/budget/adapters/http/sec605-window.test.ts`, `apps/api/test/bud06a-compare.it.test.ts`, `apps/api/test/sec605-compare.it.test.ts`, `apps/web/src/planning/trend/bud16b-trend.test.tsx`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud06a-compare.test.ts`, `apps/api/src/modules/budget/domain/bud06b-ytd.test.ts`, `apps/api/src/modules/budget/domain/sec605-compare.test.ts`, `apps/api/src/modules/budget/adapters/http/sec605-window.test.ts`, `apps/api/test/bud06a-compare.it.test.ts`, `apps/api/test/sec605-compare.it.test.ts`, `apps/web/src/planning/compare/bud06b-compare.test.tsx`, `apps/web/src/planning/trend/bud16b-trend.test.tsx`
 
 **Мета.** Як власник бюджету, я хочу порівнювати витрати і доходи за категоріями від періоду до періоду, щоб бачити, де витрати зросли, і розуміти чому.
 
