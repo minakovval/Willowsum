@@ -37,7 +37,7 @@ export {
 export type { Rejection, RejectionCode } from "./domain/index.ts";
 export { CONTENT_TYPES, FILE_FORMATS, SPACE_LIMITS_LOCK } from "./adapters/index.ts";
 export type { FileFormat } from "./adapters/index.ts";
-export { FILE_KINDS, FileNotFoundError, linkKey, uploadBudget } from "./application/index.ts";
+export { cleanFileName, FILE_KINDS, FileNotFoundError, linkKey, uploadBudget } from "./application/index.ts";
 export type {
   Download,
   FileKind,

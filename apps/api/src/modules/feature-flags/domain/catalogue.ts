@@ -219,6 +219,13 @@ export const FLAGS = {
     description:
       "Грошовий потік (BUD-08@PoC a): дохід, витрати, чистий потік і норма заощаджень місяця і місяців періоду, «Перекази без пари»; маршрут /v1/cashflow",
   },
+  "data.import": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-19",
+    description:
+      "Імпорт виписок (IMP-01@PoC b): партії, завантаження файлів, оригінали у сховищі, підписані посилання, стани партії; маршрути /v1/import/batches",
+  },
   "debts.payoff": {
     kind: "release",
     owner: "product-owner",

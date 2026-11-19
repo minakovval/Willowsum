@@ -10,7 +10,7 @@
 - Спільні правила: П-21, П-24, П-25, П-26
 - Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-18, UC-IMP-24
 - Модуль: import-sessions, file-parsers
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts
 
 **Мета.** Як користувач, я хочу швидко бачити результат імпорту і розуміти, що робити, коли файл завеликий, щоб не чекати наосліп.
 

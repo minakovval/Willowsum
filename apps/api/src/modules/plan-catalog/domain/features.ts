@@ -47,6 +47,8 @@ export const FEATURES = {
     "Грошовий потік: дохід, витрати, чистий потік і норма заощаджень місяця і періоду (BUD-08@PoC)",
   "debts.payoff":
     "Погашення боргів: калькулятор погашення, сценарії з додатковим і разовим платежем, стратегії Avalanche і Snowball, збережені плани, прогрес (BUD-19@PoC)",
+  "data.import":
+    "Імпорт виписок: партії, завантаження файлів CSV, TSV, XLSX і XLS, оригінали у сховищі, стани партії; без продуктових лімітів (IMP-01@PoC)",
 } as const satisfies Record<string, string>;
 
 export type FeatureKey = keyof typeof FEATURES;
