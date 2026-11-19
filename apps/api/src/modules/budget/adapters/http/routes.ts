@@ -443,19 +443,18 @@ export const getPeriodRoute = defineRoute({
       );
     }
     const figures = periodFigures(plan, categories, counted?.amounts ?? null);
-    const obligations = deps.obligations
-      ? await deps.obligations.month(
-          householdId,
-          params.period,
-          budget.currency,
-          countsFrom(budget, params.period),
-        )
-      : null;
+    // FR 16: a past month is «план проти факту» — no «Очікувані платежі», no «Ще потрібно» (#567).
+    const obligations =
+      deps.obligations && mode !== "past"
+        ? await deps.obligations.month(
+            householdId,
+            params.period,
+            budget.currency,
+            countsFrom(budget, params.period),
+          )
+        : null;
     // FR 16: a past month is «план проти факту» — no «Ще потрібно» or «Вільний залишок» (D, E null).
-    const summary =
-      mode === "future"
-        ? null
-        : categoriesSummary(figures.lines, budget.currency, mode === "past" ? null : obligations);
+    const summary = mode === "future" ? null : categoriesSummary(figures.lines, budget.currency, obligations);
     const expected = obligations ? expectedPayments(obligations, budget.currency) : null;
     const order = new Map(categoryList.map((c, i) => [c.groupId, i]));
     const groups = new Map<string | null, z.input<typeof lineSchema>[]>();

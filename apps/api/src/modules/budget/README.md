@@ -1,6 +1,6 @@
 # Модуль budget
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (#567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -23,9 +23,13 @@ BUD-02@PoC b) (рядок 30 — серверна частина майстра)
 BUD-02@PoC c) (рядок 31 — серверна частина): п. 3 (нижня смуга кроку лімітів «не розподілено N»), 15 (профіцит і
 дефіцит «Розподілу», сума обраних варіантів проти N), 16 (майбутній місяць: «Очікувані платежі»), 19 (рядок підсумку з
 4 чисел), 20 (фільтр — лише таблиця на клієнті, сервер його не знає); AC6, AC7, AC8, AC9 (серверні частини).
-Далі: джерела `BudgetObligations` (регулярні платежі місяця — recurring, мінімальні платежі — debt-payoff) разом із
-BUD-03 (рядок 34) — доти «Розподіл», «Ще потрібно на обов'язкові», «Вільний залишок» і «Очікувані платежі» — null;
-запис розподілу (внески в цілі, «Заощадження без цілі», додатковий платіж за боргом) і ліміти окремого місяця — з
+#567: джерела `BudgetObligations` під'єднано (`adapters/obligations.ts`, `src/main.ts`): регулярні списання місяця —
+recurring (`RecurringMonth`), щомісячний платіж кредиту — accounts і liabilities, сплачений — transactions
+(`AccountPayments`); null лише без курсу або понад 15 цифр цілої частини. Минулий місяць порту не питає.
+BUD-03@PoC a) (рядок 34, ядро розрахунку): `spendable` (`domain/spendable.ts`) — п. 2–6, 10, 14, 15 (сума, денний
+ліміт, перевитрата з основою відтінку, 5 рядків міні-розбивки); маршрут, внески в цілі (goals), заплановані витрати
+(debt-payoff) і регулярні доходи — далі (follow-ups PR).
+Далі: запис розподілу (внески в цілі, «Заощадження без цілі», додатковий платіж за боргом) і ліміти окремого місяця — з
 BUD-17 (рядок 35); «Можна витратити в <місяць> ≈» — BUD-03 (рядок 34); UI (рядки 123–125).
 
 Зрізи PoC, що ще називають модуль: BUD-03@PoC, BUD-06@PoC, BUD-16@PoC, BUD-17@PoC, FLW-34@PoC, FLW-35@PoC, FLW-37@PoC,
@@ -78,9 +82,12 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `BudgetServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories`
   (categories), `AccountList` (accounts), `BudgetTransactions` (transactions), `TransactionCategories`
   (categorization), `FxReporting.total` (fx-rates); «сьогодні» — дата за Києвом; валюта — `SPACE_REPORTING_CURRENCY`;
-  `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` (`recurring`:
-  `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`; суми у валюті бюджету); процес API його ще не
-  під'єднує.
+  `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
+  (`recurring`: `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
+  кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).
+- `createBudgetObligations({ recurring, credit, liabilities, payments, fx })` → `BudgetObligations` (`src/main.ts`):
+  `RecurringMonth` (recurring), `CreditAccounts` (accounts), `Liabilities.forAccount` (liabilities), `AccountPayments`
+  (transactions), `FxReporting.total` (fx-rates); `OBLIGATION_MAX_INTEGER_DIGITS` = 15.
 - `createBudgetCategoryUsage(db)` → `CategoryUsage` модуля categories (BUD-01 п. 12): категорії з лімітом (`src/main.ts`).
 - `createBudgetWorkerQueue(db, audit)` (`src/wiring.ts`); `createBudgetHandOffRecovery(db, households)` — щоденне
   повернення задач `dead` (`budget.hand-off-recovery`, до очищення черги; WARN `budget.hand_off_requeued`); `HAND_OFF_JOB`.
@@ -107,7 +114,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
 
 ## Залежності
 
-Шар: process. Модулі: accounts, audit, categories, categorization, fx-rates, household, transactions
+Шар: process. Модулі: accounts, audit, categories, categorization, fx-rates, household, liabilities, recurring, transactions
 (`apps/api/module-rules.json`). Платформа: черга задач (ARC-04).
 
 ## Події

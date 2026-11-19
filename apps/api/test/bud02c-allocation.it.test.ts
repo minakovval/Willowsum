@@ -333,7 +333,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
         { categoryId: null, amount: m("15.99"), paid: false },
         { categoryId: groceries, amount: m("40"), paid: false },
       ],
-      debtMinimums: [{ accountId: randomUUID(), amount: m("120.01") }],
+      debtMinimums: [{ accountId: randomUUID(), amount: m("120.01"), paid: false }],
     });
     const res = await preview(space, {
       incomePlan: eur("1000"),
@@ -598,7 +598,7 @@ describe("BUD-02@PoC: sizes and space isolation of «Розподіл» and the 
     const usd = Money.of("7", "USD");
     for (const o of [
       { recurring: [{ categoryId: null, amount: usd, paid: false }], debtMinimums: [] },
-      { recurring: [], debtMinimums: [{ accountId: randomUUID(), amount: usd }] },
+      { recurring: [], debtMinimums: [{ accountId: randomUUID(), amount: usd, paid: false }] },
     ]) {
       owed = () => o;
       const res = await preview(space, { incomePlan: eur("100") });

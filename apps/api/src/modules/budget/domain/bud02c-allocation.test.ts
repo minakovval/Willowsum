@@ -49,7 +49,7 @@ describe("BUD-02@PoC: «Розподіл» — surplus and deficit", () => {
           // In «groceries», which has a limit: not counted again.
           { categoryId: "groceries", amount: eur("40"), paid: false },
         ],
-        debtMinimums: [{ accountId: "card", amount: eur("120.01") }],
+        debtMinimums: [{ accountId: "card", amount: eur("120.01"), paid: false }],
       },
     });
     expect(b.recurringOutsideLimits).toEqual(eur("915.99"));
@@ -109,7 +109,10 @@ describe("BUD-02@PoC: «Розподіл» — surplus and deficit", () => {
       allocationBalance({
         incomePlan: eur("10"),
         limits: [],
-        obligations: { recurring: [], debtMinimums: [{ accountId: "x", amount: Money.of("1", "USD") }] },
+        obligations: {
+          recurring: [],
+          debtMinimums: [{ accountId: "x", amount: Money.of("1", "USD"), paid: false }],
+        },
       }),
     ).toThrow(CurrencyMismatchError);
     const b = allocationBalance({ incomePlan: eur("10"), limits: [], obligations: NONE });
@@ -195,6 +198,43 @@ describe("BUD-02@PoC: the totals row of «Категорії»", () => {
     const s = categoriesSummary([line("cafes", "100", "30")], "EUR", unpaid("cafes", "20"));
     expect(s.mandatoryNeeded).toEqual(eur("20"));
     expect(s.free).toEqual(eur("50"));
+  });
+
+  it("BUD-02@PoC FR 19: several unpaid payments of one mandatory category add up before they meet its rest — limit 100, spent 60, unpaid 15 + 35: D 50, E −10", () => {
+    const two: PeriodObligations = {
+      recurring: [
+        { categoryId: "rent", amount: eur("15"), paid: false },
+        { categoryId: "rent", amount: eur("35"), paid: false },
+      ],
+      debtMinimums: [],
+    };
+    const s = categoriesSummary([line("rent", "100", "60", true)], "EUR", two);
+    expect(s.unpaidRecurring).toEqual(eur("50"));
+    expect(s.mandatoryNeeded).toEqual(eur("50"));
+    expect(s.free).toEqual(eur("-10"));
+  });
+
+  it("BUD-02@PoC FR 19: D adds a loan's monthly payment once while the month has no payment to it (BUD-03 п. 5; #567) — a paid one adds nothing", () => {
+    const loans: PeriodObligations = {
+      recurring: [{ categoryId: null, amount: eur("20"), paid: false }],
+      debtMinimums: [
+        { accountId: "loan-a", amount: eur("250"), paid: false },
+        { accountId: "loan-b", amount: eur("400"), paid: true },
+      ],
+    };
+    const s = categoriesSummary([line("rent", "100", "60", true)], "EUR", loans);
+    expect(s.unpaidRecurring).toEqual(eur("270"));
+    expect(s.mandatoryNeeded).toEqual(eur("310"));
+    expect(s.free).toEqual(eur("-270"));
+    // «Розподіл» takes the same loan once, as a minimum payment — not as a regular payment outside the limits.
+    const b = allocationBalance({
+      incomePlan: eur("1000"),
+      limits: [limit("rent", "100")],
+      obligations: loans,
+    });
+    expect(b.recurringOutsideLimits).toEqual(eur("20"));
+    expect(b.debtMinimums).toEqual(eur("650"));
+    expect(b.difference).toEqual(eur("230"));
   });
 
   it("BUD-02@PoC FR 19 boundary: zero — no limits gives 0 everywhere and no «−0»", () => {
