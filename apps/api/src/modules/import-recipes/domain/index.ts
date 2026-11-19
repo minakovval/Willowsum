@@ -9,5 +9,6 @@ export {
   RECIPE_LIMITS,
   RECIPE_SCHEMA_VERSION,
   recipePatterns,
+  unsafeText,
 } from "./recipe.ts";
 export type { Recipe, RecipeCheck, RecipeError, RecipeErrorCode } from "./recipe.ts";

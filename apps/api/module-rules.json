@@ -65,6 +65,7 @@
         "goals",
         "household",
         "identity",
+        "import-recipes",
         "ledger",
         "liabilities",
         "merchants",
@@ -110,7 +111,7 @@
     },
     "import-recipes": {
       "layer": "subject",
-      "dependsOn": ["file-parsers"]
+      "dependsOn": ["audit", "file-parsers"]
     },
     "import-sessions": {
       "layer": "subject",

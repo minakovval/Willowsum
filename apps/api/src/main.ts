@@ -31,6 +31,7 @@ import {
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
+import { createImportRecipesServices } from "./modules/import-recipes/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
@@ -467,6 +468,13 @@ const server = buildServer({
               accounts: createCreditAccounts(databases.for("accounts")),
               liabilities: createLiabilities(databases.for("liabilities"), audit),
               ledger: createLedger(databases.for("ledger")),
+              audit,
+              clock: systemClock,
+              newId: randomUUID,
+            }),
+            // IMP-06 a: parsing recipes of the space; the account binding's value sealed with the space's key.
+            importRecipes: createImportRecipesServices({
+              keys: createSpaceKeys(databases.for("household"), audit, kms),
               audit,
               clock: systemClock,
               newId: randomUUID,
