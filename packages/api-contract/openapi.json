@@ -25845,7 +25845,7 @@
     "/v1/import/batches/{batchId}": {
       "delete": {
         "operationId": "deleteImportBatch",
-        "summary": "«Видалити» (FR 12, EC4): an unapplied batch with its originals; an applied one is rolled back first (409)",
+        "summary": "«Видалити» (FR 12, EC4): a batch with its originals; an applied one is rolled back first (409), then it may be deleted",
         "tags": [
           "import-sessions"
         ],
@@ -26599,28 +26599,14 @@
                         "type": "object",
                         "properties": {
                           "id": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "format": "uuid",
-                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "string",
+                            "format": "uuid",
+                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                           },
                           "position": {
-                            "anyOf": [
-                              {
-                                "type": "integer",
-                                "minimum": -9007199254740991,
-                                "maximum": 9007199254740991
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
                           },
                           "fileName": {
                             "type": "string"
@@ -26667,10 +26653,7 @@
                             ]
                           },
                           "createdAt": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
+                            "type": "string"
                           },
                           "rejection": {
                             "anyOf": [
@@ -26741,11 +26724,76 @@
                         ],
                         "additionalProperties": false
                       }
+                    },
+                    "refused": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "fileName": {
+                            "type": "string"
+                          },
+                          "rejection": {
+                            "type": "object",
+                            "properties": {
+                              "code": {
+                                "type": "string",
+                                "x-extensible-enum": true
+                              },
+                              "ceiling": {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "limit": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "limit"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "message": {
+                                "type": "object",
+                                "properties": {
+                                  "uk": {
+                                    "type": "string"
+                                  },
+                                  "en": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "uk",
+                                  "en"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "code",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "fileName",
+                          "rejection"
+                        ],
+                        "additionalProperties": false
+                      }
                     }
                   },
                   "required": [
                     "batch",
-                    "files"
+                    "files",
+                    "refused"
                   ],
                   "additionalProperties": false
                 }

@@ -26,8 +26,8 @@ IMP-19 п. 6; частина 2 рядка 39). Розбір рядків — р�
 `index.ts`:
 
 - `importSessionsModule` — маршрути `/v1/import/batches` (створити, список, одна партія), `/v1/import/batches/{batchId}/files`
-  (multipart, до 50 файлів), `POST /v1/import/batches/{batchId}/cancel` («Скасувати»), `DELETE /v1/import/batches/{batchId}`
-  («Видалити» з оригіналами; застосовану чи відкочену — 409), `/v1/import/batches/{batchId}/files/{fileId}/link` (підписане посилання),
+  (multipart, до 50 файлів; файл, для якого немає місця, — у `refused` без рядка), `POST /v1/import/batches/{batchId}/cancel` («Скасувати»), `DELETE /v1/import/batches/{batchId}`
+  («Видалити» з оригіналами; застосовану — 409, її спершу відкочують; відкочену можна видалити), `/v1/import/batches/{batchId}/files/{fileId}/link` (підписане посилання),
   `/v1/import/originals/{token}` (відкрити оригінал як завантаження). Права: `household.data.read` / `write`; учасник з
   областю доступу партій не бачить (404). Партія чи файл іншого простору — 404.
 - `createImportSessionsServices({ files, audit, clock, newId })` → `ImportSessionsServices` (src/api.ts, main.ts).

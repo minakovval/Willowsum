@@ -962,7 +962,7 @@ export type paths = {
         get: operations["getImportBatch"];
         put?: never;
         post?: never;
-        /** «Видалити» (FR 12, EC4): an unapplied batch with its originals; an applied one is rolled back first (409) */
+        /** «Видалити» (FR 12, EC4): a batch with its originals; an applied one is rolled back first (409), then it may be deleted */
         delete: operations["deleteImportBatch"];
         options?: never;
         head?: never;
@@ -12696,11 +12696,12 @@ export interface operations {
                             version: number;
                         };
                         files: {
-                            createdAt: string | null;
+                            createdAt: string;
                             fileName: string;
                             format: ("csv" | "tsv" | "xlsx" | "xls") | null;
-                            id: string | null;
-                            position: number | null;
+                            /** Format: uuid */
+                            id: string;
+                            position: number;
                             rejection: {
                                 ceiling?: {
                                     limit: number;
@@ -12716,6 +12717,20 @@ export interface operations {
                             sizeBytes: number | null;
                             /** @enum {string} */
                             status: "accepted" | "rejected";
+                        }[];
+                        refused: {
+                            fileName: string;
+                            rejection: {
+                                ceiling?: {
+                                    limit: number;
+                                    name: string;
+                                };
+                                code: string;
+                                message: {
+                                    en: string;
+                                    uk: string;
+                                };
+                            };
                         }[];
                     };
                 };

@@ -196,30 +196,6 @@ export const getImportBatchRoute = defineRoute({
   },
 });
 
-/** A file of this upload: one the batch had no place for has no row — no id, position or time (#582 item 7). */
-const uploadedFileSchema = fileSchema.extend({
-  id: z.uuid().nullable(),
-  position: z.number().int().nullable(),
-  createdAt: z.string().nullable(),
-  rejection: rejectionSchema.nullable(),
-});
-
-function presentOutcome(o: FileOutcome): z.input<typeof uploadedFileSchema> {
-  const rejection = present(o.rejection);
-  if (o.file) return { ...presentFile(o.file), rejection };
-  return {
-    id: null,
-    position: null,
-    fileName: o.fileName,
-    status: "rejected",
-    format: null,
-    sizeBytes: null,
-    rejectionCode: o.rejection?.code ?? null,
-    createdAt: null,
-    rejection,
-  };
-}
-
 const present = (r: FileRejection | null) =>
   r ? { code: r.code, ...(r.ceiling ? { ceiling: { ...r.ceiling } } : {}), message: { ...r.message } } : null;
 
@@ -241,7 +217,9 @@ export const uploadImportFilesRoute = defineRoute({
     description: "The batch and what became of each file of this upload",
     schema: z.object({
       batch: batchSchema,
-      files: z.array(uploadedFileSchema),
+      files: z.array(fileSchema.extend({ rejection: rejectionSchema.nullable() })),
+      /** Files the batch had no place for (BATCH_TOO_MANY_FILES, #582 item 7): no row, so no id, position or time. */
+      refused: z.array(z.object({ fileName: z.string(), rejection: rejectionSchema })),
     }),
   },
   handler: async ({ params, upload }, ctx) => {
@@ -272,7 +250,12 @@ export const uploadImportFilesRoute = defineRoute({
     const all = await run((tx) => tx.files(batch.id));
     return {
       batch: presentBatch(batch, all),
-      files: files.map(presentOutcome),
+      files: files.flatMap((o: FileOutcome) =>
+        o.file ? [{ ...presentFile(o.file), rejection: present(o.rejection) }] : [],
+      ),
+      refused: files.flatMap((o: FileOutcome) =>
+        !o.file && o.rejection ? [{ fileName: o.fileName, rejection: present(o.rejection)! }] : [],
+      ),
     };
   },
 });
@@ -307,7 +290,7 @@ export const deleteImportBatchRoute = defineRoute({
   path: "/v1/import/batches/{batchId}",
   operationId: "deleteImportBatch",
   summary:
-    "«Видалити» (FR 12, EC4): an unapplied batch with its originals; an applied one is rolled back first (409)",
+    "«Видалити» (FR 12, EC4): a batch with its originals; an applied one is rolled back first (409), then it may be deleted",
   access: WRITE,
   request: { params: batchParams },
   problems: ["BATCH_STATE_CONFLICT"],

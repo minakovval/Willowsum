@@ -407,11 +407,12 @@ export async function cancelBatch(
 }
 
 /**
- * «Видалити» (FR 12, EC4) and the daily cleanup (FR 20): an unapplied batch with its originals, in three steps that can
+ * «Видалити» (FR 12, EC4) and the daily cleanup (FR 20): a batch with its originals, in three steps that can
  * each run again. (1) Under the batch's lock it is marked — from then on it is «not found» and takes no step, and a
  * parallel upload removes the original it was storing — and the audit hand-off is enqueued; (2) its originals are
  * removed from file-storage; (3) its rows go. A failure after (1) leaves the mark, and the daily cleanup finishes the
- * deletion. An applied or rolled-back batch is refused (FR 12: roll back first; FR 20: those are kept).
+ * deletion. An applied batch is refused (FR 12: roll back first); a rolled-back one is deleted by the person only, never
+ * by the cleanup (FR 20, IMP-19 FR 6).
  */
 export async function deleteBatch(
   deps: BatchesDeps,
@@ -427,7 +428,10 @@ export async function deleteBatch(
   const marked = await run(async (tx) => {
     const batch = await tx.lockBatch(batchId);
     if (!batch) return false;
-    if (!isUnapplied(batch.state)) throw new BatchStateErrorFor(batch.state);
+    // FR 12: an applied batch is rolled back first, then it may be deleted (IMP-19 FR 6 «до видалення партії
+    // користувачем»); the daily cleanup takes only never-applied ones (FR 20).
+    if (batch.state === "applied" || (idleBefore !== undefined && !isUnapplied(batch.state)))
+      throw new BatchStateErrorFor(batch.state);
     if (idleBefore && batch.lastActionAt >= idleBefore) return false;
     const files = used(await tx.files(batchId));
     await tx.markDeleting(batchId, deps.now());

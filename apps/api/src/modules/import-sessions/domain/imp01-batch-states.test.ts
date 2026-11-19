@@ -64,7 +64,7 @@ describe("IMP-01@PoC FR 10: the states of a batch", () => {
 });
 
 describe("IMP-01@PoC FR 12, FR 20: what «Видалити» and the daily cleanup take", () => {
-  it("IMP-01@PoC FR 12: only a batch never applied is deleted; an applied one is rolled back first, a rolled-back one stays", () => {
+  it("IMP-01@PoC FR 20: the daily cleanup takes only a batch never applied; applied and rolled-back ones stay", () => {
     expect(BATCH_STATES.filter(isUnapplied)).toEqual([
       "uploaded",
       "processing",

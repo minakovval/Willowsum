@@ -56,8 +56,8 @@ export function takesFiles(state: BatchState): boolean {
 }
 
 /**
- * «Видалити» (FR 12) and the daily cleanup (FR 20, IMP-19 FR 6) take only a batch that was never applied: an applied
- * batch is rolled back first, and an applied or rolled-back one is never removed by the cleanup.
+ * The daily cleanup (FR 20, IMP-19 FR 6) takes only a batch that was never applied; an applied or rolled-back one is
+ * never removed by it. «Видалити» (FR 12) refuses only an applied batch: it is rolled back first, then deleted.
  */
 export function isUnapplied(state: BatchState): boolean {
   return state !== "applied" && state !== "rolled-back";

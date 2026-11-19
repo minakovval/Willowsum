@@ -229,19 +229,24 @@ describe("IMP-01@PoC FR 12: «Скасувати»", () => {
     expect((await call(space, "GET", `/v1/import/batches/${batchId}`)).json().state).toBe("cancelled");
   });
 
-  it("IMP-01@PoC FR 10: an applied or rolled-back batch is not cancelled; IMP-01@PoC FR 12: nor deleted (roll back first)", async () => {
+  it("IMP-01@PoC FR 10: an applied or rolled-back batch is not cancelled; IMP-01@PoC FR 12: an applied one is not deleted (roll back first), a rolled-back one is, with its originals", async () => {
     const space = await newSpace();
     const applied = await newBatch(space);
     const rolledBack = await newBatch(space);
+    await upload(space, applied, [{ name: "a.csv", bytes: STATEMENT }]);
+    await upload(space, rolledBack, [{ name: "b.csv", bytes: STATEMENT }]);
     await setState(applied, "applied");
     await setState(rolledBack, "rolled-back");
-    for (const batchId of [applied, rolledBack]) {
+    for (const batchId of [applied, rolledBack])
       expect((await cancel(space, batchId)).json().code).toBe("BATCH_STATE_CONFLICT");
-      const del = await remove(space, batchId);
-      expect(del.statusCode).toBe(409);
-      expect(del.json().code).toBe("BATCH_STATE_CONFLICT");
-    }
-    expect(await batchIds(space.householdId)).toEqual([applied, rolledBack].sort());
+    const refused = await remove(space, applied);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().code).toBe("BATCH_STATE_CONFLICT");
+    const deleted = await remove(space, rolledBack);
+    expect(deleted.statusCode, deleted.body).toBe(200);
+    expect(await batchIds(space.householdId)).toEqual([applied]);
+    expect(objectsOf(space.householdId)).toHaveLength(1);
+    expect(await n("file_storage.files WHERE household_id = $1", space.householdId)).toBe(1);
   });
 });
 
@@ -292,16 +297,21 @@ describe("IMP-01@PoC FR 12, EC4: «Видалити»", () => {
     await upload(space, batchId, [{ name: "a.csv", bytes: STATEMENT }]);
     const both = await Promise.all([remove(space, batchId), remove(space, batchId)]);
     expect(both.map((r) => r.statusCode).sort()).toEqual([200, 404]);
+    // The deletion wins after the upload's first original is stored and before the batch's lock (deterministic).
     const raced = await newBatch(space);
-    const [up, del] = await Promise.all([
-      upload(space, raced, [
-        { name: "b.csv", bytes: STATEMENT },
-        { name: "c.tsv", bytes: TSV },
-      ]),
-      remove(space, raced),
+    const store = files.store.bind(files);
+    let del: Awaited<ReturnType<typeof remove>> | undefined;
+    vi.spyOn(files, "store").mockImplementationOnce(async (request) => {
+      const stored = await store(request);
+      del = await remove(space, raced);
+      return stored;
+    });
+    const up = await upload(space, raced, [
+      { name: "b.csv", bytes: STATEMENT },
+      { name: "c.tsv", bytes: TSV },
     ]);
-    expect([201, 404]).toContain(up.statusCode);
-    expect(del.statusCode).toBe(200);
+    expect(up.statusCode, up.body).toBe(404);
+    expect(del?.statusCode).toBe(200);
     expect(await batchIds(space.householdId)).toEqual([]);
     expect(await n("file_storage.files WHERE household_id = $1", space.householdId)).toBe(0);
     expect(objectsOf(space.householdId)).toHaveLength(0);
@@ -542,7 +552,7 @@ describe("IMP-01@PoC FR 13: a full batch never grows (issue 582)", () => {
     expect(objectsOf(space.householdId)).toHaveLength(50);
   });
 
-  it("IMP-01@PoC FR 13: the 50 files count rejected ones too; a file past them is answered without a row (no id or position)", async () => {
+  it("IMP-01@PoC FR 13: the 50 files count rejected ones too; a file past them is answered in «refused», without a row", async () => {
     const space = await newSpace();
     const batchId = await newBatch(space);
     const parts = [
@@ -555,17 +565,18 @@ describe("IMP-01@PoC FR 13: a full batch never grows (issue 582)", () => {
       { name: "over.csv", bytes: TSV },
     ]);
     expect(res.statusCode, res.body).toBe(201);
-    const [last, over] = res.json().files;
+    const [last, ...more] = res.json().files;
     expect(last).toMatchObject({ status: "accepted", position: 50 });
-    expect(over).toMatchObject({
-      id: null,
-      position: null,
-      createdAt: null,
-      fileName: "over.csv",
-      status: "rejected",
-      rejectionCode: "BATCH_TOO_MANY_FILES",
-      rejection: { code: "BATCH_TOO_MANY_FILES", ceiling: { name: "batchFiles", limit: 50 } },
-    });
+    expect(more).toEqual([]);
+    expect(res.json().refused).toEqual([
+      {
+        fileName: "over.csv",
+        rejection: expect.objectContaining({
+          code: "BATCH_TOO_MANY_FILES",
+          ceiling: { name: "batchFiles", limit: 50 },
+        }),
+      },
+    ]);
     expect(res.json().batch.files).toEqual({ accepted: 49, rejected: 1 });
     expect(await n("import_sessions.batch_files WHERE batch_id = $1", batchId)).toBe(50);
     expect(objectsOf(space.householdId)).toHaveLength(49);
