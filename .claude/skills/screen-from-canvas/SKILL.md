@@ -5,7 +5,7 @@ description: Build one Willowsum design-system component or screen (DS-*, CMP-*,
 
 # Build a component or screen from the canvas
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19
 
 Input: one requirement ID (or a small group, e.g. `CMP-33 / DS-12`) and the target release (PoC now).
 Output: one PR whose title starts with the ID, CI green, every criterion of the view covered by a test, the
@@ -99,8 +99,22 @@ ports» below) and stop only that PID when done, then from a script in your scra
 open `http://localhost:<port>/#/gallery/<page>#<section>` and the board file (`file://…/design/canvas/<Board>.dc.html`)
 at viewport 1280 wide, screenshot both, and look at them side by side (Read the PNGs). Compare layout,
 spacing, type, colour roles and every state. Fix differences that the view or the card supports; list the
-rest in the PR body. Screenshots stay in the scratchpad: committed e2e and contrast checks on routes belong
-to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
+rest in the PR body. Committed e2e and contrast checks on routes belong to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
+
+**Screenshot with long texts in every PR that changes a screen or a shared UI component (owner, 2026-11-19, chat: «так, впроваджуй»; [log](../../../docs/decisions/log/2026-11-19-owner-screenshot-rule.md)).** This is the single place of the rule; other skills and the PR template point here.
+- When it applies: the diff touches `apps/web` (a screen, route or its styles) or `packages/ui` (a component or its
+  styles, tokens). Docs, skills, server (`apps/api`), other packages, and tests or texts that change nothing on
+  screen do not: the PR body then says «n/a» in the template line, and a missing screenshot does not block.
+- Made by an automated Playwright step (the script from above, run by you or CI), never by hand or from memory.
+- At viewport 1280 px, light theme, of the affected screen (or the component's gallery entry) filled with long
+  names and long texts: names and titles of 60+ characters and one word without spaces, long amounts, long
+  list rows, the longest uk string. Both locales are not required: uk is enough.
+- Save it as a PNG in your scratchpad and, so that the reviewer (another session) can open it, attach it to the PR
+  (PR comment image, or the CI artifact); the path in the PR body must be one the reviewer can open, not only a
+  path in your own scratchpad. The body also gives a short description (screen, data used, what you compared with the board and the result).
+- The reviewer opens it and compares it with the canvas board named in the requirement or card
+  (`docs/design`, `design/canvas`): [review-pr](../review-pr/SKILL.md), «UI screenshot».
+- A helper script for this step is not in the repo yet (follow-up); until then use the script above.
 
 Servers, databases and background processes: only your slot's ports, your own `pnpm db:test` databases and
 your own PIDs — [own ports](../../references/own-ports.md) (read when you start any of them).
@@ -148,7 +162,7 @@ PR with the template, title `<ID>: <component>`, and add to the body:
 - [ ] Tokens only; any new token and the view line that states it
 - [ ] Gallery entry path; uk and en keys added; `uk.ts` strings from the «Тексти» block, agent variants listed
 - [ ] Accessibility checks run (§5)
-- [ ] Screenshot check at 1280 px done; remaining differences listed
+- [ ] Screenshot check at 1280 px with long names/texts done (§6); path and description in the PR body; remaining differences listed
 - [ ] Canvas / card vs requirement disagreements and how each was resolved
 - [ ] Out of scope (PoC v2, «на виріст») left out; questions for the lead
 
