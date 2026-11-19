@@ -531,3 +531,40 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
     expect(scoped.statusCode).toBe(404);
   });
 });
+
+describe("BUD-02@PoC: sizes and space isolation of «Розподіл» and the totals row (security review)", () => {
+  it("BUD-02@PoC FR 15 boundary: more than 100 chosen amounts, more than 300 limits or an unknown field is refused with 400", async () => {
+    const space = await newSpace();
+    const many = Array.from({ length: 101 }, () => eur("1"));
+    expect((await preview(space, { chosen: many.slice(1) })).statusCode).toBe(200);
+    expect((await preview(space, { chosen: many })).statusCode).toBe(400);
+    expect((await preview(space, { plannedSavings: eur("1") })).statusCode).toBe(400);
+    const limits = Array.from({ length: 301 }, () => ({ categoryId: randomUUID(), amount: eur("1") }));
+    const paths = (await preview(space, { limits })).json().errors.map((e: { path: string }) => e.path);
+    expect(paths).toEqual(["limits"]);
+  });
+
+  it("BUD-02@PoC «Права доступу»: two spaces with budgets — a period carries its own space's numbers only, and the payments are asked for that space", async () => {
+    const owner = await newSpace();
+    const other = await newSpace();
+    const groceries = await category(owner, "Продукти");
+    await createBudget(owner, {
+      incomePlan: eur("98765.43"),
+      limits: [{ categoryId: groceries, amount: eur("4321.09") }],
+    });
+    await spend(owner, await account(owner), "-5555.55", "2026-11-03", "Продукти");
+    await createBudget(other, { incomePlan: eur("11") });
+    // The leak check below can fail: the owner's own view does carry these numbers.
+    const own = await period(owner, "2026-11");
+    expect(JSON.stringify(own)).toMatch(/98765\.43.*4321\.09/);
+    expect(own.summary.spent).toEqual(eur("5555.55"));
+    seen.length = 0;
+    const view = await period(other, "2026-11");
+    expect(JSON.stringify(view)).not.toMatch(/98765|4321|5555/);
+    expect(view.summary).toMatchObject({ spent: eur("0"), limits: eur("0"), free: eur("0") });
+    expect(seen).toEqual([{ householdId: other.householdId, period: "2026-11", currency: "EUR" }]);
+    const scoped = { role: "viewer", scoped: true };
+    expect((await call(other, "GET", "/v1/budget/periods/2026-11", undefined, scoped)).statusCode).toBe(404);
+    expect(seen).toHaveLength(1);
+  });
+});

@@ -218,3 +218,18 @@ describe("BUD-02@PoC: the plan of a future month", () => {
     expect(e.total).toEqual(eur("916"));
   });
 });
+
+describe("BUD-02@PoC: one currency also for the amounts no sum takes (security review)", () => {
+  it("BUD-02@PoC FR 1: a payment in another currency is refused even when left out of the sum — in a limited category, or already paid", () => {
+    const usd = Money.of("1", "USD");
+    expect(() =>
+      allocationBalance({
+        incomePlan: eur("10"),
+        limits: [limit("a", "5")],
+        obligations: { recurring: [{ categoryId: "a", amount: usd, paid: false }], debtMinimums: [] },
+      }),
+    ).toThrow(CurrencyMismatchError);
+    const paid = { recurring: [{ categoryId: null, amount: usd, paid: true }], debtMinimums: [] };
+    expect(() => categoriesSummary([], "EUR", paid)).toThrow(CurrencyMismatchError);
+  });
+});
