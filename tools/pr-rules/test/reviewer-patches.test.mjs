@@ -55,6 +55,40 @@ test('reviewer patches: a test with `security` or `sec<N>` anywhere in its name 
   }
 });
 
+test('reviewer patches: a security test without `.it` is closed like one with it (owner, item 2а)', () => {
+  for (const p of [
+    'apps/api/test/sec292-wallet-usage-wiring.test.ts',
+    'apps/api/test/sec292-wallet-usage-wiring.it.test.ts',
+    'apps/web/src/vault/security-copy.test.tsx',
+  ]) {
+    assert.equal(forbiddenPathReason(p), 'security test', p);
+  }
+});
+
+test('reviewer patches: security tests by content are closed by name (owner, item 3а)', () => {
+  for (const p of [
+    'apps/api/test/guard.it.test.ts',
+    'apps/api/test/guard-coverage.it.test.ts',
+    'apps/api/test/guard-gates.it.test.ts',
+    'apps/api/test/leak-check-guard.test.ts',
+    'apps/api/test/leak-text.test.ts',
+    'apps/api/src/platform/telemetry/redaction.test.ts',
+    'apps/api/test/__snapshots__/guard.it.test.ts.snap',
+    'apps/api/test/Guard.it.test.ts',
+  ]) {
+    assert.equal(forbiddenPathReason(p), 'security test', p);
+  }
+  // Each listed name is a real tracked file, so the list does not go stale unnoticed.
+  const root = new URL('../../../', import.meta.url);
+  const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, maxBuffer: 1 << 28 }).toString().split('\0');
+  for (const n of ['guard.it.test.ts', 'guard-coverage.it.test.ts', 'guard-gates.it.test.ts', 'leak-check-guard.test.ts', 'leak-text.test.ts', 'redaction.test.ts']) {
+    assert.ok(files.some((f) => f.endsWith('/' + n)), n);
+  }
+  // A similar name is not listed: the rule is by name, not by prefix.
+  assert.equal(forbiddenPathReason('apps/api/test/guardian-list.test.ts'), null);
+  assert.equal(forbiddenPathReason('apps/api/test/leak-report.test.ts'), null);
+});
+
 test('reviewer patches: e2e tests stay open whatever their name (owner, item 1а)', () => {
   assert.equal(forbiddenPathReason('apps/web/e2e/auth.spec.ts'), null);
   assert.equal(forbiddenPathReason('apps/web/e2e/isolation.spec.ts'), null);
@@ -133,6 +167,14 @@ test('reviewer patches: skip, only, todo, removed tests and directive comments a
 test('reviewer patches: a changed test title is a text patch, not a removed test', () => {
   assert.deepEqual(check("-  it('old title', () => {", "+  it('new title', () => {"), []);
   assert.equal(check("-  it('old title', () => {", "+  it('new title', async () => {").length, 1);
+  // One new title covers one removed call, not several.
+  assert.equal(check("-  it('a', () => {", "-  it('b', () => {", "-  it('c', () => {", "+  it('z', () => {").length, 2);
+  // Only the title: not the cases of `.each`, not a `${…}` title, not another string on the line, not an assertion.
+  assert.equal(check("-  it.each(['owner'])('t %s', (r) => {", "+  it.each(['x'])('t %s', (r) => {").length, 1);
+  assert.equal(check('-  it(`a ${x}`, () => {', '+  it(`b ${y}`, () => {').length, 1);
+  assert.equal(check("-  it('a', () => run('admin'));", "+  it('a', () => run('guest'));").length, 1);
+  assert.equal(check("-test(name, () => { run('a') })", "+test(name, () => { run('b') })").length, 1);
+  assert.equal(check("-  expect(code).toBe('NOT_FOUND');", "+  expect(code).toBe('OK');").length, 1);
 });
 
 test('reviewer patches: every way to switch a test off is a violation, one by one', () => {
