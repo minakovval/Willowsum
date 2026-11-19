@@ -370,7 +370,7 @@ jobs:
     # every route (DS-06@PoC AC2). The static build behind `vite preview`, the real API process and a fresh database
     # (apps/web/e2e). Only these two browsers are installed, and they are cached by the Playwright version.
     runs-on: ubuntu-latest
-    # 22 = a normal run (8 min measured, run 44471838826 attempt 2) + the install step's worst case (3 x 4 min + backoff) with margin.
+    # 22 = a normal run (8 min measured, run 44471838826 attempt 2, of it 4 min install) + the install step's limit (14 min) with margin.
     timeout-minutes: 22
     services:
       postgres:
@@ -421,23 +421,24 @@ jobs:
         run: pnpm --filter @willowsum/web exec playwright install --with-deps --only-shell chromium webkit
       - name: System libraries of the cached browsers
         if: steps.browsers.outputs.cache-hit == 'true'
-        # #568: `install-deps` downloads ~190 packages (WebKit pulls gstreamer and ffmpeg) from the runner's apt mirror.
-        # On a slow mirror (96 kB/s, endless `Ign:` retries) one run used the whole 15-minute job budget and the job
-        # timeout cancelled this step. Now each attempt is bounded (`timeout 4m`), apt gives up on a stalled
-        # connection after 20 s and retries a file 3 times, and a failed attempt is repeated (up to 3) with a
-        # fresh mirror choice, so a stalled mirror costs at most a few minutes instead of the job.
-        timeout-minutes: 13
+        # #568: `install-deps` downloads ~140 MB (~190 packages; WebKit pulls gstreamer and ffmpeg) from the runner's
+        # apt mirror. On a slow mirror one run used the whole 15-minute job budget and the job timeout cancelled this
+        # step; a passing re-run still took 4 min 09 s, so one attempt gets 6 min. apt gives up on a stalled connection
+        # after 20 s and retries a file 3 times. A second attempt reuses the packages already in apt's cache; a
+        # killed attempt may leave dpkg half-done, so `dpkg --configure -a` runs before it.
+        timeout-minutes: 14
         run: |
-          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\n' \
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\n' \
             | sudo tee /etc/apt/apt.conf.d/99ci-retries > /dev/null
-          for attempt in 1 2 3; do
-            if timeout 4m pnpm --filter @willowsum/web exec playwright install-deps chromium webkit; then
+          for attempt in 1 2; do
+            if timeout -k 30s 6m pnpm --filter @willowsum/web exec playwright install-deps chromium webkit; then
               exit 0
             fi
-            echo "::warning::install-deps attempt $attempt failed or stalled; retrying"
-            sleep $((attempt * 10))
+            echo "::warning::install-deps attempt $attempt failed or stalled"
+            sudo dpkg --configure -a || true
+            if [ "$attempt" -lt 2 ]; then sleep 15; fi
           done
-          echo "::error::install-deps failed 3 times"
+          echo "::error::install-deps failed 2 times"
           exit 1
       - name: End-to-end tests and route contrast (build, then Chromium and WebKit at 1280 px)
         run: pnpm test:e2e
