@@ -1,6 +1,6 @@
 # Модуль file-storage
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-01 b: підключення в `main.ts`, перший виклик — рядок 39)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 b: воркер розбору — спільний `platform/process/isolated.ts`, рядок 41)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -29,7 +29,7 @@ AC6 і рядок «Технічна межа сховища»; IMP-01@PoC п. 3
 - `createFileStorage({ db, audit, keys, objects, linkKey, now?, isolation?, spaceBytes? })` → `FileStorage`:
   - `store({ householdId, actorId, kind: "statement", fileName, declaredBytes?, budget, body })` → `StoredFile` — порядок:
     межа простору за заявленою довжиною (без читання потоку) → читання потоку під бюджетом запиту → перевірка типу і стелі в
-    окремому воркері → шифрування ключем простору → у транзакції під блокуванням меж простору (`pg_advisory_xact_lock` на
+    окремому воркері (`runIsolated` з `platform/process/isolated.ts`, спільний з file-parsers) → шифрування ключем простору → у транзакції під блокуванням меж простору (`pg_advisory_xact_lock` на
     `space-limits:<простір>`, `SPACE_LIMITS_LOCK`) повторна перевірка 100 ГіБ, рядок, об'єкт `spaces/<простір>/files/<файл>`,
     запис аудиту. Відхилення — `FileRejectedError` (`rejection`: `code`, `status` 413 або 422, `ceiling`, `message.uk|en`), і
     нічого не збережено ні в сховищі, ні в базі;

@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 a: читання CSV/TSV, безпечні шаблони, відбиток формату, хвиля 2, рядок 40, частина 1)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 b: альтернативи й пояснення рішень рушія, ізольований воркер розбору, хвиля 2, рядок 41, частина 1)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -16,7 +16,14 @@
 кількості колонок і міток шапки) і міра схожості; безпечний діалект регулярних виразів рецепта з власним лінійним
 виконавцем (Pike VM; без `RegExp`/`eval`). Чисте і детерміноване: без годинника, мережі й випадковості; файл — недовірені
 дані: межі 25 МіБ, 20 000 записів, 2 млн клітинок, 512 колонок, 32 768 символів клітинки; формули не виконуються (клітинка —
-текст). Застосування рецепта, дати, числа, знак і альтернативи полів — наступні частини. Таблиць, маршрутів і подій немає.
+текст). Застосування рецепта — наступні частини. Таблиць, маршрутів і подій немає.
+
+Частина 2 (IMP-06@PoC b, рядок 41, частина 1): рішення рушія щодо таблиці — роль кожної колонки, формат дат, формат чисел і
+знак — з альтернативами (оцінка 0–1, підпис у термінах рецепта, живі приклади з файлу) і доказами «чому так» (код і числа,
+текст — на клієнті); пояснення таблиці (рядок заголовка, рядки до нього, рядки даних) і валюти (колонка, код у заголовку).
+Читання файлу до рядків і шаблони рецепта виконуються лише в ізольованому воркері розбору (#607 п. 3): публічний інтерфейс
+не експортує `readDelimitedFile` і `compilePattern`, лише `checkPattern` (перевірка без виконання) і
+`isolatedStatementParser`. Події з ногами в розборі виписки (IMP-02 b) — частина 2 рядка 41.
 
 ## Вимоги
 
@@ -27,13 +34,18 @@
 `index.ts`:
 
 - `fileParsersModule`.
-- `readDelimitedFile(bytes, options?)` → `FileReading`: кодування (`chosen`, `alternatives`, причина `bom` / `content` /
-  `recipe`), роздільник, рядки, `unclosedQuote`, `headerRow` (з 0), `format` (`signature`, `fingerprint` «fp1:…»).
-  `ReadOptions` — файлові правила рецепта (рядки з 0). Перевищення: `FileTooLargeError`, `TableLimitError` (`ceiling`,
-  `limit`); `READ_LIMITS`, `TABLE_LIMITS`.
+- `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?)` → `StatementParse`: у свіжому воркері
+  (`platform/process/isolated.ts`, 512 МіБ, 60 с — `PARSE_LIMITS`, як у file-storage) читання файлу (`reading`: кодування
+  з альтернативами й причиною `bom` / `content` / `recipe`, роздільник, `unclosedQuote`, `replacementChars`, `format` з
+  `fingerprint` «fp1:…») і `analysis` (`StatementAnalysis`: `table`, `columns[].role`, `dates`, `numbers`, `sign` —
+  кожне `Decision` з `chosen`, `alternatives`, `evidence`, `flags`; `currency`). Рядки й колонки аналізу — з 1. Відмова —
+  `StatementParseError` (`FILE_TOO_LARGE`, `TABLE_LIMIT` з `ceiling`, `PARSE_MEMORY`, `PARSE_TIMEOUT`, `CORRUPTED`).
+  `ReadOptions` — файлові правила рецепта (рядки з 0); `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
+  `DATE_ORDERS`.
 - `fingerprintOf(signature)`, `compareSignatures(expected, actual)` → `match` / `changed` (зі схожістю) / `unknown`,
   `signatureSimilarity`; тип `FormatSignature`.
-- `compilePattern(source)` → `SafePattern` (`match`, `groups`) або причина відмови (`PatternIssue`); `PATTERN_LIMITS`.
+- `checkPattern(source)` → `{ ok, groups }` або причина відмови (`PatternIssue`); `PATTERN_LIMITS`. Сам збіг — лише у
+  воркері.
 - `ENCODINGS`, `DELIMITERS`; типи `Encoding`, `Delimiter`, `Quote`.
 
 ## Залежності
@@ -57,4 +69,5 @@
 ## Тести
 
 `domain/imp06-safe-pattern.test.ts`, `domain/imp06-encoding.test.ts`, `domain/imp06-table.test.ts`,
-`domain/imp06-format.test.ts`, `application/imp06-read-file.test.ts`.
+`domain/imp06-format.test.ts`, `application/imp06-read-file.test.ts`, `domain/imp06-alternatives.test.ts`,
+`adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері).
