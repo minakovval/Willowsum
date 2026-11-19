@@ -1104,6 +1104,30 @@ code {
   white-space: nowrap;
 }
 
+/* CMP-42, CMP-47 gallery: the charts in every state. */
+.gallery-charts {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.gallery-charts p {
+  margin: 0;
+}
+
+.gallery-charts__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-4);
+}
+
+.gallery-charts__case {
+  display: grid;
+  align-content: start;
+  gap: var(--ws-space-2);
+  margin: 0;
+  min-inline-size: 0;
+}
+
 /* CMP-74@PoC gallery: Progress in every state. */
 .gallery-progress {
   display: grid;
