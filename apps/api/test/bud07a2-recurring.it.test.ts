@@ -9,6 +9,7 @@ import { createWorker } from "../src/platform/queue/index.ts";
 import { testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { schedulerDailyTasks, workerQueues } from "../src/wiring.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
@@ -565,7 +566,7 @@ describe("BUD-07@PoC AC9, «Права доступу»: the space's boundary", 
     expect((await call(stranger, "GET", "/v1/recurring/payments")).json()).toEqual({ items: [] });
     const res = await call(stranger, "GET", `/v1/recurring/payments/${created.json().id}`);
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("650");
+    expect(leakText(res.body)).not.toContain("650");
     for (const action of ["confirm", "reject"]) {
       const res = await call(stranger, "POST", `/v1/recurring/proposals/${action}`, { key: p!.key });
       expect(res.statusCode, action).toBe(404);
