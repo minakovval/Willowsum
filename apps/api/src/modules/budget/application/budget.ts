@@ -4,18 +4,21 @@ import {
   includedByDefault,
   isPeriod,
   limitIssue,
+  periodOf,
   parseBudgetAmount,
   periodMode,
   periodsToSnapshot,
   scalePlan,
   shareFrom,
   startChoices,
+  withCells,
   type BudgetCategory,
   type BudgetIssue,
   type CountedAmount,
   type Period,
   type PeriodObligations,
   type PeriodPlan,
+  type PlanCell,
 } from "../domain/index.ts";
 
 /** The space's budget as stored (migrations/0001_budget.sql). */
@@ -60,6 +63,15 @@ export interface BudgetTx {
   /** The snapshots of the given periods (all when omitted). */
   snapshots(householdId: string, budgetId: string): Promise<ReadonlyMap<Period, PeriodPlan>>;
   insertSnapshot(householdId: string, budgetId: string, period: Period, plan: PeriodPlan): Promise<void>;
+  /** BUD-17 FR 2: the months' own values of the grid's lines (from `from` on when given), oldest first. */
+  planCells(householdId: string, budgetId: string, from?: Period): Promise<PlanCell[]>;
+  /** Writes a cell (`amount` null — back to the line's default) and returns its new version. */
+  setPlanCell(
+    householdId: string,
+    budgetId: string,
+    cell: Omit<PlanCell, "version">,
+    currency: string,
+  ): Promise<number>;
   enqueueHandOff(handOff: BudgetHandOff): Promise<void>;
 }
 
@@ -137,6 +149,26 @@ export interface BudgetDeps {
   readonly reads: BudgetReads;
   /** Null — not wired (a test's server only; the API process wires it). */
   readonly obligations: BudgetObligations | null;
+  /** BUD-17: the goals and the debts' extra payments of the grid; null — not wired (a test's server only). */
+  readonly planSources: BudgetPlanSources | null;
+}
+
+/**
+ * BUD-17@PoC FR 1: what «План» reads from modules goals and debt-payoff (adapters/plan-sources.ts), in `currency` at
+ * today's rate. A goal's `required` is null without a rate; a month's extra payments are null when one has no rate.
+ */
+export interface BudgetPlanSources {
+  /** The space's active goals, oldest first. */
+  goals(
+    householdId: string,
+    currency: string,
+  ): Promise<readonly { goalId: string; required: Money | null; lastPeriod: Period | null }[]>;
+  /** BUD-19 FR 5: the extra payments of the saved payoff plans in the month, by debt. */
+  extraPayments(
+    householdId: string,
+    period: Period,
+    currency: string,
+  ): Promise<readonly { accountId: string; amount: Money }[] | null>;
 }
 
 export interface Caller {
@@ -160,7 +192,12 @@ export interface Handed<R> {
 }
 
 export const BUDGET_HAND_OFF_ACTIONS = ["create", "update", "delete"] as const;
-export const BUDGET_AUDIT_ENTITIES = ["budget.budget", "budget.limit", "budget.account"] as const;
+export const BUDGET_AUDIT_ENTITIES = [
+  "budget.budget",
+  "budget.limit",
+  "budget.account",
+  "budget.plan-cell",
+] as const;
 
 /**
  * The hand-off of a budget change to the audit log («Кожна зміна пишеться в журнал аудиту зі значеннями до і після»;
@@ -169,7 +206,7 @@ export const BUDGET_AUDIT_ENTITIES = ["budget.budget", "budget.limit", "budget.a
  */
 export interface BudgetHandOff {
   readonly entity: (typeof BUDGET_AUDIT_ENTITIES)[number];
-  /** The budget, the limit's category or the account. */
+  /** The budget, the limit's category, the account, or a cell's line (its category or goal; the budget for none). */
   readonly entityId: string;
   readonly actorAccountId: string;
   readonly action: (typeof BUDGET_HAND_OFF_ACTIONS)[number];
@@ -259,7 +296,28 @@ export async function ensureSnapshots(
   );
   if (missing.length === 0) return;
   const plan = livePlan(budget, await tx.limits(householdId, budget.id), categories);
-  for (const p of missing) await tx.insertSnapshot(householdId, budget.id, p, planOf(budget, p, plan));
+  const cells = await tx.planCells(householdId, budget.id);
+  for (const p of missing)
+    await tx.insertSnapshot(householdId, budget.id, p, monthPlan(budget, p, plan, cells, categories));
+}
+
+/**
+ * BUD-17 FR 2: the plan of a month — the budget-wide plan (a proportional first period scaled) with the month's own
+ * cells (domain/plan-grid.ts).
+ */
+export function monthPlan(
+  budget: StoredBudget,
+  period: Period,
+  live: PeriodPlan,
+  cells: readonly PlanCell[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+): PeriodPlan {
+  return withCells(
+    planOf(budget, period, live),
+    cells.filter((c) => c.period === period),
+    categories,
+    budget.currency,
+  );
 }
 
 /** FR 14: a proportional first period has the plan × its share of days; every other period the plan as it is. */
@@ -422,9 +480,42 @@ export async function updatePlan(
       ]),
     );
   if (handOffs.length === 0) return { result: { kind: "ok", value: budget }, handOffs };
+  // BUD-17 business rules: a change of the limit acts on the current and future periods — their own values of the
+  // changed lines go back to the default (the past keeps them).
+  const changed = new Set(
+    handOffs.map((h) => (h.entity === "budget.limit" ? `limit:${h.entityId}` : "income:")),
+  );
+  for (const c of await tx.planCells(caller.householdId, budget.id, periodOf(deps.today())))
+    if (c.amount !== null && changed.has(`${c.kind}:${c.lineId ?? ""}`)) {
+      await tx.setPlanCell(caller.householdId, budget.id, { ...c, amount: null }, budget.currency);
+      handOffs.push(cellHandOff(deps, caller, budget, c, c.amount, null));
+    }
   const updated = await tx.updateBudget(caller.householdId, budget.id, income);
   for (const h of handOffs) await tx.enqueueHandOff(h);
   return { result: { kind: "ok", value: updated }, handOffs };
+}
+
+/** BUD-17: the audit entry of a cell — its month, line and amount before and after. */
+export function cellHandOff(
+  deps: Pick<BudgetDeps, "newId">,
+  caller: Caller,
+  budget: StoredBudget,
+  cell: Pick<PlanCell, "period" | "kind" | "lineId">,
+  before: Money | null,
+  after: Money | null,
+): BudgetHandOff {
+  return handOff(
+    deps,
+    caller,
+    "budget.plan-cell",
+    cell.lineId ?? budget.id,
+    before === null ? "create" : after === null ? "delete" : "update",
+    [
+      { field: "period", before: cell.period, after: cell.period },
+      { field: "kind", before: cell.kind, after: cell.kind },
+      { field: "amount", before: before?.toDecimalString() ?? null, after: after?.toDecimalString() ?? null },
+    ],
+  );
 }
 
 /** FR 10, AC2: whether the account is in the budget; a switched-off account still counts in net worth and the list. */
@@ -508,7 +599,13 @@ export async function periodPlan(
   if (period < budget.firstPeriod) return null;
   const today = deps.today();
   if (periodMode(period, today) !== "past")
-    return planOf(budget, period, livePlan(budget, await tx.limits(householdId, budget.id), categories));
+    return monthPlan(
+      budget,
+      period,
+      livePlan(budget, await tx.limits(householdId, budget.id), categories),
+      await tx.planCells(householdId, budget.id, period),
+      categories,
+    );
   let snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   if (!snapshot) {
     const locked = await tx.budget(householdId, true);
@@ -540,6 +637,7 @@ export async function periodPlans(
     snapshots = await tx.snapshots(householdId, budget.id);
   }
   const live = livePlan(budget, await tx.limits(householdId, budget.id), categories);
+  const cells = await tx.planCells(householdId, budget.id, periodOf(today));
   const out = new Map<Period, PeriodPlan | null>();
   for (const p of periods)
     out.set(
@@ -548,7 +646,7 @@ export async function periodPlans(
         ? null
         : periodMode(p, today) === "past"
           ? (snapshots.get(p) ?? null)
-          : planOf(budget, p, live),
+          : monthPlan(budget, p, live, cells, categories),
     );
   return out;
 }

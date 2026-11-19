@@ -1,6 +1,6 @@
 # Модуль budget
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-06@PoC a: «Порівняння» — `GET /v1/budget/compare`, `GET /v1/budget/compare/year`, прапорець `budget.compare`; BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (BUD-17@PoC a: «План» — `GET /v1/budget/plan-grid`, `PUT /v1/budget/plan-grid/cells`, прапорець `budget.plan`, таблиця `plan_cells`, порт `BudgetPlanSources` над goals і debt-payoff; раніше BUD-06@PoC a: «Порівняння» — `GET /v1/budget/compare`, `GET /v1/budget/compare/year`, прапорець `budget.compare`; BUD-16@PoC a: метод «Ліміти», «План місяця» = сума лімітів, `GET /v1/budget/trend`; раніше #586: «Витрачено» — суми поза межами пропущено, ніколи не 500, `adapters/money-range.ts`; #567 і BUD-03@PoC a: порт `BudgetObligations` під'єднано — адаптер над recurring, accounts, liabilities, transactions; ядро розрахунку «Можна витратити»; раніше BUD-02@PoC c: «Розподіл» — смуга кроку лімітів, профіцит і дефіцит, покриття; рядок підсумку «Категорії»; «Очікувані платежі» місяця; порт `BudgetObligations`; раніше, 2026-11-16, b: майстер — «За моїми витратами», старт посеред періоду, пропорційний перший період; a: бюджет, ліміти, «Поза планом», рахунки бюджету, знімок періоду)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -39,8 +39,15 @@ BUD-06@PoC a) (рядок 36, серверна частина): п. 1 (типи 
 даними там), 6 (сортування за абсолютною різницею, три найбільші зміни з кількістю транзакцій; тексти — на сторінці), 11
 («Рік: план і факт»), бізнес-правила; AC1, AC2, AC5–AC11, AC13–AC15 (серверні частини), граничні випадки 1–3. UI —
 рядок 132; п. 8 і AC4 («Одноразова витрата»), п. 9 («з цілі») — далі (follow-ups PR).
-Далі: запис розподілу (внески в цілі, «Заощадження без цілі», додатковий платіж за боргом) і ліміти окремого місяця — з
-BUD-17 (рядок 35); «Можна витратити в <місяць> ≈» — BUD-03 (рядок 34); UI (рядки 123–125).
+BUD-17@PoC a) (рядок 35, серверна частина): п. 1 (сітка поточного й 11 наступних місяців: «Надходження» — «Інші
+надходження» = план доходу і джерела-категорії доходу; «Витрати» — ліміти активних категорій за групами; «Цілі й
+заощадження» — внесок кожної активної цілі, типово потрібний, до місяця її дати, і «Заощадження без цілі»; «Погашення
+боргів» — мінімальні платежі `BudgetObligations` і додаткові платежі збережених планів, лише читання; «Не розподілено» /
+«Дефіцит»), 2 (клітинка — власне значення місяця, діє лише на нього, і в знімку завершеного місяця; минулий — лише
+читання), 3 (версія клітинки, 409 `VERSION_CONFLICT`), 4, 6; AC1–AC7, граничні випадки 1–2 (серверні частини). Зміна
+ліміту чи плану доходу через `PATCH /v1/budget/plan` повертає власні значення цього рядка з поточного місяця до
+типового. UI — рядок 127; п. 5, 7, 8 — UI.
+Далі: розбивка «Можна витратити» з внесками в цілі — BUD-03 (рядок 34) читає `plannedSavings` періоду; «Можна витратити в <місяць> ≈» — BUD-03 (рядок 34); UI (рядки 123–125).
 
 Зрізи PoC, що ще називають модуль: BUD-03@PoC, BUD-06@PoC, BUD-16@PoC, BUD-17@PoC, FLW-34@PoC, FLW-35@PoC, FLW-37@PoC,
 FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
@@ -108,7 +115,20 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     `income`, `groups` (у порядку дерева, «Без категорії» — `groupId` null, останньою) з `categories`, `expenses`:
     рядок — 12 `cells` (`fact`, null — майбутній; `plan`; `difference`), `total`, `plan`, `difference` за завершені
     місяці; `approximate`.
-- `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations? })` →
+  - `GET /v1/budget/plan-grid` (`getBudgetPlanGrid`; прапорець випуску і ключ функції `budget.plan`, вимагає
+    `budget.period`) → `currency`, `months` (12: `period`, `mode` — `current` / `future`, `inBudget` — false до першого
+    періоду), `income` (`rows`: `categoryId` null — «Інші надходження», далі категорії доходу), `expenses` (`groups` →
+    `categories`), `goals` (`rows` — `goalId`, клітинки з `required`; `savings`), `debts` (`rows` — `accountId`, клітинки
+    `minimum`, `extra`), кожен розділ із `totals` (null — суми немає: без курсу); клітинка — `amount` (null — порожня),
+    `own` (власне значення місяця), `version`; `unallocated` — `kind` `unallocated` / `deficit` і `amount` (модуль), null
+    без суми розділу. Без бюджету — 404.
+  - `PUT /v1/budget/plan-grid/cells` (`setBudgetPlanCell`, той самий прапорець) — `period` (поточний або один з 11
+    наступних; 400 `period`: `past`, `too_far`; до першого періоду — 404 `BUDGET_PERIOD_BEFORE_START`), `kind` (`income`,
+    `limit`, `goal`, `savings`), `lineId` (категорія, ціль; null — «Інші надходження» чи «Заощадження без цілі»; 400
+    `lineId`: `not_found`, `not_expense`, `hidden`, `not_income`, `required`, `invalid`), `amount` (null — до типового),
+    `version` (0 — власного значення ще не було; інша — 409 `VERSION_CONFLICT` з `currentVersion`) → `amount`, `version`.
+    Під блокуванням рядка бюджету; те саме значення нічого не пише.
+- `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations?, planSources? })` →
   `BudgetServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories`
   (categories), `AccountList` (accounts), `BudgetTransactions` (transactions), `TransactionCategories`
   (categorization), `FxReporting.total` (fx-rates); «сьогодні» — дата за Києвом; валюта — `SPACE_REPORTING_CURRENCY`;
@@ -116,6 +136,9 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
   (`recurring`: `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).
+- `createBudgetPlanSources({ goals, debts, fx })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals: активні
+  цілі з потрібним внеском і датою), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця), `FxReporting.total`
+  (fx-rates: інша валюта — за сьогоднішнім курсом; без курсу чи понад 15 цифр цілої частини — null).
 - `createBudgetObligations({ recurring, credit, liabilities, payments, fx })` → `BudgetObligations` (`src/main.ts`):
   `RecurringMonth` (recurring), `CreditAccounts` (accounts), `Liabilities.forAccount` (liabilities), `AccountPayments`
   (transactions), `FxReporting.total` (fx-rates); `OBLIGATION_MAX_INTEGER_DIGITS` = 15.
@@ -138,14 +161,16 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
 ## Передача аудиту (ARC-04 п. 2–4, ADR-0015)
 
 Кожна зміна (`budget.budget`: `create`, `update` — `incomePlan`, `delete`; `budget.limit` з ідентифікатором категорії:
-`create`, `update`, `delete` — `categoryId`, `amount`; `budget.account` з ідентифікатором рахунку: `update` — `included`)
+`create`, `update`, `delete` — `categoryId`, `amount`; `budget.account` з ідентифікатором рахунку: `update` — `included`; `budget.plan-cell` з ідентифікатором рядка — категорії, цілі або бюджету для рядка без власного:
+`create`, `update`, `delete` — `period`, `kind`, `amount`)
 пише рядок і задачу `budget.hand-off` в одній транзакції модуля; запис аудиту — після коміту одразу, а якщо не вдалося
 (WARN `budget.hand_off_deferred`) — воркером. Ключ — `<сутність>:<дія>:<ідентифікатор>:<зміна>`. Задача `dead` після 8
 спроб щодня повертається в чергу. Знімок періоду — не зміна користувача, аудиту не має.
 
 ## Залежності
 
-Шар: process. Модулі: accounts, audit, categories, categorization, fx-rates, household, liabilities, recurring, transactions
+Шар: process. Модулі: accounts, audit, categories, categorization, debt-payoff, fx-rates, goals, household, liabilities,
+recurring, transactions
 (`apps/api/module-rules.json`). Платформа: черга задач (ARC-04).
 
 ## Події
@@ -167,6 +192,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
 | `budgets` | Бюджет: валюта, `first_period`, `income_plan`, `created_on`, версія; UNIQUE (`household_id`) — один на простір (`0001_budget.sql`); `first_day` — день старту пропорційного першого періоду (`0004_proportional_start.sql`) |
 | `limits` | Ліміт категорії витрат (непрозорий ідентифікатор категорії `categories`) і його валюта; без рядка — «Поза планом» |
 | `budget_accounts` | Рахунок (`accounts`), перемкнений проти типового; ключ — рахунок: не більше одного бюджету на рахунок |
+| `plan_cells` | Власне значення місяця одного рядка «Плану» (BUD-17): `kind`, `line_id` (нульовий — рядок без власного), `amount` (null — до типового), `version` (`0005_plan_cells.sql`) |
 | `period_snapshots` | Знімок завершеного періоду: план доходу, заплановані заощадження, ліміти з «обов'язкова» (jsonb) |
 | `idempotency_keys` | Ключі ідемпотентності створення (ARC-07 п. 4; `0002_idempotency_keys.sql`, дослівно) |
 | `outbox_events`, `jobs` | Черга модуля (`0003_queue.sql`, таблиці платформи дослівно): задачі `budget.hand-off`; подій модуль не публікує |

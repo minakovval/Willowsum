@@ -1,7 +1,7 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import type { BudgetTx, StoredBudget } from "../../application/index.ts";
-import type { PeriodPlan } from "../../domain/index.ts";
+import type { PeriodPlan, PlanCell, PlanLineKind } from "../../domain/index.ts";
 import { enqueueHandOff } from "../queue/job.ts";
 
 /** The budget schema through the module's own role (migrations/0001_budget.sql). The row policy binds the space; SQL filters it too. */
@@ -29,6 +29,9 @@ const budget = (r: BudgetRow): StoredBudget => ({
 });
 
 const month = (period: string) => `${period}-01`;
+
+/** A line without its own id («Інші надходження», «Заощадження без цілі») is stored under the nil id (0005). */
+const NIL = "00000000-0000-0000-0000-000000000000";
 
 export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
   return {
@@ -153,6 +156,47 @@ export function budgetTx(q: HouseholdQueryRunner): BudgetTx {
           ),
         ],
       );
+    },
+    async planCells(householdId, budgetId, from) {
+      const { rows } = await q.query<{
+        period: string;
+        kind: PlanLineKind;
+        line_id: string;
+        amount: string | null;
+        currency: string;
+        version: number;
+      }>(
+        `SELECT to_char(period, 'YYYY-MM') AS period, kind, line_id, amount::text AS amount, currency, version
+           FROM plan_cells WHERE household_id = $1 AND budget_id = $2 AND ($3::date IS NULL OR period >= $3::date)
+          ORDER BY period, kind, line_id`,
+        [householdId, budgetId, from === undefined ? null : month(from)],
+      );
+      return rows.map((r): PlanCell => ({
+        period: r.period,
+        kind: r.kind,
+        lineId: r.line_id === NIL ? null : r.line_id,
+        amount: r.amount === null ? null : Money.of(r.amount, r.currency),
+        version: r.version,
+      }));
+    },
+    async setPlanCell(householdId, budgetId, cell, currency) {
+      const { rows } = await q.query<{ version: number }>(
+        `INSERT INTO plan_cells (household_id, budget_id, period, kind, line_id, amount, currency, version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
+         ON CONFLICT (household_id, budget_id, period, kind, line_id)
+           DO UPDATE SET amount = EXCLUDED.amount, version = plan_cells.version + 1, updated_at = now()
+         RETURNING version`,
+        [
+          householdId,
+          budgetId,
+          month(cell.period),
+          cell.kind,
+          cell.lineId ?? NIL,
+          cell.amount?.toDecimalString() ?? null,
+          currency,
+        ],
+      );
+      return rows[0]!.version;
     },
     enqueueHandOff: (handOff) => enqueueHandOff(q, handOff),
   };

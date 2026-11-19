@@ -17,6 +17,7 @@ import {
 import {
   createBudgetCategoryUsage,
   createBudgetObligations,
+  createBudgetPlanSources,
   createBudgetServices,
 } from "./modules/budget/index.ts";
 import { createCashflowServices } from "./modules/cashflow/index.ts";
@@ -29,10 +30,10 @@ import {
   createTransactionCategories,
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
-import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
+import { createDebtPayoffServices, createDebtPlannedExpenses } from "./modules/debt-payoff/index.ts";
 import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
-import { createGoalsServices } from "./modules/goals/index.ts";
+import { createGoalPlans, createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import {
   createRecurringCategoryUsage,
@@ -260,6 +261,29 @@ const recurring = createRecurringServices({
   newId: randomUUID,
 });
 
+// BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts); «Витратити»
+// reads the transaction (transactions) and its journal event (ledger). One instance for the goals routes and «План» of
+// the budget (BUD-17).
+const goals = createGoalsServices({
+  accounts: createAccountDirectory(databases.for("accounts")),
+  ledger: createLedger(databases.for("ledger")),
+  transactions: createTransactionLookup(databases.for("transactions")),
+  // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
+  reads: {
+    transactions: createGoalTransactions(databases.for("transactions")),
+    fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+    categorization: createTransactionCategories(databases.for("categorization")),
+    categories: createCategoryDirectory({
+      db: databases.for("categories"),
+      audit,
+      newId: randomUUID,
+    }),
+  },
+  audit,
+  clock: systemClock,
+  newId: randomUUID,
+});
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
 lifecycle.onStop(() => telemetry.shutdown());
@@ -404,6 +428,16 @@ const server = buildServer({
               newId: randomUUID,
               // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
               // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
+              // BUD-17 a: «План» — the active goals' required contributions (goals) and the saved payoff plans' extra
+              // payments (debt-payoff), at today's NBU rate (fx-rates).
+              planSources: createBudgetPlanSources({
+                goals: createGoalPlans(databases.for("goals"), goals),
+                debts: createDebtPlannedExpenses(
+                  databases.for("debt-payoff"),
+                  createCreditAccounts(databases.for("accounts")),
+                ),
+                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              }),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
                 credit: createCreditAccounts(databases.for("accounts")),
@@ -441,27 +475,8 @@ const server = buildServer({
               categories: createTransactionCategories(databases.for("categorization")),
             }),
             recurring,
-            // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
-            // «Витратити» reads the transaction (transactions) and its journal event (ledger).
-            goals: createGoalsServices({
-              accounts: createAccountDirectory(databases.for("accounts")),
-              ledger: createLedger(databases.for("ledger")),
-              transactions: createTransactionLookup(databases.for("transactions")),
-              // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
-              reads: {
-                transactions: createGoalTransactions(databases.for("transactions")),
-                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-                categorization: createTransactionCategories(databases.for("categorization")),
-                categories: createCategoryDirectory({
-                  db: databases.for("categories"),
-                  audit,
-                  newId: randomUUID,
-                }),
-              },
-              audit,
-              clock: systemClock,
-              newId: randomUUID,
-            }),
+            // BUD-05: savings goals (one instance with «План» of the budget, above).
+            goals,
             // BUD-19 a: «Борги» — the credit cards and loans (accounts) with their terms (liabilities) and debts (ledger).
             debtPayoff: createDebtPayoffServices({
               accounts: createCreditAccounts(databases.for("accounts")),

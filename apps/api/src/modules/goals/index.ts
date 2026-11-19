@@ -6,6 +6,7 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { EventSubscription, WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import { entryRecorded, type Ledger } from "../ledger/index.ts";
+import { viewGoals } from "./application/index.ts";
 import {
   ENTRY_RECORDED_JOB,
   eraseHouseholdGoals,
@@ -16,6 +17,7 @@ import {
   HAND_OFF_JOB,
   requeueDeadHandOffs,
   SPEND_CHECK_JOB,
+  type GoalsServices,
 } from "./adapters/index.ts";
 
 export const goalsModule = defineModule({
@@ -72,6 +74,44 @@ export function createGoalSpends(db: ModuleDatabase): GoalSpends {
         const spends = await goalsTx(q).spendsOfTransactions(householdId, transactionIds);
         return new Map(spends.map((s) => [s.transactionId, { goalId: s.goalId, amount: s.amount }]));
       }),
+  };
+}
+
+/**
+ * The goals as «План» of the budget (BUD-17@PoC FR 1) plans them: each active goal with its required monthly
+ * contribution as the goal's card shows it today (FR 5; null — no date or past it) and its date. Read only; every call
+ * is bound to one space.
+ */
+export interface GoalPlans {
+  active(householdId: string): Promise<
+    readonly {
+      readonly goalId: string;
+      readonly requiredMonthly: Money | null;
+      readonly targetDate: string | null;
+    }[]
+  >;
+}
+
+/** `db` is the goals module's own database; `services` — the routes' (`createGoalsServices`): the parts' balances. */
+export function createGoalPlans(db: ModuleDatabase, services: GoalsServices): GoalPlans {
+  return {
+    async active(householdId) {
+      const { goals, contributions, spends } = await db.inHousehold(householdId, async (q) => {
+        const tx = goalsTx(q);
+        const goals = await tx.goals(householdId);
+        const ids = goals.map((g) => g.id);
+        return {
+          goals,
+          contributions: await tx.contributions(householdId, ids),
+          spends: await tx.spends(householdId, ids),
+        };
+      });
+      return (await viewGoals(services.deps, householdId, goals, contributions, spends)).map((v) => ({
+        goalId: v.goal.id,
+        requiredMonthly: v.progress.requiredMonthly,
+        targetDate: v.goal.targetDate,
+      }));
+    },
   };
 }
 

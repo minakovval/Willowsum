@@ -35,6 +35,7 @@ import {
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
 import { compareRoutes } from "./compare.ts";
+import { planGridRoutes } from "./plan-grid.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
 /**
@@ -805,4 +806,5 @@ export const budgetRoutes = [
   getPeriodRoute,
   getTrendRoute,
   ...compareRoutes,
+  ...planGridRoutes,
 ];

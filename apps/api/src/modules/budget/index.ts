@@ -22,12 +22,13 @@ export const budgetModule = defineModule({
 
 export {
   createBudgetObligations,
+  createBudgetPlanSources,
   createBudgetServices,
   OBLIGATION_MAX_INTEGER_DIGITS,
   type BudgetServices,
 } from "./adapters/index.ts";
 export { DEFAULT_BUDGET_KINDS } from "./domain/index.ts";
-export type { BudgetObligations } from "./application/index.ts";
+export type { BudgetObligations, BudgetPlanSources } from "./application/index.ts";
 export type { PeriodObligations } from "./domain/index.ts";
 
 /** The budget queue's job (ARC-04): the audit entry of a change of the budget, a limit or a budget account. */

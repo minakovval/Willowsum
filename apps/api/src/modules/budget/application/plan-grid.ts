@@ -1,0 +1,178 @@
+import { Money } from "@willowsum/domain-kernel";
+import {
+  cellPeriodIssue,
+  gridMonths,
+  limitIssue,
+  parseBudgetAmount,
+  planGrid,
+  type BudgetCategory,
+  type BudgetIssue,
+  type Period,
+  type PeriodPlan,
+  type PlanDebt,
+  type PlanGrid,
+  type PlanCell,
+  type PlanLineKind,
+} from "../domain/index.ts";
+import {
+  cellHandOff,
+  countsFrom,
+  ensureSnapshots,
+  livePlan,
+  planOf,
+  type BudgetDeps,
+  type BudgetTx,
+  type Caller,
+  type Handed,
+  type StoredBudget,
+  type StoredLimit,
+} from "./budget.ts";
+
+/**
+ * «Бюджет → План» (BUD-17@PoC a; wave 2 row 35): the grid of the current month and the 11 next (FR 1) — read with the
+ * goals (module goals), the debts' minimum payments (`BudgetObligations`) and the extra payments of saved payoff plans
+ * (module debt-payoff) — and the change of one cell (FR 2, FR 3).
+ */
+export async function readPlanGrid(
+  deps: BudgetDeps,
+  householdId: string,
+  budget: StoredBudget,
+  categories: readonly BudgetCategory[],
+  /** The budget's own rows, read in one budget transaction before the other modules are read (their pools). */
+  stored: { readonly limits: readonly StoredLimit[]; readonly cells: readonly PlanCell[] },
+): Promise<PlanGrid> {
+  const today = deps.today();
+  const months = gridMonths(today);
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  const live = livePlan(budget, stored.limits, byId);
+  const base = new Map<Period, PeriodPlan>(months.map((p) => [p, planOf(budget, p, live)]));
+  const cells = stored.cells;
+  const goals = deps.planSources ? await deps.planSources.goals(householdId, budget.currency) : null;
+  const debts = new Map<Period, PlanDebt[] | null>();
+  for (const p of months) {
+    if (p < budget.firstPeriod) {
+      debts.set(p, []);
+      continue;
+    }
+    const obligations = deps.obligations
+      ? await deps.obligations.month(householdId, p, budget.currency, countsFrom(budget, p))
+      : null;
+    const extra = deps.planSources
+      ? await deps.planSources.extraPayments(householdId, p, budget.currency)
+      : null;
+    if (!obligations || !extra) {
+      debts.set(p, null);
+      continue;
+    }
+    const rows = new Map<string, PlanDebt>();
+    for (const d of obligations.debtMinimums)
+      rows.set(d.accountId, { accountId: d.accountId, minimum: d.amount, extra: null });
+    for (const e of extra)
+      rows.set(e.accountId, {
+        accountId: e.accountId,
+        minimum: rows.get(e.accountId)?.minimum ?? null,
+        extra: e.amount,
+      });
+    debts.set(p, [...rows.values()]);
+  }
+  return planGrid({
+    today,
+    currency: budget.currency,
+    firstPeriod: budget.firstPeriod,
+    categories,
+    base,
+    cells,
+    goals,
+    debts,
+  });
+}
+
+export interface CellInput {
+  readonly period: string;
+  readonly kind: PlanLineKind;
+  readonly lineId: string | null;
+  /** Null — back to the line's default. */
+  readonly amount: { readonly amount: string; readonly currency: string } | null;
+  /** FR 3: the cell's version as the page read it (0 — the line had no own value in that month). */
+  readonly version: number;
+}
+
+export type CellResult =
+  | {
+      readonly kind: "ok";
+      readonly value: { readonly amount: Money | null; readonly version: number };
+    }
+  | { readonly kind: "invalid"; readonly issues: readonly BudgetIssue[] }
+  | { readonly kind: "not-found" }
+  | { readonly kind: "before-start" }
+  /** FR 3: «Значення змінено в іншому вікні» — the page reads the cell again. */
+  | { readonly kind: "conflict"; readonly version: number };
+
+/** Which line a cell may belong to (FR 1): an active category of its kind, an active goal, or none for the two others. */
+function lineIssue(
+  input: CellInput,
+  categories: ReadonlyMap<string, BudgetCategory>,
+  goalIds: ReadonlySet<string>,
+): string | null {
+  switch (input.kind) {
+    case "limit":
+      return input.lineId === null ? "required" : limitIssue(categories.get(input.lineId));
+    case "income": {
+      if (input.lineId === null) return null;
+      const c = categories.get(input.lineId);
+      if (!c || c.state !== "active" || c.mergedInto !== null) return "not_found";
+      return c.kind === "income" ? null : "not_income";
+    }
+    case "goal":
+      return input.lineId !== null && goalIds.has(input.lineId) ? null : "not_found";
+    case "savings":
+      return input.lineId === null ? null : "invalid";
+  }
+}
+
+/**
+ * FR 2, FR 3, AC2–AC4, AC7: one cell of the current or a future month, saved at once (no «Зберегти»); a past month is
+ * read only. Under the budget's row lock, so two saves of one cell are serialised: the one that carries an old version
+ * is refused, never a silent overwrite. The same value again writes nothing.
+ */
+export async function setPlanCell(
+  deps: BudgetDeps,
+  tx: BudgetTx,
+  caller: Caller,
+  input: CellInput,
+  categories: ReadonlyMap<string, BudgetCategory>,
+  goalIds: ReadonlySet<string>,
+): Promise<Handed<CellResult>> {
+  const none = (result: CellResult): Handed<CellResult> => ({ result, handOffs: [] });
+  const budget = await tx.budget(caller.householdId, true);
+  if (!budget) return none({ kind: "not-found" });
+  const today = deps.today();
+  const issues: BudgetIssue[] = [];
+  const periodIssue = cellPeriodIssue(input.period, today);
+  if (periodIssue) issues.push({ field: "period", issue: periodIssue });
+  const line = lineIssue(input, categories, goalIds);
+  if (line) issues.push({ field: "lineId", issue: line });
+  const amount = input.amount ? parseBudgetAmount("amount", input.amount, budget.currency) : null;
+  if (amount !== null && !(amount instanceof Money)) issues.push(amount);
+  if (issues.length > 0) return none({ kind: "invalid", issues });
+  if (input.period < budget.firstPeriod) return none({ kind: "before-start" });
+  const after = amount as Money | null;
+  const stored = (await tx.planCells(caller.householdId, budget.id, input.period)).find(
+    (c) => c.period === input.period && c.kind === input.kind && c.lineId === input.lineId,
+  );
+  const version = stored?.version ?? 0;
+  if (version !== input.version) return none({ kind: "conflict", version });
+  const before = stored?.amount ?? null;
+  if (before === null ? after === null : after !== null && before.equals(after))
+    return none({ kind: "ok", value: { amount: before, version } });
+  await ensureSnapshots(tx, caller.householdId, budget, today, categories);
+  const next = await tx.setPlanCell(
+    caller.householdId,
+    budget.id,
+    { period: input.period, kind: input.kind, lineId: input.lineId, amount: after },
+    budget.currency,
+  );
+  const h = cellHandOff(deps, caller, budget, input, before, after);
+  await tx.enqueueHandOff(h);
+  return { result: { kind: "ok", value: { amount: after, version: next } }, handOffs: [h] };
+}
