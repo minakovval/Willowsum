@@ -509,3 +509,13 @@ export function compilePattern(source: string): CompiledPattern {
     },
   };
 }
+
+/** A pattern's check without its matcher (FR 3): what the API process may do with a recipe's pattern — the match
+ * itself runs only in the parse worker (#607 item 3). */
+export type PatternCheck =
+  { readonly ok: true; readonly groups: number } | { readonly ok: false; readonly issue: PatternIssue };
+
+export function checkPattern(source: string): PatternCheck {
+  const compiled = compilePattern(source);
+  return compiled.ok ? { ok: true, groups: compiled.pattern.groups } : compiled;
+}

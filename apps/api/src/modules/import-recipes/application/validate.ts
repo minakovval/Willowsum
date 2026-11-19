@@ -1,4 +1,4 @@
-import { compilePattern, type ReadOptions } from "../../file-parsers/index.ts";
+import { checkPattern, type ReadOptions } from "../../file-parsers/index.ts";
 import {
   checkRecipe,
   recipePatterns,
@@ -9,7 +9,7 @@ import {
 
 /**
  * A recipe checked whole (IMP-06@PoC FR 2, FR 3, FR 14): its schema and limits (domain), then each pattern against the
- * engine's safe dialect (file-parsers' `compilePattern`) — UNSAFE_PATTERN with the rule it breaks, INVALID_PATTERN for
+ * engine's safe dialect (file-parsers' `checkPattern`; the match itself runs only in the parse worker, #607 item 3) — UNSAFE_PATTERN with the rule it breaks, INVALID_PATTERN for
  * a malformed one — and each extraction's group against the pattern's groups.
  */
 export function validateRecipe(input: unknown): RecipeCheck {
@@ -18,8 +18,8 @@ export function validateRecipe(input: unknown): RecipeCheck {
   const errors: RecipeError[] = [];
   const groups = new Map<string, number>();
   for (const { path, source } of recipePatterns(checked.recipe)) {
-    const compiled = compilePattern(source);
-    if (compiled.ok) groups.set(path, compiled.pattern.groups);
+    const compiled = checkPattern(source);
+    if (compiled.ok) groups.set(path, compiled.groups);
     else if (compiled.issue === "syntax") errors.push({ code: "INVALID_PATTERN", path });
     else errors.push({ code: "UNSAFE_PATTERN", path, reason: compiled.issue });
   }
