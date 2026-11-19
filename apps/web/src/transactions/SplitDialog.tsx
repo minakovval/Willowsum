@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Decimal } from "@willowsum/domain-kernel";
 import { formatLocaleOf, formatMoney, useI18n, type MessageKey } from "@willowsum/i18n";
 import { Icon } from "@willowsum/ui";
@@ -94,8 +94,9 @@ export function SplitDialog({
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
 
-  // Focus goes into the dialog and back to the opener when it closes (DS-14; NFR-08).
-  useEffect(() => {
+  // Focus goes into the dialog and back to the opener when it closes (DS-14; NFR-08). A layout effect: focus returns
+  // in the same commit that removes the dialog, not in a later task where it would rest on `body` for a moment.
+  useLayoutEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     dialogRef.current?.querySelector<HTMLElement>("input:checked")?.focus();
     return () => opener?.focus();
