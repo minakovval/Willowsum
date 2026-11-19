@@ -32,7 +32,10 @@ const DISABLED_TEST = new RegExp(
 );
 // security-review §0 «Light confirmation», the directive list.
 const DIRECTIVE =
-  /eslint-(?:disable|enable)|\/\*\s*(?:eslint|globals?)\s|@ts-(?:ignore|expect-error|nocheck)|@(?:vitest|jest)-environment|gitleaks:allow|prettier-ignore|(?:istanbul|c8|v8)\s+ignore/i;
+  /eslint-(?:disable|enable)|\/\*\s*(?:eslint|globals?)\s|@ts-(?:ignore|expect-error|nocheck)|@(?:vitest|jest)-environment|gitleaks:allow|prettier-ignore|(?:istanbul|c8|v8)\s+ignore|@type(?:def)?\b|^#!/i;
+// Removing these changes what a test file runs under (#597); removing `eslint-disable` or `@ts-ignore` only tightens.
+const REMOVED_DIRECTIVE = /eslint-enable|@(?:vitest|jest)-environment/i;
+const DOC_FILE = /\.mdx?\s*$/i; // prose may mention `.skip` or `@type`; a document runs nothing
 const REMOVED_TEST = /^\s*(?:it|test|describe)\b[\w.\s]*[(`]/;
 const REMOVED_ASSERTION = /\bexpect(?:\.\w+)*\s*\(|\bassert(?:\.\w+)*\s*\(/;
 const FILE_HEADER = /^(?:diff --git |index |--- |\+\+\+ |new file mode |deleted file mode |old mode |new mode |similarity index |dissimilarity index |rename from |rename to |copy from |copy to |Binary files |GIT binary patch)/;
@@ -119,8 +122,10 @@ export function reviewerPatchViolations(files, diff = '') {
   };
   for (const [sign, body, file] of lines) {
     if (sign === '-' && REMOVED_TEST.test(body) && retitled(body, file)) continue;
-    if (sign === '+' && DISABLED_TEST.test(body)) out.push(`added skip/only/todo: ${body.trim()}`);
-    if (sign === '+' && DIRECTIVE.test(body)) out.push(`added directive comment: ${body.trim()}`);
+    const prose = DOC_FILE.test(file);
+    if (sign === '+' && !prose && DISABLED_TEST.test(body)) out.push(`added skip/only/todo: ${body.trim()}`);
+    if (sign === '+' && !prose && DIRECTIVE.test(body)) out.push(`added directive comment: ${body.trim()}`);
+    if (sign === '-' && !prose && REMOVED_DIRECTIVE.test(body)) out.push(`removed directive comment: ${body.trim()}`);
     if (sign === '-' && REMOVED_TEST.test(body)) out.push(`removed or changed test: ${body.trim()}`);
     else if (sign === '-' && REMOVED_ASSERTION.test(body)) out.push(`removed or changed assertion: ${body.trim()}`);
   }

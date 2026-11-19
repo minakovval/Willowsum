@@ -307,3 +307,17 @@ test('reviewer patches: a text-only change is clean', () => {
   const diff = '--- a/a.tsx\n+++ b/a.tsx\n@@ -1 +1,2 @@\n-  <h1>Old</h1>\n+  <h1>New</h1>\n+  // plain comment about it(x)\n';
   assert.deepEqual(reviewerPatchViolations([{ filename: 'apps/web/src/a.tsx' }], diff), []);
 });
+
+test('PRC-02: reviewer patches (#597): type directives, a shebang and a removed environment directive are violations', () => {
+  assert.equal(check('+/** @type {import("x").Y} */').length, 1);
+  assert.equal(check('+/** @typedef {string} Id */').length, 1);
+  assert.equal(check('+#!/usr/bin/env node').length, 1);
+  assert.equal(check('-/* eslint-enable no-console */').length, 1);
+  assert.equal(check('-// @vitest-environment jsdom').length, 1);
+  assert.equal(check('+import type { T } from "@types/x";').length, 0, '`@types/…` is not a directive');
+});
+
+test('PRC-02: reviewer patches (#597): prose in a document is not a directive or a disabled test', () => {
+  const doc = ['--- a/docs/x.md', '+++ b/docs/x.md', '@@ -1,1 +1,1 @@', '-Use it.', '+Never write `.skip` or `@type` here.'].join('\n');
+  assert.deepEqual(reviewerPatchViolations([{ filename: 'docs/x.md' }], doc), []);
+});

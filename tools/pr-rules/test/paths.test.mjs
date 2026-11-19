@@ -248,3 +248,12 @@ test('PR #182 security: only a release tag and only the «Перевіряєть
   ])
     assert.deepEqual(ownerDecisionFiles([f(req, hunk(line))]), [req], line);
 });
+
+test('PRC-02: owner-decision paths (#597): a nested rule file and another letter case count, the e2e config is sensitive', () => {
+  for (const filename of ['apps/web/AGENTS.md', 'packages/ui/claude.md', 'apps/x/CLAUDE.local.md', 'apps/x/.claude/skills/a.md', 'Agents.md']) {
+    assert.deepEqual(ownerDecisionFiles([{ filename }]), [filename], filename);
+  }
+  assert.deepEqual(ownerDecisionFiles([{ filename: 'apps/web/src/agents.tsx' }]), []);
+  assert.deepEqual(categoriesOf('apps/web/e2e/playwright.config.ts'), ['pipeline']);
+  assert.deepEqual(categoriesOf('apps/web/e2e/budget.spec.ts'), []);
+});

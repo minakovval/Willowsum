@@ -401,6 +401,25 @@ describe("#567: «Категорії» and «Очікувані платежі»
     expect(await paid()).toEqual([true]);
   });
 
+  it("BUD-03@PoC FR 5: a hidden payment or a merged duplicate does not pay the loan (#588 item 5)", async () => {
+    const space = await newSpace();
+    const credit = await loan(space, eur("250"));
+    const hiddenId = await transaction(space, credit, "250.00", "2026-11-10");
+    const paid = async () =>
+      (await obligations.month(space.householdId, "2026-11", "EUR"))!.debtMinimums.map((d) => d.paid);
+    expect(await paid()).toEqual([true]);
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hiddenId]);
+    expect(await paid()).toEqual([false]);
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = false WHERE id = $1`, [hiddenId]);
+    expect(await paid()).toEqual([true]);
+    const keeper = await transaction(space, credit, "-1.00", "2026-11-11");
+    await db.owner.query(`UPDATE transactions.transactions SET merged_into = $2 WHERE id = $1`, [
+      hiddenId,
+      keeper,
+    ]);
+    expect(await paid()).toEqual([false]);
+  });
+
   it("BUD-02@PoC AC9: the totals row with the live port — «Ще потрібно на обов'язкові» and «Вільний залишок» match the categories", async () => {
     const space = await newSpace();
     const rent = await category(space, "Продукти"); // mandatory by default
