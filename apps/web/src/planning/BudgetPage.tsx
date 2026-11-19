@@ -10,6 +10,7 @@ import { failureOf } from "../auth/failure.ts";
 import { kyivToday, useLoad } from "../recurring/data.ts";
 import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
+import { BudgetTabs } from "./BudgetTabs.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
   loadBudget,
@@ -92,66 +93,67 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
           </a>
         ) : null}
       </div>
-      <div className="plan-tabs-slot" data-plan-region="tabs" />
-      <PlanGrid page="budget">
-        <PlanRegion name="spendable" span={4} />
-        {data?.kind === "ready" && settled ? (
-          <PlanRegion name="income" span={4} card>
-            <IncomeCard view={data} />
-          </PlanRegion>
-        ) : (
-          <PlanRegion name="income" span={4} />
-        )}
-        <PlanRegion name="recurring" span={4} />
-        <PlanRegion name="categories" span={12}>
-          {result.state === "error" ? (
-            <section className="ws-card bud-card" role="alert" aria-labelledby="bud-error-title">
-              <h2 id="bud-error-title" className="ws-text-heading-3 bud-card-title">
-                <Icon name="close" size={16} /> {t("planning.budget.error.title")}
-              </h2>
-              <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
-              <p>
-                <button type="button" className="ws-button" onClick={reload}>
-                  {t("planning.budget.error.retry")}
-                </button>
-              </p>
-              {failureOf(result.failure).code ? (
-                <p className="ws-muted">
-                  {t("planning.budget.error.code", { code: failureOf(result.failure).code ?? "" })}
-                </p>
-              ) : null}
-            </section>
-          ) : !data || !settled ? (
-            <section className="ws-card bud-card" aria-label={t("planning.budget.categories.title")}>
-              <Skeleton variant="row" lines={6} />
-            </section>
-          ) : data.kind === "none" ? (
-            <PlanEmpty icon={BUDGET.icon} page="budget">
-              <div className="bud-wiz-cta">
-                <Button
-                  variant="primary"
-                  href={hrefFor(childPath("budgetNew"))}
-                  label={t("planning.budget.wizard.method.spending")}
-                />
-                <Button
-                  variant="secondary"
-                  href={hrefFor(childPath("budgetNew"))}
-                  label={t("planning.budget.wizard.method.zero")}
-                />
-              </div>
-            </PlanEmpty>
-          ) : data.kind === "before" ? (
-            <section className="ws-card bud-card">
-              <p role="status">{t("planning.budget.beforeStart")}</p>
-            </section>
+      <BudgetTabs selected="budget">
+        <PlanGrid page="budget">
+          <PlanRegion name="spendable" span={4} />
+          {data?.kind === "ready" && settled ? (
+            <PlanRegion name="income" span={4} card>
+              <IncomeCard view={data} />
+            </PlanRegion>
           ) : (
-            <>
-              <PeriodNotes view={data} month={monthYear(t, data.period.period)} />
-              <CategoriesCard key={data.period.period} view={data} plan={data.period.mode === "future"} />
-            </>
+            <PlanRegion name="income" span={4} />
           )}
-        </PlanRegion>
-      </PlanGrid>
+          <PlanRegion name="recurring" span={4} />
+          <PlanRegion name="categories" span={12}>
+            {result.state === "error" ? (
+              <section className="ws-card bud-card" role="alert" aria-labelledby="bud-error-title">
+                <h2 id="bud-error-title" className="ws-text-heading-3 bud-card-title">
+                  <Icon name="close" size={16} /> {t("planning.budget.error.title")}
+                </h2>
+                <p className="ws-muted">{t(budgetFailureKey(result.failure))}</p>
+                <p>
+                  <button type="button" className="ws-button" onClick={reload}>
+                    {t("planning.budget.error.retry")}
+                  </button>
+                </p>
+                {failureOf(result.failure).code ? (
+                  <p className="ws-muted">
+                    {t("planning.budget.error.code", { code: failureOf(result.failure).code ?? "" })}
+                  </p>
+                ) : null}
+              </section>
+            ) : !data || !settled ? (
+              <section className="ws-card bud-card" aria-label={t("planning.budget.categories.title")}>
+                <Skeleton variant="row" lines={6} />
+              </section>
+            ) : data.kind === "none" ? (
+              <PlanEmpty icon={BUDGET.icon} page="budget">
+                <div className="bud-wiz-cta">
+                  <Button
+                    variant="primary"
+                    href={hrefFor(childPath("budgetNew"))}
+                    label={t("planning.budget.wizard.method.spending")}
+                  />
+                  <Button
+                    variant="secondary"
+                    href={hrefFor(childPath("budgetNew"))}
+                    label={t("planning.budget.wizard.method.zero")}
+                  />
+                </div>
+              </PlanEmpty>
+            ) : data.kind === "before" ? (
+              <section className="ws-card bud-card">
+                <p role="status">{t("planning.budget.beforeStart")}</p>
+              </section>
+            ) : (
+              <>
+                <PeriodNotes view={data} month={monthYear(t, data.period.period)} />
+                <CategoriesCard key={data.period.period} view={data} plan={data.period.mode === "future"} />
+              </>
+            )}
+          </PlanRegion>
+        </PlanGrid>
+      </BudgetTabs>
     </AppLayout>
   );
 }

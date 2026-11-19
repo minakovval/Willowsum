@@ -26,6 +26,7 @@ import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx";
 import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
 import { BudgetPage } from "./planning/BudgetPage.tsx";
+import { BudgetPlanPage } from "./planning/plan/BudgetPlanPage.tsx";
 import { BudgetWizardPage } from "./planning/budget/WizardPage.tsx";
 import { BudgetSettingsPage } from "./planning/budget/SettingsPage.tsx";
 import { GoalsPage } from "./planning/GoalsPage.tsx";
@@ -113,6 +114,8 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       // BUD-02@PoC f): S-128 «Рахунки бюджету» and S-288 «Загальне».
       if (route.child.id === "budgetAccounts" || route.child.id === "budgetGeneral")
         return <BudgetSettingsPage tab={route.child.id === "budgetAccounts" ? "accounts" : "general"} />;
+      // BUD-17@PoC b): S-126 «Бюджет → План».
+      if (route.child.id === "budgetPlan") return <BudgetPlanPage />;
       // BUD-02@PoC e): the wizard «Новий бюджет» in focus mode.
       if (route.child.id === "budgetNew") return <BudgetWizardPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
