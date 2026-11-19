@@ -1,0 +1,75 @@
+import type { Money } from "@willowsum/domain-kernel";
+import type { PaymentFields } from "./payments.ts";
+import { daysBetween, FREQUENCY_RULES, scheduleDate } from "./schedule.ts";
+import type { ChargeStatus, Tracking } from "./tracking.ts";
+
+/**
+ * The charges of a payment expected in one calendar month (BUD-03@PoC FR 5, BUD-02@PoC FR 16; BUD-07@PoC FR 17: a
+ * charge is a projection of the schedule): the tracked ones with their status, and the schedule's later dates of the
+ * month — «Очікується» at the expected amount now. No I/O.
+ */
+export interface MonthCharge {
+  readonly paymentId: string;
+  readonly type: PaymentFields["type"];
+  readonly categoryId: string | null;
+  readonly dueOn: string;
+  /** In the payment's currency: the expected amount of the charge (not what a transaction paid). */
+  readonly expected: Money;
+  readonly status: ChargeStatus;
+  readonly overdueDays: number | null;
+}
+
+/** The dates of the schedule from `from` to `to`, both included (before the anchor too, as the tracking counts). */
+export function scheduleBetween(
+  anchor: string,
+  frequency: PaymentFields["frequency"],
+  from: string,
+  to: string,
+): string[] {
+  const step = FREQUENCY_RULES[frequency].step;
+  const stepDays = "days" in step ? step.days : step.months * 30.4375;
+  let k = Math.round(daysBetween(anchor, from) / stepDays);
+  while (scheduleDate(anchor, frequency, k - 1) >= from) k -= 1;
+  while (scheduleDate(anchor, frequency, k) < from) k += 1;
+  const out: string[] = [];
+  for (let d = scheduleDate(anchor, frequency, k); d <= to; d = scheduleDate(anchor, frequency, ++k))
+    out.push(d);
+  return out;
+}
+
+const lastDay = (month: string) =>
+  new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).toISOString().slice(0, 10);
+
+/**
+ * BUD-03@PoC FR 5: the month's charges of one payment. A payment «Можливо, скасований» has none (FR 5 counts only an
+ * active one), nor one after its end date. A date the tracking covers takes its status (a charge before the day the
+ * payment was added, without a payment, is not shown — BUD-07 EC4); a later date (after today) is «Очікується» at the expected amount.
+ */
+export function chargesInMonth(
+  payment: Pick<PaymentFields, "frequency" | "anchorDate" | "endDate" | "type" | "categoryId"> & {
+    readonly id: string;
+  },
+  tracking: Tracking,
+  month: string,
+  today: string,
+): MonthCharge[] {
+  if (tracking.state !== "active") return [];
+  const tracked = new Map(tracking.charges.map((c) => [c.dueOn, c]));
+  const covered = tracking.charges.reduce((last, c) => (c.dueOn > last ? c.dueOn : last), "");
+  const end = payment.endDate !== null && payment.endDate < lastDay(month) ? payment.endDate : lastDay(month);
+  const out: MonthCharge[] = [];
+  for (const dueOn of scheduleBetween(payment.anchorDate, payment.frequency, `${month}-01`, end)) {
+    const c = tracked.get(dueOn);
+    if (!c && (dueOn <= covered || dueOn <= today)) continue;
+    out.push({
+      paymentId: payment.id,
+      type: payment.type,
+      categoryId: payment.categoryId,
+      dueOn,
+      expected: c?.expected ?? tracking.expected,
+      status: c?.status ?? "expected",
+      overdueDays: c?.overdueDays ?? null,
+    });
+  }
+  return out;
+}

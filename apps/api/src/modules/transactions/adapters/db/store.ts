@@ -705,6 +705,28 @@ export async function budgetRows(
 }
 
 /**
+ * BUD-03@PoC FR 5 «Платіж місяця вважається сплаченим, коли в місяці є перший платіж на цей рахунок»: which of these
+ * accounts got money in the dates — a shown transaction with a positive amount, a side of a transfer too (a loan is
+ * mostly paid by a transfer from an own account); merged duplicates are not counted.
+ */
+export async function accountsPaidIn(
+  q: ModuleQueryRunner,
+  householdId: string,
+  accountIds: readonly string[],
+  from: string,
+  to: string,
+): Promise<Set<string>> {
+  if (accountIds.length === 0) return new Set();
+  const { rows } = await q.query<{ account_id: string }>(
+    `SELECT DISTINCT account_id FROM transactions
+      WHERE household_id = $1 AND account_id = ANY($2::uuid[]) AND NOT hidden AND merged_into IS NULL
+        AND amount > 0 AND occurred_on BETWEEN $3::date AND $4::date`,
+    [householdId, [...accountIds], from, to],
+  );
+  return new Set(rows.map((r) => r.account_id));
+}
+
+/**
  * What module categorization asks of the space's transactions before it changes one's category (BUD-01@PoC FR 5, FR 6;
  * FIN-03 FR 7, FR 11): whether each of `ids` exists (hidden too), is a side of a transfer, is split or is a merged
  * duplicate. Missing ids are absent from the map.
