@@ -14,7 +14,11 @@ import {
   createAccountsServices,
   createCreditAccounts,
 } from "./modules/accounts/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "./modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetObligations,
+  createBudgetServices,
+} from "./modules/budget/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
@@ -29,7 +33,11 @@ import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
 import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
-import { createRecurringCategoryUsage, createRecurringServices } from "./modules/recurring/index.ts";
+import {
+  createRecurringCategoryUsage,
+  createRecurringMonth,
+  createRecurringServices,
+} from "./modules/recurring/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -45,6 +53,7 @@ import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
+  createAccountPayments,
   createBudgetTransactions,
   createDuplicateCandidates,
   createTransactionCategoryUsage,
@@ -224,6 +233,26 @@ if (identity) {
   }
 }
 
+// BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant (merchants), none
+// from a loan account (accounts); payments confirmed or added by hand name a category (categories) and an account
+// (accounts); b: a charge is matched by its category (categorization), in another currency at the rate of its date
+// (fx-rates). One instance for the recurring routes and the budget's month of charges (#567).
+const recurring = createRecurringServices({
+  history: createTransactionHistory(databases.for("transactions")),
+  merchants: createMerchantDirectory(databases.for("merchants")),
+  accounts: createAccountDirectory(databases.for("accounts")),
+  categories: createCategoryDirectory({
+    db: databases.for("categories"),
+    audit,
+    newId: randomUUID,
+  }),
+  transactionCategories: createTransactionCategories(databases.for("categorization")),
+  fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  audit,
+  clock: systemClock,
+  newId: randomUUID,
+});
+
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
 lifecycle.onStop(() => telemetry.shutdown());
@@ -366,6 +395,15 @@ const server = buildServer({
               audit,
               clock: systemClock,
               newId: randomUUID,
+              // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
+              // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
+              obligations: createBudgetObligations({
+                recurring: createRecurringMonth(databases.for("recurring"), recurring),
+                credit: createCreditAccounts(databases.for("accounts")),
+                liabilities: createLiabilities(databases.for("liabilities"), audit),
+                payments: createAccountPayments(databases.for("transactions")),
+                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              }),
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
             merchants: createMerchantsServices({
@@ -374,26 +412,7 @@ const server = buildServer({
               // BUD-12 FR 14: the suggested category of a merchant's group in «До розбору».
               categories: createTransactionCategories(databases.for("categorization")),
             }),
-            // BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant
-            // (merchants), none from a loan account (accounts); payments confirmed or added by hand name a category
-            // (categories) and an account (accounts).
-            recurring: createRecurringServices({
-              history: createTransactionHistory(databases.for("transactions")),
-              merchants: createMerchantDirectory(databases.for("merchants")),
-              accounts: createAccountDirectory(databases.for("accounts")),
-              categories: createCategoryDirectory({
-                db: databases.for("categories"),
-                audit,
-                newId: randomUUID,
-              }),
-              // BUD-07 b: a charge is matched by its category (categorization), in another currency at the rate of
-              // its date (fx-rates).
-              transactionCategories: createTransactionCategories(databases.for("categorization")),
-              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-              audit,
-              clock: systemClock,
-              newId: randomUUID,
-            }),
+            recurring,
             // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
             // «Витратити» reads the transaction (transactions) and its journal event (ledger).
             goals: createGoalsServices({

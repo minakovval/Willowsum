@@ -11,6 +11,7 @@ export {
 } from "./queue/hand-off.ts";
 export { HAND_OFF_JOB } from "./queue/job.ts";
 export {
+  accountsPaidIn,
   budgetRows,
   duplicateCandidates,
   categoriesInParts,

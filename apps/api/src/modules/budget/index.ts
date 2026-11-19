@@ -20,7 +20,12 @@ export const budgetModule = defineModule({
   routes: budgetRoutes,
 });
 
-export { createBudgetServices, type BudgetServices } from "./adapters/index.ts";
+export {
+  createBudgetObligations,
+  createBudgetServices,
+  OBLIGATION_MAX_INTEGER_DIGITS,
+  type BudgetServices,
+} from "./adapters/index.ts";
 export { DEFAULT_BUDGET_KINDS } from "./domain/index.ts";
 export type { BudgetObligations } from "./application/index.ts";
 export type { PeriodObligations } from "./domain/index.ts";
