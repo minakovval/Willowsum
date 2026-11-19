@@ -93,7 +93,7 @@ async function open(client: ReturnType<typeof api>["client"], hash = FORM) {
 }
 
 async function chooseBank(search: string, bank: string) {
-  fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
+  fireEvent.click(await within(shown()).findByRole("button", { name: /Банк або установа/ }));
   fireEvent.change(within(shown()).getByRole("combobox", { name: "Знайдіть банк за назвою" }), {
     target: { value: search },
   });
@@ -137,7 +137,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
     expect(plain(shown().querySelector(".ws-form-hint")?.textContent)).toBe("Поля з * обов’язкові.");
     expect(within(shown()).getByRole("combobox", { name: /^Тип рахунку/ })).toBeTruthy();
     expect(field(NAME).getAttribute("placeholder")).toBe("Наприклад: Поточний monobank");
-    expect(within(shown()).getByRole("button", { name: /Банк або установа/ })).toBeTruthy();
+    expect(await within(shown()).findByRole("button", { name: /Банк або установа/ })).toBeTruthy();
     // The bar of step 1: «Скасувати», «Далі», «Додати рахунок»; no «Назад».
     expect(within(dialog()).queryByRole("button", { name: "Назад" })).toBeNull();
     expect(disabled(button("Далі"))).toBe(true);
@@ -203,7 +203,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
   it("FIN-01@PoC AC1, AC22, FR 4: «Приват» finds «ПриватБанк» in the NBU directory; the account is created with that bank, «Україна», the balance on the date — one request", async () => {
     const fake = api();
     await open(fake.client);
-    expect(within(shown()).getByText("Джерело: Національний банк України (bank.gov.ua)")).toBeTruthy();
+    expect(await within(shown()).findByText("Джерело: Національний банк України (bank.gov.ua)")).toBeTruthy();
     await chooseBank("Приват", "ПриватБанк");
     await fillBasics("Зарплатна", "1500,50", "UAH");
     fireEvent.click(button("Додати рахунок"));
@@ -224,7 +224,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
   it("FIN-01@PoC AC22, FR 4: «Інша установа» takes a typed name and a country (Revolut, Литва); the directory is not changed", async () => {
     const fake = api();
     await open(fake.client);
-    fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
+    fireEvent.click(await within(shown()).findByRole("button", { name: /Банк або установа/ }));
     fireEvent.click(within(shown()).getByRole("option", { name: "Інша установа" }));
     fireEvent.change(field(/^Назва установи/), { target: { value: "Revolut" } });
     fireEvent.click(within(shown()).getByRole("button", { name: /^Країна/ }));
@@ -244,7 +244,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
 
   it("FIN-01@PoC FR 4: «Обрати банк з довідника» («✕» beside «Інша установа») brings the directory back and clears the typed name", async () => {
     await open(api().client);
-    fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
+    fireEvent.click(await within(shown()).findByRole("button", { name: /Банк або установа/ }));
     fireEvent.click(within(shown()).getByRole("option", { name: "Інша установа" }));
     fireEvent.change(field(/^Назва установи/), { target: { value: "Revolut" } });
     expect(within(shown()).queryByRole("button", { name: /Банк або установа/ })).toBeNull();
@@ -255,7 +255,7 @@ describe("FIN-01@PoC S-052 «Новий рахунок»", () => {
 
   it("FIN-01@PoC FR 4: a search without a match says «Банк не знайдено. Оберіть «Інша установа».»", async () => {
     await open(api().client);
-    fireEvent.click(within(shown()).getByRole("button", { name: /Банк або установа/ }));
+    fireEvent.click(await within(shown()).findByRole("button", { name: /Банк або установа/ }));
     fireEvent.change(within(shown()).getByRole("combobox", { name: "Знайдіть банк за назвою" }), {
       target: { value: "Zzz" },
     });

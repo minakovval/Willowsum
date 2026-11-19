@@ -199,7 +199,8 @@ describe("FIN-03@PoC d): S-047 «Деталь транзакції»", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
     await loaded();
-    expect(document.title).toContain("Сільпо");
+    // The title is set by an effect after the render that shows the heading: wait for it, do not read it at once.
+    await waitFor(() => expect(document.title).toContain("Сільпо"));
   });
 
   it("FIN-03@PoC FR 27: the heading — initials, the counterparty, «дата, час · рахунок · Проведена» and the amount; «Категорія» with its source, «Опис»; breadcrumbs and «Закрити» back to the list", async () => {

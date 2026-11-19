@@ -508,6 +508,8 @@ describe("BUD-19@PoC S-144 «План погашення»", () => {
     expect(await screen.findByText("Збережений план")).toBeTruthy();
     expect(field(/Ставка річних/).getAttribute("value")).toBe("20");
     expect(field(/Додатковий платіж/).getAttribute("value")).toMatch(/100,00/);
+    // The scenario request goes out from an effect after the plan renders and the fake records it a tick later.
+    await waitFor(() => expect(api.calls.some((c) => c.path === `/v1/debts/${VISA}/scenario`)).toBe(true));
     expect(api.calls.find((c) => c.path === `/v1/debts/${VISA}/scenario`)?.body).toEqual({
       annualRate: "20",
       extraMonthly: "100.00",
