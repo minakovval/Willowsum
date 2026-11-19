@@ -102,13 +102,16 @@ spacing, type, colour roles and every state. Fix differences that the view or th
 rest in the PR body. Committed e2e and contrast checks on routes belong to NFR-07 (wave 1 row 20) and DS-22@PoC v2.
 
 **Screenshot with long texts in every PR that changes a screen or a shared UI component (owner, 2026-11-19, chat: «так, впроваджуй»; [log](../../../docs/decisions/log/2026-11-19-owner-screenshot-rule.md)).** This is the single place of the rule; other skills and the PR template point here.
+- When it applies: the diff touches `apps/web` (a screen, route or its styles) or `packages/ui` (a component or its
+  styles, tokens). Docs, skills, server (`apps/api`), other packages, and tests or texts that change nothing on
+  screen do not: the PR body then says «n/a» in the template line, and a missing screenshot does not block.
 - Made by an automated Playwright step (the script from above, run by you or CI), never by hand or from memory.
 - At viewport 1280 px, light theme, of the affected screen (or the component's gallery entry) filled with long
   names and long texts: names and titles of 60+ characters and one word without spaces, long amounts, long
   list rows, the longest uk string. Both locales are not required: uk is enough.
-- Save it as a PNG in the PR's scratchpad folder and, so that the reviewer can open it, attach it to the PR
-  (PR comment image, or the path the CI artifact has); the PR body gives the screenshot path and a short
-  description (screen, data used, what you compared with the board and the result).
+- Save it as a PNG in your scratchpad and, so that the reviewer (another session) can open it, attach it to the PR
+  (PR comment image, or the CI artifact); the path in the PR body must be one the reviewer can open, not only a
+  path in your own scratchpad. The body also gives a short description (screen, data used, what you compared with the board and the result).
 - The reviewer opens it and compares it with the canvas board named in the requirement or card
   (`docs/design`, `design/canvas`): [review-pr](../review-pr/SKILL.md), «UI screenshot».
 - A helper script for this step is not in the repo yet (follow-up); until then use the script above.
