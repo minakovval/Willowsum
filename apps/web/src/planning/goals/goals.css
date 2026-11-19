@@ -89,6 +89,12 @@
   margin: 0;
 }
 
+/* A name of one long word wraps instead of widening the list and pushing the card past the window. */
+.goal-card-title > *,
+.goal-row-head > b {
+  overflow-wrap: anywhere;
+}
+
 .goal-card-sum {
   display: flex;
   flex-wrap: wrap;

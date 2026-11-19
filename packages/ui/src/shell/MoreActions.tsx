@@ -46,16 +46,18 @@ export function RowActions({
 function MoreMenu({ items }: { items: readonly MenuItem[] }) {
   const t = useT();
   return (
-    <MenuButton
-      menuLabel={t("menu.moreActions")}
-      ariaLabel={t("menu.moreActions")}
-      title={t("menu.moreActions")}
-      placement="down"
-      align="end"
-      className="ws-icon-button"
-      items={items}
-    >
-      <Icon name="more" size={20} inButton />
-    </MenuButton>
+    <span className="ws-row-actions">
+      <MenuButton
+        menuLabel={t("menu.moreActions")}
+        ariaLabel={t("menu.moreActions")}
+        title={t("menu.moreActions")}
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={items}
+      >
+        <Icon name="more" size={20} inButton />
+      </MenuButton>
+    </span>
   );
 }
