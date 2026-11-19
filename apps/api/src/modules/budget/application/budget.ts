@@ -102,6 +102,8 @@ export interface BudgetReads {
     currency: string,
     /** FR 14: a proportional first period counts from this day (a share «На кілька місяців» — the whole month). */
     from?: string,
+    /** BUD-06: the last day counted when a window ends inside the month (a share — still the whole month's). */
+    until?: string,
   ): Promise<{
     readonly amounts: readonly CountedAmount[];
     readonly nearestRateCount: number;

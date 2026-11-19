@@ -57,3 +57,49 @@ describe("BUD-06@PoC: «З початку року» of a past year", () => {
     expect(baseWindow(now, "last-year", false)).toEqual({ from: "2027-01-01", to: "2027-02-28" });
   });
 });
+
+describe("BUD-06@PoC (security review of #625): the first and the last day of the year", () => {
+  it("BUD-06@PoC AC10 (server part): on 1 January «З початку року» is that one day, of this year and of a past one; the year after is `future`", () => {
+    const today = "2027-01-01";
+    const now = sel({ type: "ytd" }, today);
+    expect(now.window).toEqual({ from: "2027-01-01", to: "2027-01-01" });
+    expect(now).toMatchObject({ inProgress: true, finished: false });
+    expect(baseWindow(now, "last-year", false)).toEqual({ from: "2026-01-01", to: "2026-01-01" });
+    const past = sel({ type: "ytd", period: "2026" }, today);
+    expect(past.window).toEqual({ from: "2026-01-01", to: "2026-01-01" });
+    expect(past.months).toEqual(["2026-01"]);
+    expect(baseWindow(past, "last-year", false)).toEqual({ from: "2025-01-01", to: "2025-01-01" });
+    expect(compareSelection({ type: "ytd", period: "2028" }, today)).toEqual({
+      field: "period",
+      issue: "future",
+    });
+    expect(sel({ type: "month", period: "2027-01" }, today).window).toEqual({
+      from: "2027-01-01",
+      to: "2027-01-01",
+    });
+  });
+
+  it("BUD-06@PoC AC10 (server part): on 31 December a past year's «З початку року» is the whole year against the whole year before; every window stays inside its own year", () => {
+    const today = "2026-12-31";
+    const past = sel({ type: "ytd", period: "2025" }, today);
+    expect(past.window).toEqual({ from: "2025-01-01", to: "2025-12-31" });
+    expect(baseWindow(past, "last-year", false)).toEqual({ from: "2024-01-01", to: "2024-12-31" });
+    // Every day of a leap year, for the years 1900 (the oldest) to this one: the window never leaves its year, the
+    // base is the year before and never reaches the window, and the oldest year's base is a date of 1899.
+    for (let d = Date.UTC(2028, 0, 1); d <= Date.UTC(2028, 11, 31); d += 86_400_000) {
+      const day = new Date(d).toISOString().slice(0, 10);
+      for (const year of ["1900", "2023", "2024", "2027", "2028"]) {
+        const s = sel({ type: "ytd", period: year }, day);
+        expect(s.window.from).toBe(`${year}-01-01`);
+        expect(s.window.to.slice(0, 4)).toBe(year);
+        expect(s.window.to.slice(5, 7)).toBe(day.slice(5, 7));
+        expect(s.window.to <= day).toBe(true);
+        const b = baseWindow(s, "last-year", false);
+        expect(b.from).toBe(`${+year - 1}-01-01`);
+        expect(b.to < s.window.from).toBe(true);
+        expect(b.to.slice(0, 4)).toBe(String(+year - 1));
+        expect(b.to.slice(5, 7)).toBe(day.slice(5, 7));
+      }
+    }
+  });
+});

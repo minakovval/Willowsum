@@ -93,9 +93,14 @@ const approximateSchema = z.object({
 const compareSchema = z.object({
   currency: z.string(),
   type: z.enum(COMPARE_TYPES),
-  /** What the table counts: the period, up to today while it lasts. */
-  window: windowSchema,
-  inProgress: z.boolean(),
+  window: windowSchema.meta({
+    description:
+      "What the table counts: the period, up to today while it lasts; ytd of a past year — 1 January to the same date of that year",
+  }),
+  inProgress: z.boolean().meta({
+    description:
+      "Today is in the period: the window and the base are cut at the same date. False for a past year's ytd, although its window and base are cut at the same date too (`full` applies)",
+  }),
   /** FR 6: a finished period — «Найбільші зміни» opens «Підсумок <місяць>». */
   finished: z.boolean(),
   /** FR 11: the calendar year «Рік: план і факт» opens on. */
@@ -281,7 +286,12 @@ export const getCompareRoute = defineRoute({
     for (const p of selection.months) {
       const since = countsFrom(budget, p);
       if (since === undefined) planFact.push(...current.amounts.filter((a) => a.period === p));
-      else planFact.push(...(await deps.reads.amounts(householdId, accountIds, p, currency, since)).amounts);
+      else
+        // The same last day as the row's «now»: a window that ends inside the first period does not count the days after.
+        planFact.push(
+          ...(await deps.reads.amounts(householdId, accountIds, p, currency, since, selection.window.to))
+            .amounts,
+        );
     }
     const table = compareTable({
       currency,

@@ -6056,6 +6056,7 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @description Today is in the period: the window and the base are cut at the same date. False for a past year's ytd, although its window and base are cut at the same date too (`full` applies) */
                         inProgress: boolean;
                         largest: {
                             categoryId: string | null;
@@ -6070,6 +6071,7 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         type: "month" | "quarter" | "ytd" | "year";
+                        /** @description What the table counts: the period, up to today while it lasts; ytd of a past year — 1 January to the same date of that year */
                         window: {
                             from: string;
                             to: string;

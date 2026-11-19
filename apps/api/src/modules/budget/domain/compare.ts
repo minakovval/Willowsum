@@ -46,7 +46,7 @@ export interface DateWindow {
 
 export interface CompareSelection {
   readonly type: CompareType;
-  /** What the table counts: the period, up to today while it lasts (FR 2). */
+  /** What the table counts: the period, up to today while it lasts (FR 2); a past year's ytd — to the same date. */
   readonly window: DateWindow;
   /** The whole period. */
   readonly period: DateWindow;
@@ -54,7 +54,7 @@ export interface CompareSelection {
   readonly months: readonly Period[];
   /** Months in one period of the type: 1, 3 or 12. */
   readonly length: number;
-  /** Today is in the period: the base is cut at the same date (FR 2). */
+  /** Today is in the period: the base is cut at the same date (FR 2). False for a past year's ytd, cut all the same. */
   readonly inProgress: boolean;
   /** The period has ended: «Найбільші зміни» opens «Підсумок <місяць>» (FR 6). */
   readonly finished: boolean;

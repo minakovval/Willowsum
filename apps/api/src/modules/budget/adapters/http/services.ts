@@ -52,9 +52,10 @@ export function budgetReads(options: {
   return {
     categories: async (householdId) => [...(await options.categories.categories(householdId))],
     accounts: async (householdId) => [...(await options.accounts.accounts(householdId))],
-    async amounts(householdId, accountIds, period, currency, since) {
+    async amounts(householdId, accountIds, period, currency, since, until) {
       const { from, to } = periodDays(period);
-      return counted(householdId, accountIds, from, to, currency, since);
+      const last = until !== undefined && until < to ? until : to;
+      return counted(householdId, accountIds, from, last, currency, since);
     },
     window: (householdId, accountIds, from, to, currency) =>
       counted(householdId, accountIds, from, to, currency),
