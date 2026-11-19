@@ -290,6 +290,40 @@ describe("IMP-01@PoC: batches, uploads and originals", () => {
     expect(await n("file_storage.files WHERE household_id = $1", space.householdId)).toBe(50);
   });
 
+  it("IMP-01@PoC FR 13: a batch holds up to 150 MB of originals; a file past the batch's room is rejected with that ceiling (413)", async () => {
+    const space = await newSpace();
+    const batchId = await newBatch(space);
+    // The batch already holds 150 MiB less 100 bytes of accepted originals (rows only: the ceiling counts their sizes).
+    await db.owner.query(
+      `INSERT INTO import_sessions.batch_files (household_id, id, batch_id, position, file_name, file_id, format, size_bytes)
+       VALUES ($1, $2, $3, 1, 'held.csv', $4, 'csv', $5)`,
+      [space.householdId, randomUUID(), batchId, randomUUID(), 150 * 1024 * 1024 - 100],
+    );
+    const res = await upload(space, batchId, [{ name: "a.csv", bytes: STATEMENT }]);
+    expect(res.statusCode).toBe(413);
+    expect(res.json()).toMatchObject({
+      code: "FILE_TOO_LARGE",
+      rejection: { code: "BATCH_TOO_LARGE", ceiling: { name: "batchBytes", limit: 150 * 1024 * 1024 } },
+    });
+    expect(res.json().detail).toMatch(/150 MB.*Split/);
+    expect(await n("file_storage.files WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+
+  it("DS-12@PoC FR 11: a photo sent to the statement upload is rejected by its content and not stored", async () => {
+    const space = await newSpace();
+    const batchId = await newBatch(space);
+    const png = Buffer.concat([Buffer.from("89504e470d0a1a0a0000000d49484452", "hex"), randomBytes(64)]);
+    const jpeg = Buffer.concat([Buffer.from("ffd8ffe000104a464946", "hex"), randomBytes(64)]);
+    const res = await upload(space, batchId, [
+      { name: "photo.csv", bytes: png },
+      { name: "photo.xlsx", bytes: jpeg },
+    ]);
+    expect(res.statusCode).toBe(422);
+    expect(res.json().code).toBe("FILE_REJECTED");
+    expect(await n("file_storage.files WHERE household_id = $1", space.householdId)).toBe(0);
+    expect(objectsOf(space.householdId)).toHaveLength(0);
+  });
+
   it("IMP-01@PoC FR 3: the upload route takes multipart only; JSON there and multipart elsewhere are 415", async () => {
     const space = await newSpace();
     const batchId = await newBatch(space);
