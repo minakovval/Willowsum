@@ -19,7 +19,7 @@ import { createTestDatabase } from "./db.ts";
 
 // This list is hard-coded: a module leaves it in the PR that builds it (a wave-2 row that adds a migration, routes or
 // events to one of these modules). Removing that module here is not weakening the test.
-const SKELETONS = ["reports", "file-parsers", "import-recipes", "staff-admin", "notification-delivery"];
+const SKELETONS = ["reports", "staff-admin", "notification-delivery"];
 const rules = JSON.parse(readFileSync(path.join(apiDir, "module-rules.json"), "utf8")) as ModuleRules;
 const hasMigrations = (m: string): boolean => {
   const dir = path.join(realModulesDir, m, "adapters/db/migrations");
