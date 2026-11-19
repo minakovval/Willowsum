@@ -150,3 +150,21 @@ test('CICD-04 local: the backup and its roles file are readable by the owner onl
   assert.equal(fs.statSync(out).mode & 0o777, 0o600);
   assert.equal(fs.statSync(rolesFile(out)).mode & 0o777, 0o600);
 });
+
+test('CICD-04 local: a failed dump or restore never looks like a success; no password in argv, output or roles; a new folder is 0700', () => {
+  const failing = (tool, body) => ((s) => (fs.writeFileSync(path.join(s.env.PATH.split(':')[0], tool), `#!/bin/sh\n${body}\n`), s))(stubs());
+  const s = stubs({ WS_TEST_PG_ADMIN_URL: 'postgres://postgres:s3cret@127.0.0.1:1/postgres' });
+  const out = path.join(path.dirname(tmpFile()), 'new', 'a.dump');
+  const res = run(['backup', out], s.env);
+  assert.equal(fs.statSync(path.dirname(out)).mode & 0o777, 0o700);
+  assert.deepEqual(fs.readdirSync(path.dirname(out)).sort(), ['a.dump', 'a.dump.roles.sql'], 'no temporary file is left');
+  assert.match(s.calls(), /^pg_dumpall .*--no-role-passwords/m);
+  assert.doesNotMatch(s.calls() + res.stdout + res.stderr, /s3cret/);
+  const bad = tmpFile();
+  assert.equal(run(['backup', bad], failing('pg_dump', 'exit 3').env).status, 1);
+  assert.deepEqual(fs.readdirSync(path.dirname(bad)), [], 'a failed dump leaves no file that looks like a backup');
+  fs.writeFileSync(bad, 'PGDMP');
+  const broken = run(['restore', bad, '--yes'], failing('pg_restore', 'case "$*" in *--list*) ;; *) exit 3 ;; esac').env);
+  assert.equal(broken.status, 1);
+  assert.doesNotMatch(broken.stdout, /Restored/);
+});
