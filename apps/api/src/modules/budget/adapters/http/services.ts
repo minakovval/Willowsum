@@ -16,6 +16,7 @@ import {
   type BudgetDeps,
   type BudgetHandOff,
   type BudgetObligations,
+  type BudgetPlanSources,
   type BudgetReads,
 } from "../../application/index.ts";
 import { periodDays, periodOf, type CountedAmount } from "../../domain/index.ts";
@@ -173,6 +174,8 @@ export function createBudgetServices(options: {
    * API process, #567). Left out (a test's server): every figure that needs them is null.
    */
   readonly obligations?: BudgetObligations;
+  /** BUD-17: the goals and the debts' extra payments of «План» (`createBudgetPlanSources`); left out — none. */
+  readonly planSources?: BudgetPlanSources;
 }): BudgetServices {
   return {
     [BRAND]: true,
@@ -183,6 +186,7 @@ export function createBudgetServices(options: {
       reportingCurrency: SPACE_REPORTING_CURRENCY,
       reads: budgetReads(options),
       obligations: options.obligations ?? null,
+      planSources: options.planSources ?? null,
     },
     audit: budgetAudit(options.audit),
   };

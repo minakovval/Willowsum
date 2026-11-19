@@ -13774,6 +13774,955 @@
         }
       }
     },
+    "/v1/budget/plan-grid": {
+      "get": {
+        "operationId": "getBudgetPlanGrid",
+        "summary": "«План»: income, limits, goals and savings, debt payments and «Не розподілено» for 12 months (FR 1, AC1, AC6)",
+        "tags": [
+          "budget"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "budget.plan",
+          "flags": [
+            "budget.plan"
+          ]
+        },
+        "responses": {
+          "200": {
+            "description": "The grid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string"
+                    },
+                    "months": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "period": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "current",
+                              "future"
+                            ]
+                          },
+                          "inBudget": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "period",
+                          "mode",
+                          "inBudget"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "income": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "paymentId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "cells": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "own": {
+                                      "type": "boolean"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "expected": {
+                                      "type": "boolean"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "own",
+                                    "version",
+                                    "expected"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "paymentId",
+                              "cells"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "totals": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "totals"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "expenses": {
+                      "type": "object",
+                      "properties": {
+                        "groups": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "groupId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "categories": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "categoryId": {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "anyOf": [
+                                              {
+                                                "type": "object",
+                                                "properties": {
+                                                  "amount": {
+                                                    "type": "string"
+                                                  },
+                                                  "currency": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "amount",
+                                                  "currency"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              {
+                                                "type": "null"
+                                              }
+                                            ]
+                                          },
+                                          "own": {
+                                            "type": "boolean"
+                                          },
+                                          "version": {
+                                            "type": "integer",
+                                            "minimum": -9007199254740991,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "own",
+                                          "version"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    }
+                                  },
+                                  "required": [
+                                    "categoryId",
+                                    "cells"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "groupId",
+                              "categories"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "totals": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "groups",
+                        "totals"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "goals": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "goalId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "cells": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "own": {
+                                      "type": "boolean"
+                                    },
+                                    "version": {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    "required": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "own",
+                                    "version",
+                                    "required"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "goalId",
+                              "cells"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "savings": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "own": {
+                                "type": "boolean"
+                              },
+                              "version": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "own",
+                              "version"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "totals": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "savings",
+                        "totals"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "debts": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "accountId": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              "cells": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "minimum": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    },
+                                    "extra": {
+                                      "anyOf": [
+                                        {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        {
+                                          "type": "null"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "required": [
+                                    "minimum",
+                                    "extra"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "accountId",
+                              "cells"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "totals": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "totals"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unallocated": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "unallocated",
+                                  "deficit"
+                                ]
+                              },
+                              "amount": {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "kind",
+                              "amount"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "months",
+                    "income",
+                    "expenses",
+                    "goals",
+                    "debts",
+                    "unallocated"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/budget/plan-grid/cells": {
+      "put": {
+        "operationId": "setBudgetPlanCell",
+        "summary": "Change one cell of «План» for its month only, saved at once; a past month is read only (FR 2, FR 3, AC2–AC4)",
+        "tags": [
+          "budget"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.write",
+          "feature": "budget.plan",
+          "flags": [
+            "budget.plan"
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "period": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(0[1-9]|1[0-2])$",
+                    "description": "A calendar month, YYYY-MM"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "income",
+                      "limit",
+                      "goal",
+                      "savings"
+                    ]
+                  },
+                  "lineId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "amount": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "amount": {
+                            "type": "string",
+                            "maxLength": 48
+                          },
+                          "currency": {
+                            "type": "string",
+                            "maxLength": 10
+                          }
+                        },
+                        "required": [
+                          "amount",
+                          "currency"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "period",
+                  "kind",
+                  "lineId",
+                  "amount",
+                  "version"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cell after the change",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "amount": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "amount",
+                    "version"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space; The budget did not exist yet in this period (BUDGET_PERIOD_BEFORE_START)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The record was changed by someone else; reload it and try again (VERSION_CONFLICT)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/budget/trend": {
       "get": {
         "operationId": "getBudgetTrend",
@@ -31324,6 +32273,7 @@
                           "goals.savings",
                           "budget.period",
                           "budget.trend",
+                          "budget.plan",
                           "budget.compare",
                           "budget.cashflow",
                           "data.import",
