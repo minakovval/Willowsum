@@ -27,7 +27,9 @@ import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx"
 import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
 import { BudgetPage } from "./planning/BudgetPage.tsx";
 import { ComparePage } from "./planning/compare/ComparePage.tsx";
+import { BudgetPlanPage } from "./planning/plan/BudgetPlanPage.tsx";
 import { BudgetWizardPage } from "./planning/budget/WizardPage.tsx";
+import { TrendPage } from "./planning/trend/TrendPage.tsx";
 import { BudgetSettingsPage } from "./planning/budget/SettingsPage.tsx";
 import { GoalsPage } from "./planning/GoalsPage.tsx";
 import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
@@ -116,8 +118,12 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
         return <BudgetSettingsPage tab={route.child.id === "budgetAccounts" ? "accounts" : "general"} />;
       // BUD-06@PoC b): S-132 «Порівняння» and S-290 «Рік: план і факт».
       if (route.child.id === "budgetCompare") return <ComparePage />;
+      // BUD-17@PoC b): S-126 «Бюджет → План».
+      if (route.child.id === "budgetPlan") return <BudgetPlanPage />;
       // BUD-02@PoC e): the wizard «Новий бюджет» in focus mode.
       if (route.child.id === "budgetNew") return <BudgetWizardPage />;
+      // BUD-16@PoC b): S-133 «Тренд».
+      if (route.child.id === "budgetTrend") return <TrendPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): S-047 «Деталь транзакції».
       if (route.child.id === "transaction") return <TransactionDetailPage />;

@@ -10,7 +10,7 @@
 - Спільні правила: П-17, П-18, П-24, П-25, П-26
 - Сценарії: —
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud16a-methods.test.ts`, `apps/api/test/bud16a-methods.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud16a-methods.test.ts`, `apps/api/test/bud16a-methods.it.test.ts`, `apps/web/src/planning/trend/bud16b-trend.test.tsx`
 
 **Мета.** Як власник бюджету, я хочу планувати витрати методом «Ліміти» — лімітами за категоріями на місяць, щоб планувати так, як мені зручно.
 

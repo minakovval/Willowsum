@@ -111,7 +111,7 @@ export { currencyPlaces } from "./field/amount.ts";
 export { DateField } from "./field/DateField.tsx";
 export type { DateChip, DateFieldProps } from "./field/DateField.tsx";
 export type { AmountFieldProps, FieldProps } from "./field/Field.tsx";
-export { amountInPlaces } from "./field/amount.ts";
+export { amountInPlaces, displayAmount, editAmount, parseAmountInput } from "./field/amount.ts";
 export { Button, ButtonRow, primaryButtonViolations } from "./button/Button.tsx";
 export type { ButtonProps, ButtonSize, ButtonVariant } from "./button/Button.tsx";
 export { Badge } from "./badge/Badge.tsx";
