@@ -145,8 +145,8 @@ retrospective (with the process review): [token economy](references/token-econom
 
 ## 3. Parallel branches
 
-Up to 6 branches (AGENTS.md «Parallel branches») and **3–4 agents at once** — authors, reviewers and fix agents
-together — **plus up to 8 additional Sonnet agents** (owner, 2026-11-19); Fable at most 4 tasks at once (unchanged,
+Up to 7 branches (AGENTS.md «Parallel branches») and **at most 10 agents at once** — authors, reviewers and fix agents
+together — **plus up to 8 additional Sonnet agents** beyond those 10 (owner, 2026-11-19); Fable at most 4 tasks at once (unchanged,
 [token economy](references/token-economy.md)); more wait in a queue. Slots
 count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond the ten slots has no
 slot, no dev-server port and runs only `pnpm db:test` and keep a table slot → agent → branch → worktree. Slot `k`
