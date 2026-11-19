@@ -210,6 +210,12 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     ]);
   });
 
+  it("BUD-13@PoC FR 6: part amounts are rounded half to even (0,125 → 0,12; 0,135 → 0,14), not half up", () => {
+    const d = (v: string) => new Decimal(v);
+    expect(roundParts([d("0.125")], d("5"), "EUR").map((x) => x.toFixed(2))).toEqual(["0.12"]);
+    expect(roundParts([d("0.135")], d("5"), "EUR").map((x) => x.toFixed(2))).toEqual(["0.14"]);
+  });
+
   it("BUD-13@PoC AC5: −100,00 € on 3 months — 33,33 €, 33,33 € and 33,34 €, «3 частини по 33,33 € · <період>»", () => {
     renderDialog(tx({ amount: { amount: "-100.00", currency: "EUR" } }));
     fireEvent.click(screen.getByRole("radio", { name: "На кілька місяців" }));

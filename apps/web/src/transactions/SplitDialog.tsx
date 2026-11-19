@@ -158,7 +158,8 @@ export function SplitDialog({
         total,
         currency,
       );
-      const own0 = exact[0]?.toDecimalPlaces(minorUnits(currency), Decimal.ROUND_HALF_UP);
+      // Same rule as roundParts (half to even): compares the first part's own rounding with the adjusted one.
+      const own0 = exact[0]?.toDecimalPlaces(minorUnits(currency), Decimal.ROUND_HALF_EVEN);
       return next.map((r, i) =>
         r.key === row.key || (i === 0 && own0 !== undefined && !own0.eq(rounded[0]!))
           ? { ...r, text: fieldText(rounded[i]!, currency, comma) }
