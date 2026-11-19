@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { historyGap, readingFits } from "../domain/index.ts";
-import { parseStatement } from "./parse-statement.ts";
+import { historyGap, readingFits, type StatementOptions } from "../domain/index.ts";
+import { parseStatement, type OpenedAccountBinding } from "./parse-statement.ts";
+import type { ReadOptions } from "./read-file.ts";
 
 /**
  * IMP-05@PoC part 1 (wave 2 row 42): the statement checked against its own figures, the history gap, the evidence of
@@ -8,10 +9,13 @@ import { parseStatement } from "./parse-statement.ts";
  * runtime (no bank has them).
  */
 const enc = (s: string) => new TextEncoder().encode(s);
-type Rest = Parameters<typeof parseStatement> extends [unknown, unknown, ...infer R] ? R : never;
 /** Semicolon files with comma decimals, as a recipe reads them (the delimiter is the recipe's). */
-const parse = (lines: readonly string[], options: Parameters<typeof parseStatement>[1] = {}, ...rest: Rest) =>
-  parseStatement(enc(lines.join("\n")), { delimiter: ";", ...options }, ...rest);
+const parse = (
+  lines: readonly string[],
+  options: ReadOptions = {},
+  statement: StatementOptions = {},
+  binding?: OpenedAccountBinding,
+) => parseStatement(enc(lines.join("\n")), { delimiter: ";", ...options }, statement, binding);
 const check = (p: ReturnType<typeof parseStatement>, kind: string) =>
   p.checks.controls.find((c) => c.kind === kind)!;
 const IBAN = ["UA", "21", "322313", "0000026", "007233", "564821"].join("");

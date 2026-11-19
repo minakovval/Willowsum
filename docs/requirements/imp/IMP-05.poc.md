@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-17, П-24, П-25, П-26
 - Сценарії: UC-IMP-11, UC-IMP-13, UC-IMP-14, UC-IMP-17
 - Модуль: import-sessions, file-parsers
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/file-parsers/application/imp05-checks.test.ts, apps/api/src/modules/file-parsers/adapters/isolation/imp05-parse-checks.test.ts
 
 **Мета.** Як користувач, я хочу, щоб система перевіряла виписку її власними підсумками, помічала пропущені періоди і не давала імпортувати файл іншого рахунку, щоб помилки розпізнавання не потрапили в облік непомітно.
 
