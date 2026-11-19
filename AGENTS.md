@@ -78,14 +78,11 @@ errors) lives only in `packages/domain-kernel`.
    daily check, ADR-0008, reads exactly these lines). Which reviews a PR gets depends on its
    tier — Фундамент, Функціональність, Локальні інструменти, Документи:
    [merge rules](.claude/references/merge-rules.md), «Review tiers». Review rounds:
-   - Exception to «review in a different session», trial 2026-11-17 → 2026-11-19: the reviewer applies small
-     patches itself, only in tests, texts, comments, docs, markup and screen styles (never working code in
-     sensitive paths), in one commit at the end, at most 60 lines per PR, and lists them in the PR body; the
-     verdict names its new head SHA (`review-pr` §7).
+   - Exception to «review in a different session»: the reviewer patches (`review-pr` §7).
    - Only a security bypass, data loss or leak, or a violation of the claimed requirement (FR/AC or shared
      rule) blocks. A follow-up (the lead opens the issue) is recorded only for money, data or security, or a broken
      requirement item; a smaller item is fixed in the same fix round or not recorded. Non-blocking items never start a
-     round or a commit before the merge by themselves, except the reviewer's one trial patch commit above (merge
+     round or a commit before the merge by themselves, except the reviewer patches above (merge
      rules, «Merge on Ready, follow up separately»).
    - A re-review checks only the fixes and its own previous findings, in the same reviewer session when only the
      fixes changed (`pr-pipeline` token economy, item 2). At most two rounds; after that

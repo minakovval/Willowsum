@@ -53,8 +53,7 @@ last comment read.
 4. A comment in #480 never starts a new review round of a PR that is already Ready.
 5. Every 2 days (when ≥ 2 days have passed since the last «Сесія рев'ю» report in #480) the lead starts the external review as a separate session with a clean context, per [external review](../../../references/external-review.md), and records the date of the launch and the report in #179.
 
-**Reviewer small-fix trial** (2026-11-17 → 2026-11-19, `review-pr` §7): after the two days the lead shows the owner:
-new follow-up items per day, how much CI time was added, and how many reviewer commits had to be reverted.
+**Reviewer patches**: rule in `review-pr` §7.
 
 **Session names**: every lead is `Willowsum · ведучий N · <з чого починає>`, e.g. `Willowsum · ведучий 2 · хвиля 2 з
 рядка 3`; N is one more than the previous lead's, whether it ended in a compaction or a session. At start, before

@@ -82,9 +82,11 @@ proposals: [lead communication](references/lead-communication.md).
    push, covered by the fix confirmation.
 5. **Round 2**: per review kind, the same reviewer session resumed when only the fixes changed, otherwise a fresh
    reviewer ([token economy](references/token-economy.md) item 2), briefed with the diff
-   since the last reviewed head and its previous findings; at most two rounds, then the reviewer gives a ready fix
-   and confirms it. A sync the lead confirms itself needs no agent ([merge checklist](references/merge-checklist.md),
-   «The lead confirms a sync itself»; `sensitive` too). A confirmation (of
+   since the last reviewed head and its previous findings; at most two rounds caused by reviewer findings (a round after
+   a red CI the PR did not cause does not count), then the reviewer gives a ready fix and confirms it. An author's
+   fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a sync with an unchanged
+   diff, no exceptions ([merge checklist](references/merge-checklist.md), «The lead confirms a sync itself»;
+   `sensitive` too). A confirmation (of
    fixes or a sync) of a `sensitive` PR goes to **one** agent that loads `review-pr` and `security-review` and
    posts both verdicts as two PR reviews with `commit_id`, in a session other than the
    author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
@@ -99,9 +101,8 @@ proposals: [lead communication](references/lead-communication.md).
    **reviewer probes and tests** are posted at once on that issue inside `<details>`, split if over 65 000
    characters. The repository is public: what shows how to exploit a security finding not yet fixed in `main` is
    never posted in an issue or a PR — one line in the issue (module, rule broken), the detail (the reviewer's
-   `keep/` file) in a draft security advisory ([how](../../references/process-limits.md)); if that fails, tell the
-   owner at once (§2, urgent). **This exception applies from MVP**: until then the probes and details go into the
-   issue as usual; from the start of MVP planning the rule is in force.
+   `keep/` file) in a draft security advisory ([how and from when](../../references/process-limits.md)); if that fails, tell the
+   owner at once (§2, urgent).
    **Token and time accounting** (mandatory): at each merge save the PR's agent numbers (tokens, ms) before the logs
    vanish; add the PR rows to the **body** of #180 in a batch every 3 merges, with the #179 update ([token
    economy](references/token-economy.md), «Token accounting»).
@@ -137,7 +138,8 @@ retrospective (with the process review): [token economy](references/token-econom
   current stages and moving scope to a later release are allowed. PRs of the decision log and requirement
   clean-ups: at most one a day, as a batch of that day's files; a decision a running code PR needs goes at once ([merge checklist](references/merge-checklist.md), «Order»).
 - Record every owner decision the same day in a new file `docs/decisions/log/YYYY-MM-DD-<short-slug>.md` (AGENTS.md
-  «Where things are») and, in the PRs that implement it, as `Рішення власника (YYYY-MM-DD): схвалено …`. A small
+  «Where things are») and, in the PRs that implement it, as `Рішення власника (YYYY-MM-DD): схвалено …`. When the
+  owner answers «все як радиш» (or similar), the entry quotes the questions with their options verbatim. A small
   detail you decide (AGENTS.md «Ambiguity») goes into the decision log, the PR body and the document it shapes as
   `Рішення ведучого (YYYY-MM-DD; власник не схвалював; <ID або PR>): <що вирішено>; <чому>.` (examples: `docs/decisions/state-2026-11-05.md`); it becomes an owner line only when the owner answers.
 - **GitHub errors**: [retry rules](../../references/github-errors.md) (read on 502, 503 or

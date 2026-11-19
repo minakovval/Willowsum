@@ -1,6 +1,6 @@
 # Handover confirmation
 
-**Створено:** 2026-11-16 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-19
 
 Read when a new lead session takes over; not at a compaction ([restarts](../skills/pr-pipeline/references/restarts.md), «After compaction»). Moved from `pr-pipeline/references/restarts.md` to keep the
 skill within its size limit; since then only the `keep/` exception for security detail was added.
@@ -15,7 +15,7 @@ the segment's decisions and each retrospective proposal with its link in #178 (o
 An item that is not a whole row's state (a plan row, a follow-up, an owner question) carries «перенесено N разів»:
 one more than in the previous table. An item carried **≥ 3 handovers** goes to the owner with options: do it in the next 2 plan rows / move it to `docs/plans/owner-questions-later.md` / close it —
 in the next batch of owner questions; it is not carried further until the owner answers. Before the handover,
-every file in the scratchpad `keep/` goes to a branch or an issue (item 7); from MVP (until then no exception) except the detail of a
+every file in the scratchpad `keep/` goes to a branch or an issue (item 7); except, once the process-limits rule applies, the detail of a
 security finding not yet fixed in `main`: it goes to its draft security advisory, or, if that failed, item 7 names it as «лише в
 `keep/`, власнику повідомлено» ([process limits](process-limits.md)). Test database names are not handed
 over: they do not survive a new container.
@@ -28,7 +28,7 @@ over: they do not survive a new container.
 | 4 | Рішення сесії (власника й ведучого: файл або відкритий PR); пропозиції ретро — кожна з посиланням на #178 | | | |
 | 5 | Follow-ups: issues і списки злитих PR | | | |
 | 6 | Наступні рядки плану | | | |
-| 7 | Файли з `keep/`: гілка або issue (подробиці вади безпеки — advisory, з MVP) | | | |
+| 7 | Файли з `keep/`: гілка або issue (подробиці вади безпеки — advisory, коли діє правило) | | | |
 | 8 | Ліміт (`rate_limit_info`) і лічильник перезапусків | | | |
 | 9 | #180: знімок, рядки PR, рядок «Сесії», ретроспектива | | | |
 | 10 | Назва наступної сесії або сегмента | | | |
