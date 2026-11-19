@@ -16,6 +16,7 @@ import {
   createAccountStatements,
   type AccountStatements,
 } from "../src/modules/accounts/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-12@PoC a) and FIN-04@PoC AC5, AC7 (wave 2 row 13), through the real API on a real PostgreSQL: closing an account
@@ -485,7 +486,7 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
       for (const res of [preview, close, reopen]) {
         expect(res.statusCode).toBe(404);
         expect(res.json()).toEqual(expect.objectContaining({ code: "NOT_FOUND" }));
-        expect(res.body).not.toContain("430");
+        expect(leakText(res.body)).not.toContain("430");
       }
     }
     // A scoped member of the same space: refused by the permission before anything is read — no balance, no account.
@@ -510,7 +511,7 @@ describe("FIN-12@PoC FR 7, FR 8, FIN-01@PoC FR 15: closing an account", () => {
       );
       for (const res of [preview, close, update]) {
         expect(res.statusCode).toBe(403);
-        expect(res.body).not.toContain("430");
+        expect(leakText(res.body)).not.toContain("430");
       }
     }
     expect((await call(space, "GET", `/v1/accounts/${acc.id}`)).json().status).toBe("active");
@@ -840,7 +841,7 @@ describe("FIN-12@PoC d) close and balance guards (PR #445 security review)", () 
       ];
       for (const r of res) {
         expect(r.statusCode).toBe(403);
-        expect(r.body).not.toContain("430");
+        expect(leakText(r.body)).not.toContain("430");
       }
     }
     // editor (unscoped) is allowed: the guard is the permission, not a blanket refusal

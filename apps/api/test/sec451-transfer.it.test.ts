@@ -18,6 +18,7 @@ import { createCategoriesServices, createCategoryDirectory } from "../src/module
 import { createTransactionsServices, createTransferCandidates } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 import { createTransferMatchingServices } from "../src/modules/transfer-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR #451 (tests the review adds; apply with fix-review-findings).
@@ -320,7 +321,7 @@ describe("sec451 (security review of #451): createTransfer", () => {
         expect(withForeign.statusCode, JSON.stringify([extra, side])).toBe(404);
         expect(withUnknown.statusCode).toBe(404);
         expect(strip(withForeign.body)).toBe(strip(withUnknown.body));
-        expect(withForeign.body).not.toContain(foreign);
+        expect(leakText(withForeign.body)).not.toContain(foreign);
       }
       // Own closed account on one side and a foreign one on the other: still «not found», the same as unknown.
       const closedAndForeign = await transfer(mine.space, body(mineClosed, theirs.a, extra));
@@ -369,13 +370,13 @@ describe("sec451 (security review of #451): createTransfer", () => {
     expect(second.statusCode).toBe(201);
     expect(second.headers["idempotent-replayed"]).toBeUndefined();
     expect(second.json().outflow.id).not.toBe(first.json().outflow.id);
-    expect(second.body).not.toContain(one.a);
+    expect(leakText(second.body)).not.toContain(one.a);
     // The other space with the first space's body and key: no replay of the first space's answer.
     const stolen = await transfer(two.space, body(one.a, one.b), randomUUID());
     expect(stolen.statusCode).toBe(404);
     const replayAttempt = await transfer(two.space, body(one.a, one.b), key);
     expect(replayAttempt.statusCode).toBe(409);
-    expect(replayAttempt.body).not.toContain(first.json().outflow.id);
+    expect(leakText(replayAttempt.body)).not.toContain(first.json().outflow.id);
     // The key of a transfer used for a plain transaction (same module table): refused, nothing replayed.
     const plain = await call(
       one.space,

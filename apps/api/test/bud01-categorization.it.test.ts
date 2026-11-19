@@ -26,6 +26,7 @@ import {
   createTransactionLookup,
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-01@PoC b) (wave 2 row 20): the category of a transaction through the real API on a real PostgreSQL — «Без
@@ -369,7 +370,7 @@ describe("BUD-01@PoC AC12: another space and a scoped member", () => {
 
     const read = await call(stranger, "GET", `/v1/transactions/${t}/category`);
     expect(read.statusCode).toBe(404);
-    expect(read.body).not.toContain(groceries.id);
+    expect(leakText(read.body)).not.toContain(groceries.id);
     const write = await setCategory(stranger, t, strangers.id);
     expect(write.statusCode).toBe(404);
     expect(await categoryOf(space, t)).toMatchObject({ categoryId: groceries.id, source: "manual" });

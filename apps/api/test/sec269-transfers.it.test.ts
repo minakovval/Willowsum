@@ -18,6 +18,7 @@ import { createCategoriesServices, createCategoryDirectory } from "../src/module
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 import { createTransactionsServices, createTransferCandidates } from "../src/modules/transactions/index.ts";
 import { createTransferMatchingServices } from "../src/modules/transfer-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC b) (wave 2 row 16b), through the real API on a real PostgreSQL: transfers between own accounts — the
@@ -339,8 +340,8 @@ describe("PR #269 security probes", () => {
       scoped: true,
     });
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain(out.id);
-    expect(res.body).not.toContain(into.id);
+    expect(leakText(res.body)).not.toContain(out.id);
+    expect(leakText(res.body)).not.toContain(into.id);
     expect(res.body).not.toMatch(/"count"|500|498/);
     const unknown = await mark(space, randomUUID(), into.id, { role: "editor", scoped: true });
     const known = await mark(space, out.id, into.id, { role: "editor", scoped: true });
@@ -354,7 +355,7 @@ describe("PR #269 security probes", () => {
     const cross = await mark(mine.space, mine.out.id, theirs.into.id);
     const unknown = await mark(mine.space, mine.out.id, randomUUID());
     expect([cross.statusCode, cross.json().errors]).toEqual([unknown.statusCode, unknown.json().errors]);
-    expect(cross.body).not.toContain(theirs.into.id);
+    expect(leakText(cross.body)).not.toContain(theirs.into.id);
     expect(cross.body).not.toMatch(/498/);
   });
 

@@ -33,6 +33,7 @@ import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts
 import { createTransactionReviewBulkActions } from "../src/modules/transactions/index.ts";
 import { reviewQueueCount } from "../src/modules/transactions/adapters/db/store.ts";
 import type { ModuleDatabase, ModuleQueryRunner } from "../src/platform/db/module-db.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-12@PoC a) (wave 2 row 24), through the real API on a real PostgreSQL: «До розбору» — the queue (the list with
@@ -348,7 +349,7 @@ describe("sec339: «До розбору» — another space", () => {
     // A wrong version of another space's card is «not found» too — no version leaks.
     const stale = await confirm(mine, { id: foreign!.id, version: 7 });
     expect(stale.statusCode).toBe(404);
-    expect(stale.body).not.toContain("currentVersion");
+    expect(leakText(stale.body)).not.toContain("currentVersion");
     expect(await get(theirs, foreign!.id)).toMatchObject({ review: "queued", version: 1 });
     expect(await counter(theirs)).toBe(1);
   });

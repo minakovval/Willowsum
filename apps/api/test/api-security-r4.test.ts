@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 const server = () =>
   buildServer({
@@ -52,7 +53,7 @@ describe("ARC-07 security: plugin prefixes that can serve /v1", () => {
     await app.ready();
     for (const url of ["/v1/unknown", "/v1/me/permissions/", "/v1//me/permissions", "/V1/unknown"]) {
       const res = await app.inject({ method: "GET", url });
-      expect(res.body, url).not.toContain("leak");
+      expect(leakText(res.body), url).not.toContain("leak");
       expect(res.headers["content-type"], url).toMatch(/problem\+json/);
     }
   });

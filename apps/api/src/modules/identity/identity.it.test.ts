@@ -14,6 +14,7 @@ import {
   SESSION_IDLE_MS,
   SIGN_IN_LOCK_MS,
 } from "./index.ts";
+import { leakText } from "../../../test/leak-text.ts";
 
 /**
  * ACC-01@PoC part a on a real PostgreSQL through the real API (ADR-0009): sign-up, the «Перевірте пошту» screen,
@@ -525,7 +526,7 @@ describe("ACC-01 AC13, FR 9 / NFR-15 FR 2: one answer for a wrong email and a wr
     expect(unknownEmail.statusCode).toBe(wrongPassword.statusCode);
     expect(withoutSupportId(unknownEmail.body)).toBe(withoutSupportId(wrongPassword.body));
     expect(Object.keys(unknownEmail.headers).sort()).toEqual(Object.keys(wrongPassword.headers).sort());
-    expect(wrongPassword.body).not.toContain(email);
+    expect(leakText(wrongPassword.body)).not.toContain(email);
   });
 
   it("a confirmed account with the right password signs in", async () => {

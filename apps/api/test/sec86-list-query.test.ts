@@ -7,6 +7,7 @@ import type { ApiProblem } from "../src/platform/http/problem.ts";
 import { defineRoute } from "../src/platform/http/route.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { principalHeader, testApiOptions } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR #86 (NFR-15 FR 15, FR 17): the whitelist through a real route — values that are not
@@ -125,7 +126,7 @@ describe("NFR-15 FR 15, FR 17 through a route: limits, bounded input, nothing ec
     const response = await get(qs);
     expect(response.statusCode).toBe(400);
     expect(response.json().code).toBe("VALIDATION_FAILED");
-    expect(response.body).not.toContain(HOSTILE);
+    expect(leakText(response.body)).not.toContain(HOSTILE);
     expect(response.body).not.toMatch(/drop table/i);
   });
 
