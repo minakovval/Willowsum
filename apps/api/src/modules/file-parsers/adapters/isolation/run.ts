@@ -1,6 +1,6 @@
 import { runIsolated } from "../../../../platform/process/isolated.ts";
 import type { ReadOptions, StatementParse } from "../../application/index.ts";
-import type { TableCeiling } from "../../domain/index.ts";
+import type { StatementOptions, TableCeiling } from "../../domain/index.ts";
 
 /**
  * Parsing a statement in the isolated worker (IMP-06@PoC FR 8; ARC-06@PoC FR 4; #607 item 3): the file is read into
@@ -26,8 +26,11 @@ export class StatementParseError extends Error {
 }
 
 export interface StatementParser {
-  /** The parse of the file, or a `StatementParseError`. */
-  parse(bytes: Uint8Array, options?: ReadOptions): Promise<StatementParse>;
+  /**
+   * The parse of the file, or a `StatementParseError`. `statement` — the account the file is for and the recipe's
+   * currency hints (IMP-02 FR 3, FR 9). The result holds the file's cells: never log or audit it (#624).
+   */
+  parse(bytes: Uint8Array, options?: ReadOptions, statement?: StatementOptions): Promise<StatementParse>;
 }
 
 export interface StatementParserOptions {
@@ -52,11 +55,11 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
   };
   const url = options.workerUrl ?? WORKER_URL;
   return {
-    async parse(bytes, readOptions = {}) {
+    async parse(bytes, readOptions = {}, statement = {}) {
       const copy = new Uint8Array(bytes);
       const outcome = await runIsolated<StatementParse>(
         url,
-        { bytes: copy, options: readOptions },
+        { bytes: copy, options: readOptions, statement },
         [copy.buffer],
         limits,
       );

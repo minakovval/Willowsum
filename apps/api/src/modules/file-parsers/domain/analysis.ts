@@ -1,4 +1,4 @@
-import { isCurrencyCode } from "@willowsum/domain-kernel";
+import { headerCurrency, isCodeLike, isCurrencyCell, recognizeCurrency } from "./currency.ts";
 import { normalizeHeaderCell } from "./format.ts";
 import {
   dateCell,
@@ -98,6 +98,7 @@ export type EvidenceCode =
   | "decimal-separator"
   | "thousands-separator"
   | "ambiguous-integers"
+  | "mixed-separators"
   | "no-decimal-evidence"
   | "debit-credit-columns"
   | "negative-amounts"
@@ -284,9 +285,17 @@ function decideNumbers(samples: readonly NumberSample[]): Decision<NumberFormat>
       evidence.push({ code: "ambiguous-integers", count: ambiguous.length, of: samples.length });
     else evidence.push({ code: "no-decimal-evidence", count: samples.length });
     // FR 11: 4+ «d,ddd» values, at least 75 % ending in «00», are thousands; otherwise the comma decimal is assumed.
+    // Both separators among them («1,200» and «2.500», #624): no one reading makes both thousands, so the rule does
+    // not apply and the comma decimal is assumed, flagged as ambiguous integers too.
+    const separators = new Set(ambiguous.map((s) => s.cell.body.match(/[.,]/)![0] as DecimalSeparator));
+    const separator = separators.size === 1 ? [...separators][0] : undefined;
     const hundreds = ambiguous.filter((s) => s.cell.body.endsWith("00"));
-    const separator = ambiguous[0]?.cell.body.match(/[.,]/)?.[0] as DecimalSeparator | undefined;
-    if (separator && ambiguous.length >= 4 && hundreds.length * 4 >= ambiguous.length * 3) {
+    if (separators.size > 1) {
+      evidence.push({ code: "mixed-separators", count: ambiguous.length, of: samples.length });
+      flags.push("ambiguous-integer", "decimal-assumed");
+      score[","] = 0.55;
+      score["."] = 0.45;
+    } else if (separator && ambiguous.length >= 4 && hundreds.length * 4 >= ambiguous.length * 3) {
       flags.push("ambiguous-integer");
       const decimal: DecimalSeparator = separator === "," ? "." : ",";
       score[decimal] = 0.55;
@@ -430,10 +439,12 @@ function headerMatch(header: string, role: Exclude<Role, "ignore">): { score: nu
   if (!words) return null;
   let best: { score: number; word: string } | null = null;
   for (const phrase of HEADER_WORDS[role]) {
+    // The dictionary is normalised as the header is («операції» → «операціі»), or a word with «ї» never matches.
+    const normal = normalizeHeaderCell(phrase);
     const score =
-      words === phrase
+      words === normal
         ? 0.7
-        : ` ${words} `.includes(` ${phrase} `)
+        : ` ${words} `.includes(` ${normal} `)
           ? 0.35 + 0.05 * Math.min(3, phrase.split(" ").length)
           : 0;
     if (score > 0 && (!best || score > best.score)) best = { score, word: phrase };
@@ -441,10 +452,10 @@ function headerMatch(header: string, role: Exclude<Role, "ignore">): { score: nu
   return best;
 }
 
-const ISO_NUMERIC_TO_ALPHA: Readonly<Record<string, string>> = { "980": "UAH", "840": "USD", "978": "EUR" };
-const isCurrency = (cell: string): boolean => {
-  const t = cell.trim().toUpperCase();
-  return (t.length === 3 && isCurrencyCode(t)) || Object.hasOwn(ISO_NUMERIC_TO_ALPHA, t);
+/** The code a currency cell reads as (ISO, numeric or an unambiguous symbol), or null. */
+const currencyOf = (cell: string): string | null => {
+  const r = recognizeCurrency(cell);
+  return r?.status === "code" ? r.code : null;
 };
 
 function kindOf(cells: readonly string[]): { kind: Kind; count: number; of: number } {
@@ -453,7 +464,7 @@ function kindOf(cells: readonly string[]): { kind: Kind; count: number; of: numb
   const share = (test: (c: string) => boolean) => values.filter(test).length;
   for (const [kind, test] of [
     ["date", (c: string) => dateCell(c) !== null],
-    ["currency", isCurrency],
+    ["currency", isCurrencyCell],
     ["number", (c: string) => numberCell(c) !== null],
   ] as const) {
     const n = share(test);
@@ -467,12 +478,16 @@ interface ColumnFacts {
   readonly header: string | null;
   readonly cells: readonly string[];
   readonly kind: { kind: Kind; count: number; of: number };
+  /** Every filled cell is a three-letter upper-case code, known or not (RUR): a currency column with its header. */
+  readonly codeLike: boolean;
 }
 
 function roleScores(facts: ColumnFacts): Map<Role, { score: number; word?: string }> {
   const scores = new Map<Role, { score: number; word?: string }>();
   for (const role of ROLES) {
-    const fits = EXPECTS[role].includes(facts.kind.kind);
+    const fits =
+      EXPECTS[role].includes(facts.kind.kind) ||
+      ((role === "currency" || role === "original-currency") && facts.codeLike);
     if (role === "ignore") {
       scores.set(role, { score: facts.kind.kind === "empty" ? 0.9 : 0.05 });
       continue;
@@ -544,8 +559,28 @@ function decideColumns(
 
 // ——— Sign (FR 8) ———
 
-const OUT_VALUES = new Set(["дт", "дебет", "d", "dr", "debit", "списання", "витрата", "-", "out"]);
-const IN_VALUES = new Set(["кт", "кредит", "c", "cr", "credit", "зарахування", "надходження", "+", "in"]);
+export const OUT_VALUES: ReadonlySet<string> = new Set([
+  "дт",
+  "дебет",
+  "d",
+  "dr",
+  "debit",
+  "списання",
+  "витрата",
+  "-",
+  "out",
+]);
+export const IN_VALUES: ReadonlySet<string> = new Set([
+  "кт",
+  "кредит",
+  "c",
+  "cr",
+  "credit",
+  "зарахування",
+  "надходження",
+  "+",
+  "in",
+]);
 
 function decideSign(
   columns: readonly ColumnAnalysis[],
@@ -626,10 +661,8 @@ function decideCurrency(columns: readonly ColumnAnalysis[], facts: readonly Colu
   if (column >= 0) {
     const counts = new Map<string, number>();
     for (const c of facts[column]!.cells) {
-      const t = c.trim().toUpperCase();
-      if (!isCurrency(t)) continue;
-      const code = ISO_NUMERIC_TO_ALPHA[t] ?? t;
-      counts.set(code, (counts.get(code) ?? 0) + 1);
+      const code = currencyOf(c);
+      if (code !== null) counts.set(code, (counts.get(code) ?? 0) + 1);
     }
     const codes = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return {
@@ -644,10 +677,9 @@ function decideCurrency(columns: readonly ColumnAnalysis[], facts: readonly Colu
     };
   }
   for (const f of facts) {
-    const code = f.header?.toUpperCase().match(/\b([A-Z]{3})\b/)?.[1];
+    const code = f.header ? headerCurrency(f.header) : null;
     if (
       code &&
-      isCurrencyCode(code) &&
       ["amount", "balance", "debit", "credit"].includes(columns[facts.indexOf(f)]!.role.chosen.value)
     )
       return { mode: "file", code, evidence: [{ code: "currency-in-header", column: f.column, word: code }] };
@@ -687,6 +719,7 @@ export function analyzeTable(
       header: h ? h.slice(0, ANALYSIS_LIMITS.headerChars) : null,
       cells,
       kind: kindOf(cells),
+      codeLike: cells.some((c) => c.trim() !== "") && cells.every((c) => c.trim() === "" || isCodeLike(c)),
     };
   });
   const dateSamples = facts
@@ -712,10 +745,7 @@ export function analyzeTable(
       const n = numberCell(cell);
       return n ? (readNumber(n, decimal)?.value ?? null) : null;
     }
-    if (role === "currency" || role === "original-currency") {
-      const t = cell.trim().toUpperCase();
-      return isCurrency(t) ? (ISO_NUMERIC_TO_ALPHA[t] ?? t) : null;
-    }
+    if (role === "currency" || role === "original-currency") return currencyOf(cell);
     return clip(cell);
   };
   const columns = decideColumns(facts, readCell);
