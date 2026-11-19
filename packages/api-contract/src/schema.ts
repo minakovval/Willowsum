@@ -5694,17 +5694,13 @@ export interface operations {
     getBudgetCompare: {
         parameters: {
             query: {
-                /** @description Default — previous (month, quarter, custom) or last-year (year, ytd); year and ytd take last-year only, custom no average */
+                /** @description Default — previous (month, quarter) or last-year (year, ytd); year and ytd take last-year only */
                 base?: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
-                /** @description custom only: the first day, YYYY-MM-DD */
-                from?: string;
                 /** @description «Повний попередній період»: the base whole, not cut at the same date */
                 full?: "true" | "false";
-                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default); not for custom */
+                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default) */
                 period?: string;
-                /** @description custom only: the last day, YYYY-MM-DD; at most 366 days */
-                to?: string;
-                type: "month" | "quarter" | "ytd" | "year" | "custom";
+                type: "month" | "quarter" | "ytd" | "year";
             };
             header?: never;
             path?: never;
@@ -5773,7 +5769,7 @@ export interface operations {
                                      */
                                     tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
                                 } | null;
-                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний» */
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
                                 plan: {
                                     amount: string;
                                     currency: string;
@@ -5831,7 +5827,7 @@ export interface operations {
                                      */
                                     tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
                                 } | null;
-                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний» */
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
                                 plan: {
                                     amount: string;
                                     currency: string;
@@ -5893,7 +5889,7 @@ export interface operations {
                                      */
                                     tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
                                 } | null;
-                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний» */
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
                                 plan: {
                                     amount: string;
                                     currency: string;
@@ -5951,7 +5947,7 @@ export interface operations {
                                      */
                                     tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
                                 } | null;
-                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний» */
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
                                 plan: {
                                     amount: string;
                                     currency: string;
@@ -5994,7 +5990,7 @@ export interface operations {
                             };
                         }[];
                         /** @enum {string} */
-                        type: "month" | "quarter" | "ytd" | "year" | "custom";
+                        type: "month" | "quarter" | "ytd" | "year";
                         window: {
                             from: string;
                             to: string;

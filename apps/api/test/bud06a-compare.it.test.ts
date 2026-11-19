@@ -407,6 +407,62 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     });
   });
 
+  it("BUD-06@PoC FR 4: a finished month without a statement is not in the average — «Сер. за 12 міс.» over 9 months", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const acc = await account(space);
+    for (const m of ["01", "02", "03", "05", "06", "07", "08", "09", "10"])
+      await spend(space, acc, "-90.00", `2026-${m}-05`, "Продукти");
+    await spend(space, acc, "-5.00", "2025-12-20", "Продукти");
+    await spend(space, acc, "-100.00", "2026-11-05", "Продукти");
+    const view = await compare(space, "type=month&period=2026-11&base=avg12");
+    expect(view.bases.find((b) => b.base === "avg12")).toMatchObject({ available: true, months: 9 });
+    expect(view.base).toMatchObject({ months: 9, window: { from: "2026-01-01", to: "2026-10-31" } });
+    // April (no statement) is not a 0 in the average: 810 € ÷ 9, not ÷ 10.
+    expect(value(rowOf(view.expenses.categories, await category(space, "Продукти"))!.base)).toBe("90.00");
+  });
+
+  it("BUD-06@PoC FR 1: a proportional first period — «План» and «± до плану» are the figures of «Бюджет» (BUD-02 FR 14); the base columns the whole month", async () => {
+    now = at("2026-10-18");
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      firstPeriod: "2026-10",
+      proportional: true,
+      limits: [{ categoryId: groceries, amount: eur("300.00") }],
+    });
+    now = at(TODAY);
+    const acc = await account(space);
+    await spend(space, acc, "-170.00", "2026-10-05", "Продукти");
+    await spend(space, acc, "-120.00", "2026-10-20", "Продукти");
+    const period = (await call(space, "GET", "/v1/budget/periods/2026-10")).json();
+    const line = period.groups.flatMap((g: { categories: unknown[] }) => g.categories)[0] as {
+      limit: Money;
+      spent: Money;
+    };
+    expect(value(line.spent)).toBe("120.00");
+    const view = await compare(space, "type=month&period=2026-10");
+    const row = rowOf(view.expenses.categories, groceries)!;
+    expect(value(row.plan)).toBe(value(line.limit));
+    expect(new Decimal(row.planDifference!.amount.amount).toFixed(2)).toBe(
+      new Decimal(line.spent.amount).minus(line.limit.amount).toFixed(2),
+    );
+    expect(row.planDifference!.direction).toBe("down");
+    // «Порівняння» itself shows the whole month's spending against the base.
+    expect(value(row.current)).toBe("290.00");
+    const year = (await call(space, "GET", "/v1/budget/compare/year?year=2026")).json();
+    const cell = year.groups
+      .flatMap((g: { categories: { categoryId: string; cells: unknown[] }[] }) => g.categories)
+      .find((c: { categoryId: string }) => c.categoryId === groceries).cells[9] as {
+      fact: Money;
+      plan: Money;
+      difference: { amount: Money };
+    };
+    expect(value(cell.fact)).toBe(value(line.spent));
+    expect(value(cell.plan)).toBe(value(line.limit));
+    expect(value(cell.difference.amount)).toBe(value(row.planDifference!.amount));
+  });
+
   it("BUD-06@PoC AC6: on 31 March the base «Попередній період» is 1–28 February", async () => {
     now = at("2027-03-31");
     const space = await newSpace();
@@ -616,7 +672,7 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     expect(leakText(res.body)).not.toMatch(/"amount":"-?(?:700|7777|8888)(?:\.0*)?"/);
   });
 
-  it("BUD-06@PoC FR 4: an expense past the money range is left out and counted as approximate, never 500", async () => {
+  it("#586 cap: an expense past the money range is left out and counted as approximate, never 500", async () => {
     const space = await newSpace();
     await createBudget(space);
     const acc = await account(space);
@@ -629,6 +685,7 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     // Each amount over 15 integer digits in the base's dates is left out too; one outside them is not counted.
     await spend(space, acc, "-" + "9".repeat(18), "2026-06-03", "Продукти");
     await spend(space, acc, "-" + "9".repeat(18), "2026-09-03", "Продукти");
+    for (const m of ["07", "08", "09"]) await spend(space, acc, "-1.00", `2026-${m}-02`, "Продукти");
     const avg = await compare(space, "type=month&period=2026-11&base=avg12");
     expect(avg.base).toMatchObject({ months: 4, window: { from: "2026-07-01", to: "2026-10-31" } });
     expect(avg.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 2 });
@@ -648,10 +705,9 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     expect(await issue("type=month&period=2026-12")).toEqual(["period: future"]);
     expect(await issue("type=month&period=2026-13")).toEqual(["period: invalid"]);
     expect(await issue("type=year&period=2026&base=previous")).toEqual(["base: not_for_type"]);
-    expect(await issue("type=custom&from=2026-10-01&to=2026-09-01")).toEqual(["to: invalid"]);
-    expect(await issue("type=custom&from=2026-10-01&base=avg3&to=2026-10-09")).toEqual([
-      "base: not_for_type",
-    ]);
+    // «Власний» is MVP (owner decision 2026-11-19, #606): not a type of this release.
+    const custom = await call(space, "GET", "/v1/budget/compare?type=custom&from=2026-10-01&to=2026-10-09");
+    expect(custom.statusCode).toBe(400);
     const res = await call(space, "GET", "/v1/budget/compare/year?year=26");
     expect(res.statusCode).toBe(400);
   });

@@ -6,6 +6,7 @@ import {
   BASES_BY_TYPE,
   categoryTotals,
   change,
+  COMPARE_TYPES,
   compareSelection,
   compareTable,
   defaultBase,
@@ -145,10 +146,8 @@ describe("BUD-06@PoC a): the windows of «Порівняння»", () => {
     const y = sel({ type: "year", period: "2025" }, "2026-11-12");
     expect(y.window).toEqual({ from: "2025-01-01", to: "2025-12-31" });
     expect(baseWindow(y, "last-year", false)).toEqual({ from: "2024-01-01", to: "2024-12-31" });
-    const c = sel({ type: "custom", from: "2026-09-10", to: "2026-09-19" }, "2026-11-12");
-    expect(c.window).toEqual({ from: "2026-09-10", to: "2026-09-19" });
-    expect(baseWindow(c, "previous", false)).toEqual({ from: "2026-08-31", to: "2026-09-09" });
-    expect(baseWindow(c, "last-year", false)).toEqual({ from: "2025-09-10", to: "2025-09-19" });
+    // «Власний» is MVP (owner decision 2026-11-19, #606): no such type in this release.
+    expect(COMPARE_TYPES).toEqual(["month", "quarter", "ytd", "year"]);
   });
 
   it("BUD-06@PoC FR 1: a period that is not a period of its type, or has not begun, is an issue", () => {
@@ -173,53 +172,70 @@ describe("BUD-06@PoC a): the windows of «Порівняння»", () => {
       field: "period",
       issue: "invalid",
     });
-    expect(compareSelection({ type: "custom", from: "2026-09-10" }, today)).toEqual({
-      field: "to",
-      issue: "invalid",
-    });
-    expect(compareSelection({ type: "custom", from: "2026-09-10", to: "2026-09-09" }, today)).toEqual({
-      field: "to",
-      issue: "invalid",
-    });
-    expect(compareSelection({ type: "custom", from: "2024-01-01", to: "2026-01-02" }, today)).toEqual({
-      field: "to",
-      issue: "too_long",
-    });
-    expect(compareSelection({ type: "custom", from: "2026-02-30", to: "2026-03-02" }, today)).toEqual({
-      field: "from",
+    expect(compareSelection({ type: "month", period: "0000-01" }, today)).toEqual({
+      field: "period",
       issue: "invalid",
     });
   });
 
   it("BUD-06@PoC FR 4: «Середнє за 6 міс.» — the six finished months before the period, with a history of 13+ months", () => {
     const s = sel({ type: "month", period: "2026-11" }, "2026-11-12");
-    expect(averageBase(s, 6, "2025-08-03")).toEqual({
+    expect(averageBase(s, 6, "2025-08-03", null)).toEqual({
       window: { from: "2026-05-01", to: "2026-10-31" },
       periods: 6,
       months: 6,
+      included: ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"],
     });
+  });
+
+  it("BUD-06@PoC FR 4: a finished month without data (no statement imported) is not one of the average's periods — «за 9 міс.»", () => {
+    const s = sel({ type: "month", period: "2026-11" }, "2026-11-12");
+    const withData = new Set([
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+      "2026-10",
+    ]);
+    const a = averageBase(s, 12, "2025-12-28", withData);
+    expect(a).toMatchObject({ window: { from: "2026-01-01", to: "2026-10-31" }, periods: 9, months: 9 });
+    expect(a.included).not.toContain("2026-04");
+    // A quarter has data when one of its months has.
+    const q = sel({ type: "quarter", period: "2026-Q4" }, "2026-11-12");
+    expect(averageBase(q, 6, "2026-01-01", new Set(["2026-04"]))).toMatchObject({ periods: 1, months: 3 });
+    expect(averageBase(q, 6, "2026-01-01", new Set<string>())).toMatchObject({ window: null, periods: 0 });
   });
 
   it("BUD-06@PoC AC5 (server part): 90 days of history — the average counts the whole finished months there are, «за 2 міс.»", () => {
     const s = sel({ type: "month", period: "2026-11" }, "2026-11-12");
     // 90 days before 12 November: 14 August — August is not a whole month of data.
-    expect(averageBase(s, 6, "2026-08-14")).toEqual({
+    expect(averageBase(s, 6, "2026-08-14", new Set(["2026-08", "2026-09", "2026-10"]))).toEqual({
       window: { from: "2026-09-01", to: "2026-10-31" },
       periods: 2,
       months: 2,
+      included: ["2026-09", "2026-10"],
     });
-    expect(averageBase(s, 3, "2026-11-02")).toEqual({ window: null, periods: 0, months: 0 });
-    expect(averageBase(s, 3, null)).toEqual({ window: null, periods: 0, months: 0 });
+    expect(averageBase(s, 3, "2026-11-02", null)).toEqual({
+      window: null,
+      periods: 0,
+      months: 0,
+      included: [],
+    });
+    expect(averageBase(s, 3, null, null)).toEqual({ window: null, periods: 0, months: 0, included: [] });
   });
 
   it("BUD-06@PoC FR 4: the average of a quarter is over the finished quarters of the last 3 / 6 / 12 months", () => {
     const q = sel({ type: "quarter", period: "2026-Q4" }, "2026-11-12");
-    expect(averageBase(q, 12, "2025-01-01")).toEqual({
+    expect(averageBase(q, 12, "2025-01-01", null)).toMatchObject({
       window: { from: "2025-10-01", to: "2026-09-30" },
       periods: 4,
       months: 12,
     });
-    expect(averageBase(q, 6, "2026-04-02")).toEqual({
+    expect(averageBase(q, 6, "2026-04-02", null)).toMatchObject({
       window: { from: "2026-07-01", to: "2026-09-30" },
       periods: 1,
       months: 3,
@@ -388,6 +404,26 @@ describe("BUD-06@PoC a): the table of categories", () => {
     });
     expect(t.expenses.categories[0]!.base!.amount.toFixed(4)).toBe("33.3333");
     expect(t.expenses.categories[0]!.difference!.percent).toBe("20.0");
+  });
+
+  it("BUD-06@PoC FR 1: «± до плану» compares the plan with the budget period's fact (a proportional first period from its first day); the base columns with the whole window", () => {
+    const t = compareTable({
+      currency: "EUR",
+      current: sums([
+        ["groceries", "-170"],
+        ["groceries", "-120"],
+      ]),
+      base: { sums: sums([["groceries", "-200"]]), divisor: 1 },
+      plans: [plan({ groceries: "130" })],
+      planCurrent: sums([["groceries", "-120"]]),
+    });
+    expect(t.expenses.categories[0]).toMatchObject({
+      current: eur("290"),
+      plan: eur("130"),
+      planDifference: { amount: eur("-10"), direction: "down", tone: "gain-soft" },
+      difference: { amount: eur("90") },
+    });
+    expect(t.expenses.total.planDifference).toMatchObject({ amount: eur("-10") });
   });
 
   it("BUD-06@PoC AC9 (server part): the plan of a category is its limit by the snapshot; a category «Поза планом» has none («–»)", () => {

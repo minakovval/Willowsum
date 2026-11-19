@@ -19,8 +19,8 @@ import { monthPlan } from "./trend.ts";
  * limits; a finished month — its snapshot's). Facts only, no text (business rules). Pure; no I/O.
  */
 
-/** FR 1: «Місяць», «Квартал», «З початку року», «Рік», «Власний». */
-export const COMPARE_TYPES = ["month", "quarter", "ytd", "year", "custom"] as const;
+/** FR 1: «Місяць», «Квартал», «З початку року», «Рік» («Власний» — from MVP, owner 2026-11-19, #606). */
+export const COMPARE_TYPES = ["month", "quarter", "ytd", "year"] as const;
 export type CompareType = (typeof COMPARE_TYPES)[number];
 
 /** FR 1: «Попередній період», «Той самий період минулого року» («Минулий рік»), «Середнє за 3 / 6 / 12 міс.». */
@@ -28,20 +28,15 @@ export const COMPARE_BASES = ["previous", "last-year", "avg3", "avg6", "avg12"] 
 export type CompareBase = (typeof COMPARE_BASES)[number];
 
 /**
- * FR 1: the bases of each type — «Рік» only «Минулий рік», «З початку року» only the same period last year; «Власний»
- * has no average (lead decision 2026-11-19: a range of any length has no «N months» of its own).
+ * FR 1: the bases of each type — «Рік» only «Минулий рік», «З початку року» only the same period last year.
  */
 export const BASES_BY_TYPE: Readonly<Record<CompareType, readonly CompareBase[]>> = {
   month: COMPARE_BASES,
   quarter: COMPARE_BASES,
   ytd: ["last-year"],
   year: ["last-year"],
-  custom: ["previous", "last-year"],
 };
 export const defaultBase = (type: CompareType): CompareBase => BASES_BY_TYPE[type][0]!;
-
-/** The most days of «Власний» (lead decision 2026-11-19): a year and a leap day. */
-export const CUSTOM_DAYS_MAX = 366;
 
 /** Dates from the first to the last day, YYYY-MM-DD, both inclusive. */
 export interface DateWindow {
@@ -53,11 +48,11 @@ export interface CompareSelection {
   readonly type: CompareType;
   /** What the table counts: the period, up to today while it lasts (FR 2). */
   readonly window: DateWindow;
-  /** The whole period (for «Власний» — the window). */
+  /** The whole period. */
   readonly period: DateWindow;
   /** The calendar months the window touches, oldest first: the months of its plan. */
   readonly months: readonly Period[];
-  /** Months in one period of the type: 1, 3 or 12; 0 — «Власний». */
+  /** Months in one period of the type: 1, 3 or 12. */
   readonly length: number;
   /** Today is in the period: the base is cut at the same date (FR 2). */
   readonly inProgress: boolean;
@@ -67,16 +62,11 @@ export interface CompareSelection {
   readonly year: string;
 }
 
-const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** The first year a period may name: 0000 is no year of the database's calendar (security review of #605, N1). */
+export const COMPARE_MIN_YEAR = "1900";
+export const isCompareYear = (year: string): boolean => /^\d{4}$/.test(year) && year >= COMPARE_MIN_YEAR;
+
 const lastDay = (period: Period) => periodDays(period).to;
-function isDate(text: string | undefined): text is string {
-  const m = text === undefined ? null : DATE_RE.exec(text);
-  return m !== null && isPeriod(text!.slice(0, 7)) && m[3]! >= "01" && text! <= lastDay(text!.slice(0, 7));
-}
-/** Day numbers of the calendar, for counting days only (no amounts). */
-const dayNumber = (date: string) =>
-  Date.UTC(+date.slice(0, 4), +date.slice(5, 7) - 1, +date.slice(8, 10)) / 864e5;
-const fromDayNumber = (n: number) => new Date(n * 864e5).toISOString().slice(0, 10);
 
 /** FR 3: the same day `months` months away; days 29–31 go to the last day of a shorter month. */
 export function shiftDate(date: string, months: number): string {
@@ -96,8 +86,6 @@ export function compareSelection(
   input: {
     readonly type: CompareType;
     readonly period?: string | undefined;
-    readonly from?: string | undefined;
-    readonly to?: string | undefined;
   },
   today: string,
 ): CompareSelection | BudgetIssue {
@@ -106,13 +94,13 @@ export function compareSelection(
   let length: number;
   switch (input.type) {
     case "month":
-      if (!isPeriod(p)) return { field: "period", issue: "invalid" };
+      if (!isPeriod(p) || !isCompareYear(p.slice(0, 4))) return { field: "period", issue: "invalid" };
       period = periodDays(p);
       length = 1;
       break;
     case "quarter": {
       const m = /^(\d{4})-Q([1-4])$/.exec(p);
-      if (!m) return { field: "period", issue: "invalid" };
+      if (!m || !isCompareYear(m[1]!)) return { field: "period", issue: "invalid" };
       const first = `${m[1]}-${String((+m[2]! - 1) * 3 + 1).padStart(2, "0")}`;
       period = { from: `${first}-01`, to: lastDay(addMonths(first, 2)) };
       length = 3;
@@ -121,24 +109,15 @@ export function compareSelection(
     case "year":
     case "ytd": {
       const year = input.period ?? today.slice(0, 4);
-      if (!/^\d{4}$/.test(year)) return { field: "period", issue: "invalid" };
+      if (!isCompareYear(year)) return { field: "period", issue: "invalid" };
       // AC10: «З початку року» is this year's, January to today (the year cut at today).
       if (input.type === "ytd" && year !== today.slice(0, 4)) return { field: "period", issue: "invalid" };
       period = { from: `${year}-01-01`, to: `${year}-12-31` };
       length = 12;
       break;
     }
-    case "custom": {
-      if (!isDate(input.from)) return { field: "from", issue: "invalid" };
-      if (!isDate(input.to) || input.to < input.from) return { field: "to", issue: "invalid" };
-      if (dayNumber(input.to) - dayNumber(input.from) + 1 > CUSTOM_DAYS_MAX)
-        return { field: "to", issue: "too_long" };
-      period = { from: input.from, to: input.to };
-      length = 0;
-      break;
-    }
   }
-  if (period.from > today) return { field: input.type === "custom" ? "from" : "period", issue: "future" };
+  if (period.from > today) return { field: "period", issue: "future" };
   const inProgress = period.to > today;
   const window = { from: period.from, to: period.to > today ? today : period.to };
   return {
@@ -164,14 +143,6 @@ export function baseWindow(
   full: boolean,
 ): DateWindow {
   const { window, period, length } = selection;
-  if (length === 0) {
-    if (base === "last-year") return { from: shiftDate(window.from, -12), to: shiftDate(window.to, -12) };
-    const days = dayNumber(window.to) - dayNumber(window.from) + 1;
-    return {
-      from: fromDayNumber(dayNumber(window.from) - days),
-      to: fromDayNumber(dayNumber(window.from) - 1),
-    };
-  }
   const k = base === "previous" ? -length : -12;
   const whole = full || window.to === period.to;
   return {
@@ -183,27 +154,41 @@ export function baseWindow(
 /**
  * FR 4, AC5: «Середнє за N міс.» — over the finished periods of the type in the N months before the period (a quarter:
  * N ÷ 3 quarters), only those wholly after the start of the space's history (`historyStart`, the first transaction of
- * the budget's accounts): with fewer, the average is over the ones there are («за N міс.» — `months`).
+ * the budget's accounts) and with data — at least one counted amount in one of its months (`withData`; null — not read
+ * yet: every period after the start, the dates to read). With fewer, the average is over the ones there are («за N
+ * міс.» — `months`); `included` — the months whose amounts it sums.
  */
 export function averageBase(
   selection: CompareSelection,
   months: 3 | 6 | 12,
   historyStart: string | null,
-): { readonly window: DateWindow | null; readonly periods: number; readonly months: number } {
+  withData: ReadonlySet<Period> | null,
+): {
+  readonly window: DateWindow | null;
+  readonly periods: number;
+  readonly months: number;
+  readonly included: readonly Period[];
+} {
   const length = selection.length === 3 ? 3 : 1;
   const first = periodOf(selection.period.from);
+  const included: Period[] = [];
+  let oldest: Period | null = null;
   let periods = 0;
-  while (
-    periods < months / length &&
-    historyStart !== null &&
-    `${addMonths(first, -(periods + 1) * length)}-01` >= historyStart
-  )
+  for (let i = 1; i <= months / length && historyStart !== null; i++) {
+    const start = addMonths(first, -i * length);
+    if (`${start}-01` < historyStart) break;
+    const its = Array.from({ length }, (_, k) => addMonths(start, k));
+    if (withData !== null && !its.some((m) => withData.has(m))) continue;
     periods += 1;
-  if (periods === 0) return { window: null, periods: 0, months: 0 };
+    oldest = start;
+    included.unshift(...its);
+  }
+  if (oldest === null) return { window: null, periods: 0, months: 0, included: [] };
   return {
-    window: { from: `${addMonths(first, -periods * length)}-01`, to: lastDay(addMonths(first, -1)) },
+    window: { from: `${oldest}-01`, to: lastDay(addMonths(first, -1)) },
     periods,
     months: periods * length,
+    included,
   };
 }
 
@@ -283,13 +268,15 @@ function row(
   base: Tally | null,
   plan: Money | null,
   currency: string,
+  /** The fact «± до плану» compares with (the budget period's); the base columns take `current`. */
+  planFact: Tally | undefined,
 ): CompareRow {
   const now = current?.amount ?? Money.zero(currency);
   return {
     categoryId,
     current: now,
     plan,
-    planDifference: plan === null ? null : change(now, plan, kind),
+    planDifference: plan === null ? null : change(planFact?.amount ?? Money.zero(currency), plan, kind),
     base: base?.amount ?? null,
     difference: base === null ? null : change(now, base.amount, kind),
     transactions: { current: current?.count ?? 0, base: base?.count ?? null },
@@ -320,15 +307,21 @@ function sorted(rows: CompareRow[]): CompareRow[] {
 /**
  * FR 1, FR 4, FR 6, AC2, AC9: the table of «Порівняння». `base` — the base's tally and how many periods it holds (1, or
  * N for an average); null — not available. `plans` — the plans of the window's months (null — before the budget); null
- * — no plan column («Власний»). Spending by expense category with «Без категорії», income by income category.
+ * — no plan column. Spending by expense category with «Без категорії», income by income category.
  */
 export function compareTable(input: {
   readonly currency: string;
   readonly current: CategoryTotals;
   readonly base: { readonly sums: CategoryTotals; readonly divisor: number } | null;
   readonly plans: readonly (PeriodPlan | null)[] | null;
+  /**
+   * The fact the plan columns compare with: the budget periods' (BUD-02 FR 14 — a proportional first period from its
+   * first day, as «Бюджет» and «Тренд» count it); omitted — `current`.
+   */
+  readonly planCurrent?: CategoryTotals;
 }): CompareTable {
   const { currency, current, base, plans } = input;
+  const planCurrent = input.planCurrent ?? current;
   const baseOf = <K>(pick: (s: CategoryTotals) => ReadonlyMap<K, Tally>, key: K) =>
     base === null ? null : averaged(pick(base.sums).get(key), base.divisor, currency);
   const planOf = (categoryId?: string) =>
@@ -341,6 +334,7 @@ export function compareTable(input: {
   const limited = new Set((plans ?? []).flatMap((p) => p?.limits.map((l) => l.categoryId) ?? []));
   const expenseIds = new Set<string | null>([
     ...current.spent.keys(),
+    ...planCurrent.spent.keys(),
     ...(base?.sums.spent.keys() ?? []),
     ...limited,
   ]);
@@ -353,6 +347,7 @@ export function compareTable(input: {
         baseOf((s) => s.spent, id),
         id === null ? null : planOf(id),
         currency,
+        planCurrent.spent.get(id),
       ),
     ),
   );
@@ -366,6 +361,7 @@ export function compareTable(input: {
         baseOf((s) => s.income, id),
         null,
         currency,
+        undefined,
       ),
     ),
   );
@@ -387,6 +383,7 @@ export function compareTable(input: {
         totalBase((s) => s.spent),
         planOf(),
         currency,
+        total(planCurrent.spent.values(), currency),
       ),
       categories: expenses,
     },
@@ -398,6 +395,7 @@ export function compareTable(input: {
         totalBase((s) => s.income),
         incomePlan,
         currency,
+        total(planCurrent.income.values(), currency),
       ),
       categories: income,
     },

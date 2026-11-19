@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
-import { byId, isIncluded, periodPlans, type StoredBudget } from "../../application/index.ts";
+import { byId, countsFrom, isIncluded, periodPlans, type StoredBudget } from "../../application/index.ts";
 import {
   addMonths,
   averageBase,
@@ -13,8 +13,8 @@ import {
   COMPARE_TYPES,
   compareSelection,
   compareTable,
-  CUSTOM_DAYS_MAX,
   defaultBase,
+  isCompareYear,
   periodMode,
   periodOf,
   yearTable,
@@ -65,7 +65,7 @@ const rowSchema = z.object({
   current: moneySchema,
   plan: moneySchema.nullable().meta({
     description:
-      "The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний»",
+      "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget",
   }),
   planDifference: changeSchema.nullable(),
   base: moneySchema.nullable().meta({ description: "Null — the base is not available" }),
@@ -166,6 +166,8 @@ interface ResolvedBase {
   readonly months: number | null;
   /** How many periods the base's amounts hold: 1, or N for an average. */
   readonly divisor: number;
+  /** An average: the months whose amounts it sums (finished, with data); null — not an average. */
+  readonly included: readonly string[] | null;
 }
 
 /** FR 2–FR 5: the dates of a base, and whether it is there to compare with. */
@@ -174,14 +176,23 @@ function resolveBase(
   base: CompareBase,
   full: boolean,
   historyStart: string | null,
+  withData: ReadonlySet<string>,
 ): ResolvedBase {
   if (base === "previous" || base === "last-year") {
     const window = baseWindow(selection, base, full);
     // FR 5: «Той самий період минулого року» needs data there; so does «Попередній період».
     const available = historyStart !== null && historyStart <= window.to;
-    return { base, available, reason: available ? null : "no_history", window, months: null, divisor: 1 };
+    return {
+      base,
+      available,
+      reason: available ? null : "no_history",
+      window,
+      months: null,
+      divisor: 1,
+      included: null,
+    };
   }
-  const a = averageBase(selection, base === "avg3" ? 3 : base === "avg6" ? 6 : 12, historyStart);
+  const a = averageBase(selection, base === "avg3" ? 3 : base === "avg6" ? 6 : 12, historyStart, withData);
   return {
     base,
     available: a.window !== null,
@@ -189,6 +200,7 @@ function resolveBase(
     window: a.window,
     months: a.months,
     divisor: Math.max(a.periods, 1),
+    included: a.included,
   };
 }
 
@@ -212,20 +224,11 @@ export const getCompareRoute = defineRoute({
     query: z.object({
       type: z.enum(COMPARE_TYPES),
       period: z.string().max(7).optional().meta({
-        description:
-          "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default); not for custom",
+        description: "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
       }),
-      from: z.string().max(10).optional().meta({ description: "custom only: the first day, YYYY-MM-DD" }),
-      to: z
-        .string()
-        .max(10)
-        .optional()
-        .meta({
-          description: `custom only: the last day, YYYY-MM-DD; at most ${CUSTOM_DAYS_MAX} days`,
-        }),
       base: z.enum(COMPARE_BASES).optional().meta({
         description:
-          "Default — previous (month, quarter, custom) or last-year (year, ytd); year and ytd take last-year only, custom no average",
+          "Default — previous (month, quarter) or last-year (year, ytd); year and ytd take last-year only",
       }),
       full: z.enum(["true", "false"]).optional().meta({
         description: "«Повний попередній період»: the base whole, not cut at the same date",
@@ -248,18 +251,35 @@ export const getCompareRoute = defineRoute({
     const categories = byId(await deps.reads.categories(householdId));
     const accountIds = await budgetAccounts(ctx, householdId);
     const historyStart = await deps.reads.historyStart(householdId, accountIds);
-    const bases = BASES_BY_TYPE[selection.type].map((b) => resolveBase(selection, b, full, historyStart));
-    const base = bases.find((b) => b.base === chosen)!;
     const read = (w: DateWindow) => deps.reads.window(householdId, accountIds, w.from, w.to, currency);
+    // FR 4: an average counts only finished periods with data — one read of the widest one's dates tells which.
+    const widest = BASES_BY_TYPE[selection.type].includes("avg12")
+      ? averageBase(selection, 12, historyStart, null).window
+      : null;
+    const averages = widest ? await read(widest) : null;
+    const withData = new Set((averages?.amounts ?? []).map((a) => a.period));
+    const bases = BASES_BY_TYPE[selection.type].map((b) =>
+      resolveBase(selection, b, full, historyStart, withData),
+    );
+    const base = bases.find((b) => b.base === chosen)!;
     const current = await read(selection.window);
-    const baseRead = base.available && base.window ? await read(base.window) : null;
-    // «План» — BUD-16's rule: the sum of the month's limits, a finished month — its snapshot's; «Власний» has none.
-    const plans =
-      selection.type === "custom"
-        ? null
-        : await ctx.inHousehold((q) =>
-            periodPlans(deps, budgetTx(q), householdId, budget, selection.months, categories),
-          );
+    let baseRead: Awaited<ReturnType<typeof read>> | null = null;
+    if (base.available && base.included !== null && averages) {
+      const months = new Set(base.included);
+      baseRead = { ...averages, amounts: averages.amounts.filter((a) => months.has(a.period)) };
+    } else if (base.available && base.window) baseRead = await read(base.window);
+    // «План» — BUD-16's rule: the sum of the month's limits, a finished month — its snapshot's.
+    const plans = await ctx.inHousehold((q) =>
+      periodPlans(deps, budgetTx(q), householdId, budget, selection.months, categories),
+    );
+    // BUD-02 FR 14: the plan columns compare with the budget period's fact — a proportional first period from its
+    // first day, as «Бюджет» and «Тренд» count it; every other month — the window's amounts of that month.
+    const planFact: CountedAmount[] = [];
+    for (const p of selection.months) {
+      const since = countsFrom(budget, p);
+      if (since === undefined) planFact.push(...current.amounts.filter((a) => a.period === p));
+      else planFact.push(...(await deps.reads.amounts(householdId, accountIds, p, currency, since)).amounts);
+    }
     const table = compareTable({
       currency,
       current: categoryTotals(categories, current.amounts, currency),
@@ -267,7 +287,8 @@ export const getCompareRoute = defineRoute({
         sums: categoryTotals(categories, baseRead.amounts, currency),
         divisor: base.divisor,
       },
-      plans: plans && selection.months.map((p) => plans.get(p) ?? null),
+      plans: selection.months.map((p) => plans.get(p) ?? null),
+      planCurrent: categoryTotals(categories, planFact, currency),
     });
     return {
       currency,
@@ -358,7 +379,7 @@ export const getCompareYearRoute = defineRoute({
   response: { status: 200, description: "The year", schema: yearSchema },
   handler: async ({ query }, ctx) => {
     if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
-    if (!/^\d{4}$/.test(query.year)) throw invalid("year", "invalid");
+    if (!isCompareYear(query.year)) throw invalid("year", "invalid");
     const budget = await storedBudget(ctx);
     const { deps } = budgetServices(ctx);
     const householdId = ctx.principal.householdId;
@@ -372,9 +393,10 @@ export const getCompareYearRoute = defineRoute({
     );
     const from = `${query.year}-01-01`;
     const to = `${query.year}-12-31` < today ? `${query.year}-12-31` : today;
+    const accountIds = from <= today ? await budgetAccounts(ctx, householdId) : [];
     const read =
       from <= today
-        ? await deps.reads.window(householdId, await budgetAccounts(ctx, householdId), from, to, currency)
+        ? await deps.reads.window(householdId, accountIds, from, to, currency)
         : { amounts: [], nearestRateCount: 0, unavailableCount: 0 };
     const byMonth = new Map<string, CountedAmount[]>();
     for (const a of read.amounts) {
@@ -382,6 +404,13 @@ export const getCompareYearRoute = defineRoute({
       if (list) list.push(a);
       else byMonth.set(a.period, [a]);
     }
+    // BUD-02 FR 14: a proportional first period counts from its first day, as «Бюджет» and «Тренд».
+    const first = budget.firstPeriod;
+    const since = countsFrom(budget, first);
+    if (since !== undefined && periods.includes(first) && periodMode(first, today) !== "future")
+      byMonth.set(first, [
+        ...(await deps.reads.amounts(householdId, accountIds, first, currency, since)).amounts,
+      ]);
     const months = periods.map((period) => ({ period, mode: periodMode(period, today) }));
     const table = yearTable({
       currency,

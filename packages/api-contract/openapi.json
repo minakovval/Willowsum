@@ -10045,8 +10045,7 @@
                 "month",
                 "quarter",
                 "ytd",
-                "year",
-                "custom"
+                "year"
               ]
             }
           },
@@ -10054,37 +10053,17 @@
             "name": "period",
             "in": "query",
             "required": false,
-            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default); not for custom",
+            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
             "schema": {
               "type": "string",
               "maxLength": 7
             }
           },
           {
-            "name": "from",
-            "in": "query",
-            "required": false,
-            "description": "custom only: the first day, YYYY-MM-DD",
-            "schema": {
-              "type": "string",
-              "maxLength": 10
-            }
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "required": false,
-            "description": "custom only: the last day, YYYY-MM-DD; at most 366 days",
-            "schema": {
-              "type": "string",
-              "maxLength": 10
-            }
-          },
-          {
             "name": "base",
             "in": "query",
             "required": false,
-            "description": "Default — previous (month, quarter, custom) or last-year (year, ytd); year and ytd take last-year only, custom no average",
+            "description": "Default — previous (month, quarter) or last-year (year, ytd); year and ytd take last-year only",
             "schema": {
               "type": "string",
               "enum": [
@@ -10127,8 +10106,7 @@
                         "month",
                         "quarter",
                         "ytd",
-                        "year",
-                        "custom"
+                        "year"
                       ]
                     },
                     "window": {
@@ -10336,7 +10314,7 @@
                                   "type": "null"
                                 }
                               ],
-                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний»"
+                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
                             },
                             "planDifference": {
                               "anyOf": [
@@ -10581,7 +10559,7 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний»"
+                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
                               },
                               "planDifference": {
                                 "anyOf": [
@@ -10835,7 +10813,7 @@
                                   "type": "null"
                                 }
                               ],
-                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний»"
+                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
                             },
                             "planDifference": {
                               "anyOf": [
@@ -11080,7 +11058,7 @@
                                     "type": "null"
                                   }
                                 ],
-                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–»), before the budget, or «Власний»"
+                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
                               },
                               "planDifference": {
                                 "anyOf": [
