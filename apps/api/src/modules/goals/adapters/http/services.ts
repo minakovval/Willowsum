@@ -6,12 +6,14 @@ import { groupOf, type AccountDirectory } from "../../../accounts/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
 import { Money } from "@willowsum/domain-kernel";
 import type { Entry, Ledger } from "../../../ledger/index.ts";
-import type { TransactionLookup } from "../../../transactions/index.ts";
+import type { FxReporting } from "../../../fx-rates/index.ts";
+import type { GoalTransactions, TransactionLookup } from "../../../transactions/index.ts";
 import {
   applyHandOff,
   type AccountBalances,
   type SpendableTransactions,
   type GoalHandOff,
+  type GoalReads,
   type GoalsAudit,
   type GoalsDeps,
 } from "../../application/index.ts";
@@ -93,6 +95,30 @@ export function spendableTransactions(
   };
 }
 
+/**
+ * FR 10, FR 8 over the public interfaces of `transactions` (the expenses summed by day and currency in SQL; the page of
+ * spendable transactions) and `fx-rates` (each day's sum at that day's official rate, the nearest earlier one marked;
+ * VAL-04). A sum without a rate is left out and counted.
+ */
+export function goalReads(transactions: GoalTransactions, fx: Pick<FxReporting, "total">): GoalReads {
+  return {
+    async expenses(householdId, window, currency) {
+      const days = await transactions.expensesByDay(householdId, window.from, window.to);
+      const reported = await fx.total(
+        days.map((d) => ({ amount: d.amount, date: d.date })),
+        currency,
+      );
+      return {
+        total: reported.total,
+        firstDate: days[0]?.date ?? null,
+        nearestRateCount: reported.nearestRateCount,
+        unavailableCount: reported.unavailableCount,
+      };
+    },
+    candidates: (householdId, query) => transactions.spendCandidates(householdId, query),
+  };
+}
+
 /** The goals' entries in the space's own log (BUD-05 «Права доступу», П-10): who, when, each field before and after. */
 export function goalsAudit(audit: Pick<AuditLog, "record">): GoalsAudit {
   return {
@@ -118,6 +144,11 @@ export function createGoalsServices(options: {
   readonly newId: () => string;
   /** Module transactions' lookup, for «Витратити» (FR 8); without it «Витратити» answers 500. */
   readonly transactions?: Pick<TransactionLookup, "facts">;
+  /**
+   * Module transactions' reads for goals and module fx-rates' conversion: «Подушка безпеки» (FR 10) and the list of
+   * «Витратити» (FR 8, #559); without them those two routes answer 500.
+   */
+  readonly reads?: { readonly transactions: GoalTransactions; readonly fx: Pick<FxReporting, "total"> };
 }): GoalsServices {
   return {
     [BRAND]: true,
@@ -129,6 +160,7 @@ export function createGoalsServices(options: {
       transactions: options.transactions
         ? spendableTransactions(options.transactions, options.accounts, options.ledger)
         : null,
+      reads: options.reads ? goalReads(options.reads.transactions, options.reads.fx) : null,
     },
     audit: goalsAudit(options.audit),
   };

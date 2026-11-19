@@ -23,6 +23,7 @@ import {
 } from "../../application/index.ts";
 import { checkGoal, GOAL_TEMPLATES, NAME_MAX, PART_KINDS } from "../../domain/index.ts";
 import { goalsTx } from "../db/store.ts";
+import { cushionAverageRoute, spendableRoute } from "./reads.ts";
 import { goalsServices, handOffNow } from "./services.ts";
 
 /**
@@ -535,6 +536,8 @@ export const closeGoalRoute = defineRoute({
 
 export const goalsRoutes = [
   listGoalsRoute,
+  cushionAverageRoute,
+  spendableRoute,
   getGoalRoute,
   createGoalRoute,
   updateGoalRoute,

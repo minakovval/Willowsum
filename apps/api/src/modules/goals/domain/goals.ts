@@ -289,3 +289,44 @@ export function goalProgress(input: {
     forecastDate: forecastDate(remaining, pace, today),
   };
 }
+
+/** FR 10 «Подушка безпеки»: the average looks at the last 6 full calendar months at most (board PocPlanGoalNewCushion). */
+export const CUSHION_HISTORY_MONTHS = 6;
+
+const monthStart = (index: number) =>
+  `${String(Math.floor(index / 12)).padStart(4, "0")}-${String((index % 12) + 1).padStart(2, "0")}-01`;
+
+/**
+ * FR 10: the window of the average — the 6 full calendar months before this month (the current month is not over):
+ * from the first day of the sixth month back to the last day of the previous month.
+ */
+export function cushionWindow(today: string): { readonly from: string; readonly to: string } {
+  const current = monthIndex(today);
+  return { from: monthStart(current - CUSHION_HISTORY_MONTHS), to: addDays(monthStart(current), -1) };
+}
+
+/**
+ * FR 10, AC 3: the average monthly expenses — the window's expenses (already in the goal's currency) over the months
+ * of history: from the month of the first expense in the window to the previous month, at most 6 («за 6 міс.»).
+ * Rounded half to even to the currency's minor units (owner decision 2026-11-16: half-to-even for calculation).
+ * Null without a single expense in the window: there is nothing to average.
+ */
+export function averageMonthlyExpenses(
+  total: Money,
+  firstExpenseDate: string | null,
+  today: string,
+): { readonly average: Money | null; readonly months: number } {
+  if (firstExpenseDate === null) return { average: null, months: 0 };
+  const months = Math.min(
+    CUSHION_HISTORY_MONTHS,
+    Math.max(1, monthIndex(today) - monthIndex(firstExpenseDate)),
+  );
+  const minor = currencyInfo(total.currency).minorUnits;
+  return {
+    average: Money.of(
+      total.amount.div(String(months)).toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN),
+      total.currency,
+    ),
+    months,
+  };
+}

@@ -8,7 +8,7 @@ import type { Goal } from "./goals/model.ts";
 import { chosenSum, leftAfter, spendBody, type SpendRow } from "./goals/spend.ts";
 
 /**
- * BUD-05@PoC d) (wave 2, row 129): S-139 «Витратити з цілі» on the CMP-21 form dialog over `GET /v1/transactions` and
+ * BUD-05@PoC d) (wave 2, row 129): S-139 «Витратити з цілі» on the CMP-21 form dialog over `GET /v1/goals/{id}/spendable` and
  * `POST /v1/goals/{id}/spends`. Boards: PocPlanGoalSpend, PocPlanGoalSpendStep2, PocPlanGoalCard, PocPlanGoalCardAchieved.
  * The dialog (and the card for its button) is rendered alone. Synthetic goals, accounts and transactions.
  */
@@ -79,9 +79,28 @@ const FIRST = [
 const MORE = [1, 2, 3, 4, 5].map((i) => tx(10 + i, `Магазин ${i}`, "10.00", "2026-09-2" + i));
 const all = [...FIRST, ...MORE];
 
-function api(items: unknown[] = all, over: Record<string, Reply | ((c: never, u: URL) => Reply)> = {}) {
+const LIST = `GET /v1/goals/${GOAL}/spendable`;
+type Tx = ReturnType<typeof tx>;
+/** The answer of `GET /v1/goals/{id}/spendable` (#559): the rows as the server gives them, unsigned, and how many in all. */
+const spendable = (items: readonly Tx[], count = items.length, nextCursor: string | null = null) => ({
+  status: 200,
+  body: {
+    items: items.map((t) => ({
+      id: t.id,
+      accountId: t.accountId,
+      counterparty: t.counterparty,
+      description: t.description,
+      date: t.date,
+      amount: { amount: t.amount.amount.replace(/^-/, ""), currency: t.amount.currency },
+    })),
+    count,
+    nextCursor,
+  },
+});
+
+function api(items: Tx[] = all, over: Record<string, Reply | ((c: never, u: URL) => Reply)> = {}) {
   return fakeApi({
-    "GET /v1/transactions": { status: 200, body: { items, count: items.length, from: 1 } },
+    [LIST]: spendable(items),
     "POST /v1/goals/a0000000-0000-4000-8000-000000000001/spends": { status: 201, body: goal() },
     "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": { status: 200, body: { closed: true } },
     ...(over as Record<string, Reply>),
@@ -134,8 +153,8 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     const before = dialog().querySelectorAll(".goal-spend-list > li");
     expect(before).toHaveLength(7);
     expect(before[6]!.contains(more)).toBe(true);
-    // The goal's account only, outgoing, not a transfer, newest first.
-    const list = fake.calls.find((c) => c.path === "/v1/transactions")!;
+    // The goal's own list of the API (#559): the server leaves out what may not be spent.
+    const list = fake.calls.find((c) => c.path === `/v1/goals/${GOAL}/spendable`)!;
     expect(list.method).toBe("GET");
     fireEvent.click(more);
     expect(rows()).toHaveLength(11);
@@ -147,53 +166,71 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     expect(dialog().querySelector("button.goal-spend-more")).toBeNull();
   });
 
-  it("BUD-05@PoC FR 8: the request asks for the part's account, outgoing non-transfer posted visible transactions, newest first; a goal of marks asks for any account", async () => {
+  it("BUD-05@PoC FR 8: beyond 100 transactions «Ще N» counts every one the server has, and «показати наступні 6» reads the next page once the rows read run out (#559)", async () => {
+    const many = Array.from({ length: 50 }, (_, i) =>
+      tx(100 + i, `Кафе ${i}`, "1.00", `2026-08-${String((i % 28) + 1).padStart(2, "0")}`),
+    );
     const asked: URL[] = [];
     const record = ((_c: never, u: URL) => {
       asked.push(u);
-      return { status: 200, body: { items: all, count: all.length, from: 1 } };
+      return u.searchParams.get("cursor") === "next-1"
+        ? spendable(many.slice(48), 150, null)
+        : spendable(many.slice(0, 48), 150, "next-1");
     }) as never;
-    open(api(all, { "GET /v1/transactions": record }));
-    await within(dialog()).findByText("Booking.com");
-    const f = asked[0]!.searchParams.getAll("filter");
-    expect(f).toEqual([
-      "type.eq:out",
-      "transfer.eq:false",
-      "hidden.eq:false",
-      "status.eq:posted",
-      `accountId.eq:${ACC}`,
-    ]);
-    expect(asked[0]!.searchParams.get("sort")).toBe("-date");
-    cleanup();
-    asked.length = 0;
+    open(api(all, { [LIST]: record }));
+    await within(dialog()).findByText("Кафе 0");
+    expect(asked[0]!.searchParams.get("limit")).toBe("48");
+    expect(asked[0]!.searchParams.has("cursor")).toBe(false);
+    expect(
+      within(dialog()).getByRole("button", { name: /^Ще\s144\sтранзакції · показати наступні\s6$/ }),
+    ).toBeTruthy();
+    for (let i = 0; i < 7; i++)
+      fireEvent.click(within(dialog()).getByRole("button", { name: /показати наступні/ }));
+    // 8 × 6 = 48 rows read so far; the 9th press reads the next page with the cursor.
+    expect(asked).toHaveLength(1);
+    fireEvent.click(within(dialog()).getByRole("button", { name: /показати наступні/ }));
+    expect(await within(dialog()).findByText("Кафе 48")).toBeTruthy();
+    expect(asked).toHaveLength(2);
+    expect(asked[1]!.searchParams.get("cursor")).toBe("next-1");
+    expect(rows()).toHaveLength(50);
+    expect(
+      within(dialog()).getByRole("button", { name: /^Ще\s100\sтранзакцій · показати наступні\s6$/ }),
+    ).toBeTruthy();
+  });
+
+  it("BUD-05@PoC FR 8: a failed next page says so and keeps the rows read", async () => {
+    let n = 0;
+    const many = Array.from({ length: 12 }, (_, i) => tx(200 + i, `Аптека ${i}`, "2.00", "2026-08-01"));
     open(
-      api(all, { "GET /v1/transactions": record }),
-      goal({ part: { accountId: null, freeBalance: null, kind: "marks", startAmount: eur("0") } }),
+      api(all, {
+        [LIST]: (() =>
+          n++ === 0 ? spendable(many.slice(0, 6), 12, "c2") : problem(500, "INTERNAL")) as never,
+      }),
     );
-    await within(dialog()).findByText("Booking.com");
-    expect(asked[0]!.searchParams.getAll("filter").some((x) => x.startsWith("accountId"))).toBe(false);
+    await within(dialog()).findByText("Аптека 0");
+    fireEvent.click(within(dialog()).getByRole("button", { name: /показати наступні/ }));
+    expect(
+      await within(dialog()).findByText("Не вдалося завантажити наступні транзакції — спробуйте ще раз"),
+    ).toBeTruthy();
+    expect(rows()).toHaveLength(6);
   });
 
   it("BUD-05@PoC FR 8: the search field sends the text to the list and an empty answer says so", async () => {
-    let asked = "";
+    let asked: string | null = null;
     const fake = api(all, {
-      "GET /v1/transactions": ((_c: never, u: URL) => {
-        asked = u.searchParams.getAll("filter").join("|");
-        return {
-          status: 200,
-          body: { items: asked.includes("search.has:zzz") ? [] : all, count: 0, from: 1 },
-        };
+      [LIST]: ((_c: never, u: URL) => {
+        asked = u.searchParams.get("search");
+        return spendable(asked === "zzz" ? [] : all);
       }) as never,
     });
     open(fake);
     await within(dialog()).findByText("Booking.com");
-    expect(asked).toContain(`accountId.eq:${ACC}`);
-    expect(asked).toContain("type.eq:out");
+    expect(asked).toBeNull();
     fireEvent.change(within(dialog()).getByRole("searchbox", { name: "Пошук транзакцій" }), {
       target: { value: "zzz" },
     });
     expect(await within(dialog()).findByText("Нічого не знайдено")).toBeTruthy();
-    expect(asked).toContain("search.has:zzz");
+    expect(asked).toBe("zzz");
   });
 
   it("BUD-05@PoC AC2: two chosen transactions (hotel 640, flights 386.40) show «Обрано 2 · 1 026,40 €» and what stays in the goal, and «Списати з цілі» sends them as ids with accounts", async () => {
@@ -260,7 +297,9 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     fireEvent.click(button("Списати з цілі"));
     await waitFor(() => expect(done.gone).toHaveBeenCalledTimes(1));
     expect(
-      fake.calls.map((c) => `${c.method} ${c.path.replace(GOAL, "{id}")}`).filter((c) => c.includes("goals")),
+      fake.calls
+        .map((c) => `${c.method} ${c.path.replace(GOAL, "{id}")}`)
+        .filter((c) => c.startsWith("POST")),
     ).toEqual(["POST /v1/goals/{id}/spends", "POST /v1/goals/{id}/close"]);
   });
 
@@ -391,10 +430,7 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
   it("BUD-05@PoC FR 8: states — loading, an error with «Спробувати ще раз» and the code, and empty", async () => {
     let n = 0;
     const fake = api(all, {
-      "GET /v1/transactions": (() =>
-        n++ === 0
-          ? problem(500, "INTERNAL")
-          : { status: 200, body: { items: [], count: 0, from: 1 } }) as never,
+      [LIST]: (() => (n++ === 0 ? problem(500, "INTERNAL") : spendable([]))) as never,
     });
     open(fake);
     expect(within(dialog()).getByRole("status").textContent).toBe("Завантажуємо транзакції…");
@@ -405,24 +441,6 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
       await within(dialog()).findByText("Немає вихідних транзакцій, які можна списати з цілі"),
     ).toBeTruthy();
     expect(disabled(button("Списати з цілі"))).toBe(true);
-  });
-
-  it("BUD-05@PoC FR 8: transactions already spent from the goal and transactions in another currency are not offered", async () => {
-    const spent = {
-      id: "d0000000-0000-4000-8000-000000000001",
-      transactionId: FIRST[0]!.id,
-      accountId: ACC,
-      amount: eur("640.00"),
-      date: "2026-10-29",
-    };
-    const fake = api([
-      ...FIRST,
-      tx(99, "Dollar shop", "5.00", "2026-10-01", { amount: { amount: "-5.00", currency: "USD" } }),
-    ]);
-    open(fake, goal({ spends: [spent] }));
-    await within(dialog()).findByText("Wizz Air");
-    expect(within(dialog()).queryByText("Booking.com")).toBeNull();
-    expect(within(dialog()).queryByText("Dollar shop")).toBeNull();
   });
 
   it("BUD-05@PoC FR 8: the checkbox rows have accessible names with the merchant and the amount, and 44 px targets are the row", async () => {

@@ -148,6 +148,13 @@ export function goalsTx(q: HouseholdQueryRunner): GoalsTx {
       );
       return rows.map(spend);
     },
+    async spentTransactionIds(householdId) {
+      const { rows } = await q.query<{ transaction_id: string }>(
+        `SELECT transaction_id FROM spends WHERE household_id = $1`,
+        [householdId],
+      );
+      return rows.map((r) => r.transaction_id);
+    },
     async insertSpend(householdId, s) {
       await q.query(
         `INSERT INTO spends (household_id, id, goal_id, transaction_id, account_id, entry_id, amount, currency, spent_on)

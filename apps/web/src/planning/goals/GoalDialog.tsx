@@ -14,13 +14,17 @@ import { outcome, useAuthApi } from "../../auth/api.ts";
 import type { Goal } from "./model.ts";
 import {
   createBody,
+  cushionTarget,
   freeOn,
   initialValues,
   isPositive,
+  loadCushionAverage,
   loadFormContext,
   MAIN,
   minus,
+  monthsOf,
   monthsValid,
+  MONTHS_MAX,
   NAME_MAX,
   patchBody,
   PART_KINDS,
@@ -28,6 +32,7 @@ import {
   TEMPLATES,
   valuesOf,
   WHERE,
+  type CushionAverage,
   type FormContext,
   type GoalValues,
 } from "./newGoal.ts";
@@ -113,6 +118,19 @@ function GoalForm({
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<Failure | null>(null);
   const sent = useRef<{ body: string; key: string } | null>(null);
+  const emergency = v.template === "emergency";
+  // FR 10, AC 3: the average monthly expenses come from the API (a server sum), read once the template is chosen.
+  const [cushion, setCushion] = useState<CushionAverage | "none" | null>(null);
+  useEffect(() => {
+    if (!emergency || cushion !== null) return;
+    let live = true;
+    void loadCushionAverage(api, currency).then((c) => {
+      if (live) setCushion(c);
+    });
+    return () => {
+      live = false;
+    };
+  }, [api, currency, emergency, cushion]);
   const set = <K extends keyof GoalValues>(k: K, value: GoalValues[K]) => {
     setFailure(null);
     setV((old) => ({ ...old, [k]: value }));
@@ -120,7 +138,10 @@ function GoalForm({
   const money = (amount: string) => formatMoney(locale, amount, currency);
   const shownPercent = (p: string | null) => (p === null ? "—" : formatNumber(locale, p));
 
-  const emergency = v.template === "emergency";
+  // A new «Подушка безпеки» with an average: the target is months × average, not typed (board PocPlanGoalNewCushion).
+  const computed =
+    emergency && !goal && cushion !== null && cushion !== "none" && cushion.average !== null ? cushion : null;
+  const target = computed ? cushionTarget(computed, v.months) : v.target;
   const onAccount = v.kind !== "marks";
   const ownStart = v.kind !== "account";
   const account = accounts.find((a) => a.id === v.accountId);
@@ -140,9 +161,9 @@ function GoalForm({
       label: t("planning.goals.new.target"),
       step: MAIN,
       required: true,
-      empty: v.target === null && !v.targetProblem,
+      empty: target === null && !v.targetProblem,
       error:
-        v.targetProblem || (v.target !== null && !isPositive(v.target))
+        (!computed && v.targetProblem) || (target !== null && !isPositive(target))
           ? t("planning.goals.new.target.positive")
           : null,
     },
@@ -205,7 +226,7 @@ function GoalForm({
         api.PATCH("/v1/goals/{goalId}", { params: { path: { goalId: goal.id } }, body: patchBody(v, goal) }),
       );
     } else {
-      const body = createBody(v, currency);
+      const body = createBody({ ...v, target }, currency);
       const text = JSON.stringify(body);
       // The same request keeps its key on a retry (ARC-07 FR 4); a changed request takes a new one.
       if (sent.current?.body !== text) sent.current = { body: text, key: newIdempotencyKey() };
@@ -241,11 +262,11 @@ function GoalForm({
     if (v.kind === "account" && account)
       return t("planning.goals.new.accountProgress", {
         collected: money(account.balance.amount),
-        percent: shownPercent(progressOf(account.balance.amount, v.target)),
+        percent: shownPercent(progressOf(account.balance.amount, target)),
       });
     if (v.kind === "marks" || account) {
       const start = v.start ?? "0";
-      const percent = progressOf(start, v.target);
+      const percent = progressOf(start, target);
       return [
         free
           ? t("planning.goals.new.freeAfter", {
@@ -261,6 +282,100 @@ function GoalForm({
     }
     return undefined;
   })();
+
+  const averageLine = (c: CushionAverage | "none") =>
+    c === "none" || c.average === null
+      ? t("planning.goals.new.cushion.none")
+      : t(c.approximate ? "planning.goals.new.cushion.approx" : "planning.goals.new.cushion.average", {
+          average: formatMoney(locale, c.average.amount, c.average.currency),
+          months: formatNumber(locale, String(c.months)),
+        });
+
+  // A render function, not a component: the input keeps its focus while the form re-renders.
+  const cushionRow = (p: {
+    months: string;
+    average: CushionAverage;
+    target: string | null;
+    monthsError: string | undefined;
+    onMonths: (x: string) => void;
+    onLeave: () => void;
+  }) => {
+    const n = monthsOf(p.months);
+    const step = (by: number) => p.onMonths(String(Math.min(MONTHS_MAX, Math.max(1, (n ?? 0) + by))));
+    const hintId = "goal-cushion-hint";
+    const average = p.average.average!;
+    return (
+      <div className="goal-cushion">
+        <div className="goal-cushion-row">
+          <div className="goal-cushion-months">
+            <label className="ws-field-label" htmlFor="goal-cushion-months">
+              {t("planning.goals.new.months")}
+              <span className="ws-field-required" aria-hidden="true">
+                {" "}
+                *
+              </span>
+              <span className="ws-visually-hidden">{`, ${t("field.required")}`}</span>
+            </label>
+            <span className="goal-cushion-stepper" data-invalid={p.monthsError ? true : undefined}>
+              <button
+                type="button"
+                aria-label={t("planning.goals.new.months.less")}
+                disabled={n !== null && n <= 1}
+                onClick={() => step(-1)}
+              >
+                −
+              </button>
+              <input
+                id="goal-cushion-months"
+                inputMode="numeric"
+                maxLength={3}
+                required
+                aria-invalid={p.monthsError ? true : undefined}
+                aria-describedby={hintId}
+                value={p.months}
+                onChange={(e) => p.onMonths(e.target.value)}
+                onBlur={p.onLeave}
+              />
+              <button
+                type="button"
+                aria-label={t("planning.goals.new.months.more")}
+                disabled={n !== null && n >= MONTHS_MAX}
+                onClick={() => step(1)}
+              >
+                +
+              </button>
+            </span>
+          </div>
+          <div className="goal-cushion-target">
+            <span className="ws-field-label" id="goal-cushion-target-label">
+              {t("planning.goals.new.target")}
+            </span>
+            <output
+              className="goal-cushion-sum"
+              aria-labelledby="goal-cushion-target-label"
+              aria-live="polite"
+            >
+              <b>{p.target === null ? "—" : money(p.target)}</b>
+              <span className="ws-muted">
+                {t("planning.goals.new.cushion.times", {
+                  months: n === null ? "—" : formatNumber(locale, String(n)),
+                  average: formatMoney(locale, average.amount, average.currency),
+                })}
+              </span>
+            </output>
+          </div>
+        </div>
+        {p.monthsError ? (
+          <p className="ws-field-error" role="alert">
+            {p.monthsError}
+          </p>
+        ) : null}
+        <p className="ws-muted goal-cushion-hint" id={hintId}>
+          {averageLine(p.average)}
+        </p>
+      </div>
+    );
+  };
 
   const step = (form: FormDialogState) => {
     if (form.step === MAIN)
@@ -287,29 +402,43 @@ function GoalForm({
             onBlur={form.leave("name")}
             error={form.errorOf("name")}
           />
-          <AmountField
-            label={t("planning.goals.new.target")}
-            required
-            currency={currency}
-            value={v.target}
-            onChange={(value, problem) =>
-              setV((old) => ({ ...old, target: value, targetProblem: problem !== null }))
-            }
-            onBlur={form.leave("target")}
-            error={v.targetProblem ? undefined : form.errorOf("target")}
-          />
-          {emergency ? (
-            <Field
-              label={t("planning.goals.new.months")}
-              required
-              value={v.months}
-              inputMode="numeric"
-              maxLength={3}
-              onChange={(x) => set("months", x)}
-              onBlur={form.leave("months")}
-              error={form.errorOf("months")}
-            />
-          ) : null}
+          {computed ? (
+            cushionRow({
+              months: v.months,
+              average: computed,
+              target,
+              monthsError: form.errorOf("months"),
+              onMonths: (x) => set("months", x),
+              onLeave: form.leave("months"),
+            })
+          ) : (
+            <>
+              <AmountField
+                label={t("planning.goals.new.target")}
+                required
+                currency={currency}
+                value={v.target}
+                onChange={(value, problem) =>
+                  setV((old) => ({ ...old, target: value, targetProblem: problem !== null }))
+                }
+                onBlur={form.leave("target")}
+                error={v.targetProblem ? undefined : form.errorOf("target")}
+              />
+              {emergency ? (
+                <Field
+                  label={t("planning.goals.new.months")}
+                  required
+                  value={v.months}
+                  inputMode="numeric"
+                  maxLength={3}
+                  hint={cushion === null ? undefined : averageLine(cushion)}
+                  onChange={(x) => set("months", x)}
+                  onBlur={form.leave("months")}
+                  error={form.errorOf("months")}
+                />
+              ) : null}
+            </>
+          )}
           <DateField
             label={t("planning.goals.new.date")}
             value={v.date}

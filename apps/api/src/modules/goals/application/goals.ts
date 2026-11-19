@@ -62,6 +62,8 @@ export interface GoalsTx {
   /** The spends of these transactions, of any goal (a closed one's too). */
   spendsOfTransactions(householdId: string, transactionIds: readonly string[]): Promise<StoredSpend[]>;
   insertSpend(householdId: string, spend: StoredSpend): Promise<void>;
+  /** The transactions spent from any goal of the space (a closed one's too). */
+  spentTransactionIds(householdId: string): Promise<string[]>;
   /** Deletes the goal's spend and returns it; null when there is none. */
   deleteSpend(householdId: string, goalId: string, id: string): Promise<StoredSpend | null>;
   /** Deletes the spends made on these journal events and returns them (AC5). */
@@ -122,6 +124,58 @@ export interface SpendableTransactions {
   inEffect(householdId: string, transactionId: string, entryId: string): Promise<boolean>;
 }
 
+/**
+ * What the goals read of other modules for «Подушка безпеки» (FR 10) and the list of «Витратити» (FR 8, #559): the
+ * space's expenses in a window converted into a currency at the rate of each day (module transactions sums them,
+ * module fx-rates converts), and a page of the transactions a goal may spend.
+ */
+export interface GoalReads {
+  expenses(
+    householdId: string,
+    window: { readonly from: string; readonly to: string },
+    currency: string,
+  ): Promise<{
+    /** The counted expenses in `currency`; null when there are some and none has a rate. */
+    readonly total: Money | null;
+    /** The day of the first expense in the window; null — none. */
+    readonly firstDate: string | null;
+    /** Converted at the nearest earlier rate («приблизно»). */
+    readonly nearestRateCount: number;
+    /** Left out: no rate («Курс недоступний»). */
+    readonly unavailableCount: number;
+  }>;
+  candidates(
+    householdId: string,
+    query: {
+      readonly accountId: string | null;
+      readonly currency: string;
+      readonly excluded: readonly string[];
+      readonly search: string | null;
+      readonly after: SpendCandidatesAfter | null;
+      readonly limit: number;
+    },
+  ): Promise<{ readonly items: readonly SpendCandidateRow[]; readonly count: number }>;
+}
+
+/** Where a page of «Витратити» starts: after this row of its order (newest first). */
+export interface SpendCandidatesAfter {
+  readonly date: string;
+  readonly recordedAt: string;
+  readonly id: string;
+}
+
+/** A transaction «Витратити» lists: what it takes from its account, without the sign, in the goal's currency. */
+export interface SpendCandidateRow {
+  readonly id: string;
+  readonly accountId: string;
+  readonly counterparty: string | null;
+  readonly description: string | null;
+  readonly date: string;
+  /** The order's key with the date and id (opaque; only for the next page's cursor). */
+  readonly recordedAt: string;
+  readonly amount: Money;
+}
+
 export interface GoalsDeps {
   readonly newId: () => string;
   /** «Сьогодні» — the Kyiv date. */
@@ -129,6 +183,8 @@ export interface GoalsDeps {
   readonly balances: AccountBalances;
   /** «Витратити» (FR 8); null when not wired — the route answers 500. */
   readonly transactions: SpendableTransactions | null;
+  /** «Подушка безпеки» (FR 10) and the list of «Витратити» (FR 8, #559); null when not wired — the route answers 500. */
+  readonly reads: GoalReads | null;
 }
 
 export interface Caller {

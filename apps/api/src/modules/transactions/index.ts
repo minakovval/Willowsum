@@ -35,6 +35,12 @@ import {
   type DuplicateSide,
   type RuleInput,
 } from "./adapters/index.ts";
+import {
+  expensesByDay,
+  spendCandidates,
+  type SpendCandidate,
+  type SpendCandidatesAfter,
+} from "./adapters/db/goal-reads.ts";
 import { transactionCreated } from "./events.ts";
 import type { HandOffDeps } from "./application/index.ts";
 
@@ -214,6 +220,51 @@ export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions
   return {
     inPeriod: (householdId, accountIds, from, to) =>
       db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to)),
+  };
+}
+
+/**
+ * The transactions module as module goals reads it (BUD-05@PoC FR 8, FR 10). Read only; every call is bound to one
+ * space.
+ */
+export interface GoalTransactions {
+  /**
+   * FR 10 «Подушка безпеки»: the space's expenses from `from` to `to` (both included) by day and currency — outgoing
+   * amounts without their sign of shown transactions («Очікує» too), no merged duplicate and no side of a transfer.
+   */
+  expensesByDay(
+    householdId: string,
+    from: string,
+    to: string,
+  ): Promise<readonly { readonly date: string; readonly amount: Money }[]>;
+  /**
+   * FR 8 «Витратити» (#559): a page of the outgoing «Проведена» shown transactions in `currency` (no merged duplicate,
+   * no side of a transfer) on `accountId` (null — any account of the space), not in `excluded`, matching `search`;
+   * newest first, and how many match in all (without `after`).
+   */
+  spendCandidates(
+    householdId: string,
+    query: {
+      readonly accountId: string | null;
+      readonly currency: string;
+      readonly excluded: readonly string[];
+      readonly search: string | null;
+      /** The page starts after this row; null — the first page. */
+      readonly after: SpendCandidatesAfter | null;
+      readonly limit: number;
+    },
+  ): Promise<{ readonly items: readonly SpendCandidate[]; readonly count: number }>;
+}
+
+export type { SpendCandidate, SpendCandidatesAfter };
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
+  return {
+    expensesByDay: (householdId, from, to) =>
+      db.inHousehold(householdId, (q) => expensesByDay(q, householdId, from, to)),
+    spendCandidates: (householdId, query) =>
+      db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
   };
 }
 

@@ -47,6 +47,7 @@ import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionHistory,
+  createGoalTransactions,
   createTransactionLookup,
   createTransactionRuleInputs,
   createTransactionRuleTags,
@@ -373,6 +374,11 @@ const server = buildServer({
               accounts: createAccountDirectory(databases.for("accounts")),
               ledger: createLedger(databases.for("ledger")),
               transactions: createTransactionLookup(databases.for("transactions")),
+              // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
+              reads: {
+                transactions: createGoalTransactions(databases.for("transactions")),
+                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              },
               audit,
               clock: systemClock,
               newId: randomUUID,

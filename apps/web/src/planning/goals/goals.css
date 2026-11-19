@@ -184,6 +184,110 @@
   margin: 0;
 }
 
+/* BUD-05@PoC FR 10, board PocPlanGoalNewCushion: «Місяців витрат» − N + and the target = N × average, read-only. */
+.goal-cushion {
+  display: grid;
+  gap: var(--ws-space-2);
+}
+
+.goal-cushion-row {
+  display: flex;
+  gap: var(--ws-space-2);
+  align-items: end;
+}
+
+.goal-cushion-months,
+.goal-cushion-target {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.goal-cushion-months {
+  flex: none;
+  inline-size: 150px;
+}
+
+.goal-cushion-target {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.goal-cushion-stepper,
+.goal-cushion-sum {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  box-sizing: border-box;
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+}
+
+.goal-cushion-stepper {
+  padding-inline: var(--ws-space-1);
+  background: var(--ws-surface-200);
+}
+
+.goal-cushion-stepper[data-invalid] {
+  border-color: var(--ws-loss);
+}
+
+.goal-cushion-stepper button {
+  inline-size: 28px;
+  block-size: 28px;
+  border: 0;
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-300);
+  color: var(--ws-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.goal-cushion-stepper button:disabled {
+  color: var(--ws-ink-muted);
+  cursor: default;
+}
+
+.goal-cushion-stepper input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+}
+
+.goal-cushion-stepper:focus-within {
+  outline: 2px solid var(--ws-brand);
+  outline-offset: 1px;
+}
+
+.goal-cushion-sum {
+  padding-inline: var(--ws-space-3);
+  background: var(--ws-surface-100);
+  white-space: nowrap;
+}
+
+.goal-cushion-sum b {
+  flex: 1;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-cushion-sum .ws-muted,
+.goal-cushion-hint {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+.goal-cushion-hint {
+  margin: 0;
+}
+
 /* BUD-05@PoC d), S-139 «Витратити»: the list of outgoing transactions with checkboxes (no scrolling, 6 rows). Tokens only. */
 .goal-spend-collected,
 .goal-spend-caption {
