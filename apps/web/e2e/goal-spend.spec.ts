@@ -99,22 +99,18 @@ async function answer(page: Page, goalName = "Відпустка в Італії
   await page.route("**/v1/space", (route) =>
     route.fulfill(json({ name: "Дім", dataRegion: "eu", reportingCurrency: "EUR" })),
   );
-  await page.route("**/v1/transactions?**", (route) =>
+  await page.route("**/v1/goals/*/spendable**", (route) =>
     route.fulfill(
       json({
         count: MERCHANTS.length,
-        from: 1,
+        nextCursor: null,
         items: MERCHANTS.map((m, i) => ({
           id: `c0000000-0000-4000-8000-${String(i).padStart(12, "0")}`,
           accountId: ACC,
-          amount: eur(i === 0 ? "-640.00" : i === 1 ? "-386.40" : "-10.00"),
-          type: "expense",
+          amount: eur(i === 0 ? "640.00" : i === 1 ? "386.40" : "10.00"),
           date: "2026-10-29",
           counterparty: m,
           description: null,
-          status: "posted",
-          hidden: false,
-          transfer: null,
         })),
       }),
     ),

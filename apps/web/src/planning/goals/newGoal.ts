@@ -115,6 +115,21 @@ export function patchBody(v: GoalValues, goal: Goal): PatchBody {
   return body;
 }
 
+/** FR 10, AC 3: the average monthly expenses of the space as the API sums them (`GET /v1/goals/emergency-average`). */
+export type CushionAverage = Json<operations["getGoalEmergencyAverage"]>;
+
+/** The average in the goal's currency; `"none"` when it cannot be read (the target is then typed). */
+export async function loadCushionAverage(api: ApiClient, currency: string): Promise<CushionAverage | "none"> {
+  const o = await outcome(api.GET("/v1/goals/emergency-average", { params: { query: { currency } } }));
+  return o.ok ? o.data : "none";
+}
+
+/** «12 600,00 € = 3 × 4 200,00 €»: months × the average, exact (`null` — no average or invalid months). */
+export function cushionTarget(c: CushionAverage, months: string): string | null {
+  if (c.average === null || !monthsValid(months)) return null;
+  return new Decimal(c.average.amount).times(monthsOf(months)!).toFixed();
+}
+
 /** A cash-group account the goal's part may sit on: open, with a wallet in the goal's currency. */
 export interface AccountChoice {
   readonly id: string;

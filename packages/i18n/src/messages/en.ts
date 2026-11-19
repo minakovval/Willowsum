@@ -855,6 +855,7 @@ export const en: Messages = {
   "planning.goals.spend.noMatch": "Nothing found",
   "planning.goals.spend.loading": "Loading transactions…",
   "planning.goals.spend.error.load": "Error: could not load the transactions",
+  "planning.goals.spend.error.more": "Could not load the next transactions — try again",
   "planning.goals.spend.error.code": "Code: {code}",
   "planning.goals.spend.error.retry": "Try again",
   "planning.goals.spend.error.over": "The chosen transactions are more than the goal holds",
@@ -880,6 +881,14 @@ export const en: Messages = {
   "planning.goals.new.target.positive": "Enter an amount above zero",
   "planning.goals.new.months": "Months of expenses",
   "planning.goals.new.months.error": "Enter a whole number from 1 to 120",
+  "planning.goals.new.months.less": "Fewer",
+  "planning.goals.new.months.more": "More",
+  "planning.goals.new.cushion.times": "= {months} × {average}",
+  "planning.goals.new.cushion.average":
+    "average expenses — {average} / mo. over {months} mo., without one-off expenses",
+  "planning.goals.new.cushion.approx":
+    "average expenses — about {average} / mo. over {months} mo., without one-off expenses: some amounts use the nearest rate or have none",
+  "planning.goals.new.cushion.none": "No expenses for full months yet — enter the target amount",
   "planning.goals.new.date": "Date",
   "planning.goals.new.date.hint": "without a date we show only progress and pace",
   "planning.goals.new.date.past": "The date cannot be in the past",
