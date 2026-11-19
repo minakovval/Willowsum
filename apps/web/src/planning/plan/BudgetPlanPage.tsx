@@ -1,6 +1,14 @@
 import { useCallback, useState } from "react";
 import { formatMoney, useI18n, type Locale } from "@willowsum/i18n";
-import { Button, Icon, Skeleton, currencyPlaces, displayAmount, parseAmountInput } from "@willowsum/ui";
+import {
+  Button,
+  Icon,
+  PageTabs,
+  Skeleton,
+  currencyPlaces,
+  displayAmount,
+  parseAmountInput,
+} from "@willowsum/ui";
 import { Decimal } from "@willowsum/domain-kernel";
 import { AppLayout } from "../../pages/AppLayout.tsx";
 import { BUDGET, childPath } from "../../routing/routes.ts";
@@ -9,7 +17,7 @@ import { useDocumentTitle } from "../../useDocumentTitle.ts";
 import { useAuthApi, outcome } from "../../auth/api.ts";
 import { failureOf } from "../../auth/failure.ts";
 import { kyivToday, useLoad } from "../../recurring/data.ts";
-import { BudgetTabs } from "../BudgetTabs.tsx";
+import { useBudgetTabs } from "../trend/tabs.ts";
 import "../budget/budget.css";
 import "./plan.css";
 import { NO_VALUE } from "./PlanCellInput.tsx";
@@ -58,6 +66,7 @@ function sameCell(view: PlanView, cell: PlanCell): PlanCell | undefined {
 export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
   const { t, locale } = useI18n();
   const api = useAuthApi();
+  const tabs = useBudgetTabs();
   const title = t(BUDGET.label);
   useDocumentTitle(title);
   const { result, reload } = useLoad(loadPlan);
@@ -164,7 +173,7 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
           </a>
         ) : null}
       </div>
-      <BudgetTabs selected="plan">
+      <PageTabs label={tabs.label} panelId="budget-panel" selected="plan" tabs={tabs.tabs}>
         {result.state === "error" && failure ? (
           <section className="ws-card bud-card" role="alert" aria-labelledby="plan-error-title">
             <h2 id="plan-error-title" className="ws-text-heading-3 bud-card-title">
@@ -212,7 +221,7 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
             <PlanTable view={view} pending={pending} onCommit={commit} />
           </section>
         )}
-      </BudgetTabs>
+      </PageTabs>
     </AppLayout>
   );
 }

@@ -394,10 +394,17 @@ describe("BUD-17@PoC «Бюджет → План» (S-126)", () => {
     ).toBeTruthy();
   });
 
-  it("BUD-17@PoC FR 5: there is no tab «Перевитрати» — the tabs are «Бюджет» and «План»", async () => {
+  it("BUD-17@PoC FR 5: there is no tab «Перевитрати» — the tabs are «Бюджет», «План» and «Тренд»", async () => {
     show(api().client);
     const tabs = await screen.findAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["Бюджет", "План"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["Бюджет", "План", "Тренд"]);
+    // Every tab is a link with its own address; the selected one is in the Tab order, ← → move between them.
+    expect(tabs.map((t) => t.getAttribute("href"))).toEqual([
+      "#/planning/budget",
+      "#/planning/budget/plan",
+      "#/planning/budget/trend",
+    ]);
+    expect(tabs.map((t) => t.getAttribute("tabindex"))).toEqual(["-1", "0", "-1"]);
     expect(tabs[1]!.getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByRole("tab", { name: /Перевитрати/ })).toBeNull();
   });

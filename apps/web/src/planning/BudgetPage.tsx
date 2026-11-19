@@ -1,16 +1,16 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { formatMoney, useI18n, type MessageKey, type Translate } from "@willowsum/i18n";
-import { Button, Icon, IconButton, Skeleton, StatusMark } from "@willowsum/ui";
+import { Button, Icon, IconButton, PageTabs, Skeleton, StatusMark } from "@willowsum/ui";
 import { hrefFor } from "../routing/useHashPath.ts";
 import { AppLayout } from "../pages/AppLayout.tsx";
 import { PlanEmpty } from "./PlanEmpty.tsx";
+import { useBudgetTabs } from "./trend/tabs.ts";
 import { BUDGET, childPath } from "../routing/routes.ts";
 import { useDocumentTitle } from "../useDocumentTitle.ts";
 import { failureOf } from "../auth/failure.ts";
 import { kyivToday, useLoad } from "../recurring/data.ts";
 import "./budget/budget.css";
 import { PlanGrid, PlanRegion } from "./PlanGrid.tsx";
-import { BudgetTabs } from "./BudgetTabs.tsx";
 import { CategoriesCard } from "./budget/CategoriesCard.tsx";
 import {
   loadBudget,
@@ -43,6 +43,7 @@ const monthYear = (t: Translate, period: string): string => `${monthName(t, peri
  */
 export function BudgetPage({ today = kyivToday() }: { today?: string }) {
   const { t } = useI18n();
+  const tabs = useBudgetTabs();
   const title = t(BUDGET.label);
   useDocumentTitle(title);
   const hash = useSyncExternalStore(subscribe, readHash, () => "");
@@ -93,7 +94,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
           </a>
         ) : null}
       </div>
-      <BudgetTabs selected="budget">
+      <PageTabs label={tabs.label} panelId="budget-panel" selected="budget" tabs={tabs.tabs}>
         <PlanGrid page="budget">
           <PlanRegion name="spendable" span={4} />
           {data?.kind === "ready" && settled ? (
@@ -153,7 +154,7 @@ export function BudgetPage({ today = kyivToday() }: { today?: string }) {
             )}
           </PlanRegion>
         </PlanGrid>
-      </BudgetTabs>
+      </PageTabs>
     </AppLayout>
   );
 }
