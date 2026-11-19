@@ -26,7 +26,7 @@ export interface AllocationPreview {
   /** The plan the figures use: × the share of days for a proportional first period (FR 14). */
   readonly incomePlan: Money;
   readonly limits: Money;
-  /** Null — the regular payments and debts are not connected yet (`BudgetObligations`). */
+  /** Null — the regular payments and debts are not known (`BudgetObligations` not wired, or no rate for one). */
   readonly balance: AllocationBalance | null;
   /** Null without `chosen` or without the balance. */
   readonly choice: AllocationChoice | null;
@@ -81,7 +81,11 @@ export async function previewAllocation(
   const scaled = share ? scalePlan(plan, share) : plan;
   const scaledLimits = scaled.limits.map((l) => ({ categoryId: l.categoryId, amount: l.amount }));
   const limitsTotal = scaledLimits.reduce((t, l) => t.plus(l.amount), Money.zero(currency));
-  if (deps.obligations === null)
+  const obligations =
+    deps.obligations === null
+      ? null
+      : await deps.obligations.month(householdId, input.firstPeriod, currency, share?.from);
+  if (obligations === null)
     return {
       kind: "ok",
       value: {
@@ -92,7 +96,6 @@ export async function previewAllocation(
         choice: null,
       },
     };
-  const obligations = await deps.obligations.month(householdId, input.firstPeriod, currency, share?.from);
   const balance = allocationBalance({ incomePlan: scaled.incomePlan, limits: scaledLimits, obligations });
   return {
     kind: "ok",

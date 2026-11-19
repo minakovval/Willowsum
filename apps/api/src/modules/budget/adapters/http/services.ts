@@ -106,8 +106,8 @@ export function createBudgetServices(options: {
   readonly clock: { now(): number };
   readonly newId: () => string;
   /**
-   * FR 3, FR 15, FR 16, FR 19: the month's regular payments and debt minimums. The API process does not connect them yet
-   * (follow-up of wave 2 row 31, with BUD-03 row 34): without them every figure that needs them is null.
+   * FR 3, FR 15, FR 16, FR 19: the month's regular payments and debt minimums (`createBudgetObligations`, wired by the
+   * API process, #567). Left out (a test's server): every figure that needs them is null.
    */
   readonly obligations?: BudgetObligations;
 }): BudgetServices {

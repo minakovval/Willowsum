@@ -22,6 +22,8 @@
         "categorization",
         "fx-rates",
         "household",
+        "liabilities",
+        "recurring",
         "transactions"
       ]
     },
