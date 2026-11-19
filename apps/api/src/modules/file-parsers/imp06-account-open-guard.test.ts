@@ -31,7 +31,12 @@ describe("NFR-01@PoC FR 6: the account value is opened only in the parse worker"
     const callers = files()
       .filter((file) => !file.startsWith("modules/household/"))
       .filter((file) => /\bopenWithFieldOpener\b/.test(code(join(SRC, file))));
-    expect(callers).toEqual(["modules/file-parsers/adapters/isolation/worker.ts"]);
+    expect(callers).toEqual(["modules/file-parsers/adapters/isolation/open-binding.ts"]);
+  });
+
+  it("NFR-01@PoC FR 6: only the parse worker loads the code that opens the binding", () => {
+    const importers = files().filter((file) => /open-binding\.ts["']/.test(code(join(SRC, file))));
+    expect(importers).toEqual(["modules/file-parsers/adapters/isolation/worker.ts"]);
   });
 
   it("NFR-01@PoC FR 6: no code opens the account value's field in-process", () => {

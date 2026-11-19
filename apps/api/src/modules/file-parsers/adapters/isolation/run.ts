@@ -101,9 +101,10 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
         };
         moved = [opener.key];
       }
-      const copy = new Uint8Array(bytes);
       let outcome;
       try {
+        // The copy is made inside the guard: if it fails (no memory for it), the key is wiped like on any other path.
+        const copy = new Uint8Array(bytes);
         outcome = await runIsolated<StatementParse>(
           url,
           { bytes: copy, options: readOptions, statement, binding: sealed },
@@ -113,7 +114,12 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
       } finally {
         if (binding) wipeFieldOpener(binding.opener);
       }
-      if (outcome.ok) return outcome.value;
+      if (outcome.ok) {
+        // A parse asked with a binding never comes back without its outcome (fails closed).
+        if (binding && outcome.value?.account?.by !== binding.by)
+          throw new StatementParseError("ACCOUNT_BINDING");
+        return outcome.value;
+      }
       if (outcome.failure === "memory") throw new StatementParseError("PARSE_MEMORY");
       if (outcome.failure === "timeout") throw new StatementParseError("PARSE_TIMEOUT");
       if (outcome.failure === "refused") {

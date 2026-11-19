@@ -4,9 +4,9 @@
 // never logs.
 import { parentPort, workerData } from "node:worker_threads";
 import { answerFromWorker } from "../../../../platform/process/isolated.ts";
-import { openWithFieldOpener, wipeFieldOpener } from "../../../household/index.ts";
 import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
 import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
+import { AccountBindingError, openAccountBinding } from "./open-binding.ts";
 import type { SealedAccountBinding } from "./run.ts";
 
 /**
@@ -23,27 +23,10 @@ const { bytes, options, statement, binding } = workerData as {
   binding?: SealedAccountBinding;
 };
 
-class AccountBindingError extends Error {}
-
-/**
- * The recipe's account value, opened with the space's key before the file is read; the key is wiped right after, so
- * it is gone before any byte of the untrusted file is parsed. Any failure is `ACCOUNT_BINDING` (fails closed).
- */
-function openBinding(): { by: SealedAccountBinding["by"]; value: string } | undefined {
-  if (!binding) return undefined;
-  try {
-    return { by: binding.by, value: openWithFieldOpener(binding.opener, binding.sealedValue) };
-  } catch {
-    throw new AccountBindingError();
-  } finally {
-    wipeFieldOpener(binding.opener);
-  }
-}
-
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
   () => {
-    const parse = parseStatement(bytes, options, statement, openBinding());
+    const parse = parseStatement(bytes, options, statement, openAccountBinding(binding));
     // The answer is copied into the API process: it stays bounded whatever the file holds.
     if (JSON.stringify({ reading: parse.reading, analysis: parse.analysis }).length > ANALYSIS_CHARS)
       throw new Error("result too large");

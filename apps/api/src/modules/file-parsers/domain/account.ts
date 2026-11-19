@@ -16,12 +16,44 @@ export interface AccountMatch {
   readonly status: "match" | "mismatch" | "not-found";
 }
 
-/** An IBAN-shaped value, as `ibanCountry` finds one: two letters, two digits, 11–30 letters or digits. */
-const IBAN = /(?:^|[^A-Z0-9])([A-Z]{2}\d{2}[A-Z0-9]{11,30})(?![A-Z0-9])/;
+/**
+ * An IBAN-shaped value in a cell's own text (upper-cased, not compacted, so a label before it — «IBAN UA…», «Account
+ * UA…» — is not glued to it): two letters, two digits, then 11–30 letters or digits, each after an optional space or
+ * hyphen (groups of any size). One character per step, so the search backtracks at most 30 steps per start (the file is
+ * untrusted).
+ */
+const IBAN = /(?<![A-Z0-9])[A-Z]{2}\d{2}(?:[ -]?[A-Z0-9]){11,30}(?![A-Z0-9])/g;
+const ibans = (cell: string): string[] =>
+  (cell.normalize("NFKC").toUpperCase().match(IBAN) ?? [])
+    .map((m) => m.replace(/[ -]/g, ""))
+    .filter((m) => m.length >= 15 && m.length <= 34);
 /** Digits grouped by spaces or hyphens, as account numbers are printed. */
 const NUMBER = /\d[\d -]*\d/g;
-/** A masked card: digits and mask marks, at least one mark and four digits at the end. */
-const MASKED = /[\d*xX•]*[*xX•][\d*xX•]*\d{4}/g;
+/** A run of digits and mask marks; a masked card is cut from it by `maskedIn` (one pass: the file is untrusted). */
+const MASK_RUN = /[\d*xX•]+/g;
+const MASK_MARK = /[*xX•]/;
+
+/**
+ * Masked cards of a cell: in each run, the longest start with at least one mark and four digits at its end. The scan
+ * is linear in the cell's length (a single pattern with three unbounded parts took cubic time on a run of marks).
+ */
+function maskedIn(cell: string): string[] {
+  const found: string[] = [];
+  for (const run of cell.match(MASK_RUN) ?? []) {
+    const mark = run.search(MASK_MARK);
+    if (mark < 0) continue;
+    // The last place where four digits in a row end, with the first mark before them.
+    let digitsInRow = 0;
+    let end = -1;
+    for (let i = 0; i < run.length; i++) {
+      const c = run.charCodeAt(i);
+      digitsInRow = c >= 48 && c <= 57 ? digitsInRow + 1 : 0;
+      if (digitsInRow >= 4 && i - 3 > mark) end = i + 1;
+    }
+    if (end > 0) found.push(run.slice(0, end));
+  }
+  return found;
+}
 
 const compact = (text: string): string =>
   text
@@ -60,7 +92,7 @@ export function matchAccount(
       by,
       status: status(
         matched,
-        cells.some((c) => IBAN.test(c)),
+        preamble.flat().some((c) => ibans(c).length > 0),
       ),
     };
   }
@@ -71,13 +103,22 @@ export function matchAccount(
     const matched =
       number.length >= 6 &&
       preamble.flat().some((cell) => {
-        const iban = IBAN.exec(compact(cell))?.[1];
-        if (iban && digits(iban).endsWith(number)) return true;
-        return (cell.normalize("NFKC").match(NUMBER) ?? []).some((n) => digits(n) === number);
+        if (ibans(cell).some((iban) => digits(iban).endsWith(number))) return true;
+        // A run of groups may hold more than the number («2600 1234 5678 980»): any whole groups in a row that spell
+        // it. Each start stops once its groups are longer than the number, so the scan stays linear in the cell.
+        return (cell.normalize("NFKC").match(NUMBER) ?? []).some((run) => {
+          const groups = run.split(/[ -]+/);
+          for (let i = 0; i < groups.length; i++) {
+            let spelled = "";
+            for (let j = i; j < groups.length && spelled.length < number.length; j++) spelled += groups[j];
+            if (spelled === number) return true;
+          }
+          return false;
+        });
       });
     return { by, status: status(matched, false) };
   }
-  const masks = cells.flatMap((c) => c.match(MASKED) ?? []);
+  const masks = cells.flatMap(maskedIn);
   return {
     by,
     status: status(

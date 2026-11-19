@@ -36,6 +36,28 @@ describe("IMP-06@PoC FR 1: the statement is bound to the recipe's account", () =
     expect(matchAccount([["Рахунок 2600"]], "account-number", "2600").status).toBe("not-found");
   });
 
+  it("IMP-06@PoC FR 1: an IBAN after a label and a space is still found: another one is a mismatch, its end is the account number", () => {
+    expect(matchAccount([[`IBAN ${OTHER}`]], "iban", IBAN).status).toBe("mismatch");
+    expect(matchAccount([[`Account ${grouped(OTHER)} EUR`]], "iban", IBAN).status).toBe("mismatch");
+    expect(matchAccount([[`IBAN ${grouped(IBAN)}`]], "iban", IBAN).status).toBe("match");
+    expect(matchAccount([[`IBAN ${IBAN}`]], "account-number", "123456987654").status).toBe("match");
+    expect(matchAccount([[`IBAN ${grouped(IBAN)} UAH`]], "account-number", "123456987654").status).toBe(
+      "match",
+    );
+  });
+
+  it("IMP-06@PoC FR 1: an account number followed by another number in the same cell still matches", () => {
+    expect(matchAccount([["Рахунок 260012345678 980"]], "account-number", "260012345678").status).toBe(
+      "match",
+    );
+    expect(
+      matchAccount([["Рахунок 2600 1234 5678 01-11-2026"]], "account-number", "260012345678").status,
+    ).toBe("match");
+    expect(matchAccount([["Договір 1260012345678 980"]], "account-number", "260012345678").status).toBe(
+      "not-found",
+    );
+  });
+
   it("IMP-06@PoC FR 1: a card mask matches a masked card whose shown digits agree", () => {
     expect(matchAccount([["Картка 5168 **** **** 1234"]], "mask", "**** 1234").status).toBe("match");
     expect(matchAccount([["Card 5168XXXXXXXX1234"]], "mask", "5168 **** **** 1234").status).toBe("match");
