@@ -4,7 +4,8 @@ import { AmountOutOfRangeError, currencyInfo, Decimal, Money } from "@willowsum/
  * Debt payoff (BUD-19@PoC FR 3, FR 4, FR 6, FR 7; wave 2 row 33): the month-by-month calculation of one debt and of all
  * debts under a strategy, and the progress against a saved plan. Pure rules, no I/O; every amount is Money in the debt's
  * currency (never a float). Each month: interest = balance × annual rate ÷ 12, rounded to the currency's minor unit
- * half up (FR 3), then the payment is taken; the last payment is the balance with its interest, so it may be smaller.
+ * half to even (banker's rounding; FR 3, owner decision 2026-11-16), then the payment is taken; the last payment is
+ * the balance with its interest, so it may be smaller.
  */
 
 /** The upper bound of a calculation (FR 3, edge case 6): 1 200 months — «Розрахунок перевищує 100 років». */
@@ -30,11 +31,15 @@ export function monthsBetween(from: Month, to: Month): number {
   return ty * 12 + tm - (fy * 12 + fm);
 }
 
-/** One month's interest (FR 3, FR 12): balance × rate ÷ 100 ÷ 12, to the minor unit, half up. */
+/**
+ * One month's interest (FR 3, FR 12): balance × rate ÷ 100 ÷ 12, to the minor unit, half to even (banker's rounding;
+ * owner decision 2026-11-16, #419). The one rounding of the schedule: balances, payments and totals are sums of
+ * already-rounded amounts.
+ */
 export function monthlyInterest(balance: Money, annualRate: string): Money {
   const raw = balance.amount.times(new Decimal(annualRate)).dividedBy(1200);
   return Money.of(
-    raw.toDecimalPlaces(currencyInfo(balance.currency).minorUnits, Decimal.ROUND_HALF_UP),
+    raw.toDecimalPlaces(currencyInfo(balance.currency).minorUnits, Decimal.ROUND_HALF_EVEN),
     balance.currency,
   );
 }

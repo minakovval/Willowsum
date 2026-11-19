@@ -370,7 +370,8 @@ jobs:
     # every route (DS-06@PoC AC2). The static build behind `vite preview`, the real API process and a fresh database
     # (apps/web/e2e). Only these two browsers are installed, and they are cached by the Playwright version.
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 22 = a normal run (8 min measured, run 44471838826 attempt 2, of it 4 min install) + the install step's limit (14 min) with margin.
+    timeout-minutes: 22
     services:
       postgres:
         # Same pinned image as the local environment (infra/local/compose.yaml).
@@ -415,12 +416,50 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
+      - name: Settings and cache of apt (stalled connections, retries, downloaded packages)
+        run: |
+          mkdir -p "$HOME/apt-archives/partial"
+          chmod -R 777 "$HOME/apt-archives"
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\nDir::Cache::Archives "%s/apt-archives";\n' "$HOME" \
+            | sudo tee /etc/apt/apt.conf.d/99ci-retries > /dev/null
+      - name: Cache the downloaded system packages (keyed by the Playwright version)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/apt-archives
+          key: apt-archives-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
       - name: Install Chromium and WebKit with their system libraries
         if: steps.browsers.outputs.cache-hit != 'true'
         run: pnpm --filter @willowsum/web exec playwright install --with-deps --only-shell chromium webkit
       - name: System libraries of the cached browsers
         if: steps.browsers.outputs.cache-hit == 'true'
-        run: pnpm --filter @willowsum/web exec playwright install-deps chromium webkit
+        # #568: `install-deps` downloads ~140 MB (~190 packages; WebKit pulls gstreamer and ffmpeg) from the runner's
+        # apt mirror. On a slow mirror one run used the whole 15-minute job budget and the job timeout cancelled this
+        # step; a passing re-run still took 4 min 09 s, so one attempt gets 6 min. The downloaded packages are cached
+        # (previous step), so a repeat run downloads little. Playwright runs apt-get through `sudo`, so `timeout`
+        # kills only the sudo side and the root apt-get survives (run 44487894650 head bca17c3: it held the dpkg
+        # lock and failed attempt 2). Before the retry the leftovers are terminated by name, the lock is awaited,
+        # and `dpkg --configure -a` repairs a half-done install. The install itself stays fail-closed.
+        timeout-minutes: 14
+        run: |
+          for attempt in 1 2; do
+            if timeout -k 30s 6m pnpm --filter @willowsum/web exec playwright install-deps chromium webkit; then
+              exit 0
+            fi
+            echo "::warning::install-deps attempt $attempt failed or stalled"
+            sudo pkill -TERM -x apt-get || true
+            sudo pkill -TERM -x dpkg || true
+            sleep 5
+            sudo pkill -KILL -x apt-get || true
+            sudo pkill -KILL -x dpkg || true
+            for _ in $(seq 1 30); do
+              sudo fuser /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock > /dev/null 2>&1 || break
+              sleep 2
+            done
+            sudo dpkg --configure -a || true
+            if [ "$attempt" -lt 2 ]; then sleep 15; fi
+          done
+          echo "::error::install-deps failed 2 times"
+          exit 1
       - name: End-to-end tests and route contrast (build, then Chromium and WebKit at 1280 px)
         run: pnpm test:e2e
       - name: Report and traces on failure

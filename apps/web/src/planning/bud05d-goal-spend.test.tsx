@@ -338,6 +338,29 @@ describe("BUD-05@PoC d) S-139 «Витратити з цілі»", () => {
     await within(dialog()).findByText(/Витрату записано, але ціль закрити не вдалося/);
   });
 
+  it("BUD-05@PoC FR 9: the «Закрити ціль» switch is inactive while the request runs, so a goal switched off then still closes as it was at the start", async () => {
+    let release: (r: Reply) => void = () => undefined;
+    const fake = api(all, {
+      "POST /v1/goals/a0000000-0000-4000-8000-000000000001/spends": (() =>
+        new Promise<Reply>((r) => (release = r))) as never,
+    });
+    const done = open(fake);
+    await pick(/Booking\.com/);
+    fireEvent.click(button("Далі"));
+    const toggle = within(dialog()).getByRole("switch", { name: /Закрити ціль/ }) as HTMLInputElement;
+    fireEvent.click(toggle);
+    expect(toggle.disabled).toBe(false);
+    expect(toggle.checked).toBe(true);
+    fireEvent.click(button("Списати з цілі"));
+    await waitFor(() => expect(spends(fake)).toHaveLength(1));
+    const busy = within(dialog()).getByRole("switch", { name: /Закрити ціль/ }) as HTMLInputElement;
+    expect(busy.disabled).toBe(true);
+    fireEvent.click(busy);
+    release({ status: 201, body: goal() });
+    await waitFor(() => expect(done.gone).toHaveBeenCalledTimes(1));
+    expect(fake.calls.filter((c) => c.path.endsWith("/close"))).toHaveLength(1);
+  });
+
   it("BUD-05@PoC FR 9: leaving the dialog after a spend whose closing failed reloads the card", async () => {
     const fake = api(all, {
       "POST /v1/goals/a0000000-0000-4000-8000-000000000001/close": problem(500, "INTERNAL"),

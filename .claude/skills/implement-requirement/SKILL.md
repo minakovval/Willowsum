@@ -5,7 +5,7 @@ description: Implement one Willowsum product requirement (e.g. BUD-03, ACC-10, A
 
 # Implement a requirement
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-19
 
 Input: a requirement ID (or a small group from one module). Output: one PR whose title starts with the ID, CI
 green, every acceptance criterion covered by a test. Gate: no change to `apps/` or `packages/` for a release whose
@@ -52,7 +52,9 @@ For every new write endpoint labelled `sensitive:money`, also a test with two si
   public interfaces; update the module card when its interface or events change.
 - UI: empty / loading / error states, the target release's breakpoints (PoC, PoC v2: 1280 px, light theme,
   П-25), uk and en strings, WCAG 2.2 AA, «Приховати суми» from MVP (not PoC), reuse design-system elements;
-  the canvas is the visual reference.
+  the canvas is the visual reference. A PR that changes a screen or a shared UI component also carries a 1280 px
+  Playwright screenshot with long names/texts, its path and a short description in the PR body (owner,
+  2026-11-19): how — [screen-from-canvas](../screen-from-canvas/SKILL.md) §6.
 - Add the test files to «Перевіряється» in the **source** `<ID>.md` (one untagged line, or one tagged line per
   release range: `- [лише PoC] Перевіряється: …`), then `node tools/req-check/index.mjs --views`. A requirement not
   migrated yet is one plain file.

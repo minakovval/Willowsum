@@ -37,7 +37,8 @@ test('sec150: report and traces are uploaded only on failure, only the Playwrigh
 
 test('sec150: caches are keyed by content (lockfile hash, Playwright version), never by PR input', () => {
   const keys = [...block.matchAll(/^ {10}key: (.*)$/gm)].map((m) => m[1]);
-  assert.equal(keys.length, 2);
+  assert.equal(keys.length, 3); // pnpm store, browsers, and (#568) the downloaded apt packages
+  assert.ok(keys.some((k) => k.startsWith('apt-archives-') && k.includes('steps.playwright.outputs.version')));
   assert.ok(keys.some((k) => k.includes("hashFiles('pnpm-lock.yaml')")));
   assert.ok(keys.some((k) => k.includes('steps.playwright.outputs.version')));
   for (const k of keys) assert.doesNotMatch(k, /github\.(head_ref|event)/, k);
