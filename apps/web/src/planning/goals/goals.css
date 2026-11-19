@@ -8,8 +8,9 @@
 }
 
 .goal-row {
-  display: grid;
-  gap: var(--ws-space-1);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
   padding: var(--ws-space-3) var(--ws-space-4);
   border: 1px solid var(--ws-line);
   border-radius: var(--ws-radius-lg);
@@ -20,6 +21,26 @@
 
 .goal-row[aria-current="true"] {
   border-color: var(--ws-brand);
+}
+
+/* BUD-05@PoC board PocPlanGoals: the template icon in a neutral tile (amber stays on the card's icon only). */
+.goal-row-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: calc(var(--ws-space-5) + var(--ws-space-2));
+  block-size: calc(var(--ws-space-5) + var(--ws-space-2));
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+  color: var(--ws-brand);
+}
+
+.goal-row-body {
+  display: grid;
+  flex: 1;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
 }
 
 .goal-row-head {
@@ -55,8 +76,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  inline-size: var(--ws-space-6);
-  block-size: var(--ws-space-6);
+  inline-size: calc(var(--ws-space-5) + var(--ws-space-3));
+  block-size: calc(var(--ws-space-5) + var(--ws-space-3));
   border-radius: var(--ws-radius-pill);
   background: var(--ws-accent);
   color: var(--ws-on-accent);
@@ -99,33 +120,79 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--ws-space-3);
+  gap: var(--ws-space-2) var(--ws-space-3);
 }
 
+/* BUD-05@PoC board PocPlanGoalCard: the percent is large, on the right of the amount line. */
+.goal-card-percent {
+  margin-inline-start: auto;
+  font-size: var(--ws-text-amount-m-size);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The facts are tiles in a row: the label, the value, the hint (board PocPlanGoalCard). */
 .goal-facts {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--ws-space-2);
   margin: 0;
 }
 
-.goal-facts > div {
+.goal-fact {
+  display: grid;
+  flex: 1 1 calc(var(--ws-space-8) * 2);
+  align-content: start;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+}
+
+.goal-fact dt {
+  font-size: var(--ws-text-subline-size);
+}
+
+.goal-fact dd {
+  display: grid;
+  gap: var(--ws-space-1);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.goal-fact dd > span {
+  font-size: var(--ws-text-subline-size);
+}
+
+/* «Витратити» and «Внести» keep a space-2 gap (board PocPlanGoalCard). */
+.goal-card-actions {
   display: flex;
   flex-wrap: wrap;
+  gap: var(--ws-space-2);
+}
+
+.goal-transfer {
+  display: flex;
+  align-items: flex-start;
   gap: var(--ws-space-3);
-}
-
-.goal-facts dt {
-  min-inline-size: calc(var(--ws-space-8) * 2);
-}
-
-.goal-facts dd {
   margin: 0;
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
 }
 
+/* «Де лежать гроші» and «Внески» are sections of the one goal card, split by a line (board PocPlanGoalCard). */
 .goal-links {
   display: grid;
   gap: var(--ws-space-2);
-  padding: var(--ws-space-5);
+  padding-block-start: var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+/* BUD-05@PoC FR 4: the «Проєкція» slot shows nothing until the chart exists (the board has no placeholder). */
+.plan-region[data-plan-region="projection"][data-empty] {
+  display: none;
 }
 
 .goal-links h3 {

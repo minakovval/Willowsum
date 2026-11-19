@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { formatDate, formatMoney, formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
-import { Button, ConfirmDialog, Icon, MoreActions } from "@willowsum/ui";
+import { Button, ConfirmDialog, Icon, IconButton, MoreActions } from "@willowsum/ui";
 import { outcome, useAuthApi } from "../../auth/api.ts";
 import { TRANSACTIONS } from "../../routing/routes.ts";
 import { hrefFor } from "../../routing/useHashPath.ts";
@@ -8,7 +8,7 @@ import type { AccountLabel } from "../../recurring/data.ts";
 import { GoalDialog } from "./GoalDialog.tsx";
 import { SpendDialog } from "./SpendDialog.tsx";
 import { ContributeButton } from "./ContributePopover.tsx";
-import { barPercent, goalColor, type Goal, type Money } from "./model.ts";
+import { barPercent, goalColor, TEMPLATE_ICON, type Goal, type Money } from "./model.ts";
 
 const money = (locale: Parameters<typeof formatMoney>[0], m: Money) =>
   formatMoney(locale, m.amount, m.currency);
@@ -33,10 +33,10 @@ export function GoalBar({ goal, label }: { goal: Goal; label: string }) {
   );
 }
 
-/** The goal's amber icon: amber is only for goals (GRID-04@PoC FR 7). */
-export const GoalIcon = () => (
+/** The goal's amber icon: amber is only for goals (GRID-04@PoC FR 7); it shows the template glyph. */
+export const GoalIcon = ({ template }: { template: Goal["template"] }) => (
   <span className="goal-icon">
-    <Icon name="goals" size={16} />
+    <Icon name={TEMPLATE_ICON[template]} size={20} />
   </span>
 );
 
@@ -57,7 +57,9 @@ export function GoalCard({
   today,
   onChanged,
   onGone,
+  children,
 }: {
+  children?: ReactNode;
   goal: Goal;
   goals: readonly Goal[];
   accounts: ReadonlyMap<string, AccountLabel>;
@@ -124,11 +126,19 @@ export function GoalCard({
   };
 
   const mask = account?.mask ?? null;
+  const spendButton = (
+    <Button
+      label={t("planning.goals.menu.spend")}
+      variant={goal.achieved ? "primary" : "secondary"}
+      icon="money"
+      onClick={() => setSpending(true)}
+    />
+  );
 
   return (
     <section className="ws-card goal-card" aria-label={goal.name} data-achieved={goal.achieved || undefined}>
       <header className="goal-card-head">
-        <GoalIcon />
+        <GoalIcon template={goal.template} />
         <div className="goal-card-title">
           <h2 className="ws-text-heading-3">{goal.name}</h2>
           <p className="ws-muted">
@@ -136,6 +146,7 @@ export function GoalCard({
           </p>
         </div>
         {goal.achieved ? <span className="goal-achieved">{t("planning.goals.achieved")}</span> : null}
+        <IconButton icon="edit" label={t("planning.goals.menu.edit")} onClick={() => setEditing(true)} />
         <MoreActions
           items={[
             {
@@ -165,7 +176,7 @@ export function GoalCard({
         <span className="ws-muted">
           {t("planning.goals.card.of", { target: money(locale, goal.target) })}
         </span>
-        <b>{num(goal.progressPercent)} %</b>
+        <b className="goal-card-percent">{num(goal.progressPercent)} %</b>
       </div>
       <GoalBar goal={goal} label={t("planning.goals.card.progress", { name: goal.name })} />
       {goal.overTarget !== null ? (
@@ -175,24 +186,19 @@ export function GoalCard({
       ) : null}
       <dl className="goal-facts">
         {rows.map((r) => (
-          <div key={r.key}>
+          <div key={r.key} className="goal-fact">
             <dt className="ws-muted">{t(r.key)}</dt>
             <dd>
-              {r.value}
-              {r.hint ? <span className="ws-muted"> · {r.hint}</span> : null}
+              <b>{r.value}</b>
+              {r.hint ? <span className="ws-muted">{r.hint}</span> : null}
             </dd>
           </div>
         ))}
       </dl>
-      <div className="goal-card-actions">
-        <Button
-          label={t("planning.goals.menu.spend")}
-          variant={goal.achieved ? "primary" : "secondary"}
-          icon="check"
-          onClick={() => setSpending(true)}
-        />
-        {goal.part.kind === "account" ? (
-          <p className="goal-transfer">
+      {goal.part.kind === "account" ? (
+        <p className="goal-transfer" role="note">
+          <Icon name="info" size={16} />
+          <span>
             {t("planning.goals.transfer.hint", { mask: mask ?? "" })}{" "}
             <a
               href={hrefFor(
@@ -201,11 +207,17 @@ export function GoalCard({
             >
               {t("planning.goals.transfer.link")}
             </a>
-          </p>
-        ) : (
+          </span>
+        </p>
+      ) : null}
+      <div className="goal-card-actions">
+        {goal.achieved ? spendButton : null}
+        {goal.part.kind === "account" ? null : (
           <ContributeButton goal={goal} today={today} quiet={goal.achieved} onAdded={onChanged} />
         )}
+        {goal.achieved ? null : spendButton}
       </div>
+      {children}
       {spending ? (
         <SpendDialog
           goal={goal}
