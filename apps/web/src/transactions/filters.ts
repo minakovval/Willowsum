@@ -284,7 +284,7 @@ export function filteredTransactionsPath(filter: { account: string } | { merchan
   return `${TRANSACTIONS.path}?${q.toString()}`;
 }
 
-/** The filters a link of FR 33 carries in the hash (`?account=` or `?merchant=`), or `null`. */
+/** The filters a link of FR 33 carries in the hash (`?account=`, `?merchant=` or `?from=&to=`), or `null`. */
 export function filtersFromHash(hash: string): TxFilters | null {
   const at = hash.indexOf("?");
   if (at < 0) return null;
@@ -293,5 +293,10 @@ export function filtersFromHash(hash: string): TxFilters | null {
   if (account !== null && UUID.test(account)) return { ...NO_FILTERS, accounts: [account] };
   const merchant = q.get("merchant")?.trim();
   if (merchant) return { ...NO_FILTERS, merchant: merchant.slice(0, MERCHANT_MAX_LENGTH) };
+  // BUD-16@PoC b): a column of «Тренд» opens the list of its month (`?from=` and `?to=`, both days of one period).
+  const from = q.get("from");
+  const to = q.get("to");
+  if (from !== null && to !== null && isDate(from) && isDate(to) && from <= to)
+    return { ...NO_FILTERS, dateFrom: from, dateTo: to };
   return null;
 }
