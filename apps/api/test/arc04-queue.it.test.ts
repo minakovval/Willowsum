@@ -205,6 +205,12 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
       "utf8",
     );
     expect(importSessionsSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
+    // The audit hand-off jobs of parsing recipes (IMP-06 a, ARC-04 FR 2, ADR-0015).
+    const importRecipesSql = readFileSync(
+      `${apiDir}/src/modules/import-recipes/adapters/db/migrations/0002_queue.sql`,
+      "utf8",
+    );
+    expect(importRecipesSql.startsWith(QUEUE_TABLES_SQL)).toBe(true);
     const tables = await rows<{ schema: string; table: string; rls: boolean; forced: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS table, c.relrowsecurity AS rls, c.relforcerowsecurity AS forced
        FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -219,6 +225,7 @@ describe("ARC-04@PoC: the job queue and the outbox in PostgreSQL", () => {
         "categorization",
         "debt_payoff",
         "goals",
+        "import_recipes",
         "import_sessions",
         "ledger",
         "liabilities",

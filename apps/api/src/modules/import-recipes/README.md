@@ -1,6 +1,6 @@
 # Модуль import-recipes
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 a: схема рецепта розбору, хвиля 2, рядок 40, частина 1)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 a: рецепти простору, хвиля 2, рядок 40, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -13,8 +13,15 @@
 Рецепт розбору (IMP-06@PoC a, рядок 40 плану хвилі 2, частина 1): схема рецепта версії 1 — дані, не код (файл, ролі
 колонок, дати, числа, знак, валюта, прив'язка до рахунку, фільтри, витяг полів; рядки й колонки — з 1), перевірка з кодом
 помилки і шляхом поля (`columns[3].role`): до 32 КБ UTF-8, вкладеність до 6, невідомі ключі на будь-якому рівні, до 64 правил
-колонок, до 20 правил із шаблонами, шаблони — безпечний діалект `file-parsers`. Зберігання рецептів простору, маршрути й
-записи аудиту — частина 2 рядка 40. Таблиць, маршрутів і подій ще немає.
+колонок, до 20 правил із шаблонами, шаблони — безпечний діалект `file-parsers`; у текстах рецепта немає U+0000 та інших керівних символів (`INVALID_CHARACTER`,
+#607 п. 5).
+
+Рецепти простору (частина 2 рядка 40): зберегти, список, один рецепт, видалити — за прапорцем випуску `data.import`, права
+`household.data.read` / `write`; учасник з областю доступу рецептів не бачить (404); рецепт іншого простору — 404. До 200
+рецептів у просторі (технічна стеля, 422 `LIMIT_REACHED`, не 402). Значення прив'язки до рахунку (IBAN, номер, маска)
+запечатане ключем простору й показується лише останніми 4 символами (NFR-01 п. 6). Записи аудиту — через чергу модуля
+(ADR-0015) з щоденним поверненням мертвих завдань; без назви і правил. Застосування рецепта до файлу — воркер розбору
+(рядок 41): API-процес не викликає `match` і `readDelimitedFile`.
 
 ## Вимоги
 
@@ -24,7 +31,14 @@
 
 `index.ts`:
 
-- `importRecipesModule`.
+- `importRecipesModule` — маршрути `/v1/import/recipes` (зберегти: тіло `{ name, recipe, fingerprint? }`, недійсний
+  рецепт — 422 `RECIPE_INVALID` з `recipeErrors` (код і шлях поля); список без правил), `/v1/import/recipes/{recipeId}`
+  (рецепт без значення прив'язки, `accountValueLast4`; видалити).
+- `createImportRecipesServices({ keys, audit, clock, newId })` → `ImportRecipesServices` (src/api.ts, main.ts).
+- `createImportRecipesWorkerQueue(db, audit)` — черга воркера (`import-recipes.hand-off`, `HAND_OFF_JOB`).
+- `createImportRecipesHandOffRecovery(db, households)` — щоденне повернення мертвих завдань (до `queue.retention-cleanup`).
+- `createImportRecipesErasure(db)` → `eraseHousehold(householdId)` → `{ recipes, jobs }` — лише для `data-erasure`.
+- `RECIPES_PER_SPACE`.
 - `validateRecipe(input)` — рецепт як JSON-текст або значення → `{ ok: true, recipe }` або `{ ok: false, errors }`
   (`RecipeError`: `code`, `path`, `reason` для `UNSAFE_PATTERN`); коди — `RecipeErrorCode`.
 - `readOptionsOf(recipe)` — файлові правила рецепта як `ReadOptions` модуля file-parsers.
@@ -32,7 +46,9 @@
 
 ## Залежності
 
-Шар: subject. Модулі: file-parsers (безпечний діалект шаблонів, файлові правила як параметри читання)
+Шар: subject. Модулі: audit (записи про рецепти — версія схеми й лічильники, без назв і правил), file-parsers (безпечний
+діалект шаблонів, файлові правила як параметри читання). Ключ простору — порт `keys.seal` (household), без залежності від
+модуля
 (`apps/api/module-rules.json`).
 
 ## Події
@@ -49,6 +65,12 @@
 
 Схема `import_recipes`; міграції — `adapters/db/migrations/NNNN_slug.sql`.
 
+- `recipes` — рецепт простору: назва (≤ 120, без керівних символів), версія схеми, рецепт (jsonb, без значення прив'язки),
+  `account_value_sealed` і `account_value_last4`, відбиток формату (`fp1:` + SHA-256, лише хеш), хто й коли створив.
+- `jobs`, `outbox_events` — черга модуля (ARC-04, міграція платформи дослівно); `idempotency_keys` — ключі ідемпотентності
+  маршруту збереження (ARC-07).
+
 ## Тести
 
-`domain/imp06-recipe-schema.test.ts`, `application/imp06-validate-recipe.test.ts`.
+`domain/imp06-recipe-schema.test.ts`, `domain/imp06-recipe-text.test.ts`, `application/imp06-validate-recipe.test.ts`,
+`test/imp06-import-recipes.it.test.ts` (маршрути на PostgreSQL: межа простору, ролі, ліміти, аудит, стирання).

@@ -1,6 +1,6 @@
 # Модуль data-erasure
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16 (FIN-01: рахунки й зобов'язання; BUD-14 a: мерчанти)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 a: рецепти розбору)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -24,7 +24,7 @@ NFR-12@PoC п. 3 (запит, видалення протягом 30 днів, �
     платформи (`data-erasure.request`, `dueAt`). Простір з іншим учасником — `SPACE_SHARED`, нічого не записано; повторний
     запит для того самого акаунта повертає наявний.
   - `run(requestId)` — простори беруться в момент виконання (записані в запиті плюс поточні простори акаунта); акаунт
-    (identity), далі для кожного простору: масові дії (bulk-actions), транзакції (transactions), дерево категорій (categories), категорії транзакцій (categorization; після categories — споживача її подій), мерчанти (merchants), рахунки (accounts) і зобов'язання (liabilities), журнал проводок (ledger), журнал аудиту простору (audit), останнім ключ разом
+    (identity), далі для кожного простору: масові дії (bulk-actions), транзакції (transactions), дерево категорій (categories), категорії транзакцій (categorization; після categories — споживача її подій), мерчанти (merchants), рахунки (accounts) і зобов'язання (liabilities), журнал проводок (ledger), рецепти розбору (import-recipes), журнал аудиту простору (audit), останнім ключ разом
     із записом простору (household) і ще раз журнал аудиту простору (запис щоденної задачі ключів між кроками). Перед
     кожним видаленням — запис у журналі платформи (`bulk-actions.records`, `transactions.records`, `categories.records`, `categorization.records`, `merchants.records`, `accounts.records`, `liabilities.records`, `ledger.journal`, `audit.log`, акаунт, ключ). Завершення з усіма
     просторами — у журнал видалень і журнал платформи. Ідемпотентний.
@@ -38,7 +38,7 @@ NFR-12@PoC п. 3 (запит, видалення протягом 30 днів, �
 
 ## Залежності
 
-Шар: process. Модулі: accounts, audit, bulk-actions, categories, household, identity, ledger, liabilities, transactions (`apps/api/module-rules.json`) — лише їхні інтерфейси видалення.
+Шар: process. Модулі: accounts, audit, bulk-actions, categories, household, identity, import-recipes, ledger, liabilities, transactions (`apps/api/module-rules.json`) — лише їхні інтерфейси видалення.
 Зовнішні сервіси: журнал видалень через порт `erasure-log`.
 
 ## Події

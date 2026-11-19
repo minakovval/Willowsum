@@ -1,3 +1,5 @@
 // Application layer of import-recipes: use cases, transactions, permission checks (ARC-01 FR 5).
 // Uses ports; adapters are wired in ../index.ts.
 export { readOptionsOf, validateRecipe } from "./validate.ts";
+export * from "./recipes.ts";
+export { applyHandOff, type RecipesAudit } from "./hand-off.ts";
