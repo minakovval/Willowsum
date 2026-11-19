@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "generatedAt": "2026-11-19T22:04:54.654Z",
-  "sha": "116d1fa9cb4e3e9d3c555606ebf9af7dc9c743b4",
+  "generatedAt": "2026-11-19T22:46:44.497Z",
+  "sha": "adb8fff4cd94fc6efd58a86bb1992f1d7ad66ceb",
   "releases": [
     {
       "release": "PoC",
       "slices": 152,
       "FR": {
-        "covered": 753,
+        "covered": 755,
         "total": 1392
       },
       "AC": {
@@ -19,7 +19,7 @@
         "total": 201
       },
       "items": {
-        "covered": 1452,
+        "covered": 1454,
         "total": 2668
       }
     },
