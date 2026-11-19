@@ -389,4 +389,30 @@ describe("BUD-05@PoC FR 8: «Витратити» reads beyond 100 transactions,
     });
     expect(scoped.statusCode).toBe(404);
   });
+
+  it("BUD-05@PoC FR 8: rows of one day page by (date, time of recording, id) with no gap or repeat", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    const ids: string[] = [];
+    for (let i = 0; i < 8; i++) ids.push(await transaction(space, current, "-1.00", "2026-10-07"));
+    const goal = await call(space, "POST", "/v1/goals", {
+      template: "custom",
+      name: "Синтетична",
+      target: eur("900.00"),
+    });
+    expect(goal.statusCode, goal.body).toBe(201);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const res = await call(
+        space,
+        "GET",
+        `/v1/goals/${goal.json().id}/spendable?limit=3${cursor ? `&cursor=${cursor}` : ""}`,
+      );
+      expect(res.json().count).toBe(8);
+      seen.push(...res.json().items.map((t: { id: string }) => t.id));
+      cursor = res.json().nextCursor;
+    } while (cursor !== null);
+    expect(seen.sort()).toEqual(ids.sort());
+  });
 });
