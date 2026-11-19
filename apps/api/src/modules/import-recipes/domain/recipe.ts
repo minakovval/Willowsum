@@ -9,7 +9,7 @@ import { z } from "zod";
  * `checkRecipe` refuses — with a code and the field's path (FR 14) — a recipe over 32 KB (UTF-8), nested deeper than any
  * recipe can be, with an unknown key at any level, a wrong value, more than 64 column rules or more than 20 rules with
  * patterns (FR 2). Patterns are checked against the safe dialect by the application layer (file-parsers'
- * `compilePattern`, FR 3): `recipePatterns` lists them with their paths. The sheet and the time zone are recorded but
+ * `checkPattern`, FR 3): `recipePatterns` lists them with their paths. The sheet and the time zone are recorded but
  * not applied (EC2: the server chooses the sheet; dates are never shifted).
  */
 export const RECIPE_SCHEMA_VERSION = 1;
@@ -84,7 +84,7 @@ export interface RecipeError {
 const column = z.number().int().min(1).max(512);
 const count = z.number().int().min(0).max(1000);
 const label = z.string().min(1).max(40);
-/** A pattern's text; its dialect and its 200 characters are checked by `compilePattern`. */
+/** A pattern's text; its dialect and its 200 characters are checked by `checkPattern`. */
 const pattern = z.string().min(1).max(1000);
 const currencyCode = z.string().regex(/^[A-Z]{3}$/);
 
