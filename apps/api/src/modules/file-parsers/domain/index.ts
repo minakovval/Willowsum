@@ -34,3 +34,7 @@ export type {
 } from "./analysis.ts";
 export { DATE_ORDERS } from "./values.ts";
 export type { DateOrder, DecimalSeparator, ThousandsSeparator } from "./values.ts";
+export { amountMark, headerCurrency, ISO_NUMERIC, recognizeCurrency } from "./currency.ts";
+export type { CurrencyHints, CurrencyRecognition } from "./currency.ts";
+export { EVENT_LIMITS, readEvents } from "./events.ts";
+export type { EventFlag, EventLeg, StatementEvent, StatementEvents, StatementOptions } from "./events.ts";

@@ -80,7 +80,8 @@ export interface NumberCell {
   readonly body: string;
 }
 
-const CURRENCY_MARK = /^(?:[A-Z]{3}|[₴$€£¥]|zł|грн\.?)\s*|\s*(?:[A-Z]{3}|[₴$€£¥]|zł|грн\.?)$/giu;
+const CURRENCY_MARK =
+  /^(?:[A-Z]{3,4}|[₴$€£¥]|zł|грн\.?|kr\.?)\s*|\s*(?:[A-Z]{3,4}|[₴$€£¥]|zł|грн\.?|kr\.?)$/giu;
 const NUMBER = /^([-+−–]?)\s*(\(?)\s*(\d[\d\s\u00a0\u202f.,'’]*\d|\d)\s*(\)?)\s*(-?)$/u;
 
 export function numberCell(cell: string): NumberCell | null {
