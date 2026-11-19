@@ -10,7 +10,7 @@
 - Спільні правила: П-8, П-10, П-21, П-24, П-25, П-26, ARC-06, NFR-01, NFR-12, NFR-15, CMP-74
 - Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-10, UC-IMP-17, UC-IMP-18, UC-IMP-21, UC-IMP-24
 - Модуль: import-sessions, file-parsers, file-storage, transactions
-- Перевіряється: apps/api/src/modules/file-storage/adapters/inspection/inspect.test.ts, apps/api/src/modules/file-storage/adapters/isolation/run.test.ts, apps/api/src/modules/file-storage/application/upload-budget.test.ts
+- Перевіряється: apps/api/src/modules/file-storage/adapters/inspection/inspect.test.ts, apps/api/src/modules/file-storage/adapters/isolation/run.test.ts, apps/api/src/modules/file-storage/application/upload-budget.test.ts, apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts
 
 **Мета.** Як користувач без підключеного банку, я хочу масово завантажувати виписки й експорти транзакцій з банків та інших сервісів у будь-якому поширеному форматі, щоб отримати свої транзакції в продукті без ручного введення, а оригінали файлів зберігалися як докази.
 

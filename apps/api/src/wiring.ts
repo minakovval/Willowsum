@@ -45,6 +45,10 @@ import {
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
 import {
+  createImportSessionsHandOffRecovery,
+  createImportSessionsWorkerQueue,
+} from "./modules/import-sessions/index.ts";
+import {
   createMerchantDirectory,
   createMerchantsRecovery,
   createMerchantsWorkerQueue,
@@ -229,6 +233,9 @@ export function schedulerDailyTasks(deps: {
   const debtPayoffRecovery = createDebtPayoffHandOffRecovery(deps.databases.for("debt-payoff"), () =>
     deps.spaces.spaceIds(),
   );
+  const importRecovery = createImportSessionsHandOffRecovery(deps.databases.for("import-sessions"), () =>
+    deps.spaces.spaceIds(),
+  );
   const merchantsRecovery = createMerchantsRecovery(deps.databases.for("merchants"), () =>
     deps.spaces.spaceIds(),
   );
@@ -317,6 +324,15 @@ export function schedulerDailyTasks(deps: {
       run: async () => {
         const requeued = await recurringRecovery.run();
         if (requeued > 0) logEvent("recurring.hand_off_requeued", "warn", { "ws.module": "recurring" });
+      },
+    },
+    // The same for the import-sessions queue (ARC-04, ADR-0015, #249): the audit entries of import batches (IMP-01 FR 21).
+    {
+      name: "import-sessions.hand-off-recovery",
+      run: async () => {
+        const requeued = await importRecovery.run();
+        if (requeued > 0)
+          logEvent("import_sessions.hand_off_requeued", "warn", { "ws.module": "import-sessions" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -417,6 +433,8 @@ export function workerQueues(
       createBudgetWorkerQueue(databases.for("budget"), audit),
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
+      // IMP-01 b: the audit entries of import batches (ADR-0015).
+      createImportSessionsWorkerQueue(databases.for("import-sessions"), audit),
     ],
     subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions, ...recurringSubscriptions],
   };

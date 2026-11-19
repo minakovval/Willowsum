@@ -263,6 +263,15 @@ export const PROBLEMS = {
     title: "The transaction is not in the review queue",
   },
   PAYLOAD_TOO_LARGE: { status: 413, title: "The request body is too large" },
+  /**
+   * IMP-01@PoC FR 6, FR 13–15: every file of an upload was rejected; `rejection` is the first one's reason (its code and
+   * the ceiling it exceeded — never a plan's limit). Nothing of those files was stored.
+   */
+  FILE_REJECTED: { status: 422, title: "The file was not accepted" },
+  /** The same for a size: the file, the upload, the batch or the space's storage is over its technical ceiling. */
+  FILE_TOO_LARGE: { status: 413, title: "The file is over a technical ceiling" },
+  /** IMP-01@PoC FR 10: the batch's state does not allow this step; nothing was written. */
+  BATCH_STATE_CONFLICT: { status: 409, title: "The batch's state does not allow this" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
    * A technical limit that does not depend on the plan (NFR-15 FR 17: filters per request, bulk size, drafts,
@@ -344,6 +353,16 @@ export const ProblemSchema = z
       description:
         "GOAL_ENVELOPES_OVER_BALANCE: by how much the envelopes would exceed the account's balance",
     }),
+    /** For FILE_REJECTED and FILE_TOO_LARGE: why the first file was rejected (IMP-01 FR 6). */
+    rejection: z
+      .object({
+        code: z.string().meta({ "x-extensible-enum": true, description: "The reason's code" }),
+        ceiling: z.object({ name: z.string(), limit: z.number().int().min(0) }).optional(),
+      })
+      .optional()
+      .meta({
+        description: "FILE_REJECTED, FILE_TOO_LARGE: the first file's reason and the ceiling it exceeded",
+      }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(
@@ -394,7 +413,13 @@ export class ApiProblem extends Error {
 export type ProblemExtensions = Partial<
   Pick<
     Problem,
-    "currentVersion" | "currentCategoryId" | "changedFields" | "limit" | "sessionEndReason" | "excess"
+    | "currentVersion"
+    | "currentCategoryId"
+    | "changedFields"
+    | "limit"
+    | "sessionEndReason"
+    | "excess"
+    | "rejection"
   >
 >;
 
@@ -430,6 +455,16 @@ export function problemBody(
       ? { sessionEndReason: options.extensions.sessionEndReason }
       : {}),
     ...(options.extensions?.excess !== undefined ? { excess: { ...options.extensions.excess } } : {}),
+    ...(options.extensions?.rejection !== undefined
+      ? {
+          rejection: {
+            code: options.extensions.rejection.code,
+            ...(options.extensions.rejection.ceiling
+              ? { ceiling: { ...options.extensions.rejection.ceiling } }
+              : {}),
+          },
+        }
+      : {}),
   };
 }
 
