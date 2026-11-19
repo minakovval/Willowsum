@@ -34,7 +34,7 @@
 - Сценарії: UC-IMP-10, UC-IMP-11, UC-IMP-25, UC-IMP-27, UC-IMP-44
 - [PoC–PoC v2] Модуль: import-recipes, file-parsers
 - [MVP] Модуль: import-recipes, file-parsers, ocr
-- Перевіряється: —
+- Перевіряється: apps/api/src/modules/file-parsers/domain/imp06-safe-pattern.test.ts, apps/api/src/modules/file-parsers/domain/imp06-encoding.test.ts, apps/api/src/modules/file-parsers/domain/imp06-table.test.ts, apps/api/src/modules/file-parsers/domain/imp06-format.test.ts, apps/api/src/modules/file-parsers/application/imp06-read-file.test.ts, apps/api/src/modules/import-recipes/domain/imp06-recipe-schema.test.ts, apps/api/src/modules/import-recipes/application/imp06-validate-recipe.test.ts, apps/api/src/modules/file-parsers/domain/sec602-safe-pattern.test.ts, apps/api/src/modules/file-parsers/domain/sec602-table.test.ts, apps/api/src/modules/file-parsers/domain/sec602-format.test.ts, apps/api/src/modules/import-recipes/application/sec602-validate-recipe.test.ts
 
 **Мета.** Як користувач, чий файл розпізнано неправильно, я хочу, щоб усі рішення рушія можна було описати і виправити зрозумілими правилами (рецептом), щоб наступні файли того самого формату читались правильно.
 

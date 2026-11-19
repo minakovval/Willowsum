@@ -6,3 +6,13 @@ export const importRecipesModule = defineModule({
   publishes: [],
   consumes: [],
 });
+
+export { readOptionsOf, validateRecipe } from "./application/index.ts";
+export {
+  COLUMN_ROLES,
+  RECIPE_DELIMITERS,
+  RECIPE_ENCODINGS,
+  RECIPE_LIMITS,
+  RECIPE_SCHEMA_VERSION,
+} from "./domain/index.ts";
+export type { Recipe, RecipeCheck, RecipeError, RecipeErrorCode } from "./domain/index.ts";
