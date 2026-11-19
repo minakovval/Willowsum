@@ -418,6 +418,33 @@ describe("BUD-08@PoC: a month", () => {
   });
 });
 
+describe("BUD-08@PoC: amounts outside the money range", () => {
+  it("BUD-08@PoC FR 12: an amount over 15 integer digits is left out and counted with «Курс недоступний», never a 500 (lead decision, #580)", async () => {
+    const BIG = "9".repeat(20);
+    const s = await newSpace();
+    const acc = await account(s);
+    const gbp = await account(s, "current", "GBP");
+    await rate("2026-02-05", "GBP", "55.0000");
+    await rate("2026-02-05", "EUR", "45.0000");
+    await tx(s, acc, BIG, "2026-01-05", "Зарплата");
+    await tx(s, acc, BIG, "2026-01-06", "Зарплата");
+    await tx(s, acc, "-40.00", "2026-01-07", "Продукти");
+    await tx(s, gbp, "-" + BIG, "2026-02-05", "Продукти", "GBP");
+    await tx(s, acc, BIG, "2026-03-05", "Зарплата");
+    for (const q of [
+      "type=month&period=2026-01",
+      "type=month&period=2026-02",
+      "type=quarter&period=2026-Q1",
+    ]) {
+      const r = await call(s, "GET", `/v1/cashflow?${q}`);
+      expect(r.statusCode, `${q} ${r.body}`).toBe(200);
+    }
+    const jan = await cashflow(s, "month", "2026-01");
+    expect(jan.months[0]).toMatchObject({ income: eur("0"), expenses: eur("40") });
+    expect(jan.approximate.unavailableCount).toBe(2);
+  });
+});
+
 describe("BUD-08@PoC: the months of a period", () => {
   it("BUD-08@PoC AC5 (server part): the types month, quarter, ytd and year; «Власний» is refused; a year shows 12 months «Помісячно»", async () => {
     const space = await newSpace();

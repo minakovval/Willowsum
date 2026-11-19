@@ -1,3 +1,4 @@
+import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { kyivToday } from "../../../../platform/lists/list-total.ts";
@@ -10,6 +11,9 @@ import { SPACE_REPORTING_CURRENCY } from "../../../household/index.ts";
 import type { BudgetTransactions } from "../../../transactions/index.ts";
 import type { TransferProposalSides } from "../../../transfer-matching/index.ts";
 import type { CashflowDeps, CashflowReads } from "../../application/index.ts";
+
+/** Amounts over 15 integer digits are not counted (the budget's rule, #565, #573). */
+const tooBig = (m: Money) => m.amount.abs().truncated().toFixed().length > 15;
 
 const BRAND = Symbol("willowsum-cashflow-services");
 
@@ -47,13 +51,33 @@ export function cashflowReads(ports: CashflowPorts): CashflowReads {
       ports.transactions.inPeriod(householdId, accountIds, from, to),
     categoriesOf: (householdId, ids) => ports.categorization.categoriesOf(householdId, ids),
     pendingTransferSides: (householdId) => ports.transfers.pendingSides(householdId),
+    // The cap before any sum or conversion: the rates' reader adds the amounts up itself (#567, #573). An amount over
+    // 15 integer digits, before or after conversion, is left out and counted with the unavailable ones — never a 500.
     async convert(amounts, currency) {
-      const total = await ports.fx.total(amounts, currency);
-      return {
-        values: total.items.map((item) => (item.kind === "rate-unavailable" ? null : item.value)),
-        nearestRateCount: total.nearestRateCount,
-        unavailableCount: total.unavailableCount,
+      const values: (Money | null)[] = amounts.map(() => null);
+      let nearestRateCount = 0;
+      const read = async (indexes: readonly number[]) => {
+        const total = await ports.fx.total(
+          indexes.map((i) => amounts[i]!),
+          currency,
+        );
+        total.items.forEach((item, k) => {
+          if (item.kind !== "rate-unavailable" && !tooBig(item.value)) values[indexes[k]!] = item.value;
+        });
+        nearestRateCount += total.nearestRateCount;
       };
+      const kept = amounts.map((_, i) => i).filter((i) => !tooBig(amounts[i]!.amount));
+      try {
+        await read(kept);
+      } catch (error) {
+        if (!(error instanceof AmountOutOfRangeError)) throw error;
+        // Many capped amounts at a big rate can still leave the money type in the reader's own sum: one by one.
+        for (const i of kept)
+          await read([i]).catch((e: unknown) => {
+            if (!(e instanceof AmountOutOfRangeError)) throw e;
+          });
+      }
+      return { values, nearestRateCount, unavailableCount: values.filter((v) => v === null).length };
     },
   };
 }
