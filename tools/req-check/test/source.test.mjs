@@ -6,7 +6,7 @@ import path from 'node:path';
 import { parseTag, formatTag, splitTag, joinTag, numberLines, parseSource, renderViews, viewReleases, convertToSource, convertRequirement, viewHeader, SOURCE_MARKER } from '../lib/source.mjs';
 import { moveItems } from '../lib/move.mjs';
 import { itemsOf } from '../lib/items.mjs';
-import { findMentions, computeCoverage, renderCoverage, danglingMentions, IGNORE_MENTION } from '../lib/coverage.mjs';
+import { findMentions, computeCoverage, renderCoverage, danglingMentions, coverageSummary, IGNORE_MENTION } from '../lib/coverage.mjs';
 import { runChecks } from '../lib/run.mjs';
 import { makeRegistries } from '../lib/registries.mjs';
 import { main } from '../index.mjs';
@@ -325,6 +325,39 @@ test('coverage: tests named by item map to source items, across renumbering, and
   assert.deepEqual(row('BUD-16@MVP').AC, { total: 2, covered: 1, missing: ['AC2'] });
   assert.deepEqual(cov.unresolved.map((m) => `${m.sid} ${m.kind}${m.n}`), ['BUD-16@PoC FR9']); // req-check-ignore-mention
   assert.match(renderCoverage(cov), /\| PoC \| 1 \| 1 \/ 3 \(33 %\) \| 1 \/ 1 \(100 %\)/);
+});
+
+// PRC-02 (owner, 2026-11-19): the progress dashboard headlines PoC coverage from this JSON.
+test('coverageSummary: FR, AC and EC covered / total per release, with the time and the commit', () => {
+  const mentions = findMentions([{ rel: 'apps/a.test.ts', text: 'it("BUD-16@PoC FR 3, AC1, EC1", () => {});' }]); // req-check-ignore-mention
+  const cov = computeCoverage(check(sourced()).model, mentions);
+  const sha = 'a'.repeat(40);
+  const json = coverageSummary(cov, { sha, generatedAt: '2026-11-19T10:00:00.000Z' });
+  assert.equal(json.schema, 1);
+  assert.equal(json.sha, sha);
+  assert.equal(json.generatedAt, '2026-11-19T10:00:00.000Z');
+  assert.deepEqual(json.releases.map((r) => r.release), ['PoC', 'PoC v2', 'MVP']);
+  const poc = json.releases[0];
+  assert.deepEqual([poc.slices, poc.FR, poc.AC], [1, { covered: 1, total: 3 }, { covered: 1, total: 1 }]);
+  assert.equal(poc.EC.covered, 1);
+  assert.deepEqual(poc.items, { covered: poc.FR.covered + poc.AC.covered + poc.EC.covered, total: poc.FR.total + poc.AC.total + poc.EC.total });
+  // Without a commit the field is null, never a guess.
+  assert.equal(coverageSummary(cov).sha, null);
+});
+
+test('CLI: --coverage-json writes the summary; --sha must be a full commit hash', () => {
+  const root = fixture(sourced());
+  fs.mkdirSync(path.join(root, 'apps/web'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'apps/web/b.test.ts'), 'it("BUD-16@PoC FR 3", () => {});\n');
+  const base = ['--root', root, '--no-baseline', '--quiet'];
+  const sha = 'b'.repeat(40);
+  assert.equal(main([...base, '--coverage-json', 'site/coverage.json', '--sha', sha], () => {}), 0);
+  const json = JSON.parse(fs.readFileSync(path.join(root, 'site/coverage.json'), 'utf8'));
+  assert.equal(json.sha, sha);
+  assert.ok(!Number.isNaN(Date.parse(json.generatedAt)));
+  assert.deepEqual(json.releases.find((r) => r.release === 'PoC').FR, { covered: 1, total: 3 });
+  assert.throws(() => main([...base, '--coverage-json', 'x.json', '--sha', 'main'], () => {}), /full commit hash/);
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 function fixture(files) {
