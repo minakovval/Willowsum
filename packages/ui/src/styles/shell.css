@@ -470,4 +470,10 @@ button.ws-menu-item {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
+  flex: none;
+}
+
+/* The «…» is only as wide as its button: the menu root's width: 100% (the sidebar menus) would take a whole flex header. */
+.ws-row-actions .ws-menu-root {
+  width: auto;
 }
