@@ -32,7 +32,10 @@ type Notice =
       readonly from: string;
       readonly to: string;
     }
-  | { readonly kind: "past" | "save" | "invalid" | "places"; readonly text?: string };
+  | {
+      readonly kind: "past" | "save" | "invalid" | "places" | "negative" | "tooLong";
+      readonly text?: string;
+    };
 
 const addressOf = (c: PlanCell) => `${c.edit?.kind}:${c.edit?.lineId ?? ""}:${c.period}`;
 
@@ -77,6 +80,15 @@ export function BudgetPlanPage({ today = kyivToday() }: { today?: string }) {
         return;
       }
       const value = parsed.value;
+      // A limit or a plan is not below zero and has at most 15 digits before the point: the field says so, the server is not asked.
+      if (value !== null && value.startsWith("-")) {
+        setNotice({ kind: "negative" });
+        return;
+      }
+      if (value !== null && (value.split(".")[0] ?? "").length > 15) {
+        setNotice({ kind: "tooLong" });
+        return;
+      }
       // Nothing changed: no request. An empty cell takes an own value back to the default; without one it stays.
       const current = cell.amount?.amount ?? null;
       if (value === null ? !cell.edit.own : current !== null && new Decimal(current).eq(value)) return;
@@ -232,6 +244,10 @@ function noticeText(n: Notice, t: ReturnType<typeof useI18n>["t"], locale: Local
       });
     case "places":
       return t("field.amount.error.places", { places: String(currencyPlaces(currency)), currency });
+    case "negative":
+      return t("planning.plan.error.negative");
+    case "tooLong":
+      return t("planning.plan.error.tooLong");
     case "save":
       return t("planning.plan.error.save");
   }

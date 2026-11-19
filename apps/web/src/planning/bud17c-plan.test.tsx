@@ -486,6 +486,40 @@ describe("BUD-17@PoC «Бюджет → План» (S-126)", () => {
     expect(val(screen.getByRole("textbox", { name: "Продукти, грудень" }))).toBe("700,00");
   });
 
+  it("BUD-17@PoC money: a negative or 16-digit amount is refused in the cell with its own message, not «Не вдалося зберегти»", async () => {
+    const fake = api();
+    show(fake.client);
+    await edit("Продукти", "грудень", "-5");
+    expect(plain((await screen.findByRole("alert")).textContent ?? "")).toContain(
+      "Введіть суму, не меншу за нуль.",
+    );
+    await edit("Продукти", "січень", "1234567890123456");
+    await waitFor(() =>
+      expect(plain(screen.getByRole("alert").textContent ?? "")).toContain(
+        "Сума завелика: до 15 цифр до коми.",
+      ),
+    );
+    expect(puts(fake.calls)).toHaveLength(0);
+    expect(screen.getByRole("alert").textContent).not.toContain("Не вдалося зберегти");
+  });
+
+  it("BUD-17@PoC NFR-08: an amount wider than its cell is abbreviated with a dotted underline and the full value in the title, never cut with «…» (GRID-00 FR 19)", async () => {
+    const huge = "1234567890123.45";
+    const wide = vi.spyOn(HTMLInputElement.prototype, "scrollWidth", "get").mockReturnValue(100);
+    const narrow = vi.spyOn(HTMLInputElement.prototype, "clientWidth", "get").mockReturnValue(50);
+    try {
+      show(api({}, grid({ foodAt: () => cell(huge, 1) })).client);
+      const input = (await cellOf("Продукти", "листопад")) as HTMLInputElement;
+      await waitFor(() => expect(input.getAttribute("data-abbreviated")).toBe("true"));
+      expect(input.value).not.toContain("…");
+      expect(input.value.length).toBeLessThan(plain(input.title).length);
+      expect(plain(input.title)).toBe("1 234 567 890 123,45");
+    } finally {
+      wide.mockRestore();
+      narrow.mockRestore();
+    }
+  });
+
   it("BUD-17@PoC FR 2: Enter saves, Escape gives the shown value back, and an empty cell with its own value goes back to the default (amount null)", async () => {
     const fake = api({}, grid({ foodAt: (i) => (i === 1 ? cell("650.00", 3) : cell("700.00")) }));
     show(fake.client);

@@ -619,6 +619,8 @@ export const en: Messages = {
   "planning.plan.error.changed":
     "The value was changed in another window: {category}, {month}: {from} → {to}",
   "planning.plan.error.save": "Could not save — try again",
+  "planning.plan.error.negative": "Enter an amount of zero or more.",
+  "planning.plan.error.tooLong": "The amount is too large: up to 15 digits before the point.",
   "planning.budget.period.group": "Budget period",
   "planning.budget.period.prev": "Previous month",
   "planning.budget.period.next": "Next month",

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useI18n } from "@willowsum/i18n";
-import { currencyPlaces, displayAmount, editAmount } from "@willowsum/ui";
+import { currencyPlaces, displayAmount, editAmount, formatCompactNumber } from "@willowsum/ui";
 import type { Money } from "./model.ts";
 
 /** An empty cell: no value for the row in this month (the board's «—»). */
@@ -31,12 +31,23 @@ export function PlanCellInput({
   const { locale } = useI18n();
   const places = currencyPlaces(currency);
   const [draft, setDraft] = useState<string | null>(null);
-  const shown = amount === null ? NO_VALUE : displayAmount(locale, amount.amount, places).text;
+  const full = amount === null ? NO_VALUE : displayAmount(locale, amount.amount, places).text;
   const readOnly = onCommit === undefined;
   const input = useRef<HTMLInputElement | null>(null);
+  // GRID-00@PoC FR 19, AC6: an amount is never cut with «…»; one wider than its cell is abbreviated («1,23 трлн»)
+  // with a dotted underline and the full value in its title. Focus brings every digit back.
+  const [wideFor, setWideFor] = useState<string | null>(null);
+  const short =
+    amount !== null && wideFor === full ? formatCompactNumber({ value: amount.amount, locale }) : null;
+  const shown = short ?? full;
   const cancelled = useRef(false);
   // The whole text is selected when the cell opens for editing (a number is typed over).
   const editing = draft !== null;
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el || editing || pending !== undefined || wideFor === full) return;
+    setWideFor(el.scrollWidth > el.clientWidth ? full : null);
+  }, [full, editing, pending, wideFor]);
   useEffect(() => {
     if (editing) input.current?.select();
   }, [editing]);
@@ -65,7 +76,8 @@ export function PlanCellInput({
       autoComplete="off"
       aria-label={label}
       readOnly={readOnly}
-      title={amount !== null ? shown : undefined}
+      title={amount !== null ? full : undefined}
+      data-abbreviated={short !== null || undefined}
       value={draft ?? pending ?? shown}
       ref={input}
       onFocus={() => {

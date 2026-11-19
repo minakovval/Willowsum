@@ -215,11 +215,15 @@
   font: inherit;
   font-variant-numeric: tabular-nums;
   text-align: end;
-  text-overflow: ellipsis;
 }
 
 .plan-cell:not([readonly]) {
   background: var(--ws-surface-inset);
+}
+
+/* GRID-00@PoC FR 19: an abbreviated amount has a dotted underline (inputs draw no text-decoration). */
+.plan-cell[data-abbreviated] {
+  border-block-end: 1px dotted currentColor;
 }
 
 .plan-cell[readonly] {

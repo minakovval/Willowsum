@@ -616,6 +616,8 @@ export const uk = {
   "planning.plan.error.past": "Минулий місяць змінити не можна",
   "planning.plan.error.changed": "Значення змінено в іншому вікні: {category}, {month}: {from} → {to}",
   "planning.plan.error.save": "Не вдалося зберегти — повторіть спробу",
+  "planning.plan.error.negative": "Введіть суму, не меншу за нуль.",
+  "planning.plan.error.tooLong": "Сума завелика: до 15 цифр до коми.",
   "planning.budget.period.group": "Бюджетний період",
   "planning.budget.period.prev": "Попередній місяць",
   "planning.budget.period.next": "Наступний місяць",
