@@ -41,6 +41,7 @@ import { TransactionRowDemo } from "./pages/TransactionRowDemo.tsx";
 import { StatusDemo } from "./pages/StatusDemo.tsx";
 import { DialogDemo } from "./pages/DialogDemo.tsx";
 import { MoreActionsDemo } from "./pages/MoreActionsDemo.tsx";
+import { ChartsDemo } from "./pages/ChartsDemo.tsx";
 import { ProgressDemo } from "./pages/ProgressDemo.tsx";
 import { StatesDemo } from "./pages/StatesDemo.tsx";
 import { TableDemo } from "./pages/TableDemo.tsx";
@@ -972,5 +973,40 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
     expect(at("table-empty").textContent).toContain("Записів немає");
     const error = within(at("table-error")).getByRole("alert");
     expect(error.textContent).toContain("Код: WS-4F2A");
+  });
+
+  it("CMP-47@PoC gallery: the Charts section shows the board's bars with lines, negative values, 8 series, long names, loading, empty and error, and a click on a column reports its period", () => {
+    const { container } = renderSection(<ChartsDemo />);
+    const at = (id: string) => container.querySelector<HTMLElement>(`[data-case="${id}"]`)!;
+    const trend = at("bar-trend");
+    expect(trend.querySelectorAll(".ws-chart-bar")).toHaveLength(13);
+    expect(trend.querySelectorAll(".ws-chart-legend-item")).toHaveLength(4);
+    expect(trend.querySelectorAll("pattern")).toHaveLength(1);
+    expect(at("bar-negative").querySelector(".ws-chart-zero")).not.toBeNull();
+    expect(at("bar-other").querySelectorAll(".ws-chart-legend-item")).toHaveLength(5);
+    expect(at("bar-long").textContent).toContain("…");
+    expect(at("bar-loading").querySelector(".ws-skeleton")).not.toBeNull();
+    expect(at("bar-empty").textContent).toContain("Ще немає історії");
+    const retry = within(at("bar-error")).getByRole("button", { name: "Спробувати ще раз" });
+    fireEvent.click(retry);
+    expect(at("bar-error").textContent).toContain("спроб: 1");
+    fireEvent.click(within(trend).getAllByRole("button", { name: /березень 2026/ })[0]!);
+    expect(container.querySelector("[data-testid='clicked']")!.textContent).toContain("березень 2026");
+  });
+
+  it("CMP-42@PoC gallery: the Charts section shows 3 line styles with event marks, 6 series with a legend of radio buttons, the area, the goal's target line, one point, and the states", () => {
+    const { container } = renderSection(<ChartsDemo />);
+    const at = (id: string) => container.querySelector<HTMLElement>(`[data-case="${id}"]`)!;
+    expect(at("line-three").querySelectorAll(".ws-chart-legend-item")).toHaveLength(3);
+    expect(
+      within(at("line-three")).getAllByRole("img", { name: /Взято кредит|Дострокове погашення/ }),
+    ).toHaveLength(2);
+    expect(within(at("line-six")).getAllByRole("radio")).toHaveLength(6);
+    expect(at("line-area").querySelector("path[fill-opacity]")).not.toBeNull();
+    expect(at("line-target").querySelector(".ws-chart-target")!.textContent).toContain("Ціль");
+    expect(at("line-one").querySelector("path[stroke-linecap]")).toBeNull();
+    expect(at("line-loading").querySelector(".ws-skeleton")).not.toBeNull();
+    expect(at("line-empty").textContent).toContain("Ще немає історії");
+    expect(within(at("line-error")).getByRole("alert")).toBeTruthy();
   });
 });

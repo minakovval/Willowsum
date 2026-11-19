@@ -141,7 +141,9 @@ interface Cell {
 interface Grid {
   months: { period: string; mode: string; inBudget: boolean }[];
   income: {
-    rows: { paymentId: string | null; cells: (Cell & { expected: boolean })[] }[];
+    plan: Cell[];
+    rows: { paymentId: string; cells: (Cell & { expected: boolean })[] }[];
+    other: unknown[];
     totals: unknown[];
   };
   expenses: { groups: { categories: { categoryId: string; cells: Cell[] }[] }[]; totals: unknown[] };
@@ -545,7 +547,7 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     expect(other.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
   });
 
-  it("BUD-17@PoC FR 1: «Надходження» — «Андрій, зарплата» and «Олена, зарплата» are the month's sources; their sum is its income plan", async () => {
+  it("BUD-17@PoC FR 1: «Надходження» — «Андрій, зарплата» and «Олена, зарплата» are the month's sources; over «План доходу» their sum is its income plan", async () => {
     const space = await newSpace();
     await budgetWith(space, "4000", {});
     const andrii = randomUUID();
@@ -556,9 +558,11 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
         { paymentId: olena, month, expected: Money.of("2500", "EUR") },
       ]),
     ]);
-    // November has no regular income: its line is «План доходу» (the budget's income plan).
+    // November has no regular income: all of «План доходу» (the budget's income plan) is «Інші надходження».
     const before = await grid(space);
-    expect(before.income.rows.map((r) => r.paymentId)).toEqual([null, andrii, olena]);
+    expect(before.income.rows.map((r) => r.paymentId)).toEqual([andrii, olena]);
+    expect(before.income.plan[0]).toEqual({ amount: eur("4000"), own: false, version: 0 });
+    expect(before.income.other.slice(0, 4)).toEqual([eur("4000"), null, null, eur("4000")]);
     expect(before.income.totals.slice(0, 4)).toEqual([eur("4000"), eur("5600"), eur("5600"), eur("4000")]);
     const res = await put(space, {
       period: "2026-12",
@@ -569,7 +573,7 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     });
     expect(res.statusCode, res.body).toBe(200);
     const g = await grid(space);
-    expect(g.income.rows[2]!.cells[1]).toEqual({
+    expect(g.income.rows[1]!.cells[1]).toEqual({
       amount: eur("2000"),
       own: true,
       version: 1,
@@ -578,19 +582,64 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     expect(g.income.totals[1]).toEqual(eur("5100"));
     expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5100"));
     expect((await call(space, "GET", "/v1/budget/periods/2027-01")).json().incomePlan).toEqual(eur("5600"));
-    // «План доходу» is no line in a month with regular incomes; a payment not expected in the month is none either.
-    for (const [period, lineId] of [
-      ["2026-12", null],
-      ["2027-02", olena],
-    ] as const) {
-      const refused = await put(space, { period, kind: "income", lineId, amount: eur("1"), version: 0 });
-      expect(refused.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
-    }
+    // A payment not expected in the month is no line there.
+    const refused = await put(space, {
+      period: "2027-02",
+      kind: "income",
+      lineId: olena,
+      amount: eur("1"),
+      version: 0,
+    });
+    expect(refused.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
+  });
+
+  it("BUD-17@PoC FR 1 (owner decision 2026-11-19, Q3): regular incomes under the typed «План доходу» — «Інші надходження» is the rest, the month's plan stays 5 600; over it — no negative row", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "4000", {});
+    const andrii = randomUUID();
+    charges.set(
+      space.householdId,
+      ["2026-12", "2027-01"].map((month) => ({
+        paymentId: andrii,
+        month,
+        expected: Money.of("3100", "EUR"),
+      })),
+    );
+    const typed = await put(space, {
+      period: "2026-12",
+      kind: "income",
+      lineId: null,
+      amount: eur("5600"),
+      version: 0,
+    });
+    expect(typed.statusCode, typed.body).toBe(200);
+    const g = await grid(space);
+    const dec = month(g, "2026-12");
+    expect(g.income.plan[dec]).toEqual({ amount: eur("5600"), own: true, version: 1 });
+    expect(g.income.other[dec]).toEqual(eur("2500"));
+    expect(g.income.totals[dec]).toEqual(eur("5600"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5600"));
+    // January: the regular incomes (3 100) are under the budget's 4 000 — «Інші надходження» 900.
+    expect(g.income.other[month(g, "2027-01")]).toEqual(eur("900"));
+    // Lead decision (Q3): regular incomes over the plan — no negative row; the sum is the regular incomes.
+    charges.set(
+      space.householdId,
+      ["2026-12", "2027-01"].map((month) => ({
+        paymentId: andrii,
+        month,
+        expected: Money.of("6000.50", "EUR"),
+      })),
+    );
+    const over = await grid(space);
+    expect(over.income.other[dec]).toBeNull();
+    expect(over.income.totals[dec]).toEqual(eur("6000.5"));
+    expect(over.income.plan[dec]!.amount).toEqual(eur("5600"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("6000.5"));
   });
 
   it("BUD-17@PoC EC2: an income no longer expected stops counting in the period plan — it agrees with the grid", async () => {
     const space = await newSpace();
-    await budgetWith(space, "4000", {});
+    await budgetWith(space, "500", {});
     const bonus = randomUUID();
     charges.set(space.householdId, [
       { paymentId: bonus, month: "2026-12", expected: Money.of("700", "EUR") },
@@ -602,12 +651,12 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("900"));
     charges.delete(space.householdId);
     const g = await grid(space);
-    expect(g.income.rows.map((r) => r.paymentId)).toEqual([null]);
-    expect(g.income.totals[1]).toEqual(eur("4000"));
-    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("4000"));
+    expect(g.income.rows.map((r) => r.paymentId)).toEqual([]);
+    expect(g.income.totals[1]).toEqual(eur("500"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("500"));
   });
 
-  it("BUD-17@PoC business rules: a change of the limit on «Бюджет» acts on the current and future months — their own cells go back to it", async () => {
+  it("BUD-17@PoC business rules (owner decision 2026-11-19, Q2): a change of the limit on «Бюджет» acts on the current and future months — a month's own value typed on «План» is kept", async () => {
     const space = await newSpace();
     const b = await budgetWith(space, "0", { Продукти: "700.00" });
     const groceries = await category(space, "Продукти");
@@ -628,13 +677,39 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     });
     expect(patch.statusCode, patch.body).toBe(200);
     const cells = row(await grid(space), groceries)!.cells;
-    expect(cells[1]).toEqual({ amount: eur("800"), own: false, version: 2 });
+    expect(cells[0]).toEqual({ amount: eur("800"), own: false, version: 0 });
+    expect(cells[1]).toEqual({ amount: eur("650"), own: true, version: 1 });
+    expect(cells[2]).toEqual({ amount: eur("800"), own: false, version: 0 });
+    expect(await limitOf(space, "2026-12", groceries)).toBe("650");
+    expect(await limitOf(space, "2027-01", groceries)).toBe("800");
     expect(
       await n(
         "audit.entries WHERE household_id = $1 AND entity_type = 'budget.plan-cell' AND action = 'delete'",
         space.householdId,
       ),
-    ).toBe(1);
+    ).toBe(0);
+  });
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-19, Q2): a change of the income plan on «Бюджет» keeps «План доходу» typed for a month on «План»", async () => {
+    const space = await newSpace();
+    const b = await budgetWith(space, "4000", {});
+    expect(
+      (await put(space, { period: "2026-12", kind: "income", lineId: null, amount: eur("5600"), version: 0 }))
+        .statusCode,
+    ).toBe(200);
+    const patch = await call(space, "PATCH", "/v1/budget/plan", {
+      version: b.version,
+      incomePlan: eur("4500.50"),
+    });
+    expect(patch.statusCode, patch.body).toBe(200);
+    const g = await grid(space);
+    expect(g.income.plan.slice(0, 3)).toEqual([
+      { amount: eur("4500.5"), own: false, version: 0 },
+      { amount: eur("5600"), own: true, version: 1 },
+      { amount: eur("4500.5"), own: false, version: 0 },
+    ]);
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5600"));
+    expect((await call(space, "GET", "/v1/budget/periods/2027-01")).json().incomePlan).toEqual(eur("4500.5"));
   });
 
   it("BUD-17@PoC EC1: a new category in the middle of the year is empty in every month", async () => {

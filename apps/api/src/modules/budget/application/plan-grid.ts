@@ -51,35 +51,34 @@ export async function readPlanGrid(
   const base = new Map<Period, PeriodPlan>(months.map((p) => [p, planOf(budget, p, live)]));
   const cells = stored.cells;
   const goals = deps.planSources ? await deps.planSources.goals(householdId, budget.currency) : null;
-  const debts = new Map<Period, PlanDebt[] | null>();
-  const incomes = new Map<Period, readonly PlanIncome[]>();
-  for (const p of months) {
-    if (p < budget.firstPeriod) {
-      debts.set(p, []);
-      continue;
-    }
-    incomes.set(p, deps.planSources ? await deps.planSources.incomes(householdId, p, budget.currency) : []);
-    const obligations = deps.obligations
-      ? await deps.obligations.month(householdId, p, budget.currency, countsFrom(budget, p))
-      : null;
-    const extra = deps.planSources
-      ? await deps.planSources.extraPayments(householdId, p, budget.currency)
-      : null;
-    if (!obligations || !extra) {
-      debts.set(p, null);
-      continue;
-    }
-    const rows = new Map<string, PlanDebt>();
-    for (const d of obligations.debtMinimums)
-      rows.set(d.accountId, { accountId: d.accountId, minimum: d.amount, extra: null });
-    for (const e of extra)
-      rows.set(e.accountId, {
-        accountId: e.accountId,
-        minimum: rows.get(e.accountId)?.minimum ?? null,
-        extra: e.amount,
-      });
-    debts.set(p, [...rows.values()]);
-  }
+  // #623 item 5: the months are read at once, not one call after another (up to 36 calls into other modules).
+  const read = await Promise.all(
+    months.map(async (p) => {
+      if (p < budget.firstPeriod) return { incomes: undefined, debts: [] as PlanDebt[] | null };
+      const [incomes, obligations, extra] = await Promise.all([
+        deps.planSources ? deps.planSources.incomes(householdId, p, budget.currency) : [],
+        deps.obligations
+          ? deps.obligations.month(householdId, p, budget.currency, countsFrom(budget, p))
+          : null,
+        deps.planSources ? deps.planSources.extraPayments(householdId, p, budget.currency) : null,
+      ]);
+      if (!obligations || !extra) return { incomes, debts: null };
+      const rows = new Map<string, PlanDebt>();
+      for (const d of obligations.debtMinimums)
+        rows.set(d.accountId, { accountId: d.accountId, minimum: d.amount, extra: null });
+      for (const e of extra)
+        rows.set(e.accountId, {
+          accountId: e.accountId,
+          minimum: rows.get(e.accountId)?.minimum ?? null,
+          extra: e.amount,
+        });
+      return { incomes, debts: [...rows.values()] };
+    }),
+  );
+  const debts = new Map<Period, PlanDebt[] | null>(months.map((p, i) => [p, read[i]!.debts]));
+  const incomes = new Map<Period, readonly PlanIncome[]>(
+    months.flatMap((p, i) => (read[i]!.incomes ? [[p, read[i]!.incomes!] as const] : [])),
+  );
   return planGrid({
     today,
     currency: budget.currency,
@@ -115,8 +114,8 @@ export type CellResult =
   | { readonly kind: "conflict"; readonly version: number };
 
 /**
- * Which line a cell may belong to (FR 1): an active expense category, a regular income expected in that month («План
- * доходу», no id, only in a month without any), an active goal, or none for «Заощадження без цілі».
+ * Which line a cell may belong to (FR 1): an active expense category, a regular income expected in that month, «План
+ * доходу» (no id; every month — owner decision 2026-11-19, Q3), an active goal, or none for «Заощадження без цілі».
  */
 function lineIssue(
   input: CellInput,
@@ -127,11 +126,7 @@ function lineIssue(
     case "limit":
       return input.lineId === null ? "required" : limitIssue(categories.get(input.lineId));
     case "income":
-      return (
-        input.lineId === null
-          ? lines.incomes.length === 0
-          : lines.incomes.some((i) => i.paymentId === input.lineId)
-      )
+      return input.lineId === null || lines.incomes.some((i) => i.paymentId === input.lineId)
         ? null
         : "not_found";
     case "goal":

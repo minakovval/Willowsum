@@ -76,11 +76,12 @@ export const synthetic = [
   }),
   defineSyntheticTable({
     table: "budget.plan_cells",
-    perHousehold: 3,
-    // BUD-17: a month's own values of «План» — a limit, a goal's contribution, «Заощадження без цілі» (the nil id);
-    // one row per month and line (the key is period, kind, line).
+    perHousehold: 4,
+    // BUD-17: a month's own values of «План» — a limit, a goal's contribution, «Заощадження без цілі» and «План доходу»
+    // (both the nil id; «План доходу» may be typed in any month, owner decision 2026-11-19, Q3); one row per month and
+    // line (the key is period, kind, line).
     *rows({ household, rng, count }) {
-      const kinds = ["limit", "goal", "savings"] as const;
+      const kinds = ["limit", "goal", "savings", "income"] as const;
       for (let i = 0; i < count; i++) {
         const kind = kinds[i % kinds.length]!;
         yield {
@@ -88,8 +89,9 @@ export const synthetic = [
           budget_id: budgetOf(household.id),
           period: `${2026 + Math.floor(i / 12)}-${String(1 + (i % 12)).padStart(2, "0")}-01`,
           kind,
-          line_id: kind === "savings" ? "00000000-0000-0000-0000-000000000000" : rng.uuid(),
-          amount: kind === "limit" ? "450" : "100",
+          line_id:
+            kind === "savings" || kind === "income" ? "00000000-0000-0000-0000-000000000000" : rng.uuid(),
+          amount: kind === "limit" ? "450" : kind === "income" ? "5600" : "100",
           currency: "EUR",
           version: "1",
         };
