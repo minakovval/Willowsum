@@ -27,13 +27,38 @@ function paid<T extends { kind: string }>(o: T): Extract<T, { kind: "paid" }> {
 }
 
 describe("BUD-19@PoC: one debt month by month", () => {
-  it("BUD-19@PoC FR 3: the month's interest is balance × rate ÷ 12 rounded to the cent half up", () => {
+  it("BUD-19@PoC FR 3: the month's interest is balance × rate ÷ 12 rounded to the cent half to even", () => {
     expect(monthlyInterest(eur("5000"), "24").toJSON()).toEqual({ amount: "100", currency: "EUR" });
-    // 1 000.25 × 1 % = 10.0025 → 10.00; 0.50 × 1 % = 0.005 → 0.01 (half up, not to even).
+    // 1 000.25 × 1 % = 10.0025 → 10.00 (below the half).
     expect(monthlyInterest(eur("1000.25"), "12").toDecimalString()).toBe("10");
-    expect(monthlyInterest(eur("0.5"), "12").toDecimalString()).toBe("0.01");
-    // A currency without minor units rounds to the whole unit.
+    // Exactly half a cent goes to the even cent (banker's rounding, owner decision 2026-11-16), never always up:
+    // 0.50 × 1 % = 0.005 → 0.00; 1.50 × 1 % = 0.015 → 0.02; 2.50 × 1 % = 0.025 → 0.02; 1 000.50 × 1 % = 10.005 → 10.00.
+    expect(monthlyInterest(eur("0.5"), "12").toDecimalString()).toBe("0");
+    expect(monthlyInterest(eur("1.5"), "12").toDecimalString()).toBe("0.02");
+    expect(monthlyInterest(eur("2.5"), "12").toDecimalString()).toBe("0.02");
+    expect(monthlyInterest(eur("1000.5"), "12").toDecimalString()).toBe("10");
+    // A currency without minor units rounds to the whole unit, half to even too: 150 → 1.5 → 2; 250 → 2.5 → 2.
     expect(monthlyInterest(Money.of("150", "JPY"), "12").toDecimalString()).toBe("2");
+    expect(monthlyInterest(Money.of("250", "JPY"), "12").toDecimalString()).toBe("2");
+  });
+
+  it("BUD-19@PoC FR 3: a half-cent month in the schedule rounds to even — 1 000,50 € at 12 % paid by 1 010,50 €", () => {
+    // Month 1: 10.005 € of interest → 10.00 €, so 1 010.50 € closes the debt in one month. Half up would make it
+    // 10.01 €, leave a cent and take a second month.
+    const r = paid(
+      simulate(visa({ balance: eur("1000.5"), annualRate: "12", monthlyPayment: eur("1010.5") })),
+    );
+    expect(r.months).toBe(1);
+    expect(r.totalInterest.toDecimalString()).toBe("10");
+    // The same half cent in «Стратегія».
+    const s = paid(
+      simulateStrategy(
+        [{ id: "loan", balance: eur("1000.5"), annualRate: "12", minimumPayment: eur("1010.5") }],
+        eur("1010.5"),
+        "avalanche",
+      ),
+    );
+    expect([s.months, s.totalInterest.toDecimalString()]).toEqual([1, "10"]);
   });
 
   it("BUD-19@PoC AC1: «Visa» 5 000 € at 24 % with 250 € / month — 26 months, interest 1 449,37 €", () => {
@@ -105,11 +130,11 @@ describe("BUD-19@PoC: «Стратегія»", () => {
     { id: "mastercard", balance: eur("1500"), annualRate: "18", minimumPayment: eur("40") },
   ];
 
-  it("BUD-19@PoC AC3: Avalanche — 24 months, 1 581,52 €; Snowball — 25 months, 1 728,58 €, Mastercard closed earlier; 147,06 €", () => {
+  it("BUD-19@PoC AC3: Avalanche — 24 months, 1 581,51 €; Snowball — 25 months, 1 728,57 €, Mastercard closed earlier; 147,06 €", () => {
     const avalanche = paid(simulateStrategy(debts, eur("340"), "avalanche"));
     const snowball = paid(simulateStrategy(debts, eur("340"), "snowball"));
-    expect([avalanche.months, avalanche.totalInterest.toDecimalString()]).toEqual([24, "1581.52"]);
-    expect([snowball.months, snowball.totalInterest.toDecimalString()]).toEqual([25, "1728.58"]);
+    expect([avalanche.months, avalanche.totalInterest.toDecimalString()]).toEqual([24, "1581.51"]);
+    expect([snowball.months, snowball.totalInterest.toDecimalString()]).toEqual([25, "1728.57"]);
     expect(snowball.closedIn.get("mastercard")!).toBeLessThan(avalanche.closedIn.get("mastercard")!);
     expect(snowball.totalInterest.minus(avalanche.totalInterest).toDecimalString()).toBe("147.06");
   });
