@@ -162,7 +162,8 @@ beforeAll(async () => {
             rates: officialDatedRates(createFxRates({ db: db.databases.for("fx-rates"), now: clock.now })),
             now: clock.now,
           }),
-          rates: createFxRates({ db: db.databases.for("fx-rates"), now: clock.now }),
+          rates: (requests) =>
+            createFxRates({ db: db.databases.for("fx-rates"), now: clock.now }).rates(requests),
           audit,
           clock,
           newId: randomUUID,
