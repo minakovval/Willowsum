@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { buildServer } from "../src/platform/process/server.ts";
 import { testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 const server = () =>
   buildServer({
@@ -52,7 +53,7 @@ describe("ARC-07 security: the /v1 guard, round 3", () => {
     await app.ready();
     for (const url of ["/v1/debug", "/%76%31/debug", "/v1/me/permissions", "/%76%31/me/permissions"]) {
       const res = await app.inject({ method: "GET", url });
-      expect(res.body, url).not.toContain("leak");
+      expect(leakText(res.body), url).not.toContain("leak");
     }
     expect((await app.inject({ method: "GET", url: "/%76%31/me/permissions" })).statusCode).toBe(401);
   });

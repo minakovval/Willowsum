@@ -19,6 +19,7 @@ import { createAccountDirectory, createAccountsServices } from "../src/modules/a
 import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
 import { createTransactionsErasure, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR 327 (BUD-13@PoC a): roles, isolation, bounds, gating, masking, RLS and erasure.
@@ -418,7 +419,7 @@ describe("sec327: no note or tag name in the audit log, the queue or an error bo
     expect((await call(space, "DELETE", `/v1/transaction-tags/${three.id}`)).statusCode).toBe(200);
     const bad = await attributes(space, a.id, { note: `${NOTE}‮` });
     expect(bad.statusCode).toBe(400);
-    expect(bad.body).not.toContain("НОТАТКА");
+    expect(leakText(bad.body)).not.toContain("НОТАТКА");
     await runWorker(space.householdId);
     const auditRows = await db.owner.query(
       `SELECT to_jsonb(e)::text AS r FROM audit.entries e WHERE e.household_id = $1`,

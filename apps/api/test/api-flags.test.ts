@@ -15,6 +15,7 @@ import {
 } from "../src/platform/http/api.ts";
 import { defineRoute, fastifyPath, isPublic, routeFlag, type ApiRoute } from "../src/platform/http/route.ts";
 import { fakeFlags, householdA, principalHeader, testApp, testAuthenticate, testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * CICD-06 and DAT-05 on the API pipeline: every protected route is behind its flag (off → the same 404 as a
@@ -253,7 +254,7 @@ describe("DAT-05 AC7: a server error reaches telemetry without amounts, account 
         errorClass: "AccountSyncFailure",
       },
     ]);
-    const everything = res.body + JSON.stringify(reports);
+    const everything = leakText(res.body) + JSON.stringify(reports);
     for (const secret of secrets) expect(everything).not.toContain(secret);
     expect(everything).not.toContain("@");
   });

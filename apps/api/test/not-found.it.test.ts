@@ -15,6 +15,7 @@ import { moduleRoleName } from "../src/platform/modules/rules.ts";
 import { createTestDatabase, urlAs } from "./db.ts";
 import { householdA, householdB, principalHeader, testAuthenticate } from "./http.ts";
 import { migrateRealModules } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * DAT-05 AC5 on a real PostgreSQL: a record of another space behaves as one that does not exist — by direct
@@ -141,7 +142,7 @@ describe("DAT-05 AC5: another space's record behaves as non-existent, without «
       status: 404,
       code: "NOT_FOUND",
     });
-    expect(other.body).not.toContain(thingOfB);
+    expect(leakText(other.body)).not.toContain(thingOfB);
   });
 
   it("in a search: the record is absent, and neither the list nor its count shows it", async () => {

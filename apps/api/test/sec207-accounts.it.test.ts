@@ -13,6 +13,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices } from "../src/modules/accounts/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Security review of PR #207 (FIN-01 a): scope of reads, the sealed number in the idempotency store, the owners'
@@ -113,8 +114,8 @@ describe("sec207: a scoped member never reads accounts (00-general «Політ�
         scoped: true,
       });
       expect(read.statusCode).toBe(404);
-      expect(read.body).not.toContain("Щоденний");
-      expect(read.body).not.toContain("1000");
+      expect(leakText(read.body)).not.toContain("Щоденний");
+      expect(leakText(read.body)).not.toContain("1000");
       const strip = (body: string) => ({ ...JSON.parse(body), supportId: undefined });
       expect(strip(read.body)).toEqual(strip(unknown.body));
     }

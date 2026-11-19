@@ -34,6 +34,7 @@ import {
   createTransferProposalSides,
 } from "../src/modules/transfer-matching/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -519,7 +520,7 @@ describe("BUD-08@PoC: access", () => {
       const off = await call(owner, "GET", "/v1/cashflow?type=month&period=2026-09");
       expect(off.statusCode).toBe(404);
       expect(off.json().code).toBe("NOT_FOUND");
-      expect(off.body).not.toContain("6000");
+      expect(leakText(off.body)).not.toContain("6000");
     } finally {
       flagsOff.delete("budget.cashflow");
     }
