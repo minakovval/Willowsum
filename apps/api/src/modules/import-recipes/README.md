@@ -1,6 +1,6 @@
 # Модуль import-recipes
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 a: рецепти простору, хвиля 2, рядок 40, частина 2)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (рецепт для розбору з запечатаним значенням прив'язки, рядок 41, частина 3; раніше: рецепти простору, рядок 40, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -37,6 +37,9 @@
 - `createImportRecipesServices({ keys, audit, clock, newId })` → `ImportRecipesServices` (src/api.ts, main.ts).
 - `createImportRecipesWorkerQueue(db, audit)` — черга воркера (`import-recipes.hand-off`, `HAND_OFF_JOB`).
 - `createImportRecipesHandOffRecovery(db, households)` — щоденне повернення мертвих завдань (до `queue.retention-cleanup`).
+- `createImportRecipesReader(db)` → `forParse(householdId, recipeId)` → `{ id, recipe, accountValueSealed }` або null
+  (рецепт чужого простору, невідомий чи не UUID): у транзакції простору під його політикою; значення прив'язки лишається
+  запечатаним — його відкриває лише воркер розбору відкривачем поля `ACCOUNT_VALUE_FIELD` (`importRecipes.accountValue`).
 - `createImportRecipesErasure(db)` → `eraseHousehold(householdId)` → `{ recipes, jobs }` — лише для `data-erasure`.
 - `RECIPES_PER_SPACE`.
 - `validateRecipe(input)` — рецепт як JSON-текст або значення → `{ ok: true, recipe }` або `{ ok: false, errors }`

@@ -128,22 +128,78 @@ export async function openField(
   sealed: string,
 ): Promise<string> {
   checkField(field);
-  if (!SEALED_RE.test(sealed)) throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  const bytes = sealedBytes(sealed);
+  return withDataKey(deps, householdId, (key) => decryptField(key, householdId, field, bytes));
+}
+
+function sealedBytes(sealed: string): Buffer {
+  if (typeof sealed !== "string" || !SEALED_RE.test(sealed)) throw new SpaceKeyError("SEALED_VALUE_INVALID");
   const bytes = Buffer.from(sealed.slice(SEAL_PREFIX.length), "base64url");
   if (bytes.length < IV_BYTES + TAG_BYTES) throw new SpaceKeyError("SEALED_VALUE_INVALID");
-  return withDataKey(deps, householdId, (key) => {
-    try {
-      const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, IV_BYTES));
-      decipher.setAAD(aad(householdId, field));
-      decipher.setAuthTag(bytes.subarray(IV_BYTES, IV_BYTES + TAG_BYTES));
-      return Buffer.concat([
-        decipher.update(bytes.subarray(IV_BYTES + TAG_BYTES)),
-        decipher.final(),
-      ]).toString("utf8");
-    } catch {
-      throw new SpaceKeyError("SEALED_VALUE_INVALID");
-    }
+  return bytes;
+}
+
+/** Any failure — a wrong key, space or field, a key of the wrong length, a changed byte — is `SEALED_VALUE_INVALID`. */
+function decryptField(key: Uint8Array, householdId: string, field: string, bytes: Buffer): string {
+  try {
+    const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, IV_BYTES));
+    decipher.setAAD(aad(householdId, field));
+    decipher.setAuthTag(bytes.subarray(IV_BYTES, IV_BYTES + TAG_BYTES));
+    return Buffer.concat([decipher.update(bytes.subarray(IV_BYTES + TAG_BYTES)), decipher.final()]).toString(
+      "utf8",
+    );
+  } catch {
+    throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  }
+}
+
+/**
+ * The opener of one sealed field of one space, for an isolated worker (ARC-06 FR 2; IMP-06 FR 1, wave 2 row 41 part 3):
+ * the space's data key in a fresh `ArrayBuffer` of its own, with the space and the field it opens. It is structured-clone
+ * data: the caller moves `key` into the worker (`transferList`), which detaches it in the calling thread, and wipes it
+ * (`wipeFieldOpener`) on any path where it was not moved. The value it opens exists only where it is used. Never log it.
+ */
+export interface FieldOpener {
+  readonly householdId: string;
+  readonly field: string;
+  readonly key: ArrayBuffer;
+}
+
+const DATA_KEY_BYTES = 32;
+
+export async function fieldOpener(
+  deps: SpaceKeysDeps,
+  householdId: string,
+  field: string,
+): Promise<FieldOpener> {
+  checkField(field);
+  return withDataKey(deps, householdId, (dataKey) => {
+    const key = new ArrayBuffer(dataKey.length);
+    new Uint8Array(key).set(dataKey);
+    return { householdId, field, key };
   });
+}
+
+/**
+ * The value sealed for the opener's space and field (in the worker): a sealed value of another space or field, a wrong
+ * or wiped key, or an opener that is not one is `SEALED_VALUE_INVALID` — the caller fails closed.
+ */
+export function openWithFieldOpener(opener: FieldOpener, sealed: string): string {
+  const { householdId, field, key } = (opener ?? {}) as Partial<FieldOpener>;
+  if (
+    typeof householdId !== "string" ||
+    typeof field !== "string" ||
+    !FIELD_RE.test(field) ||
+    !(key instanceof ArrayBuffer) ||
+    key.byteLength !== DATA_KEY_BYTES
+  )
+    throw new SpaceKeyError("SEALED_VALUE_INVALID");
+  return decryptField(new Uint8Array(key), householdId, field, sealedBytes(sealed));
+}
+
+/** Zeroes the opener's key where it is still held (a moved key is detached and has nothing left to wipe). */
+export function wipeFieldOpener(opener: FieldOpener): void {
+  if (opener?.key instanceof ArrayBuffer && opener.key.byteLength > 0) new Uint8Array(opener.key).fill(0);
 }
 
 /** The largest byte payload one call may seal: a stored file (ARC-06 FR 4) is at most 25 MiB. */

@@ -89,7 +89,7 @@
     },
     "file-parsers": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["household"]
     },
     "file-storage": {
       "layer": "subject",

@@ -4,8 +4,10 @@
 // never logs.
 import { parentPort, workerData } from "node:worker_threads";
 import { answerFromWorker } from "../../../../platform/process/isolated.ts";
+import { openWithFieldOpener, wipeFieldOpener } from "../../../household/index.ts";
 import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
 import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
+import type { SealedAccountBinding } from "./run.ts";
 
 /**
  * Characters of the parse as JSON: the reading and the analysis 2 MiB, the whole answer with the events 16 MiB (a 25 MiB file of
@@ -14,16 +16,34 @@ import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
 const ANALYSIS_CHARS = 2 * 1024 * 1024;
 const RESULT_CHARS = 16 * 1024 * 1024;
 
-const { bytes, options, statement } = workerData as {
+const { bytes, options, statement, binding } = workerData as {
   bytes: Uint8Array;
   options: ReadOptions;
   statement: StatementOptions;
+  binding?: SealedAccountBinding;
 };
+
+class AccountBindingError extends Error {}
+
+/**
+ * The recipe's account value, opened with the space's key before the file is read; the key is wiped right after, so
+ * it is gone before any byte of the untrusted file is parsed. Any failure is `ACCOUNT_BINDING` (fails closed).
+ */
+function openBinding(): { by: SealedAccountBinding["by"]; value: string } | undefined {
+  if (!binding) return undefined;
+  try {
+    return { by: binding.by, value: openWithFieldOpener(binding.opener, binding.sealedValue) };
+  } catch {
+    throw new AccountBindingError();
+  } finally {
+    wipeFieldOpener(binding.opener);
+  }
+}
 
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
   () => {
-    const parse = parseStatement(bytes, options, statement);
+    const parse = parseStatement(bytes, options, statement, openBinding());
     // The answer is copied into the API process: it stays bounded whatever the file holds.
     if (JSON.stringify({ reading: parse.reading, analysis: parse.analysis }).length > ANALYSIS_CHARS)
       throw new Error("result too large");
@@ -31,9 +51,11 @@ await answerFromWorker(
     return parse;
   },
   (error) =>
-    error instanceof FileTooLargeError
-      ? "FILE_TOO_LARGE"
-      : error instanceof TableLimitError
-        ? `TABLE_LIMIT:${error.ceiling}`
-        : "CORRUPTED",
+    error instanceof AccountBindingError
+      ? "ACCOUNT_BINDING"
+      : error instanceof FileTooLargeError
+        ? "FILE_TOO_LARGE"
+        : error instanceof TableLimitError
+          ? `TABLE_LIMIT:${error.ceiling}`
+          : "CORRUPTED",
 );

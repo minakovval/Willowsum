@@ -1,6 +1,12 @@
 import { runIsolated } from "../../../../platform/process/isolated.ts";
+import { wipeFieldOpener, type FieldOpener } from "../../../household/index.ts";
 import type { ReadOptions, StatementParse } from "../../application/index.ts";
-import type { StatementOptions, TableCeiling } from "../../domain/index.ts";
+import {
+  ACCOUNT_BINDINGS,
+  type AccountBindingKind,
+  type StatementOptions,
+  type TableCeiling,
+} from "../../domain/index.ts";
 
 /**
  * Parsing a statement in the isolated worker (IMP-06@PoC FR 8; ARC-06@PoC FR 4; #607 item 3): the file is read into
@@ -11,7 +17,20 @@ import type { StatementOptions, TableCeiling } from "../../domain/index.ts";
 export const PARSE_LIMITS = { memoryMb: 512, timeoutMs: 60_000 } as const;
 
 export type StatementParseRefusal =
-  "FILE_TOO_LARGE" | "TABLE_LIMIT" | "PARSE_MEMORY" | "PARSE_TIMEOUT" | "CORRUPTED";
+  "FILE_TOO_LARGE" | "TABLE_LIMIT" | "PARSE_MEMORY" | "PARSE_TIMEOUT" | "CORRUPTED" | "ACCOUNT_BINDING";
+
+/**
+ * The recipe's account binding, still sealed (IMP-06 FR 1; NFR-01 FR 6; wave 2 row 41 part 3): the worker opens
+ * `sealedValue` with `opener` (household's `SpaceKeys.fieldOpener` of the recipe's space and field) before it reads the
+ * file, and wipes the key. The opener's key is moved into the worker, so it is detached here once the parse starts,
+ * and wiped here when it never started. The plaintext is never in this thread. A value the opener cannot open (another
+ * space, another field, a wrong or used key) refuses the parse as `ACCOUNT_BINDING`: it fails closed.
+ */
+export interface SealedAccountBinding {
+  readonly by: AccountBindingKind;
+  readonly sealedValue: string;
+  readonly opener: FieldOpener;
+}
 
 export class StatementParseError extends Error {
   readonly code: StatementParseRefusal;
@@ -30,7 +49,12 @@ export interface StatementParser {
    * The parse of the file, or a `StatementParseError`. `statement` — the account the file is for and the recipe's
    * currency hints (IMP-02 FR 3, FR 9). The result holds the file's cells: never log or audit it (#624).
    */
-  parse(bytes: Uint8Array, options?: ReadOptions, statement?: StatementOptions): Promise<StatementParse>;
+  parse(
+    bytes: Uint8Array,
+    options?: ReadOptions,
+    statement?: StatementOptions,
+    binding?: SealedAccountBinding,
+  ): Promise<StatementParse>;
 }
 
 export interface StatementParserOptions {
@@ -55,19 +79,46 @@ export function isolatedStatementParser(options: StatementParserOptions = {}): S
   };
   const url = options.workerUrl ?? WORKER_URL;
   return {
-    async parse(bytes, readOptions = {}, statement = {}) {
+    async parse(bytes, readOptions = {}, statement = {}, binding) {
+      let moved: ArrayBuffer[] = [];
+      let sealed: { by: AccountBindingKind; sealedValue: string; opener: FieldOpener } | undefined;
+      if (binding) {
+        const { by, sealedValue, opener } = binding;
+        // A used (detached) or foreign key, or a binding of another kind, is refused before any worker starts.
+        if (
+          !(opener?.key instanceof ArrayBuffer) ||
+          opener.key.byteLength === 0 ||
+          !(ACCOUNT_BINDINGS as readonly string[]).includes(by) ||
+          typeof sealedValue !== "string"
+        ) {
+          if (opener) wipeFieldOpener(opener);
+          throw new StatementParseError("ACCOUNT_BINDING");
+        }
+        sealed = {
+          by,
+          sealedValue,
+          opener: { householdId: opener.householdId, field: opener.field, key: opener.key },
+        };
+        moved = [opener.key];
+      }
       const copy = new Uint8Array(bytes);
-      const outcome = await runIsolated<StatementParse>(
-        url,
-        { bytes: copy, options: readOptions, statement },
-        [copy.buffer],
-        limits,
-      );
+      let outcome;
+      try {
+        outcome = await runIsolated<StatementParse>(
+          url,
+          { bytes: copy, options: readOptions, statement, binding: sealed },
+          [copy.buffer, ...moved],
+          limits,
+        );
+      } finally {
+        if (binding) wipeFieldOpener(binding.opener);
+      }
       if (outcome.ok) return outcome.value;
       if (outcome.failure === "memory") throw new StatementParseError("PARSE_MEMORY");
       if (outcome.failure === "timeout") throw new StatementParseError("PARSE_TIMEOUT");
       if (outcome.failure === "refused") {
         if (outcome.code === "FILE_TOO_LARGE") throw new StatementParseError("FILE_TOO_LARGE");
+        if (outcome.code === "ACCOUNT_BINDING") throw new StatementParseError("ACCOUNT_BINDING");
         const [code, ceiling] = outcome.code.split(":");
         if (code === "TABLE_LIMIT" && ceiling && CEILINGS.has(ceiling))
           throw new StatementParseError("TABLE_LIMIT", ceiling as TableCeiling);

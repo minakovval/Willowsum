@@ -12,7 +12,12 @@ export const fileParsersModule = defineModule({
 });
 
 export { isolatedStatementParser, PARSE_LIMITS, StatementParseError } from "./adapters/index.ts";
-export type { StatementParser, StatementParserOptions, StatementParseRefusal } from "./adapters/index.ts";
+export type {
+  SealedAccountBinding,
+  StatementParser,
+  StatementParserOptions,
+  StatementParseRefusal,
+} from "./adapters/index.ts";
 export { fingerprintOf, READ_LIMITS } from "./application/index.ts";
 export type { FileReading, ReadOptions, StatementParse } from "./application/index.ts";
 export {
@@ -28,8 +33,10 @@ export {
   TABLE_LIMITS,
   TableLimitError,
 } from "./domain/index.ts";
-export { EVENT_LIMITS } from "./domain/index.ts";
+export { ACCOUNT_BINDINGS, EVENT_LIMITS } from "./domain/index.ts";
 export type {
+  AccountBindingKind,
+  AccountMatch,
   CurrencyRecognition,
   EventFlag,
   EventLeg,
