@@ -100,6 +100,10 @@ describe("BUD-03@PoC: expected income", () => {
     expect(not.amount).toEqual(eur("1300"));
   });
 
+  it("BUD-03@PoC FR 3 boundary: the income that came equals the plan — no «очікується»", () => {
+    expect(spendable(AC1).income.pending).toBe(false);
+  });
+
   it("BUD-03@PoC EC1: the income has not come yet — the calculation goes by the plan with «очікується»", () => {
     const s = spendable({ ...AC1, incomeActual: eur("2000") });
     expect(s.income.value).toEqual(eur("6000"));
@@ -125,6 +129,17 @@ describe("BUD-03@PoC: the daily limit", () => {
     expect(s.amount).toEqual(eur("100"));
     expect(s.daysLeft).toBe(3);
     expect(s.daily.toDecimalString()).toBe("33.33");
+  });
+
+  it("BUD-03@PoC FR 4: a currency without cents — 100 ¥ over 3 days is 33 ¥, never 33,33 ¥", () => {
+    const jpy = (a: string) => Money.of(a, "JPY");
+    const none = { incomeExpected: jpy("0"), outsidePlan: jpy("0"), goalContributions: jpy("0") };
+    const s = spendable({
+      ...{ ...AC1, ...none, plannedExpenses: jpy("0"), plannedSavings: jpy("0") },
+      ...{ today: "2026-11-28", incomePlan: jpy("100"), incomeActual: jpy("100") },
+      obligations: { recurring: [], debtMinimums: [] },
+    });
+    expect(s.daily.toDecimalString()).toBe("33");
   });
 
   it("BUD-03@PoC AC6: the last day of the period, 90 € left — the daily limit is 90 €", () => {

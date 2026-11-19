@@ -388,6 +388,18 @@ describe("#567: «Категорії» and «Очікувані платежі»
     });
   });
 
+  it("BUD-03@PoC FR 5: only a payment to the loan in the month pays it — not one of the month before, not a charge on the loan (a negative amount); the 1st counts", async () => {
+    const space = await newSpace();
+    const credit = await loan(space, eur("250"));
+    await transaction(space, credit, "250.00", "2026-10-31");
+    await transaction(space, credit, "-50.00", "2026-11-10");
+    const paid = async () =>
+      (await obligations.month(space.householdId, "2026-11", "EUR"))!.debtMinimums.map((d) => d.paid);
+    expect(await paid()).toEqual([false]);
+    await transaction(space, credit, "0.01", "2026-11-01");
+    expect(await paid()).toEqual([true]);
+  });
+
   it("BUD-02@PoC AC9: the totals row with the live port — «Ще потрібно на обов'язкові» and «Вільний залишок» match the categories", async () => {
     const space = await newSpace();
     const rent = await category(space, "Продукти"); // mandatory by default

@@ -92,6 +92,11 @@ describe("BUD-03@PoC FR 5: the month's charges of a regular payment", () => {
     });
   });
 
+  it("BUD-03@PoC FR 5: a payment added after this month's date has no charge of that date — nothing unpaid for a day before it was added", () => {
+    const { p, t } = payment({ frequency: "month", anchorDate: "2026-11-10", createdOn: "2026-11-12" });
+    expect(chargesInMonth(p, t, "2026-11", TODAY)).toEqual([]);
+  });
+
   it("BUD-03@PoC FR 5 boundary: the schedule's dates between two days, both included, before the anchor too", () => {
     expect(scheduleBetween("2026-11-16", "two-weeks", "2026-11-01", "2026-11-30")).toEqual([
       "2026-11-02",

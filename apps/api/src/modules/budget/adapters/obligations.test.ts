@@ -154,6 +154,18 @@ describe("#567: the adapter of BudgetObligations", () => {
     expect(edge!.recurring[0]!.amount.toDecimalString()).toBe("999999999999999.99");
   });
 
+  it("#567 boundaries: 16 integer digits is over the cap; a charge on the first day of a proportional period counts; a loan keeps its own amount after the charges", async () => {
+    const over = adapter({ charges: [charge("2026-11-20", eur("1000000000000000"))] });
+    expect(await over.port.month("h", "2026-11", "EUR")).toBeNull();
+    const { port } = adapter({
+      charges: [charge("2026-11-18", eur("7"))],
+      loans: [{ accountId: "a", payment: eur("250") }],
+    });
+    const o = await port.month("h", "2026-11", "EUR", "2026-11-18");
+    expect(o!.recurring.map((r) => r.amount.toDecimalString())).toEqual(["7"]);
+    expect(o!.debtMinimums.map((d) => d.amount.toDecimalString())).toEqual(["250"]);
+  });
+
   it("BUD-03@PoC EC4: an amount with no rate at all gives no answer — no figure beats a wrong one", async () => {
     const { port } = adapter({ charges: [charge("2026-11-20", Money.of("10", "USD"))], noRate: true });
     expect(await port.month("h", "2026-11", "EUR")).toBeNull();
