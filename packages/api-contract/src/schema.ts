@@ -5777,7 +5777,7 @@ export interface operations {
                 base?: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
                 /** @description «Повний попередній період»: the base whole, not cut at the same date */
                 full?: "true" | "false";
-                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default) */
+                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date */
                 period?: string;
                 type: "month" | "quarter" | "ytd" | "year";
             };

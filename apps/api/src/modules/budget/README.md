@@ -102,7 +102,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     категорії», null — майбутній; `income`), `approximate` за всі місяці. Знімки завершених місяців — як у періоду.
   - `GET /v1/budget/compare` (`getBudgetCompare`; прапорець випуску і ключ функції `budget.compare`, вимагає
     `budget.period`) — `type` (`month`, `quarter`, `ytd`, `year`), `period` (YYYY-MM, YYYY-Qn, YYYY; `ytd` —
-    лише цей рік; рік від 1900), `base` (`previous`, `last-year`, `avg3`, `avg6`, `avg12`;
+    типово цей рік, з 1 січня до сьогодні; минулий рік — до тієї самої дати, рішення власника 2026-11-19; рік від 1900), `base` (`previous`, `last-year`, `avg3`, `avg6`, `avg12`;
     типово `previous`, для `year` і `ytd` — `last-year`; інакше 400 `base: not_for_type`),
     `full` (база повністю). 400 `period`: `invalid`, `future`. Без бюджету — 404. →
     `currency`, `type`, `window` (до сьогодні, поки період триває), `inProgress`, `finished`, `year` (для «Рік: план і

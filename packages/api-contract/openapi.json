@@ -10053,7 +10053,7 @@
             "name": "period",
             "in": "query",
             "required": false,
-            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
+            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date",
             "schema": {
               "type": "string",
               "maxLength": 7

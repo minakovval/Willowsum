@@ -694,6 +694,55 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     expect(year.statusCode, year.body).toBe(200);
   });
 
+  it("BUD-06@PoC FR 4 (#609 item 1): «Сер. за 3 міс.» counts only its own months in approximate", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const acc = await account(space);
+    for (const m of ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"])
+      await spend(space, acc, "-1.00", `2026-${m}-02`, "Продукти");
+    await spend(space, acc, "-" + "9".repeat(18), "2026-03-03", "Продукти");
+    await spend(space, acc, "-5.00", "2026-11-05", "Продукти");
+    const v = await compare(space, "type=month&period=2026-11&base=avg3");
+    expect(v.base).toMatchObject({ months: 3, window: { from: "2026-08-01", to: "2026-10-31" } });
+    expect(v.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
+    // «Сер. за 6 міс.» does not reach March either; «Сер. за 12 міс.» does.
+    const six = await compare(space, "type=month&period=2026-11&base=avg6");
+    expect(six.base).toMatchObject({ months: 6, window: { from: "2026-05-01", to: "2026-10-31" } });
+    expect(six.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
+    const twelve = await compare(space, "type=month&period=2026-11&base=avg12");
+    expect(twelve.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 1 });
+  });
+
+  it("BUD-06@PoC AC10 (server part): a past year's «З початку року» — 1 January to the same date of that year, against the year before on that date", async () => {
+    now = at("2026-11-19");
+    const space = await newSpace();
+    await createBudget(space, { firstPeriod: "2026-11" });
+    const acc = await account(space);
+    await spend(space, acc, "-10.00", "2024-03-03", "Продукти");
+    await spend(space, acc, "-99.00", "2024-11-20", "Продукти");
+    await spend(space, acc, "-30.00", "2025-11-19", "Продукти");
+    await spend(space, acc, "-77.00", "2025-11-20", "Продукти");
+    const view = await compare(space, "type=ytd&period=2025");
+    expect(view).toMatchObject({
+      type: "ytd",
+      window: { from: "2025-01-01", to: "2025-11-19" },
+      inProgress: false,
+      year: "2025",
+      base: { base: "last-year", available: true, window: { from: "2024-01-01", to: "2024-11-19" } },
+    });
+    expect(rowOf(view.expenses.categories, await category(space, "Продукти"))).toMatchObject({
+      current: eur("30"),
+      base: eur("10"),
+    });
+    // 2023 has no data before it: its base is unavailable, the period itself is served.
+    const older = await compare(space, "type=ytd&period=2024");
+    expect(older.window).toEqual({ from: "2024-01-01", to: "2024-11-19" });
+    expect(older.base).toMatchObject({ available: false, window: null });
+    const res = await call(space, "GET", "/v1/budget/compare?type=ytd&period=2027");
+    expect(res.statusCode).toBe(400);
+    expect(res.json().errors).toEqual([expect.objectContaining({ path: "period", issue: "future" })]);
+  });
+
   it("BUD-06@PoC FR 1: the period, the base and the dates are checked — 400 with the field and the issue", async () => {
     const space = await newSpace();
     await createBudget(space);

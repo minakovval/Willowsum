@@ -110,8 +110,6 @@ export function compareSelection(
     case "ytd": {
       const year = input.period ?? today.slice(0, 4);
       if (!isCompareYear(year)) return { field: "period", issue: "invalid" };
-      // AC10: «З початку року» is this year's, January to today (the year cut at today).
-      if (input.type === "ytd" && year !== today.slice(0, 4)) return { field: "period", issue: "invalid" };
       period = { from: `${year}-01-01`, to: `${year}-12-31` };
       length = 12;
       break;
@@ -119,7 +117,11 @@ export function compareSelection(
   }
   if (period.from > today) return { field: "period", issue: "future" };
   const inProgress = period.to > today;
-  const window = { from: period.from, to: period.to > today ? today : period.to };
+  // AC10: «З початку року» — January to today; a past year's (owner 2026-11-19, #609; CMP-72 «‹») — January to the
+  // same date of that year, 29 February to the 28th of a common year (FR 3).
+  const end =
+    input.type === "ytd" ? shiftDate(today, (+period.from.slice(0, 4) - +today.slice(0, 4)) * 12) : today;
+  const window = { from: period.from, to: period.to > end ? end : period.to };
   return {
     type: input.type,
     window,

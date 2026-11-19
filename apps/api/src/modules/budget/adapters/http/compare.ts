@@ -224,7 +224,8 @@ export const getCompareRoute = defineRoute({
     query: z.object({
       type: z.enum(COMPARE_TYPES),
       period: z.string().max(7).optional().meta({
-        description: "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
+        description:
+          "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date",
       }),
       base: z.enum(COMPARE_BASES).optional().meta({
         description:
@@ -266,7 +267,9 @@ export const getCompareRoute = defineRoute({
     let baseRead: Awaited<ReturnType<typeof read>> | null = null;
     if (base.available && base.included !== null && averages) {
       const months = new Set(base.included);
-      baseRead = { ...averages, amounts: averages.amounts.filter((a) => months.has(a.period)) };
+      // The counts of approximate amounts are the read's: reuse the widest read only for its own dates.
+      const source = base.window!.from === widest!.from ? averages : await read(base.window!);
+      baseRead = { ...source, amounts: source.amounts.filter((a) => months.has(a.period)) };
     } else if (base.available && base.window) baseRead = await read(base.window);
     // «План» — BUD-16's rule: the sum of the month's limits, a finished month — its snapshot's.
     const plans = await ctx.inHousehold((q) =>
