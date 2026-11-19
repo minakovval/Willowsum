@@ -14,9 +14,11 @@ import {
   isYes,
   parseBackupArgs,
   parseRestoreArgs,
-  recreateSql,
   restoreArgs,
   rolesFile,
+  STAGING_DATABASE,
+  stagingSql,
+  swapSql,
   toolCommand,
 } from '../lib/backup.mjs';
 
@@ -29,8 +31,6 @@ test('CICD-04 local: backup and restore work on the database of `pnpm local:dev`
   const src = fs.readFileSync(new URL('../../../apps/api/scripts/lib/local-dev.ts', import.meta.url), 'utf8');
   assert.equal(/DEV_DATABASE = "([a-z_]+)"/.exec(src)?.[1], DEV_DATABASE);
   assert.doesNotMatch(DEV_DATABASE, /^ws_t_/, 'never a test database');
-  assert.equal(recreateSql(), `DROP DATABASE IF EXISTS ws_dev;\nCREATE DATABASE ws_dev;\n`);
-  assert.doesNotMatch(recreateSql(), /FORCE/, 'a running `pnpm local:dev` makes the restore stop instead of being cut off');
 });
 
 test('CICD-04 local: the default backup file is outside the repository, named by the UTC time', () => {
@@ -46,6 +46,7 @@ test('CICD-04 local: backup takes one optional file, restore one file and --yes;
   assert.ok(parseBackupArgs(['a', 'b']).error);
   assert.deepEqual(parseRestoreArgs(['a.dump']), { file: 'a.dump', yes: false });
   assert.deepEqual(parseRestoreArgs(['a.dump', '--yes']), { file: 'a.dump', yes: true });
+  assert.deepEqual(parseRestoreArgs(['-y', 'a.dump']), { file: 'a.dump', yes: true }, '-y is the short form of --yes');
   assert.ok(parseRestoreArgs([]).error, 'the file is required');
   assert.match(parseRestoreArgs(['a.dump', '--force']).error, /unknown option/);
 });
@@ -130,7 +131,7 @@ test('CICD-04 local: restore without --yes and without a terminal stops before t
   assert.doesNotMatch(s.calls(), /DROP DATABASE/);
   const yes = stubs();
   assert.equal(run(['restore', file, '--yes'], yes.env).status, 0, 'the stubs reach the drop with --yes');
-  assert.match(yes.calls(), /DROP DATABASE IF EXISTS ws_dev;[\s\S]*pg_restore .*ws_dev/);
+  assert.match(yes.calls(), /CREATE DATABASE ws_dev_restore;[\s\S]*pg_restore .*ws_dev_restore[\s\S]*DROP DATABASE IF EXISTS ws_dev;/);
 });
 
 test('CICD-04 local: restore of a file that is not a backup stops before the database is dropped', () => {
@@ -167,4 +168,60 @@ test('CICD-04 local: a failed dump or restore never looks like a success; no pas
   const broken = run(['restore', bad, '--yes'], failing('pg_restore', 'case "$*" in *--list*) ;; *) exit 3 ;; esac').env);
   assert.equal(broken.status, 1);
   assert.doesNotMatch(broken.stdout, /Restored/);
+});
+
+// Fix round 1 (PR #520): B1 and B2 tests from the security review, then the roles replay and the roles file.
+test('CICD-04 local: a restore goes into a staging database; ws_dev is replaced only after pg_restore succeeded', () => {
+  assert.equal(STAGING_DATABASE, 'ws_dev_restore');
+  assert.equal(stagingSql(), 'DROP DATABASE IF EXISTS ws_dev_restore;\nCREATE DATABASE ws_dev_restore;\n');
+  assert.equal(swapSql(), 'DROP DATABASE IF EXISTS ws_dev;\nALTER DATABASE ws_dev_restore RENAME TO ws_dev;\n');
+  assert.doesNotMatch(swapSql(), /FORCE/, 'a running `pnpm local:dev` makes the restore stop instead of being cut off');
+  const file = tmpFile();
+  fs.writeFileSync(file, 'PGDMP');
+  const s = stubs();
+  fs.writeFileSync(path.join(s.env.PATH.split(':')[0], 'pg_restore'), '#!/bin/sh\necho "pg_restore $*" >> "$(dirname "$0")/calls.log"\ncase "$*" in *--list*) ;; *) exit 3 ;; esac\n');
+  const res = run(['restore', file, '--yes'], s.env);
+  assert.equal(res.status, 1);
+  assert.match(res.stderr, /ws_dev is unchanged/);
+  assert.match(s.calls(), /^pg_restore --dbname=\S+\/ws_dev_restore /m, 'the restore never writes into ws_dev');
+  assert.doesNotMatch(s.calls(), /DROP DATABASE IF EXISTS ws_dev;/, 'ws_dev is not dropped when the restore failed');
+  assert.match(s.calls(), /DROP DATABASE IF EXISTS ws_dev_restore;\n$/, 'the staging database is dropped afterwards');
+});
+
+test('CICD-04 local: a `dbname` parameter in WS_TEST_PG_ADMIN_URL cannot send a tool to another database', () => {
+  const [, args] = toolCommand({ kind: 'url', url: 'postgres://postgres@127.0.0.1:5432/postgres?dbname=ws_t_other&sslmode=disable' }, 'pg_restore', 'ws_dev', []);
+  assert.deepEqual(args, ['--dbname=postgres://postgres@127.0.0.1:5432/ws_dev?sslmode=disable']);
+});
+
+test('CICD-04 local: roles that could not be replayed are reported; a failed replay stops with ws_dev unchanged', () => {
+  const file = tmpFile();
+  fs.writeFileSync(file, 'PGDMP');
+  fs.writeFileSync(rolesFile(file), 'CREATE ROLE postgres;\nALTER ROLE r WITH LOGIN;\n');
+  const replay = (status) => {
+    const s = stubs();
+    const psql = `#!/bin/sh\necho "psql $*" >> "$(dirname "$0")/calls.log"\nin=$(cat); echo "$in" >> "$(dirname "$0")/calls.log"\ncase "$in" in *"CREATE ROLE"*) echo 'ERROR:  role "postgres" already exists' >&2; echo 'ERROR:  role "r" does not exist' >&2; exit ${status} ;; esac\necho 1\n`;
+    fs.writeFileSync(path.join(s.env.PATH.split(':')[0], 'psql'), psql);
+    return { s, res: run(['restore', file, '--yes'], s.env) };
+  };
+  const warned = replay(0);
+  assert.equal(warned.res.status, 0, warned.res.stderr);
+  assert.match(warned.res.stderr, /not applied[\s\S]*role "r" does not exist/);
+  assert.doesNotMatch(warned.res.stderr, /already exists/, '«already exists» is expected and not reported');
+  const failed = replay(2);
+  assert.equal(failed.res.status, 1);
+  assert.match(failed.res.stderr, /roles[\s\S]*ws_dev is unchanged/);
+  assert.doesNotMatch(failed.s.calls(), /pg_restore --dbname=\S+\/ws_dev_restore /, 'no restore after a failed replay');
+  assert.doesNotMatch(failed.s.calls(), /DROP DATABASE IF EXISTS ws_dev;/);
+  assert.match(failed.s.calls(), /DROP DATABASE IF EXISTS ws_dev_restore;\n$/);
+});
+
+test('CICD-04 local: backup never writes the roles file through a link left at its path', () => {
+  const out = tmpFile();
+  const target = path.join(path.dirname(out), 'elsewhere.sql');
+  fs.symlinkSync(target, rolesFile(out));
+  const res = run(['backup', out], stubs().env);
+  assert.equal(res.status, 1);
+  assert.equal(fs.existsSync(target), false, 'the link target is not created');
+  assert.equal(fs.existsSync(out), false, 'no backup without its roles file');
+  assert.deepEqual(fs.readdirSync(path.dirname(out)), ['a.dump.roles.sql'], 'no temporary file is left');
 });

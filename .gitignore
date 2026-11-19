@@ -11,6 +11,9 @@ coverage/
 
 # Local environment credentials and state (tools/local-env, CICD-04/CICD-12)
 infra/local/.state/
+# Database copies of `pnpm local:backup <file>` (CICD-04): unencrypted, never committed
+*.dump
+*.dump.roles.sql
 
 # OpenTofu (infra/, CICD-07): providers, local state, plans and filled-in backend configs
 **/.terraform/

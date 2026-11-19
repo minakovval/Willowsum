@@ -10,7 +10,7 @@
 //                      scheduler and web dev server on the persistent database ws_dev (apps/api/scripts/local-dev.ts);
 //                      `--fresh` starts with an empty database. With WS_TEST_PG_ADMIN_URL: that server, no Docker
 //   pnpm local:backup [file]            a copy of the pnpm local:dev database ws_dev in a file (lib/backup.mjs)
-//   pnpm local:restore <file> [--yes]   replace ws_dev with the copy; asks first unless --yes
+//   pnpm local:restore <file> [--yes|-y]  replace ws_dev with the copy; asks first unless --yes (or -y)
 //   pnpm db:test       a throwaway test database for this agent; prints DATABASE_URL with the password hidden and
 //                      writes the full URL to infra/local/.state/db-test/<name>.env (0600, git-ignored; lib/db-test.mjs)
 //                      `pnpm db:test drop <name>`, `pnpm db:test list`,
@@ -32,10 +32,14 @@ import {
   isYes,
   parseBackupArgs,
   parseRestoreArgs,
-  recreateSql,
+  dropStagingSql,
   restoreArgs,
+  roleErrors,
   rolesDumpArgs,
   rolesFile,
+  STAGING_DATABASE,
+  stagingSql,
+  swapSql,
   toolCommand,
 } from './lib/backup.mjs';
 import readline from 'node:readline/promises';
@@ -292,7 +296,13 @@ async function backup() {
     fs.rmSync(tmp, { force: true });
     fail(`pg_dumpall failed: ${stderrOf(roles)}`);
   }
-  fs.writeFileSync(rolesFile(file), roles.stdout, { mode: 0o600 });
+  try {
+    // `wx`: never through a file or link that appeared at this path after the check above.
+    fs.writeFileSync(rolesFile(file), roles.stdout, { mode: 0o600, flag: 'wx' });
+  } catch (err) {
+    fs.rmSync(tmp, { force: true });
+    fail(`Could not write ${rolesFile(file)}: ${err.message}`);
+  }
   fs.renameSync(tmp, file);
   console.log(fileMessage('Saved', file, fs.statSync(file).size));
   console.log(fileMessage('Roles (no passwords)', rolesFile(file), fs.statSync(rolesFile(file)).size));
@@ -319,16 +329,33 @@ async function restore() {
     rl.close();
     if (!isYes(answer)) fail('Cancelled; the database is unchanged.');
   }
-  const drop = runTool(server, 'psql', 'postgres', ['-X', '-q', '-v', 'ON_ERROR_STOP=1'], { input: recreateSql() });
-  if (drop.status !== 0) fail(`Could not recreate ${DEV_DATABASE} (is \`pnpm local:dev\` still running? stop it): ${stderrOf(drop)}`);
-  // Module roles belong to the cluster: after a deleted volume they are gone. Errors «already exists» are fine.
+  const sql = (input, args = ['-X', '-q', '-v', 'ON_ERROR_STOP=1']) => runTool(server, 'psql', 'postgres', args, { input });
+  const staging = sql(stagingSql());
+  if (staging.status !== 0) fail(`Could not create ${STAGING_DATABASE}: ${stderrOf(staging)}\nThe database ${DEV_DATABASE} is unchanged.`);
+  // Module roles belong to the cluster: after a deleted volume they are gone. Errors «already exists» are fine;
+  // any other error is printed, and a psql that could not run at all stops the restore.
   if (fs.existsSync(rolesFile(file))) {
-    runTool(server, 'psql', 'postgres', ['-X', '-q'], { input: fs.readFileSync(rolesFile(file), 'utf8') });
+    const roles = sql(fs.readFileSync(rolesFile(file), 'utf8'), ['-X', '-q']);
+    if (roles.status !== 0) {
+      sql(dropStagingSql());
+      fail(`Could not replay the roles from ${rolesFile(file)}: ${stderrOf(roles)}\nThe database ${DEV_DATABASE} is unchanged.`);
+    }
+    const errors = roleErrors(stderrOf(roles));
+    if (errors.length) console.error(`local-env: warning: some roles from ${rolesFile(file)} were not applied:\n${errors.join('\n')}`);
   }
   fd = open();
-  const res = runTool(server, 'pg_restore', DEV_DATABASE, restoreArgs(), { stdin: fd });
+  const res = runTool(server, 'pg_restore', STAGING_DATABASE, restoreArgs(), { stdin: fd });
   fs.closeSync(fd);
-  if (res.status !== 0) fail(`pg_restore failed: ${stderrOf(res)}\nThe database ${DEV_DATABASE} is incomplete; run the restore again.`);
+  if (res.status !== 0) {
+    sql(dropStagingSql());
+    fail(`pg_restore failed: ${stderrOf(res)}\nThe database ${DEV_DATABASE} is unchanged.`);
+  }
+  const swap = sql(swapSql());
+  if (swap.status !== 0) {
+    const kept = hasDevDatabase(server);
+    if (kept) sql(dropStagingSql());
+    fail(`Could not replace ${DEV_DATABASE} (is \`pnpm local:dev\` still running? stop it): ${stderrOf(swap)}\n${kept ? `The database ${DEV_DATABASE} is unchanged.` : `The restored copy is in ${STAGING_DATABASE}; run the restore again.`}`);
+  }
   console.log(`Restored ${DEV_DATABASE} from ${file}. Start the app: pnpm local:dev`);
 }
 

@@ -1,4 +1,4 @@
-// `pnpm local:backup [file]` and `pnpm local:restore <file> [--yes]` (CICD-04@PoC, local mode; plan row 173): a copy of
+// `pnpm local:backup [file]` and `pnpm local:restore <file> [--yes|-y]` (CICD-04@PoC, local mode; plan row 173): a copy of
 // the owner's `pnpm local:dev` database `ws_dev` in a file, and back. It protects manual work from an accidental
 // deletion of the PostgreSQL volume (`pnpm local:reset`, `docker volume rm`).
 //
@@ -29,13 +29,13 @@ export function parseBackupArgs(args) {
   return { file: rest[0] };
 }
 
-/** `<file> [--yes]` for restore. */
+/** `<file> [--yes]` for restore; `-y` is the short form of `--yes`. */
 export function parseRestoreArgs(args) {
   const rest = args.filter((a) => a !== '--');
   const unknown = rest.find((a) => a.startsWith('-') && a !== '--yes' && a !== '-y');
-  if (unknown) return { error: `unknown option ${unknown}; usage: pnpm local:restore <file> [--yes]` };
+  if (unknown) return { error: `unknown option ${unknown}; usage: pnpm local:restore <file> [--yes|-y]` };
   const files = rest.filter((a) => !a.startsWith('-'));
-  if (files.length !== 1) return { error: 'usage: pnpm local:restore <file> [--yes]' };
+  if (files.length !== 1) return { error: 'usage: pnpm local:restore <file> [--yes|-y]' };
   return { file: files[0], yes: rest.includes('--yes') || rest.includes('-y') };
 }
 
@@ -59,8 +59,21 @@ export const confirmQuestion = (file) =>
 
 export const isYes = (answer) => /^\s*yes\s*$/i.test(String(answer));
 
-/** The SQL that recreates the database; plain DROP (no FORCE): it fails while `pnpm local:dev` is still connected. */
-export const recreateSql = () => `DROP DATABASE IF EXISTS ${DEV_DATABASE};\nCREATE DATABASE ${DEV_DATABASE};\n`;
+/** The restore goes into this database first; `ws_dev` is replaced only after pg_restore succeeded. */
+export const STAGING_DATABASE = `${DEV_DATABASE}_restore`;
+
+export const stagingSql = () => `DROP DATABASE IF EXISTS ${STAGING_DATABASE};\nCREATE DATABASE ${STAGING_DATABASE};\n`;
+
+/** Plain DROP (no FORCE): it fails while `pnpm local:dev` is still connected, and then `ws_dev` is unchanged. */
+export const swapSql = () => `DROP DATABASE IF EXISTS ${DEV_DATABASE};\nALTER DATABASE ${STAGING_DATABASE} RENAME TO ${DEV_DATABASE};\n`;
+
+/** The errors of the roles replay worth showing: «already exists» is expected for every role the cluster has. */
+export const roleErrors = (stderr) =>
+  String(stderr)
+    .split('\n')
+    .filter((l) => /^(psql:.*)?ERROR:/.test(l.trim()) && !/already exists/.test(l));
+
+export const dropStagingSql = () => `DROP DATABASE IF EXISTS ${STAGING_DATABASE};\n`;
 
 /**
  * How to run a PostgreSQL client tool against `db`: [command, args, env]. `kind: 'compose'` runs it inside the
@@ -76,5 +89,7 @@ export function toolCommand(server, tool, db, args) {
   const password = decodeURIComponent(u.password);
   u.password = '';
   u.pathname = `/${db}`;
+  // libpq lets a `dbname` parameter win over the path: without this the tool would work on another database.
+  u.searchParams.delete('dbname');
   return [tool, [`--dbname=${u.toString()}`, ...args], password ? { PGPASSWORD: password } : {}];
 }
