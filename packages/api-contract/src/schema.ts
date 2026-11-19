@@ -6969,6 +6969,18 @@ export interface operations {
                             } | null)[];
                         };
                         income: {
+                            other: ({
+                                amount: string;
+                                currency: string;
+                            } | null)[];
+                            plan: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                own: boolean;
+                                version: number;
+                            }[];
                             rows: {
                                 cells: {
                                     amount: {
@@ -6979,7 +6991,8 @@ export interface operations {
                                     own: boolean;
                                     version: number;
                                 }[];
-                                paymentId: string | null;
+                                /** Format: uuid */
+                                paymentId: string;
                             }[];
                             totals: ({
                                 amount: string;
