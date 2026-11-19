@@ -115,5 +115,10 @@
 }
 
 .cmp-year-table {
-  min-inline-size: calc(var(--ws-space-8) * 22);
+  min-inline-size: calc(var(--ws-space-8) * 26);
+}
+
+.cmp-year th {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

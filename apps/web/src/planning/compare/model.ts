@@ -36,10 +36,10 @@ const valid = (type: PeriodType, period: string): boolean =>
   type === "month" ? MONTH.test(period) : type === "quarter" ? QUARTER.test(period) : YEAR.test(period);
 const BASES: readonly BaseId[] = ["previous", "last-year", "avg3", "avg6", "avg12"];
 
-/** CMP-72 «Стани»: the default is the last finished month. */
+/** CMP-72 «Стани»: «останній завершений місяць (або поточний, якщо сторінка показує поточний період)» — «Порівняння» does (BUD-06 AC1: the 12th day of the month in progress, same-date base, «Повний попередній період»). */
 export const defaultState = (today: string): State => ({
   type: "month",
-  period: shiftMonth(monthOf(today), -1),
+  period: monthOf(today),
   base: null,
   full: false,
   view: "compare",
@@ -121,8 +121,12 @@ export const isLatest = (type: PeriodType, period: string, today: string): boole
   firstMonthOf(type, shiftPeriod(type, period, 1)) > monthOf(today);
 
 /** «‹» is off when the earlier period ends before the history begins (`firstMonth` unknown while the first answer loads). */
-export const hasEarlier = (type: PeriodType, period: string, firstMonth: string | null): boolean =>
-  firstMonth === null || lastMonthOf(type, shiftPeriod(type, period, -1), "9999-12-31") >= firstMonth;
+export const hasEarlier = (
+  type: PeriodType,
+  period: string,
+  firstMonth: string | null,
+  today: string,
+): boolean => firstMonth === null || lastMonthOf(type, shiftPeriod(type, period, -1), today) >= firstMonth;
 
 /** The periods the name's list offers, newest first. */
 export function periodsOf(type: PeriodType, firstMonth: string | null, today: string): string[] {

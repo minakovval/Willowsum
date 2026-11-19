@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
+  currencySymbolOf,
   formatDelta,
   formatMoney,
   useI18n,
@@ -165,7 +166,7 @@ export function CompareScreen({ today = kyivToday() }: { today?: string }) {
           periodListLabel={t(K("picker.list"))}
           prevLabel={t(K("picker.prev"))}
           nextLabel={t(K("picker.next"))}
-          prevDisabled={!hasEarlier(s.type, s.period, firstMonth)}
+          prevDisabled={!hasEarlier(s.type, s.period, firstMonth, today)}
           prevHint={t(K("picker.noEarlier"))}
           nextDisabled={isLatest(s.type, s.period, today)}
           onPrev={() => go({ ...s, period: shiftPeriod(s.type, s.period, -1) })}
@@ -234,7 +235,7 @@ function BaseControl({
   onBase: (base: BaseId | null) => void;
   onFull: (full: boolean) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const chosen = compare?.base.base ?? s.base ?? defaultBase(s.type);
   const text = (b: BaseId): string =>
     b === "previous"
@@ -248,7 +249,10 @@ function BaseControl({
     const why =
       info?.reason === "no_finished_periods"
         ? t(K("base.noFinished"), { base: text(b) })
-        : t(K("base.noData"), { base: text(b), period: lastYear.toLocaleLowerCase("uk-UA") });
+        : t(K("base.noData"), {
+            base: text(b),
+            period: s.type === "month" && locale === "uk" ? lastYear.toLocaleLowerCase("uk-UA") : lastYear,
+          });
     return { value: b, label: off ? why : text(b), disabled: off };
   });
   const full =
@@ -521,9 +525,11 @@ export function ChangeCell({ change, short = false }: { change: Change | null; s
       ? { percent: change.direction === "down" ? `-${change.percent}` : change.percent }
       : {}),
   });
+  // `short` is the year table: the note says «суми в EUR», so the cell keeps the number and the arrow, not the symbol.
+  const text = short ? f.text.replace(currencySymbolOf(locale, change.amount.currency), "").trim() : f.text;
   return (
     <span className={`cmp-tone cmp-tone--${change.tone}`}>
-      <span aria-hidden="true">{f.text}</span>
+      <span aria-hidden="true">{text}</span>
       <span className="ws-visually-hidden">{f.label}</span>
     </span>
   );

@@ -1022,7 +1022,7 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
       within(at("latest")).getByRole("button", { name: "Наступний період" }).getAttribute("aria-disabled"),
     ).toBe("true");
     act(() => within(at("live")).getByRole("button", { name: "Попередній період" }).click());
-    expect(within(at("live")).getByRole("button", { name: "M09 2026" })).toBeTruthy();
+    expect(within(at("live")).getByRole("button", { name: "вер. 2026" })).toBeTruthy();
     expect(within(at("segmented")).getByRole("radio", { name: "З порівнянням" })).toBeTruthy();
   });
 });

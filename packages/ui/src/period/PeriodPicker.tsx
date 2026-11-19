@@ -125,7 +125,11 @@ function ListControl({
 
   useEffect(() => {
     if (!open) return;
-    root.current?.querySelector<HTMLElement>('[aria-selected="true"], [role="option"]')?.focus();
+    const list = root.current;
+    (
+      list?.querySelector<HTMLElement>('[role="option"][aria-selected="true"]') ??
+      list?.querySelector<HTMLElement>('[role="option"]')
+    )?.focus();
     const outside = (e: PointerEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -146,6 +150,9 @@ function ListControl({
     } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       items[(at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length]?.focus();
+    } else if (e.key === "Home" || e.key === "End") {
+      e.preventDefault();
+      items[e.key === "Home" ? 0 : items.length - 1]?.focus();
     } else if (e.key === "Tab") setOpen(false);
   };
 

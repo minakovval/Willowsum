@@ -519,6 +519,92 @@ describe("BUD-06@PoC: «З початку року» of a past year (owner, 2026
   });
 });
 
+describe("BUD-06@PoC AC1: the default period", () => {
+  it("BUD-06@PoC AC1: opened without a choice on the 12th, the screen shows the month in progress, the same dates, and offers «Повний попередній період»", async () => {
+    const cut = compare("previous", {
+      inProgress: true,
+      finished: false,
+      window: { from: "2026-11-01", to: "2026-11-12" },
+      base: {
+        available: true,
+        base: "previous",
+        full: false,
+        months: null,
+        window: { from: "2026-10-01", to: "2026-10-12" },
+      },
+    });
+    const fake = api(() => ({ status: 200, body: cut }));
+    open(fake, "#/planning/budget/compare", "2026-11-12");
+    expect(await screen.findByRole("button", { name: "Листопад 2026" })).toBeTruthy();
+    expect(lastAsk().searchParams.get("period")).toBe("2026-11");
+    expect(await screen.findByRole("switch", { name: "Повний попередній період" })).toBeTruthy();
+    expect(await screen.findByText(/база на ту саму дату/)).toBeTruthy();
+  });
+});
+
+describe("CMP-72@PoC: the lists and «‹»", () => {
+  it("CMP-72@PoC FR 1: the list opens on the chosen option; Home and End go to the first and the last", async () => {
+    open(api());
+    await screen.findByRole("table", { name: "Витрати" });
+    fireEvent.click(screen.getByRole("button", { name: "Тип періоду: Місяць" }));
+    const options = screen.getAllByRole("option");
+    expect(document.activeElement).toBe(options[0]);
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "End" });
+    expect(document.activeElement).toBe(options[3]);
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Home" });
+    expect(document.activeElement).toBe(options[0]);
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Тип періоду: Місяць" }));
+    fireEvent.click(screen.getByRole("option", { name: "Рік" }));
+    await screen.findByRole("button", { name: "Тип періоду: Рік" });
+    fireEvent.click(screen.getByRole("button", { name: "Тип періоду: Рік" }));
+    const chosen = screen.getByRole("option", { name: "Рік" });
+    expect(chosen.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(chosen);
+  });
+
+  it("CMP-72@PoC FR 2: «‹» of «З початку року» is inactive when the history starts after the end of the earlier window (history from December 2025, today November 2026)", async () => {
+    open(
+      api((u) => ({
+        status: 200,
+        body: compare("last-year", { type: u.searchParams.get("type") ?? "ytd", finishedPeriods: 11 }),
+      })),
+      "#/planning/budget/compare?type=ytd&period=2026",
+    );
+    await screen.findByRole("table", { name: "Витрати" });
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("button", { name: /^Попередній період\. Даних раніше немає$/ })
+          .getAttribute("aria-disabled"),
+      ).toBe("true"),
+    );
+  });
+
+  it("CMP-72@PoC FR 1: the reason of an inactive base keeps «IV квартал» in capitals", async () => {
+    const body = compare("previous", {
+      type: "quarter",
+      bases: [
+        { base: "previous", available: true, reason: null, months: null },
+        { base: "last-year", available: false, reason: "no_history", months: null },
+        { base: "avg3", available: true, reason: null, months: 3 },
+        { base: "avg6", available: true, reason: null, months: 3 },
+        { base: "avg12", available: true, reason: null, months: 3 },
+      ],
+    });
+    open(
+      api(() => ({ status: 200, body })),
+      "#/planning/budget/compare?type=quarter&period=2026-Q4&base=previous",
+    );
+    expect(
+      await screen.findByRole("option", {
+        name: /^Той самий період минулого року — немає даних за IV квартал 2025$/,
+      }),
+    ).toBeTruthy();
+  });
+});
+
 describe("CMP-72@PoC: the period picker", () => {
   it("CMP-72@PoC AC1: the type «Квартал» turns «Жовтень 2026» into «IV квартал 2026» and the table is built for the quarter", async () => {
     const fake = api();

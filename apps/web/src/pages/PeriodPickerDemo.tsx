@@ -1,13 +1,12 @@
 import { useState } from "react";
-import { useT } from "@willowsum/i18n";
-import { PeriodPicker, Segmented } from "@willowsum/ui";
+import { useI18n, useT } from "@willowsum/i18n";
+import { formatPeriodMonth, PeriodPicker, Segmented } from "@willowsum/ui";
 
 /**
  * CMP-72@PoC PeriodPicker and CMP-12@PoC Segmented in the design-system gallery, on synthetic periods: a live picker,
  * one with «‹» inactive («Даних раніше немає»), one with «›» inactive, and the «З порівнянням / Рік: план і факт» switch.
  */
 const MONTHS = ["2026-08", "2026-09", "2026-10", "2026-11"] as const;
-const label = (m: string) => `M${m.slice(5)} ${m.slice(0, 4)}`;
 
 function Picker({
   caseId,
@@ -20,7 +19,8 @@ function Picker({
   noPrev?: boolean;
   noNext?: boolean;
 }) {
-  const t = useT();
+  const { t, locale } = useI18n();
+  const label = (m: string) => formatPeriodMonth(locale, m);
   const [type, setType] = useState("month");
   const [period, setPeriod] = useState(start);
   const at = MONTHS.indexOf(period as (typeof MONTHS)[number]);

@@ -89,15 +89,22 @@ export function YearTable({ data }: { data: YearData }) {
   rows.push(rowOf("total", t(K("expenses.total")), year.expenses, true, false));
 
   return (
-    <div className="cmp-body cmp-year">
+    <div className="cmp-body">
       <h2 className="ws-text-heading-3">{t(K("year.title"), { year: year.year })}</h2>
       <p className="ws-muted">{t(K("year.note"), { currency: year.currency })}</p>
-      <Table
-        caption={t(K("year.title"), { year: year.year })}
-        columns={columns}
-        rows={rows}
-        className="cmp-year-table"
-      />
+      <div
+        className="cmp-year"
+        tabIndex={0}
+        role="region"
+        aria-label={t(K("year.title"), { year: year.year })}
+      >
+        <Table
+          caption={t(K("year.title"), { year: year.year })}
+          columns={columns}
+          rows={rows}
+          className="cmp-year-table"
+        />
+      </div>
     </div>
   );
 }
