@@ -130,3 +130,28 @@ test("BUD-05@PoC FR 4: the card with a long goal name and a long account name fi
     path: (process.env["WS_SHOT"] ?? "test-results/goals-board-1280.png").replace(/\.png$/, "-account.png"),
   });
 });
+
+test("BUD-05@PoC FR 1: the list with long names shows a distinct glyph for each of the four templates at 1280 px", async ({
+  page,
+}) => {
+  const G3 = "a0000000-0000-4000-8000-000000000003";
+  const G4 = "a0000000-0000-4000-8000-000000000004";
+  await answer(page, [
+    goal(G1, NAME, { template: "travel" }),
+    goal(G2, WORD, { template: "emergency" }),
+    goal(G3, "Новий ноутбук для навчання доньки в університеті та роботи вдома", { template: "purchase" }),
+    goal(G4, "Власна ціль з дуже довгою назвою, що не вміщується в один рядок списку", {
+      template: "custom",
+    }),
+  ]);
+  await page.goto("/#/planning/goals");
+  await expect(page.locator(".goal-row")).toHaveCount(4);
+  const glyphs = await page.locator(".goal-row-icon svg").evaluateAll((els) => els.map((e) => e.innerHTML));
+  expect(new Set(glyphs).size).toBe(4);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth),
+  ).toBe(0);
+  await page.screenshot({
+    path: (process.env["WS_SHOT"] ?? "test-results/goals-board-1280.png").replace(/\.png$/, "-templates.png"),
+  });
+});

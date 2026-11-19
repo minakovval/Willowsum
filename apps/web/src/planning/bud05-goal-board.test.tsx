@@ -2,13 +2,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { cleanup, render, screen, within } from "@testing-library/react";
+import { Icon } from "@willowsum/ui";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { AuthApiProvider } from "../auth/api.ts";
 import { fakeApi, resetAuthState } from "../auth/testing.tsx";
 import { GoalCard } from "./goals/GoalCard.tsx";
 import { GoalLinks } from "./goals/GoalLinks.tsx";
 import { GoalList } from "./goals/GoalList.tsx";
-import type { Goal } from "./goals/model.ts";
+import { TEMPLATE_ICON, type Goal } from "./goals/model.ts";
+import { TEMPLATES } from "./goals/newGoal.ts";
 
 /**
  * BUD-05@PoC (issue #583, «Цілі» against the board PocPlanGoalCard, PocPlanGoalCardAchieved, PocPlanGoals): one test
@@ -157,5 +159,34 @@ describe("BUD-05@PoC FR 4 (#583 board items)", () => {
     expect(rows[0]?.querySelector(".goal-row-icon svg")?.outerHTML).not.toBe(
       rows[1]?.querySelector(".goal-row-icon svg")?.outerHTML,
     );
+  });
+
+  it("BUD-05@PoC FR 1, board item 7: each of the four templates has its own glyph — plane, bag, shield, target — not map or card", () => {
+    const drawn = TEMPLATES.map((template, i) => {
+      const { container, unmount } = render(
+        <GoalList
+          goals={[goal({ id: `a0000000-0000-4000-8000-00000000010${i}`, template })]}
+          selected=""
+          onSelect={() => {}}
+        />,
+      );
+      const html = container.querySelector(".goal-row-icon svg")!.outerHTML;
+      unmount();
+      return html;
+    });
+    expect(new Set(drawn).size).toBe(TEMPLATES.length);
+    expect(TEMPLATE_ICON).toEqual({
+      travel: "plane",
+      purchase: "bag",
+      emergency: "insurance",
+      custom: "target",
+    });
+  });
+
+  it("BUD-05@PoC FR 4, board item 1: «Витратити» carries the wallet glyph of the board", () => {
+    card(goal());
+    const spend = screen.getByRole("button", { name: "Витратити" });
+    const wallet = render(<Icon name="budget" size={16} />).container.querySelector("svg")!.innerHTML;
+    expect(spend.querySelector("svg")?.innerHTML).toBe(wallet);
   });
 });

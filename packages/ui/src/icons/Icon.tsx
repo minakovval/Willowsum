@@ -37,6 +37,7 @@ import {
   Image as ImageIcon,
   Info,
   Landmark,
+  Laptop,
   Layers,
   LayoutGrid,
   List,
@@ -63,6 +64,7 @@ import {
   Settings,
   Share,
   ShieldCheck,
+  ShoppingBag,
   Sparkles,
   Star,
   Table,
@@ -193,6 +195,9 @@ export type IconName =
   | "star"
   | "minus"
   | "target"
+  | "plane"
+  | "bag"
+  | "laptop"
   | "options"
   | "columns"
   | "other";
@@ -378,6 +383,10 @@ const GLYPHS: Record<IconName, Glyph> = {
   star: lucide(Star),
   minus: lucide(Minus),
   target: lucide(Target),
+  // DS-12@PoC (owner, 2026-11-19, goal glyphs): the glyphs of the goal templates and the goal list (BUD-05), Lucide's own.
+  plane: lucide(Plane),
+  bag: lucide(ShoppingBag),
+  laptop: lucide(Laptop),
   money: lucide(Coins),
   planning: lucide(CalendarRange),
   recurring: lucide(Repeat),
@@ -480,6 +489,9 @@ export const ICON_GROUPS = {
     "lock",
     "star",
     "target",
+    "plane",
+    "bag",
+    "laptop",
     "collapse",
     "options",
     "columns",
