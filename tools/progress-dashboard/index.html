@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Willowsum · хід PoC</title>
+<style>
+/* Layout: two answers on top (when it will be ready | what is in work now), the daily pace chart below, small facts last. */
+:root {
+  --bg: #FBFBFA; --card: #FFFFFF; --inset: #F1F1EF; --ink: #1B2230; --muted: #566174; --line: #E5E5E2;
+  --brand: #0B2545; --brand-2: #1D4E89; --accent: #E3A33B; --link: #1D4E89;
+  --product: #1D4E89; --process: #B9C2CF; --warn-bg: #FBF3E8; --warn-ink: #7A4505;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E141D; --card: #161E2A; --inset: #1E2836; --ink: #ECEEF1; --muted: #9AA5B5; --line: #2A3545;
+    --brand: #F6F1E8; --brand-2: #7FA8DC; --accent: #E3A33B; --link: #8DB4E6;
+    --product: #7FA8DC; --process: #44536A; --warn-bg: #33270F; --warn-ink: #F1CD8B;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
+h1 { margin: 0; font-size: 22px; font-weight: 650; color: var(--brand); letter-spacing: -0.01em; }
+h2 { margin: 0 0 12px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.status { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+button { font: inherit; font-size: 13px; color: var(--link); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { background: var(--inset); }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+a { color: var(--link); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 760px) { .top { grid-template-columns: minmax(0, 1fr); } }
+section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
+.big { font-size: 40px; font-weight: 650; line-height: 1.1; color: var(--brand); font-variant-numeric: tabular-nums; }
+.big small { font-size: 16px; font-weight: 500; color: var(--muted); }
+.bar { height: 14px; background: var(--inset); border-radius: 7px; overflow: hidden; margin: 14px 0 8px; }
+.bar > i { display: block; height: 100%; background: var(--product); border-radius: 7px; min-width: 2px; transition: width .4s; }
+.note { color: var(--muted); font-size: 13px; margin: 0; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 16px 0 0; }
+dt { color: var(--muted); }
+dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+ul.prs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+ul.prs li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: baseline; }
+ul.prs .n { color: var(--muted); font-variant-numeric: tabular-nums; }
+ul.prs .t { overflow-wrap: anywhere; }
+ul.prs .age { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.chart { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; align-items: end; height: 190px; }
+.col { display: grid; grid-template-rows: auto 1fr auto; height: 100%; gap: 4px; text-align: center; min-width: 0; }
+.col .v { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.col .stack { display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; }
+.col .stack i { display: block; }
+.col .stack .pc { background: var(--process); border-radius: 3px 3px 0 0; }
+.col .stack .pd { background: var(--product); }
+.col .stack i:first-child { border-radius: 3px 3px 0 0; }
+.col .d { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.col.today .d { color: var(--ink); font-weight: 600; }
+.legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--c); }
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+.fact b { display: block; font-size: 26px; font-weight: 650; color: var(--brand); font-variant-numeric: tabular-nums; }
+.alert { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; }
+footer { color: var(--muted); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Willowsum · хід PoC</h1>
+    <div class="status"><span id="stamp">Завантажую дані з GitHub…</span><button id="refresh" type="button">Оновити</button></div>
+  </header>
+
+  <div id="alert" class="alert" hidden></div>
+
+  <div class="top">
+    <section aria-labelledby="h-when">
+      <h2 id="h-when">Коли буде готово</h2>
+      <div class="big"><span id="pct">–</span><small> % плану</small></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="barbox"><i id="bar" style="width:0"></i></div>
+      <p class="note" id="barnote">&nbsp;</p>
+      <dl>
+        <dt>Темп за останні 3 доби</dt><dd id="pace">–</dd>
+        <dt>Лишилося за оцінкою</dt><dd id="left">–</dd>
+        <dt>Прогноз за цим темпом</dt><dd id="eta">–</dd>
+      </dl>
+    </section>
+
+    <section aria-labelledby="h-now">
+      <h2 id="h-now">Що робиться зараз</h2>
+      <ul class="prs" id="open"><li><span class="t note">–</span></li></ul>
+    </section>
+  </div>
+
+  <section aria-labelledby="h-days">
+    <h2 id="h-days">Злито PR за день, з початку проєкту</h2>
+    <div class="chart" id="chart"></div>
+    <div class="legend"><span style="--c:var(--product)">продукт</span><span style="--c:var(--process)">процес і правила</span></div>
+  </section>
+
+  <div class="facts">
+    <section class="fact"><h2>Відкладені задачі</h2><b id="issues">–</b><p class="note">відкритих, без службових задач процесу</p></section>
+    <section class="fact"><h2>Ведучий</h2><b id="lead">–</b><p class="note" id="leadnote">&nbsp;</p></section>
+    <section class="fact"><h2>Усього злито PR</h2><b id="total">–</b><p class="note" id="totalnote">&nbsp;</p></section>
+  </div>
+
+  <footer>
+    Дані читаються прямо з публічного репозиторію <a href="https://github.com/minakovval/Willowsum">minakovval/Willowsum</a> раз на 10 хвилин, поки сторінка відкрита.
+    Відсоток і прогноз приблизні й стосуються плану хвилі 2, який діє з 13 листопада: вони спираються на оцінку кількості PR у цьому плані й на темп останніх днів. Графік і загальна кількість охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var REPO = 'minakovval/Willowsum';
+  var API = 'https://api.github.com/repos/' + REPO;
+  var PLAN = 'https://raw.githubusercontent.com/' + REPO + '/main/docs/plans/poc-wave-2.md';
+  var START = '2026-10-01T00:00:00Z';          // before the first PR of the project
+  var WAVE2 = '2026-11-13T00:00:00Z';          // the wave-2 plan and its PR estimate start on this day
+  var PROCESS_ISSUES = [178, 179, 180, 465, 480];
+  var FALLBACK_TOTAL = 251;
+  var EVERY_MS = 10 * 60 * 1000;
+  var KEY = 'willowsum-dash-v2';
+  var DAYS = 30;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var state = load();
+  var timer = null;
+
+  function load() {
+    try {
+      var s = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (s && s.prs) return s;
+    } catch (e) {}
+    return { prs: {}, full: false, total: null, open: null, issues: null, lead: null, at: null };
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+  function get(url, raw) {
+    return fetch(url, { headers: raw ? {} : { Accept: 'application/vnd.github+json' } }).then(function (r) {
+      if (r.status === 403 || r.status === 429) {
+        var reset = Number(r.headers.get('x-ratelimit-reset')) * 1000;
+        var err = new Error('limit'); err.reset = reset || null; throw err;
+      }
+      if (!r.ok) throw new Error('GitHub ' + r.status);
+      return raw ? r.text() : r.json();
+    });
+  }
+
+  // Merged PRs: the first visit pages back to the plan start; later visits read only the newest page.
+  function loadMerged() {
+    var page = 1;
+    function step() {
+      return get(API + '/pulls?state=closed&sort=updated&direction=desc&per_page=100&page=' + page).then(function (list) {
+        var older = false;
+        list.forEach(function (p) {
+          if (p.updated_at < START) older = true;
+          if (p.merged_at && p.merged_at >= START) state.prs[p.number] = { t: p.title, m: p.merged_at };
+        });
+        if (!state.full && !older && list.length === 100 && page < 12) { page += 1; return step(); }
+        state.full = true;
+      });
+    }
+    return step();
+  }
+
+  function loadOpen() {
+    return get(API + '/pulls?state=open&sort=created&direction=asc&per_page=100').then(function (list) {
+      state.open = list.map(function (p) { return { n: p.number, t: p.title, c: p.created_at, d: p.draft, u: p.html_url }; });
+    });
+  }
+
+  function loadIssues() {
+    return get(API + '/issues?state=open&per_page=100').then(function (list) {
+      var issues = list.filter(function (i) { return !i.pull_request; });
+      state.issues = issues.filter(function (i) { return PROCESS_ISSUES.indexOf(i.number) < 0; }).length + (list.length === 100 ? '+' : '');
+      var ls = issues.filter(function (i) { return i.number === 179; })[0];
+      if (ls) {
+        var m = /lead\s+(\d+)/i.exec((ls.body || '').split('\n')[0] || '');
+        state.lead = { num: m ? m[1] : null, at: ls.updated_at };
+      }
+    });
+  }
+
+  function loadPlan() {
+    return get(PLAN, true).then(function (md) {
+      var m = /\*\*Разом\*\*\s*\|\s*\*\*[^\d]*(\d+)\*\*/.exec(md);
+      state.total = m ? Number(m[1]) : null;
+    }).catch(function () {});
+  }
+
+  function isProcess(title) { return /^\s*PRC-/i.test(title); }
+  function dayKey(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function fmtDate(d) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' }); }
+  function fmtTime(d) { return d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }); }
+  function age(iso) {
+    var h = (Date.now() - new Date(iso).getTime()) / 36e5;
+    if (h < 1) return Math.max(1, Math.round(h * 60)) + ' хв';
+    if (h < 48) return Math.round(h) + ' год';
+    return Math.round(h / 24) + ' дн';
+  }
+  function text(id, v) { $(id).textContent = v; }
+
+  function render() {
+    var prs = Object.keys(state.prs).map(function (n) { return state.prs[n]; });
+    var product = prs.filter(function (p) { return !isProcess(p.t) && p.m >= WAVE2; });
+    var productAll = prs.filter(function (p) { return !isProcess(p.t); }).length;
+    var total = state.total || FALLBACK_TOTAL;
+    var done = product.length;
+    var pct = Math.min(100, Math.round(done / total * 100));
+
+    if (prs.length) {
+      text('pct', pct);
+      $('bar').style.width = pct + '%';
+      $('barbox').setAttribute('aria-valuenow', pct);
+      text('barnote', 'План хвилі 2 (з 13 листопада): злито ' + done + ' продуктових PR з ≈ ' + total + ' за оцінкою');
+
+      var since = Date.now() - 72 * 36e5;
+      var recent = product.filter(function (p) { return new Date(p.m).getTime() >= since; }).length;
+      var pace = recent / 3;
+      var left = Math.max(0, total - done);
+      text('pace', pace ? pace.toFixed(1).replace('.', ',') + ' PR на добу' : 'немає злитих PR');
+      text('left', '≈ ' + left + ' PR');
+      if (left === 0) text('eta', 'оцінку вичерпано');
+      else if (pace > 0) text('eta', '≈ ' + fmtDate(new Date(Date.now() + left / pace * 864e5)));
+      else text('eta', 'не порахувати');
+
+      text('total', prs.length);
+      var first = prs.reduce(function (a, p) { return p.m < a ? p.m : a; }, prs[0].m);
+      text('totalnote', productAll + ' продукт · ' + (prs.length - productAll) + ' процес · з ' + fmtDate(new Date(first)));
+      renderChart(prs);
+    }
+
+    if (state.open) {
+      var ul = $('open'); ul.textContent = '';
+      if (!state.open.length) {
+        var li0 = document.createElement('li'); li0.innerHTML = '<span class="t note">Відкритих PR немає</span>'; ul.appendChild(li0);
+      }
+      state.open.forEach(function (p) {
+        var li = document.createElement('li');
+        var n = document.createElement('a'); n.className = 'n'; n.href = p.u; n.textContent = '#' + p.n;
+        var t = document.createElement('span'); t.className = 't'; t.textContent = (p.d ? '(чернетка) ' : '') + p.t;
+        var a = document.createElement('span'); a.className = 'age'; a.textContent = age(p.c);
+        li.appendChild(n); li.appendChild(t); li.appendChild(a); ul.appendChild(li);
+      });
+    }
+
+    if (state.issues != null) text('issues', state.issues);
+    if (state.lead) {
+      text('lead', state.lead.num ? '№ ' + state.lead.num : '–');
+      text('leadnote', 'стан оновлено ' + age(state.lead.at) + ' тому');
+    }
+    if (state.at) text('stamp', 'Оновлено о ' + fmtTime(new Date(state.at)));
+  }
+
+  function renderChart(prs) {
+    var by = {};
+    prs.forEach(function (p) {
+      var k = dayKey(new Date(p.m));
+      by[k] = by[k] || { pd: 0, pc: 0 };
+      by[k][isProcess(p.t) ? 'pc' : 'pd'] += 1;
+    });
+    var days = [], max = 1, today = new Date();
+    var firstDay = Object.keys(by).sort()[0] || dayKey(today);
+    for (var i = DAYS - 1; i >= 0; i--) {
+      var d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
+      if (dayKey(d) < firstDay) continue;   // the chart starts on the day of the first merged PR
+      var v = by[dayKey(d)] || { pd: 0, pc: 0 };
+      days.push({ d: d, pd: v.pd, pc: v.pc, today: i === 0 });
+      max = Math.max(max, v.pd + v.pc);
+    }
+    var box = $('chart'); box.textContent = '';
+    days.forEach(function (x) {
+      var col = document.createElement('div'); col.className = 'col' + (x.today ? ' today' : '');
+      var sum = x.pd + x.pc;
+      col.title = fmtDate(x.d) + ': ' + x.pd + ' продукт, ' + x.pc + ' процес';
+      col.innerHTML = '<div class="v">' + (sum || '') + '</div><div class="stack">' +
+        (x.pc ? '<i class="pc" style="height:' + (x.pc / max * 100) + '%"></i>' : '') +
+        (x.pd ? '<i class="pd" style="height:' + (x.pd / max * 100) + '%"></i>' : '') +
+        '</div><div class="d">' + x.d.getDate() + '.' + ('0' + (x.d.getMonth() + 1)).slice(-2) + '</div>';
+      box.appendChild(col);
+    });
+  }
+
+  function refresh() {
+    var al = $('alert');
+    return Promise.all([loadMerged(), loadOpen(), loadIssues(), loadPlan()]).then(function () {
+      state.at = Date.now(); al.hidden = true; save(); render();
+    }).catch(function (e) {
+      render();
+      al.hidden = false;
+      if (e.message === 'limit') {
+        al.textContent = 'GitHub тимчасово обмежив запити з цієї мережі. Показую останні збережені дані' +
+          (e.reset ? '; нові будуть після ' + fmtTime(new Date(e.reset)) + '.' : '.');
+      } else {
+        al.textContent = 'Не вдалося прочитати GitHub (' + e.message + '). Показую останні збережені дані.';
+      }
+    });
+  }
+
+  function schedule() {
+    clearInterval(timer);
+    timer = setInterval(function () { if (!document.hidden) refresh(); }, EVERY_MS);
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && (!state.at || Date.now() - state.at > EVERY_MS)) refresh();
+  });
+  $('refresh').addEventListener('click', function () { refresh(); schedule(); });
+
+  render();
+  if (!state.at || Date.now() - state.at > 60 * 1000) refresh();
+  schedule();
+})();
+</script>
+</body>
+</html>
