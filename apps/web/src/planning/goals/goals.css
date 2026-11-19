@@ -204,6 +204,7 @@
 
 .goal-cushion-months {
   flex: none;
+  box-sizing: border-box;
   inline-size: 150px;
 }
 
@@ -251,6 +252,7 @@
 
 .goal-cushion-stepper input {
   flex: 1;
+  inline-size: 0;
   min-inline-size: 0;
   border: 0;
   outline: none;
@@ -365,6 +367,11 @@
   display: grid;
   flex: 1;
   min-inline-size: 0;
+}
+
+/* A merchant of one long word wraps instead of running under the amount (long-text screenshot, issue 559). */
+.goal-spend-what b {
+  overflow-wrap: anywhere;
 }
 
 .goal-spend-amount {
