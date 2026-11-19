@@ -106,7 +106,9 @@ test("BUD-05@PoC FR 4: the card with a long goal name and a long account name fi
       tiles: c.querySelectorAll(".goal-fact").length,
       gap: actions.length > 1 ? actions[1]!.left - actions[0]!.right : -1,
       linksInside: [...c.querySelectorAll(".goal-links")].length,
-      cards: document.querySelectorAll("[data-plan-region='detail'] .ws-card").length,
+      cards: [...document.querySelectorAll<HTMLElement>("[data-plan-region='detail'] .ws-card")].filter(
+        (el) => el.offsetParent !== null,
+      ).length,
       projection: getComputedStyle(document.querySelector("[data-plan-region='projection']")!).display,
     };
   });
