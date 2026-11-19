@@ -9,12 +9,14 @@ import { databaseSpacesStore, householdRoutes, spacesOfAccount } from "./adapter
 import {
   destroySpaceKey,
   ensureFirstSpace,
+  fieldOpener,
   newSpaceKey,
   openBytes,
   openField,
   rewrapSpaceKeys,
   sealBytes,
   sealField,
+  type FieldOpener,
   type RewrapResult,
   type SpaceKeysDeps,
   type SpaceMembership,
@@ -38,8 +40,13 @@ export {
   spaceName,
 } from "./domain/index.ts";
 export type { SpaceKeyErrorCode, SpaceRole } from "./domain/index.ts";
-export { SEAL_BYTES_MAX, SEAL_MAX_LENGTH } from "./application/index.ts";
-export type { RewrapResult, SpaceMembership } from "./application/index.ts";
+export {
+  openWithFieldOpener,
+  SEAL_BYTES_MAX,
+  SEAL_MAX_LENGTH,
+  wipeFieldOpener,
+} from "./application/index.ts";
+export type { FieldOpener, RewrapResult, SpaceMembership } from "./application/index.ts";
 
 /**
  * Keys of spaces (ARC-06@PoC; ADR-0012): sensitive fields sealed with the space's own key, the daily rewrap after a
@@ -54,6 +61,11 @@ export interface SpaceKeys {
   sealBytes(householdId: string, purpose: string, plaintext: Uint8Array): Promise<Buffer>;
   /** The bytes sealed for this space and purpose; `SpaceKeyError` for anything else or without a key. */
   openBytes(householdId: string, purpose: string, sealed: Uint8Array): Promise<Buffer>;
+  /**
+   * The opener of one sealed field for an isolated worker, so the value is opened there and never in this thread
+   * (`openWithFieldOpener` in the worker; move `key` with the worker's `transferList`, else `wipeFieldOpener`).
+   */
+  fieldOpener(householdId: string, field: string): Promise<FieldOpener>;
   /** Rewraps every key of an older master key version; gives `pending:` spaces their key. The scheduler's task. */
   rewrapAll(): Promise<RewrapResult>;
   /** Destroys the space's key (ARC-06 FR 5, NFR-12 FR 3): its sealed values can no longer be opened. */
@@ -178,6 +190,7 @@ export function createSpaceKeys(
     open: (householdId, field, sealed) => openField(keyDeps, householdId, field, sealed),
     sealBytes: (householdId, purpose, plaintext) => sealBytes(keyDeps, householdId, purpose, plaintext),
     openBytes: (householdId, purpose, sealed) => openBytes(keyDeps, householdId, purpose, sealed),
+    fieldOpener: (householdId, field) => fieldOpener(keyDeps, householdId, field),
     rewrapAll: () => rewrapSpaceKeys(keyDeps),
     destroy: (householdId) => destroySpaceKey(keyDeps, householdId),
   };

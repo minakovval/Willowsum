@@ -6,6 +6,8 @@ import { parentPort, workerData } from "node:worker_threads";
 import { answerFromWorker } from "../../../../platform/process/isolated.ts";
 import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
 import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
+import { AccountBindingError, openAccountBinding } from "./open-binding.ts";
+import type { SealedAccountBinding } from "./run.ts";
 
 /**
  * Characters of the parse as JSON: the reading and the analysis 2 MiB, the whole answer with the events 16 MiB (a 25 MiB file of
@@ -14,16 +16,17 @@ import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
 const ANALYSIS_CHARS = 2 * 1024 * 1024;
 const RESULT_CHARS = 16 * 1024 * 1024;
 
-const { bytes, options, statement } = workerData as {
+const { bytes, options, statement, binding } = workerData as {
   bytes: Uint8Array;
   options: ReadOptions;
   statement: StatementOptions;
+  binding?: SealedAccountBinding;
 };
 
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
   () => {
-    const parse = parseStatement(bytes, options, statement);
+    const parse = parseStatement(bytes, options, statement, openAccountBinding(binding));
     // The answer is copied into the API process: it stays bounded whatever the file holds.
     if (JSON.stringify({ reading: parse.reading, analysis: parse.analysis }).length > ANALYSIS_CHARS)
       throw new Error("result too large");
@@ -31,9 +34,11 @@ await answerFromWorker(
     return parse;
   },
   (error) =>
-    error instanceof FileTooLargeError
-      ? "FILE_TOO_LARGE"
-      : error instanceof TableLimitError
-        ? `TABLE_LIMIT:${error.ceiling}`
-        : "CORRUPTED",
+    error instanceof AccountBindingError
+      ? "ACCOUNT_BINDING"
+      : error instanceof FileTooLargeError
+        ? "FILE_TOO_LARGE"
+        : error instanceof TableLimitError
+          ? `TABLE_LIMIT:${error.ceiling}`
+          : "CORRUPTED",
 );

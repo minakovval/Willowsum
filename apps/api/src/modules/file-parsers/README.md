@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-02 b: події з основною ногою і ногою комісії в розборі виписки, хвиля 2, рядок 41, частина 2)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (прив'язка виписки до рахунку рецепта у воркері розбору, хвиля 2, рядок 41, частина 3; раніше: IMP-02 b, події з ногами, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -31,7 +31,12 @@
 неоднозначний символ («$», «kr», «¥») вирішує символ рецепта або країна IBAN (з параметрів або з шапки файлу — назовні лише
 дві літери); локальні назви й нечинні коди — «невідома валюта»; рушій суми не конвертує. Позначки: валюта не належить
 однавалютному рахунку, точність перевищує валюту, розбіжність або перевернутий курс (0,5 % або одна мінімальна одиниця).
-Прив'язка до рахунку з розпечатуванням `importRecipes.accountValue` і маршрут розбору — наступна частина.
+Частина 4 (IMP-06@PoC п. 1 «прив'язка до рахунку», рядок 41, частина 3): воркер розбору розпечатує
+`importRecipes.accountValue` відкривачем поля з household (ключ простору переноситься у воркер і витирається до читання
+файлу) і шукає IBAN, номер рахунку чи маску картки в рядках до таблиці. Назовні — лише `account: { by, status }`
+(`match` / `mismatch` / `not-found`; для номера рахунку — лише `match` / `not-found`), ніколи значення. Відкритого значення
+в потоці API немає. Прив'язки шаблоном у шапці й колонкою — із застосуванням рецепта (п. 4). Маршрут розбору з лімітом
+одночасних воркерів — наступна частина.
 
 ## Вимоги
 
@@ -42,13 +47,18 @@
 `index.ts`:
 
 - `fileParsersModule`.
-- `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?, statement?)` → `StatementParse`: у свіжому воркері
+- `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?, statement?, binding?)` → `StatementParse`: у свіжому воркері
   (`platform/process/isolated.ts`, 512 МіБ, 60 с — `PARSE_LIMITS`, як у file-storage) читання файлу (`reading`: кодування
   з альтернативами й причиною `bom` / `content` / `recipe`, роздільник, `unclosedQuote`, `replacementChars`, `format` з
   `fingerprint` «fp1:…»), `events` (`StatementEvents`: `events[]` — `StatementEvent` з `legs`, `fee`, `original`, `rate`,
   `valueDate`, `description`, `currencyMark`, `flags` (`EventFlag`); `currencies` — гаманці партії; `country`) і `analysis` (`StatementAnalysis`: `table`, `columns[].role`, `dates`, `numbers`, `sign` —
   кожне `Decision` з `chosen`, `alternatives`, `evidence`, `flags`; `currency`). Рядки й колонки аналізу — з 1. Відмова —
-  `StatementParseError` (`FILE_TOO_LARGE`, `TABLE_LIMIT` з `ceiling`, `PARSE_MEMORY`, `PARSE_TIMEOUT`, `CORRUPTED`).
+  `StatementParseError` (`FILE_TOO_LARGE`, `TABLE_LIMIT` з `ceiling`, `PARSE_MEMORY`, `PARSE_TIMEOUT`, `CORRUPTED`,
+  `ACCOUNT_BINDING`). `binding` — `SealedAccountBinding` `{ by, sealedValue, opener }` (`ACCOUNT_BINDINGS`: `iban`,
+  `account-number`, `mask`; `opener` — household `SpaceKeys.fieldOpener` простору рецепта для `ACCOUNT_VALUE_FIELD`):
+  ключ відкривача переноситься у воркер (у потоці API від'єднаний, а якщо воркер не стартував — витертий); значення, яке
+  відкривач не відкриває (чужий простір чи поле, неправильний чи вже використаний ключ), — відмова `ACCOUNT_BINDING`,
+  розбору без прив'язки не буває. Результат: `account` (`AccountMatch`) або null без прив'язки.
   `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`),
   символи валют рецепта, країна IBAN; `EVENT_LIMITS`. Результат містить клітинки файлу: не логувати й не аудитувати; `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
   `DATE_ORDERS`.
@@ -60,17 +70,17 @@
 
 ## Залежності
 
-Шар: subject. Модулі: — (`apps/api/module-rules.json`).
+Шар: subject. Модулі: household — відкривач запечатаного поля у воркері (`apps/api/module-rules.json`).
 
 ## Події
 
 | Публікує | Версія | Коли |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ---- |
+| —        |        |      |
 
 | Споживає | Версія | Навіщо |
-| --- | --- | --- |
-| — | | |
+| -------- | ------ | ------ |
+| —        |        |        |
 
 ## Власні таблиці
 

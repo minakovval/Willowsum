@@ -38,3 +38,5 @@ export { amountMark, headerCurrency, ISO_NUMERIC, recognizeCurrency } from "./cu
 export type { CurrencyHints, CurrencyRecognition } from "./currency.ts";
 export { EVENT_LIMITS, readEvents } from "./events.ts";
 export type { EventFlag, EventLeg, StatementEvent, StatementEvents, StatementOptions } from "./events.ts";
+export { ACCOUNT_BINDINGS, matchAccount } from "./account.ts";
+export type { AccountBindingKind, AccountMatch } from "./account.ts";
