@@ -152,7 +152,7 @@ describe("CMP-42@PoC LineChart", () => {
     const tip = screen.getByRole("tooltip");
     const text = norm(tip.textContent);
     expect(text).toContain("Травень 2026");
-    expect(text).toContain("на 31 трав. 2026");
+    expect(text).toContain("на 31 травня");
     expect(text).toContain("Δ м/м");
     expect(text).toContain("▲ 4,00 €");
     expect(text).toMatch(/\d,\d %/);
@@ -193,5 +193,59 @@ describe("CMP-42@PoC LineChart", () => {
     const { container } = chart({ width: 900 });
     // Measuring is not possible in jsdom, so the fallback width is what the chart uses.
     expect(container.querySelector(".ws-chart")!.classList.contains("ws-chart--wide")).toBe(true);
+  });
+
+  it("CMP-42@PoC AC6: an account balance that changes only on transaction dates is drawn in steps: it holds between events and jumps on the date of an event", () => {
+    const { container } = chart({
+      series: [
+        {
+          id: "a",
+          name: "Основний",
+          points: [
+            { date: "2026-10-01", value: "1000" },
+            { date: "2026-10-10", value: "1500" },
+            { date: "2026-10-20", value: "1200" },
+          ],
+        },
+      ],
+    });
+    const d = container.querySelector('[data-series="a"] path[stroke-linecap]')!.getAttribute("d")!;
+    const commands = d.match(/[MHVL]/g)!.join("");
+    expect(commands).toBe("MHVHV");
+    expect(d).not.toContain("L");
+  });
+
+  it("CMP-42@PoC AC7: with a week step, a hover on 10–16 August 2026 shows the dotted line, a marker on each of three series and the table «на <дата>», «Δ т/т», «%»", () => {
+    const daily = (id: string, name: string, base: number): LineSeries => ({
+      id,
+      name,
+      points: Array.from({ length: 130 }, (_, i) => ({
+        date: new Date(Date.UTC(2026, 3, 20 + i)).toISOString().slice(0, 10),
+        value: String(base + i * 10),
+      })),
+    });
+    const { container } = chart({
+      series: [daily("g", "Зібрано", 1000), daily("p", "План", 1200), daily("f", "Прогноз за темпом", 900)],
+    });
+    const group = screen.getByRole("group", { name: "Залишки рахунків" });
+    fireEvent.focus(group);
+    for (
+      let i = 0;
+      i < 30 && !norm(screen.queryByRole("tooltip")?.textContent).includes("Тиждень 10–16 серпня 2026");
+      i++
+    )
+      fireEvent.keyDown(group, { key: "ArrowLeft" });
+    const tip = screen.getByRole("tooltip");
+    const text = norm(tip.textContent);
+    expect(text).toContain("Тиждень 10–16 серпня 2026");
+    expect(text).toContain("на 16 серпня");
+    expect(text).toContain("Δ т/т");
+    expect(text).toContain("%");
+    expect(tip.querySelectorAll(".ws-chart-tip-row")).toHaveLength(4); // the head and three series
+    expect(
+      container.querySelectorAll(
+        "g[aria-hidden='true'] circle, g[aria-hidden='true'] rect[rx], g[aria-hidden='true'] path",
+      ).length,
+    ).toBeGreaterThanOrEqual(3);
   });
 });

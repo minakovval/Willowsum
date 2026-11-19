@@ -126,6 +126,15 @@ function stepTitle(locale: Locale, step: TimeStep, end: string, t: (k: never, p?
   }
 }
 
+/** «16 серпня» (uk), «16 August» (en): the date of the end of a step in the tooltip head. */
+function dayMonth(locale: Locale, date: string): string {
+  return new Intl.DateTimeFormat(formatLocaleOf(locale), {
+    day: "numeric",
+    month: "long",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T00:00:00Z`));
+}
+
 function axisLabel(locale: Locale, step: TimeStep, end: string): string {
   const fmt = (options: Intl.DateTimeFormatOptions) =>
     new Intl.DateTimeFormat(formatLocaleOf(locale), { ...options, timeZone: "UTC" }).format(
@@ -585,7 +594,7 @@ export function LineChart({
                       currency={currency}
                       withChange
                       columns={{
-                        value: t("chart.tooltip.on", { date: formatDate(locale, end) }),
+                        value: t("chart.tooltip.on", { date: dayMonth(locale, end) }),
                         change: periodWord,
                         percent: t("chart.tooltip.percent"),
                       }}

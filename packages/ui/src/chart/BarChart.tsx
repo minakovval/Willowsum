@@ -80,7 +80,7 @@ export interface BarChartProps extends ChartStateProps {
 const DEFAULT_TONES: readonly ChartTone[] = ["brand", "brand-2", "ink-muted", "border-control", "ink-muted"];
 const MAX_SERIES = 5;
 const AXIS_WIDTH = 56;
-const PAD = { top: 14, right: AXIS_WIDTH, bottom: 24, left: 8 } as const;
+const PAD = { top: 22, right: AXIS_WIDTH, bottom: 24, left: 8 } as const;
 const MAX_BAR = 44;
 const GAP = 2;
 const RADIUS = 4;
@@ -309,11 +309,15 @@ export function BarChart({
     return formatCompactNumber({ value: text, locale, axis: true }) ?? formatNumber(locale, text);
   };
 
-  const legendIndex = (() => {
-    for (let c = n - 1; c >= 0; c--)
-      if (series.some((s) => s.values[c] != null) || lines.some((l) => l.values[c] != null)) return c;
+  /** The legend names the last period with a value that is not zero (the last one when all are zero or empty). */
+  const legendIndexOf = (values: readonly (string | null)[]): number => {
+    for (let c = n - 1; c >= 0; c--) {
+      const v = values[c];
+      if (v != null && signOf(v) !== 0) return c;
+    }
+    for (let c = n - 1; c >= 0; c--) if (values[c] != null) return c;
     return n - 1;
-  })();
+  };
 
   const anchor = active !== null ? { x: PAD.left + band * active + band / 2, y: top } : null;
   const tip =
@@ -353,8 +357,10 @@ export function BarChart({
                 key={s.id}
                 swatch={<Swatch kind="bar" tone={toneOf(s, i)} hatched={s.hatched ?? false} />}
                 name={s.name}
-                category={categories[legendIndex]?.full ?? categories[legendIndex]?.label}
-                value={s.values[legendIndex] ?? null}
+                category={
+                  categories[legendIndexOf(s.values)]?.full ?? categories[legendIndexOf(s.values)]?.label
+                }
+                value={s.values[legendIndexOf(s.values)] ?? null}
                 currency={currency}
               />
             ))}
@@ -370,8 +376,10 @@ export function BarChart({
                   />
                 }
                 name={l.name}
-                category={categories[legendIndex]?.full ?? categories[legendIndex]?.label}
-                value={l.values[legendIndex] ?? null}
+                category={
+                  categories[legendIndexOf(l.values)]?.full ?? categories[legendIndexOf(l.values)]?.label
+                }
+                value={l.values[legendIndexOf(l.values)] ?? null}
                 currency={currency}
               />
             ))}

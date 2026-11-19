@@ -3630,7 +3630,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 /*
  * CHT-00@PoC, CMP-42 LineChart, CMP-47 BarChart: the chart fills the width of its container; colours come from the
  * tokens through the `fill` and `stroke` of the marks. Axis labels 12/16 `ink-muted` with tabular digits, grid lines
- * 1 px `line`, the zero line 1.5 px `ink-muted`, the cursor a dotted `border-control` line. No animation (CHT-00).
+ * 1 px `line`, the zero line 1.5 px `ink-muted`, the cursor a dotted `border-control` line. Nothing moves (CHT-00).
  */
 .ws-chart {
   inline-size: 100%;
@@ -3681,24 +3681,24 @@ button.ws-stepper-step[aria-disabled="true"] {
 
 .ws-chart-axis {
   fill: var(--ws-ink-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .ws-chart-value {
   fill: var(--ws-ink);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
 .ws-chart-target {
   fill: var(--ws-ink);
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
 .ws-chart-event-label {
   fill: var(--ws-ink-muted);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .ws-chart-hit--click {
@@ -3729,7 +3729,15 @@ button.ws-stepper-step[aria-disabled="true"] {
   display: inline-flex;
   align-items: center;
   gap: var(--ws-space-2);
+  max-inline-size: 100%;
   white-space: nowrap;
+}
+
+.ws-chart-legend-item > .ws-muted,
+.ws-chart-legend-button > span {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ws-chart--wide .ws-chart-legend--list {
@@ -3767,7 +3775,7 @@ button.ws-stepper-step[aria-disabled="true"] {
   flex: none;
   inline-size: 12px;
   block-size: 12px;
-  border-radius: 2px;
+  border-radius: var(--ws-radius-sm);
   background: var(--ws-chart-tone);
 }
 
@@ -3791,8 +3799,8 @@ button.ws-stepper-step[aria-disabled="true"] {
   border-radius: var(--ws-radius-md);
   background: var(--ws-surface-200);
   box-shadow: var(--ws-shadow-popover);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 0.75rem;
+  line-height: 1rem;
   pointer-events: none;
 }
 

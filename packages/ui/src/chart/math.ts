@@ -78,18 +78,23 @@ export interface Scale {
   ticks: number[];
 }
 
-function niceStep(raw: number): number {
-  const magnitude = 10 ** Math.floor(Math.log10(raw));
-  const unit = raw / magnitude;
-  const pick = unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 2.5 ? 2.5 : unit <= 5 ? 5 : 10;
-  return pick * magnitude;
+/** The smallest round step (1, 2, 2.5 or 5 times a power of ten) that covers `lo` … `hi` in at most `target` intervals. */
+function niceStep(lo: number, hi: number, target: number): number {
+  const span = hi - lo;
+  const base = Math.floor(Math.log10(span / target));
+  for (let k = base; k <= base + 2; k++)
+    for (const unit of [1, 2, 2.5, 5]) {
+      const step = unit * 10 ** k;
+      if (Math.ceil(hi / step - 1e-9) - Math.floor(lo / step + 1e-9) <= target) return step;
+    }
+  return 10 ** (base + 3);
 }
 
 /**
  * DS-16 item 16, CMP-42: the value scale. `fromZero` (bars) always contains zero; otherwise it runs from the data
  * minimum to the maximum with 10 % of the span on each side, rounded to round steps, and is not tied to zero.
  */
-export function niceScale(values: readonly number[], fromZero: boolean, target = 5): Scale {
+export function niceScale(values: readonly number[], fromZero: boolean, target = 6): Scale {
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
   if (fromZero) {
@@ -101,7 +106,7 @@ export function niceScale(values: readonly number[], fromZero: boolean, target =
     hi += span * 0.1;
   }
   if (hi === lo) hi = lo + 1;
-  const step = niceStep((hi - lo) / target);
+  const step = niceStep(lo, hi, target);
   const min = Math.floor(lo / step + 1e-9) * step;
   const max = Math.ceil(hi / step - 1e-9) * step;
   const ticks: number[] = [];

@@ -19,6 +19,12 @@ describe("CHT-00@PoC shared chart arithmetic", () => {
     expect(() => addDecimal("1e3", "1")).toThrow(RangeError);
   });
 
+  it("CMP-42@PoC AC5: values from 300 000 to 344 200 give an axis from 290 000 to 350 000, not from zero", () => {
+    const s = niceScale([300000, 344200], false);
+    expect([s.min, s.max]).toEqual([290000, 350000]);
+    expect(s.ticks[0]).toBe(290000);
+  });
+
   it("CMP-42@PoC FR scale: the scale is not tied to zero, runs 10 % beyond the data and ends on round ticks", () => {
     const s = niceScale([1000, 1100], false);
     expect(s.min).toBeGreaterThan(0);
