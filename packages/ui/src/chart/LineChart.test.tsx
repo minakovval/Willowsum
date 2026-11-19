@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nProvider } from "@willowsum/i18n";
 import { LineChart, type LineChartProps, type LineSeries } from "./LineChart.tsx";
@@ -68,6 +70,10 @@ describe("CMP-42@PoC LineChart", () => {
     expect(path("s0").getAttribute("stroke")).toBe("var(--ws-border-control)");
     expect(path("s0").getAttribute("stroke-width")).toBe("1.5");
     expect(radios.every((r) => r.className.includes("ws-chart-legend-button"))).toBe(true);
+    // The chosen button's fill (surface-300) is not a 3 : 1 mark on its own: it also has a border-control border (DS-06, e2e contrast).
+    const css = readFileSync(resolve(process.cwd(), "src/styles/components.css"), "utf8");
+    const chosen = css.slice(css.indexOf('.ws-chart-legend-button[aria-checked="true"]'));
+    expect(chosen.slice(0, chosen.indexOf("}"))).toContain("border-color: var(--ws-border-control)");
   });
 
   it("CMP-42@PoC AC3: a goal's target line is dashed 4 / 4 in chart-reference with its label", () => {

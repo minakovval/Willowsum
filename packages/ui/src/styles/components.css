@@ -3766,7 +3766,7 @@ button.ws-stepper-step[aria-disabled="true"] {
   gap: var(--ws-space-2);
   min-block-size: 36px;
   padding: var(--ws-space-2);
-  border: 0;
+  border: 1px solid transparent;
   border-radius: var(--ws-radius-sm);
   background: transparent;
   color: var(--ws-ink);
@@ -3780,6 +3780,7 @@ button.ws-stepper-step[aria-disabled="true"] {
 }
 
 .ws-chart-legend-button[aria-checked="true"] {
+  border-color: var(--ws-border-control);
   background: var(--ws-surface-300);
   font-weight: 600;
 }
