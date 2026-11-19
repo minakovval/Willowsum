@@ -42,7 +42,7 @@
 - [PoC v2–MVP] Сценарії: UC-BUD-87, UC-BUD-88, UC-BUD-89, UC-BUD-90
 - [v1] Сценарії: UC-BUD-87, UC-BUD-88, UC-BUD-89, UC-BUD-90, UC-BUD-91
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud16a-methods.test.ts`, `apps/api/test/bud16a-methods.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud16a-methods.test.ts`, `apps/api/test/bud16a-methods.it.test.ts`, `apps/web/src/planning/trend/bud16b-trend.test.tsx`
 
 [лише PoC] **Мета.** Як власник бюджету, я хочу планувати витрати методом «Ліміти» — лімітами за категоріями на місяць, щоб планувати так, як мені зручно.
 [PoC v2] **Мета.** Як власник бюджету, я хочу обрати метод бюджетування — ліміти, Flex або «Кожній копійці — завдання» — і змінювати його без втрати даних, щоб планувати так, як мені зручно.

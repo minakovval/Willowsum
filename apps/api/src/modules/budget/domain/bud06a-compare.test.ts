@@ -168,9 +168,10 @@ describe("BUD-06@PoC a): the windows of «Порівняння»", () => {
       field: "period",
       issue: "invalid",
     });
-    expect(compareSelection({ type: "ytd", period: "2025" }, today)).toEqual({
+    // A past year's «З початку року» is a period (owner decision 2026-11-19, #609); one not begun is not.
+    expect(compareSelection({ type: "ytd", period: "2027" }, today)).toEqual({
       field: "period",
-      issue: "invalid",
+      issue: "future",
     });
     expect(compareSelection({ type: "month", period: "0000-01" }, today)).toEqual({
       field: "period",
