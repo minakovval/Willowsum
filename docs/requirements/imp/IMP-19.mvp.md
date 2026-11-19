@@ -10,7 +10,7 @@
 - Спільні правила: П-21, NFR-04
 - Сценарії: UC-IMP-01, UC-IMP-02, UC-IMP-18, UC-IMP-23, UC-IMP-24
 - Модуль: import-sessions, file-parsers, ocr, notification-delivery
-- Перевіряється: apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts
+- Перевіряється: apps/api/src/modules/import-sessions/domain/imp01-batch-states.test.ts, apps/api/test/imp01-import-batches.it.test.ts, apps/api/test/imp01-import-batch-lifecycle.it.test.ts
 
 **Мета.** Як учасник, я хочу швидко бачити результат імпорту і розуміти, що робити, коли файл завеликий, щоб не чекати наосліп.
 
