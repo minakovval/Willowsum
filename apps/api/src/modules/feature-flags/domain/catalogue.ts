@@ -231,7 +231,7 @@ export const FLAGS = {
     owner: "product-owner",
     reviewBy: "2027-02-19",
     description:
-      "Імпорт виписок (IMP-01@PoC b): партії, завантаження файлів, оригінали у сховищі, підписані посилання, стани партії; маршрути /v1/import/batches",
+      "Імпорт виписок (IMP-01@PoC b): партії, завантаження файлів, оригінали у сховищі, підписані посилання, стани партії; рецепти розбору простору (IMP-06@PoC a); маршрути /v1/import/batches, /v1/import/recipes",
   },
   "debts.payoff": {
     kind: "release",

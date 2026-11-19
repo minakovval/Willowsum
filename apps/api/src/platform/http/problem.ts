@@ -272,6 +272,8 @@ export const PROBLEMS = {
   FILE_TOO_LARGE: { status: 413, title: "The file is over a technical ceiling" },
   /** IMP-01@PoC FR 10: the batch's state does not allow this step; nothing was written. */
   BATCH_STATE_CONFLICT: { status: 409, title: "The batch's state does not allow this" },
+  /** IMP-06@PoC FR 2, FR 3, FR 14: the recipe is not valid; `recipeErrors` holds each error's code and field path. */
+  RECIPE_INVALID: { status: 422, title: "The parsing recipe is not valid" },
   UNSUPPORTED_MEDIA_TYPE: { status: 415, title: "The request body must be application/json" },
   /**
    * A technical limit that does not depend on the plan (NFR-15 FR 17: filters per request, bulk size, drafts,
@@ -363,6 +365,22 @@ export const ProblemSchema = z
       .meta({
         description: "FILE_REJECTED, FILE_TOO_LARGE: the first file's reason and the ceiling it exceeded",
       }),
+    /** For RECIPE_INVALID (IMP-06 FR 14): each error's code and the field's path; the client localises the code. */
+    recipeErrors: z
+      .array(
+        z.object({
+          code: z.string().meta({ "x-extensible-enum": true, description: "The error's code" }),
+          path: z.string().meta({
+            description: 'The field\'s path in the recipe, e.g. columns[3].role; "" — the whole recipe',
+          }),
+          reason: z
+            .string()
+            .optional()
+            .meta({ description: "UNSAFE_PATTERN: the rule of the safe dialect it breaks" }),
+        }),
+      )
+      .optional()
+      .meta({ description: "RECIPE_INVALID: the recipe's errors with their codes and paths" }),
     /** For VALIDATION_FAILED: where the input is wrong; never the values sent. */
     errors: z
       .array(
@@ -420,6 +438,7 @@ export type ProblemExtensions = Partial<
     | "sessionEndReason"
     | "excess"
     | "rejection"
+    | "recipeErrors"
   >
 >;
 

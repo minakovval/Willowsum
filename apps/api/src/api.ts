@@ -9,6 +9,7 @@ import type { AccountsServices } from "./modules/accounts/index.ts";
 import type { BulkActionsServices } from "./modules/bulk-actions/index.ts";
 import type { CategoriesServices } from "./modules/categories/index.ts";
 import type { DebtPayoffServices } from "./modules/debt-payoff/index.ts";
+import type { ImportRecipesServices } from "./modules/import-recipes/index.ts";
 import type { ImportSessionsServices } from "./modules/import-sessions/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { BudgetServices } from "./modules/budget/index.ts";
@@ -77,6 +78,8 @@ export interface ApiWiring {
   readonly debtPayoff?: DebtPayoffServices;
   /** The import-sessions module's ports (IMP-01: file-storage's originals, the audit log, clock). */
   readonly importSessions?: ImportSessionsServices;
+  /** The import-recipes module's ports (IMP-06: the space keys for the account value, the audit log, clock). */
+  readonly importRecipes?: ImportRecipesServices;
   /**
    * The categorization module's ports (BUD-01 b: the transactions lookup, the category directory, the audit log).
    * Omitted: its routes answer 500.
@@ -159,7 +162,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                                     ? wiring.cashflow
                                     : module === "import-sessions"
                                       ? wiring.importSessions
-                                      : undefined,
+                                      : module === "import-recipes"
+                                        ? wiring.importRecipes
+                                        : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

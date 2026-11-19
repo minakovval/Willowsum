@@ -51,6 +51,10 @@ import {
   createImportSessionsWorkerQueue,
 } from "./modules/import-sessions/index.ts";
 import {
+  createImportRecipesHandOffRecovery,
+  createImportRecipesWorkerQueue,
+} from "./modules/import-recipes/index.ts";
+import {
   createMerchantDirectory,
   createMerchantsRecovery,
   createMerchantsWorkerQueue,
@@ -241,6 +245,9 @@ export function schedulerDailyTasks(deps: {
   const importRecovery = createImportSessionsHandOffRecovery(deps.databases.for("import-sessions"), () =>
     deps.spaces.spaceIds(),
   );
+  const recipesRecovery = createImportRecipesHandOffRecovery(deps.databases.for("import-recipes"), () =>
+    deps.spaces.spaceIds(),
+  );
   const merchantsRecovery = createMerchantsRecovery(deps.databases.for("merchants"), () =>
     deps.spaces.spaceIds(),
   );
@@ -338,6 +345,15 @@ export function schedulerDailyTasks(deps: {
         const requeued = await importRecovery.run();
         if (requeued > 0)
           logEvent("import_sessions.hand_off_requeued", "warn", { "ws.module": "import-sessions" });
+      },
+    },
+    // The same for the import-recipes queue (ARC-04, ADR-0015, #249): the audit entries of saved and deleted recipes.
+    {
+      name: "import-recipes.hand-off-recovery",
+      run: async () => {
+        const requeued = await recipesRecovery.run();
+        if (requeued > 0)
+          logEvent("import_recipes.hand_off_requeued", "warn", { "ws.module": "import-recipes" });
       },
     },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
@@ -458,6 +474,8 @@ export function workerQueues(
       createRecurringWorkerQueue(databases.for("recurring"), audit),
       // IMP-01 b: the audit entries of import batches (ADR-0015).
       createImportSessionsWorkerQueue(databases.for("import-sessions"), audit),
+      // IMP-06 a: the audit entries of saved and deleted parsing recipes (ADR-0015).
+      createImportRecipesWorkerQueue(databases.for("import-recipes"), audit),
     ],
     subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions, ...recurringSubscriptions],
   };
