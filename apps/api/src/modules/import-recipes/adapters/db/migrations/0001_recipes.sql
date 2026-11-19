@@ -8,9 +8,11 @@
 CREATE TABLE recipes (
   household_id uuid NOT NULL,
   id uuid NOT NULL,
-  name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120 AND name !~ '[\x01-\x1f\x7f-\x9f  ]'),
+  name text NOT NULL CHECK (char_length(name) BETWEEN 1 AND 120 AND name !~ '[\x01-\x1f\x7f-\x9f\u2028\u2029]'),
   schema_version integer NOT NULL CHECK (schema_version >= 1),
   recipe jsonb NOT NULL CHECK (jsonb_typeof(recipe) = 'object' AND octet_length(recipe::text) <= 65536),
+  -- The account binding's value is only ever in `account_value_sealed`.
+  CONSTRAINT recipes_no_account_value CHECK (NOT (recipe #> '{account}' ? 'value')),
   account_value_sealed text CHECK (char_length(account_value_sealed) BETWEEN 1 AND 16384),
   account_value_last4 text CHECK (char_length(account_value_last4) BETWEEN 1 AND 4),
   fingerprint text CHECK (fingerprint ~ '^fp1:[0-9a-f]{64}$'),

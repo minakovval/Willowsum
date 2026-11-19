@@ -343,8 +343,12 @@ export function checkRecipe(input: unknown): RecipeCheck {
     const errors: RecipeError[] = [];
     for (const issue of parsed.error.issues) {
       if (issue.code === "unrecognized_keys") {
+        // An unknown key with a control character is never echoed back: the parent's path.
         for (const key of issue.keys)
-          errors.push({ code: "UNKNOWN_FIELD", path: fieldPath([...issue.path, key]) });
+          errors.push({
+            code: "UNKNOWN_FIELD",
+            path: fieldPath(unsafeText(key) ? issue.path : [...issue.path, key]),
+          });
       } else if (valueAt(value, issue.path) === undefined) {
         errors.push({ code: "MISSING_FIELD", path: fieldPath(issue.path) });
       } else errors.push({ code: "INVALID_VALUE", path: fieldPath(issue.path) });

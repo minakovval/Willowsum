@@ -104,8 +104,14 @@ export class RecipeCeilingError extends Error {
 
 const FINGERPRINT = /^fp1:[0-9a-f]{64}$/;
 
-/** The last 4 characters of the value, spaces dropped: how it is shown (NFR-01 FR 6). */
-const last4 = (value: string): string => value.replace(/\s+/g, "").slice(-4) || "*";
+/**
+ * The last 4 characters of the value, spaces dropped: how it is shown (NFR-01 FR 6). A value of 4 characters or fewer
+ * is never shown whole («*»); whole characters, so a pair of surrogates is never cut.
+ */
+export function accountValueLast4(value: string): string {
+  const characters = [...value.replace(/\s+/g, "")];
+  return characters.length > 4 ? characters.slice(-4).join("") : "*";
+}
 
 /** «Зберегти рецепт»: checked whole, the account value sealed, then written with its audit hand-off. */
 export async function saveRecipe(
@@ -140,7 +146,7 @@ export async function saveRecipe(
       schemaVersion: checked.recipe.schemaVersion,
       recipe,
       accountValueSealed: sealed,
-      accountValueLast4: value === undefined ? null : last4(value),
+      accountValueLast4: value === undefined ? null : accountValueLast4(value),
       fingerprint: input.fingerprint,
       createdBy: actor.actorId,
       createdAt: deps.now(),

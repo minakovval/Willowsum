@@ -3,6 +3,7 @@ import { decodeCursor, encodeCursor, pageOf, pageQuery } from "../../../../platf
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
 import {
+  accountValueLast4,
   deleteRecipe,
   RECIPE_NAME_MAX,
   RecipeCeilingError,
@@ -99,6 +100,27 @@ function owner(ctx: ProtectedContext): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
+/**
+ * The recipe as the stored idempotency hash covers it (ARC-06 FR 2): the account binding's value is kept sealed, so the
+ * unsalted hash in a clear column covers only its masked form — it cannot be searched for the full IBAN.
+ */
+function recipeForHash(recipe: unknown): unknown {
+  let value = recipe;
+  if (typeof recipe === "string") {
+    try {
+      value = JSON.parse(recipe);
+    } catch {
+      return recipe;
+    }
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+  const account = (value as Record<string, unknown>).account;
+  if (account === null || typeof account !== "object" || Array.isArray(account)) return value;
+  const sealed = (account as Record<string, unknown>).value;
+  if (typeof sealed !== "string") return value;
+  return { ...value, account: { ...account, value: accountValueLast4(sealed) } };
+}
+
 export const createImportRecipeRoute = defineRoute({
   module: MODULE,
   method: "POST",
@@ -108,6 +130,7 @@ export const createImportRecipeRoute = defineRoute({
     "Saves a parsing recipe (FR 1, FR 2, FR 3, FR 14): checked whole; an invalid one is 422 RECIPE_INVALID with each error's code and path",
   access: WRITE,
   create: true,
+  idempotencyHashInput: ({ body }) => ({ ...body, recipe: recipeForHash(body.recipe) }),
   // Above the recipe's 32 KB, so that a larger recipe is refused with its own code (AC4), not by the body limit.
   bodyLimitBytes: 2 * RECIPE_LIMITS.bytes,
   request: {

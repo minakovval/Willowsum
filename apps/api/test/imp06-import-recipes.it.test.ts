@@ -290,7 +290,7 @@ describe("IMP-06@PoC FR 2, FR 3, FR 14: what is refused, with its code and path;
     expect(await recipes(space.householdId)).toBe(0);
   });
 
-  it(`IMP-06@PoC FR 2: a space holds at most ${RECIPES_PER_SPACE} recipes (a technical ceiling, never 402); two saves at once never pass it`, async () => {
+  it(`Lead decision 2026-11-19 (recipe storage, technical ceiling): a space holds at most ${RECIPES_PER_SPACE} recipes (a technical ceiling, never 402); two saves at once never pass it`, async () => {
     const space = await newSpace();
     await db.owner.query(
       `INSERT INTO import_recipes.recipes (household_id, id, name, schema_version, recipe, created_by)
