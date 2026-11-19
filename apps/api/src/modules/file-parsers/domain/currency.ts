@@ -140,9 +140,23 @@ export function amountMark(cell: string): string | null {
  * brackets or the header's last word — never a word of the header's text that happens to be a code (`ALL`, #624).
  */
 export function headerCurrency(header: string): string | null {
+  const code = headerCode(header);
+  return code !== null && isCurrencyCode(code) && !WITHDRAWN.has(code) ? code : null;
+}
+
+/**
+ * A code-shaped mark in a column's header that is no current code («Сума (BGN)», «Amount, RUR»): the header names a
+ * currency the engine does not hold, so its rows are «невідома валюта» (IMP-02 FR 10), never the account's currency.
+ */
+export function headerUnknownCurrency(header: string): string | null {
+  const code = headerCode(header);
+  return code !== null && !(isCurrencyCode(code) && !WITHDRAWN.has(code)) ? code : null;
+}
+
+function headerCode(header: string): string | null {
   const m = /(?:^|[\s([,/])([A-Z]{3})(?:[)\]]|\s*$)/.exec(header);
   const code = m?.[1];
-  if (!code || !isCurrencyCode(code) || WITHDRAWN.has(code)) return null;
+  if (!code) return null;
   const bracketed = new RegExp(`[([]\\s*${code}\\s*[)\\]]`).test(header);
   const last = new RegExp(`(?:^|[\\s,/])${code}\\s*$`).test(header);
   // A header all in capitals («ALL AMOUNTS EUR») names its code only in brackets.

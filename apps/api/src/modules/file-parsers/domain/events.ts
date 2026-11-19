@@ -1,6 +1,12 @@
 import { currencyInfo, Decimal, isCurrencyCode } from "@willowsum/domain-kernel";
 import { IN_VALUES, OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
-import { amountMark, ibanCountry, recognizeCurrency, type CurrencyHints } from "./currency.ts";
+import {
+  amountMark,
+  headerUnknownCurrency,
+  ibanCountry,
+  recognizeCurrency,
+  type CurrencyHints,
+} from "./currency.ts";
 import { dateCell, numberCell, readDate, readNumber, type DecimalSeparator } from "./values.ts";
 
 /**
@@ -155,8 +161,17 @@ export function readEvents(
       else if (rec) columnOther = true;
     }
   const columnCode = columnCodes.size === 1 && !columnOther ? [...columnCodes][0]! : null;
-  const columnMixed = columnCodes.size > 1 || (columnOther && columnCodes.size > 0);
+  const columnMixed = columnCodes.size > 1 || columnOther;
   const fileCode = analysis.currency.mode === "file" ? analysis.currency.code : null;
+  // FR 10: an amount header that names a code the engine does not hold («Сума (BGN)») is «невідома валюта» for its
+  // rows — the account's currency is never lent to them.
+  const headerCells = headerRow === null ? [] : (rows[headerRow] ?? []);
+  const headerMark =
+    fileCode !== null
+      ? null
+      : ((["amount", "debit", "credit", "balance"] as const)
+          .map((role) => headerUnknownCurrency((headerCells[column(role) - 1] ?? "").trim()))
+          .find((m) => m !== null) ?? null);
   const account = options.account;
   // The caller's account currency is checked like a file's: a code the kernel does not hold is no currency.
   const accountCode =
@@ -226,7 +241,8 @@ export function readEvents(
     const recognized =
       recognizeCurrency(cell, hints) ??
       (columnCode !== null ? { status: "code" as const, code: columnCode, via: "iso" as const } : null) ??
-      (mark ? recognizeCurrency(mark, hints) : null);
+      (mark ? recognizeCurrency(mark, hints) : null) ??
+      (headerMark !== null ? { status: "unknown" as const, mark: headerMark } : null);
     if (recognized?.status === "code") currency = recognized.code;
     else if (recognized?.status === "ambiguous") {
       flags.add("currency-ambiguous");

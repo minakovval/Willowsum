@@ -276,3 +276,87 @@ describe("IMP-02@PoC b) security review: defects (fixed by sec627-fix.patch)", (
     expect([beside("EUR", UAH).currency, beside("EUR", UAH).flags]).toEqual([null, ["currency-missing"]]);
   });
 });
+
+describe("IMP-02@PoC b) security review, confirmation of 2f30651f: what the fix round left", () => {
+  it("IMP-02@PoC FR 10: an amount header that names a code the engine does not hold («Сума (BGN)», «Amount, RUR») makes its rows «невідома валюта» — the account's currency is not lent to them", () => {
+    for (const [header, mark] of [
+      ["Сума (BGN)", "BGN"],
+      ["Сума (RUR)", "RUR"],
+      ["Сума ANG", "ANG"],
+    ] as const)
+      expect([
+        header,
+        ...parse(["Дата;" + header + ";Опис", "01.03.2026;-1,00;a", "02.03.2026;-2,00;b"], {
+          account: { currencies: ["EUR"], multiCurrency: false },
+        }).map((e) => [e.currency, e.legs[0]!.amount, e.flags, e.currencyMark?.text]),
+      ]).toEqual([
+        header,
+        [null, "-1.00", ["currency-unknown"], mark],
+        [null, "-2.00", ["currency-unknown"], mark],
+      ]);
+    // A current code in the header and a header with no code read as before.
+    const eur: StatementOptions = { account: { currencies: ["EUR"], multiCurrency: false } };
+    expect(
+      parse(["Дата;Сума (EUR);Опис", "01.03.2026;-1,00;a", "02.03.2026;-2,00;b"], eur)[0]!.flags,
+    ).toEqual([]);
+    expect(
+      parse(["Дата;Сума;Опис", "01.03.2026;-1,00;a", "02.03.2026;-2,00;b"], eur).map((e) => [
+        e.currency,
+        e.flags,
+      ]),
+    ).toEqual([
+      ["EUR", []],
+      ["EUR", []],
+    ]);
+  });
+
+  it("IMP-02@PoC FR 10: an empty currency cell beside an unknown or ambiguous mark is never given the account's currency — with or without a code in the column", () => {
+    const third = (first: string, second: string) =>
+      parse(
+        [
+          "Дата;Сума;Валюта;Опис",
+          `01.03.2026;-1,00;${first};a`,
+          `02.03.2026;-2,00;${second};b`,
+          "03.03.2026;-3,00;;c",
+        ],
+        UAH,
+      )[2]!;
+    for (const [first, second] of [
+      ["USD", "RUR"],
+      ["RUR", "RUR"],
+      ["$", "$"],
+    ] as const)
+      expect([first, second, third(first, second).currency, third(first, second).flags]).toEqual([
+        first,
+        second,
+        null,
+        ["currency-missing"],
+      ]);
+  });
+
+  it("IMP-02@PoC FR 10: ANG, the numeric code 975 and a recipe symbol that names BGN are «невідома валюта» too", () => {
+    expect(recognizeCurrency("ANG")).toEqual({ status: "unknown", mark: "ANG" });
+    expect(recognizeCurrency("975")).toEqual({ status: "unknown", mark: "975" });
+    expect(recognizeCurrency("лв", { symbols: { лв: "BGN" } })).toEqual({ status: "unknown", mark: "лв" });
+  });
+
+  it("IMP-06@PoC FR 8: a minus in the credit column is flagged like a minus in the debit column", () => {
+    const events = parse(
+      ["Дата;Дебет;Кредит;Опис", "01.03.2026;10,00;;a", "02.03.2026;;2,00;b", "03.03.2026;;-5,00;storno"],
+      UAH,
+    );
+    expect(events.map((e) => e.flags)).toEqual([[], [], ["sign-unclear"]]);
+  });
+
+  it("IMP-02@PoC FR 4: the original currency column wins over a mark printed with the original amount", () => {
+    const events = parse([
+      "Дата;Сума;Валюта;Сума у валюті операції;Валюта операції;Курс",
+      "01.03.2026;-22,50;EUR;1 000,00 USD;UAH;0,0225",
+      "02.03.2026;-22,50;EUR;1 000,00 USD;UAH;0,0225",
+    ]);
+    expect(events.map((e) => e.original)).toEqual([
+      { amount: "1000.00", currency: "UAH" },
+      { amount: "1000.00", currency: "UAH" },
+    ]);
+  });
+});
