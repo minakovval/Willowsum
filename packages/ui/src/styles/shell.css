@@ -477,3 +477,8 @@ button.ws-menu-item {
 .ws-row-actions .ws-menu-root {
   width: auto;
 }
+
+/* Its menu is as wide as its longest item, not the sidebar minimum («Закрити без витрати» on one line). */
+.ws-row-actions .ws-menu {
+  inline-size: max-content;
+}

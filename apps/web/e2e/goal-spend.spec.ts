@@ -181,6 +181,27 @@ test("BUD-05@PoC FR 1, CMP-61@PoC AC11: a goal card with a long name keeps its t
   expect(m.h2Height).toBeLessThan(m.lineHeight * 6);
 });
 
+test("BUD-05@PoC FR 1: a goal name of one long word wraps — no horizontal scroll, the list stays left of the card, the «⋯» menu items on one line", async ({
+  page,
+}) => {
+  const word = "Надзвичайнодовгаоднословеснаназвацілібезжоднихпробілівдлятест";
+  await answer(page, word);
+  await page.goto("/#/planning/goals");
+  const card = page.getByRole("region", { name: word });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Ще дії" }).click();
+  const m = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    rowRight: document.querySelector(".goal-row")!.getBoundingClientRect().right,
+    cardLeft: document.querySelector(".goal-card")!.getBoundingClientRect().left,
+    items: [...document.querySelectorAll(".ws-menu-item")].map((i) => i.getBoundingClientRect().height),
+  }));
+  expect(m.overflow).toBe(0);
+  expect(m.rowRight).toBeLessThanOrEqual(m.cardLeft);
+  expect(m.items.length).toBeGreaterThan(1);
+  for (const h of m.items) expect(h).toBeLessThanOrEqual(48);
+});
+
 test("CMP-61@PoC AC11: the «⋯» of MoreActions in the gallery is only as wide as its button", async ({
   page,
 }) => {
