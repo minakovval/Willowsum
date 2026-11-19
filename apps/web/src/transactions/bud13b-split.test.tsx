@@ -8,7 +8,7 @@ import { fakeApi, plain, problem } from "../auth/testing.tsx";
 import { splitAction, type SplitCategory, type Transaction } from "./api.ts";
 import { evaluate } from "./calc.ts";
 import { SplitDialog } from "./SplitDialog.tsx";
-import { roundParts } from "./split.ts";
+import { monthShares, roundParts } from "./split.ts";
 import { Decimal } from "@willowsum/domain-kernel";
 
 /**
@@ -214,6 +214,43 @@ describe("BUD-13@PoC b): «Розділити транзакцію» (S-049)", (
     const d = (v: string) => new Decimal(v);
     expect(roundParts([d("0.125")], d("5"), "EUR").map((x) => x.toFixed(2))).toEqual(["0.12"]);
     expect(roundParts([d("0.135")], d("5"), "EUR").map((x) => x.toFixed(2))).toEqual(["0.14"]);
+  });
+
+  it("BUD-13@PoC FR 6 (security): the remainder in JPY and KWD; at half a minor unit off nothing is moved; months towards zero", () => {
+    const d = (v: string) => new Decimal(v);
+    const third = d("10").div(d("3"));
+    const fixed = (xs: Decimal[]) => xs.map((x) => x.toFixed());
+    expect(fixed(roundParts([third, third, third], d("10"), "JPY"))).toEqual(["4", "3", "3"]);
+    expect(fixed(roundParts([third, third, third], d("10"), "KWD"))).toEqual(["3.334", "3.333", "3.333"]);
+    expect(fixed(roundParts([d("2.5"), d("3.5")], d("6"), "JPY"))).toEqual(["2", "4"]);
+    // Exact values 0,006 € and 0,005 € short of 10 €: not a rounding remainder, the parts stay as they are.
+    expect(fixed(roundParts([d("5"), d("4.994")], d("10"), "EUR"))).toEqual(["5", "4.99"]);
+    expect(fixed(roundParts([d("1.005"), d("1.005"), d("7.985")], d("10"), "EUR"))).toEqual([
+      "1",
+      "1",
+      "7.98",
+    ]);
+    // «На кілька місяців» is not half to even: 0,05 € ÷ 3 = 0,0167 → 0,01 (towards zero), the rest in the last share.
+    const shares = (v: string, c: string, n: number) =>
+      monthShares(d(v), c, "2026-01", n)?.map((s) => s.amount.toFixed());
+    expect(shares("0.05", "EUR", 3)).toEqual(["0.01", "0.01", "0.03"]);
+    expect(shares("200", "JPY", 3)).toEqual(["66", "66", "68"]);
+    expect(shares("0.002", "KWD", 3)).toBeUndefined();
+  });
+
+  it("BUD-13@PoC FR 6 (security): a part that rounds to 0 keeps «Зберегти» inactive; an untouched first field keeps its text", () => {
+    renderDialog(tx({ amount: { amount: "-10.00", currency: "EUR" } }));
+    fireEvent.change(categoryField(1), { target: { value: CAT.food } });
+    fireEvent.change(categoryField(2), { target: { value: CAT.home } });
+    // 0,125 rounds to 0,12 by the same rule in the field check: leaving part 2 does not rewrite part 1.
+    fireEvent.change(amountField(1), { target: { value: "0,125" } });
+    fireEvent.change(amountField(2), { target: { value: "1" } });
+    fireEvent.blur(amountField(2));
+    expect(value(amountField(1))).toBe("0,125");
+    // 0,004 € + 9,996 € make 10,00 € exactly, but the first part would be saved as 0,00 €.
+    fireEvent.change(amountField(1), { target: { value: "0,004" } });
+    fireEvent.change(amountField(2), { target: { value: "9,996" } });
+    expect(saveButton().getAttribute("aria-disabled")).toBe("true");
   });
 
   it("BUD-13@PoC AC5: −100,00 € on 3 months — 33,33 €, 33,33 € and 33,34 €, «3 частини по 33,33 € · <період>»", () => {
