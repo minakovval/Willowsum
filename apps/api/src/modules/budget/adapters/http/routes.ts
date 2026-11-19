@@ -755,7 +755,8 @@ export const getTrendRoute = defineRoute({
     }
     const budget = await stored(ctx);
     const plans = await ctx.inHousehold((q) =>
-      periodPlans(deps, budgetTx(q), householdId, budget, periods, categories),
+      // BUD-16 FR 4: «План місяця» is the sum of the limits: income and savings are not read.
+      periodPlans(deps, budgetTx(q), householdId, budget, periods, categories, true),
     );
     const choices = await ctx.inHousehold((q) => budgetTx(q).accountChoices(householdId));
     const accountIds = (await deps.reads.accounts(householdId))

@@ -20,9 +20,10 @@ import {
 export const PLAN_GRID_MONTHS = 12;
 
 /**
- * A line of the grid a cell belongs to: an income source (an income category, or null — «Інші надходження», the
- * budget's income plan of BUD-02), the limit of an expense category, a goal's planned contribution, «Заощадження без
- * цілі» (no id). «Погашення боргів» is read only (FR 1): no cell.
+ * A line of the grid a cell belongs to: an income source — a regular income expected in the month (module recurring's
+ * payment; null — «План доходу», the budget's income plan of BUD-02, only in a month without any), the limit of an
+ * expense category, a goal's planned contribution, «Заощадження без цілі» (no id). «Погашення боргів» is read only
+ * (FR 1): no cell.
  */
 export const PLAN_LINE_KINDS = ["income", "limit", "goal", "savings"] as const;
 export type PlanLineKind = (typeof PLAN_LINE_KINDS)[number];
@@ -57,35 +58,72 @@ export function cellPeriodIssue(period: Period, today: string): "past" | "too_fa
 const sum = (xs: readonly Money[], currency: string): Money =>
   xs.reduce((t, x) => t.plus(x), Money.zero(currency));
 
+/** A regular income expected in a month (module recurring), in the budget's currency; `amount` null — no rate. */
+export interface PlanIncome {
+  readonly paymentId: string;
+  readonly amount: Money | null;
+}
+
 /**
- * The plan of one month with its own cells (FR 2; BUD-02 FR 11): a limit cell sets that month's limit (a category
- * without a budget-wide limit gets one); «Інші надходження» replaces the income plan and each source's cell adds to it;
- * the goals' cells and «Заощадження без цілі» are the month's planned savings. A cell is the month's exact amount — the
- * proportional first period scales only the budget-wide plan (`base`), not what was typed for the month.
+ * The lines a month's cells may count on (FR 1, edge case 2): its expected regular incomes and the space's active
+ * goals. A cell whose line the grid no longer shows — a goal closed, an income no longer expected that month, a
+ * category hidden or merged — stops counting; it counts again if its line comes back (lead decision, #613).
+ */
+export interface PlanLines {
+  readonly incomes: readonly PlanIncome[];
+  readonly goalIds: ReadonlySet<string>;
+}
+
+const shownCategory = (c: BudgetCategory | undefined, kind: BudgetCategory["kind"]) =>
+  c !== undefined && c.kind === kind && c.state === "active" && c.mergedInto === null;
+
+/**
+ * FR 1: the month's income plan — the sum of its sources: each expected regular income (its own cell, else the
+ * expected amount; one without a rate is left out); a month without any has the one line «План доходу» (its cell,
+ * else the budget's income plan).
+ */
+export function incomeOf(base: Money, cells: readonly PlanCell[], incomes: readonly PlanIncome[]): Money {
+  const own = (lineId: string | null) =>
+    cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
+  if (incomes.length === 0) return own(null) ?? base;
+  return sum(
+    incomes.flatMap((i) => {
+      const a = own(i.paymentId) ?? i.amount;
+      return a ? [a] : [];
+    }),
+    base.currency,
+  );
+}
+
+/**
+ * The plan of one month with its own cells (FR 2; BUD-02 FR 11): a limit cell of a shown category sets that month's
+ * limit (a category without a budget-wide limit gets one); the income plan is `incomeOf`; the active goals' cells and
+ * «Заощадження без цілі» are the month's planned savings. A cell is the month's exact amount — the proportional first
+ * period scales only the budget-wide plan (`base`), not what was typed for the month. `lines` null — the caller reads
+ * the limits only (the trend): the income plan and planned savings stay the budget-wide ones.
  */
 export function withCells(
   base: PeriodPlan,
   cells: readonly PlanCell[],
   categories: ReadonlyMap<string, BudgetCategory>,
-  currency: string,
+  lines: PlanLines | null,
 ): PeriodPlan {
   const set = cells.filter((c) => c.amount !== null);
-  if (set.length === 0) return base;
-  const amount = (c: PlanCell) => c.amount!;
-  const other = set.find((c) => c.kind === "income" && c.lineId === null);
-  const sources = set.filter((c) => c.kind === "income" && c.lineId !== null).map(amount);
   const limits = new Map(base.limits.map((l) => [l.categoryId, l]));
   for (const c of set)
-    if (c.kind === "limit" && c.lineId !== null)
+    if (c.kind === "limit" && c.lineId !== null && shownCategory(categories.get(c.lineId), "expense"))
       limits.set(c.lineId, {
         categoryId: c.lineId,
-        amount: amount(c),
+        amount: c.amount!,
         mandatory: categories.get(c.lineId)?.essential ?? false,
       });
-  const savings = set.filter((c) => c.kind === "goal" || c.kind === "savings").map(amount);
+  if (lines === null) return { ...base, limits: [...limits.values()] };
+  const savings = set
+    .filter((c) => c.kind === "savings" || (c.kind === "goal" && lines.goalIds.has(c.lineId ?? "")))
+    .map((c) => c.amount!);
   return {
-    incomePlan: (other ? amount(other) : base.incomePlan).plus(sum(sources, currency)),
-    plannedSavings: base.plannedSavings.plus(sum(savings, currency)),
+    incomePlan: incomeOf(base.incomePlan, set, lines.incomes),
+    plannedSavings: base.plannedSavings.plus(sum(savings, base.plannedSavings.currency)),
     limits: [...limits.values()],
   };
 }
@@ -124,7 +162,11 @@ export interface GridMonth {
 export interface PlanGrid {
   readonly months: readonly GridMonth[];
   readonly income: {
-    readonly rows: readonly { readonly categoryId: string | null; readonly cells: readonly GridCell[] }[];
+    /** `paymentId` null — «План доходу», in the months without any regular income; `expected` — the line counts there. */
+    readonly rows: readonly {
+      readonly paymentId: string | null;
+      readonly cells: readonly (GridCell & { readonly expected: boolean })[];
+    }[];
     readonly totals: readonly (Money | null)[];
   };
   readonly expenses: {
@@ -169,14 +211,15 @@ export interface GridInput {
   /** The budget-wide plan of each month (BUD-02: the income plan and limits, a proportional first period scaled). */
   readonly base: ReadonlyMap<Period, PeriodPlan>;
   readonly cells: readonly PlanCell[];
+  /** Each month's expected regular incomes (module recurring). */
+  readonly incomes: ReadonlyMap<Period, readonly PlanIncome[]>;
   /** Null — the goals are not read (a test's server). */
   readonly goals: readonly PlanGoal[] | null;
   /** Each month's debts; null for a month — its figures are unknown (no rate). */
   readonly debts: ReadonlyMap<Period, readonly PlanDebt[] | null>;
 }
 
-const active = (c: BudgetCategory, kind: BudgetCategory["kind"]) =>
-  c.kind === kind && c.state === "active" && c.mergedInto === null;
+const active = (c: BudgetCategory, kind: BudgetCategory["kind"]) => shownCategory(c, kind);
 
 /** The grid (FR 1): rows of active categories (edge case 2: a hidden or merged one is gone), active goals and debts. */
 export function planGrid(input: GridInput): PlanGrid {
@@ -208,12 +251,31 @@ export function planGrid(input: GridInput): PlanGrid {
         )
       : null;
 
+  const incomesOf = (m: GridMonth) => input.incomes.get(m.period) ?? [];
+  const paymentIds: string[] = [];
+  for (const m of months)
+    for (const i of incomesOf(m)) if (!paymentIds.includes(i.paymentId)) paymentIds.push(i.paymentId);
+  const incomeCell = (m: GridMonth, paymentId: string | null) => {
+    const expected =
+      m.inBudget &&
+      (paymentId === null ? incomesOf(m).length === 0 : incomesOf(m).some((i) => i.paymentId === paymentId));
+    if (!expected) return { ...cellOf(m, "income", paymentId, null), amount: null, own: false, expected };
+    const fallback =
+      paymentId === null
+        ? (base(m)?.incomePlan ?? null)
+        : (incomesOf(m).find((i) => i.paymentId === paymentId)?.amount ?? null);
+    return { ...cellOf(m, "income", paymentId, fallback), expected };
+  };
+  // «План доходу» is a row only while some month of the grid has no regular income.
   const incomeRows = [
-    { categoryId: null, cells: months.map((m) => cellOf(m, "income", null, base(m)?.incomePlan ?? null)) },
-    ...input.categories
-      .filter((c) => active(c, "income"))
-      .map((c) => ({ categoryId: c.id, cells: months.map((m) => cellOf(m, "income", c.id, null)) })),
+    ...(months.some((m) => m.inBudget && incomesOf(m).length === 0)
+      ? [{ paymentId: null, cells: months.map((m) => incomeCell(m, null)) }]
+      : []),
+    ...paymentIds.map((paymentId) => ({ paymentId, cells: months.map((m) => incomeCell(m, paymentId)) })),
   ];
+  // An expected source without a rate and no own value leaves the month without an income total.
+  const incomeKnown = (i: number) =>
+    incomeRows.every((r) => !r.cells[i]!.expected || r.cells[i]!.amount !== null || r.paymentId === null);
   // A Map keeps the order of insertion: the groups come in the tree's order.
   const groups = new Map<string, { categoryId: string; cells: GridCell[] }[]>();
   for (const c of input.categories.filter((c) => active(c, "expense"))) {
@@ -269,10 +331,12 @@ export function planGrid(input: GridInput): PlanGrid {
   };
 
   const incomeTotals = months.map((_, i) =>
-    total(
-      incomeRows.map((r) => r.cells),
-      i,
-    ),
+    !incomeKnown(i)
+      ? null
+      : total(
+          incomeRows.map((r) => r.cells),
+          i,
+        ),
   );
   const expenseTotals = months.map((_, i) => total(expenseRows, i));
   const goalTotals = months.map((_, i) =>

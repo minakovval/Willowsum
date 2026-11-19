@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
-import { defineRoute, type ProtectedContext } from "../../../../platform/http/route.ts";
-import { byId, readPlanGrid, setPlanCell, type CellResult } from "../../application/index.ts";
-import { gridMonths, PLAN_LINE_KINDS, type GridCell } from "../../domain/index.ts";
+import { defineRoute } from "../../../../platform/http/route.ts";
+import { byId, planLines, readPlanGrid, setPlanCell, type CellResult } from "../../application/index.ts";
+import { gridMonths, isPeriod, PLAN_LINE_KINDS, type GridCell } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
@@ -35,9 +35,18 @@ const gridSchema = z.object({
   months: z.array(
     z.object({ period: z.string(), mode: z.enum(["current", "future"]), inBudget: z.boolean() }),
   ),
-  /** «Надходження»: `categoryId` null — «Інші надходження» (the budget's income plan); then the income categories. */
+  /**
+   * «Надходження»: a row per regular income expected in a month of the grid (module recurring's payment); `paymentId`
+   * null — «План доходу» (the budget's income plan), only while some month has no regular income. `expected` — the
+   * line counts in that month (only such a cell can be changed).
+   */
   income: z.object({
-    rows: z.array(z.object({ categoryId: z.uuid().nullable(), cells: z.array(cellSchema) })),
+    rows: z.array(
+      z.object({
+        paymentId: z.uuid().nullable(),
+        cells: z.array(cellSchema.extend({ expected: z.boolean() })),
+      }),
+    ),
     totals: totalsSchema,
   }),
   /** «Витрати»: the active expense categories by group in the tree's order; a cell — the month's limit. */
@@ -85,14 +94,6 @@ function refuseScoped(ctx: { principal: { scoped: boolean } }): void {
   if (ctx.principal.scoped) throw new ApiProblem("NOT_FOUND");
 }
 
-async function goalIds(ctx: ProtectedContext): Promise<Set<string>> {
-  const { deps } = budgetServices(ctx);
-  if (!deps.planSources) return new Set();
-  // The currency does not matter here: only which goals are active.
-  const goals = await deps.planSources.goals(ctx.principal.householdId, deps.reportingCurrency);
-  return new Set(goals.map((g) => g.goalId));
-}
-
 export const getPlanGridRoute = defineRoute({
   module: MODULE,
   method: "GET",
@@ -119,7 +120,10 @@ export const getPlanGridRoute = defineRoute({
       currency: budget.currency,
       months: [...grid.months],
       income: {
-        rows: grid.income.rows.map((r) => ({ categoryId: r.categoryId, cells: r.cells.map(cell) })),
+        rows: grid.income.rows.map((r) => ({
+          paymentId: r.paymentId,
+          cells: r.cells.map((c) => ({ ...cell(c), expected: c.expected })),
+        })),
         totals: totals(grid.income.totals),
       },
       expenses: {
@@ -185,7 +189,7 @@ export const setPlanCellRoute = defineRoute({
           .regex(/^\d{4}-(0[1-9]|1[0-2])$/)
           .meta({ description: "A calendar month, YYYY-MM" }),
         kind: z.enum(PLAN_LINE_KINDS),
-        /** The income or expense category, the goal; null — «Інші надходження» (income) or «Заощадження без цілі». */
+        /** The expense category, the regular income (payment), the goal; null — «План доходу» or «Заощадження без цілі». */
         lineId: z.uuid().nullable(),
         /** Null — back to the line's default. */
         amount: z
@@ -207,9 +211,12 @@ export const setPlanCellRoute = defineRoute({
     const { deps, audit } = budgetServices(ctx);
     const caller = { householdId: ctx.principal.householdId, accountId: ctx.principal.userId };
     const categories = byId(await deps.reads.categories(caller.householdId));
-    const goals = body.kind === "goal" ? await goalIds(ctx) : new Set<string>();
+    // The month's lines (its regular incomes, the active goals) from their modules, before the budget transaction.
+    const lines = isPeriod(body.period)
+      ? await planLines(deps, caller.householdId, deps.reportingCurrency)(body.period)
+      : { incomes: [], goalIds: new Set<string>() };
     const { result, handOffs } = await ctx.inHousehold((q) =>
-      setPlanCell(deps, budgetTx(q), caller, body, categories, goals),
+      setPlanCell(deps, budgetTx(q), caller, body, categories, lines),
     );
     await handOffNow(audit, caller.householdId, handOffs);
     const v = cellValue(result);

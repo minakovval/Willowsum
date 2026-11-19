@@ -69,6 +69,8 @@ const goals = new Map<
 >();
 const minimums = new Map<string, { accountId: string; amount: Money; paid: boolean }[]>();
 const extras = new Map<string, { accountId: string; amount: Money }[]>();
+/** The test's regular incomes (module recurring's charges), by space and month. */
+const charges = new Map<string, { paymentId: string; month: string; expected: Money }[]>();
 
 const obligations: BudgetObligations = {
   month: async (householdId) => ({ recurring: [], debtMinimums: minimums.get(householdId) ?? [] }),
@@ -138,7 +140,10 @@ interface Cell {
 }
 interface Grid {
   months: { period: string; mode: string; inBudget: boolean }[];
-  income: { rows: { categoryId: string | null; cells: Cell[] }[]; totals: unknown[] };
+  income: {
+    rows: { paymentId: string | null; cells: (Cell & { expected: boolean })[] }[];
+    totals: unknown[];
+  };
   expenses: { groups: { categories: { categoryId: string; cells: Cell[] }[] }[]; totals: unknown[] };
   goals: {
     rows: { goalId: string; cells: (Cell & { required: unknown })[] }[];
@@ -239,6 +244,20 @@ beforeAll(async () => {
             goals: { active: async (householdId) => goals.get(householdId) ?? [] },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
             fx,
+            recurring: {
+              chargesIn: async (householdId, month) =>
+                (charges.get(householdId) ?? [])
+                  .filter((c) => c.month === month)
+                  .map((c) => ({
+                    paymentId: c.paymentId,
+                    type: "income" as const,
+                    categoryId: null,
+                    dueOn: `${month}-10`,
+                    expected: c.expected,
+                    status: "expected" as const,
+                    overdueDays: null,
+                  })),
+            },
           }),
         }),
         allowedOrigins: new Set([WEB]),
@@ -526,33 +545,66 @@ describe("BUD-17@PoC: «Бюджет → План»", () => {
     expect(other.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
   });
 
-  it("BUD-17@PoC FR 1: «Надходження» — «Інші надходження» is the income plan, each income source's cell adds to the month", async () => {
+  it("BUD-17@PoC FR 1: «Надходження» — «Андрій, зарплата» and «Олена, зарплата» are the month's sources; their sum is its income plan", async () => {
     const space = await newSpace();
-    await budgetWith(space, "5000", {});
-    const salary = await category(space, "Зарплата");
-    expect(
-      (
-        await put(space, {
-          period: "2026-12",
-          kind: "income",
-          lineId: salary,
-          amount: eur("600"),
-          version: 0,
-        })
-      ).statusCode,
-    ).toBe(200);
-    const g = await grid(space);
-    expect(g.income.rows[0]!.categoryId).toBeNull();
-    expect(g.income.totals.slice(0, 3)).toEqual([eur("5000"), eur("5600"), eur("5000")]);
-    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5600"));
-    const notIncome = await put(space, {
+    await budgetWith(space, "4000", {});
+    const andrii = randomUUID();
+    const olena = randomUUID();
+    charges.set(space.householdId, [
+      ...["2026-12", "2027-01"].flatMap((month) => [
+        { paymentId: andrii, month, expected: Money.of("3100", "EUR") },
+        { paymentId: olena, month, expected: Money.of("2500", "EUR") },
+      ]),
+    ]);
+    // November has no regular income: its line is «План доходу» (the budget's income plan).
+    const before = await grid(space);
+    expect(before.income.rows.map((r) => r.paymentId)).toEqual([null, andrii, olena]);
+    expect(before.income.totals.slice(0, 4)).toEqual([eur("4000"), eur("5600"), eur("5600"), eur("4000")]);
+    const res = await put(space, {
       period: "2026-12",
       kind: "income",
-      lineId: await category(space, "Продукти"),
-      amount: eur("1"),
+      lineId: olena,
+      amount: eur("2000"),
       version: 0,
     });
-    expect(notIncome.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_income" }]);
+    expect(res.statusCode, res.body).toBe(200);
+    const g = await grid(space);
+    expect(g.income.rows[2]!.cells[1]).toEqual({
+      amount: eur("2000"),
+      own: true,
+      version: 1,
+      expected: true,
+    });
+    expect(g.income.totals[1]).toEqual(eur("5100"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("5100"));
+    expect((await call(space, "GET", "/v1/budget/periods/2027-01")).json().incomePlan).toEqual(eur("5600"));
+    // «План доходу» is no line in a month with regular incomes; a payment not expected in the month is none either.
+    for (const [period, lineId] of [
+      ["2026-12", null],
+      ["2027-02", olena],
+    ] as const) {
+      const refused = await put(space, { period, kind: "income", lineId, amount: eur("1"), version: 0 });
+      expect(refused.json().errors).toEqual([{ in: "body", path: "lineId", issue: "not_found" }]);
+    }
+  });
+
+  it("BUD-17@PoC EC2: an income no longer expected stops counting in the period plan — it agrees with the grid", async () => {
+    const space = await newSpace();
+    await budgetWith(space, "4000", {});
+    const bonus = randomUUID();
+    charges.set(space.householdId, [
+      { paymentId: bonus, month: "2026-12", expected: Money.of("700", "EUR") },
+    ]);
+    expect(
+      (await put(space, { period: "2026-12", kind: "income", lineId: bonus, amount: eur("900"), version: 0 }))
+        .statusCode,
+    ).toBe(200);
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("900"));
+    charges.delete(space.householdId);
+    const g = await grid(space);
+    expect(g.income.rows.map((r) => r.paymentId)).toEqual([null]);
+    expect(g.income.totals[1]).toEqual(eur("4000"));
+    expect((await call(space, "GET", "/v1/budget/periods/2026-12")).json().incomePlan).toEqual(eur("4000"));
   });
 
   it("BUD-17@PoC business rules: a change of the limit on «Бюджет» acts on the current and future months — their own cells go back to it", async () => {

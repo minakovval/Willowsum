@@ -6925,15 +6925,16 @@ export interface operations {
                         };
                         income: {
                             rows: {
-                                categoryId: string | null;
                                 cells: {
                                     amount: {
                                         amount: string;
                                         currency: string;
                                     } | null;
+                                    expected: boolean;
                                     own: boolean;
                                     version: number;
                                 }[];
+                                paymentId: string | null;
                             }[];
                             totals: ({
                                 amount: string;

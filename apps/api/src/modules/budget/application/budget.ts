@@ -19,6 +19,8 @@ import {
   type PeriodObligations,
   type PeriodPlan,
   type PlanCell,
+  type PlanIncome,
+  type PlanLines,
 } from "../domain/index.ts";
 
 /** The space's budget as stored (migrations/0001_budget.sql). */
@@ -163,6 +165,11 @@ export interface BudgetPlanSources {
     householdId: string,
     currency: string,
   ): Promise<readonly { goalId: string; required: Money | null; lastPeriod: Period | null }[]>;
+  /**
+   * FR 1: the regular incomes expected in the month (module recurring), one per payment with its charges added up;
+   * `amount` null — no rate.
+   */
+  incomes(householdId: string, period: Period, currency: string): Promise<readonly PlanIncome[]>;
   /** BUD-19 FR 5: the extra payments of the saved payoff plans in the month, by debt. */
   extraPayments(
     householdId: string,
@@ -288,6 +295,7 @@ export async function ensureSnapshots(
   budget: StoredBudget,
   today: string,
   categories: ReadonlyMap<string, BudgetCategory>,
+  lines: LinesOf,
 ): Promise<void> {
   const missing = periodsToSnapshot(
     budget.firstPeriod,
@@ -298,7 +306,33 @@ export async function ensureSnapshots(
   const plan = livePlan(budget, await tx.limits(householdId, budget.id), categories);
   const cells = await tx.planCells(householdId, budget.id);
   for (const p of missing)
-    await tx.insertSnapshot(householdId, budget.id, p, monthPlan(budget, p, plan, cells, categories));
+    await tx.insertSnapshot(
+      householdId,
+      budget.id,
+      p,
+      monthPlan(budget, p, plan, cells, categories, await lines(p)),
+    );
+}
+
+/** The lines of a month (domain/plan-grid.ts `PlanLines`), read from modules recurring and goals when asked. */
+export type LinesOf = (period: Period) => Promise<PlanLines>;
+
+/**
+ * FR 1, edge case 2: the lines a month's cells count on — its expected regular incomes and the active goals (read
+ * once). Without the ports (a test's server) there are none: «План доходу» is the income line, and no goal cell counts.
+ */
+export function planLines(
+  deps: Pick<BudgetDeps, "planSources">,
+  householdId: string,
+  currency: string,
+): LinesOf {
+  let goalIds: Promise<ReadonlySet<string>> | null = null;
+  return async (period) => {
+    const sources = deps.planSources;
+    if (!sources) return { incomes: [], goalIds: new Set() };
+    goalIds ??= sources.goals(householdId, currency).then((gs) => new Set(gs.map((g) => g.goalId)));
+    return { incomes: await sources.incomes(householdId, period, currency), goalIds: await goalIds };
+  };
 }
 
 /**
@@ -311,12 +345,13 @@ export function monthPlan(
   live: PeriodPlan,
   cells: readonly PlanCell[],
   categories: ReadonlyMap<string, BudgetCategory>,
+  lines: PlanLines | null,
 ): PeriodPlan {
   return withCells(
     planOf(budget, period, live),
     cells.filter((c) => c.period === period),
     categories,
-    budget.currency,
+    lines,
   );
 }
 
@@ -448,7 +483,14 @@ export async function updatePlan(
   issues.push(...checked.issues);
   if (issues.length > 0 || !(income instanceof Money))
     return { result: { kind: "invalid", issues }, handOffs: [] };
-  await ensureSnapshots(tx, caller.householdId, budget, deps.today(), categories);
+  await ensureSnapshots(
+    tx,
+    caller.householdId,
+    budget,
+    deps.today(),
+    categories,
+    planLines(deps, caller.householdId, budget.currency),
+  );
   const stored = new Map(
     (await tx.limits(caller.householdId, budget.id)).map((l) => [l.categoryId, l.amount]),
   );
@@ -535,7 +577,14 @@ export async function setBudgetAccount(
   if (!budget) return { result: { kind: "not-found" }, handOffs: [] };
   const before = isIncluded(account, await tx.accountChoices(caller.householdId));
   if (before === included) return { result: { kind: "ok", value: budget }, handOffs: [] };
-  await ensureSnapshots(tx, caller.householdId, budget, deps.today(), categories);
+  await ensureSnapshots(
+    tx,
+    caller.householdId,
+    budget,
+    deps.today(),
+    categories,
+    planLines(deps, caller.householdId, budget.currency),
+  );
   await tx.setAccountChoice(
     caller.householdId,
     budget.id,
@@ -589,7 +638,7 @@ export async function deleteBudget(
  * current and future ones — the plan as it is. Null — a period before the first one (edge case 5).
  */
 export async function periodPlan(
-  deps: Pick<BudgetDeps, "today">,
+  deps: Pick<BudgetDeps, "today" | "planSources">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
@@ -605,12 +654,20 @@ export async function periodPlan(
       livePlan(budget, await tx.limits(householdId, budget.id), categories),
       await tx.planCells(householdId, budget.id, period),
       categories,
+      await planLines(deps, householdId, budget.currency)(period),
     );
   let snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   if (!snapshot) {
     const locked = await tx.budget(householdId, true);
     if (!locked) return null;
-    await ensureSnapshots(tx, householdId, locked, today, categories);
+    await ensureSnapshots(
+      tx,
+      householdId,
+      locked,
+      today,
+      categories,
+      planLines(deps, householdId, budget.currency),
+    );
     snapshot = (await tx.snapshots(householdId, budget.id)).get(period);
   }
   return snapshot ?? null;
@@ -621,19 +678,22 @@ export async function periodPlan(
  * pass (under the budget's row lock) when a finished month has none yet. Null — a month before the first one.
  */
 export async function periodPlans(
-  deps: Pick<BudgetDeps, "today">,
+  deps: Pick<BudgetDeps, "today" | "planSources">,
   tx: BudgetTx,
   householdId: string,
   budget: StoredBudget,
   periods: readonly Period[],
   categories: ReadonlyMap<string, BudgetCategory>,
+  /** The trend reads the limits only: a current or future month's income and savings are not resolved then. */
+  limitsOnly = false,
 ): Promise<ReadonlyMap<Period, PeriodPlan | null>> {
   const today = deps.today();
+  const lines = planLines(deps, householdId, budget.currency);
   let snapshots = await tx.snapshots(householdId, budget.id);
   const finished = periods.filter((p) => p >= budget.firstPeriod && periodMode(p, today) === "past");
   if (finished.some((p) => !snapshots.has(p))) {
     const locked = await tx.budget(householdId, true);
-    if (locked) await ensureSnapshots(tx, householdId, locked, today, categories);
+    if (locked) await ensureSnapshots(tx, householdId, locked, today, categories, lines);
     snapshots = await tx.snapshots(householdId, budget.id);
   }
   const live = livePlan(budget, await tx.limits(householdId, budget.id), categories);
@@ -646,7 +706,7 @@ export async function periodPlans(
         ? null
         : periodMode(p, today) === "past"
           ? (snapshots.get(p) ?? null)
-          : monthPlan(budget, p, live, cells, categories),
+          : monthPlan(budget, p, live, cells, categories, limitsOnly ? null : await lines(p)),
     );
   return out;
 }

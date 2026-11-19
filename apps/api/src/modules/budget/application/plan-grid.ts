@@ -12,13 +12,16 @@ import {
   type PlanDebt,
   type PlanGrid,
   type PlanCell,
+  type PlanIncome,
   type PlanLineKind,
+  type PlanLines,
 } from "../domain/index.ts";
 import {
   cellHandOff,
   countsFrom,
   ensureSnapshots,
   livePlan,
+  planLines,
   planOf,
   type BudgetDeps,
   type BudgetTx,
@@ -49,11 +52,13 @@ export async function readPlanGrid(
   const cells = stored.cells;
   const goals = deps.planSources ? await deps.planSources.goals(householdId, budget.currency) : null;
   const debts = new Map<Period, PlanDebt[] | null>();
+  const incomes = new Map<Period, readonly PlanIncome[]>();
   for (const p of months) {
     if (p < budget.firstPeriod) {
       debts.set(p, []);
       continue;
     }
+    incomes.set(p, deps.planSources ? await deps.planSources.incomes(householdId, p, budget.currency) : []);
     const obligations = deps.obligations
       ? await deps.obligations.month(householdId, p, budget.currency, countsFrom(budget, p))
       : null;
@@ -82,6 +87,7 @@ export async function readPlanGrid(
     categories,
     base,
     cells,
+    incomes,
     goals,
     debts,
   });
@@ -108,23 +114,28 @@ export type CellResult =
   /** FR 3: «Значення змінено в іншому вікні» — the page reads the cell again. */
   | { readonly kind: "conflict"; readonly version: number };
 
-/** Which line a cell may belong to (FR 1): an active category of its kind, an active goal, or none for the two others. */
+/**
+ * Which line a cell may belong to (FR 1): an active expense category, a regular income expected in that month («План
+ * доходу», no id, only in a month without any), an active goal, or none for «Заощадження без цілі».
+ */
 function lineIssue(
   input: CellInput,
   categories: ReadonlyMap<string, BudgetCategory>,
-  goalIds: ReadonlySet<string>,
+  lines: PlanLines,
 ): string | null {
   switch (input.kind) {
     case "limit":
       return input.lineId === null ? "required" : limitIssue(categories.get(input.lineId));
-    case "income": {
-      if (input.lineId === null) return null;
-      const c = categories.get(input.lineId);
-      if (!c || c.state !== "active" || c.mergedInto !== null) return "not_found";
-      return c.kind === "income" ? null : "not_income";
-    }
+    case "income":
+      return (
+        input.lineId === null
+          ? lines.incomes.length === 0
+          : lines.incomes.some((i) => i.paymentId === input.lineId)
+      )
+        ? null
+        : "not_found";
     case "goal":
-      return input.lineId !== null && goalIds.has(input.lineId) ? null : "not_found";
+      return input.lineId !== null && lines.goalIds.has(input.lineId) ? null : "not_found";
     case "savings":
       return input.lineId === null ? null : "invalid";
   }
@@ -141,7 +152,8 @@ export async function setPlanCell(
   caller: Caller,
   input: CellInput,
   categories: ReadonlyMap<string, BudgetCategory>,
-  goalIds: ReadonlySet<string>,
+  /** The lines of `input.period`, read before the budget transaction (`planLines`). */
+  lines: PlanLines,
 ): Promise<Handed<CellResult>> {
   const none = (result: CellResult): Handed<CellResult> => ({ result, handOffs: [] });
   const budget = await tx.budget(caller.householdId, true);
@@ -150,7 +162,7 @@ export async function setPlanCell(
   const issues: BudgetIssue[] = [];
   const periodIssue = cellPeriodIssue(input.period, today);
   if (periodIssue) issues.push({ field: "period", issue: periodIssue });
-  const line = lineIssue(input, categories, goalIds);
+  const line = lineIssue(input, categories, lines);
   if (line) issues.push({ field: "lineId", issue: line });
   const amount = input.amount ? parseBudgetAmount("amount", input.amount, budget.currency) : null;
   if (amount !== null && !(amount instanceof Money)) issues.push(amount);
@@ -165,7 +177,14 @@ export async function setPlanCell(
   const before = stored?.amount ?? null;
   if (before === null ? after === null : after !== null && before.equals(after))
     return none({ kind: "ok", value: { amount: before, version } });
-  await ensureSnapshots(tx, caller.householdId, budget, today, categories);
+  await ensureSnapshots(
+    tx,
+    caller.householdId,
+    budget,
+    today,
+    categories,
+    planLines(deps, caller.householdId, budget.currency),
+  );
   const next = await tx.setPlanCell(
     caller.householdId,
     budget.id,

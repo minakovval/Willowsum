@@ -43,7 +43,7 @@
 - [PoC v2–MVP] Сценарії: UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98
 - [v1] Сценарії: UC-BUD-92, UC-BUD-93, UC-BUD-94, UC-BUD-95, UC-BUD-96, UC-BUD-97, UC-BUD-98, UC-BUD-21
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`
 
 [лише PoC] **Мета.** Як власник бюджету, я хочу бачити і змінювати місячні ліміти та план за категоріями на 12 місяців в одній сітці, щоб тримати план актуальним.
 [лише PoC v2] **Мета.** Як власник бюджету, я хочу планувати суми за категоріями на 12 місяців у сітці, автоматично заповнювати план, швидко виправляти перевитрати і за потреби почати бюджет з нуля, щоб тримати план актуальним без ручної рутини.

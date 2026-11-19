@@ -428,8 +428,8 @@ const server = buildServer({
               newId: randomUUID,
               // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
               // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
-              // BUD-17 a: «План» — the active goals' required contributions (goals) and the saved payoff plans' extra
-              // payments (debt-payoff), at today's NBU rate (fx-rates).
+              // BUD-17 a: «План» — the active goals' required contributions (goals), the saved payoff plans' extra
+              // payments (debt-payoff) and the expected regular incomes (recurring), at today's NBU rate (fx-rates).
               planSources: createBudgetPlanSources({
                 goals: createGoalPlans(databases.for("goals"), goals),
                 debts: createDebtPlannedExpenses(
@@ -437,6 +437,8 @@ const server = buildServer({
                   createCreditAccounts(databases.for("accounts")),
                 ),
                 fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+                // FR 1 «Надходження»: the month's expected regular incomes.
+                recurring: createRecurringMonth(databases.for("recurring"), recurring),
               }),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),

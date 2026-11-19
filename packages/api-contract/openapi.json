@@ -13834,7 +13834,7 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "categoryId": {
+                              "paymentId": {
                                 "anyOf": [
                                   {
                                     "type": "string",
@@ -13881,19 +13881,23 @@
                                       "type": "integer",
                                       "minimum": -9007199254740991,
                                       "maximum": 9007199254740991
+                                    },
+                                    "expected": {
+                                      "type": "boolean"
                                     }
                                   },
                                   "required": [
                                     "amount",
                                     "own",
-                                    "version"
+                                    "version",
+                                    "expected"
                                   ],
                                   "additionalProperties": false
                                 }
                               }
                             },
                             "required": [
-                              "categoryId",
+                              "paymentId",
                               "cells"
                             ],
                             "additionalProperties": false

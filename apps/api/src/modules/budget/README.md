@@ -39,8 +39,8 @@ BUD-06@PoC a) (рядок 36, серверна частина): п. 1 (типи 
 даними там), 6 (сортування за абсолютною різницею, три найбільші зміни з кількістю транзакцій; тексти — на сторінці), 11
 («Рік: план і факт»), бізнес-правила; AC1, AC2, AC5–AC11, AC13–AC15 (серверні частини), граничні випадки 1–3. UI —
 рядок 132; п. 8 і AC4 («Одноразова витрата»), п. 9 («з цілі») — далі (follow-ups PR).
-BUD-17@PoC a) (рядок 35, серверна частина): п. 1 (сітка поточного й 11 наступних місяців: «Надходження» — «Інші
-надходження» = план доходу і джерела-категорії доходу; «Витрати» — ліміти активних категорій за групами; «Цілі й
+BUD-17@PoC a) (рядок 35, серверна частина): п. 1 (сітка поточного й 11 наступних місяців: «Надходження» — регулярні доходи
+місяця (recurring), у місяці без них — «План доходу» BUD-02; «Витрати» — ліміти активних категорій за групами; «Цілі й
 заощадження» — внесок кожної активної цілі, типово потрібний, до місяця її дати, і «Заощадження без цілі»; «Погашення
 боргів» — мінімальні платежі `BudgetObligations` і додаткові платежі збережених планів, лише читання; «Не розподілено» /
 «Дефіцит»), 2 (клітинка — власне значення місяця, діє лише на нього, і в знімку завершеного місяця; минулий — лише
@@ -117,17 +117,20 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     місяці; `approximate`.
   - `GET /v1/budget/plan-grid` (`getBudgetPlanGrid`; прапорець випуску і ключ функції `budget.plan`, вимагає
     `budget.period`) → `currency`, `months` (12: `period`, `mode` — `current` / `future`, `inBudget` — false до першого
-    періоду), `income` (`rows`: `categoryId` null — «Інші надходження», далі категорії доходу), `expenses` (`groups` →
+    періоду), `income` (`rows`: `paymentId` — регулярний дохід, null — «План доходу» в місяцях без регулярних доходів;
+    клітинка з `expected`), `expenses` (`groups` →
     `categories`), `goals` (`rows` — `goalId`, клітинки з `required`; `savings`), `debts` (`rows` — `accountId`, клітинки
     `minimum`, `extra`), кожен розділ із `totals` (null — суми немає: без курсу); клітинка — `amount` (null — порожня),
     `own` (власне значення місяця), `version`; `unallocated` — `kind` `unallocated` / `deficit` і `amount` (модуль), null
     без суми розділу. Без бюджету — 404.
   - `PUT /v1/budget/plan-grid/cells` (`setBudgetPlanCell`, той самий прапорець) — `period` (поточний або один з 11
     наступних; 400 `period`: `past`, `too_far`; до першого періоду — 404 `BUDGET_PERIOD_BEFORE_START`), `kind` (`income`,
-    `limit`, `goal`, `savings`), `lineId` (категорія, ціль; null — «Інші надходження» чи «Заощадження без цілі»; 400
-    `lineId`: `not_found`, `not_expense`, `hidden`, `not_income`, `required`, `invalid`), `amount` (null — до типового),
+    `limit`, `goal`, `savings`), `lineId` (категорія витрат, регулярний дохід, очікуваний у місяці, ціль; null — «План доходу» в місяці без
+    регулярних доходів чи «Заощадження без цілі»; 400 `lineId`: `not_found`, `not_expense`, `hidden`, `required`,
+    `invalid`), `amount` (null — до типового),
     `version` (0 — власного значення ще не було; інша — 409 `VERSION_CONFLICT` з `currentVersion`) → `amount`, `version`.
-    Під блокуванням рядка бюджету; те саме значення нічого не пише.
+    Під блокуванням рядка бюджету; те саме значення нічого не пише. Клітинка рядка, якого сітка вже не показує
+    (закрита ціль, дохід, якого в місяці вже не очікують, прихована категорія), не враховується в плані періоду і знімку.
 - `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations?, planSources? })` →
   `BudgetServices` — порти маршрутів (`src/api.ts` → `ctx.services`; `main.ts`): `CategoryDirectory.categories`
   (categories), `AccountList` (accounts), `BudgetTransactions` (transactions), `TransactionCategories`
@@ -136,8 +139,9 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
   (`recurring`: `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).
-- `createBudgetPlanSources({ goals, debts, fx })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals: активні
-  цілі з потрібним внеском і датою), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця), `FxReporting.total`
+- `createBudgetPlanSources({ goals, debts, fx, recurring? })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals:
+  активні цілі з потрібним внеском і датою), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця),
+  `RecurringMonth` (recurring: очікувані регулярні доходи місяця за платежами; без нього — жодного), `FxReporting.total`
   (fx-rates: інша валюта — за сьогоднішнім курсом; без курсу чи понад 15 цифр цілої частини — null).
 - `createBudgetObligations({ recurring, credit, liabilities, payments, fx })` → `BudgetObligations` (`src/main.ts`):
   `RecurringMonth` (recurring), `CreditAccounts` (accounts), `Liabilities.forAccount` (liabilities), `AccountPayments`
