@@ -93,6 +93,24 @@ export interface BudgetReads {
     readonly nearestRateCount: number;
     readonly unavailableCount: number;
   }>;
+  /**
+   * BUD-06@PoC FR 1: what the transactions of these accounts count from `from` to `to` (dates, inclusive) — as `amounts`
+   * for each month, a share «На кілька місяців» in its month when the 1st of it is in the dates; each amount with its
+   * month. One read and one cap (#586) for the whole window.
+   */
+  window(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+    currency: string,
+  ): Promise<{
+    readonly amounts: readonly (CountedAmount & { readonly period: Period })[];
+    readonly nearestRateCount: number;
+    readonly unavailableCount: number;
+  }>;
+  /** BUD-06@PoC FR 4, FR 5: the date of the first counted transaction of these accounts; null — none. */
+  historyStart(householdId: string, accountIds: readonly string[]): Promise<string | null>;
 }
 
 /**

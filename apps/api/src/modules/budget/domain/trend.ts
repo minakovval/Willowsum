@@ -2,6 +2,7 @@ import { Money } from "@willowsum/domain-kernel";
 import {
   addMonths,
   isPeriod,
+  limitsTotal,
   type BudgetIssue,
   type Period,
   type PeriodFigures,
@@ -37,7 +38,7 @@ export function trendPeriods(from: string, to: string): Period[] | BudgetIssue {
 export function monthPlan(plan: PeriodPlan | null, currency: string, categoryId?: string): Money | null {
   if (plan === null) return null;
   if (categoryId !== undefined) return plan.limits.find((l) => l.categoryId === categoryId)?.amount ?? null;
-  return plan.limits.reduce((t, l) => t.plus(l.amount), Money.zero(currency));
+  return limitsTotal(plan, currency);
 }
 
 /** A month before the budget: no limits, so its figures are spending and income only. */

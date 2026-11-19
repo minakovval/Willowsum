@@ -34,6 +34,7 @@ import {
   type StartChoice,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
+import { compareRoutes } from "./compare.ts";
 import { budgetServices, handOffNow } from "./services.ts";
 
 /**
@@ -803,4 +804,5 @@ export const budgetRoutes = [
   setAccountRoute,
   getPeriodRoute,
   getTrendRoute,
+  ...compareRoutes,
 ];

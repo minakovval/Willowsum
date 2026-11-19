@@ -30,6 +30,7 @@ function reads(amounts: Money[], fx?: Fx["total"]) {
     categories: { categories: async () => [] },
     accounts: { accounts: async () => [] },
     transactions: {
+      firstDate: async () => null,
       inPeriod: async () =>
         amounts.map((amount, i) => ({
           id: `t${i}`,
