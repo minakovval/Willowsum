@@ -6,7 +6,23 @@ import { categoriesOf } from './paths.mjs';
 
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?(?:\.snap)?$/;
 // Lead decision 2026-11-19 (#595): the name starts with `isolation` or has a `security` / `sec<N>…` part.
-const SECURITY_NAME = /^isolation|(?:^|[-._])(?:security|sec\d+[a-z0-9]*)[-._]/;
+// A bare `sec` part counts too (`calc.sec.test.ts`, `bud14-rules-sec.it.test.ts`).
+const SECURITY_NAME = /^isolation|(?:^|[-._])(?:security|sec(?:\d+[a-z0-9]*)?)[-._]/;
+// Owner decision 2026-11-19, item 3а: security tests by content whose name has no such word, listed by name
+// (each read and confirmed): the guards of the isolation event trigger, the telemetry redaction of personal data,
+// and the leak-check helper with its guard, the migration bypass, no-network and append-only checks. A new one is added here.
+const SECURITY_BY_CONTENT = new Set([
+  'adr0013-append-only.it.test.ts',
+  'bypass.it.test.ts',
+  'guard.it.test.ts',
+  'guard-coverage.it.test.ts',
+  'guard-gates.it.test.ts',
+  'leak-check-guard.test.ts',
+  'leak-text.test.ts',
+  'no-network-loaded.test.ts',
+  'no-network.test.ts',
+  'redaction.test.ts',
+]);
 const E2E = /^apps\/web\/e2e\//; // owner, item 1а: e2e tests stay open
 // Any folder: Claude Code also loads a nested CLAUDE.md, CLAUDE.local.md and `.claude/`.
 const RULE_FILE = /(?:^|\/)(?:agents|claude)(?:\.local)?\.md$|(?:^|\/)\.claude(?:\/|$)/;
@@ -32,7 +48,9 @@ export function forbiddenPathReason(rawPath) {
   if (categoriesOf(p).length > 0 || categoriesOf(lower).length > 0) return 'sensitive path';
   if (RULE_FILE.test(lower)) return 'rule file';
   const name = lower.slice(lower.lastIndexOf('/') + 1);
-  if (TEST_FILE.test(name) && SECURITY_NAME.test(name) && !E2E.test(lower)) return 'security test';
+  if (TEST_FILE.test(name) && !E2E.test(lower) && (SECURITY_NAME.test(name) || SECURITY_BY_CONTENT.has(name.replace(/\.snap$/, '')))) {
+    return 'security test';
+  }
   return null;
 }
 
@@ -40,12 +58,14 @@ export function forbiddenPathReason(rawPath) {
 function changedLines(diff) {
   const lines = [];
   const unparsed = [];
+  let file = '';
   let oldLeft = 0;
   let newLeft = 0;
   for (const raw of String(diff).split('\n')) {
     const line = raw.replace(/\r$/, '');
     if (oldLeft <= 0 && newLeft <= 0) {
       const m = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/.exec(line);
+      if (line.startsWith('diff --git ') || line.startsWith('+++ ')) file = line;
       if (m) {
         oldLeft = m[1] === undefined ? 1 : Number(m[1]);
         newLeft = m[2] === undefined ? 1 : Number(m[2]);
@@ -55,10 +75,10 @@ function changedLines(diff) {
     if (line.startsWith('\\')) continue;
     if (line.startsWith('+')) {
       newLeft -= 1;
-      lines.push(['+', line.slice(1)]);
+      lines.push(['+', line.slice(1), file]);
     } else if (line.startsWith('-')) {
       oldLeft -= 1;
-      lines.push(['-', line.slice(1)]);
+      lines.push(['-', line.slice(1), file]);
     } else {
       oldLeft -= 1;
       newLeft -= 1;
@@ -82,11 +102,23 @@ export function reviewerPatchViolations(files, diff = '') {
   }
   const { lines, unparsed } = changedLines(diff ?? '');
   if (unparsed.length > 0) out.push(`diff line outside a hunk, cannot check: ${unparsed[0].trim()}`);
-  // A test call whose title changed (same line, other string) is a text patch, not a removal.
-  const untitled = (b) => b.replace(/(['"`])(?:\\.|(?!\1).)*\1/, '""').trim();
-  const added = new Set(lines.filter(([g]) => g === '+').map(([, b]) => untitled(b)));
-  for (const [sign, body] of lines) {
-    if (sign === '-' && REMOVED_TEST.test(body) && added.has(untitled(body))) continue;
+  // A test call whose title changed (same line, another literal title without `${…}`) is a text patch, not a
+  // removal. One added line pairs with one removed line of the same file (a test moved to another file is a removal).
+  const TITLE = /^(\s*(?:it|test|describe)\b[\w.]*\s*\(\s*)(['"`])(?:\\.|(?!\2)[^$\\]|\$(?!\{))*\2/;
+  const untitled = (b, file) => (TITLE.test(b) ? `${file}\0${b.replace(TITLE, '$1""').trim()}` : null);
+  const spare = new Map();
+  for (const [sign, body, file] of lines) {
+    const key = sign === '+' ? untitled(body, file) : null;
+    if (key !== null) spare.set(key, (spare.get(key) ?? 0) + 1);
+  }
+  const retitled = (body, file) => {
+    const key = untitled(body, file);
+    if (key === null || !spare.get(key)) return false;
+    spare.set(key, spare.get(key) - 1);
+    return true;
+  };
+  for (const [sign, body, file] of lines) {
+    if (sign === '-' && REMOVED_TEST.test(body) && retitled(body, file)) continue;
     if (sign === '+' && DISABLED_TEST.test(body)) out.push(`added skip/only/todo: ${body.trim()}`);
     if (sign === '+' && DIRECTIVE.test(body)) out.push(`added directive comment: ${body.trim()}`);
     if (sign === '-' && REMOVED_TEST.test(body)) out.push(`removed or changed test: ${body.trim()}`);

@@ -87,7 +87,7 @@ proposals: [lead communication](references/lead-communication.md).
    fix after «Changes requested» is confirmed only by a reviewer agent; the lead confirms only a sync with an unchanged
    diff, no exceptions ([merge checklist](references/merge-checklist.md), «The lead confirms a sync itself»;
    `sensitive` too). A confirmation (of
-   fixes or a sync) of a `sensitive` PR goes to **one** agent that loads `review-pr` and `security-review` and
+   fixes or a sync) of a `sensitive` PR goes to **one** Opus agent (Fable when it adds a guard, endpoint or query: token economy, item 1 (c)) that loads `review-pr` and `security-review` and
    posts both verdicts as two PR reviews with `commit_id`, in a session other than the
    author's and the fix agent's; it switches to a full security review (`security-review` §7) when the diff adds a
    guard, endpoint, query or sensitive path, or the PR gains a `sensitive:<category>`.
@@ -148,7 +148,7 @@ retrospective (with the process review): [token economy](references/token-econom
 ## 3. Parallel branches
 
 Up to 7 branches (AGENTS.md «Parallel branches») and **at most 10 agents at once** — authors, reviewers and fix agents
-together — **plus up to 8 additional Sonnet agents** beyond those 10 (owner, 2026-11-19); Fable at most 4 tasks at once (unchanged,
+together — **plus up to 8 additional Sonnet agents** beyond those 10 (owner, 2026-11-19); Fable at most 2 tasks at once (owner, 2026-11-19; was 4,
 [token economy](references/token-economy.md)); more wait in a queue. Slots
 count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond the ten slots has no
 slot, no dev-server port and runs only `pnpm db:test`; keep a table slot → agent → branch → worktree. Slot `k`

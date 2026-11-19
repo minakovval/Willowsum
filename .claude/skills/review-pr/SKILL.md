@@ -166,8 +166,11 @@ rule, `security-review` and the others link here. You apply small patches to the
    (the categories and globs: `SENSITIVE_PATHS` in `tools/pr-rules/lib/paths.mjs`, e.g. `tools/pr-rules`,
    migrations, auth), and never in a **security test** or a **rule file**: there a small item goes through the
    normal fix round (the reviewer may hand the author the ready patch). Security test = a test file (`.test.` or
-   `.spec.`, its snapshot too) whose name starts with `isolation` or has a `security` or `sec<N>…` part
-   (`isolation*.it.test.ts`, `sec*-*.it.test.ts`, `security-*.it.test.ts`); rule file = `AGENTS.md`, `CLAUDE.md`,
+   `.spec.`, its snapshot too) whose name starts with `isolation` or has a `security` or `sec<N>…` part, with
+   `.it` or without (`isolation*.test.ts`, `sec*-*.test.ts`, `security-*.test.ts`), **or** is one of these by
+   content (owner, 2026-11-19), by name: `adr0013-append-only.it.test.ts`, `bypass.it.test.ts`,
+   `no-network.test.ts`, `no-network-loaded.test.ts`, `guard.it.test.ts`, `guard-coverage.it.test.ts`, `guard-gates.it.test.ts`,
+   `leak-check-guard.test.ts`, `leak-text.test.ts`, `redaction.test.ts`; rule file = `AGENTS.md`, `CLAUDE.md`,
    `CLAUDE.local.md` and `.claude/**`, in any folder and any letter case. E2e tests (`apps/web/e2e/**`) stay
    allowed. The check is `reviewerPatchViolations` in `tools/pr-rules/lib/reviewer-patches.mjs` (a helper, not
    in CI yet: check your own commit against this text).
