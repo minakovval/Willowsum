@@ -20,9 +20,9 @@ import {
 export const PLAN_GRID_MONTHS = 12;
 
 /**
- * A line of the grid a cell belongs to: an income source — a regular income expected in the month (module recurring's
- * payment; null — «План доходу», the budget's income plan of BUD-02, only in a month without any), the limit of an
- * expense category, a goal's planned contribution, «Заощадження без цілі» (no id). «Погашення боргів» is read only
+ * A line of the grid a cell belongs to: an income line — a regular income expected in the month (module recurring's
+ * payment) or, null, «План доходу» (the month's income plan as typed; default — the budget's income plan of BUD-02),
+ * the limit of an expense category, a goal's planned contribution, «Заощадження без цілі» (no id). «Погашення боргів» is read only
  * (FR 1): no cell.
  */
 export const PLAN_LINE_KINDS = ["income", "limit", "goal", "savings"] as const;
@@ -77,22 +77,26 @@ export interface PlanLines {
 const shownCategory = (c: BudgetCategory | undefined, kind: BudgetCategory["kind"]) =>
   c !== undefined && c.kind === kind && c.state === "active" && c.mergedInto === null;
 
+/** The larger of two sums of one currency. */
+const larger = (a: Money, b: Money): Money => (a.compare(b) < 0 ? b : a);
+
 /**
- * FR 1: the month's income plan — the sum of its sources: each expected regular income (its own cell, else the
- * expected amount; one without a rate is left out); a month without any has the one line «План доходу» (its cell,
- * else the budget's income plan).
+ * FR 1 (owner decision 2026-11-19, Q3): the month's income plan — «План доходу» as typed (its cell, else the budget's
+ * income plan) while the expected regular incomes (each its own cell, else the expected amount; one without a rate is
+ * left out) are less: the rest is «Інші надходження»; when the regular incomes reach it or exceed it, their sum (no
+ * negative row). A month without any regular income — «План доходу».
  */
 export function incomeOf(base: Money, cells: readonly PlanCell[], incomes: readonly PlanIncome[]): Money {
   const own = (lineId: string | null) =>
     cells.find((c) => c.kind === "income" && c.lineId === lineId && c.amount !== null)?.amount ?? null;
-  if (incomes.length === 0) return own(null) ?? base;
-  return sum(
+  const regular = sum(
     incomes.flatMap((i) => {
       const a = own(i.paymentId) ?? i.amount;
       return a ? [a] : [];
     }),
     base.currency,
   );
+  return larger(own(null) ?? base, regular);
 }
 
 /**
@@ -162,11 +166,22 @@ export interface GridMonth {
 export interface PlanGrid {
   readonly months: readonly GridMonth[];
   readonly income: {
-    /** `paymentId` null — «План доходу», in the months without any regular income; `expected` — the line counts there. */
+    /**
+     * «План доходу» (owner decision 2026-11-19, Q3): the month's income plan as typed — default the budget's income
+     * plan of BUD-02; not a source, so not in the sum.
+     */
+    readonly plan: readonly GridCell[];
+    /** Each regular income expected in a month of the grid; `expected` — the line counts there. */
     readonly rows: readonly {
-      readonly paymentId: string | null;
+      readonly paymentId: string;
       readonly cells: readonly (GridCell & { readonly expected: boolean })[];
     }[];
+    /**
+     * «Інші надходження» (Q3): «План доходу» − the regular incomes while they are less; null — they reach it (no
+     * negative row), a month before the budget or without a figure.
+     */
+    readonly other: readonly (Money | null)[];
+    /** The month's income plan: the larger of «План доходу» and the regular incomes; null — no figure. */
     readonly totals: readonly (Money | null)[];
   };
   readonly expenses: {
@@ -255,27 +270,28 @@ export function planGrid(input: GridInput): PlanGrid {
   const paymentIds: string[] = [];
   for (const m of months)
     for (const i of incomesOf(m)) if (!paymentIds.includes(i.paymentId)) paymentIds.push(i.paymentId);
-  const incomeCell = (m: GridMonth, paymentId: string | null) => {
-    const expected =
-      m.inBudget &&
-      (paymentId === null ? incomesOf(m).length === 0 : incomesOf(m).some((i) => i.paymentId === paymentId));
+  const incomeCell = (m: GridMonth, paymentId: string) => {
+    const expected = m.inBudget && incomesOf(m).some((i) => i.paymentId === paymentId);
     if (!expected) return { ...cellOf(m, "income", paymentId, null), amount: null, own: false, expected };
-    const fallback =
-      paymentId === null
-        ? (base(m)?.incomePlan ?? null)
-        : (incomesOf(m).find((i) => i.paymentId === paymentId)?.amount ?? null);
+    const fallback = incomesOf(m).find((i) => i.paymentId === paymentId)?.amount ?? null;
     return { ...cellOf(m, "income", paymentId, fallback), expected };
   };
-  // «План доходу» is a row only while some month of the grid has no regular income.
-  const incomeRows = [
-    ...(months.some((m) => m.inBudget && incomesOf(m).length === 0)
-      ? [{ paymentId: null, cells: months.map((m) => incomeCell(m, null)) }]
-      : []),
-    ...paymentIds.map((paymentId) => ({ paymentId, cells: months.map((m) => incomeCell(m, paymentId)) })),
-  ];
+  const incomePlan = months.map((m) => cellOf(m, "income", null, base(m)?.incomePlan ?? null));
+  const incomeRows = paymentIds.map((paymentId) => ({
+    paymentId,
+    cells: months.map((m) => incomeCell(m, paymentId)),
+  }));
   // An expected source without a rate and no own value leaves the month without an income total.
   const incomeKnown = (i: number) =>
-    incomeRows.every((r) => !r.cells[i]!.expected || r.cells[i]!.amount !== null || r.paymentId === null);
+    incomeRows.every((r) => !r.cells[i]!.expected || r.cells[i]!.amount !== null);
+  const regularTotals = months.map((_, i) =>
+    incomeKnown(i)
+      ? total(
+          incomeRows.map((r) => r.cells),
+          i,
+        )
+      : null,
+  );
   // A Map keeps the order of insertion: the groups come in the tree's order.
   const groups = new Map<string, { categoryId: string; cells: GridCell[] }[]>();
   for (const c of input.categories.filter((c) => active(c, "expense"))) {
@@ -330,14 +346,14 @@ export function planGrid(input: GridInput): PlanGrid {
       : null;
   };
 
-  const incomeTotals = months.map((_, i) =>
-    !incomeKnown(i)
-      ? null
-      : total(
-          incomeRows.map((r) => r.cells),
-          i,
-        ),
-  );
+  const incomeTotals = months.map((_, i) => {
+    const [typed, regular] = [incomePlan[i]!.amount, regularTotals[i]];
+    return typed && regular ? larger(typed, regular) : null;
+  });
+  const otherIncome = months.map((_, i) => {
+    const [typed, regular] = [incomePlan[i]!.amount, regularTotals[i]];
+    return typed && regular && regular.compare(typed) < 0 ? typed.minus(regular) : null;
+  });
   const expenseTotals = months.map((_, i) => total(expenseRows, i));
   const goalTotals = months.map((_, i) =>
     goalsKnown(i) ? total([...goalRows.map((r) => r.cells), savings], i) : null,
@@ -353,7 +369,7 @@ export function planGrid(input: GridInput): PlanGrid {
   });
   return {
     months,
-    income: { rows: incomeRows, totals: incomeTotals },
+    income: { plan: incomePlan, rows: incomeRows, other: otherIncome, totals: incomeTotals },
     expenses: {
       groups: [...groups].map(([groupId, categories]) => ({ groupId, categories })),
       totals: expenseTotals,

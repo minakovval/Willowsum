@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Тексти · S-133 Тренд</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Inter+Tight:wght@600&amp;display=swap">
+<style>body{margin:0}
+.t{width:100%;border-collapse:collapse;table-layout:fixed;background:#FFFFFF;border:1px solid #E5E5E2;border-radius:8px}
+.t th{font:600 12px/16px Inter,sans-serif;letter-spacing:.04em;color:#566174;text-align:left;padding:8px 10px;border-bottom:1px solid #E5E5E2;background:#FAFAF8}
+.t td{vertical-align:top;padding:5px 10px;border-bottom:1px solid #F1F1EF;font-size:13px;line-height:18px}
+.t tr.s td{background:#F4F5F6;font:600 13px/18px Inter,sans-serif;color:#1B2230;padding:5px 10px}
+.src{display:block;color:#566174;font-size:11px;line-height:14px;margin-top:1px}
+.ch{display:block}
+.mk{display:inline-block;margin-top:2px;padding:1px 6px;border-radius:4px;background:#FBF3E8;color:#7A4B00;font:500 11px/16px Inter,sans-serif}
+.v{display:block;margin-bottom:6px}
+.v:last-child{margin-bottom:0}</style>
+</helmet>
+<div style="position: relative; width: 1280px; height: 1260px; overflow: hidden; font-family: Inter, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #1B2230; background: #FBFBFA;">
+  <div data-content style="position:absolute;left:0;top:0;right:0;padding:32px 40px;display:flex;flex-direction:column;gap:16px;">
+    <h1 style="margin:0;font:600 28px/34px 'Inter Tight',Inter,sans-serif;">Тексти · S-133 Тренд</h1>
+    <p style="margin:0;color:#566174;font-size:13px;line-height:18px;max-width:1180px;">Обраний текст — дослівно той, що піде в uk.ts; англійський переклад — лише в en.ts. Це тексти спільних компонентів графіків, які показує екран «Тренд» (BUD-16 b), рядок 133 хвилі 2); тексти самого екрана додаються сюди в PR екрана. Тексти, які додав агент у PR рядків 82 / 83, позначено «варіант від агента, потребує погодження». Дані в текстах — назва змінної у фігурних дужках ({count}); кілька рядків в одній клітинці — окремі тексти.</p>
+    <div style="display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:32px;align-items:start;"><div style="display:flex;flex-direction:column;gap:16px;"><table class="t"><colgroup><col style="width:31%"><col style="width:37%"><col style="width:32%"></colgroup><thead><tr><th>ДЕ</th><th>ОБРАНИЙ ТЕКСТ</th><th>ІНШІ ВАРІАНТИ</th></tr></thead><tbody><tr class="s"><td colspan="3">Графіки (CMP-42, CMP-47)</td></tr><tr><td>Порожній стан: заголовок<span class="src">звідки: вимога CMP-42 «Стани»; uk.ts chart.empty.title</span></td><td><span class="ch">Ще немає історії</span></td><td></td></tr><tr><td>Порожній стан: пояснення<span class="src">звідки: uk.ts chart.empty.text</span></td><td><span class="ch">Графік з&#x27;явиться, коли для нього буде що показати.</span><span class="mk">варіант від агента, потребує погодження</span></td><td></td></tr><tr><td>Помилка: що не вдалося<span class="src">звідки: форма дошки PocStates («Не вдалося …»); uk.ts chart.error.text</span></td><td><span class="ch">Не вдалося побудувати графік</span><span class="mk">варіант від агента, потребує погодження</span></td><td></td></tr><tr><td>Підказка кроку: заголовок колонки значень<span class="src">звідки: CMP-42 AC7; uk.ts chart.tooltip.on</span></td><td><span class="ch">на {date}</span></td><td></td></tr><tr><td>Підказка кроку: заголовок колонки змін<span class="src">звідки: CMP-42 AC7; uk.ts chart.tooltip.delta, delta.period.*</span></td><td><span class="ch">Δ {period}</span><span class="ch">для кроку «кожна подія» — Δ</span></td><td></td></tr><tr><td>Підказка кроку: колонка відсотка<span class="src">звідки: CMP-42 AC7; uk.ts chart.tooltip.percent</span></td><td><span class="ch">%</span></td><td></td></tr><tr><td>Підказка кроку: підпис тижня<span class="src">звідки: CMP-42 AC7; uk.ts chart.step.week</span></td><td><span class="ch">Тиждень {from}–{to}</span></td><td></td></tr><tr><td>Підказка кроку: підпис кварталу<span class="src">звідки: CHT-01 FR 7; uk.ts chart.step.quarter</span></td><td><span class="ch">{quarter} квартал {year}</span></td><td></td></tr><tr><td>Серія «Інші»<span class="src">звідки: CMP-47 AC1; uk.ts chart.other</span></td><td><span class="ch">Інші · {count}</span></td><td></td></tr><tr><td>Назва групи легенди з кнопками-радіо<span class="src">звідки: uk.ts chart.legend.group</span></td><td><span class="ch">Виділити лінію</span><span class="mk">варіант від агента, потребує погодження</span></td><td></td></tr><tr><td>Доступна назва стовпця<span class="src">звідки: CMP-47 «Клавіатура і екранний читач»: «Продукти, березень, 642,10 €»; uk.ts chart.series.aria</span></td><td><span class="ch">{series}, {category}, {value}</span></td><td></td></tr><tr><td>Зміна проти попереднього кроку: слова<span class="src">звідки: дошка S-133 PocPlanTrend (атрибути title); uk.ts chart.delta.*</span></td><td><span class="ch">краще</span><span class="ch">гірше</span><span class="ch">без змін</span></td><td></td></tr><tr><td>Зміна проти попереднього кроку: озвучення<span class="src">звідки: uk.ts chart.delta.up, chart.delta.down</span></td><td><span class="ch">зросло на {value}</span><span class="ch">зменшилось на {value}</span><span class="mk">варіант від агента, потребує погодження</span></td><td></td></tr><tr><td>Немає значення<span class="src">звідки: дошка S-133 PocPlanTrend; uk.ts chart.dash</span></td><td><span class="ch">—</span></td><td></td></tr></tbody></table></div></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1260}}'>
+class Component extends DCLogic { renderVals() { return {}; } }
+</script>
+</body>
+</html>

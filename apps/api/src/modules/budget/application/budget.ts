@@ -524,16 +524,8 @@ export async function updatePlan(
       ]),
     );
   if (handOffs.length === 0) return { result: { kind: "ok", value: budget }, handOffs };
-  // BUD-17 business rules: a change of the limit acts on the current and future periods — their own values of the
-  // changed lines go back to the default (the past keeps them).
-  const changed = new Set(
-    handOffs.map((h) => (h.entity === "budget.limit" ? `limit:${h.entityId}` : "income:")),
-  );
-  for (const c of await tx.planCells(caller.householdId, budget.id, periodOf(deps.today())))
-    if (c.amount !== null && changed.has(`${c.kind}:${c.lineId ?? ""}`)) {
-      await tx.setPlanCell(caller.householdId, budget.id, { ...c, amount: null }, budget.currency);
-      handOffs.push(cellHandOff(deps, caller, budget, c, c.amount, null));
-    }
+  // BUD-17 business rules (owner decision 2026-11-19, Q2): a change of the limit or the income plan acts on the current
+  // and future periods; the months' own values typed on «План» are kept and still win in their month.
   const updated = await tx.updateBudget(caller.householdId, budget.id, income);
   for (const h of handOffs) await tx.enqueueHandOff(h);
   return { result: { kind: "ok", value: updated }, handOffs };

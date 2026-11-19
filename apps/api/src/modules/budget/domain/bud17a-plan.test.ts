@@ -149,39 +149,90 @@ describe("BUD-17@PoC a): the grid «План»", () => {
     expect(g.unallocated[0]).toBeNull();
   });
 
-  it("BUD-17@PoC FR 1: «Надходження» — each expected regular income is a line; their sum is the month's income plan", () => {
+  it("BUD-17@PoC FR 1: «Надходження» — each expected regular income is a line; they make the month's income plan once they reach «План доходу»", () => {
     const months = gridMonths(TODAY);
     const salaries = [
       { paymentId: "andrii", amount: eur("3100") },
       { paymentId: "olena", amount: eur("2500") },
     ];
-    // November has no regular income yet: «План доходу» is its line; from December the two salaries.
+    // November has no regular income yet: all of «План доходу» is «Інші надходження»; from December the two salaries.
     const g = planGrid(
       input({
         incomes: new Map(months.slice(1).map((p) => [p, salaries])),
-        cells: [cell("2027-01", "income", "olena", "2000")],
+        cells: [cell("2027-01", "income", "olena", "2000"), cell("2027-02", "income", null, "5000")],
       }),
     );
-    expect(g.income.rows.map((r) => r.paymentId)).toEqual([null, "andrii", "olena"]);
-    expect(g.income.totals.slice(0, 3)).toEqual([eur("5600"), eur("5600"), eur("5100")]);
-    expect(g.income.rows[0]!.cells[1]).toEqual({ amount: null, own: false, version: 0, expected: false });
-    expect(g.income.rows[2]!.cells[2]).toEqual({
+    expect(g.income.rows.map((r) => r.paymentId)).toEqual(["andrii", "olena"]);
+    expect(g.income.plan[0]).toEqual({ amount: eur("5600"), own: false, version: 0 });
+    expect(g.income.plan[3]).toEqual({ amount: eur("5000"), own: true, version: 1 });
+    expect(g.income.other.slice(0, 4)).toEqual([eur("5600"), null, eur("500"), null]);
+    expect(g.income.totals.slice(0, 4)).toEqual([eur("5600"), eur("5600"), eur("5600"), eur("5600")]);
+    expect(g.income.rows[0]!.cells[0]).toEqual({ amount: null, own: false, version: 0, expected: false });
+    expect(g.income.rows[1]!.cells[2]).toEqual({
       amount: eur("2000"),
       own: true,
       version: 1,
       expected: true,
     });
     const january = withCells(
-      plan("9999", {}),
+      plan("5600", {}),
       [cell("2027-01", "income", "olena", "2000")],
       shown,
       lines(salaries),
     );
-    expect(january.incomePlan).toEqual(eur("5100"));
-    // Without any regular income the month's line is «План доходу».
+    expect(january.incomePlan).toEqual(eur("5600"));
+    // Without any regular income the month's plan is «План доходу».
     expect(
       withCells(plan("5600", {}), [cell("2026-11", "income", null, "5000")], shown, lines()).incomePlan,
     ).toEqual(eur("5000"));
+  });
+
+  it("BUD-17@PoC FR 1 (owner decision 2026-11-19, Q3): regular incomes under «План доходу» — «Інші надходження» is the rest and the month's plan stays as typed", () => {
+    const months = gridMonths(TODAY);
+    const g = planGrid(
+      input({ incomes: new Map(months.map((p) => [p, [{ paymentId: "andrii", amount: eur("3100") }]])) }),
+    );
+    expect(g.income.plan[0]!.amount).toEqual(eur("5600"));
+    expect(g.income.other[0]).toEqual(eur("2500"));
+    expect(g.income.totals[0]).toEqual(eur("5600"));
+    // 5 600 − 4 200 − 0 − 300.
+    expect(g.unallocated[0]).toEqual({ kind: "unallocated", amount: eur("1100") });
+    expect(
+      withCells(plan("5600", {}), [], shown, lines([{ paymentId: "andrii", amount: eur("3100") }]))
+        .incomePlan,
+    ).toEqual(eur("5600"));
+    expect(
+      withCells(
+        plan("5600", {}),
+        [cell("2026-11", "income", null, "4000.50")],
+        shown,
+        lines([{ paymentId: "andrii", amount: eur("3100.25") }]),
+      ).incomePlan,
+    ).toEqual(eur("4000.50"));
+  });
+
+  it("BUD-17@PoC FR 1 (lead decision 2026-11-19, Q3): regular incomes over «План доходу» — no negative row, the sum is the regular incomes", () => {
+    const months = gridMonths(TODAY);
+    const salaries = [
+      { paymentId: "andrii", amount: eur("3100") },
+      { paymentId: "olena", amount: eur("2500.01") },
+    ];
+    const g = planGrid(
+      input({
+        incomes: new Map(months.map((p) => [p, salaries])),
+        cells: [cell("2026-12", "income", null, "4000")],
+      }),
+    );
+    expect(g.income.other.slice(0, 2)).toEqual([null, null]);
+    expect(g.income.totals.slice(0, 2)).toEqual([eur("5600.01"), eur("5600.01")]);
+    expect(g.income.plan[1]).toEqual({ amount: eur("4000"), own: true, version: 1 });
+    expect(withCells(plan("5600", {}), [], shown, lines(salaries)).incomePlan).toEqual(eur("5600.01"));
+    // Equal — no row either.
+    const equal = planGrid(
+      input({ incomes: new Map(months.map((p) => [p, [{ paymentId: "a", amount: eur("5600") }]])) }),
+    );
+    expect(equal.income.other[0]).toBeNull();
+    expect(equal.income.totals[0]).toEqual(eur("5600"));
   });
 
   it("BUD-17@PoC FR 1: a regular income without a rate leaves its month without an income total", () => {
@@ -200,7 +251,7 @@ describe("BUD-17@PoC a): the grid «План»", () => {
       [
         cell("2026-12", "goal", "closed-goal", "200"),
         cell("2026-12", "income", "gone", "600"),
-        cell("2026-12", "income", null, "1500"),
+        cell("2026-12", "income", null, "800"),
         cell("2026-12", "limit", "groceries", "650"),
         cell("2026-12", "savings", null, "50"),
       ],
