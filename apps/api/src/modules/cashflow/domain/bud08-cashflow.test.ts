@@ -16,6 +16,7 @@ const cats = new Map<string, CashflowCategory>([
   ["salary", { id: "salary", kind: "income", state: "active", mergedInto: null }],
   ["food", { id: "food", kind: "expense", state: "active", mergedInto: null }],
   ["old-food", { id: "old-food", kind: "expense", state: "retired", mergedInto: "food" }],
+  ["old-salary", { id: "old-salary", kind: "income", state: "retired", mergedInto: "salary" }],
   ["transfer", { id: "transfer", kind: "service", state: "active", mergedInto: null }],
 ]);
 const line = (month: string, categoryId: string | null, amount: string): CountedLine => ({
@@ -66,6 +67,8 @@ describe("BUD-08@PoC: income, spending, net flow, savings rate", () => {
     expect(m!.savingsRate).toBeNull();
     expect(ratePercent(m!.savingsRate)).toBeNull();
     expect(m!.netFlow.equals(eur("-800"))).toBe(true);
+    // Income below zero (a clawback larger than the inflows) is no income either: «–», not a rate.
+    expect(savingsRate(eur("-50"), eur("800"))).toBeNull();
   });
 
   it("BUD-08@PoC FR 8: «Переказ» (service) is neither income nor spending; a merged category counts in its target", () => {
@@ -81,6 +84,10 @@ describe("BUD-08@PoC: income, spending, net flow, savings rate", () => {
     );
     expect(m!.income.isZero()).toBe(true);
     expect(m!.expenses.equals(eur("20"))).toBe(true);
+    // A merged income category still counts as income in its target, not as an uncategorized inflow (reviewer, #580).
+    const [merged] = monthFigures(["2026-09"], [line("2026-09", "old-salary", "500")], cats, "EUR");
+    expect(merged!.income.equals(eur("500"))).toBe(true);
+    expect(merged!.uncategorizedInflows.count).toBe(0);
   });
 
   it("BUD-08@PoC FR 9: an uncategorized inflow lowers spending, not income, and is counted for the hint", () => {
