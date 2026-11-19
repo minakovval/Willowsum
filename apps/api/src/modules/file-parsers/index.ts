@@ -28,7 +28,14 @@ export {
   TABLE_LIMITS,
   TableLimitError,
 } from "./domain/index.ts";
+export { EVENT_LIMITS } from "./domain/index.ts";
 export type {
+  CurrencyRecognition,
+  EventFlag,
+  EventLeg,
+  StatementEvent,
+  StatementEvents,
+  StatementOptions,
   ColumnAnalysis,
   CurrencyAnalysis,
   DateFormat,

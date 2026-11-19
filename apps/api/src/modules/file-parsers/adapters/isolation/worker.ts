@@ -5,18 +5,28 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { answerFromWorker } from "../../../../platform/process/isolated.ts";
 import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
-import { TableLimitError } from "../../domain/index.ts";
+import { TableLimitError, type StatementOptions } from "../../domain/index.ts";
 
-/** Characters of the parse as JSON (2 MiB): a larger answer is refused as CORRUPTED. */
-const RESULT_CHARS = 2 * 1024 * 1024;
+/**
+ * Characters of the parse as JSON: the reading and the analysis 2 MiB, the whole answer with the events 16 MiB (a 25 MiB file of
+ * ordinary rows fits); a larger answer is refused as CORRUPTED.
+ */
+const ANALYSIS_CHARS = 2 * 1024 * 1024;
+const RESULT_CHARS = 16 * 1024 * 1024;
 
-const { bytes, options } = workerData as { bytes: Uint8Array; options: ReadOptions };
+const { bytes, options, statement } = workerData as {
+  bytes: Uint8Array;
+  options: ReadOptions;
+  statement: StatementOptions;
+};
 
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
   () => {
-    const parse = parseStatement(bytes, options);
-    // The answer is copied into the API process: it stays small whatever the file holds.
+    const parse = parseStatement(bytes, options, statement);
+    // The answer is copied into the API process: it stays bounded whatever the file holds.
+    if (JSON.stringify({ reading: parse.reading, analysis: parse.analysis }).length > ANALYSIS_CHARS)
+      throw new Error("result too large");
     if (JSON.stringify(parse).length > RESULT_CHARS) throw new Error("result too large");
     return parse;
   },
