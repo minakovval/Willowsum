@@ -55,16 +55,17 @@
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
   table-layout: fixed;
-  min-inline-size: calc(var(--ws-space-8) * 4 + var(--ws-space-8) * 12 + var(--ws-space-3));
+  min-inline-size: calc(var(--ws-space-8) * 15);
 }
 
 .plan-table th,
 .plan-table td {
-  padding: var(--ws-space-2) var(--ws-space-1);
+  padding: calc(var(--ws-space-1) * 1.5) calc(var(--ws-space-1) / 4);
+  white-space: nowrap;
   border-block-end: 1px solid var(--ws-line);
   text-align: end;
   font-weight: 400;
-  font-size: var(--ws-text-body-sm-size);
+  font-size: var(--ws-text-label-size);
   line-height: var(--ws-text-body-sm-line);
 }
 
@@ -85,7 +86,7 @@
   position: sticky;
   inset-inline-start: 0;
   z-index: var(--ws-layer-local-1);
-  inline-size: calc(var(--ws-space-8) * 4);
+  inline-size: calc(var(--ws-space-8) * 3);
   padding-inline: var(--ws-space-4) var(--ws-space-2);
   background: var(--ws-surface-100);
   text-align: start;
@@ -149,8 +150,7 @@
 
 .plan-lock {
   display: inline-flex;
-  margin-inline-start: var(--ws-space-1);
-  vertical-align: middle;
+  flex: none;
   color: var(--ws-ink-muted);
 }
 
@@ -171,15 +171,43 @@
   white-space: nowrap;
 }
 
+/* «! Дефіцит 43,00 €» does not fit one month column: the word and the amount go on two lines. */
+.plan-unallocated td:has(.ws-status) {
+  white-space: normal;
+}
+
 .plan-unallocated td .ws-status {
-  justify-content: flex-end;
+  display: inline;
+  text-align: end;
+}
+
+.plan-unallocated td .ws-status > * {
+  display: inline;
+  white-space: normal;
+}
+
+.plan-unallocated td .ws-status-marker {
+  margin-inline-end: var(--ws-space-1);
+}
+
+.plan-namebox {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+  min-inline-size: 0;
+}
+
+.plan-namebox > .plan-label {
+  flex: 1 1 auto;
+  min-inline-size: 0;
 }
 
 /* The cell: a value in the grid that becomes a field when it takes the focus. */
 .plan-cell {
+  box-sizing: border-box;
   inline-size: 100%;
-  min-block-size: var(--ws-space-5);
-  padding: var(--ws-space-1);
+  min-block-size: calc(var(--ws-space-1) * 7);
+  padding: 0 calc(var(--ws-space-1) / 4);
   border: 1px solid transparent;
   border-radius: var(--ws-radius-sm);
   background: transparent;

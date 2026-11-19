@@ -172,14 +172,16 @@ function SectionRows({
         ) : (
           <tr key={item.row.id} className="plan-row" hidden={folded} data-row={item.row.id}>
             <th scope="row" className="plan-name">
-              <span className="plan-label" title={labelText(t, item.row.label)}>
-                {labelText(t, item.row.label)}
-              </span>
-              {item.row.locked ? (
-                <span className="plan-lock" role="img" aria-label={t("planning.plan.locked")}>
-                  <Icon name="lock" size={16} />
+              <div className="plan-namebox">
+                <span className="plan-label" title={labelText(t, item.row.label)}>
+                  {labelText(t, item.row.label)}
                 </span>
-              ) : null}
+                {item.row.locked ? (
+                  <span className="plan-lock" role="img" aria-label={t("planning.plan.locked")}>
+                    <Icon name="lock" size={16} />
+                  </span>
+                ) : null}
+              </div>
             </th>
             {item.row.cells.map((cell) => {
               const key = cell.edit ? `${cell.edit.kind}:${cell.edit.lineId ?? ""}:${cell.period}` : "";
