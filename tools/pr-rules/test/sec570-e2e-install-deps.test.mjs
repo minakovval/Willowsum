@@ -16,8 +16,8 @@ test('sec570: the install-deps retry loop is fail-closed', () => {
   assert.ok(run.length > 0, 'run script');
   assert.doesNotMatch(block, /continue-on-error/);
   assert.doesNotMatch(step, /^ {8}shell:/m); // default `bash -e`
-  // The only tolerated `|| true` is the dpkg repair between attempts, never the install command.
-  assert.doesNotMatch(run.replace('sudo dpkg --configure -a || true', ''), /\|\|\s*(true|:)|set \+e/);
+  // The only tolerated `|| true` are the cleanup commands run with sudo between attempts, never the install command.
+  assert.doesNotMatch(run.replace(/^ *sudo (pkill|dpkg) [^\n]*\|\| true$/gm, ''), /\|\|\s*(true|:)|set \+e/);
   const lines = run.trimEnd().split('\n');
   assert.equal(lines.at(-1), 'exit 1');
   // The only success exit is the branch taken when the bounded install command itself succeeded.
@@ -29,6 +29,8 @@ test('sec570: the install-deps retry loop is fail-closed', () => {
 test('sec570: no workflow expression in the script and no apt trust or source change', () => {
   assert.doesNotMatch(run, /\$\{\{/);
   assert.doesNotMatch(run, /AllowUnauthenticated|AllowInsecure|allow-unauthenticated|Verify-Peer|Verify-Host|trusted=yes|--force-yes|sources\.list|add-apt-repository|apt-key|curl|wget/i);
-  const conf = /printf '([^']*)'/.exec(run)?.[1].split('\\n').filter(Boolean);
-  assert.deepEqual(conf, ['Acquire::Retries "3";', 'Acquire::http::Timeout "20";', 'Acquire::https::Timeout "20";', 'DPkg::Lock::Timeout "60";']);
+  const confStep = /- name: Settings and cache of apt[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
+  assert.doesNotMatch(confStep, /AllowUnauthenticated|AllowInsecure|Verify-Peer|Verify-Host|\$\{\{|continue-on-error/);
+  const conf = /printf '([^']*)'/.exec(confStep)?.[1].split('\\n').filter(Boolean);
+  assert.deepEqual(conf, ['Acquire::Retries "3";', 'Acquire::http::Timeout "20";', 'Acquire::https::Timeout "20";', 'DPkg::Lock::Timeout "60";', 'Dir::Cache::Archives "%s/apt-archives";']);
 });
