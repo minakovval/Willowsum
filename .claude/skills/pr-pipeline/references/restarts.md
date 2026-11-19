@@ -22,7 +22,7 @@ on new tasks (below).
 **Lead state**: one place — the **body** of #179, rewritten in full
 each time (`gh api -X PATCH repos/{owner}/{repo}/issues/179 -F body=@<file>`); the state is never posted as a comment.
 It holds: open PRs with full heads and verdicts, running agents and their branches, owner questions, follow-ups, the
-next plan rows, the next session or segment name, and a link to «Черга змін процесу» (#178). Rewrite it after every 3
+next plan rows, the import-day reminder (`process-limits.md`, «Security detail»), the next session or segment name, and a link to «Черга змін процесу» (#178). Rewrite it after every 3
 merges (with the #180 rows), whenever an owner question changes and, from ~350 k, before each long step. The handover
 tables stay comments on #179 — they are the history, not the state; at a compaction there is no table (below).
 

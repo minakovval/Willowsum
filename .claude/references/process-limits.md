@@ -44,7 +44,9 @@ entry to the log first.
 ## Security detail of an unfixed defect (`pr-pipeline/SKILL.md`, step 7)
 
 **Applies from the day the owner imports real bank statements**: until then the detail goes into the issue or PR as
-usual and the steps below are not followed. The lead tells the owner one day before the import is ready.
+usual and the steps below are not followed. That day = a decision-log entry quoting the owner's words about the
+import. The lead keeps a reminder in «Lead state» to tell the owner one day before the import is ready; on that day it
+moves the details already published of still-open defects into draft advisories (one line stays in the issue).
 
 Applies to a finding that stays open in `main` after the merge (a «Follow-ups» item), when its probe, test or
 description would let a reader reproduce the bypass, leak or loss. A finding fixed in the same PR is not covered.

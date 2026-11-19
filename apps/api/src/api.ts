@@ -12,6 +12,7 @@ import type { DebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import type { ImportSessionsServices } from "./modules/import-sessions/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { BudgetServices } from "./modules/budget/index.ts";
+import type { CashflowServices } from "./modules/cashflow/index.ts";
 import type { CategorizationServices } from "./modules/categorization/index.ts";
 import type { MerchantsServices } from "./modules/merchants/index.ts";
 import type { RecurringServices } from "./modules/recurring/index.ts";
@@ -70,6 +71,8 @@ export interface ApiWiring {
   readonly goals?: GoalsServices;
   /** The budget module's ports (BUD-02: categories, accounts, transactions, categorization, rates, audit log, clock). */
   readonly budget?: BudgetServices;
+  /** The cashflow module's ports (BUD-08: categories, accounts, transactions, categorization, transfer proposals, rates). */
+  readonly cashflow?: CashflowServices;
   /** The debt-payoff module's ports (BUD-19: the credit accounts, liabilities, the journal, audit log, clock). */
   readonly debtPayoff?: DebtPayoffServices;
   /** The import-sessions module's ports (IMP-01: file-storage's originals, the audit log, clock). */
@@ -152,9 +155,11 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                                 ? wiring.recurring
                                 : module === "budget"
                                   ? wiring.budget
-                                  : module === "import-sessions"
-                                    ? wiring.importSessions
-                                    : undefined,
+                                  : module === "cashflow"
+                                    ? wiring.cashflow
+                                    : module === "import-sessions"
+                                      ? wiring.importSessions
+                                      : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),

@@ -31,6 +31,7 @@ async function run(command, { files, title = 'CICD-01: x', body = '', fork = fal
   fs.writeFileSync(event, JSON.stringify({ pull_request: pr }));
   const env = {
     PATH: process.env.PATH,
+    PR_RULES_RETRY_MS: '1',
     GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`,
     GITHUB_REPOSITORY: 'o/r',
     GITHUB_TOKEN: 'test-token-not-real',

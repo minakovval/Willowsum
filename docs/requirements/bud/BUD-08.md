@@ -40,7 +40,7 @@
 - [PoC–MVP] Сценарії: UC-BUD-42, UC-BUD-43
 - [v1] Сценарії: UC-BUD-42, UC-BUD-43, UC-BUD-44
 - Модуль: cashflow
-- Перевіряється: —
+- Перевіряється: `apps/api/src/modules/cashflow/domain/bud08-cashflow.test.ts`, `apps/api/test/bud08-cashflow.it.test.ts`
 
 **Мета.** Як власник бюджету, я хочу бачити, скільки з доходу реально залишається щомісяця і куди воно йде, щоб розуміти, чи росте мій капітал.
 

@@ -40,7 +40,7 @@ test('SEC87R3: `daily` without --since reports a window that could not start at 
     res.writeHead(r.status ?? 200).end(JSON.stringify(r.body));
   });
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const env = { PATH: process.env.PATH, GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`, GITHUB_REPOSITORY: 'o/r', GITHUB_TOKEN: 'test-token-not-real' };
+  const env = { PATH: process.env.PATH, PR_RULES_RETRY_MS: '1', GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`, GITHUB_REPOSITORY: 'o/r', GITHUB_TOKEN: 'test-token-not-real' };
   const index = new URL('../index.mjs', import.meta.url).pathname;
   const out = await new Promise((resolve) =>
     execFile(process.execPath, [index, 'daily', '--until', '2026-11-12T06:00:00Z'], { env }, (err, stdout) => resolve({ code: err?.code ?? 0, stdout })),

@@ -33,7 +33,16 @@
     },
     "cashflow": {
       "layer": "process",
-      "dependsOn": []
+      "dependsOn": [
+        "accounts",
+        "budget",
+        "categories",
+        "categorization",
+        "fx-rates",
+        "household",
+        "transactions",
+        "transfer-matching"
+      ]
     },
     "categories": {
       "layer": "subject",
