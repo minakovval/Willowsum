@@ -41,7 +41,7 @@ interface GridOver {
   foodAt?: (i: number) => Cell;
   incomePlan?: string;
   salary?: string | null;
-  other?: (string | null)[];
+  other?: (ReturnType<typeof eur> | null)[];
   unallocated?: ({ kind: "unallocated" | "deficit"; amount: ReturnType<typeof eur> } | null)[];
   goalAt?: (i: number) => Cell;
   extra?: boolean;
