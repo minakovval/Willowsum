@@ -33,6 +33,24 @@ describe("IMP-06@PoC: alternatives and evidence of the engine's decisions", () =
     expect(a.dates!.flags).toEqual(["date-order-assumed"]);
   });
 
+  it("IMP-06@PoC FR 12: a cell neither order reads (a «00.00.0000» placeholder) does not hide «порядок дати припущено»", () => {
+    const a = analyzeTable(
+      table([
+        "Дата;Сума",
+        "01.03.2026;1,50",
+        "02.03.2026;2,00",
+        "03.04.2026;3,00",
+        "04.05.2026;4,00",
+        "00.00.0000;5,00",
+      ]),
+      0,
+    );
+    expect(a.dates!.chosen.value.order).toBe("dmy");
+    expect(a.dates!.chosen.score).toBe(0.55);
+    expect(a.dates!.flags).toEqual(["date-order-assumed"]);
+    expect(a.dates!.evidence).toEqual([{ code: "no-day-over-12", count: 5 }]);
+  });
+
   it("IMP-06@PoC FR 8: a day over 12 decides the order, the evidence names it and the other order cannot read it", () => {
     const a = analyzeTable(table(["Date;Amount", "03/25/2026;1.00", "04/01/2026;2.00"]), 0);
     const dates = a.dates!;

@@ -7,11 +7,19 @@ import { answerFromWorker } from "../../../../platform/process/isolated.ts";
 import { FileTooLargeError, parseStatement, type ReadOptions } from "../../application/index.ts";
 import { TableLimitError } from "../../domain/index.ts";
 
+/** Characters of the parse as JSON (2 MiB): a larger answer is refused as CORRUPTED. */
+const RESULT_CHARS = 2 * 1024 * 1024;
+
 const { bytes, options } = workerData as { bytes: Uint8Array; options: ReadOptions };
 
 await answerFromWorker(
   (message) => parentPort!.postMessage(message),
-  () => parseStatement(bytes, options),
+  () => {
+    const parse = parseStatement(bytes, options);
+    // The answer is copied into the API process: it stays small whatever the file holds.
+    if (JSON.stringify(parse).length > RESULT_CHARS) throw new Error("result too large");
+    return parse;
+  },
   (error) =>
     error instanceof FileTooLargeError
       ? "FILE_TOO_LARGE"

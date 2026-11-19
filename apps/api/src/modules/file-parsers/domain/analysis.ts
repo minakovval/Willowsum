@@ -31,6 +31,8 @@ export const ANALYSIS_LIMITS = {
   examples: 3,
   /** Characters of a cell in an example. */
   exampleChars: 40,
+  /** Characters of a column's header in the result. */
+  headerChars: 120,
 } as const;
 
 /** Column roles, as the recipe names them (import-recipes' `COLUMN_ROLES`). */
@@ -222,8 +224,9 @@ function decideDates(samples: readonly DateSample[]): Decision<DateFormat> | nul
       of: samples.length,
       example: firstOver12[0]!.text,
     });
-  else if (score.dmy === 1 && score.mdy === 1) {
-    // FR 12: no day over 12 and no other evidence — day-month with 0.55 and the flag «порядок дати припущено».
+  else if (score.dmy === score.mdy && score.dmy > 0) {
+    // FR 12: no day over 12 and no other evidence — day-month with 0.55 and the flag «порядок дати припущено»,
+    // also when some cells (a «00.00.0000» placeholder) read under neither order.
     evidence.push({ code: "no-day-over-12", count: samples.length });
     flags.push("date-order-assumed");
     score.dmy = 0.55;
@@ -678,7 +681,13 @@ export function analyzeTable(
   const facts: ColumnFacts[] = Array.from({ length: width }, (_, i) => {
     const cells = sample.map((r) => r[i] ?? "");
     const h = header?.[i]?.trim();
-    return { column: i + 1, header: h ? h : null, cells, kind: kindOf(cells) };
+    // Header words are matched on the first characters only: a longer header is not a bank's column name.
+    return {
+      column: i + 1,
+      header: h ? h.slice(0, ANALYSIS_LIMITS.headerChars) : null,
+      cells,
+      kind: kindOf(cells),
+    };
   });
   const dateSamples = facts
     .filter((f) => f.kind.kind === "date")

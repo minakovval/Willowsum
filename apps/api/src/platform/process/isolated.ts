@@ -50,7 +50,10 @@ export function runIsolated<T>(
       resolve(outcome);
     };
     const timer = setTimeout(() => finish({ ok: false, failure: "timeout" }), limits.timeoutMs);
-    worker.on("message", (message: { value?: T; refused?: unknown }) => {
+    worker.on("message", (raw: unknown) => {
+      // Anything but an object is a crash: `in` on a string would throw in the API's own thread.
+      const message =
+        typeof raw === "object" && raw !== null ? (raw as { value?: T; refused?: unknown }) : null;
       if (message && "value" in message) finish({ ok: true, value: message.value as T });
       else if (message && typeof message.refused === "string")
         finish({ ok: false, failure: "refused", code: message.refused });

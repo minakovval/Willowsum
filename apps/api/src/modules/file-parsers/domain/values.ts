@@ -17,8 +17,14 @@ export interface DateCell {
 
 const DATE = /^(\d{1,4})([./-])(\d{1,2})\2(\d{1,4})(?:[ T](\d{1,2}):(\d{2})(:\d{2})?)?$/;
 
+/** Characters of a cell that can be a date or a number: a longer cell is text. It bounds what a reading and an example
+ * carry out of the worker, and the work of the patterns below. */
+export const VALUE_CELL_CHARS = 64;
+
 export function dateCell(cell: string): DateCell | null {
-  const m = DATE.exec(cell.trim());
+  const text = cell.trim();
+  if (text.length > VALUE_CELL_CHARS) return null;
+  const m = DATE.exec(text);
   if (!m) return null;
   return {
     parts: [m[1]!, m[3]!, m[4]!],
@@ -78,7 +84,9 @@ const CURRENCY_MARK = /^(?:[A-Z]{3}|[₴$€£¥]|zł|грн\.?)\s*|\s*(?:[A-Z]{
 const NUMBER = /^([-+−–]?)\s*(\(?)\s*(\d[\d\s\u00a0\u202f.,'’]*\d|\d)\s*(\)?)\s*(-?)$/u;
 
 export function numberCell(cell: string): NumberCell | null {
-  const m = NUMBER.exec(cell.trim().replace(CURRENCY_MARK, ""));
+  const text = cell.trim();
+  if (text.length > VALUE_CELL_CHARS) return null;
+  const m = NUMBER.exec(text.replace(CURRENCY_MARK, ""));
   if (!m) return null;
   if ((m[2] === "(") !== (m[4] === ")")) return null;
   return {
