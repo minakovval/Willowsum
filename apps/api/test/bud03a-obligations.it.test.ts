@@ -113,14 +113,15 @@ const current = (space: Space) =>
     balanceDate: "2026-01-01",
   });
 
-/** A loan (FIN-01): its debt, rate and monthly payment (none — «Додайте ставку і платіж»). */
-const loan = (space: Space, payment?: { amount: string; currency: string }) =>
+/** A loan (FIN-01): its debt, rate and monthly payment, in the payment's currency. */
+const loan = (space: Space, payment: { amount: string; currency: string }) =>
   account(space, {
     kind: "loan",
     name: "Синтетичний кредит",
-    balance: { amount: "9000.00", currency: payment?.currency ?? "EUR" },
+    balance: { amount: "9000.00", currency: payment.currency },
     balanceDate: "2026-01-01",
-    ...(payment ? { annualRate: "12", monthlyPayment: payment } : {}),
+    annualRate: "12",
+    monthlyPayment: payment.amount,
   });
 
 async function category(space: Space, name: string): Promise<string> {
@@ -333,8 +334,6 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
     await payment(space, { amount: eur("15.99"), anchorDate: "2026-11-25" });
     await payment(space, { amount: eur("40"), anchorDate: "2026-11-25", categoryId: groceries });
     await loan(space, eur("250"));
-    // «Додайте ставку і платіж»: a loan without a monthly payment adds nothing.
-    await loan(space);
     const v = await preview(space, {
       incomePlan: eur("1000"),
       limits: [{ categoryId: groceries, amount: eur("500") }],
