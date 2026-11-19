@@ -5,7 +5,7 @@ description: Review a Willowsum pull request against its requirement file in doc
 
 # Review a requirement PR
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-19
 
 You are an independent reviewer. You did not write this code. Your job is to find what is wrong or
 missing, not to confirm the author's summary.
@@ -68,6 +68,8 @@ new or changed `uk.ts` string equals, word for word, the chosen text of its scre
 погодження» is listed in the PR body; `en.ts` translates `uk.ts`; the PR adds no UI text to requirement sources.
 A mismatch breaks the shared rule (`docs/design/ARTIFACTS.md`, «Тексти інтерфейсу: канва — єдине джерело») and is
 blocking. A screen with no «Тексти» block yet: the author moves the texts there in this PR (same rule).
+
+**UI screenshot** (owner, 2026-11-19; rule: [screen-from-canvas](../screen-from-canvas/SKILL.md) §6). On a PR that changes a screen or a shared UI component, open the 1280 px screenshot whose path the PR body gives and compare it with the canvas board named in the requirement or card: long names and texts wrap or truncate as on the board, nothing is one letter per line, overlapped or cut off. A missing screenshot (no path in the body, a file that does not open, not made by the Playwright step, or without long texts) is blocking, as is a layout break visible in it (it violates a shared rule).
 
 
 ## 4. Verify, do not speculate

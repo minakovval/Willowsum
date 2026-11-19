@@ -1,4 +1,4 @@
-<!-- Створено: 2026-11-01 · Оновлено: 2026-11-13 -->
+<!-- Створено: 2026-11-01 · Оновлено: 2026-11-19 -->
 
 ## Requirement
 
@@ -37,6 +37,7 @@
 - [ ] Permission tests for every role and a scoped member (if data access changed)
 - [ ] Entitlement check with the requirement's feature key (if it has plan limits)
 - [ ] Empty / loading / error states; widths 390, 768, 1280 px (PoC and PoC v2: 1280 only, light theme); uk and en strings
+- [ ] Screen or shared UI component changed: 1280 px Playwright screenshot with long names/texts — path: `<path>` and a short description below; not a screen PR: «n/a» (owner, 2026-11-19; `.claude/skills/screen-from-canvas/SKILL.md` §6)
 
 ## Sensitive areas touched
 
