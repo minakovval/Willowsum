@@ -149,7 +149,7 @@ Up to 7 branches (AGENTS.md «Parallel branches») and **at most 10 agents at on
 together — **plus up to 8 additional Sonnet agents** beyond those 10 (owner, 2026-11-19); Fable at most 4 tasks at once (unchanged,
 [token economy](references/token-economy.md)); more wait in a queue. Slots
 count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond the ten slots has no
-slot, no dev-server port and runs only `pnpm db:test` and keep a table slot → agent → branch → worktree. Slot `k`
+slot, no dev-server port and runs only `pnpm db:test`; keep a table slot → agent → branch → worktree. Slot `k`
 has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
 (k = 10: `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and
 worktree, and stops only the processes it started, by PID. Choose parts in different modules; two PRs that change
