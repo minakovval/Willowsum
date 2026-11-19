@@ -46,10 +46,9 @@ const BODY_LIMIT = 64 * 1024;
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const moneyInput = z
   .object({
-    amount: z
-      .string()
-      .max(48)
-      .meta({ description: "A plain non-negative decimal, at most the currency's minor units" }),
+    amount: z.string().max(48).meta({
+      description: "A plain non-negative decimal, at most 15 integer digits and the currency's minor units",
+    }),
     currency: z
       .string()
       .max(10)
@@ -361,16 +360,25 @@ const periodSchema = z.object({
       overspend: z.object({ amount: moneySchema, count: z.number().int() }),
       /** The limits of the optional categories: the base of the overspend shade (FR 9). */
       optionalLimits: moneySchema,
-      /** The unspent rest of the mandatory limits (an overspent one adds 0): the limits part of D. */
-      mandatoryRemaining: moneySchema,
-      /** The unpaid regular payments outside the mandatory categories; null — not connected yet. */
-      unpaidRecurring: moneySchema.nullable(),
-      /** D = mandatoryRemaining + unpaidRecurring; null while unpaidRecurring is. */
-      mandatoryNeeded: moneySchema.nullable(),
-      /** E = B − A − D; null while D is. */
-      free: moneySchema.nullable(),
+      mandatoryRemaining: moneySchema.meta({
+        description:
+          "Σ max(0, limit − spent) of the mandatory categories, without regular payments. Not «Ще потрібно на обов'язкові»: never show it as D",
+      }),
+      unpaidRecurring: moneySchema.nullable().meta({
+        description:
+          "Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0",
+      }),
+      mandatoryNeeded: moneySchema.nullable().meta({
+        description:
+          "D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining",
+      }),
+      free: moneySchema.nullable().meta({
+        description:
+          "E «Вільний залишок» = limits − spent − D, negative with «−». Null with D: show «—», never 0",
+      }),
     })
-    .nullable(),
+    .nullable()
+    .meta({ description: "FR 19: the totals row. Null — a future month (plan only, no fact)" }),
   /**
    * FR 16, AC8: «Очікувані платежі» — the regular payments expected in the month by category (categoryId null — none)
    * and their total; null — the regular payments are not connected yet.
@@ -380,7 +388,11 @@ const periodSchema = z.object({
       categories: z.array(z.object({ categoryId: z.uuid().nullable(), amount: moneySchema })),
       total: moneySchema,
     })
-    .nullable(),
+    .nullable()
+    .meta({
+      description:
+        "FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0",
+    }),
   /**
    * AC3: «приблизно» — `nearestRateCount` amounts converted at the nearest available rate («N транзакцій за найближчим
    * курсом»); `unavailableCount` amounts left out until their currency has a rate («Курс недоступний»).
@@ -439,7 +451,11 @@ export const getPeriodRoute = defineRoute({
           countsFrom(budget, params.period),
         )
       : null;
-    const summary = mode === "future" ? null : categoriesSummary(figures.lines, budget.currency, obligations);
+    // FR 16: a past month is «план проти факту» — no «Ще потрібно» or «Вільний залишок» (D, E null).
+    const summary =
+      mode === "future"
+        ? null
+        : categoriesSummary(figures.lines, budget.currency, mode === "past" ? null : obligations);
     const expected = obligations ? expectedPayments(obligations, budget.currency) : null;
     const order = new Map(categoryList.map((c, i) => [c.groupId, i]));
     const groups = new Map<string | null, z.input<typeof lineSchema>[]>();
@@ -591,7 +607,11 @@ const allocationSchema = z.object({
       /** N = |difference|. */
       amount: moneySchema,
     })
-    .nullable(),
+    .nullable()
+    .meta({
+      description:
+        "Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead",
+    }),
   /**
    * FR 15, AC7: the chosen amounts against N — `exact`: a deficit is covered in full («Створити бюджет» active);
    * `short`: a surplus's rest stays «Не розподілено», a deficit is not covered yet; `over`: more than N. Null without
@@ -599,7 +619,11 @@ const allocationSchema = z.object({
    */
   choice: z
     .object({ chosen: moneySchema, rest: moneySchema, status: z.enum(["short", "exact", "over"]) })
-    .nullable(),
+    .nullable()
+    .meta({
+      description:
+        "Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`",
+    }),
 });
 
 export const previewAllocationRoute = defineRoute({
@@ -620,8 +644,10 @@ export const previewAllocationRoute = defineRoute({
         proportional: z.boolean().optional(),
         incomePlan: moneyInput.optional(),
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
-        /** The amounts chosen on the step: goals, debts, «Заощадження без цілі» — or the options covering the deficit. */
-        chosen: z.array(moneyInput).max(CHOSEN_MAX).optional(),
+        chosen: z.array(moneyInput).max(CHOSEN_MAX).optional().meta({
+          description:
+            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here",
+        }),
       })
       .strict(),
   },

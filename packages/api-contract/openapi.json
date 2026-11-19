@@ -8947,7 +8947,7 @@
                       "amount": {
                         "type": "string",
                         "maxLength": 48,
-                        "description": "A plain non-negative decimal, at most the currency's minor units"
+                        "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                       },
                       "currency": {
                         "type": "string",
@@ -8978,7 +8978,7 @@
                             "amount": {
                               "type": "string",
                               "maxLength": 48,
-                              "description": "A plain non-negative decimal, at most the currency's minor units"
+                              "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                             },
                             "currency": {
                               "type": "string",
@@ -9616,7 +9616,7 @@
                       "amount": {
                         "type": "string",
                         "maxLength": 48,
-                        "description": "A plain non-negative decimal, at most the currency's minor units"
+                        "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                       },
                       "currency": {
                         "type": "string",
@@ -9647,7 +9647,7 @@
                             "amount": {
                               "type": "string",
                               "maxLength": 48,
-                              "description": "A plain non-negative decimal, at most the currency's minor units"
+                              "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                             },
                             "currency": {
                               "type": "string",
@@ -9670,6 +9670,7 @@
                     }
                   },
                   "chosen": {
+                    "description": "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here",
                     "maxItems": 100,
                     "type": "array",
                     "items": {
@@ -9678,7 +9679,7 @@
                         "amount": {
                           "type": "string",
                           "maxLength": 48,
-                          "description": "A plain non-negative decimal, at most the currency's minor units"
+                          "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                         },
                         "currency": {
                           "type": "string",
@@ -9852,7 +9853,8 @@
                         {
                           "type": "null"
                         }
-                      ]
+                      ],
+                      "description": "Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead"
                     },
                     "choice": {
                       "anyOf": [
@@ -9910,7 +9912,8 @@
                         {
                           "type": "null"
                         }
-                      ]
+                      ],
+                      "description": "Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact`"
                     }
                   },
                   "required": [
@@ -10524,7 +10527,8 @@
                                 "amount",
                                 "currency"
                               ],
-                              "additionalProperties": false
+                              "additionalProperties": false,
+                              "description": "Σ max(0, limit − spent) of the mandatory categories, without regular payments. Not «Ще потрібно на обов'язкові»: never show it as D"
                             },
                             "unpaidRecurring": {
                               "anyOf": [
@@ -10547,7 +10551,8 @@
                                 {
                                   "type": "null"
                                 }
-                              ]
+                              ],
+                              "description": "Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0"
                             },
                             "mandatoryNeeded": {
                               "anyOf": [
@@ -10570,7 +10575,8 @@
                                 {
                                   "type": "null"
                                 }
-                              ]
+                              ],
+                              "description": "D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining"
                             },
                             "free": {
                               "anyOf": [
@@ -10593,7 +10599,8 @@
                                 {
                                   "type": "null"
                                 }
-                              ]
+                              ],
+                              "description": "E «Вільний залишок» = limits − spent − D, negative with «−». Null with D: show «—», never 0"
                             }
                           },
                           "required": [
@@ -10611,7 +10618,8 @@
                         {
                           "type": "null"
                         }
-                      ]
+                      ],
+                      "description": "FR 19: the totals row. Null — a future month (plan only, no fact)"
                     },
                     "expectedPayments": {
                       "anyOf": [
@@ -10685,7 +10693,8 @@
                         {
                           "type": "null"
                         }
-                      ]
+                      ],
+                      "description": "FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0"
                     },
                     "approximate": {
                       "type": "object",
@@ -10852,7 +10861,7 @@
                       "amount": {
                         "type": "string",
                         "maxLength": 48,
-                        "description": "A plain non-negative decimal, at most the currency's minor units"
+                        "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                       },
                       "currency": {
                         "type": "string",
@@ -10885,7 +10894,7 @@
                                 "amount": {
                                   "type": "string",
                                   "maxLength": 48,
-                                  "description": "A plain non-negative decimal, at most the currency's minor units"
+                                  "description": "A plain non-negative decimal, at most 15 integer digits and the currency's minor units"
                                 },
                                 "currency": {
                                   "type": "string",

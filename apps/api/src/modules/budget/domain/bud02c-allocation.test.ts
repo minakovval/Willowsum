@@ -5,6 +5,7 @@ import {
   allocationChoice,
   categoriesSummary,
   expectedPayments,
+  parseBudgetAmount,
   type LimitLine,
   type PeriodObligations,
 } from "./index.ts";
@@ -134,8 +135,10 @@ describe("BUD-02@PoC: the totals row of «Категорії»", () => {
       { categoryId: null, amount: eur("50.00"), paid: false },
       // Paid: not needed any more.
       { categoryId: "gym", amount: eur("30"), paid: true },
-      // In a mandatory category with a limit: already in its rest — not counted twice.
-      { categoryId: "rent", amount: eur("1200"), paid: false },
+      // Paid in the mandatory «rent»: needed no more.
+      { categoryId: "rent", amount: eur("1200"), paid: true },
+      // Unpaid in the mandatory «utilities», within its rest of 179.60: counted once (BUD-03 п. 14).
+      { categoryId: "utilities", amount: eur("100"), paid: false },
     ],
     debtMinimums: [],
   };
@@ -147,7 +150,9 @@ describe("BUD-02@PoC: the totals row of «Категорії»", () => {
     expect(s.overspend.amount).toEqual(eur("76.17"));
     expect(s.overspend.count).toBe(4);
     expect(s.mandatoryRemaining).toEqual(eur("197.10"));
-    expect(s.unpaidRecurring).toEqual(eur("300"));
+    // Every unpaid payment (BUD-03 п. 2, 5): 250 + 50 + 100.
+    expect(s.unpaidRecurring).toEqual(eur("400"));
+    // D = rent 0 + utilities (179.60 − 100) + groceries 17.50 + 400.
     expect(s.mandatoryNeeded).toEqual(eur("497.10"));
     expect(s.free).toEqual(eur("-160.87"));
     expect(s.free!.toDecimalString()).toBe("-160.87");
@@ -164,6 +169,32 @@ describe("BUD-02@PoC: the totals row of «Категорії»", () => {
     expect(s.overspend.count).toBe(1);
     // E = 150 − 140 − 0.
     expect(s.free).toEqual(eur("10"));
+  });
+
+  const unpaid = (categoryId: string, amount: string): PeriodObligations => ({
+    recurring: [{ categoryId, amount: eur(amount), paid: false }],
+    debtMinimums: [],
+  });
+  it("BUD-02@PoC FR 19: a mandatory category needs the bigger of its unspent rest and its unpaid payments (BUD-03 п. 14) — limit 100, spent 80, unpaid 50: D 50, E −30", () => {
+    const s = categoriesSummary([line("rent", "100", "80", true)], "EUR", unpaid("rent", "50"));
+    expect(s.mandatoryNeeded).toEqual(eur("50"));
+    expect(s.free).toEqual(eur("-30"));
+    expect(s.mandatoryRemaining).toEqual(eur("20"));
+  });
+
+  it("BUD-02@PoC FR 19: an overspent mandatory category still needs its unpaid payment — limit 100, spent 120, unpaid 50: D 50, E −70", () => {
+    const s = categoriesSummary([line("rent", "100", "120", true)], "EUR", unpaid("rent", "50"));
+    expect(s.mandatoryNeeded).toEqual(eur("50"));
+    expect(s.free).toEqual(eur("-70"));
+  });
+
+  it("BUD-02@PoC FR 19: a rest bigger than the unpaid payment — limit 100, spent 30, unpaid 50: D 70; an unpaid payment in an optional category adds to D", () => {
+    expect(
+      categoriesSummary([line("rent", "100", "30", true)], "EUR", unpaid("rent", "50")).mandatoryNeeded,
+    ).toEqual(eur("70"));
+    const s = categoriesSummary([line("cafes", "100", "30")], "EUR", unpaid("cafes", "20"));
+    expect(s.mandatoryNeeded).toEqual(eur("20"));
+    expect(s.free).toEqual(eur("50"));
   });
 
   it("BUD-02@PoC FR 19 boundary: zero — no limits gives 0 everywhere and no «−0»", () => {
@@ -231,5 +262,28 @@ describe("BUD-02@PoC: one currency also for the amounts no sum takes (security r
     ).toThrow(CurrencyMismatchError);
     const paid = { recurring: [{ categoryId: null, amount: usd, paid: true }], debtMinimums: [] };
     expect(() => categoriesSummary([], "EUR", paid)).toThrow(CurrencyMismatchError);
+  });
+});
+
+describe("BUD-02@PoC: amounts the budget takes", () => {
+  it("BUD-02@PoC FR 15 boundary: at most 15 integer digits, so a request's sums stay within NUMERIC(38,18)", () => {
+    const max = "9".repeat(15) + ".99";
+    expect(parseBudgetAmount("x", { amount: max, currency: "EUR" }, "EUR")).toEqual(eur(max));
+    expect(parseBudgetAmount("x", { amount: "1" + "0".repeat(15), currency: "EUR" }, "EUR")).toEqual({
+      field: "x",
+      issue: "invalid",
+    });
+    // 300 limits, an income plan and 100 chosen amounts of the largest size still add up.
+    const b = allocationBalance({
+      incomePlan: eur(max),
+      limits: Array.from({ length: 300 }, (_, i) => limit(`c${i}`, max)),
+      obligations: NONE,
+    });
+    expect(
+      allocationChoice(
+        b,
+        Array.from({ length: 100 }, () => eur(max)),
+      ).status,
+    ).toBe("short");
   });
 });

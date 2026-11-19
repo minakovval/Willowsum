@@ -273,7 +273,7 @@ const preview = (space: Space, body: Record<string, unknown>, server = app) =>
   call(space, "POST", "/v1/budget/allocation", { firstPeriod: "2026-11", ...body }, {}, server);
 
 describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => {
-  it("BUD-02@PoC AC6: income 5 600 €, limits 2 860 €, regular payments outside limits 0 € — «не розподілено 2 740 €» and a surplus to allocate", async () => {
+  it("BUD-02@PoC AC6: income 5 600 €, limits 2 860 €, regular payments outside limits 0 € — «не розподілено 2 740 €» and a surplus to allocate (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     const cafes = await category(space, "Кафе і ресторани");
@@ -304,7 +304,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
     expect((await call(space, "GET", "/v1/budget")).json()).toEqual({ budget: null });
   });
 
-  it("BUD-02@PoC AC7: income 3 000 €, limits 3 200 € — «Звідки візьмуться 200 €?»; «Створити бюджет» stays inactive until the options sum to 200 €", async () => {
+  it("BUD-02@PoC AC7: income 3 000 €, limits 3 200 € — «Звідки візьмуться 200 €?»; «Створити бюджет» stays inactive until the options sum to 200 € (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     const body = {
@@ -325,7 +325,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
     ).toBe(0);
   });
 
-  it("BUD-02@PoC FR 15: regular payments outside the limits and the debts' minimum payments lower the difference; a payment in a limited category does not", async () => {
+  it("BUD-02@PoC FR 15: regular payments outside the limits and the debts' minimum payments lower the difference; a payment in a limited category does not (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     owed = () => ({
@@ -349,7 +349,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
     });
   });
 
-  it("BUD-02@PoC FR 15 boundary: zero — an empty plan has nothing to allocate", async () => {
+  it("BUD-02@PoC FR 15 boundary: zero — an empty plan has nothing to allocate (fake port; live after #567)", async () => {
     const space = await newSpace();
     const res = await preview(space, { chosen: [] });
     expect(res.statusCode, res.body).toBe(200);
@@ -357,7 +357,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
     expect(res.json().choice).toEqual({ chosen: eur("0"), rest: eur("0"), status: "exact" });
   });
 
-  it("BUD-02@PoC FR 14: a start in the middle of the month — the proportional plan × 13/30 and the payments from today", async () => {
+  it("BUD-02@PoC FR 14: a start in the middle of the month — the proportional plan × 13/30 and the payments from today (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     const res = await preview(space, {
@@ -412,7 +412,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
 });
 
 describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/periods/{period})", () => {
-  it("BUD-02@PoC AC9: the totals row — spent of limits, overspend in N categories, still needed for mandatory, free rest (negative with «−»)", async () => {
+  it("BUD-02@PoC AC9: the totals row — spent of limits, overspend in N categories, still needed for mandatory, free rest (negative with «−») (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти"); // mandatory
     const cafes = await category(space, "Кафе і ресторани");
@@ -434,22 +434,23 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
         { categoryId: travel, amount: m("250"), paid: false },
         { categoryId: null, amount: m("50"), paid: false },
         { categoryId: null, amount: m("30"), paid: true },
-        // In the mandatory «Продукти»: already in its rest.
+        // In the mandatory «Продукти», more than its rest of 17.50: D takes the payment, not the rest (BUD-03 п. 14).
         { categoryId: groceries, amount: m("99"), paid: false },
       ],
       debtMinimums: [],
     });
     const view = await period(space, "2026-11");
-    // B 1050, A 1082.55, C 50.05 in 2, D = 17.50 + 300 = 317.50, E = 1050 − 1082.55 − 317.50 = −350.05.
+    // B 1050, A 1082.55, C 50.05 in 2; every unpaid payment 250 + 50 + 99 = 399; D = max(0, 17.50 − 99) + 399 = 399;
+    // E = 1050 − 1082.55 − 399 = −431.55.
     expect(view.summary).toEqual({
       spent: eur("1082.55"),
       limits: eur("1050"),
       overspend: { amount: eur("50.05"), count: 2 },
       optionalLimits: eur("350"),
       mandatoryRemaining: eur("17.5"),
-      unpaidRecurring: eur("300"),
-      mandatoryNeeded: eur("317.5"),
-      free: eur("-350.05"),
+      unpaidRecurring: eur("399"),
+      mandatoryNeeded: eur("399"),
+      free: eur("-431.55"),
     });
     expect(view.expectedPayments).toEqual({
       categories: [
@@ -470,7 +471,7 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
     expect(res.json().expectedPayments).toBeNull();
   });
 
-  it("BUD-02@PoC FR 19 boundary: zero — a budget without limits or spending shows 0, never «-0»", async () => {
+  it("BUD-02@PoC FR 19 boundary: zero — a budget without limits or spending shows 0, never «-0» (fake port; live after #567)", async () => {
     const space = await newSpace();
     await createBudget(space);
     const view = await period(space, "2026-11");
@@ -486,7 +487,7 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
     });
   });
 
-  it("BUD-02@PoC AC8: the next month is the plan only — no spending, no totals row, the expected payments of that month", async () => {
+  it("BUD-02@PoC AC8: the next month is the plan only — no spending, no totals row, the expected payments of that month (fake port; live after #567)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти");
     await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("700") }] });
@@ -566,5 +567,80 @@ describe("BUD-02@PoC: sizes and space isolation of «Розподіл» and the 
     const scoped = { role: "viewer", scoped: true };
     expect((await call(other, "GET", "/v1/budget/periods/2026-11", undefined, scoped)).statusCode).toBe(404);
     expect(seen).toHaveLength(1);
+  });
+
+  it("BUD-02@PoC FR 15 boundary: amounts whose sum does not fit NUMERIC(38,18) are refused with 400, not 500", async () => {
+    const space = await newSpace();
+    const max = eur("9".repeat(20));
+    const limits = [
+      { categoryId: await category(space, "Продукти"), amount: max },
+      { categoryId: await category(space, "Одяг"), amount: max },
+    ];
+    expect((await preview(space, { incomePlan: max, limits })).statusCode).toBe(400);
+    expect((await preview(space, { chosen: [max, max] })).statusCode).toBe(400);
+    // 15 integer digits is the most an amount has; 300 of them still sum within NUMERIC(38,18).
+    const top = eur("9".repeat(15) + ".99");
+    expect((await preview(space, { incomePlan: top, chosen: [top, top] })).statusCode).toBe(200);
+    expect(
+      (await preview(space, { incomePlan: eur("1" + "0".repeat(15)) }))
+        .json()
+        .errors.map((e: { path: string }) => e.path),
+    ).toEqual(["incomePlan"]);
+    // The same cap on saving: a plan whose totals would overflow cannot be stored (and then fail the period's GET).
+    const res = await call(space, "POST", "/v1/budget", { firstPeriod: "2026-11", limits });
+    expect(res.statusCode, res.body).toBe(400);
+    expect(await n("budget.budgets WHERE household_id = $1", space.householdId)).toBe(0);
+  });
+
+  it("BUD-02@PoC FR 1: a payment or a debt minimum the source gives in another currency yields no figure at all (fake port)", async () => {
+    const space = await newSpace();
+    await createBudget(space, { incomePlan: eur("100") });
+    const usd = Money.of("7", "USD");
+    for (const o of [
+      { recurring: [{ categoryId: null, amount: usd, paid: false }], debtMinimums: [] },
+      { recurring: [], debtMinimums: [{ accountId: randomUUID(), amount: usd }] },
+    ]) {
+      owed = () => o;
+      const res = await preview(space, { incomePlan: eur("100") });
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).not.toHaveProperty("balance");
+    }
+    owed = () => ({ recurring: [{ categoryId: null, amount: usd, paid: false }], debtMinimums: [] });
+    for (const p of ["2026-11", "2026-12"]) {
+      const res = await call(space, "GET", `/v1/budget/periods/${p}`);
+      expect(res.statusCode, p).toBe(500);
+      expect(res.json()).not.toHaveProperty("summary");
+    }
+  });
+
+  it("BUD-02@PoC FR 16: a past month is plan against fact — the totals row has no «Ще потрібно на обов'язкові» or «Вільний залишок» (fake port)", async () => {
+    now = at("2026-10-05");
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      firstPeriod: "2026-10",
+      limits: [{ categoryId: groceries, amount: eur("500") }],
+    });
+    const acc = await account(space);
+    await spend(space, acc, "-620.00", "2026-10-03", "Продукти");
+    now = at(TODAY);
+    owed = () => ({ recurring: [{ categoryId: null, amount: m("40"), paid: false }], debtMinimums: [] });
+    const october = await period(space, "2026-10");
+    expect(october.mode).toBe("past");
+    expect(october.summary).toEqual({
+      spent: eur("620"),
+      limits: eur("500"),
+      overspend: { amount: eur("120"), count: 1 },
+      optionalLimits: eur("0"),
+      mandatoryRemaining: eur("0"),
+      unpaidRecurring: null,
+      mandatoryNeeded: null,
+      free: null,
+    });
+    // The current month keeps D and E.
+    expect((await period(space, "2026-11")).summary).toMatchObject({
+      mandatoryNeeded: eur("540"),
+      free: eur("-40"),
+    });
   });
 });

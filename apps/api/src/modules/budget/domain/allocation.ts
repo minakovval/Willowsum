@@ -10,7 +10,8 @@ import type { LimitLine } from "./budget.ts";
 /**
  * What the month owes outside the limits, in the budget's currency (port `BudgetObligations`): the regular payments
  * expected in the month — each with its category (null — none) and whether it is paid — and the minimum payments of the
- * debts.
+ * debts. A «Кредит» account's monthly payment goes in `debtMinimums`, never in `recurring` too, so «Розподіл» does not
+ * count it twice; whether D adds it (BUD-03 п. 5) is settled when the port is connected (#567).
  */
 export interface PeriodObligations {
   readonly recurring: readonly {
@@ -128,21 +129,25 @@ export interface CategoriesSummary {
   readonly overspend: { readonly amount: Money; readonly count: number };
   /** The sum of the limits of the optional categories: the base of the overspend shade (FR 9; DS-23). */
   readonly optionalLimits: Money;
-  /** The unspent rest of the mandatory categories' limits — the limits part of D. */
+  /** Σ max(0, L − S) of the mandatory categories: their unspent limits alone, without the regular payments. */
   readonly mandatoryRemaining: Money;
-  /** The unpaid regular payments outside the mandatory categories — the other part of D; null — source not known. */
+  /** Every unpaid regular payment of the month (BUD-03 п. 2, п. 5); null — the source is not known or the month is past. */
   readonly unpaidRecurring: Money | null;
-  /** D = mandatoryRemaining + unpaidRecurring, nothing counted twice; null while `unpaidRecurring` is. */
+  /**
+   * D = Σ over mandatory categories of max(0, L − S − U_c) + every unpaid payment (BUD-03 п. 14), i.e. Σ max(0, L − S,
+   * U_c) + the unpaid payments outside them; null while `unpaidRecurring` is.
+   */
   readonly mandatoryNeeded: Money | null;
   /** E = B − A − D; negative shows with «−». Null while D is. */
   readonly free: Money | null;
 }
 
 /**
- * FR 19, AC9: the totals row over the categories table of a period with fact (current or past). D takes the unspent
- * rest of each mandatory limit (an overspent one adds 0) plus the regular payments not yet paid whose category is not a
- * mandatory one with a limit — a payment in such a category is already in its limit, so it is not counted twice.
- * `obligations` null — the regular payments are not known: D and E are null, the rest is exact.
+ * FR 19, AC9: the totals row over the categories table of a period with fact. D matches the rows of «Можна витратити»
+ * (BUD-03@PoC п. 2, 5, 14): every unpaid regular payment of the month, plus each mandatory category's unspent rest
+ * less its own unpaid payments (they are counted already), never below 0 — so a mandatory category needs the bigger of
+ * its rest and its unpaid payments, and an overspent one still needs its unpaid payments. `obligations` null — the
+ * regular payments are not known (or the month is past): D and E are null, the rest is exact.
  */
 export function categoriesSummary(
   lines: readonly LimitLine[],
@@ -161,16 +166,26 @@ export function categoriesSummary(
     mandatory.map((l) => (remaining(l).isNegative() ? zero : remaining(l))),
     currency,
   );
-  const mandatoryIds = new Set(mandatory.map((l) => l.categoryId));
+  const unpaid = obligations?.recurring.filter((r) => !r.paid) ?? [];
+  const unpaidIn = new Map<string, Money>();
+  for (const r of unpaid)
+    if (r.categoryId !== null)
+      unpaidIn.set(r.categoryId, (unpaidIn.get(r.categoryId) ?? zero).plus(r.amount));
   const unpaidRecurring =
     obligations === null
       ? null
       : sum(
-          obligations.recurring
-            .filter((r) => !r.paid && (r.categoryId === null || !mandatoryIds.has(r.categoryId)))
-            .map((r) => r.amount),
+          unpaid.map((r) => r.amount),
           currency,
         );
+  // BUD-03 п. 14: max(0, L − S − U_c) — the category's own unpaid payments are in `unpaidRecurring` already.
+  const mandatoryPart = sum(
+    mandatory.map((l) => {
+      const rest = remaining(l).minus(unpaidIn.get(l.categoryId) ?? zero);
+      return rest.isNegative() ? zero : rest;
+    }),
+    currency,
+  );
   const limits = sum(
     lines.map((l) => l.limit),
     currency,
@@ -179,7 +194,7 @@ export function categoriesSummary(
     lines.map((l) => l.spent ?? zero),
     currency,
   );
-  const mandatoryNeeded = unpaidRecurring === null ? null : mandatoryRemaining.plus(unpaidRecurring);
+  const mandatoryNeeded = unpaidRecurring === null ? null : mandatoryPart.plus(unpaidRecurring);
   return {
     spent,
     limits,

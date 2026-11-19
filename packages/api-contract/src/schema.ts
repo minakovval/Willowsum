@@ -4853,14 +4853,14 @@ export interface operations {
                     /** @description A calendar month, YYYY-MM */
                     firstPeriod: string;
                     incomePlan?: {
-                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
                     limits?: {
                         amount: {
-                            /** @description A plain non-negative decimal, at most the currency's minor units */
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
                             /** @description The budget's currency (the space's reporting currency) */
                             currency: string;
@@ -5313,8 +5313,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** @description The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here */
                     chosen?: {
-                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
@@ -5322,14 +5323,14 @@ export interface operations {
                     /** @description A calendar month, YYYY-MM */
                     firstPeriod: string;
                     incomePlan?: {
-                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
                     limits?: {
                         amount: {
-                            /** @description A plain non-negative decimal, at most the currency's minor units */
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
                             /** @description The budget's currency (the space's reporting currency) */
                             currency: string;
@@ -5349,6 +5350,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
+                        /** @description Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead */
                         balance: {
                             amount: {
                                 amount: string;
@@ -5373,6 +5375,7 @@ export interface operations {
                                 currency: string;
                             };
                         } | null;
+                        /** @description Null — no `chosen` in the request, or `balance` is null; a deficit counts as covered only when status is `exact` */
                         choice: {
                             chosen: {
                                 amount: string;
@@ -5497,6 +5500,7 @@ export interface operations {
                             unavailableCount: number;
                         };
                         currency: string;
+                        /** @description FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0 */
                         expectedPayments: {
                             categories: {
                                 amount: {
@@ -5565,7 +5569,9 @@ export interface operations {
                             from: string;
                             to: string;
                         } | null;
+                        /** @description FR 19: the totals row. Null — a future month (plan only, no fact) */
                         summary: {
+                            /** @description E «Вільний залишок» = limits − spent − D, negative with «−». Null with D: show «—», never 0 */
                             free: {
                                 amount: string;
                                 currency: string;
@@ -5574,10 +5580,12 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            /** @description D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining */
                             mandatoryNeeded: {
                                 amount: string;
                                 currency: string;
                             } | null;
+                            /** @description Σ max(0, limit − spent) of the mandatory categories, without regular payments. Not «Ще потрібно на обов'язкові»: never show it as D */
                             mandatoryRemaining: {
                                 amount: string;
                                 currency: string;
@@ -5597,6 +5605,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
+                            /** @description Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0 */
                             unpaidRecurring: {
                                 amount: string;
                                 currency: string;
@@ -5706,14 +5715,14 @@ export interface operations {
             content: {
                 "application/json": {
                     incomePlan?: {
-                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                         amount: string;
                         /** @description The budget's currency (the space's reporting currency) */
                         currency: string;
                     };
                     limits?: {
                         amount: {
-                            /** @description A plain non-negative decimal, at most the currency's minor units */
+                            /** @description A plain non-negative decimal, at most 15 integer digits and the currency's minor units */
                             amount: string;
                             /** @description The budget's currency (the space's reporting currency) */
                             currency: string;
