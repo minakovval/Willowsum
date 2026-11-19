@@ -5777,7 +5777,7 @@ export interface operations {
                 base?: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
                 /** @description «Повний попередній період»: the base whole, not cut at the same date */
                 full?: "true" | "false";
-                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default) */
+                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date */
                 period?: string;
                 type: "month" | "quarter" | "ytd" | "year";
             };
@@ -6056,6 +6056,7 @@ export interface operations {
                                 };
                             };
                         };
+                        /** @description Today is in the period: the window and the base are cut at the same date. False for a past year's ytd, although its window and base are cut at the same date too (`full` applies) */
                         inProgress: boolean;
                         largest: {
                             categoryId: string | null;
@@ -6070,6 +6071,7 @@ export interface operations {
                         }[];
                         /** @enum {string} */
                         type: "month" | "quarter" | "ytd" | "year";
+                        /** @description What the table counts: the period, up to today while it lasts; ytd of a past year — 1 January to the same date of that year */
                         window: {
                             from: string;
                             to: string;
