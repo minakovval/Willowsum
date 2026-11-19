@@ -1,6 +1,6 @@
 // Synthetic budgets (ARC-03 FR 6) for tests and staging; loaded by tools/synthetic. Never real data.
 // One budget per space (BUD-02@PoC FR 1) with limits of synthetic categories, a switched account and a finished
-// period's snapshot, by opaque ids only; every hand-off job (its audit entry, ARC-04) is done; the module publishes no
+// period's snapshot, the months' own values of «План» (BUD-17), by opaque ids only; every hand-off job (its audit entry, ARC-04) is done; the module publishes no
 // events: outbox_events gets one dispatched row for the isolation check.
 import { createHash } from "node:crypto";
 import { defineSyntheticTable } from "@willowsum/synthetic";
@@ -72,6 +72,28 @@ export const synthetic = [
           planned_savings: "0",
           limits: JSON.stringify([{ categoryId: rng.uuid(), amount: "600", mandatory: true }]),
         };
+    },
+  }),
+  defineSyntheticTable({
+    table: "budget.plan_cells",
+    perHousehold: 3,
+    // BUD-17: a month's own values of «План» — a limit, a goal's contribution, «Заощадження без цілі» (the nil id);
+    // one row per month and line (the key is period, kind, line).
+    *rows({ household, rng, count }) {
+      const kinds = ["limit", "goal", "savings"] as const;
+      for (let i = 0; i < count; i++) {
+        const kind = kinds[i % kinds.length]!;
+        yield {
+          household_id: household.id,
+          budget_id: budgetOf(household.id),
+          period: `${2026 + Math.floor(i / 12)}-${String(1 + (i % 12)).padStart(2, "0")}-01`,
+          kind,
+          line_id: kind === "savings" ? "00000000-0000-0000-0000-000000000000" : rng.uuid(),
+          amount: kind === "limit" ? "450" : "100",
+          currency: "EUR",
+          version: "1",
+        };
+      }
     },
   }),
   defineSyntheticTable({
