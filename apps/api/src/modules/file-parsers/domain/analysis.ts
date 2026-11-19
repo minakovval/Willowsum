@@ -570,7 +570,17 @@ export const OUT_VALUES: ReadonlySet<string> = new Set([
   "-",
   "out",
 ]);
-const IN_VALUES = new Set(["кт", "кредит", "c", "cr", "credit", "зарахування", "надходження", "+", "in"]);
+export const IN_VALUES: ReadonlySet<string> = new Set([
+  "кт",
+  "кредит",
+  "c",
+  "cr",
+  "credit",
+  "зарахування",
+  "надходження",
+  "+",
+  "in",
+]);
 
 function decideSign(
   columns: readonly ColumnAnalysis[],

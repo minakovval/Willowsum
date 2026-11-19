@@ -27,7 +27,6 @@ export const ISO_NUMERIC: Readonly<Record<string, string>> = {
   "840": "USD",
   "946": "RON",
   "949": "TRY",
-  "975": "BGN",
   "978": "EUR",
   "980": "UAH",
   "981": "GEL",
@@ -84,6 +83,12 @@ export type CurrencyRecognition =
   | { readonly status: "ambiguous"; readonly mark: string; readonly candidates: readonly string[] }
   | { readonly status: "unknown"; readonly mark: string };
 
+/**
+ * Codes the kernel keeps only so that historical amounts stay readable, withdrawn from ISO 4217 (BGN → EUR in 2026,
+ * ANG → XCG): not current codes, so a statement row with one is «невідома валюта» (IMP-02 FR 10 names BGN).
+ */
+const WITHDRAWN: ReadonlySet<string> = new Set(["BGN", "ANG"]);
+
 const symbolKey = (text: string): string => text.toLowerCase().replace(/\.$/, "");
 
 /** The currency a cell or a mark names, or null for an empty one. */
@@ -94,9 +99,10 @@ export function recognizeCurrency(text: string, hints: CurrencyHints = {}): Curr
   const recipe = hints.symbols
     ? (Object.entries(hints.symbols).find(([s]) => s === t || symbolKey(s) === symbolKey(t))?.[1] ?? null)
     : null;
-  if (recipe !== null && isCurrencyCode(recipe)) return { status: "code", code: recipe, via: "recipe" };
+  const current = (code: string) => isCurrencyCode(code) && !WITHDRAWN.has(code);
+  if (recipe !== null && current(recipe)) return { status: "code", code: recipe, via: "recipe" };
   const upper = t.toUpperCase();
-  if (/^[A-Z]{3,4}$/.test(upper) && isCurrencyCode(upper)) return { status: "code", code: upper, via: "iso" };
+  if (/^[A-Z]{3,4}$/.test(upper) && current(upper)) return { status: "code", code: upper, via: "iso" };
   if (/^\d{3}$/.test(t)) {
     const code = ISO_NUMERIC[t];
     return code ? { status: "code", code, via: "numeric" } : { status: "unknown", mark };
@@ -136,7 +142,7 @@ export function amountMark(cell: string): string | null {
 export function headerCurrency(header: string): string | null {
   const m = /(?:^|[\s([,/])([A-Z]{3})(?:[)\]]|\s*$)/.exec(header);
   const code = m?.[1];
-  if (!code || !isCurrencyCode(code)) return null;
+  if (!code || !isCurrencyCode(code) || WITHDRAWN.has(code)) return null;
   const bracketed = new RegExp(`[([]\\s*${code}\\s*[)\\]]`).test(header);
   const last = new RegExp(`(?:^|[\\s,/])${code}\\s*$`).test(header);
   // A header all in capitals («ALL AMOUNTS EUR») names its code only in brackets.

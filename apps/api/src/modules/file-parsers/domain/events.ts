@@ -1,5 +1,5 @@
 import { currencyInfo, Decimal, isCurrencyCode } from "@willowsum/domain-kernel";
-import { OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
+import { IN_VALUES, OUT_VALUES, type Role, type StatementAnalysis } from "./analysis.ts";
 import { amountMark, ibanCountry, recognizeCurrency, type CurrencyHints } from "./currency.ts";
 import { dateCell, numberCell, readDate, readNumber, type DecimalSeparator } from "./values.ts";
 
@@ -34,6 +34,8 @@ export type EventFlag =
   | "rate-mismatch"
   /** FR 12: the rate is the other way round (settled × rate = original). */
   | "rate-inverted"
+  /** IMP-06 FR 8: the row's sign is not told — an indicator the engine does not know, a minus where the sign comes from elsewhere. */
+  | "sign-unclear"
   | "amount-unreadable"
   | "date-unreadable"
   /** A text over `EVENT_LIMITS.textChars` came out cut. */
@@ -142,12 +144,18 @@ export function readEvents(
   };
   // EC3: a currency column with one currency fills its empty cells with it, the confidence unchanged.
   const currencyColumn = column("currency");
+  // Only a column that holds nothing else: beside an unknown or ambiguous mark, or a second code, an empty cell is
+  // not settled (FR 10: never guessed).
   const columnCodes = new Set<string>();
+  let columnOther = false;
   if (currencyColumn > 0)
     for (const { r } of data) {
       const rec = recognizeCurrency(r[currencyColumn - 1] ?? "", hints);
       if (rec?.status === "code") columnCodes.add(rec.code);
+      else if (rec) columnOther = true;
     }
+  const columnCode = columnCodes.size === 1 && !columnOther ? [...columnCodes][0]! : null;
+  const columnMixed = columnCodes.size > 1 || (columnOther && columnCodes.size > 0);
   const fileCode = analysis.currency.mode === "file" ? analysis.currency.code : null;
   const account = options.account;
   // The caller's account currency is checked like a file's: a code the kernel does not hold is no currency.
@@ -166,7 +174,11 @@ export function readEvents(
       if (t.trim() === "") return null;
       if (t.length <= EVENT_LIMITS.textChars) return t;
       flags.add("text-cut");
-      return t.slice(0, EVENT_LIMITS.textChars);
+      // Never half a surrogate pair: a cut that would end on a high surrogate drops it.
+      const end = /[\uD800-\uDBFF]/.test(t.charAt(EVENT_LIMITS.textChars - 1))
+        ? EVENT_LIMITS.textChars - 1
+        : EVENT_LIMITS.textChars;
+      return t.slice(0, end);
     };
 
     // The amount and its sign (IMP-06 FR 1 «знак»).
@@ -174,6 +186,7 @@ export function readEvents(
     if (sign === "debit-credit") {
       const debit = amountOf(at(r, "debit"));
       const credit = amountOf(at(r, "credit"));
+      if (debit?.value.isNegative() || credit?.value.isNegative()) flags.add("sign-unclear");
       main =
         debit || credit
           ? {
@@ -185,7 +198,10 @@ export function readEvents(
           : null;
     } else {
       const amount = amountOf(at(r, "amount"));
-      const out = indicator > 0 && OUT_VALUES.has((r[indicator - 1] ?? "").trim().toLowerCase());
+      const word = indicator > 0 ? (r[indicator - 1] ?? "").trim().toLowerCase() : "";
+      const out = OUT_VALUES.has(word);
+      if (sign === "indicator" && amount && ((!out && !IN_VALUES.has(word)) || amount.value.isNegative()))
+        flags.add("sign-unclear");
       main = amount && {
         value:
           sign === "invert"
@@ -209,9 +225,7 @@ export function readEvents(
     );
     const recognized =
       recognizeCurrency(cell, hints) ??
-      (currencyColumn > 0 && columnCodes.size === 1
-        ? { status: "code" as const, code: [...columnCodes][0]!, via: "iso" as const }
-        : null) ??
+      (columnCode !== null ? { status: "code" as const, code: columnCode, via: "iso" as const } : null) ??
       (mark ? recognizeCurrency(mark, hints) : null);
     if (recognized?.status === "code") currency = recognized.code;
     else if (recognized?.status === "ambiguous") {
@@ -220,7 +234,7 @@ export function readEvents(
     } else if (recognized?.status === "unknown") {
       flags.add("currency-unknown");
       currencyMark = { text: recognized.mark, candidates: [] };
-    } else currency = fileCode ?? accountCode;
+    } else currency = columnMixed ? null : (fileCode ?? accountCode);
     if (!recognized && currency === null) flags.add("currency-missing");
     if (currency !== null && account && !account.multiCurrency && !account.currencies.includes(currency))
       flags.add("currency-not-in-account");
@@ -241,7 +255,11 @@ export function readEvents(
         : null;
 
     const originalAmount = amountOf(at(r, "original-amount"));
-    const originalCurrency = recognizeCurrency(at(r, "original-currency"), hints);
+    // The original currency: its column, else the mark printed with the original amount («1 000,00 UAH»).
+    const originalMark = amountMark(at(r, "original-amount"));
+    const originalCurrency =
+      recognizeCurrency(at(r, "original-currency"), hints) ??
+      (originalMark ? recognizeCurrency(originalMark, hints) : null);
     const originalCode = originalCurrency?.status === "code" ? originalCurrency.code : null;
     if (originalCurrency && originalCurrency.status !== "code") {
       flags.add(originalCurrency.status === "ambiguous" ? "currency-ambiguous" : "currency-unknown");

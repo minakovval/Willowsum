@@ -294,4 +294,37 @@ describe("IMP-02@PoC b): statement rows read into events with a main leg and a f
     expect(events.map((e) => e.legs[0]!.amount)).toEqual(["0.10", "0.20"]);
     expect(events.every((e) => typeof e.legs[0]!.amount === "string")).toBe(true);
   });
+
+  it("IMP-02@PoC FR 10: BGN, withdrawn from ISO 4217, is «невідома валюта» as the requirement names it, never converted", () => {
+    const { events } = parse(["Дата;Сума;Валюта;Опис", "01.03.2026;-10,00;BGN;a", "02.03.2026;-20,00;BGN;b"]);
+    expect(events.map((e) => [e.currency, e.legs[0]!.amount, e.flags])).toEqual([
+      [null, "-10.00", ["currency-unknown"]],
+      [null, "-20.00", ["currency-unknown"]],
+    ]);
+  });
+
+  it("IMP-02@PoC AC6: the original currency printed with the original amount is kept and the rate is checked", () => {
+    const { events } = parse([
+      "Дата;Сума;Валюта;Сума у валюті операції;Курс",
+      "01.03.2026;-25,00;EUR;1 000,00 UAH;0,0225",
+      "02.03.2026;-22,50;EUR;1 000,00 UAH;0,0225",
+    ]);
+    expect(events.map((e) => [e.original, e.flags])).toEqual([
+      [{ amount: "1000.00", currency: "UAH" }, ["rate-mismatch"]],
+      [{ amount: "1000.00", currency: "UAH" }, []],
+    ]);
+  });
+
+  it("IMP-02@PoC FR 4: a description cut at 2 000 characters never ends on half a surrogate pair", () => {
+    const description = `${"a".repeat(1999)}${"😀".repeat(10)}`;
+    const { events } = parse([
+      "Дата;Сума;Валюта;Опис",
+      `01.03.2026;-10,00;EUR;${description}`,
+      "02.03.2026;-1,00;EUR;b",
+    ]);
+    const cut = events[0]!.description!;
+    expect(cut).toBe("a".repeat(1999));
+    expect(events[0]!.flags).toContain("text-cut");
+    expect(/[\uD800-\uDBFF]$/.test(cut)).toBe(false);
+  });
 });
