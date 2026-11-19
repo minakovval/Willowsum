@@ -161,7 +161,7 @@ describe("BUD-05@PoC FR 4 (#583 board items)", () => {
     );
   });
 
-  it("BUD-05@PoC FR 1, board item 7: each of the four templates has its own glyph — plane, bag, shield, target — not map or card", () => {
+  it("BUD-05@PoC FR 1, board item 7: each of the four templates has its own glyph — plane, bag, shield, target — not map or card, and not the «Страхування» glyph", () => {
     const drawn = TEMPLATES.map((template, i) => {
       const { container, unmount } = render(
         <GoalList
@@ -178,7 +178,7 @@ describe("BUD-05@PoC FR 4 (#583 board items)", () => {
     expect(TEMPLATE_ICON).toEqual({
       travel: "plane",
       purchase: "bag",
-      emergency: "insurance",
+      emergency: "shield",
       custom: "target",
     });
   });

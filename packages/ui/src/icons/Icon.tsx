@@ -63,6 +63,7 @@ import {
   Columns3,
   Settings,
   Share,
+  Shield,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -198,6 +199,7 @@ export type IconName =
   | "plane"
   | "bag"
   | "laptop"
+  | "shield"
   | "options"
   | "columns"
   | "other";
@@ -387,6 +389,7 @@ const GLYPHS: Record<IconName, Glyph> = {
   plane: lucide(Plane),
   bag: lucide(ShoppingBag),
   laptop: lucide(Laptop),
+  shield: lucide(Shield),
   money: lucide(Coins),
   planning: lucide(CalendarRange),
   recurring: lucide(Repeat),
@@ -492,6 +495,7 @@ export const ICON_GROUPS = {
     "plane",
     "bag",
     "laptop",
+    "shield",
     "collapse",
     "options",
     "columns",

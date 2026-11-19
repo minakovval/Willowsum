@@ -341,7 +341,7 @@ describe("/gallery/tokens (DS-22)", () => {
     expect(codes).toContain("mortgage");
     expect(codes).toContain("options");
     // DS-12 glyphs of the goal templates (owner decision 2026-11-19).
-    for (const name of ["plane", "bag", "laptop"]) expect(codes, name).toContain(name);
+    for (const name of ["plane", "bag", "laptop", "shield"]) expect(codes, name).toContain(name);
     for (const name of ["property", "wine", "insurance-health", "investment-public"]) {
       expect(
         codes.some((c) => c?.includes(name)),
