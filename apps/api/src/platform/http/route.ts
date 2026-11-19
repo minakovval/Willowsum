@@ -51,7 +51,36 @@ export interface RouteInput<R extends RouteRequest> {
   readonly params: Infer<R["params"]>;
   readonly query: Infer<R["query"]>;
   readonly body: Infer<R["body"]>;
+  /** An upload route's files (`upload`), read from the request stream one by one; undefined elsewhere. */
+  readonly upload?: UploadInput;
 }
+
+/**
+ * One file of an upload request (ARC-06 FR 4): its name as sent and its bytes as a stream. Nothing is buffered by the
+ * API layer; `destroy()` skips the rest of this file (the next one can still be read).
+ */
+export interface UploadPart {
+  readonly fileName: string;
+  readonly stream: AsyncIterable<Uint8Array> & { destroy(): void };
+}
+
+/** The files of an upload request (`multipart/form-data`, file parts only) and its declared length. */
+export interface UploadInput {
+  readonly declaredBytes: number | undefined;
+  readonly files: AsyncIterable<UploadPart>;
+}
+
+/** The answer of a download route: the bytes and their headers, sent as they are (not JSON). */
+export interface DownloadReply {
+  readonly status: 200;
+  readonly headers: Readonly<Record<string, string>>;
+  readonly body: Buffer;
+}
+
+/** The response schema of a download route (`download: true`): bytes, never JSON. */
+export const DOWNLOAD_RESPONSE = z.custom<DownloadReply>(
+  (v) => typeof v === "object" && v !== null && Buffer.isBuffer((v as DownloadReply).body),
+);
 
 /**
  * What a public route of a module sees of its HTTP request (ACC-01: sign-up and sign-in work before any
@@ -160,6 +189,15 @@ export interface RouteDefinition<
   /** A body limit below the API's 1 MiB (NFR-15 FR 17), in bytes. */
   readonly bodyLimitBytes?: number;
   /**
+   * A file upload (ARC-06 FR 4, NFR-15 FR 18): the body is `multipart/form-data` with file parts only, read as a
+   * stream (never buffered by the API layer, so the module counts sizes on the stream). At most `maxFiles` files and
+   * `maxBytes` bytes of the whole request, counted on the stream (skipped files too); over them the request ends 413.
+   * Only POST, rate-limit class `upload`.
+   */
+  readonly upload?: { readonly maxFiles: number; readonly maxBytes: number };
+  /** A download: the handler returns a `DownloadReply` and the schema is `DOWNLOAD_RESPONSE`. Only GET. */
+  readonly download?: boolean;
+  /**
    * Problem codes of the route's own outcomes besides the ones every route has (e.g. INVALID_CREDENTIALS,
    * SIGN_IN_LOCKED): documented in the contract under their status.
    */
@@ -243,6 +281,7 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
   if (route.request?.body && (route.method === "GET" || route.method === "DELETE"))
     fail("GET and DELETE take no body");
   if (route.create && route.method !== "POST") fail("only POST routes are create routes");
+  if (route.create && route.download) fail("a download is not a create route");
   const queryShape = route.request?.query instanceof z.ZodObject ? route.request.query.shape : {};
   for (const key of ["cursor", "limit"] as const) {
     // The page bound (≤ 100) is structural: `cursor` and `limit` are always the platform's own fields.
@@ -278,7 +317,18 @@ export function defineRoute<A extends RouteAccess, R extends RouteRequest, S ext
     fail(`bodyLimitBytes is 1–${API_BODY_LIMIT_BYTES}`);
   for (const code of route.problems ?? [])
     if (!Object.hasOwn(PROBLEMS, code)) fail(`unknown problem code ${String(code)}`);
-  if (!(route.response.schema instanceof z.ZodObject)) fail("the response is a JSON object");
+  if (route.upload) {
+    if (route.method !== "POST" || route.request?.body) fail("an upload is a POST without a JSON body");
+    if (route.rateLimit !== "upload") fail("an upload has the rate-limit class upload");
+    const { maxFiles, maxBytes } = route.upload;
+    if (!Number.isInteger(maxFiles) || maxFiles < 1 || !Number.isInteger(maxBytes) || maxBytes < 1)
+      fail("upload limits are positive integers");
+  }
+  if (route.download) {
+    if (route.method !== "GET") fail("a download is a GET");
+    if ((route.response.schema as z.ZodType) !== DOWNLOAD_RESPONSE)
+      fail("a download answers DOWNLOAD_RESPONSE");
+  } else if (!(route.response.schema instanceof z.ZodObject)) fail("the response is a JSON object");
   return route as unknown as ApiRoute;
 }
 

@@ -35,7 +35,7 @@ head you last reviewed — not the whole PR again. When only the fixes changed, 
 «6. Confirmation rounds».
 
 Scratchpad files (owner, 2026-11-13): only under a prefix or subfolder unique to the PR and role
-(`pr153-review/`), never a generic name like `body.md`. You do not edit the PR body, except the list of your patches in the trial (§7).
+(`pr153-review/`), never a generic name like `body.md`. You do not edit the PR body, except «Reviewer patches» (§7).
 
 ## 2. Check coverage
 
@@ -101,7 +101,7 @@ Post one PR review:
   limits), or it is not recorded. Non-blocking items never start a new round by themselves. Only in the tier
   Фундамент you may mark an item «cheap and safe to fold in»; the lead decides whether it goes in before merge
   (AGENTS.md step 7; tiers: [merge rules](../../references/merge-rules.md), «Review tiers»).
-- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then write the detail in the issue or PR as usual; from the start of MVP planning this rule is in force.
+- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). When it applies: process limits.
 - A recurring class of finding: propose the CI check or test that would catch it (non-blocking).
 - The coverage table.
 - Questions for the owner where the requirement itself is unclear on a real product question; small
@@ -158,13 +158,14 @@ A short round covers only the diff since the head you last reviewed; a `sync-bra
 mechanical by a tree comparison; the verdict names the new head. Procedure and when a full re-review is due:
 [confirmation rounds](references/confirmation-rounds.md) (read when you confirm a fix or a merge).
 
-## 7. Small-fix trial (2026-11-17 → 2026-11-19)
+## 7. Reviewer patches
 
-An exception to «review runs in another session» (AGENTS.md, «Process» step 5): during the trial you apply small
-patches to the PR branch yourself.
-1. Only in tests, texts, comments, docs, markup and screen styles. Never in working code in sensitive paths (money,
-   sign-in, encryption, database schema, migrations): there a small item goes through the normal fix round.
-2. All patches in one commit at the end of the review, at most 60 lines in total per PR; anything larger is a normal
-   author fix round.
-3. List in the PR body what you changed. The verdict names your new head SHA; the lead merges only after green CI on
-   that head.
+An exception to «review runs in another session» (AGENTS.md, «Process» step 5); this is the only place with the
+rule, `security-review` and the others link here. You apply small patches to the PR branch yourself:
+1. Only in tests, texts, comments, docs, markup and screen styles. Never in a sensitive path, tests included
+   (the categories and globs: `SENSITIVE_PATHS` in `tools/pr-rules/lib/paths.mjs`, e.g. `tools/pr-rules`,
+   migrations, auth): there a small item goes through the normal fix round.
+2. One commit per reviewer per round, at the end of the review. At most 60 lines per PR, added plus deleted,
+   across all reviewers; anything larger is a normal author fix round.
+3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead merges
+   only after green CI on that head.

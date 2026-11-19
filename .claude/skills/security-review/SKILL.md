@@ -100,9 +100,9 @@ Post **one** review with event `COMMENT` (not «approve» or «request changes»
   requirement claims; each with file:line, the failing path, the `it.fails` test and the patch file;
 - **Non-blocking** — everything else. Record it as a follow-up only when the item is about money, data or security,
   or breaks a requirement item (the author lists it under «Follow-ups» in the PR body / report; the lead opens the
-  issue). Anything smaller the author fixes in the same fix round; with no fix round you apply it per the small-fix
-  trial below (within its limits), or it is not recorded;
-- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). **Applies from MVP** (owner, 2026-11-16, `docs/decisions/log/2026-11-16-rule4-security-detail-from-mvp.md`): until then write the detail in the issue or PR as usual; from the start of MVP planning this rule is in force;
+  issue). Anything smaller the author fixes in the same fix round; with no fix round you apply it per the reviewer-patch rule
+  below (within its limits), or it is not recorded;
+- A non-blocking finding that would let a reader reproduce a bypass, leak or loss: in the review only one line (module, rule broken); the probe, test and patch go to the scratchpad `keep/` and the report to the lead names the path, for the advisory ([process limits](../../references/process-limits.md)). When it applies: process limits;
 - where the output files are (scratchpad path) and how to apply them.
 
 Post one PR review of this shape (a confirmation of a sensitive PR by one agent posts two PR reviews with commit_id, one per verdict line; pr-pipeline step 5, owner, 2026-11-14, #178):
@@ -161,10 +161,6 @@ Remove your worktree (`git worktree remove --force <path>`), drop your databases
 
 **Report to the lead** (owner, 2026-11-16, process review 15, proposal 3): at most 5 lines, in this order — `PR: <url> · Head: <full SHA reviewed>`, `Security verdict: Ready` or `Security verdict: Changes requested`, `Blocking: <file:line …, or —>`, `Owner questions: <… or —>`, `Checks: <what you ran>`. Everything else (output file paths, the mutant table) stays in the review. Report ONCE: do not re-send it (owner, 2026-11-16, #178).
 
-## Small-fix trial (2026-11-17 → 2026-11-19)
+## Reviewer patches
 
-An exception to «review runs in another session» (AGENTS.md, «Process» step 5). Where it applies to a security
-review, it is [review-pr](../review-pr/SKILL.md) §7 with the same limits: only tests, texts, comments, docs, markup
-and screen styles, never working code in sensitive paths (money, sign-in, encryption, database schema, migrations);
-one commit at the end, at most 60 lines in total per PR; the patches
-listed in the PR body; the `Security verdict` names the new head SHA, and the merge waits for green CI on it.
+The rule, with its limits, is [review-pr](../review-pr/SKILL.md) §7; the `Security verdict` names the new head SHA.

@@ -5,3 +5,4 @@ export { budgetRoutes } from "./http/routes.ts";
 export { budgetAudit, createBudgetServices, type BudgetServices } from "./http/services.ts";
 export { budgetWorkerQueue, requeueDeadHandOffs } from "./queue/hand-off.ts";
 export { HAND_OFF_JOB } from "./queue/job.ts";
+export { createBudgetObligations, OBLIGATION_MAX_INTEGER_DIGITS } from "./obligations.ts";

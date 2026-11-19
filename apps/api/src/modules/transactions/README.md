@@ -1,6 +1,6 @@
 # Модуль transactions
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-17 (рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (#567: `AccountPayments` для `budget`; рядок 198: записи беруть блокування грошей рахунку `lockAccounts` модуля accounts; FIN-03 п. 1, 28: `createTransfer`; FIN-01 граничний випадок 4: `createTransactionPendingPostings`; FIN-03 b: «Очікує», приховані, розділення; перекази між власними рахунками; дублі; BUD-01 п. 12: категорії частин; BUD-01 b: `TransactionLookup`; FIN-03 п. 34–35: зміна злитої, прихована копія без пари; BUD-14 a: `TransactionTexts`; BUD-07 a1: `TransactionHistory`; BUD-13 a: «Нотатка», «Теги», «Додати теги», «Вибрано N · Сума»; BUD-12 a: «До розбору»; FIN-03 п. 27: «Історія змін», #439; BUD-14 b2: `TransactionRuleTags`)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -245,6 +245,9 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   `unchanged` / `refused`; `restoreTags(householdId, id, expected, next, actorAccountId)` — «Відмінити» запуску: `next`,
   лише якщо теги досі `expected` (за ключем і порядком) → `restored` / `changed`. Кожен виклик — окрема транзакція модуля.
   `TransactionHandOff.actorAccountId` може бути null (система; запис аудиту — `system`).
+- `createAccountPayments(db)` → `AccountPayments` для `budget` (#567, BUD-03 п. 5), лише читання: `paidIn(householdId,
+  accountIds, from, to)` — рахунки (кредити), на які в ці дати надійшла показана транзакція з додатною сумою (сторона
+  переказу теж; без злитих дублів).
 - `createTransactionHistory(db)` → `TransactionHistory` для `recurring` (BUD-07 a1), лише читання: `charges(householdId,
   { from, to, limit })` — показані транзакції простору з контрагентом за період (обидві дати включно), не сторони переказу
   і не злиті, будь-якого стану, від новішої, не більше `limit`; сума зі знаком у валюті транзакції.

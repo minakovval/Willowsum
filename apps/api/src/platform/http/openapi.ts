@@ -71,7 +71,14 @@ function operation(route: ApiRoute): Json {
             },
           }
         : {}),
-      content: { "application/json": { schema: jsonSchema(route.response.schema, "output") } },
+      content: route.download
+        ? // A download (DOWNLOAD_RESPONSE): the original bytes; their type is the file's, by its content.
+          {
+            "application/octet-stream": {
+              schema: { type: "string", contentMediaType: "application/octet-stream" },
+            },
+          }
+        : { "application/json": { schema: jsonSchema(route.response.schema, "output") } },
     },
     "400": problemResponse("The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)"),
   };
@@ -144,6 +151,28 @@ function operation(route: ApiRoute): Json {
           flags: routeFlags(route.access),
         },
     ...(params.length > 0 ? { parameters: params } : {}),
+    ...(route.upload
+      ? {
+          requestBody: {
+            required: true,
+            description: `File parts only, at most ${route.upload.maxFiles} files and ${route.upload.maxBytes} bytes in all`,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    files: {
+                      type: "array",
+                      maxItems: route.upload.maxFiles,
+                      items: { type: "string", contentMediaType: "application/octet-stream" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }
+      : {}),
     ...(route.request?.body
       ? {
           requestBody: {

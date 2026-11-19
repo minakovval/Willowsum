@@ -212,6 +212,13 @@ export const FLAGS = {
     description:
       "Бюджет періоду (BUD-02@PoC a): один бюджет простору, ліміти, «Поза планом», рахунки бюджету, знімок завершеного періоду; маршрути /v1/budget",
   },
+  "data.import": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-19",
+    description:
+      "Імпорт виписок (IMP-01@PoC b): партії, завантаження файлів, оригінали у сховищі, підписані посилання, стани партії; маршрути /v1/import/batches",
+  },
   "debts.payoff": {
     kind: "release",
     owner: "product-owner",

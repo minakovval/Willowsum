@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
 import {
   createAccountDirectory,
@@ -14,7 +14,11 @@ import {
   createAccountsServices,
   createCreditAccounts,
 } from "./modules/accounts/index.ts";
-import { createBudgetCategoryUsage, createBudgetServices } from "./modules/budget/index.ts";
+import {
+  createBudgetCategoryUsage,
+  createBudgetObligations,
+  createBudgetServices,
+} from "./modules/budget/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
@@ -25,9 +29,15 @@ import {
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
+import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
+import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
-import { createRecurringCategoryUsage, createRecurringServices } from "./modules/recurring/index.ts";
+import {
+  createRecurringCategoryUsage,
+  createRecurringMonth,
+  createRecurringServices,
+} from "./modules/recurring/index.ts";
 import {
   createFxRates,
   createFxReporting,
@@ -43,6 +53,7 @@ import { createIdentityServices } from "./modules/identity/index.ts";
 import { createLedger } from "./modules/ledger/index.ts";
 import { createLiabilities } from "./modules/liabilities/index.ts";
 import {
+  createAccountPayments,
   createBudgetTransactions,
   createDuplicateCandidates,
   createTransactionCategoryUsage,
@@ -61,6 +72,11 @@ import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
+import {
+  ensureBucket,
+  memoryObjectStorage,
+  s3ObjectStorage,
+} from "./platform/adapters/object-storage/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
@@ -166,6 +182,26 @@ const audit = createAuditLog(databases.for("audit"));
 const kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed });
 const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 
+// Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
+// configuration (required in staging and production); locally and in CI without them, the process's memory and a key
+// drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
+const s3 = config.files.s3;
+if (s3 && !config.deployed && config.role === "api") await ensureBucket(s3);
+const filesConfigured = s3 !== undefined && config.files.linkKey !== undefined;
+// A deployed process never keeps a space's files in memory: without the storage it serves none (fail closed).
+if (config.deployed && !filesConfigured && config.role === "api")
+  logEvent("files.storage_missing", "error", { "ws.module": "file-storage", "ws.role": config.role });
+const files =
+  config.role === "api" && (filesConfigured || !config.deployed)
+    ? createFileStorage({
+        db: databases.for("file-storage"),
+        audit,
+        keys: createSpaceKeys(databases.for("household"), audit, kms),
+        objects: s3 ? s3ObjectStorage(s3) : memoryObjectStorage(),
+        linkKey: linkKey(config.files.linkKey ?? randomBytes(32)),
+      })
+    : undefined;
+
 // Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production
 // the configuration allows only the live adapters (ACC-01 FR 12: no server without CAPTCHA there).
 const identity =
@@ -196,6 +232,26 @@ if (identity) {
     process.exit(1);
   }
 }
+
+// BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant (merchants), none
+// from a loan account (accounts); payments confirmed or added by hand name a category (categories) and an account
+// (accounts); b: a charge is matched by its category (categorization), in another currency at the rate of its date
+// (fx-rates). One instance for the recurring routes and the budget's month of charges (#567).
+const recurring = createRecurringServices({
+  history: createTransactionHistory(databases.for("transactions")),
+  merchants: createMerchantDirectory(databases.for("merchants")),
+  accounts: createAccountDirectory(databases.for("accounts")),
+  categories: createCategoryDirectory({
+    db: databases.for("categories"),
+    audit,
+    newId: randomUUID,
+  }),
+  transactionCategories: createTransactionCategories(databases.for("categorization")),
+  fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+  audit,
+  clock: systemClock,
+  newId: randomUUID,
+});
 
 const lifecycle = createLifecycle(config.shutdownTimeoutMs);
 // Stop hooks run in reverse order: telemetry is flushed last, after the server and the pools.
@@ -339,6 +395,15 @@ const server = buildServer({
               audit,
               clock: systemClock,
               newId: randomUUID,
+              // #567: the month's regular charges (recurring) and loans' monthly payments (accounts, liabilities) with
+              // whether the month has a payment to the loan (transactions), at today's NBU rate (fx-rates).
+              obligations: createBudgetObligations({
+                recurring: createRecurringMonth(databases.for("recurring"), recurring),
+                credit: createCreditAccounts(databases.for("accounts")),
+                liabilities: createLiabilities(databases.for("liabilities"), audit),
+                payments: createAccountPayments(databases.for("transactions")),
+                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              }),
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
             merchants: createMerchantsServices({
@@ -347,26 +412,7 @@ const server = buildServer({
               // BUD-12 FR 14: the suggested category of a merchant's group in «До розбору».
               categories: createTransactionCategories(databases.for("categorization")),
             }),
-            // BUD-07 a: proposals of regular payments from the transactions (transactions), grouped by merchant
-            // (merchants), none from a loan account (accounts); payments confirmed or added by hand name a category
-            // (categories) and an account (accounts).
-            recurring: createRecurringServices({
-              history: createTransactionHistory(databases.for("transactions")),
-              merchants: createMerchantDirectory(databases.for("merchants")),
-              accounts: createAccountDirectory(databases.for("accounts")),
-              categories: createCategoryDirectory({
-                db: databases.for("categories"),
-                audit,
-                newId: randomUUID,
-              }),
-              // BUD-07 b: a charge is matched by its category (categorization), in another currency at the rate of
-              // its date (fx-rates).
-              transactionCategories: createTransactionCategories(databases.for("categorization")),
-              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
-              audit,
-              clock: systemClock,
-              newId: randomUUID,
-            }),
+            recurring,
             // BUD-05: savings goals; a part's account balance is the journal's balance of its wallet (accounts);
             // «Витратити» reads the transaction (transactions) and its journal event (ledger).
             goals: createGoalsServices({
@@ -386,6 +432,17 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
             }),
+            // IMP-01 b: import batches; each original is stored by file-storage (type by content, the space's key).
+            ...(files
+              ? {
+                  importSessions: createImportSessionsServices({
+                    files,
+                    audit,
+                    clock: systemClock,
+                    newId: randomUUID,
+                  }),
+                }
+              : {}),
             deployed: config.deployed,
           }),
       }

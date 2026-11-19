@@ -4,6 +4,7 @@ import { defineModule } from "../../platform/modules/define.ts";
 import type { EventSubscription, WorkerQueue } from "../../platform/queue/index.ts";
 import type { AuditLog } from "../audit/index.ts";
 import { categoryMerged, type CategoryUsage } from "../categories/index.ts";
+import type { Money } from "@willowsum/domain-kernel";
 import {
   CATEGORY_MERGED_JOB,
   eraseHouseholdRecurring,
@@ -13,7 +14,10 @@ import {
   recurringTx,
   recurringWorkerQueue,
   requeueDeadRecurringJobs,
+  type RecurringServices,
 } from "./adapters/index.ts";
+import { trackSpace } from "./application/index.ts";
+import { chargesInMonth, type ChargeStatus } from "./domain/index.ts";
 
 export const recurringModule = defineModule({
   name: "recurring",
@@ -25,7 +29,53 @@ export const recurringModule = defineModule({
 export { createRecurringServices, type RecurringServices } from "./adapters/index.ts";
 export { HISTORY_DAYS } from "./application/index.ts";
 export { detectSeries, FREQUENCIES, isFresh, nextDate, scheduleDate } from "./domain/index.ts";
-export type { Charge, Frequency, Series } from "./domain/index.ts";
+export type { Charge, ChargeStatus, Frequency, Series } from "./domain/index.ts";
+
+/**
+ * The space's regular charges of one calendar month (YYYY-MM) as the budget reads them (BUD-03@PoC FR 3, FR 5;
+ * BUD-02@PoC FR 3, FR 15, FR 16, FR 19): every charge of an active payment — not «Можливо, скасований», not after its end
+ * date — with its status as «Регулярні платежі» shows it now (FR 8–10, FR 20, FR 21: «Сплачено», «Сплачено із
+ * запізненням», «Пропущено», «Очікується», «Прострочено на N дн.»), the later dates of the month «Очікується». Amounts in
+ * the payment's currency. Read only (the expected amount the charges changed is written by «Регулярні платежі» itself);
+ * every call is bound to one space.
+ */
+export interface RecurringMonth {
+  chargesIn(
+    householdId: string,
+    month: string,
+  ): Promise<
+    readonly {
+      readonly paymentId: string;
+      readonly type: "expense" | "income";
+      readonly categoryId: string | null;
+      readonly dueOn: string;
+      readonly expected: Money;
+      readonly status: ChargeStatus;
+      readonly overdueDays: number | null;
+    }[]
+  >;
+}
+
+/** `db` is the recurring module's own database; `services` — the same `createRecurringServices` the routes use. */
+export function createRecurringMonth(db: ModuleDatabase, services: RecurringServices): RecurringMonth {
+  return {
+    async chargesIn(householdId, month) {
+      const { payments, marks } = await db.inHousehold(householdId, async (q) => ({
+        payments: await recurringTx(q).payments(householdId),
+        marks: await recurringTx(q).marks(householdId),
+      }));
+      if (payments.length === 0) return [];
+      const tracked = await trackSpace(services.tracking, householdId, payments, marks);
+      const today = services.tracking.today();
+      return payments
+        .flatMap((p) => {
+          const t = tracked.byPayment.get(p.id);
+          return t ? chargesInMonth(p, t, month, today) : [];
+        })
+        .sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.paymentId.localeCompare(b.paymentId));
+    },
+  };
+}
 
 /** The recurring queue's jobs (ARC-04): the audit entry of a change, and «Категорію об'єднано» of module categories. */
 export { CATEGORY_MERGED_JOB, HAND_OFF_JOB };

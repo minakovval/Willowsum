@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { z } from "zod";
 import { ProviderError } from "../adapters/errors.ts";
@@ -37,6 +38,7 @@ import {
   routeFlags,
   routeRateLimitClass,
   type ApiRoute,
+  type DownloadReply,
   type HouseholdFreeDatabase,
   type Principal,
   type ProtectedContext,
@@ -44,6 +46,7 @@ import {
   type RouteHttp,
   type RouteInput,
 } from "./route.ts";
+import { MULTIPART_RE, uploadInput } from "./upload.ts";
 
 /**
  * The one HTTP API of every client (ARC-07 FR 1, NFR-05 FR 1–2). For each request, in this order:
@@ -326,6 +329,19 @@ function parseInput(route: ApiRoute, request: FastifyRequest): RouteInput<ApiRou
   return { params, query, body } as RouteInput<ApiRoute["request"] & object>;
 }
 
+/** An upload route's files from its multipart body (upload.ts); any other body there is 415. */
+function withUpload(
+  route: ApiRoute,
+  request: FastifyRequest,
+  input: RouteInput<ApiRoute["request"] & object>,
+): RouteInput<ApiRoute["request"] & object> {
+  if (!route.upload) return input;
+  const body = request.body as Readable | undefined;
+  if (!MULTIPART_RE.test(request.headers["content-type"] ?? "") || typeof body?.pipe !== "function")
+    throw new ApiProblem("UNSUPPORTED_MEDIA_TYPE");
+  return { ...input, upload: uploadInput(body, request.headers, route.upload) };
+}
+
 function idempotencyKey(request: FastifyRequest): string | undefined {
   const raw = request.headers[IDEMPOTENCY_HEADER.toLowerCase()];
   if (raw === undefined) return undefined;
@@ -452,6 +468,12 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
   installProblemHandlers(app, options.supportId, options.reportError);
   // Request bodies are JSON only (the contract has no other media type): text/plain is 415, not a string body.
   app.removeContentTypeParser("text/plain");
+  // An upload route's multipart body stays the raw stream for its handler (upload.ts); every other route answers 415.
+  app.addContentTypeParser(MULTIPART_RE, (request, payload, done) => {
+    const config = request.routeOptions.config as { upload?: unknown } | undefined;
+    if (config?.upload === true) done(null, payload);
+    else done(new ApiProblem("UNSUPPORTED_MEDIA_TYPE"), undefined);
+  });
   // The session found by a route's onRequest hook, for its handler (one entry per request, gone with it).
   const principals = new WeakMap<FastifyRequest, Principal>();
   /**
@@ -498,7 +520,11 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
       // The class a request is counted in first: a public route's own (no session or flag to wait for), else
       // `default`. A protected upload route is counted as `upload` too, but only after its session and flags
       // (its onRequest below): a hidden function must not show itself by an earlier 429 (DAT-05 FR 7).
-      config: { apiRoute: API_ROUTE_TOKEN, rateLimitEntry: isPublic(access) ? limitClass : "default" },
+      config: {
+        apiRoute: API_ROUTE_TOKEN,
+        rateLimitEntry: isPublic(access) ? limitClass : "default",
+        upload: route.upload !== undefined,
+      },
       ...(route.bodyLimitBytes !== undefined ? { bodyLimit: route.bodyLimitBytes } : {}),
       // Kill switch → session → flags run before the body is read (onRequest), so a switched-off module or a
       // hidden function answers 503 / 401 / 404 whatever body or media type was sent — never 415, 413 or 400
@@ -534,7 +560,14 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         const routeHeaders = (r: FastifyReply): void => {
           for (const [name, value] of Object.entries(route.headers ?? {})) void r.header(name, value);
         };
-        const respond = async (status: number, value: unknown): Promise<string> => {
+        const respond = async (status: number, value: unknown): Promise<string | Buffer> => {
+          if (route.download) {
+            // A download (DOWNLOAD_RESPONSE): its own headers and bytes, as file-storage shaped them.
+            const download = value as DownloadReply;
+            if (!Buffer.isBuffer(download?.body)) throw new ApiProblem("INTERNAL");
+            void reply.code(status).headers({ ...download.headers });
+            return download.body;
+          }
           // Only what the contract declares is sent: unknown fields are stripped, a wrong shape is a 500.
           const body = JSON.stringify(await route.response.schema.parseAsync(value));
           void reply.code(status).header("content-type", "application/json; charset=utf-8");
@@ -563,7 +596,7 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         if (!options.checkPermission(principal, route.access.permission)) throw new ApiProblem("FORBIDDEN");
         if (!(await options.checkFeature(principal, route.access.feature)))
           throw new ApiProblem("PLAN_LIMIT_REACHED");
-        const input = parseInput(route, request);
+        const input = withUpload(route, request, parseInput(route, request));
         const db = options.databases.for(module);
         // Only household-free transactions besides the session-bound one: no `inHousehold(<any id>)` (П-5).
         const householdFree: HouseholdFreeDatabase = Object.freeze({
@@ -613,7 +646,8 @@ export function registerApi(app: FastifyInstance, options: ApiOptions): void {
         // From here the create has happened. If the response cannot be shaped (a programming error), the key
         // stays «in progress» until it expires, so a retry gets 409 rather than a second create.
         const body = await respond(route.response.status, result);
-        await store.complete(principal.householdId, key, route.response.status, body);
+        // A create route never downloads (defineRoute): its body is the JSON text.
+        await store.complete(principal.householdId, key, route.response.status, String(body));
         return reply.send(body);
       },
     });

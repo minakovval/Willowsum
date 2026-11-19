@@ -22,6 +22,8 @@
         "categorization",
         "fx-rates",
         "household",
+        "liabilities",
+        "recurring",
         "transactions"
       ]
     },
@@ -103,7 +105,7 @@
     },
     "import-sessions": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "file-storage"]
     },
     "ledger": {
       "layer": "subject",
