@@ -446,6 +446,29 @@ describe("BUD-08@PoC: amounts outside the money range", () => {
   });
 });
 
+describe("BUD-08@PoC: amounts outside the money range after conversion", () => {
+  it("BUD-08@PoC FR 12: an amount that leaves the range only after conversion is left out and counted, the rest of the month stays (#580)", async () => {
+    const s = await newSpace();
+    const acc = await account(s);
+    const gbp = await account(s, "current", "GBP");
+    await rate("2025-05-05", "GBP", "55.0000");
+    await rate("2025-05-05", "EUR", "45.0000");
+    await rate("2025-07-07", "GBP", "55.0000");
+    await rate("2025-07-07", "EUR", "0.0001");
+    // 15 digits in GBP, 16 in EUR: over the cap after conversion.
+    await tx(s, gbp, "9".repeat(15), "2025-05-05", "Зарплата", "GBP");
+    await tx(s, acc, "-40.00", "2025-05-06", "Продукти");
+    // 15 digits in GBP, 21 in EUR: outside the money type, the rates' reader throws.
+    await tx(s, gbp, "9".repeat(15), "2025-07-07", "Зарплата", "GBP");
+    await tx(s, acc, "-40.00", "2025-07-08", "Продукти");
+    for (const period of ["2025-05", "2025-07"]) {
+      const r = await cashflow(s, "month", period);
+      expect(r.months[0], period).toMatchObject({ income: eur("0"), expenses: eur("40") });
+      expect(r.approximate.unavailableCount, period).toBe(1);
+    }
+  });
+});
+
 describe("BUD-08@PoC: the months of a period", () => {
   it("BUD-08@PoC AC5 (server part): the types month, quarter, ytd and year; «Власний» is refused; a year shows 12 months «Помісячно»", async () => {
     const space = await newSpace();
