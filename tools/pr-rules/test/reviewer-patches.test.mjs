@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { test } from 'node:test';
 import { forbiddenPathReason, reviewerPatchViolations } from '../lib/reviewer-patches.mjs';
 
@@ -320,4 +323,70 @@ test('PRC-02: reviewer patches (#597): type directives, a shebang and a removed 
 test('PRC-02: reviewer patches (#597): prose in a document is not a directive or a disabled test', () => {
   const doc = ['--- a/docs/x.md', '+++ b/docs/x.md', '@@ -1,1 +1,1 @@', '-Use it.', '+Never write `.skip` or `@type` here.'].join('\n');
   assert.deepEqual(reviewerPatchViolations([{ filename: 'docs/x.md' }], doc), []);
+});
+
+// Security review of PR #616: survivors of the mutants against the `.md` prose skip and the removed-directive list.
+/** A real `git diff` of a commit made in a throwaway repository (a rename and several files, as `git show` prints them). */
+const gitDiff = (before, after) => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'rp616-'));
+  const git = (...a) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { cwd: dir }).toString();
+  const write = (files) => {
+    for (const [p, text] of Object.entries(files)) {
+      mkdirSync(path.join(dir, path.dirname(p)), { recursive: true });
+      writeFileSync(path.join(dir, p), text);
+    }
+  };
+  git('init', '-q');
+  write(before);
+  git('add', '-A');
+  git('commit', '-qm', 'a');
+  for (const p of Object.keys(before)) if (!(p in after)) rmSync(path.join(dir, p));
+  write(after);
+  git('add', '-A');
+  git('commit', '-qm', 'b');
+  const diff = git('show', '-M', '--format=', 'HEAD');
+  rmSync(dir, { recursive: true, force: true });
+  return diff;
+};
+
+test('PRC-02: reviewer patches (#622): the `.md` skip covers only the Markdown file — a code file in the same commit is still checked', () => {
+  const diff = gitDiff(
+    { 'docs/x.md': 'Old.\n', 'apps/web/src/a.test.ts': 'it("a", () => {});\n' },
+    { 'docs/x.md': 'Never write `.skip` or `@type` here.\n', 'apps/web/src/a.test.ts': 'it.skip("a", () => {});\n' },
+  );
+  const out = reviewerPatchViolations([{ filename: 'docs/x.md' }, { filename: 'apps/web/src/a.test.ts' }], diff);
+  assert.ok(out.some((v) => v.startsWith('added skip/only/todo: it.skip(')), out.join('\n'));
+  assert.ok(!out.some((v) => v.includes('Never write')), out.join('\n'));
+});
+
+test('PRC-02: reviewer patches (#622): `.md` inside a name or a folder is not a Markdown file', () => {
+  for (const p of ['apps/web/src/notes.md.test.ts', 'apps/web/src/notes.md/a.test.ts', 'apps/web/src/a.mdx.ts']) {
+    const diff = [`diff --git a/${p} b/${p}`, `--- a/${p}`, `+++ b/${p}`, '@@ -1,1 +1,1 @@', '-it("a", () => {});', '+it.only("a", () => {}); // @ts-nocheck'].join('\n');
+    const out = reviewerPatchViolations([{ filename: p }], diff);
+    assert.ok(out.some((v) => v.startsWith('added skip/only/todo')), `${p}: ${out.join('\n')}`);
+    assert.ok(out.some((v) => v.startsWith('added directive comment')), `${p}: ${out.join('\n')}`);
+  }
+});
+
+test('PRC-02: reviewer patches (#622): a Markdown file renamed to code is checked by its new name', () => {
+  const body = Array.from({ length: 12 }, (_, i) => `// line ${i}\n`).join('');
+  const diff = gitDiff({ 'docs/notes.md': body }, { 'apps/web/src/run.test.ts': body + 'it.only("x", () => {}); /* @vitest-environment node */\n' });
+  assert.match(diff, /rename from docs\/notes\.md/);
+  const out = reviewerPatchViolations([{ filename: 'apps/web/src/run.test.ts', previous_filename: 'docs/notes.md', status: 'renamed' }], diff);
+  assert.ok(out.some((v) => v.startsWith('added skip/only/todo')), out.join('\n'));
+  assert.ok(out.some((v) => v.startsWith('added directive comment')), out.join('\n'));
+});
+
+test('PRC-02: reviewer patches (#622): removing a `@jest-environment` directive is a violation too', () => {
+  assert.equal(check('-// @jest-environment jsdom').length, 1);
+  assert.equal(check('- * @jest-environment node').length, 1);
+});
+// ===== FILE: tools/pr-rules/test/reviewer-patches.test.mjs (append; follow-up) =====
+
+test('PRC-02: reviewer patches (#622): a test file renamed to a non-test name (no hunk) is a removed test', () => {
+  const diff = 'diff --git a/apps/web/src/a.test.ts b/apps/web/src/a.md\nsimilarity index 100%\nrename from apps/web/src/a.test.ts\nrename to apps/web/src/a.md\n';
+  for (const filename of ['apps/web/src/a.md', 'apps/web/src/a.test.ts.bak']) {
+    assert.equal(reviewerPatchViolations([{ filename, previous_filename: 'apps/web/src/a.test.ts', status: 'renamed' }], diff).length, 1, filename);
+  }
+  assert.deepEqual(reviewerPatchViolations([{ filename: 'apps/web/src/b.test.ts', previous_filename: 'apps/web/src/a.test.ts', status: 'renamed' }], ''), []);
 });
