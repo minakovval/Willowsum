@@ -1,16 +1,14 @@
 import {
   BATCH_LIMITS,
   BATCH_REJECTIONS,
-  isUnapplied,
   move,
   takesFiles,
-  UNAPPLIED_RETENTION_DAYS,
   type BatchRejectionCode,
   type BatchState,
 } from "../domain/index.ts";
 
 /**
- * Import batches of a space (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 12, FR 13, FR 19–21; IMP-19@PoC FR 5, FR 6).
+ * Import batches of a space (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 13, FR 19, FR 21; IMP-19@PoC FR 5).
  * Every file of an upload is read under one budget of the request and stored by `file-storage` (type by content,
  * ceilings, encryption with the space's key); a rejected file is reported on its own and does not stop the others. When
  * the batch has no accepted file after an upload, it is «не вдалося розібрати» and the first rejection is the answer.
@@ -42,13 +40,12 @@ export interface BatchFile {
 }
 
 export const BATCH_ENTITY = "import-sessions.batch" as const;
-export const HAND_OFF_ACTIONS = ["create", "update", "delete"] as const;
+export const HAND_OFF_ACTIONS = ["create", "update"] as const;
 
 /** The audit entry of a batch's change (FR 21), carried by the hand-off job: ids, states and counts only. */
 export interface BatchHandOff {
   readonly entityId: string;
-  /** null: the daily cleanup (a system entry). */
-  readonly actorAccountId: string | null;
+  readonly actorAccountId: string;
   readonly action: (typeof HAND_OFF_ACTIONS)[number];
   readonly changeId: string;
   readonly changes: readonly {
@@ -63,7 +60,7 @@ export const handOffKey = (h: BatchHandOff): string =>
 
 export interface BatchesTx {
   insertBatch(batch: Batch): Promise<void>;
-  /** The batch, locked for the rest of the transaction (none while it is being deleted, as every read here). */
+  /** The batch, locked for the rest of the transaction. */
   lockBatch(batchId: string): Promise<Batch | null>;
   findBatch(batchId: string): Promise<Batch | null>;
   /** The space's batches, newest first, after the cursor's batch. */
@@ -72,16 +69,6 @@ export interface BatchesTx {
   insertFile(file: BatchFile): Promise<void>;
   /** A new state (or the same one), the version + 1 and the last action now. */
   updateBatch(batchId: string, state: BatchState, at: Date): Promise<Batch>;
-  /** Marks the batch as being deleted: from then on every read and lock above finds nothing. */
-  markDeleting(batchId: string, at: Date): Promise<void>;
-  /** The originals of a batch being deleted. */
-  deletingFiles(batchId: string): Promise<string[]>;
-  /** Removes the rows of a batch being deleted. */
-  deleteBatch(batchId: string): Promise<void>;
-  /** Unapplied batches (not being deleted) whose last action was before `before` (FR 20). */
-  staleBatches(before: Date, limit: number): Promise<string[]>;
-  /** Batches whose deletion stopped half-way. */
-  deletingBatches(limit: number): Promise<string[]>;
   enqueueHandOff(handOff: BatchHandOff): Promise<void>;
 }
 
@@ -116,8 +103,8 @@ export interface Originals {
   budget(declaredBytes: number | undefined, bytes: number): OriginalsBudget;
   /** A file name as file-storage keeps it (one line, no path, ≤ 255 characters): a rejected file's too. */
   cleanName(name: string): string;
-  /** Removes an original; an unknown one is no error (a delete can run again). */
-  remove(householdId: string, fileId: string, actorId: string | null): Promise<void>;
+  /** Removes an original (one stored past the batch's ceilings); an unknown one is no error. */
+  remove(householdId: string, fileId: string, actorId: string): Promise<void>;
 }
 
 export type OriginalsBudget = object;
@@ -300,7 +287,7 @@ export async function addFiles(
       );
       return { file, rejection };
     });
-    // Past the batch's ceilings under its lock, or the batch was cancelled or deleted meanwhile: the original goes.
+    // Past the batch's ceilings under its lock, or the batch left «завантажено» meanwhile: the original goes.
     if (kept && (rejection || outcome === null || typeof outcome === "string"))
       await originals.remove(caller.householdId, kept.id, caller.actorId);
     if (outcome === null) throw new BatchNotFoundError();
@@ -375,113 +362,4 @@ export async function originalOf(tx: BatchesTx, batchId: string, batchFileId: st
   const file = files.find((f) => f.id === batchFileId);
   if (!file?.fileId) throw new BatchNotFoundError();
   return file.fileId;
-}
-
-/** «Скасувати» (FR 12): an open batch closes without writing anything; from any state before «застосовано». */
-export async function cancelBatch(
-  deps: BatchesDeps,
-  tx: BatchesTx,
-  actorId: string,
-  batchId: string,
-): Promise<Handed<Batch>> {
-  const batch = await tx.lockBatch(batchId);
-  if (!batch) throw new BatchNotFoundError();
-  const cancelled = await tx.updateBatch(batchId, move(batch.state, "cancelled"), deps.now());
-  const h = await handOff(tx, deps, {
-    entityId: batchId,
-    actorAccountId: actorId,
-    action: "update",
-    changes: [stateChange(batch.state, cancelled.state)],
-  });
-  return { result: cancelled, handOffs: [h] };
-}
-
-/**
- * «Видалити» (FR 12) and the daily cleanup (FR 20): an unapplied batch with its originals, in three steps that can each
- * run again. (1) Under the batch's lock it is marked as being deleted — from then on it is «not found» and takes no
- * step — and the audit hand-off is enqueued; (2) its originals are removed from file-storage; (3) its rows go. A
- * failure after (1) leaves the mark, and the daily cleanup finishes the deletion. An applied batch is rolled back first.
- */
-export async function deleteBatch(
-  deps: BatchesDeps,
-  run: SpaceTx,
-  originals: Originals,
-  householdId: string,
-  actorId: string | null,
-  batchId: string,
-  /** The daily cleanup: only if the batch's last action is still before this. */
-  staleBefore?: Date,
-): Promise<Handed<boolean>> {
-  const handOffs: BatchHandOff[] = [];
-  const marked = await run(async (tx) => {
-    const batch = await tx.lockBatch(batchId);
-    if (!batch) return false;
-    if (!isUnapplied(batch.state)) throw new BatchStateErrorFor(batch.state);
-    if (staleBefore && batch.lastActionAt >= staleBefore) return false;
-    const files = await tx.files(batchId);
-    await tx.markDeleting(batchId, deps.now());
-    handOffs.push(
-      await handOff(tx, deps, {
-        entityId: batchId,
-        actorAccountId: actorId,
-        action: "delete",
-        changes: [
-          { field: "state", before: batch.state, after: null },
-          { field: "files", before: String(files.length), after: null },
-        ],
-      }),
-    );
-    return true;
-  });
-  if (!marked && !staleBefore) throw new BatchNotFoundError();
-  if (marked) await finishDelete(run, originals, householdId, actorId, batchId);
-  return { result: marked, handOffs };
-}
-
-/** Steps (2) and (3) of a deletion: the marked batch's originals, then its rows. */
-async function finishDelete(
-  run: SpaceTx,
-  originals: Originals,
-  householdId: string,
-  actorId: string | null,
-  batchId: string,
-): Promise<void> {
-  const files = await run((tx) => tx.deletingFiles(batchId));
-  for (const fileId of files) await originals.remove(householdId, fileId, actorId);
-  await run((tx) => tx.deleteBatch(batchId));
-}
-
-/**
- * FR 20, IMP-19 FR 6: the space's unapplied batches 30 days after their last action go with their originals; a deletion
- * that stopped half-way is finished. Returns how many batches went.
- */
-export async function deleteStaleBatches(
-  deps: BatchesDeps,
-  run: SpaceTx,
-  originals: Originals,
-  householdId: string,
-): Promise<Handed<number>> {
-  const before = new Date(deps.now().getTime() - UNAPPLIED_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const { stale, deleting } = await run(async (tx) => ({
-    stale: await tx.staleBatches(before, 100),
-    deleting: await tx.deletingBatches(100),
-  }));
-  let deleted = 0;
-  for (const batchId of deleting) {
-    await finishDelete(run, originals, householdId, null, batchId);
-    deleted++;
-  }
-  const handOffs: BatchHandOff[] = [];
-  for (const batchId of stale) {
-    const done = await deleteBatch(deps, run, originals, householdId, null, batchId, before).catch(
-      (error: unknown) => {
-        // Applied meanwhile: it stays (FR 20).
-        if (error instanceof BatchStateErrorFor) return { result: false, handOffs: [] };
-        throw error;
-      },
-    );
-    handOffs.push(...done.handOffs);
-    if (done.result) deleted++;
-  }
-  return { result: deleted, handOffs };
 }

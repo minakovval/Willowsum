@@ -67,9 +67,8 @@ export function batchesAudit(audit: Pick<AuditLog, "record">): BatchesAudit {
   return {
     async record(householdId, handOff, key) {
       await audit.record(householdId, {
-        actor:
-          handOff.actorAccountId === null ? { kind: "system" } : { kind: "user", id: handOff.actorAccountId },
-        channel: handOff.actorAccountId === null ? "system" : "web",
+        actor: { kind: "user", id: handOff.actorAccountId },
+        channel: "web",
         entity: { type: BATCH_ENTITY, id: handOff.entityId },
         action: handOff.action,
         changes: handOff.changes.map((c) => ({ ...c, sensitive: false })),

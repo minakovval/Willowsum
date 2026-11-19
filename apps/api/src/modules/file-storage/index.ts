@@ -62,8 +62,8 @@ export interface FileStorage {
   link(householdId: string, fileId: string, ttlMs?: number): Promise<{ token: string; expiresAt: Date }>;
   /** Opens a signed link for a caller of the space: the original bytes, as a download only. */
   open(householdId: string, token: string): Promise<Download>;
-  /** Removes a file and its object; `actorId` null — a system task (the daily cleanup of import batches). */
-  remove(householdId: string, fileId: string, actorId: string | null): Promise<void>;
+  /** Removes a file and its object. */
+  remove(householdId: string, fileId: string, actorId: string): Promise<void>;
   /** Bytes of every file of the space. */
   usage(householdId: string): Promise<number>;
 }
@@ -113,14 +113,14 @@ export function createFileStorage(deps: FileStorageDeps): FileStorage {
 async function record(
   audit: Pick<AuditLog, "record">,
   file: StoredFile,
-  actorId: string | null,
+  actorId: string,
   action: "create" | "delete",
 ): Promise<void> {
   const value = (v: string | number) =>
     action === "create" ? { before: null, after: String(v) } : { before: String(v), after: null };
   await audit.record(file.householdId, {
-    actor: actorId === null ? { kind: "system" } : { kind: "user", id: actorId },
-    channel: actorId === null ? "system" : "web",
+    actor: { kind: "user", id: actorId },
+    channel: "web",
     entity: { type: "file-storage.file", id: file.id },
     action,
     changes: [

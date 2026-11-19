@@ -65,6 +65,8 @@ async function* readFiles(
   raw.on("data", count);
   parser.on("file", (_field, stream, fileName) => {
     current = stream;
+    // A file's stream fails with the request's problem (`fail`); its reader, if any, gets it from the iterator.
+    stream.on("error", () => undefined);
     queue.push({
       fileName,
       stream: {

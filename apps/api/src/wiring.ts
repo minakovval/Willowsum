@@ -44,9 +44,7 @@ import {
   recurringSubscriptions,
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
-import type { FileStorage } from "./modules/file-storage/index.ts";
 import {
-  createImportSessionsCleanup,
   createImportSessionsHandOffRecovery,
   createImportSessionsWorkerQueue,
 } from "./modules/import-sessions/index.ts";
@@ -192,8 +190,6 @@ export function schedulerDailyTasks(deps: {
   readonly now?: () => number;
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
   readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
-  /** The stored files (file-storage): with them, the cleanup of unapplied import batches (IMP-01 FR 20). */
-  readonly files?: Pick<FileStorage, "store" | "remove" | "link" | "open">;
 }): DailyTask[] {
   const now = deps.now ?? Date.now;
   const maintenance = createIdentityMaintenance({
@@ -351,25 +347,6 @@ export function schedulerDailyTasks(deps: {
         }),
     },
   ];
-  // IMP-01 FR 20, IMP-19 FR 6 (an exception to «no task deletes a space's data» above, which the requirement sets):
-  // unapplied import batches 30 days after their last action go with their originals.
-  if (deps.files)
-    tasks.push({
-      name: "import-sessions.cleanup",
-      run: async () => {
-        const deleted = await createImportSessionsCleanup({
-          db: deps.databases.for("import-sessions"),
-          files: deps.files!,
-          audit: deps.audit,
-          households: () => deps.spaces.spaceIds(),
-          now,
-          newId: randomUUID,
-        }).run();
-        // A count only: never a space, a batch or a file.
-        if (deleted > 0)
-          logEvent("import_sessions.batches_cleaned", "info", { "ws.module": "import-sessions" });
-      },
-    });
   const spaceKeys = deps.spaceKeys;
   if (spaceKeys)
     tasks.push({

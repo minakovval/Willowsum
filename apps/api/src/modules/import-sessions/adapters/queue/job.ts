@@ -9,7 +9,7 @@ const value = z.string().max(64).nullable();
 /** The payload of `import-sessions.hand-off` (application/batches.ts `BatchHandOff`), checked when enqueued and run. */
 const handOffSchema = z.strictObject({
   entityId: z.uuid(),
-  actorAccountId: z.uuid().nullable(),
+  actorAccountId: z.uuid(),
   action: z.enum(HAND_OFF_ACTIONS),
   changeId: z.uuid(),
   changes: z

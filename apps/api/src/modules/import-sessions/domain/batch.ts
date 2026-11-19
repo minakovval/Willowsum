@@ -55,16 +55,8 @@ export function takesFiles(state: BatchState): boolean {
   return state === "uploaded";
 }
 
-/** «Видалити» (FR 12) and the 30-day cleanup (FR 20) take only a batch that was never applied. */
-export function isUnapplied(state: BatchState): boolean {
-  return state !== "applied" && state !== "rolled-back";
-}
-
 /** FR 13: a batch holds up to 50 files and 150 MB of accepted originals together (binary units, as file-storage). */
 export const BATCH_LIMITS = Object.freeze({ files: 50, bytes: 150 * 1024 * 1024 });
-
-/** FR 20, IMP-19 FR 6: an unapplied batch goes 30 days after its last action. */
-export const UNAPPLIED_RETENTION_DAYS = 30;
 
 /** The batch's own ceilings (FR 13): the text names the ceiling and advises splitting, never a plan. */
 export const BATCH_REJECTIONS = {

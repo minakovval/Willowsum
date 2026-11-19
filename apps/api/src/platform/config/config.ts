@@ -89,9 +89,9 @@ export interface Config {
   /**
    * Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01): the S3-compatible storage (`WS_S3_ENDPOINT`, `WS_S3_REGION`,
    * `WS_S3_BUCKET`, `WS_S3_ACCESS_KEY_ID`, `WS_S3_SECRET_ACCESS_KEY` — all or none) and the key of signed links
-   * (`WS_FILE_LINK_KEY`, base64 of ≥ 32 bytes, from the secret store). Both are required for the api and scheduler roles
-   * in staging and production; locally and in CI without them the files stay in the process's memory under a key drawn
-   * at start. Secrets: never logged.
+   * (`WS_FILE_LINK_KEY`, base64 of ≥ 32 bytes, from the secret store). In staging and production without both, no file
+   * is served or stored (main.ts wires no storage: the import routes answer 500); locally and in CI without them the
+   * files stay in the process's memory under a key drawn at start. Secrets: never logged.
    */
   readonly files: {
     readonly s3?: {
@@ -349,29 +349,20 @@ export function loadConfig(
     }
   }
   if (parsed.success) {
-    // ARC-06 FR 4, NFR-01 FR 4: the S3 settings come all together; a deployed api or scheduler needs them and the key
-    // of signed links (the files of a space never stay in a process's memory there).
+    // ARC-06 FR 4, NFR-01 FR 4: the S3 settings come all together, over HTTPS in staging and production. Without them
+    // (or the key of signed links) a deployed process serves no file at all: main.ts wires no storage in memory there.
     const d = parsed.data;
-    const s3 = [
-      d.WS_S3_ENDPOINT,
-      d.WS_S3_REGION,
-      d.WS_S3_BUCKET,
-      d.WS_S3_ACCESS_KEY_ID,
-      d.WS_S3_SECRET_ACCESS_KEY,
-    ];
-    const deployedFiles =
-      DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) && (role === "api" || role === "scheduler");
-    if (s3.some((v) => v !== undefined) || deployedFiles)
-      for (const [name, value] of [
-        ["WS_S3_ENDPOINT", d.WS_S3_ENDPOINT],
-        ["WS_S3_REGION", d.WS_S3_REGION],
-        ["WS_S3_BUCKET", d.WS_S3_BUCKET],
-        ["WS_S3_ACCESS_KEY_ID", d.WS_S3_ACCESS_KEY_ID],
-        ["WS_S3_SECRET_ACCESS_KEY", d.WS_S3_SECRET_ACCESS_KEY],
-      ] as const)
-        if (value === undefined) problems.push(name);
-    if (deployedFiles && d.WS_FILE_LINK_KEY === undefined) problems.push("WS_FILE_LINK_KEY");
-    if (deployedFiles && d.WS_S3_ENDPOINT?.startsWith("http://")) problems.push("WS_S3_ENDPOINT");
+    const s3 = {
+      WS_S3_ENDPOINT: d.WS_S3_ENDPOINT,
+      WS_S3_REGION: d.WS_S3_REGION,
+      WS_S3_BUCKET: d.WS_S3_BUCKET,
+      WS_S3_ACCESS_KEY_ID: d.WS_S3_ACCESS_KEY_ID,
+      WS_S3_SECRET_ACCESS_KEY: d.WS_S3_SECRET_ACCESS_KEY,
+    };
+    if (Object.values(s3).some((v) => v !== undefined))
+      for (const [name, value] of Object.entries(s3)) if (value === undefined) problems.push(name);
+    if (DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) && d.WS_S3_ENDPOINT?.startsWith("http://"))
+      problems.push("WS_S3_ENDPOINT");
   }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;

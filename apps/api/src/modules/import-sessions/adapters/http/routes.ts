@@ -7,9 +7,7 @@ import {
   addFiles,
   BatchNotFoundError,
   BatchStateErrorFor,
-  cancelBatch,
   createBatch,
-  deleteBatch,
   originalOf,
   viewBatch,
   type Batch,
@@ -23,9 +21,9 @@ import { batchesTx } from "../db/store.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
 
 /**
- * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 12, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create a
+ * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create a
  * batch, upload files to it (multipart, read on the stream under one budget, each stored by file-storage), list and read
- * batches, open an original through a signed link of ≤ 15 minutes, «Скасувати», «Видалити». The space is the session's
+ * batches, open an original through a signed link of ≤ 15 minutes. The space is the session's
  * (П-5): a batch, a file or a link of another space is «not found». A scoped member sees no batch (00-general «Область
  * доступу»: imports are the Owner's; PoC has one user). Behind the release flag `data.import` under the feature key of the
  * same name; no plan limit or quota — only the technical ceilings, the same for every plan (FR 13, FR 18; never 402).
@@ -94,7 +92,7 @@ function presentBatch(b: Batch, files: readonly BatchFile[]): z.input<typeof bat
   };
 }
 
-/** A batch (or file) of another space, unknown or being deleted: one answer, never a hint that it exists. */
+/** A batch (or file) of another space or unknown: one answer, never a hint that it exists. */
 function refusal(error: unknown): unknown {
   if (error instanceof BatchNotFoundError || error instanceof FileNotFoundError)
     return new ApiProblem("NOT_FOUND");
@@ -190,6 +188,7 @@ export const getImportBatchRoute = defineRoute({
   response: { status: 200, description: "The batch", schema: batchDetailSchema },
   handler: async ({ params }, ctx) => {
     owner(ctx);
+    importSessionsServices(ctx);
     const { batch, files } = await guarded(() => routeTx(ctx)((tx) => viewBatch(tx, params.batchId)));
     return { ...presentBatch(batch, files), fileList: files.map(presentFile) };
   },
@@ -252,52 +251,6 @@ export const uploadImportFilesRoute = defineRoute({
   },
 });
 
-export const cancelImportBatchRoute = defineRoute({
-  module: MODULE,
-  method: "POST",
-  path: "/v1/import/batches/{batchId}/cancel",
-  operationId: "cancelImportBatch",
-  summary:
-    "«Скасувати» (FR 12): the batch closes without writing anything; from any state before «застосовано»",
-  access: WRITE,
-  request: { params: batchParams },
-  problems: ["BATCH_STATE_CONFLICT"],
-  response: { status: 200, description: "The cancelled batch", schema: batchSchema },
-  handler: async ({ params }, ctx) => {
-    owner(ctx);
-    const { deps, audit } = importSessionsServices(ctx);
-    const { householdId, userId } = ctx.principal;
-    const run = routeTx(ctx);
-    const { result, handOffs } = await guarded(() =>
-      run((tx) => cancelBatch(deps, tx, userId, params.batchId)),
-    );
-    await handOffNow(audit, householdId, handOffs);
-    return presentBatch(result, await run((tx) => tx.files(result.id)));
-  },
-});
-
-export const deleteImportBatchRoute = defineRoute({
-  module: MODULE,
-  method: "DELETE",
-  path: "/v1/import/batches/{batchId}",
-  operationId: "deleteImportBatch",
-  summary: "«Видалити» (FR 12): an unapplied batch with its originals; an applied one is rolled back first",
-  access: WRITE,
-  request: { params: batchParams },
-  problems: ["BATCH_STATE_CONFLICT"],
-  response: { status: 200, description: "Deleted", schema: z.object({ deleted: z.literal(true) }) },
-  handler: async ({ params }, ctx) => {
-    owner(ctx);
-    const { deps, originals, audit } = importSessionsServices(ctx);
-    const { householdId, userId } = ctx.principal;
-    const { handOffs } = await guarded(() =>
-      deleteBatch(deps, routeTx(ctx), originals, householdId, userId, params.batchId),
-    );
-    await handOffNow(audit, householdId, handOffs);
-    return { deleted: true as const };
-  },
-});
-
 const fileParams = z.object({ batchId: z.uuid(), fileId: z.uuid() });
 
 export const linkImportOriginalRoute = defineRoute({
@@ -357,8 +310,6 @@ export const importSessionsRoutes = [
   listImportBatchesRoute,
   getImportBatchRoute,
   uploadImportFilesRoute,
-  cancelImportBatchRoute,
-  deleteImportBatchRoute,
   linkImportOriginalRoute,
   openImportOriginalRoute,
 ];
