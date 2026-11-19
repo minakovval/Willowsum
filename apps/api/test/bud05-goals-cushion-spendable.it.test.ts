@@ -503,6 +503,26 @@ describe("BUD-05@PoC FR 8, FR 10: the goals' reads hold against forged input and
     expect(await average(space)).toMatchObject({ average: eur("600"), months: 1 });
   });
 
+  it("BUD-05@PoC FR 10: a merged duplicate is not counted in the average; «Очікує» is (#592)", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    const kept = await transaction(space, current, "-600.00", "2026-10-05");
+    const copy = await transaction(space, current, "-600.00", "2026-10-05");
+    const pending = await transaction(space, current, "-300.00", "2026-10-06");
+    await db.owner.query(`UPDATE transactions.transactions SET merged_into = $2 WHERE id = $1`, [copy, kept]);
+    await db.owner.query(`UPDATE transactions.transactions SET status = 'pending' WHERE id = $1`, [pending]);
+    expect(await average(space)).toMatchObject({ average: eur("900"), months: 1 });
+  });
+
+  it("BUD-05@PoC FR 10: an expense before the window or in the current month is not counted in the average (#592)", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    await transaction(space, current, "-600.00", "2026-10-05");
+    await transaction(space, current, "-9000.00", "2026-04-30");
+    await transaction(space, current, "-8000.00", "2026-11-02");
+    expect(await average(space)).toMatchObject({ average: eur("600"), months: 1 });
+  });
+
   it("BUD-05@PoC FR 8: a goal of marks lists only its currency; «Очікує» and hidden transactions never come, in the list or in the count", async () => {
     const space = await newSpace();
     const current = await account(space);

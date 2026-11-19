@@ -228,6 +228,8 @@ export function defineListQuery(spec: ListQuerySpec): ListQuery {
         const match = FILTER_RE.exec(item);
         if (!match) invalid("filter", "invalid_format");
         const [, name, op, text] = match as unknown as [string, string, string, string];
+        // PostgreSQL text holds no NUL: a value with one is refused here, never a 500 (#592).
+        if (text.includes("\u0000")) invalid("filter", "invalid_value");
         const field = Object.hasOwn(spec.filters, name) ? filters.get(name) : undefined;
         if (!field || !(field.operators as readonly string[]).includes(op))
           invalid("filter", "unknown_filter");

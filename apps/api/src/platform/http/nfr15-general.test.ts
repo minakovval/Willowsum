@@ -262,6 +262,22 @@ describe("NFR-15 FR 15: filter and sort fields only from a whitelist; values as 
     expect(problem.errors).toEqual([{ in: "query", path: expect.stringMatching(/^(filter|sort)$/), issue }]);
   });
 
+  it("NFR-15 FR 15: a text value with a NUL character is 400 invalid_value, never a database error (#592)", () => {
+    const text = defineListQuery({
+      filters: {
+        search: { column: "search_text", cast: "text", value: z.string().min(1), operators: ["eq", "has"] },
+      },
+      sorts: { x: "x" },
+      defaultSort: { field: "x", direction: "asc" },
+    });
+    for (const filter of ["search.has:\u0000", "search.has:a\u0000b", "search.eq:\u0000"]) {
+      const problem = problemOf(() => text.compile({ filter }, 1));
+      expect(problem.code).toBe("VALIDATION_FAILED");
+      expect(problem.errors).toEqual([{ in: "query", path: "filter", issue: "invalid_value" }]);
+    }
+    expect(text.compile({ filter: "search.has:abc" }, 1).params).toEqual(["%abc%"]);
+  });
+
   it("refuses a declaration with an unsafe column or cast", () => {
     const value = z.string();
     expect(() =>

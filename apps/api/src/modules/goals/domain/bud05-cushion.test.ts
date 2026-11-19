@@ -34,6 +34,17 @@ describe("BUD-05@PoC FR 10: the average monthly expenses of «Подушка б�
   it("BUD-05@PoC FR 10: without an expense there is no average", () => {
     expect(averageMonthlyExpenses(eur("0"), null, "2026-11-15")).toEqual({ average: null, months: 0 });
   });
+
+  it("BUD-05@PoC FR 10: refunds that cover the window's spending leave no average — the target is typed, never 0", () => {
+    expect(averageMonthlyExpenses(eur("0"), "2026-09-03", "2026-11-15")).toEqual({
+      average: null,
+      months: 0,
+    });
+    expect(averageMonthlyExpenses(eur("-20"), "2026-09-03", "2026-11-15")).toEqual({
+      average: null,
+      months: 0,
+    });
+  });
 });
 
 describe("BUD-05@PoC FR 10: spending as the budget counts it", () => {
