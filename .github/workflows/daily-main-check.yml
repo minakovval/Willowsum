@@ -1,8 +1,11 @@
 name: Daily main check
 
 # CICD-01 FR 3 (ADR-0008): the free GitHub plan cannot block pushes to main, so once a day this checks main
-# and the PRs merged into it since the last scheduled run whose check step succeeded (minus an hour, at most
-# 7 days; 25 hours when there is none), and alerts the owner through a GitHub issue with the label
+# and the PRs merged into it since the checked time ends (minus an hour, at most 7 days; 25 hours when no run
+# checked a window). The check step leaves the window it read as an annotation on its job, so a manual run over
+# a gap and a run that read only part of a long window move the start too (#503); a long window is read day by
+# day and stops before the token's call limit. Transient GitHub errors (5xx, a dropped connection) are retried
+# with backoff. It alerts the owner through a GitHub issue with the label
 # `main-check` (opened by this workflow, or commented on while open). It reports:
 # - commits on main that are not the merge commit of a merged PR; force-pushes and direct pushes (activity log);
 # - merged PRs without green required CI on the last commit, without «Verdict: Ready», without
@@ -20,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       since:
-        description: "Window start, ISO 8601 (default: the last successful scheduled run, at most 7 days; else 25 hours)"
+        description: "Window start, ISO 8601 (default: where the checked time ends, at most 7 days; else 25 hours)"
         required: false
       until:
         description: "Window end, ISO 8601 (default: now)"
@@ -39,8 +42,8 @@ jobs:
     permissions:
       contents: read # commits, compare, activity log, workflow files
       pull-requests: read # merged PRs, their files and reviews
-      checks: read # check runs of the merged heads
-      actions: read # the last successful run of this workflow (window start)
+      checks: read # check runs of the merged heads; the window annotations of earlier runs
+      actions: read # the last successful runs of this workflow (window start)
       issues: write # the alert issue and its label
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

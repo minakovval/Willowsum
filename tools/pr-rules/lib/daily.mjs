@@ -186,9 +186,11 @@ function checkCi(pr, findings) {
   for (const job of pr.requiredJobs) {
     const all = runs.filter((r) => r.name === job);
     // The latest run that completed before the merge decides. Later runs (a re-run after the merge, e.g. on
-    // an edit of a merged PR's description) are ignored.
+    // an edit of a merged PR's description) are ignored. A run with a conclusion and a completion time has
+    // finished even when GitHub still reports it `in_progress` (#503: job `changes` of #464, run 44002293529).
+    const finished = (r) => r.status === 'completed' || (r.conclusion != null && r.status === 'in_progress');
     const run = all
-      .filter((r) => r.status === 'completed' && r.completed_at && at(r.completed_at) <= at(pr.merged_at))
+      .filter((r) => finished(r) && r.completed_at && at(r.completed_at) <= at(pr.merged_at))
       .sort((a, b) => b.id - a.id)[0];
     if (!run) bad.push(`${job}: ${all.length ? 'завершилась після злиття' : 'не запускалась'}`);
     else if (run.conclusion === 'skipped' && needed[job] === false) continue;
@@ -277,6 +279,16 @@ export function evaluate(input) {
       rule: 'FR 3',
       subject: 'вікно перевірки',
       message: `${input.window.note ?? 'вікно неповне'}; час до ${input.window.since} міг лишитися неперевіреним — запустіть перевірку вручну з since`,
+    });
+  }
+
+  // #503: a paced read stopped before the end of the window; the next run starts where this one ended.
+  if (input.window?.partial) {
+    findings.push({
+      severity: 'info',
+      rule: 'FR 3',
+      subject: 'вікно перевірки',
+      message: `перевірено до ${input.window.until} із ${input.window.requested}: лімит запитів GitHub; решту вікна перевірить наступний запуск`,
     });
   }
 
