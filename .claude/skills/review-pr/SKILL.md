@@ -164,7 +164,16 @@ An exception to «review runs in another session» (AGENTS.md, «Process» step 
 rule, `security-review` and the others link here. You apply small patches to the PR branch yourself:
 1. Only in tests, texts, comments, docs, markup and screen styles. Never in a sensitive path, tests included
    (the categories and globs: `SENSITIVE_PATHS` in `tools/pr-rules/lib/paths.mjs`, e.g. `tools/pr-rules`,
-   migrations, auth): there a small item goes through the normal fix round.
+   migrations, auth), and never in a **security test** or a **rule file**: there a small item goes through the
+   normal fix round (the reviewer may hand the author the ready patch). Security test = a test file (`.test.` or
+   `.spec.`, its snapshot too) whose name starts with `isolation` or has a `security` or `sec<N>…` part
+   (`isolation*.it.test.ts`, `sec*-*.it.test.ts`, `security-*.it.test.ts`); rule file = `AGENTS.md`, `CLAUDE.md`,
+   `CLAUDE.local.md` and `.claude/**`, in any folder and any letter case. E2e tests (`apps/web/e2e/**`) stay
+   allowed. The check is `reviewerPatchViolations` in `tools/pr-rules/lib/reviewer-patches.mjs` (a helper, not
+   in CI yet: check your own commit against this text).
+   A patch never switches a test off, deletes a test file, removes or changes a test, suite or assertion, and never
+   adds a directive comment: the list in [security-review](../security-review/SKILL.md) §0 «Light confirmation»
+   applies in full (a changed test title is a text patch and stays allowed).
 2. One commit per reviewer per round, at the end of the review. At most 60 lines per PR, added plus deleted,
    across all reviewers; anything larger is a normal author fix round.
 3. Every patch is listed in the PR body under «Reviewer patches». The verdict names your new head SHA; the lead merges

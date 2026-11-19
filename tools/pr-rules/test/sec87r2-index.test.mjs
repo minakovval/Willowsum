@@ -29,7 +29,7 @@ async function run(args, route, pr = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pr-rules-r2-'));
   const event = path.join(dir, 'event.json');
   fs.writeFileSync(event, JSON.stringify({ pull_request: { number: 5, title: 'CICD-01: x', body: '', base: { sha: 'b'.repeat(40) }, head: { repo: { full_name: 'o/r' } }, ...pr } }));
-  const env = { PATH: process.env.PATH, GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`, GITHUB_REPOSITORY: 'o/r', GITHUB_TOKEN: 'test-token-not-real', GITHUB_EVENT_PATH: event };
+  const env = { PATH: process.env.PATH, PR_RULES_RETRY_MS: '1', GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`, GITHUB_REPOSITORY: 'o/r', GITHUB_TOKEN: 'test-token-not-real', GITHUB_EVENT_PATH: event };
   const result = await new Promise((resolve) => {
     execFile(process.execPath, [INDEX, ...args], { env }, (err, stdout) => resolve({ code: err?.code ?? 0, stdout }));
   });

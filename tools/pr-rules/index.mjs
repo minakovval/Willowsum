@@ -11,7 +11,7 @@
 //   pre-commit   — the git hook (.githooks/pre-commit): Prettier and ESLint on the staged content of staged files.
 //   alerted      — scheduled job, after `daily --outputs` found something: fail the run.
 //   daily        — scheduled job: check main and the PRs merged into it; open or update the alert issue.
-//                  Flags: --since <ISO> --until <ISO> (default: from the last successful scheduled run, at most
+//                  Flags: --since <ISO> --until <ISO> (default: where the checked time ends, lib/fetch.mjs windowStart, at most
 //                  7 days, else 25 hours), --save-input <file>, --input <file> (evaluate a recorded input, no
 //                  network), --issue (write the alert issue; without it the run only prints: dry run),
 //                  --outputs (write `alert=true|false` to $GITHUB_OUTPUT instead of failing on findings).
@@ -22,7 +22,7 @@ import { readBrowserTables } from './lib/browser-tables.mjs';
 import { jobsToRun, outputLines } from './lib/ci-paths.mjs';
 import { checkDescription, requirementIds } from './lib/description.mjs';
 import { evaluate, needsAlert, render } from './lib/daily.mjs';
-import { baseMapFor, errorClass, fetchDailyInput, upsertAlertIssue, windowStart } from './lib/fetch.mjs';
+import { baseMapFor, errorClass, fetchDailyInput, upsertAlertIssue, windowAnnotation, windowStart } from './lib/fetch.mjs';
 import { client, ensureLabel } from './lib/github.mjs';
 import { changedFilesLocal, localClassification } from './lib/local.mjs';
 import { preCommit } from './lib/pre-commit.mjs';
@@ -141,6 +141,8 @@ async function daily() {
       return d;
     };
     const until = flag('--until') ? date(flag('--until')) : new Date();
+    // A window cannot end in the future: its annotation would name time nobody checked (sec589).
+    if (until.getTime() > Date.now() + 60_000) throw new Error('--until must not be in the future');
     let since;
     let note;
     let gap;
@@ -157,6 +159,10 @@ async function daily() {
       if (flag('--issue')) await upsertAlertIssue(client(), report, { until: until.toISOString() });
       throw e;
     }
+    // #503: the window this run read, as an annotation on its job; the next run's window starts where the
+    // checked time ends (`windowStart`), also after a manual run or a paced read that stopped early.
+    // `chain`: this window began where the checked time ended (no --since, no gap).
+    console.log(windowAnnotation({ since: input.window.since, until: input.window.until, chain: !flag('--since') && !gap }));
     // NFR-07@PoC FR 1: the web app's browser release tables, judged against the end of the window (not in a
     // replayed `--input`, which carries its own).
     input.browserTables = readBrowserTables(ROOT);
