@@ -4,3 +4,4 @@ export * from "./budget.ts";
 export * from "./wizard.ts";
 export * from "./allocation.ts";
 export * from "./spendable.ts";
+export * from "./trend.ts";

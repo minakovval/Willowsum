@@ -147,19 +147,15 @@ export function GoalsPage({ today = kyivToday() }: { today?: string }) {
                 goals={goals}
                 onChanged={reload}
                 onGone={reload}
-              />
+              >
+                <GoalLinks goal={goal} accounts={data.accounts} />
+              </GoalCard>
             </PlanRegion>
           ) : (
             <PlanRegion name="goal" span={12} />
           )}
           <PlanRegion name="projection" span={12} />
-          {data && goal ? (
-            <PlanRegion name="links" span={12}>
-              <GoalLinks goal={goal} accounts={data.accounts} />
-            </PlanRegion>
-          ) : (
-            <PlanRegion name="links" span={12} />
-          )}
+          {data && goal ? null : <PlanRegion name="links" span={12} />}
         </div>
       </PlanGrid>
     </AppLayout>

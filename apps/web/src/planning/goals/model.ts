@@ -1,3 +1,4 @@
+import type { IconName } from "@willowsum/ui";
 import type { ApiClient, operations } from "@willowsum/api-contract";
 import { Decimal, Money as KernelMoney, sumMoney } from "@willowsum/domain-kernel";
 import { outcome } from "../../auth/api.ts";
@@ -107,3 +108,14 @@ export function afterContribution(goal: Goal, amount: string): { collected: Mone
     return null;
   }
 }
+
+/**
+ * The icon of a goal template (boards PocPlanGoals, PocPlanGoalCard). The design-system set (DS-12) has no plane, bag or
+ * laptop yet, so each template takes the closest glyph it has.
+ */
+export const TEMPLATE_ICON: Record<Goal["template"], IconName> = {
+  travel: "map",
+  purchase: "card",
+  emergency: "insurance",
+  custom: "target",
+};

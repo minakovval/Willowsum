@@ -23,7 +23,7 @@ export function GoalLinks({ goal, accounts }: { goal: Goal; accounts: ReadonlyMa
   const hasStart = new Decimal(start.amount).gt(0);
   return (
     <>
-      <section className="ws-card goal-links" aria-labelledby="goal-where">
+      <section className="goal-links" aria-labelledby="goal-where">
         <h3 id="goal-where" className="ws-text-label ws-muted">
           {t("planning.goals.links.title")}
         </h3>
@@ -57,7 +57,7 @@ export function GoalLinks({ goal, accounts }: { goal: Goal; accounts: ReadonlyMa
           ) : null}
         </dl>
       </section>
-      <section className="ws-card goal-links" aria-labelledby="goal-history">
+      <section className="goal-links" aria-labelledby="goal-history">
         <h3 id="goal-history" className="ws-text-label ws-muted">
           {t("planning.goals.history.title")}
         </h3>

@@ -1,5 +1,6 @@
 import { formatDate, formatMoney, formatNumber, useI18n } from "@willowsum/i18n";
-import { barPercent, goalColor, type Goal } from "./model.ts";
+import { Icon } from "@willowsum/ui";
+import { barPercent, goalColor, TEMPLATE_ICON, type Goal } from "./model.ts";
 
 /**
  * S-136 list of goals (BUD-05@PoC FR 1, FR 4; canvas PocPlanGoals): a row of a goal is its name, «зібрано з ціль · до
@@ -33,23 +34,28 @@ export function GoalList({
                 onSelect(g.id);
               }}
             >
-              <span className="goal-row-head">
-                <b>{g.name}</b>
-                {g.achieved ? <span className="goal-achieved">{t("planning.goals.achieved")}</span> : null}
+              <span className="goal-row-icon" aria-hidden="true">
+                <Icon name={TEMPLATE_ICON[g.template]} size={20} />
               </span>
-              <span className="ws-muted goal-row-sub">
-                {g.targetDate !== null
-                  ? t("planning.goals.row.due", { of, date: formatDate(locale, g.targetDate) })
-                  : t("planning.goals.row.noDate", { of })}
-              </span>
-              <span className="goal-row-bar">
-                <span className="goal-bar" aria-hidden="true">
-                  <span
-                    className="goal-bar-fill"
-                    style={{ inlineSize: `${percent.toFixed(2)}%`, backgroundColor: goalColor(percent) }}
-                  />
+              <span className="goal-row-body">
+                <span className="goal-row-head">
+                  <b>{g.name}</b>
+                  {g.achieved ? <span className="goal-achieved">{t("planning.goals.achieved")}</span> : null}
                 </span>
-                <span>{formatNumber(locale, g.progressPercent)} %</span>
+                <span className="ws-muted goal-row-sub">
+                  {g.targetDate !== null
+                    ? t("planning.goals.row.due", { of, date: formatDate(locale, g.targetDate) })
+                    : t("planning.goals.row.noDate", { of })}
+                </span>
+                <span className="goal-row-bar">
+                  <span className="goal-bar" aria-hidden="true">
+                    <span
+                      className="goal-bar-fill"
+                      style={{ inlineSize: `${percent.toFixed(2)}%`, backgroundColor: goalColor(percent) }}
+                    />
+                  </span>
+                  <span>{formatNumber(locale, g.progressPercent)} %</span>
+                </span>
               </span>
             </a>
           </li>

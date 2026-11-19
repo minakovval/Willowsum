@@ -67,6 +67,8 @@ export function ContributeButton({
     <span className="ws-popover-host" ref={anchor}>
       <Button
         label={t("planning.goals.contribute")}
+        // eslint-disable-next-line no-restricted-syntax -- «plus» is the icon name, not a plan
+        icon="plus"
         variant={quiet ? "secondary" : "primary"}
         onClick={() => (open ? close() : setOpen(true))}
       />
