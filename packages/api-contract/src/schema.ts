@@ -312,6 +312,40 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/budget/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Порівняння»: spending and income by category against a base and against the plan (BUD-06 FR 1–FR 6; facts only) */
+        get: operations["getBudgetCompare"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/budget/compare/year": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** «Рік: план і факт»: categories × 12 months, the fact and «± до плану» (BUD-06 FR 11; facts only) */
+        get: operations["getBudgetCompareYear"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/budget/periods/{period}": {
         parameters: {
             query?: never;
@@ -5609,6 +5643,737 @@ export interface operations {
                 };
             };
             /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetCompare: {
+        parameters: {
+            query: {
+                /** @description Default — previous (month, quarter) or last-year (year, ytd); year and ytd take last-year only */
+                base?: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
+                /** @description «Повний попередній період»: the base whole, not cut at the same date */
+                full?: "true" | "false";
+                /** @description month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default) */
+                period?: string;
+                type: "month" | "quarter" | "ytd" | "year";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The table of categories */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            unavailableCount: number;
+                        };
+                        base: {
+                            available: boolean;
+                            /** @enum {string} */
+                            base: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
+                            full: boolean;
+                            months: number | null;
+                            window: {
+                                from: string;
+                                to: string;
+                            } | null;
+                        };
+                        bases: {
+                            available: boolean;
+                            /** @enum {string} */
+                            base: "previous" | "last-year" | "avg3" | "avg6" | "avg12";
+                            months: number | null;
+                            /** @description Why not available: no_history — no data in the base's dates («імпортуйте старі виписки», FR 5); no_finished_periods — no whole finished period for an average */
+                            reason: ("no_history" | "no_finished_periods") | null;
+                        }[];
+                        currency: string;
+                        expenses: {
+                            categories: {
+                                /** @description Null — the base is not available */
+                                base: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                categoryId: string | null;
+                                current: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                planDifference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description How many transactions (split parts) made the amounts; an average's — rounded to whole ones */
+                                transactions: {
+                                    base: number | null;
+                                    current: number;
+                                };
+                            }[];
+                            overall: {
+                                /** @description Null — the base is not available */
+                                base: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                categoryId: string | null;
+                                current: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                planDifference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description How many transactions (split parts) made the amounts; an average's — rounded to whole ones */
+                                transactions: {
+                                    base: number | null;
+                                    current: number;
+                                };
+                            };
+                        };
+                        finished: boolean;
+                        finishedPeriods: number;
+                        income: {
+                            categories: {
+                                /** @description Null — the base is not available */
+                                base: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                categoryId: string | null;
+                                current: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                planDifference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description How many transactions (split parts) made the amounts; an average's — rounded to whole ones */
+                                transactions: {
+                                    base: number | null;
+                                    current: number;
+                                };
+                            }[];
+                            overall: {
+                                /** @description Null — the base is not available */
+                                base: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                categoryId: string | null;
+                                current: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                planDifference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description How many transactions (split parts) made the amounts; an average's — rounded to whole ones */
+                                transactions: {
+                                    base: number | null;
+                                    current: number;
+                                };
+                            };
+                        };
+                        inProgress: boolean;
+                        largest: {
+                            categoryId: string | null;
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            transactions: {
+                                base: number | null;
+                                current: number;
+                            };
+                        }[];
+                        /** @enum {string} */
+                        type: "month" | "quarter" | "ytd" | "year";
+                        window: {
+                            from: string;
+                            to: string;
+                        };
+                        year: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getBudgetCompareYear: {
+        parameters: {
+            query: {
+                /** @description A calendar year, YYYY (the compare answer's `year`) */
+                year: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The year */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            unavailableCount: number;
+                        };
+                        currency: string;
+                        expenses: {
+                            cells: {
+                                /** @description «± до плану»; null without a fact or a plan */
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description Null — a future month: the plan only (grey) */
+                                fact: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** @description The month's plan; null — before the budget or no limit («–») */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            }[];
+                            difference: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /**
+                                 * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                 * @enum {string}
+                                 */
+                                direction: "up" | "down" | "none";
+                                /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                percent: string | null;
+                                /**
+                                 * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                 * @enum {string}
+                                 */
+                                tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                            } | null;
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            total: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        groups: {
+                            categories: {
+                                categoryId: string | null;
+                                cells: {
+                                    /** @description «± до плану»; null without a fact or a plan */
+                                    difference: {
+                                        amount: {
+                                            amount: string;
+                                            currency: string;
+                                        };
+                                        /**
+                                         * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                         * @enum {string}
+                                         */
+                                        direction: "up" | "down" | "none";
+                                        /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                        percent: string | null;
+                                        /**
+                                         * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                         * @enum {string}
+                                         */
+                                        tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                    } | null;
+                                    /** @description Null — a future month: the plan only (grey) */
+                                    fact: {
+                                        amount: string;
+                                        currency: string;
+                                    } | null;
+                                    /** @description The month's plan; null — before the budget or no limit («–») */
+                                    plan: {
+                                        amount: string;
+                                        currency: string;
+                                    } | null;
+                                }[];
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                total: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                            }[];
+                            cells: {
+                                /** @description «± до плану»; null without a fact or a plan */
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description Null — a future month: the plan only (grey) */
+                                fact: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** @description The month's plan; null — before the budget or no limit («–») */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            }[];
+                            difference: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /**
+                                 * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                 * @enum {string}
+                                 */
+                                direction: "up" | "down" | "none";
+                                /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                percent: string | null;
+                                /**
+                                 * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                 * @enum {string}
+                                 */
+                                tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                            } | null;
+                            groupId: string | null;
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            total: {
+                                amount: string;
+                                currency: string;
+                            };
+                        }[];
+                        income: {
+                            cells: {
+                                /** @description «± до плану»; null without a fact or a plan */
+                                difference: {
+                                    amount: {
+                                        amount: string;
+                                        currency: string;
+                                    };
+                                    /**
+                                     * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                     * @enum {string}
+                                     */
+                                    direction: "up" | "down" | "none";
+                                    /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                    percent: string | null;
+                                    /**
+                                     * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                     * @enum {string}
+                                     */
+                                    tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                                } | null;
+                                /** @description Null — a future month: the plan only (grey) */
+                                fact: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                                /** @description The month's plan; null — before the budget or no limit («–») */
+                                plan: {
+                                    amount: string;
+                                    currency: string;
+                                } | null;
+                            }[];
+                            difference: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                /**
+                                 * @description «▲» / «▼»; none — «без змін» (blue «—»)
+                                 * @enum {string}
+                                 */
+                                direction: "up" | "down" | "none";
+                                /** @description Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7) */
+                                percent: string | null;
+                                /**
+                                 * @description Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»
+                                 * @enum {string}
+                                 */
+                                tone: "gain" | "gain-soft" | "loss" | "loss-soft" | "none";
+                            } | null;
+                            plan: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            total: {
+                                amount: string;
+                                currency: string;
+                            };
+                        };
+                        months: {
+                            /** @enum {string} */
+                            mode: "past" | "current" | "future";
+                            period: string;
+                        }[];
+                        year: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -13456,7 +14221,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.cashflow" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.trend" | "budget.compare" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };

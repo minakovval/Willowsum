@@ -53,61 +53,94 @@ export function budgetReads(options: {
     accounts: async (householdId) => [...(await options.accounts.accounts(householdId))],
     async amounts(householdId, accountIds, period, currency, since) {
       const { from, to } = periodDays(period);
-      // FR 14: a proportional first period counts from its first day; a share «На кілька місяців» is the whole month's.
-      const rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
-        (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
-      );
-      const own = await options.categorization.categoriesOf(
-        householdId,
-        rows.filter((r) => r.parts === null).map((r) => r.id),
-      );
-      const counted: { categoryId: string | null; amount: CountedAmount["amount"]; date: string }[] = [];
-      for (const r of rows) {
-        if (r.parts === null)
-          counted.push({ categoryId: own.get(r.id) ?? null, amount: r.amount, date: r.date });
-        else
-          for (const p of r.parts)
-            // A share «На кілька місяців» counts in its month; a part of a split by categories on the date.
-            if (
-              periodOf(p.month ?? r.date) === period &&
-              (p.month !== null || since === undefined || r.date >= since)
-            )
-              counted.push({ categoryId: p.categoryId, amount: p.amount, date: r.date });
-      }
-      // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
-      const inRange = counted.filter((c) => !overBudgetCap(c.amount));
-      const allLeftOut = { amounts: [], nearestRateCount: 0, unavailableCount: counted.length };
-      let total: Awaited<ReturnType<typeof options.fx.total>>;
-      try {
-        total = await options.fx.total(
-          inRange.map((c) => ({ amount: c.amount, date: c.date })),
-          currency,
-        );
-      } catch (error) {
-        // The rates' reader adds the converted amounts up itself: past the money type, no figure, never a 500 (#573).
-        if (error instanceof AmountOutOfRangeError) return allLeftOut;
-        throw error;
-      }
-      const amounts: CountedAmount[] = [];
-      let leftOut = counted.length - inRange.length + total.unavailableCount;
-      let nearest = total.nearestRateCount;
-      let absolute = new Decimal("0");
-      total.items.forEach((item, i) => {
-        if (item.kind === "rate-unavailable") return;
-        if (overBudgetCap(item.value)) {
-          leftOut += 1;
-          // Every amount here has its date: «приблизно» is the nearest rate only.
-          if (item.kind === "converted" && item.conversion.approximate) nearest -= 1;
-          return;
-        }
-        absolute = absolute.plus(item.value.amount.abs());
-        amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value });
-      });
-      // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
-      if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;
-      return { amounts, nearestRateCount: nearest, unavailableCount: leftOut };
+      return counted(householdId, accountIds, from, to, currency, since);
     },
+    window: (householdId, accountIds, from, to, currency) =>
+      counted(householdId, accountIds, from, to, currency),
+    historyStart: (householdId, accountIds) => options.transactions.firstDate(householdId, accountIds),
   };
+
+  /**
+   * The amounts of the dates `from`–`to` (a month, or BUD-06's window of months): a share «На кілька місяців» counts in
+   * its month when the 1st of it is in the dates, every other amount by its date. FR 14: a proportional first period
+   * counts from `since` (a share — the whole month's).
+   */
+  async function counted(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+    currency: string,
+    since?: string,
+  ) {
+    const rows = (await options.transactions.inPeriod(householdId, accountIds, from, to)).filter(
+      (r) => since === undefined || r.date >= since || r.parts?.some((p) => p.month !== null),
+    );
+    const own = await options.categorization.categoriesOf(
+      householdId,
+      rows.filter((r) => r.parts === null).map((r) => r.id),
+    );
+    const counted: {
+      categoryId: string | null;
+      amount: CountedAmount["amount"];
+      date: string;
+      period: string;
+    }[] = [];
+    const inDates = (date: string) => date >= from && date <= to;
+    for (const r of rows) {
+      if (r.parts === null)
+        counted.push({
+          categoryId: own.get(r.id) ?? null,
+          amount: r.amount,
+          date: r.date,
+          period: periodOf(r.date),
+        });
+      else
+        for (const p of r.parts)
+          // A share «На кілька місяців» counts in its month; a part of a split by categories on the date.
+          if (
+            p.month !== null ? inDates(p.month) : inDates(r.date) && (since === undefined || r.date >= since)
+          )
+            counted.push({
+              categoryId: p.categoryId,
+              amount: p.amount,
+              date: r.date,
+              period: periodOf(p.month ?? r.date),
+            });
+    }
+    // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
+    const inRange = counted.filter((c) => !overBudgetCap(c.amount));
+    const allLeftOut = { amounts: [], nearestRateCount: 0, unavailableCount: counted.length };
+    let total: Awaited<ReturnType<typeof options.fx.total>>;
+    try {
+      total = await options.fx.total(
+        inRange.map((c) => ({ amount: c.amount, date: c.date })),
+        currency,
+      );
+    } catch (error) {
+      // The rates' reader adds the converted amounts up itself: past the money type, no figure, never a 500 (#573).
+      if (error instanceof AmountOutOfRangeError) return allLeftOut;
+      throw error;
+    }
+    const amounts: (CountedAmount & { period: string })[] = [];
+    let leftOut = counted.length - inRange.length + total.unavailableCount;
+    let nearest = total.nearestRateCount;
+    let absolute = new Decimal("0");
+    total.items.forEach((item, i) => {
+      if (item.kind === "rate-unavailable") return;
+      if (overBudgetCap(item.value)) {
+        leftOut += 1;
+        // Every amount here has its date: «приблизно» is the nearest rate only.
+        if (item.kind === "converted" && item.conversion.approximate) nearest -= 1;
+        return;
+      }
+      absolute = absolute.plus(item.value.amount.abs());
+      amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value, period: inRange[i]!.period });
+    });
+    // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
+    if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;
+    return { amounts, nearestRateCount: nearest, unavailableCount: leftOut };
+  }
 }
 
 /** The budget's entries in the space's own log (BUD-02 «Права доступу», П-10): who, when, each field before and after. */

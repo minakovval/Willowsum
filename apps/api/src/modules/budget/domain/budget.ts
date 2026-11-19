@@ -152,12 +152,52 @@ function resolve(categories: ReadonlyMap<string, BudgetCategory>, id: string | n
   return c && c.state !== "retired" ? c : null;
 }
 
+/** What one category adds up to: the amount and how many amounts (transactions or split parts) made it. */
+export interface Tally {
+  readonly amount: Money;
+  readonly count: number;
+}
+
+/** The counted amounts by category: spending of expense categories (null — «Без категорії») and income by category. */
+export interface CategoryTotals {
+  readonly spent: ReadonlyMap<string | null, Tally>;
+  readonly income: ReadonlyMap<string, Tally>;
+}
+
 /**
- * FR 9, FR 12, AC5, edge case 4: what the period shows. Spending of an expense category is its outflows less its
- * refunds; income — the inflows of income categories less their outflows; service categories («Переказ»,
- * «Коригування») are neither. A category without a limit with spending is in «Поза планом», which lowers «Можна
- * витратити» too; an uncategorized outflow is spending «Без категорії» there, an uncategorized inflow is not income
- * (lead decision). `amounts` null — a future month: the plan only.
+ * FR 12, edge case 4: spending of an expense category is its outflows less its refunds; income — the inflows of income
+ * categories less their outflows; service categories («Переказ», «Коригування») are neither. An uncategorized outflow
+ * is spending «Без категорії», an uncategorized inflow is not income (lead decision). A merged category counts in the
+ * one it went to (BUD-01 FR 8). The one tally of the period (`periodFigures`) and of «Порівняння» (BUD-06).
+ */
+export function categoryTotals(
+  categories: ReadonlyMap<string, BudgetCategory>,
+  amounts: readonly CountedAmount[],
+  currency: string,
+): CategoryTotals {
+  const zero = Money.zero(currency);
+  const spent = new Map<string | null, Tally>();
+  const income = new Map<string, Tally>();
+  const add = <K>(map: Map<K, Tally>, key: K, amount: Money) => {
+    const t = map.get(key);
+    map.set(key, { amount: (t?.amount ?? zero).plus(amount), count: (t?.count ?? 0) + 1 });
+  };
+  for (const a of amounts) {
+    const c = resolve(categories, a.categoryId);
+    if (c?.kind === "service") continue;
+    if (c?.kind === "income") add(income, c.id, a.amount);
+    else if (c || a.amount.isNegative()) add(spent, c ? c.id : null, a.amount.negated());
+  }
+  return { spent, income };
+}
+
+/** The sum of a plan's limits: «План місяця» (BUD-16 FR 4) and the period's total of limits (FR 9) — one sum. */
+export const limitsTotal = (plan: PeriodPlan, currency: string): Money =>
+  plan.limits.reduce((t, l) => t.plus(l.amount), Money.zero(currency));
+
+/**
+ * FR 9, FR 12, AC5, edge case 4: what the period shows (the tally — `categoryTotals`). A category without a limit with
+ * spending is in «Поза планом», which lowers «Можна витратити» too. `amounts` null — a future month: the plan only.
  */
 export function periodFigures(
   plan: PeriodPlan,
@@ -166,17 +206,9 @@ export function periodFigures(
 ): PeriodFigures {
   const currency = plan.incomePlan.currency;
   const zero = Money.zero(currency);
-  const spent = new Map<string | null, Money>();
-  let income = zero;
-  for (const a of amounts ?? []) {
-    const c = resolve(categories, a.categoryId);
-    if (c?.kind === "service") continue;
-    if (c?.kind === "income") income = income.plus(a.amount);
-    else if (c || a.amount.isNegative()) {
-      const key = c ? c.id : null;
-      spent.set(key, (spent.get(key) ?? zero).minus(a.amount));
-    }
-  }
+  const totals = categoryTotals(categories, amounts ?? [], currency);
+  const spent = new Map([...totals.spent].map(([k, t]) => [k, t.amount]));
+  const income = [...totals.income.values()].reduce((t, x) => t.plus(x.amount), zero);
   const limited = new Set(plan.limits.map((l) => l.categoryId));
   const lines = plan.limits.map((l): LimitLine => {
     const s = amounts === null ? null : (spent.get(l.categoryId) ?? zero);
@@ -197,7 +229,7 @@ export function periodFigures(
     lines,
     outsidePlan,
     totals: {
-      limits: sum(plan.limits.map((l) => l.amount)),
+      limits: limitsTotal(plan, currency),
       spent: amounts === null ? null : sum(lines.map((l) => l.spent!)),
       outsidePlan: amounts === null ? null : sum(outsidePlan.map((o) => o.spent)),
       incomeActual: amounts === null ? null : income,

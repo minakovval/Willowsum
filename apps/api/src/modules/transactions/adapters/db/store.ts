@@ -705,6 +705,26 @@ export async function budgetRows(
 }
 
 /**
+ * BUD-06@PoC FR 4, FR 5: the date of the first transaction the budget counts on these accounts (as `budgetRows`: shown,
+ * no merged duplicate, no side of a transfer) — where the space's history starts; null — none.
+ */
+export async function budgetFirstDate(
+  q: ModuleQueryRunner,
+  householdId: string,
+  accountIds: readonly string[],
+): Promise<string | null> {
+  if (accountIds.length === 0) return null;
+  const { rows } = await q.query<{ first: string | null }>(
+    `SELECT to_char(min(t.occurred_on), 'YYYY-MM-DD') AS first
+       FROM transactions t
+      WHERE t.household_id = $1 AND t.account_id = ANY($2::uuid[]) AND NOT t.hidden AND t.merged_into IS NULL
+        AND t.transfer_id IS NULL`,
+    [householdId, [...accountIds]],
+  );
+  return rows[0]?.first ?? null;
+}
+
+/**
  * BUD-03@PoC FR 5 «Платіж місяця вважається сплаченим, коли в місяці є перший платіж на цей рахунок»: which of these
  * accounts got money in the dates — a shown transaction with a positive amount, a side of a transfer too (a loan is
  * mostly paid by a transfer from an own account); merged duplicates are not counted.

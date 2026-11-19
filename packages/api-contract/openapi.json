@@ -10020,6 +10020,2620 @@
         }
       }
     },
+    "/v1/budget/compare": {
+      "get": {
+        "operationId": "getBudgetCompare",
+        "summary": "«Порівняння»: spending and income by category against a base and against the plan (BUD-06 FR 1–FR 6; facts only)",
+        "tags": [
+          "budget"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "budget.compare",
+          "flags": [
+            "budget.compare"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "month",
+                "quarter",
+                "ytd",
+                "year"
+              ]
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
+            "schema": {
+              "type": "string",
+              "maxLength": 7
+            }
+          },
+          {
+            "name": "base",
+            "in": "query",
+            "required": false,
+            "description": "Default — previous (month, quarter) or last-year (year, ytd); year and ytd take last-year only",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "previous",
+                "last-year",
+                "avg3",
+                "avg6",
+                "avg12"
+              ]
+            }
+          },
+          {
+            "name": "full",
+            "in": "query",
+            "required": false,
+            "description": "«Повний попередній період»: the base whole, not cut at the same date",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The table of categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "month",
+                        "quarter",
+                        "ytd",
+                        "year"
+                      ]
+                    },
+                    "window": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string"
+                        },
+                        "to": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "from",
+                        "to"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "inProgress": {
+                      "type": "boolean"
+                    },
+                    "finished": {
+                      "type": "boolean"
+                    },
+                    "year": {
+                      "type": "string"
+                    },
+                    "finishedPeriods": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "bases": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "base": {
+                            "type": "string",
+                            "enum": [
+                              "previous",
+                              "last-year",
+                              "avg3",
+                              "avg6",
+                              "avg12"
+                            ]
+                          },
+                          "available": {
+                            "type": "boolean"
+                          },
+                          "reason": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "no_history",
+                                  "no_finished_periods"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ],
+                            "description": "Why not available: no_history — no data in the base's dates («імпортуйте старі виписки», FR 5); no_finished_periods — no whole finished period for an average"
+                          },
+                          "months": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "base",
+                          "available",
+                          "reason",
+                          "months"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "base": {
+                      "type": "object",
+                      "properties": {
+                        "base": {
+                          "type": "string",
+                          "enum": [
+                            "previous",
+                            "last-year",
+                            "avg3",
+                            "avg6",
+                            "avg12"
+                          ]
+                        },
+                        "available": {
+                          "type": "boolean"
+                        },
+                        "window": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "from": {
+                                  "type": "string"
+                                },
+                                "to": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "from",
+                                "to"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "months": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "full": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "base",
+                        "available",
+                        "window",
+                        "months",
+                        "full"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "expenses": {
+                      "type": "object",
+                      "properties": {
+                        "overall": {
+                          "type": "object",
+                          "properties": {
+                            "categoryId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "current": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
+                            },
+                            "planDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "percent": {
+                                      "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "direction": {
+                                      "type": "string",
+                                      "enum": [
+                                        "up",
+                                        "down",
+                                        "none"
+                                      ],
+                                      "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                    },
+                                    "tone": {
+                                      "type": "string",
+                                      "enum": [
+                                        "gain",
+                                        "gain-soft",
+                                        "loss",
+                                        "loss-soft",
+                                        "none"
+                                      ],
+                                      "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "percent",
+                                    "direction",
+                                    "tone"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "base": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Null — the base is not available"
+                            },
+                            "difference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "percent": {
+                                      "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "direction": {
+                                      "type": "string",
+                                      "enum": [
+                                        "up",
+                                        "down",
+                                        "none"
+                                      ],
+                                      "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                    },
+                                    "tone": {
+                                      "type": "string",
+                                      "enum": [
+                                        "gain",
+                                        "gain-soft",
+                                        "loss",
+                                        "loss-soft",
+                                        "none"
+                                      ],
+                                      "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "percent",
+                                    "direction",
+                                    "tone"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "transactions": {
+                              "type": "object",
+                              "properties": {
+                                "current": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "base": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "current",
+                                "base"
+                              ],
+                              "additionalProperties": false,
+                              "description": "How many transactions (split parts) made the amounts; an average's — rounded to whole ones"
+                            }
+                          },
+                          "required": [
+                            "categoryId",
+                            "current",
+                            "plan",
+                            "planDifference",
+                            "base",
+                            "difference",
+                            "transactions"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "categoryId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "current": {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "plan": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
+                              },
+                              "planDifference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "base": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Null — the base is not available"
+                              },
+                              "difference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "transactions": {
+                                "type": "object",
+                                "properties": {
+                                  "current": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "base": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "current",
+                                  "base"
+                                ],
+                                "additionalProperties": false,
+                                "description": "How many transactions (split parts) made the amounts; an average's — rounded to whole ones"
+                              }
+                            },
+                            "required": [
+                              "categoryId",
+                              "current",
+                              "plan",
+                              "planDifference",
+                              "base",
+                              "difference",
+                              "transactions"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "overall",
+                        "categories"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "income": {
+                      "type": "object",
+                      "properties": {
+                        "overall": {
+                          "type": "object",
+                          "properties": {
+                            "categoryId": {
+                              "anyOf": [
+                                {
+                                  "type": "string",
+                                  "format": "uuid",
+                                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "current": {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "plan": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
+                            },
+                            "planDifference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "percent": {
+                                      "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "direction": {
+                                      "type": "string",
+                                      "enum": [
+                                        "up",
+                                        "down",
+                                        "none"
+                                      ],
+                                      "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                    },
+                                    "tone": {
+                                      "type": "string",
+                                      "enum": [
+                                        "gain",
+                                        "gain-soft",
+                                        "loss",
+                                        "loss-soft",
+                                        "none"
+                                      ],
+                                      "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "percent",
+                                    "direction",
+                                    "tone"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "base": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ],
+                              "description": "Null — the base is not available"
+                            },
+                            "difference": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    "percent": {
+                                      "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                      "type": [
+                                        "string",
+                                        "null"
+                                      ]
+                                    },
+                                    "direction": {
+                                      "type": "string",
+                                      "enum": [
+                                        "up",
+                                        "down",
+                                        "none"
+                                      ],
+                                      "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                    },
+                                    "tone": {
+                                      "type": "string",
+                                      "enum": [
+                                        "gain",
+                                        "gain-soft",
+                                        "loss",
+                                        "loss-soft",
+                                        "none"
+                                      ],
+                                      "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "percent",
+                                    "direction",
+                                    "tone"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "transactions": {
+                              "type": "object",
+                              "properties": {
+                                "current": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "base": {
+                                  "anyOf": [
+                                    {
+                                      "type": "integer",
+                                      "minimum": -9007199254740991,
+                                      "maximum": 9007199254740991
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "current",
+                                "base"
+                              ],
+                              "additionalProperties": false,
+                              "description": "How many transactions (split parts) made the amounts; an average's — rounded to whole ones"
+                            }
+                          },
+                          "required": [
+                            "categoryId",
+                            "current",
+                            "plan",
+                            "planDifference",
+                            "base",
+                            "difference",
+                            "transactions"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "categories": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "categoryId": {
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "current": {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              "plan": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The limits of the period's months by their snapshots; null — «Поза планом» («–») or before the budget"
+                              },
+                              "planDifference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "base": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Null — the base is not available"
+                              },
+                              "difference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "transactions": {
+                                "type": "object",
+                                "properties": {
+                                  "current": {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "base": {
+                                    "anyOf": [
+                                      {
+                                        "type": "integer",
+                                        "minimum": -9007199254740991,
+                                        "maximum": 9007199254740991
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "current",
+                                  "base"
+                                ],
+                                "additionalProperties": false,
+                                "description": "How many transactions (split parts) made the amounts; an average's — rounded to whole ones"
+                              }
+                            },
+                            "required": [
+                              "categoryId",
+                              "current",
+                              "plan",
+                              "planDifference",
+                              "base",
+                              "difference",
+                              "transactions"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "overall",
+                        "categories"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "largest": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "categoryId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "difference": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "transactions": {
+                            "type": "object",
+                            "properties": {
+                              "current": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "base": {
+                                "anyOf": [
+                                  {
+                                    "type": "integer",
+                                    "minimum": -9007199254740991,
+                                    "maximum": 9007199254740991
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "current",
+                              "base"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "required": [
+                          "categoryId",
+                          "difference",
+                          "transactions"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "approximate": {
+                      "type": "object",
+                      "properties": {
+                        "nearestRateCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "unavailableCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "nearestRateCount",
+                        "unavailableCount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "type",
+                    "window",
+                    "inProgress",
+                    "finished",
+                    "year",
+                    "finishedPeriods",
+                    "bases",
+                    "base",
+                    "expenses",
+                    "income",
+                    "largest",
+                    "approximate"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/budget/compare/year": {
+      "get": {
+        "operationId": "getBudgetCompareYear",
+        "summary": "«Рік: план і факт»: categories × 12 months, the fact and «± до плану» (BUD-06 FR 11; facts only)",
+        "tags": [
+          "budget"
+        ],
+        "x-willowsum-access": {
+          "permission": "household.data.read",
+          "feature": "budget.compare",
+          "flags": [
+            "budget.compare"
+          ]
+        },
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "description": "A calendar year, YYYY (the compare answer's `year`)",
+            "schema": {
+              "type": "string",
+              "maxLength": 4
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The year",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "currency": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": "string"
+                    },
+                    "months": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "period": {
+                            "type": "string"
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "past",
+                              "current",
+                              "future"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "period",
+                          "mode"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "income": {
+                      "type": "object",
+                      "properties": {
+                        "cells": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "fact": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Null — a future month: the plan only (grey)"
+                              },
+                              "plan": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The month's plan; null — before the budget or no limit («–»)"
+                              },
+                              "difference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "«± до плану»; null without a fact or a plan"
+                              }
+                            },
+                            "required": [
+                              "fact",
+                              "plan",
+                              "difference"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "plan": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "difference": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "percent": {
+                                  "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "direction": {
+                                  "type": "string",
+                                  "enum": [
+                                    "up",
+                                    "down",
+                                    "none"
+                                  ],
+                                  "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                },
+                                "tone": {
+                                  "type": "string",
+                                  "enum": [
+                                    "gain",
+                                    "gain-soft",
+                                    "loss",
+                                    "loss-soft",
+                                    "none"
+                                  ],
+                                  "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "percent",
+                                "direction",
+                                "tone"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "cells",
+                        "total",
+                        "plan",
+                        "difference"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "cells": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "fact": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "Null — a future month: the plan only (grey)"
+                                },
+                                "plan": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "The month's plan; null — before the budget or no limit («–»)"
+                                },
+                                "difference": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "percent": {
+                                          "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "direction": {
+                                          "type": "string",
+                                          "enum": [
+                                            "up",
+                                            "down",
+                                            "none"
+                                          ],
+                                          "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                        },
+                                        "tone": {
+                                          "type": "string",
+                                          "enum": [
+                                            "gain",
+                                            "gain-soft",
+                                            "loss",
+                                            "loss-soft",
+                                            "none"
+                                          ],
+                                          "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "percent",
+                                        "direction",
+                                        "tone"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ],
+                                  "description": "«± до плану»; null without a fact or a plan"
+                                }
+                              },
+                              "required": [
+                                "fact",
+                                "plan",
+                                "difference"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "total": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "plan": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "difference": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "percent": {
+                                    "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                    "type": [
+                                      "string",
+                                      "null"
+                                    ]
+                                  },
+                                  "direction": {
+                                    "type": "string",
+                                    "enum": [
+                                      "up",
+                                      "down",
+                                      "none"
+                                    ],
+                                    "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                  },
+                                  "tone": {
+                                    "type": "string",
+                                    "enum": [
+                                      "gain",
+                                      "gain-soft",
+                                      "loss",
+                                      "loss-soft",
+                                      "none"
+                                    ],
+                                    "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "percent",
+                                  "direction",
+                                  "tone"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "groupId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "categories": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "cells": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "fact": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "amount": {
+                                                "type": "string"
+                                              },
+                                              "currency": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "amount",
+                                              "currency"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "Null — a future month: the plan only (grey)"
+                                      },
+                                      "plan": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "amount": {
+                                                "type": "string"
+                                              },
+                                              "currency": {
+                                                "type": "string"
+                                              }
+                                            },
+                                            "required": [
+                                              "amount",
+                                              "currency"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "The month's plan; null — before the budget or no limit («–»)"
+                                      },
+                                      "difference": {
+                                        "anyOf": [
+                                          {
+                                            "type": "object",
+                                            "properties": {
+                                              "amount": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "amount": {
+                                                    "type": "string"
+                                                  },
+                                                  "currency": {
+                                                    "type": "string"
+                                                  }
+                                                },
+                                                "required": [
+                                                  "amount",
+                                                  "currency"
+                                                ],
+                                                "additionalProperties": false
+                                              },
+                                              "percent": {
+                                                "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                                "type": [
+                                                  "string",
+                                                  "null"
+                                                ]
+                                              },
+                                              "direction": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "up",
+                                                  "down",
+                                                  "none"
+                                                ],
+                                                "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                              },
+                                              "tone": {
+                                                "type": "string",
+                                                "enum": [
+                                                  "gain",
+                                                  "gain-soft",
+                                                  "loss",
+                                                  "loss-soft",
+                                                  "none"
+                                                ],
+                                                "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                              }
+                                            },
+                                            "required": [
+                                              "amount",
+                                              "percent",
+                                              "direction",
+                                              "tone"
+                                            ],
+                                            "additionalProperties": false
+                                          },
+                                          {
+                                            "type": "null"
+                                          }
+                                        ],
+                                        "description": "«± до плану»; null without a fact or a plan"
+                                      }
+                                    },
+                                    "required": [
+                                      "fact",
+                                      "plan",
+                                      "difference"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "total": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "plan": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "string"
+                                        },
+                                        "currency": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "currency"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "difference": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "amount": {
+                                          "type": "object",
+                                          "properties": {
+                                            "amount": {
+                                              "type": "string"
+                                            },
+                                            "currency": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "amount",
+                                            "currency"
+                                          ],
+                                          "additionalProperties": false
+                                        },
+                                        "percent": {
+                                          "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                          "type": [
+                                            "string",
+                                            "null"
+                                          ]
+                                        },
+                                        "direction": {
+                                          "type": "string",
+                                          "enum": [
+                                            "up",
+                                            "down",
+                                            "none"
+                                          ],
+                                          "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                        },
+                                        "tone": {
+                                          "type": "string",
+                                          "enum": [
+                                            "gain",
+                                            "gain-soft",
+                                            "loss",
+                                            "loss-soft",
+                                            "none"
+                                          ],
+                                          "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                        }
+                                      },
+                                      "required": [
+                                        "amount",
+                                        "percent",
+                                        "direction",
+                                        "tone"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "categoryId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "format": "uuid",
+                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "cells",
+                                "total",
+                                "plan",
+                                "difference",
+                                "categoryId"
+                              ],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": [
+                          "cells",
+                          "total",
+                          "plan",
+                          "difference",
+                          "groupId",
+                          "categories"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "expenses": {
+                      "type": "object",
+                      "properties": {
+                        "cells": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "fact": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "Null — a future month: the plan only (grey)"
+                              },
+                              "plan": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "The month's plan; null — before the budget or no limit («–»)"
+                              },
+                              "difference": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "object",
+                                        "properties": {
+                                          "amount": {
+                                            "type": "string"
+                                          },
+                                          "currency": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "amount",
+                                          "currency"
+                                        ],
+                                        "additionalProperties": false
+                                      },
+                                      "percent": {
+                                        "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                        "type": [
+                                          "string",
+                                          "null"
+                                        ]
+                                      },
+                                      "direction": {
+                                        "type": "string",
+                                        "enum": [
+                                          "up",
+                                          "down",
+                                          "none"
+                                        ],
+                                        "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                      },
+                                      "tone": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gain",
+                                          "gain-soft",
+                                          "loss",
+                                          "loss-soft",
+                                          "none"
+                                        ],
+                                        "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "percent",
+                                      "direction",
+                                      "tone"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ],
+                                "description": "«± до плану»; null without a fact or a plan"
+                              }
+                            },
+                            "required": [
+                              "fact",
+                              "plan",
+                              "difference"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "total": {
+                          "type": "object",
+                          "properties": {
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "amount",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "plan": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "string"
+                                },
+                                "currency": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "currency"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "difference": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "amount": {
+                                  "type": "object",
+                                  "properties": {
+                                    "amount": {
+                                      "type": "string"
+                                    },
+                                    "currency": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "amount",
+                                    "currency"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "percent": {
+                                  "description": "Of the value compared with, unsigned, one decimal; null — it is 0 (the difference in € only, AC7)",
+                                  "type": [
+                                    "string",
+                                    "null"
+                                  ]
+                                },
+                                "direction": {
+                                  "type": "string",
+                                  "enum": [
+                                    "up",
+                                    "down",
+                                    "none"
+                                  ],
+                                  "description": "«▲» / «▼»; none — «без змін» (blue «—»)"
+                                },
+                                "tone": {
+                                  "type": "string",
+                                  "enum": [
+                                    "gain",
+                                    "gain-soft",
+                                    "loss",
+                                    "loss-soft",
+                                    "none"
+                                  ],
+                                  "description": "Better or worse, not the direction: less spending and more income — gain; -soft — up to 10 % inclusive; none — «без змін»"
+                                }
+                              },
+                              "required": [
+                                "amount",
+                                "percent",
+                                "direction",
+                                "tone"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "cells",
+                        "total",
+                        "plan",
+                        "difference"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "approximate": {
+                      "type": "object",
+                      "properties": {
+                        "nearestRateCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "unavailableCount": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "nearestRateCount",
+                        "unavailableCount"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "currency",
+                    "year",
+                    "months",
+                    "income",
+                    "groups",
+                    "expenses",
+                    "approximate"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in (UNAUTHENTICATED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "The plan of the space does not include this (PLAN_LIMIT_REACHED)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The role or scope does not allow this (FORBIDDEN)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route)",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds until the current one-minute window ends",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Any other error, as problem details",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/budget/periods/{period}": {
       "get": {
         "operationId": "getBudgetPeriod",
@@ -27961,6 +30575,7 @@
                           "goals.savings",
                           "budget.period",
                           "budget.trend",
+                          "budget.compare",
                           "budget.cashflow",
                           "data.import",
                           "debts.payoff"
