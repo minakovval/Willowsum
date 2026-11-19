@@ -742,3 +742,42 @@ describe("BUD-02@PoC: deletion, the space's boundary, audit", () => {
       expect(await n(`budget.${table} WHERE household_id = $1`, space.householdId), table).toBe(0);
   });
 });
+
+describe("#586: amounts beyond the money range in «Витрачено»", () => {
+  const big = "-" + "9".repeat(20);
+
+  it("BUD-02@PoC FR 12: two 20-digit expenses in one category — left out of «Витрачено» (counted in `unavailableCount`), never 500; the other amounts still count", async () => {
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("500.00") }] });
+    const acc = await account(space);
+    await spend(space, acc, big, "2026-11-03", "Продукти");
+    await spend(space, acc, big, "2026-11-04", "Продукти");
+    await spend(space, acc, "-45.00", "2026-11-05", "Продукти");
+    const res = await call(space, "GET", "/v1/budget/periods/2026-11");
+    expect(res.statusCode, res.body).toBe(200);
+    const view = res.json();
+    expect(line(view, groceries)).toMatchObject({ spent: eur("45"), remaining: eur("455") });
+    expect(view.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 2 });
+  });
+
+  it("BUD-02@PoC FR 12: a 20-digit GBP expense in a EUR budget — left out before the conversion, never 500; the wizard's history too", async () => {
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await rate("2026-10-03", "GBP", "60");
+    await rate("2026-10-03", "EUR", "50");
+    await rate("2026-11-03", "GBP", "60");
+    await rate("2026-11-03", "EUR", "50");
+    const acc = await account(space, "current", "GBP");
+    await spend(space, acc, big, "2026-10-03", "Продукти", { currency: "GBP" });
+    await spend(space, acc, "-" + "9".repeat(18), "2026-11-03", "Продукти", { currency: "GBP" });
+    await spend(space, acc, "-10.00", "2026-11-03", "Продукти", { currency: "GBP" });
+    const wizard = await call(space, "GET", "/v1/budget/wizard");
+    expect(wizard.statusCode, wizard.body).toBe(200);
+    await createBudget(space, { limits: [{ categoryId: groceries, amount: eur("500.00") }] });
+    const res = await call(space, "GET", "/v1/budget/periods/2026-11");
+    expect(res.statusCode, res.body).toBe(200);
+    expect(line(res.json(), groceries)).toMatchObject({ spent: eur("12"), remaining: eur("488") });
+    expect(res.json().approximate).toEqual({ nearestRateCount: 0, unavailableCount: 1 });
+  });
+});
