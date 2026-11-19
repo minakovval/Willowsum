@@ -14,6 +14,7 @@ import {
   type BudgetIssue,
   type CountedAmount,
   type Period,
+  type PeriodObligations,
   type PeriodPlan,
 } from "../domain/index.ts";
 
@@ -94,6 +95,16 @@ export interface BudgetReads {
   }>;
 }
 
+/**
+ * FR 3, FR 15, FR 16, FR 19: what a month owes outside the limits (modules recurring and debt-payoff), in `currency`:
+ * the regular payments expected in the month — from `from` on for a proportional first period — and the debts' minimum
+ * payments. Not connected yet (follow-up of wave 2 row 31, with BUD-03 row 34): `BudgetDeps.obligations` is null and
+ * every figure that needs it is null — never a sum without it.
+ */
+export interface BudgetObligations {
+  month(householdId: string, period: Period, currency: string, from?: string): Promise<PeriodObligations>;
+}
+
 export interface BudgetDeps {
   readonly newId: () => string;
   /** «Сьогодні» — the Kyiv date. */
@@ -101,6 +112,8 @@ export interface BudgetDeps {
   /** The space's reporting currency (ACC-06): the budget's, fixed when it is created (FR 1). */
   readonly reportingCurrency: string;
   readonly reads: BudgetReads;
+  /** Null until the sources are connected (see `BudgetObligations`). */
+  readonly obligations: BudgetObligations | null;
 }
 
 export interface Caller {
@@ -180,7 +193,7 @@ export interface LimitInput {
 }
 
 /** FR 7: each limit of an active expense category of the space, once, ≥ 0 in the budget's currency. */
-function checkLimits(
+export function checkLimits(
   inputs: readonly LimitInput[],
   categories: ReadonlyMap<string, BudgetCategory>,
   currency: string,

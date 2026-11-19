@@ -3,3 +3,4 @@
 export * from "./budget.ts";
 export * from "./hand-off.ts";
 export * from "./wizard.ts";
+export * from "./allocation.ts";
