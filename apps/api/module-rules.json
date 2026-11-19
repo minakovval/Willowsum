@@ -103,7 +103,7 @@
     },
     "import-sessions": {
       "layer": "subject",
-      "dependsOn": []
+      "dependsOn": ["audit", "file-storage"]
     },
     "ledger": {
       "layer": "subject",

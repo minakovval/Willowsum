@@ -44,6 +44,12 @@ import {
   recurringSubscriptions,
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
+import type { FileStorage } from "./modules/file-storage/index.ts";
+import {
+  createImportSessionsCleanup,
+  createImportSessionsHandOffRecovery,
+  createImportSessionsWorkerQueue,
+} from "./modules/import-sessions/index.ts";
 import {
   createMerchantDirectory,
   createMerchantsRecovery,
@@ -186,6 +192,8 @@ export function schedulerDailyTasks(deps: {
   readonly now?: () => number;
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
   readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
+  /** The stored files (file-storage): with them, the cleanup of unapplied import batches (IMP-01 FR 20). */
+  readonly files?: Pick<FileStorage, "store" | "remove" | "link" | "open">;
 }): DailyTask[] {
   const now = deps.now ?? Date.now;
   const maintenance = createIdentityMaintenance({
@@ -227,6 +235,9 @@ export function schedulerDailyTasks(deps: {
     deps.spaces.spaceIds(),
   );
   const debtPayoffRecovery = createDebtPayoffHandOffRecovery(deps.databases.for("debt-payoff"), () =>
+    deps.spaces.spaceIds(),
+  );
+  const importRecovery = createImportSessionsHandOffRecovery(deps.databases.for("import-sessions"), () =>
     deps.spaces.spaceIds(),
   );
   const merchantsRecovery = createMerchantsRecovery(deps.databases.for("merchants"), () =>
@@ -319,6 +330,15 @@ export function schedulerDailyTasks(deps: {
         if (requeued > 0) logEvent("recurring.hand_off_requeued", "warn", { "ws.module": "recurring" });
       },
     },
+    // The same for the import-sessions queue (ARC-04, ADR-0015, #249): the audit entries of import batches (IMP-01 FR 21).
+    {
+      name: "import-sessions.hand-off-recovery",
+      run: async () => {
+        const requeued = await importRecovery.run();
+        if (requeued > 0)
+          logEvent("import_sessions.hand_off_requeued", "warn", { "ws.module": "import-sessions" });
+      },
+    },
     // ARC-04 retention: dispatched events and finished jobs of every queue (platform/queue/retention.ts). Only the
     // queue's working copies go; the changes they report stay in the modules' own tables.
     {
@@ -331,6 +351,25 @@ export function schedulerDailyTasks(deps: {
         }),
     },
   ];
+  // IMP-01 FR 20, IMP-19 FR 6 (an exception to «no task deletes a space's data» above, which the requirement sets):
+  // unapplied import batches 30 days after their last action go with their originals.
+  if (deps.files)
+    tasks.push({
+      name: "import-sessions.cleanup",
+      run: async () => {
+        const deleted = await createImportSessionsCleanup({
+          db: deps.databases.for("import-sessions"),
+          files: deps.files!,
+          audit: deps.audit,
+          households: () => deps.spaces.spaceIds(),
+          now,
+          newId: randomUUID,
+        }).run();
+        // A count only: never a space, a batch or a file.
+        if (deleted > 0)
+          logEvent("import_sessions.batches_cleaned", "info", { "ws.module": "import-sessions" });
+      },
+    });
   const spaceKeys = deps.spaceKeys;
   if (spaceKeys)
     tasks.push({
@@ -417,6 +456,8 @@ export function workerQueues(
       createBudgetWorkerQueue(databases.for("budget"), audit),
       // BUD-07 a: the audit entries of regular payments and rejected proposals (ADR-0015), and the category merges.
       createRecurringWorkerQueue(databases.for("recurring"), audit),
+      // IMP-01 b: the audit entries of import batches (ADR-0015).
+      createImportSessionsWorkerQueue(databases.for("import-sessions"), audit),
     ],
     subscriptions: [...categorizationSubscriptions, ...goalsSubscriptions, ...recurringSubscriptions],
   };

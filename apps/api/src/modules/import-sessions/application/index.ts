@@ -1,3 +1,4 @@
 // Application layer of import-sessions: use cases, transactions, permission checks (ARC-01 FR 5).
 // Uses ports; adapters are wired in ../index.ts.
-export {};
+export * from "./batches.ts";
+export { applyHandOff, type BatchesAudit } from "./hand-off.ts";

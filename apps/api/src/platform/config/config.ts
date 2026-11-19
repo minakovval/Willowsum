@@ -86,6 +86,23 @@ export interface Config {
    * `alerts.recipient_missing` at error level. Personal data: never logged.
    */
   readonly alerts: { readonly email?: string };
+  /**
+   * Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01): the S3-compatible storage (`WS_S3_ENDPOINT`, `WS_S3_REGION`,
+   * `WS_S3_BUCKET`, `WS_S3_ACCESS_KEY_ID`, `WS_S3_SECRET_ACCESS_KEY` — all or none) and the key of signed links
+   * (`WS_FILE_LINK_KEY`, base64 of ≥ 32 bytes, from the secret store). Both are required for the api and scheduler roles
+   * in staging and production; locally and in CI without them the files stay in the process's memory under a key drawn
+   * at start. Secrets: never logged.
+   */
+  readonly files: {
+    readonly s3?: {
+      readonly endpoint: string;
+      readonly region: string;
+      readonly bucket: string;
+      readonly accessKeyId: string;
+      readonly secretAccessKey: string;
+    };
+    readonly linkKey?: Buffer;
+  };
   readonly database: {
     readonly host: string;
     readonly port: number;
@@ -231,6 +248,28 @@ export function loadConfig(
       .max(254)
       .regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)
       .optional(),
+    WS_S3_ENDPOINT: z
+      .string()
+      .regex(/^https?:\/\/[a-z0-9.-]+(:\d{1,5})?$/i)
+      .optional(),
+    WS_S3_REGION: z
+      .string()
+      .regex(/^[a-z0-9-]{1,32}$/)
+      .optional(),
+    WS_S3_BUCKET: z
+      .string()
+      .regex(/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/)
+      .optional(),
+    WS_S3_ACCESS_KEY_ID: z
+      .string()
+      .regex(/^[\x21-\x7e]{3,128}$/)
+      .optional(),
+    WS_S3_SECRET_ACCESS_KEY: secret.optional(),
+    WS_FILE_LINK_KEY: z
+      .string()
+      .regex(/^[A-Za-z0-9+/]+={0,2}$/)
+      .refine((v) => Buffer.from(v, "base64").length >= 32)
+      .optional(),
     WS_DB_HOST: z.string().min(1),
     WS_DB_PORT: port.default(5432),
     WS_DB_NAME: z.string().regex(/^[a-z_][a-z0-9_]*$/),
@@ -309,6 +348,31 @@ export function loadConfig(
       if (d.WS_MAIL_FROM === undefined) problems.push("WS_MAIL_FROM");
     }
   }
+  if (parsed.success) {
+    // ARC-06 FR 4, NFR-01 FR 4: the S3 settings come all together; a deployed api or scheduler needs them and the key
+    // of signed links (the files of a space never stay in a process's memory there).
+    const d = parsed.data;
+    const s3 = [
+      d.WS_S3_ENDPOINT,
+      d.WS_S3_REGION,
+      d.WS_S3_BUCKET,
+      d.WS_S3_ACCESS_KEY_ID,
+      d.WS_S3_SECRET_ACCESS_KEY,
+    ];
+    const deployedFiles =
+      DEPLOYED_ENVIRONMENTS.has(d.WS_TELEMETRY_ENVIRONMENT) && (role === "api" || role === "scheduler");
+    if (s3.some((v) => v !== undefined) || deployedFiles)
+      for (const [name, value] of [
+        ["WS_S3_ENDPOINT", d.WS_S3_ENDPOINT],
+        ["WS_S3_REGION", d.WS_S3_REGION],
+        ["WS_S3_BUCKET", d.WS_S3_BUCKET],
+        ["WS_S3_ACCESS_KEY_ID", d.WS_S3_ACCESS_KEY_ID],
+        ["WS_S3_SECRET_ACCESS_KEY", d.WS_S3_SECRET_ACCESS_KEY],
+      ] as const)
+        if (value === undefined) problems.push(name);
+    if (deployedFiles && d.WS_FILE_LINK_KEY === undefined) problems.push("WS_FILE_LINK_KEY");
+    if (deployedFiles && d.WS_S3_ENDPOINT?.startsWith("http://")) problems.push("WS_S3_ENDPOINT");
+  }
   if (problems.length > 0 || !parsed.success) throw new ConfigError([...new Set(problems)].sort());
   const v = parsed.data as Record<string, unknown>;
   const telemetryMode = (v["WS_TELEMETRY"] ?? "test") as TelemetryMode;
@@ -359,6 +423,22 @@ export function loadConfig(
         : {}),
     },
     alerts: v["WS_ALERT_EMAIL"] !== undefined ? { email: v["WS_ALERT_EMAIL"] as string } : {},
+    files: {
+      ...(v["WS_S3_ENDPOINT"] !== undefined
+        ? {
+            s3: {
+              endpoint: v["WS_S3_ENDPOINT"] as string,
+              region: v["WS_S3_REGION"] as string,
+              bucket: v["WS_S3_BUCKET"] as string,
+              accessKeyId: v["WS_S3_ACCESS_KEY_ID"] as string,
+              secretAccessKey: v["WS_S3_SECRET_ACCESS_KEY"] as string,
+            },
+          }
+        : {}),
+      ...(v["WS_FILE_LINK_KEY"] !== undefined
+        ? { linkKey: Buffer.from(v["WS_FILE_LINK_KEY"] as string, "base64") }
+        : {}),
+    },
     database: {
       host: v["WS_DB_HOST"] as string,
       port: v["WS_DB_PORT"] as number,

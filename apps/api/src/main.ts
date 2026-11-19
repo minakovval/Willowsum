@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import pg from "pg";
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mountApi } from "./api.ts";
 import {
   createAccountDirectory,
@@ -25,6 +25,8 @@ import {
 } from "./modules/categorization/index.ts";
 import { createFlagRuntimeFor } from "./modules/feature-flags/index.ts";
 import { createDebtPayoffServices } from "./modules/debt-payoff/index.ts";
+import { createFileStorage, linkKey } from "./modules/file-storage/index.ts";
+import { createImportSessionsServices } from "./modules/import-sessions/index.ts";
 import { createGoalsServices } from "./modules/goals/index.ts";
 import { createMerchantDirectory, createMerchantsServices } from "./modules/merchants/index.ts";
 import { createRecurringCategoryUsage, createRecurringServices } from "./modules/recurring/index.ts";
@@ -61,6 +63,11 @@ import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
 import { keyManagement } from "./platform/adapters/kms/index.ts";
+import {
+  ensureBucket,
+  memoryObjectStorage,
+  s3ObjectStorage,
+} from "./platform/adapters/object-storage/index.ts";
 import { mailSender } from "./platform/adapters/mail/index.ts";
 import { ConfigError, loadConfig, type Config } from "./platform/config/config.ts";
 import { CONTEXT_ROLE } from "./platform/db/isolation.ts";
@@ -165,6 +172,22 @@ const audit = createAuditLog(databases.for("audit"));
 // adapter (OCI Vault) is not built yet and fails closed: a deployed process makes no space without a key.
 const kms = keyManagement(config.providerMode, () => ({}), { deployed: config.deployed });
 const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
+
+// Stored files (ARC-06 FR 4, NFR-01 FR 4; IMP-01 b): the S3-compatible storage and the key of signed links from the
+// configuration (required in staging and production); locally and in CI without them, the process's memory and a key
+// drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
+const s3 = config.files.s3;
+if (s3 && !config.deployed && (config.role === "api" || config.role === "scheduler")) await ensureBucket(s3);
+const files =
+  config.role === "api" || config.role === "scheduler"
+    ? createFileStorage({
+        db: databases.for("file-storage"),
+        audit,
+        keys: createSpaceKeys(databases.for("household"), audit, kms),
+        objects: s3 ? s3ObjectStorage(s3) : memoryObjectStorage(),
+        linkKey: linkKey(config.files.linkKey ?? randomBytes(32)),
+      })
+    : undefined;
 
 // Sign-up and sign-in (ACC-01): the provider ports chosen by WS_PROVIDER_MODE (ARC-05). In staging and production
 // the configuration allows only the live adapters (ACC-01 FR 12: no server without CAPTCHA there).
@@ -386,6 +409,17 @@ const server = buildServer({
               clock: systemClock,
               newId: randomUUID,
             }),
+            // IMP-01 b: import batches; each original is stored by file-storage (type by content, the space's key).
+            ...(files
+              ? {
+                  importSessions: createImportSessionsServices({
+                    files,
+                    audit,
+                    clock: systemClock,
+                    newId: randomUUID,
+                  }),
+                }
+              : {}),
             deployed: config.deployed,
           }),
       }
@@ -443,6 +477,8 @@ if (config.role === "scheduler") {
       spaces,
       // ARC-06 FR 3: the keys of spaces follow a master key rotation in the background.
       spaceKeys: createSpaceKeys(databases.for("household"), audit, kms),
+      // IMP-01 FR 20: unapplied import batches go with their originals after 30 days.
+      ...(files ? { files } : {}),
       ...(alertMail ? { alertMail } : {}),
     }),
   );
