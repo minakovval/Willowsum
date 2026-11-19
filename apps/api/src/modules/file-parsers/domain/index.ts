@@ -2,7 +2,7 @@
 // @willowsum/domain-kernel, zod, decimal.js.
 export { compilePattern, PATTERN_LIMITS } from "./safe-pattern.ts";
 export type { CompiledPattern, PatternIssue, SafePattern } from "./safe-pattern.ts";
-export { decodeText, detectEncoding, ENCODINGS } from "./encoding.ts";
+export { decodeText, detectEncoding, ENCODINGS, encodingSample } from "./encoding.ts";
 export type { Encoding, EncodingGuess, EncodingResult } from "./encoding.ts";
 export { DELIMITERS, detectDelimiter, readRows, TABLE_LIMITS, TableLimitError } from "./table.ts";
 export type { Delimiter, DelimiterGuess, Quote, TableCeiling, TableReading } from "./table.ts";

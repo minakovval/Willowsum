@@ -160,7 +160,8 @@ const recipeSchema = z.strictObject({
     .optional(),
   filters: z
     .strictObject({
-      ignoreRows: z.array(pattern).max(RECIPE_LIMITS.patternRules).optional(),
+      // Bounded with every other pattern by `TOO_MANY_PATTERNS` (FR 2), not here; the 32 KB bound the array.
+      ignoreRows: z.array(pattern).optional(),
       statusColumn: column.optional(),
       skipStatuses: z.array(label).max(20).optional(),
       skipZeroAmounts: z.boolean().optional(),
@@ -175,7 +176,6 @@ const recipeSchema = z.strictObject({
         target: z.enum(["counterparty", "reference", "description"]),
       }),
     )
-    .max(RECIPE_LIMITS.patternRules)
     .optional(),
 });
 

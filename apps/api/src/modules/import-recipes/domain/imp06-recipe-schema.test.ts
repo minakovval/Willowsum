@@ -116,6 +116,20 @@ describe("IMP-06@PoC: the recipe's schema", () => {
     ).toEqual([{ code: "TOO_MANY_PATTERNS", path: "" }]);
   });
 
+  it("IMP-06@PoC FR 2: 21 extraction rules or 21 ignore patterns alone are «too many patterns»", () => {
+    const extract = Array.from({ length: 21 }, () => ({
+      column: 1,
+      pattern: "a",
+      group: 0,
+      target: "reference",
+    }));
+    expect(errorsOf({ schemaVersion: 1, extract })).toEqual([{ code: "TOO_MANY_PATTERNS", path: "" }]);
+    const ignoreRows = Array.from({ length: 21 }, (_, i) => `^x${i}`);
+    expect(errorsOf({ schemaVersion: 1, filters: { ignoreRows } })).toEqual([
+      { code: "TOO_MANY_PATTERNS", path: "" },
+    ]);
+  });
+
   it("IMP-06@PoC FR 2: unknown keys are refused at every level, and so is deep nesting or text that is not JSON", () => {
     expect(errorsOf({ schemaVersion: 1, numbers: { decimalSeparator: ",", grouping: 3 } })).toEqual([
       { code: "UNKNOWN_FIELD", path: "numbers.grouping" },

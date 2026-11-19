@@ -3,9 +3,10 @@ import { isCurrencyCode } from "@willowsum/domain-kernel";
 /**
  * The format's signature (IMP-06@PoC FR 7): the normalised header, the number of columns and the labels of the
  * preamble (the lines before the table). Case, diacritics, digits and currency codes in a header are ignored —
- * «Залишок (EUR)» and «Залишок (UAH)» are one format; account numbers and periods in the preamble never count (only a
- * label's key, the text before «:», or the first cell of a line of several cells). A line of one cell without «:» (a
- * title, a client's name) is no label, so the signature holds no personal data. The fingerprint is the hash of
+ * «Залишок (EUR)» and «Залишок (UAH)» are one format. Of the preamble only a label's key counts — the text before «:»
+ * of a line's first cell, without digits and month names, and never one with «@». A line without «:» (a title, a
+ * client's name beside an account number, an e-mail) gives no label, and values after «:» never count, so account
+ * numbers, periods, names and e-mails stay out of the signature. The fingerprint is the hash of
  * `signatureText` (application layer); `signatureSimilarity` hints «формат змінився».
  */
 export interface FormatSignature {
@@ -24,6 +25,19 @@ const HEADER_SEARCH_ROWS = 50;
 const WIDTH_SAMPLE_ROWS = 200;
 /** Currency words a header writes that are not ISO codes. */
 const CURRENCY_WORDS = new Set(["грн", "руб", "zł", "zl", "kr"]);
+
+/** Month names (Ukrainian nominative and genitive, English), normalised: a label drops them (FR 7, periods). */
+const MONTHS = new Set(
+  [
+    "січень січня лютий лютого березень березня квітень квітня травень травня червень червня",
+    "липень липня серпень серпня вересень вересня жовтень жовтня листопад листопада грудень грудня",
+    "january february march april may june july august september october november december",
+    "jan feb mar apr jun jul aug sep sept oct nov dec",
+  ]
+    .join(" ")
+    .split(" ")
+    .map((m) => normalizeHeaderCell(m)),
+);
 
 /** A header cell (or a label) as the signature compares it. */
 export function normalizeHeaderCell(cell: string): string {
@@ -68,12 +82,18 @@ export function findHeaderRow(rows: readonly (readonly string[])[], from: number
 }
 
 function labelOf(row: readonly string[]): string | null {
-  const cells = filled(row);
-  const first = cells[0];
+  const first = filled(row)[0];
   if (first === undefined) return null;
+  // Only a «key:» is a label: the first cell of a line without one may be a client's name beside the account number.
   const colon = first.indexOf(":");
-  if (colon >= 0) return first.slice(0, colon);
-  return cells.length >= 2 ? first : null;
+  if (colon < 0) return null;
+  const key = first.slice(0, colon);
+  if (key.includes("@")) return null;
+  // FR 7: a period in the key («Виписка за березень 2026:») does not change the format.
+  return normalizeHeaderCell(key)
+    .split(" ")
+    .filter((token) => !MONTHS.has(token))
+    .join(" ");
 }
 
 /**

@@ -170,6 +170,11 @@ function sampleOf(bytes: Uint8Array): Uint8Array {
   return bytes.subarray(0, length - (length % 2));
 }
 
+/** The live example of a reading (FR 8): the first line of the sample in that encoding, e.g. one a recipe sets. */
+export function encodingSample(bytes: Uint8Array, encoding: Encoding): string {
+  return firstLine(decodeText(sampleOf(bytes), encoding));
+}
+
 /** The file's encoding with the alternatives (FR 8). */
 export function detectEncoding(bytes: Uint8Array): EncodingResult {
   const bom = bomOf(bytes);

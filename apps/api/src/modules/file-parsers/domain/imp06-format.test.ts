@@ -82,7 +82,29 @@ describe("IMP-06@PoC FR 7: the format signature", () => {
     const rows = statement("Залишок", "UA00", "03.2026");
     const given = formatSignature(rows, { headerRow: 5 })!;
     expect(given.header).toEqual(["", "", "", "кава", ""]);
-    expect(given.labels).toContain(normalizeHeaderCell("Дата операції"));
+    // Only «key:» lines are labels (security review of #602): the header row above is no label.
+    expect(given.labels).toEqual(["період", "рахунок"]);
     expect(normalizeHeaderCell("Дата операції")).toBe("дата операціі");
+  });
+
+  it("IMP-06@PoC FR 7: a month name in the preamble does not change the fingerprint", () => {
+    const table = [
+      ["Дата", "Сума", "Опис"],
+      ["01.03.2026", "-1,00", "Кава"],
+    ];
+    const march = formatSignature([
+      ["Виписка за березень 2026:", "стор. 1"],
+      ["Statement for March 2026"],
+      ...table,
+    ])!;
+    const april = formatSignature([
+      ["Виписка за квітень 2026:", "стор. 1"],
+      ["Statement for April 2026"],
+      ...table,
+    ])!;
+    expect(april).toEqual(march);
+    expect(march.labels).toEqual(["виписка за"]);
+    expect(formatSignature([["Виписка за березень 2026", "стор. 1"], ...table])!.labels).toEqual([]);
+    expect(formatSignature([["test@example.com: клієнт"], ...table])!.labels).toEqual([]);
   });
 });

@@ -3,6 +3,7 @@ import {
   decodeText,
   detectDelimiter,
   detectEncoding,
+  encodingSample,
   findHeaderRow,
   formatSignature,
   readRows,
@@ -57,6 +58,8 @@ export interface FileReading {
   };
   readonly rows: readonly (readonly string[])[];
   readonly unclosedQuote: boolean;
+  /** U+FFFD in the decoded text: bytes the chosen encoding could not read (also past the scored sample). */
+  readonly replacementChars: number;
   /** 0-based; null — no header found. */
   readonly headerRow: number | null;
   readonly format: { readonly signature: FormatSignature; readonly fingerprint: string } | null;
@@ -72,7 +75,12 @@ export function readDelimitedFile(bytes: Uint8Array, options: ReadOptions = {}):
   const detected = detectEncoding(bytes);
   const encoding: FileReading["encoding"] = options.encoding
     ? {
-        chosen: { encoding: options.encoding, score: 1, reason: "recipe", sample: "" },
+        chosen: {
+          encoding: options.encoding,
+          score: 1,
+          reason: "recipe",
+          sample: encodingSample(bytes, options.encoding),
+        },
         alternatives: [detected.chosen, ...detected.alternatives].filter(
           (g) => g.encoding !== options.encoding,
         ),
@@ -83,10 +91,20 @@ export function readDelimitedFile(bytes: Uint8Array, options: ReadOptions = {}):
   const found = detectDelimiter(text, quote);
   const delimiter: FileReading["delimiter"] = options.delimiter
     ? {
-        chosen: { delimiter: options.delimiter, score: 1, reason: "recipe" },
+        chosen: {
+          delimiter: options.delimiter,
+          score: 1,
+          reason: "recipe",
+          sample:
+            [found.chosen, ...found.alternatives].find((g) => g.delimiter === options.delimiter)?.sample ??
+            [],
+        },
         alternatives: [found.chosen, ...found.alternatives].filter((g) => g.delimiter !== options.delimiter),
       }
     : { chosen: { ...found.chosen, reason: "content" }, alternatives: found.alternatives };
+  // The encoding is chosen on the first 64 KiB: bytes past it that do not decode are counted, never hidden (AC12).
+  let replacementChars = 0;
+  for (let at = text.indexOf("\uFFFD"); at >= 0; at = text.indexOf("\uFFFD", at + 1)) replacementChars++;
   const { rows, unclosedQuote } = readRows(text, { delimiter: delimiter.chosen.delimiter, quote });
   const skipRows = options.skipRows ?? 0;
   const headerRow = options.headerRow ?? findHeaderRow(rows, skipRows);
@@ -96,6 +114,7 @@ export function readDelimitedFile(bytes: Uint8Array, options: ReadOptions = {}):
     delimiter,
     rows,
     unclosedQuote,
+    replacementChars,
     headerRow: signature ? headerRow : null,
     format: signature ? { signature, fingerprint: fingerprintOf(signature) } : null,
   };

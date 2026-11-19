@@ -22,6 +22,13 @@ describe("IMP-06@PoC: reading a delimited table", () => {
     expect(detectDelimiter("a,b,c\n1,2,3\n4,5,6", '"').chosen.delimiter).toBe(",");
   });
 
+  it("IMP-06@PoC FR 8: every delimiter hypothesis carries a live example", () => {
+    const result = detectDelimiter(csv, '"');
+    expect(result.chosen.sample).toEqual(["Дата", "Сума", "Опис"]);
+    for (const a of result.alternatives) expect(a.sample.length).toBeGreaterThan(0);
+    expect(result.alternatives.find((a) => a.delimiter === ",")!.sample).toEqual(["Дата;Сума;Опис"]);
+  });
+
   it("IMP-06@PoC FR 1: quotes keep delimiters, doubled quotes and line breaks inside a cell", () => {
     const { rows } = readRows(csv, { delimiter: ";", quote: '"' });
     expect(rows).toEqual([

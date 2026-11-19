@@ -7,6 +7,8 @@
 export const TABLE_LIMITS = {
   /** IMP-01@PoC FR 13 (file-storage's `PARSE_CEILINGS.rows`): records with a non-empty cell, the header too. */
   maxRows: 20_000,
+  /** Lines of the file, the empty ones too: empty lines are not records, but each is stored as a row. */
+  maxLines: 40_000,
   /** IMP-01@PoC FR 13 (file-storage's `PARSE_CEILINGS.cells`). */
   maxCells: 2_000_000,
   /** Columns of a row (lead decision, IMP-06). */
@@ -66,40 +68,49 @@ export function readRows(
   const endRow = () => {
     push();
     rows.push(row);
+    if (rows.length > TABLE_LIMITS.maxLines) throw new TableLimitError("rows", TABLE_LIMITS.maxRows);
     if (row.some((c) => c !== "") && ++records > TABLE_LIMITS.maxRows)
       throw new TableLimitError("rows", TABLE_LIMITS.maxRows);
     row = [];
   };
+  // A cell is cut out of the text in runs (`from` … `i`), never appended character by character: appending builds a
+  // rope of one node per character, about 30 times the file in memory.
   let i = 0;
+  let from = 0;
+  const flush = (to: number) => {
+    if (to > from) cell += text.slice(from, to);
+  };
   while (i < text.length && (firstRows === undefined || rows.length < firstRows)) {
     const c = text[i]!;
     if (quoted) {
       if (c === quote) {
+        flush(i);
         if (text[i + 1] === quote) {
-          cell += c;
+          from = i + 1; // the second quote is the cell's text
           i += 2;
-          continue;
+        } else {
+          quoted = false;
+          from = ++i;
         }
-        quoted = false;
-      } else cell += c;
-      i++;
-    } else if (c === quote && cell.length === 0) {
+      } else i++;
+    } else if (c === quote && cell.length === 0 && i === from) {
       quoted = true;
-      i++;
+      from = ++i;
     } else if (c === delimiter) {
+      flush(i);
       push();
-      i++;
+      from = ++i;
     } else if (c === "\r" || c === "\n") {
+      flush(i);
       endRow();
       i += c === "\r" && text[i + 1] === "\n" ? 2 : 1;
-    } else {
-      cell += c;
-      i++;
-    }
-    if (cell.length > TABLE_LIMITS.maxCellChars)
+      from = i;
+    } else i++;
+    if (cell.length + (i - from) > TABLE_LIMITS.maxCellChars)
       throw new TableLimitError("cell-length", TABLE_LIMITS.maxCellChars);
   }
   if (firstRows !== undefined && rows.length >= firstRows) return { rows, unclosedQuote };
+  flush(i);
   if (quoted) unclosedQuote = true;
   if (cell.length > 0 || row.length > 0 || quoted) endRow();
   while (rows.length > 0 && rows[rows.length - 1]!.every((c) => c === "")) rows.pop();
@@ -110,6 +121,8 @@ export interface DelimiterGuess {
   readonly delimiter: Delimiter;
   /** 0–1, two decimals: the share of sampled lines with the most common number of columns (≥ 2). */
   readonly score: number;
+  /** FR 8: the live example — the first non-empty sampled row split by this delimiter (≤ 5 cells, ≤ 40 characters each). */
+  readonly sample: readonly string[];
 }
 
 /** Lines sampled to choose the delimiter. */
@@ -133,7 +146,12 @@ export function detectDelimiter(
     for (const r of sample) counts.set(r.length, (counts.get(r.length) ?? 0) + 1);
     let best = 0;
     for (const [width, n] of counts) if (width >= 2 && n > best) best = n;
-    return { delimiter, score: sample.length ? Math.round((best / sample.length) * 100) / 100 : 0 };
+    const example = (sample[0] ?? []).slice(0, 5).map((c) => c.slice(0, 40));
+    return {
+      delimiter,
+      score: sample.length ? Math.round((best / sample.length) * 100) / 100 : 0,
+      sample: example,
+    };
   });
   const sorted = [...guesses].sort((a, b) => b.score - a.score);
   return { chosen: sorted[0]!, alternatives: sorted.slice(1) };

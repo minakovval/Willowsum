@@ -8,7 +8,9 @@
  * Dialect: literals; escapes `\d \D \w \W \s \S \b \B \t \n \r \f \v \xHH \uHHHH` and an escaped non-alphanumeric
  * character; classes `[…]`, `[^…]` with ranges; `.`, `^`, `$`; groups `(…)` and `(?:…)`; alternation; repeats `* + ?
  * {n} {n,} {n,m}` (lazy with `?`), the upper bound ≤ 100. Refused: back-references, look-ahead and look-behind, Unicode
- * classes (`\p`, `\P`), more than 3 unbounded repeats, a repeat inside a repeated group. Matching ignores case; `^`
+ * classes (`\p`, `\P`), more than 3 unbounded repeats, a repeat inside a repeated group, and a pattern whose
+ * expanded program costs more than `maxProgramCost` per character («too-complex»: the time limit; the worst allowed
+ * pattern takes ≈ 0.27 s on 2 000 characters). Matching ignores case; `^`
  * and `$` are the text's start and end.
  */
 export const PATTERN_LIMITS = {
@@ -20,6 +22,12 @@ export const PATTERN_LIMITS = {
   maxUnbounded: 3,
   /** Characters of text matched, by the pattern's unbounded repeats: 0, 1, 2, 3. */
   inputChars: [2000, 2000, 400, 120] as const,
+  /**
+   * The compiled program's work per character of text: an instruction is 1, a class 1 + its items, a
+   * group's mark 1 + an eighth of the marks every thread copies. Repeats are expanded («(?:…){100}» is 100 copies), so
+   * 200 characters can compile to tens of thousands of instructions: past this the pattern is refused.
+   */
+  maxProgramCost: 4000,
 } as const;
 
 export type PatternIssue =
@@ -30,7 +38,8 @@ export type PatternIssue =
   | "unicode-class"
   | "nested-repeat"
   | "repeat-bound"
-  | "too-many-unbounded";
+  | "too-many-unbounded"
+  | "too-complex";
 
 export interface SafePattern {
   readonly source: string;
@@ -475,6 +484,10 @@ export function compilePattern(source: string): CompiledPattern {
   const prog = compile(root);
   const groups = parser.groups;
   const unbounded = parser.unbounded;
+  let cost = 0;
+  for (const inst of prog)
+    cost += inst.op === "save" ? 1 + (groups + 1) / 4 : inst.op === "class" ? 1 + inst.items.length : 1;
+  if (cost > PATTERN_LIMITS.maxProgramCost) return { ok: false, issue: "too-complex" };
   const limit = PATTERN_LIMITS.inputChars[unbounded as 0 | 1 | 2 | 3];
   return {
     ok: true,

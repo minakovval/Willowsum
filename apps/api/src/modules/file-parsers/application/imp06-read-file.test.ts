@@ -42,9 +42,27 @@ describe("IMP-06@PoC: reading a statement file and its format fingerprint", () =
     expect(forced.encoding.chosen).toMatchObject({ encoding: "koi8-u", reason: "recipe" });
     expect(forced.delimiter.chosen).toMatchObject({ delimiter: ",", reason: "recipe" });
     expect(forced.rows[0]).toHaveLength(1);
+    // FR 8: the recipe's choices carry their live examples too.
+    expect(forced.encoding.chosen.sample.length).toBeGreaterThan(0);
+    expect(forced.delimiter.chosen.sample).toHaveLength(1);
+    expect(readDelimitedFile(bytes, { encoding: "windows-1251" }).encoding.chosen.sample).toBe(
+      "Рахунок:;UA00",
+    );
     const rows = readDelimitedFile(bytes, { skipRows: 1, headerRow: 2 });
     expect(rows.headerRow).toBe(2);
     expect(rows.format!.signature.labels).toEqual(["період"]);
+  });
+
+  it("IMP-06@PoC AC12: bytes past the scored sample that do not decode are counted, not hidden", () => {
+    const head = new TextEncoder().encode(
+      `${statement("Залишок", "UA00")}\r\n${"01.03.2026;-1,00;Кава;1,00\r\n".repeat(3000)}`,
+    );
+    expect(head.length).toBeGreaterThan(64 * 1024);
+    const bytes = new Uint8Array([...head, 0xff, 0x0d, 0x0a]);
+    const reading = readDelimitedFile(bytes);
+    expect(reading.encoding.chosen.encoding).toBe("utf-8");
+    expect(reading.replacementChars).toBe(1);
+    expect(readDelimitedFile(head).replacementChars).toBe(0);
   });
 
   it("IMP-06@PoC FR 1: a file over 25 MiB is refused before it is read", () => {

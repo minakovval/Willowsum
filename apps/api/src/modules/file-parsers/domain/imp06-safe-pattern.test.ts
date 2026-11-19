@@ -95,6 +95,15 @@ describe("IMP-06@PoC FR 3: the safe pattern dialect", () => {
     expect(tail("x*y*w*z", 121)).toBeNull();
   });
 
+  it("IMP-06@PoC FR 3: a pattern whose expanded program is too costly is refused (the time limit)", () => {
+    for (const source of [
+      `(?:${"()".repeat(93)}x){100}z`,
+      `(?:${"x|".repeat(44)}x){100}z`,
+      `(?:${"()".repeat(40)}[a-z]){100}z`,
+    ])
+      expect(issue(source), source).toBe("too-complex");
+  });
+
   it("IMP-06@PoC FR 3: crafted patterns run in bounded time (no backtracking)", () => {
     const crafted: [string, string][] = [
       [`${"a?".repeat(50)}${"a".repeat(50)}b`, "a".repeat(2000)],
