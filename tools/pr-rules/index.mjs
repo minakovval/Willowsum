@@ -141,6 +141,8 @@ async function daily() {
       return d;
     };
     const until = flag('--until') ? date(flag('--until')) : new Date();
+    // A window cannot end in the future: its annotation would name time nobody checked (sec589).
+    if (until.getTime() > Date.now() + 60_000) throw new Error('--until must not be in the future');
     let since;
     let note;
     let gap;

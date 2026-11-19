@@ -102,6 +102,23 @@ export async function windowStart(gh, until) {
     // Manual runs are an addition: when they cannot be listed, the window is only larger.
     const manual = await gh.get(list('workflow_dispatch')).then((d) => d?.workflow_runs ?? [], () => []);
     const seen = new Set();
+    // A manual run counts only when it ran main's own workflow file and code: `workflow_dispatch` takes any
+    // branch or tag, and a branch's check step can print any window (sec589). Unknown → not counted.
+    let main; // { name, sha } of the default branch, read once, only when a manual run is met
+    const onMain = async (r) => {
+      try {
+        main ??= await gh.get('/{repo}').then(async ({ default_branch: name }) => ({
+          name,
+          sha: (await gh.get(`/{repo}/branches/${encodeURIComponent(name)}`)).commit.sha,
+        }));
+        if (r.head_branch !== main.name || !/^[0-9a-f]{40}$/.test(r.head_sha ?? '')) return false;
+        if (r.head_sha === main.sha) return true;
+        const cmp = await gh.get(`/{repo}/compare/${r.head_sha}...${main.sha}`, { allow404: true });
+        return cmp?.status === 'ahead' || cmp?.status === 'identical';
+      } catch {
+        return false;
+      }
+    };
     const runs = [...(scheduled ?? []).map((r) => ({ ...r, kind: 'schedule' })), ...manual.map((r) => ({ ...r, kind: 'manual' }))]
       .filter((r) => !seen.has(r.id) && seen.add(r.id))
       .map((r) => ({ ...r, started: Date.parse(r.run_started_at ?? r.created_at) }))
@@ -120,11 +137,15 @@ export async function windowStart(gh, until) {
       const { jobs } = await gh.get(`/{repo}/actions/runs/${run.id}/jobs?per_page=100`);
       const job = (jobs ?? []).find((j) => (j.steps ?? []).some((s) => s.name === DAILY_CHECK_STEP && s.conclusion === 'success'));
       if (!job) continue;
+      if (run.kind === 'manual' && !(await onMain(run))) continue;
       const covered = await coveredBy(gh, job);
       if (covered === undefined) continue;
       const span = covered ?? (run.kind === 'schedule' ? { until: run.started, chain: true } : null);
       if (!span) continue;
-      const to = Math.min(span.until, until.getTime());
+      // A run cannot have checked time after its own job ended, whatever `until` it was given (sec589).
+      const ran = Date.parse(job.completed_at ?? '');
+      const to = Math.min(span.until, until.getTime(), Number.isNaN(ran) ? run.started : ran);
+      if (covered && !(covered.since < to)) continue;
       if (span.chain) {
         if (end === undefined || to > end) [end, endRun] = [to, run.id];
       } else spans.push({ since: span.since, until: to, id: run.id });
@@ -138,6 +159,9 @@ export async function windowStart(gh, until) {
       if (tooOld) return { since: new Date(floor), note: `останній успішний запуск старший за ${WINDOW_MAX_DAYS} дн.`, gap: true };
       return fallback(`успішного запуску не знайдено: ${WINDOW_FALLBACK_HOURS} год`, (scheduled ?? []).length > 0);
     }
+    // The checked time ends before the cap (a paced run that stopped early, then a missed day): the time
+    // between is not checked, and this run's success would move the next window past it (sec589).
+    if (start < floor) return { since: new Date(floor), note: `перевірений час закінчується раніше ніж ${WINDOW_MAX_DAYS} дн. тому`, gap: true };
     return { since: new Date(Math.max(floor, start - HOUR)), note: `від запуску ${endRun ?? 'до обмеження'}` };
   } catch (e) {
     return fallback(`журнал запусків не прочитано (${errorClass(e)}): ${WINDOW_FALLBACK_HOURS} год`, true);

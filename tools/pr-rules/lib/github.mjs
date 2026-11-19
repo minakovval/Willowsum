@@ -21,6 +21,7 @@ function retryWait(res, attempt, delays) {
   if (attempt >= delays.length) return undefined;
   if (TRANSIENT.has(res.status)) return delays[attempt];
   // A secondary rate limit names its wait; the primary limit (remaining 0, reset up to an hour away) is final.
+  if (res.headers.get('x-ratelimit-remaining') === '0') return undefined; // the primary limit, even with Retry-After
   const after = Number(res.headers.get('retry-after'));
   if ((res.status === 403 || res.status === 429) && res.headers.has('retry-after') && after >= 0 && after <= RETRY_AFTER_MAX_S) {
     return Math.max(after * 1000, delays[attempt]);

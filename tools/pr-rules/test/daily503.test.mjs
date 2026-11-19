@@ -139,9 +139,11 @@ test('CICD-01 FR 3 (#503): when the calls left would not cover the next day, the
 
 // windowStart: runs of both events, each job with the check step and (when given) its window annotation.
 const until = new Date('2026-11-20T05:41:00Z');
-const run = (id, started) => ({ id, run_started_at: started });
+const run = (id, started) => ({ id, run_started_at: started, head_branch: 'main', head_sha: 'c'.repeat(40) });
 function runsApi({ schedule = [], manual = [], annotations = {} }) {
   return serve((key) => {
+    if (key === 'GET /repos/o/r') return { body: { default_branch: 'main' } };
+    if (key === 'GET /repos/o/r/branches/main') return { body: { commit: { sha: 'c'.repeat(40) } } };
     if (key.includes('/runs?event=schedule')) return { body: { workflow_runs: schedule } };
     if (key.includes('/runs?event=workflow_dispatch')) return { body: { workflow_runs: manual } };
     const job = /\/actions\/runs\/(\d+)\/jobs/.exec(key);
@@ -161,7 +163,8 @@ test('CICD-01 FR 3 (#503): a manual run over the gap moves the window start; one
   const schedule = [run(1, '2026-11-16T13:57:00Z')];
   runsApi({ schedule, manual: [run(2, '2026-11-19T10:25:40Z')], annotations: { 2: { since: '2026-11-16T12:57:00Z', until: '2026-11-19T12:00:00Z', chain: false } } });
   let w = await windowStart(gh(), until);
-  assert.equal(w.since.toISOString(), '2026-11-19T11:00:00.000Z');
+  // Its window was given an end of 12:00, after the run itself (10:25:40): it checked up to its own time.
+  assert.equal(w.since.toISOString(), '2026-11-19T09:25:40.000Z');
   assert.match(w.note, /запуску 2/);
   // Today's two day-sized manual runs left 17.11 12:57 → 18.11 12:57 unchecked: the start stays before the hole.
   runsApi({
@@ -174,6 +177,19 @@ test('CICD-01 FR 3 (#503): a manual run over the gap moves the window start; one
   // A manual run made before the annotation existed is not counted: its window is unknown.
   runsApi({ schedule, manual: [run(5, '2026-11-19T10:25:40Z')] });
   assert.equal((await windowStart(gh(), until)).since.toISOString(), '2026-11-16T12:57:00.000Z');
+});
+
+test('CICD-01 FR 3 (#503): a manual run with --until in the future does not move the start past its own end', async () => {
+  const ended = { ...run(7, '2026-11-19T10:25:40Z'), updated_at: '2026-11-19T10:30:00Z' };
+  runsApi({ schedule: [run(1, '2026-11-16T13:57:00Z')], manual: [ended], annotations: { 7: { since: '2026-11-16T12:57:00Z', until: '2026-12-31T00:00:00Z', chain: true } } });
+  // Its job carries no completion time here, so the run's start bounds what it checked.
+  assert.equal((await windowStart(gh(), until)).since.toISOString(), '2026-11-19T09:25:40.000Z');
+});
+
+test('CICD-01 FR 3 (#503): a 403 with Retry-After but no calls left is the primary limit and is final', async () => {
+  const calls = serve(() => ({ status: 403, headers: { 'retry-after': '1', 'x-ratelimit-remaining': '0' } }));
+  await assert.rejects(gh().get('/{repo}'), /HTTP 403/);
+  assert.equal(calls.length, 1);
 });
 
 test('CICD-01 FR 3 (#503): a scheduled run that read only part of its window moves the start to where it stopped', async () => {
