@@ -11,6 +11,7 @@ import {
   CHOSEN_MAX,
   LIMITS_MAX,
   periodPlan,
+  periodPlans,
   previewAllocation,
   setBudgetAccount,
   updatePlan,
@@ -26,6 +27,10 @@ import {
   periodFigures,
   periodMode,
   shareFrom,
+  emptyPlan,
+  trendLine,
+  trendPeriods,
+  TREND_MONTHS_MAX,
   type StartChoice,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
@@ -683,6 +688,110 @@ export const previewAllocationRoute = defineRoute({
   },
 });
 
+/**
+ * BUD-16@PoC a) (wave 2 row 32): the method «Ліміти» is the only one (FR 1), so the trend knows no method — no history
+ * of methods, no marks of a change (FR 4). Behind its own release flag and feature key `budget.trend` (ships off).
+ */
+const TREND_FEATURE = "budget.trend";
+
+const trendSchema = z.object({
+  currency: z.string(),
+  /** FR 4, oldest first: one entry per month from `from` to `to`. */
+  months: z.array(
+    z.object({
+      period: z.string(),
+      mode: z.enum(["past", "current", "future"]),
+      plan: moneySchema.nullable().meta({
+        description:
+          "«План місяця» = the sum of the month's limits (a finished month — its snapshot's); with `categoryId` — that category's limit. Null — a month before the budget, or the category had no limit that month: no plan line",
+      }),
+      spent: moneySchema.nullable().meta({
+        description:
+          "The month's spending: every expense category, «Поза планом» and «Без категорії» (with `categoryId` — that category's). Null — a future month",
+      }),
+      income: moneySchema.nullable().meta({ description: "The month's income. Null — a future month" }),
+    }),
+  ),
+  /** As a period's: amounts at the nearest rate, and left out (no rate, or over 15 integer digits), over all months. */
+  approximate: z.object({ nearestRateCount: z.number().int(), unavailableCount: z.number().int() }),
+});
+
+export const getTrendRoute = defineRoute({
+  module: MODULE,
+  method: "GET",
+  path: "/v1/budget/trend",
+  operationId: "getBudgetTrend",
+  summary:
+    "The trend: the plan line (the sum of the month's limits), spending and income per month (BUD-16 FR 4; facts only, FR 5)",
+  access: { permission: "household.data.read", feature: TREND_FEATURE },
+  request: {
+    query: z.object({
+      from: periodText,
+      to: periodText.meta({
+        description: `A calendar month, YYYY-MM; at most ${TREND_MONTHS_MAX} months from \`from\``,
+      }),
+      categoryId: z
+        .uuid()
+        .optional()
+        .meta({ description: "An expense category of the space: its limit and spending" }),
+    }),
+  },
+  response: { status: 200, description: "The months", schema: trendSchema },
+  handler: async ({ query }, ctx) => {
+    refuseScoped(ctx);
+    const periods = trendPeriods(query.from, query.to);
+    const invalid = (path: string, issue: string) =>
+      new ApiProblem("VALIDATION_FAILED", { errors: [{ in: "query" as const, path, issue }] });
+    if (!Array.isArray(periods)) throw invalid(periods.field, periods.issue);
+    const { deps } = budgetServices(ctx);
+    const householdId = ctx.principal.householdId;
+    const categories = byId(await deps.reads.categories(householdId));
+    if (query.categoryId !== undefined) {
+      const c = categories.get(query.categoryId);
+      if (!c || c.state === "retired") throw invalid("categoryId", "not_found");
+      if (c.kind !== "expense") throw invalid("categoryId", "not_expense");
+    }
+    const budget = await stored(ctx);
+    const plans = await ctx.inHousehold((q) =>
+      periodPlans(deps, budgetTx(q), householdId, budget, periods, categories),
+    );
+    const choices = await ctx.inHousehold((q) => budgetTx(q).accountChoices(householdId));
+    const accountIds = (await deps.reads.accounts(householdId))
+      .filter((a) => isIncluded(a, choices))
+      .map((a) => a.accountId);
+    const today = deps.today();
+    let nearestRateCount = 0;
+    let unavailableCount = 0;
+    const months = [];
+    for (const period of periods) {
+      const mode = periodMode(period, today);
+      const plan = plans.get(period) ?? null;
+      let counted = null;
+      if (mode !== "future") {
+        counted = await deps.reads.amounts(
+          householdId,
+          accountIds,
+          period,
+          budget.currency,
+          countsFrom(budget, period),
+        );
+        nearestRateCount += counted.nearestRateCount;
+        unavailableCount += counted.unavailableCount;
+      }
+      const figures = periodFigures(plan ?? emptyPlan(budget.currency), categories, counted?.amounts ?? null);
+      const line = trendLine(plan, figures, budget.currency, query.categoryId);
+      months.push({
+        period,
+        mode,
+        plan: orNull(line.plan),
+        spent: orNull(line.spent),
+        income: orNull(line.income),
+      });
+    }
+    return { currency: budget.currency, months, approximate: { nearestRateCount, unavailableCount } };
+  },
+});
+
 export const budgetRoutes = [
   getBudgetRoute,
   getWizardRoute,
@@ -693,4 +802,5 @@ export const budgetRoutes = [
   listAccountsRoute,
   setAccountRoute,
   getPeriodRoute,
+  getTrendRoute,
 ];

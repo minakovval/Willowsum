@@ -500,3 +500,37 @@ export async function periodPlan(
   }
   return snapshot ?? null;
 }
+
+/**
+ * BUD-16@PoC FR 4: the plans of many months in one budget transaction — as `periodPlan` for each, with one snapshot
+ * pass (under the budget's row lock) when a finished month has none yet. Null — a month before the first one.
+ */
+export async function periodPlans(
+  deps: Pick<BudgetDeps, "today">,
+  tx: BudgetTx,
+  householdId: string,
+  budget: StoredBudget,
+  periods: readonly Period[],
+  categories: ReadonlyMap<string, BudgetCategory>,
+): Promise<ReadonlyMap<Period, PeriodPlan | null>> {
+  const today = deps.today();
+  let snapshots = await tx.snapshots(householdId, budget.id);
+  const finished = periods.filter((p) => p >= budget.firstPeriod && periodMode(p, today) === "past");
+  if (finished.some((p) => !snapshots.has(p))) {
+    const locked = await tx.budget(householdId, true);
+    if (locked) await ensureSnapshots(tx, householdId, locked, today, categories);
+    snapshots = await tx.snapshots(householdId, budget.id);
+  }
+  const live = livePlan(budget, await tx.limits(householdId, budget.id), categories);
+  const out = new Map<Period, PeriodPlan | null>();
+  for (const p of periods)
+    out.set(
+      p,
+      p < budget.firstPeriod
+        ? null
+        : periodMode(p, today) === "past"
+          ? (snapshots.get(p) ?? null)
+          : planOf(budget, p, live),
+    );
+  return out;
+}
