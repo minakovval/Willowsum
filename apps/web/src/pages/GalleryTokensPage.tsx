@@ -49,6 +49,7 @@ import { AmountFitDemo } from "./AmountFitDemo.tsx";
 import { DialogDemo } from "./DialogDemo.tsx";
 import { ButtonDemo } from "./ButtonDemo.tsx";
 import { PaginationDemo } from "./PaginationDemo.tsx";
+import { PeriodPickerDemo } from "./PeriodPickerDemo.tsx";
 import { FieldDemo } from "./FieldDemo.tsx";
 import { ListRowDemo } from "./ListRowDemo.tsx";
 import { FilterBarDemo } from "./FilterBarDemo.tsx";
@@ -491,6 +492,10 @@ export function GalleryTokensPage() {
 
       <Section id="g-pagination" title={t("gallery.pagination.title")}>
         <PaginationDemo />
+      </Section>
+
+      <Section id="g-period-picker" title={t("gallery.periodPicker.title")}>
+        <PeriodPickerDemo />
       </Section>
 
       <Section id="g-field" title={t("gallery.field.title")}>

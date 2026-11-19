@@ -31,6 +31,7 @@ import { FieldDemo } from "./pages/FieldDemo.tsx";
 import { FilterBarDemo } from "./pages/FilterBarDemo.tsx";
 import { ListRowDemo } from "./pages/ListRowDemo.tsx";
 import { PaginationDemo } from "./pages/PaginationDemo.tsx";
+import { PeriodPickerDemo } from "./pages/PeriodPickerDemo.tsx";
 import { SelectDemo } from "./pages/SelectDemo.tsx";
 import { SelectionBarDemo } from "./pages/SelectionBarDemo.tsx";
 import { SkeletonDemo } from "./pages/SkeletonDemo.tsx";
@@ -1008,5 +1009,20 @@ describe("/gallery/tokens: CMP-21@PoC Dialog section", () => {
     expect(at("line-loading").querySelector(".ws-skeleton")).not.toBeNull();
     expect(at("line-empty").textContent).toContain("Ще немає історії");
     expect(within(at("line-error")).getByRole("alert")).toBeTruthy();
+  });
+
+  it("CMP-72@PoC gallery: the period picker section shows a live picker, «‹» inactive with its reason, «›» inactive and the segmented switch", () => {
+    const { container } = renderDemo("g-period-picker", "gallery.periodPicker.title", <PeriodPickerDemo />);
+    const at = (c: string) => container.querySelector<HTMLElement>(`[data-case="${c}"]`)!;
+    const first = within(at("first")).getByRole("button", {
+      name: /^Попередній період\. Даних раніше немає$/,
+    });
+    expect(first.getAttribute("aria-disabled")).toBe("true");
+    expect(
+      within(at("latest")).getByRole("button", { name: "Наступний період" }).getAttribute("aria-disabled"),
+    ).toBe("true");
+    act(() => within(at("live")).getByRole("button", { name: "Попередній період" }).click());
+    expect(within(at("live")).getByRole("button", { name: "M09 2026" })).toBeTruthy();
+    expect(within(at("segmented")).getByRole("radio", { name: "З порівнянням" })).toBeTruthy();
   });
 });

@@ -1,0 +1,119 @@
+/* BUD-06@PoC b), S-132 / S-290 «Порівняння»: the toolbar, the cards and the tables. Tokens only. */
+.cmp-screen {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ws-space-4);
+  inline-size: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.cmp-head h1,
+.cmp-head p {
+  margin: 0;
+}
+
+.cmp-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.cmp-base {
+  min-inline-size: calc(var(--ws-space-8) * 5);
+}
+
+.cmp-full {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.cmp-body {
+  display: grid;
+  gap: var(--ws-space-3);
+  min-inline-size: 0;
+}
+
+.cmp-body h2 {
+  margin: 0;
+}
+
+.cmp-note {
+  margin: 0;
+}
+
+.cmp-largest {
+  display: grid;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+}
+
+.cmp-largest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.cmp-largest-head h2,
+.cmp-largest p {
+  margin: 0;
+}
+
+.cmp-largest-list {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-wrap: anywhere;
+}
+
+.cmp-sub {
+  display: block;
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+/* Better or worse, not the direction: the soft steps are up to 10 %, the strong ones above it (BUD-06 FR 1). */
+.cmp-tone--gain {
+  color: var(--ws-gain);
+}
+
+.cmp-tone--gain-soft {
+  color: var(--ws-gain-soft);
+}
+
+.cmp-tone--loss {
+  color: var(--ws-loss);
+}
+
+.cmp-tone--loss-soft {
+  color: var(--ws-loss-soft);
+}
+
+.cmp-tone--none {
+  color: var(--ws-link);
+}
+
+.cmp-year {
+  /* the visually hidden spoken forms are placed against this box, so they do not widen the page */
+  position: relative;
+  overflow-x: auto;
+  font-size: var(--ws-text-body-sm-size);
+  line-height: var(--ws-text-body-sm-line);
+}
+
+.cmp-year-indent {
+  overflow-wrap: anywhere;
+}
+
+.cmp-year-indent {
+  padding-inline-start: var(--ws-space-3);
+}
+
+.cmp-year-table {
+  min-inline-size: calc(var(--ws-space-8) * 22);
+}
