@@ -282,7 +282,8 @@ describe("sec613 round 2: «Надходження» over the real module recurr
 
     const other = await grid(b);
     expect(other.statusCode, other.body).toBe(200);
-    expect(other.json().income.rows.map((r: { paymentId: string | null }) => r.paymentId)).toEqual([null]);
+    expect(other.json().income.rows).toEqual([]);
+    expect(other.json().income.totals[1]).toEqual(eur("1000"));
     const seen = leakText(other.body) + leakText(JSON.stringify(await period(b, "2026-12")));
     for (const text of [salary, "4321", "Таємна", "77.77", a.householdId, salaryCategory])
       expect(seen).not.toContain(text);
@@ -314,8 +315,10 @@ describe("sec613 round 2: «Надходження» over the real module recurr
     expect((await period(space, "2026-11")).incomePlan).toEqual(eur("5600"));
     expect((await period(space, "2026-12")).incomePlan).toEqual(eur("5600"));
     expect((await period(first, "2026-11")).incomePlan).toEqual(eur("1300"));
-    // With «План» on the month's sources are its income plan (BUD-17 FR 1).
+    // With «План» on (BUD-17 FR 1, owner decision 2026-11-19, Q3) the income of 700 is under «План доходу»: the month's
+    // plan stays 5 600 and the rest is «Інші надходження».
     off = [];
-    expect((await period(space, "2026-12")).incomePlan).toEqual(eur("700"));
+    expect((await period(space, "2026-12")).incomePlan).toEqual(eur("5600"));
+    expect((await grid(space)).json().income.other[1]).toEqual(eur("4900"));
   });
 });
