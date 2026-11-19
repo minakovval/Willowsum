@@ -16,10 +16,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: progress-dashboard
-  cancel-in-progress: true
-
 jobs:
   build:
     # A manual run from another branch would publish numbers that are not main's: main only.
@@ -51,6 +47,10 @@ jobs:
   publish:
     needs: build
     if: github.ref == 'refs/heads/main'
+    # The group is on this job, not on the workflow: a queued build must not cancel a publish that is running (#621).
+    concurrency:
+      group: progress-dashboard
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
