@@ -1,0 +1,2090 @@
+{
+ "schema": "willowsum-plan-progress/1",
+ "description": "Стан рядків плану docs/plans/poc-wave-2.md для дашборда. Ручний знімок (генератора немає): оновлюється разом із розділом «Стан рядків хвилі 2» того самого плану. Поля рядка: row — номер рядка плану (рядок), title, status, prs — злиті PR, open_prs — відкриті PR, issues — відкриті issue, що входять у рядок, note — необов'язково.",
+ "plan": "docs/plans/poc-wave-2.md",
+ "asOf": "2026-11-19",
+ "mainCommit": "ad0dad8e",
+ "sources": [
+  "gh api repos/minakovval/Willowsum/pulls?state=all",
+  "node tools/req-check/index.mjs --coverage",
+  "git log origin/main"
+ ],
+ "statusValues": {
+  "done": "усі PR рядка злито",
+  "partial": "частину злито, решта не почата або не підтверджена",
+  "open_pr": "є відкритий PR, злитого немає",
+  "not_started": "PR немає",
+  "moved_to_mvp": "рядок перенесено в MVP (не входить у PoC)"
+ },
+ "counts": {
+  "done": 81,
+  "not_started": 95,
+  "partial": 26,
+  "open_pr": 3,
+  "moved_to_mvp": 16
+ },
+ "rows": [
+  {
+   "row": "1",
+   "title": "ARC-01: каркаси модулів PoC",
+   "status": "done",
+   "prs": [
+    168,
+    177
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "2",
+   "title": "ARC-04: черга задач і вихідні події",
+   "status": "done",
+   "prs": [
+    174
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "3",
+   "title": "ARC-11: подія «проводку записано» і правило схеми",
+   "status": "done",
+   "prs": [
+    184
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "4",
+   "title": "ARC-11: кеш денних залишків",
+   "status": "done",
+   "prs": [
+    191
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "5",
+   "title": "VAL-04: валюти і конвертація",
+   "status": "done",
+   "prs": [
+    175
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "6",
+   "title": "FIN-04 / ARC-11: міжвалютні проводки",
+   "status": "done",
+   "prs": [
+    195
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "7",
+   "title": "ACC-08 a): простір — серверна частина (готово, #186)",
+   "status": "done",
+   "prs": [
+    186
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "8",
+   "title": "ACC-06 a): валюта звітності — серверна частина (готово, #189)",
+   "status": "done",
+   "prs": [
+    189
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "9a1",
+   "title": "ACC-04 a1): тайм-аут і ротація — серверна частина (готово, #190)",
+   "status": "done",
+   "prs": [
+    190
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "9a2",
+   "title": "ACC-04 a2): новий пристрій — серверна частина (готово, #198)",
+   "status": "done",
+   "prs": [
+    198
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "9a3",
+   "title": "ACC-04 a3): журнал входів з IP і пристроєм — серверна частина",
+   "status": "done",
+   "prs": [
+    221
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "10",
+   "title": "ACC-05 a): профіль і зміна пароля — серверна частина",
+   "status": "done",
+   "prs": [
+    204
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "176",
+   "title": "ARC-03 / ACC-08 c): часовий пояс простору і today(space) — серверна частина",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "B0",
+   "title": "PRC-02: зачистка вимог «Гроші»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "PR зачистки «Гроші» за назвою не знайдено, не підтверджено"
+  },
+  {
+   "row": "11",
+   "title": "FIN-01 a): рахунки",
+   "status": "done",
+   "prs": [
+    207
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "11a",
+   "title": "FIN-01 FR 20: поле «обране» для рахунку, API + UI зірочки",
+   "status": "done",
+   "prs": [
+    433
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "12",
+   "title": "FIN-01 b): «Гроші разом»",
+   "status": "done",
+   "prs": [
+    218
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "13",
+   "title": "FIN-12 a): керування рахунками",
+   "status": "done",
+   "prs": [
+    224,
+    233,
+    261
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "14",
+   "title": "FIN-12 b): реквізити рахунку",
+   "status": "done",
+   "prs": [
+    242
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "15",
+   "title": "FIN-03 a): транзакції",
+   "status": "done",
+   "prs": [
+    235
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "16",
+   "title": "FIN-03 b): розділення, приховування, перекази",
+   "status": "done",
+   "prs": [
+    262,
+    269,
+    278
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "17",
+   "title": "DAT-03 a): масові дії — серверна частина",
+   "status": "done",
+   "prs": [
+    268
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "18",
+   "title": "IMP-02 a): мультивалютні рахунки",
+   "status": "done",
+   "prs": [
+    284
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "18a",
+   "title": "VAL-04 b): «сьогодні» — позначка «приблизно»",
+   "status": "done",
+   "prs": [
+    203
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "18b",
+   "title": "FIN-12 e): історія умов у liabilities",
+   "status": "done",
+   "prs": [
+    288
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "37a",
+   "title": "FIN-01 d): реєстр банків НБУ",
+   "status": "done",
+   "prs": [
+    338
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "178",
+   "title": "PRC-02 / ARC-03: модулі на «сьогодні» простору",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "C0",
+   "title": "PRC-02: зачистка вимог «Планування»",
+   "status": "done",
+   "prs": [
+    245,
+    247,
+    253
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "19",
+   "title": "BUD-01 a): категорії",
+   "status": "done",
+   "prs": [
+    250,
+    275
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "20",
+   "title": "BUD-01 b): категорія транзакції",
+   "status": "done",
+   "prs": [
+    293
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "21",
+   "title": "BUD-13 a): атрибути транзакцій",
+   "status": "done",
+   "prs": [
+    327
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "22",
+   "title": "BUD-14 a): мерчанти",
+   "status": "done",
+   "prs": [
+    305
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "23",
+   "title": "BUD-14 b): правила категорій",
+   "status": "done",
+   "prs": [
+    340,
+    492
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "24",
+   "title": "BUD-12 a): розбір транзакцій",
+   "status": "done",
+   "prs": [
+    339,
+    491,
+    519,
+    527
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "25",
+   "title": "BUD-07 a): регулярні платежі — виявлення",
+   "status": "done",
+   "prs": [
+    309,
+    324
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "26",
+   "title": "BUD-07 b): регулярні платежі — статуси",
+   "status": "partial",
+   "prs": [
+    344
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "b1 готово; BUD-07@PoC 16/21 FR у тестах"
+  },
+  {
+   "row": "27",
+   "title": "BUD-05 a): цілі",
+   "status": "done",
+   "prs": [
+    295
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "28",
+   "title": "BUD-05 b): цілі — витрата і завершення",
+   "status": "done",
+   "prs": [
+    303
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "29",
+   "title": "BUD-02 a): бюджет",
+   "status": "done",
+   "prs": [
+    323
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "30",
+   "title": "BUD-02 b): майстер бюджету — розрахунки",
+   "status": "done",
+   "prs": [
+    342
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "31",
+   "title": "BUD-02 c): розподіл і майбутній місяць",
+   "status": "done",
+   "prs": [
+    565
+   ],
+   "open_prs": [],
+   "issues": [
+    567
+   ],
+   "note": "порт BudgetObligations — #567 у #573"
+  },
+  {
+   "row": "32",
+   "title": "BUD-16 a): методи бюджетування",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "33",
+   "title": "BUD-19 a): погашення боргів",
+   "status": "done",
+   "prs": [
+    321,
+    574,
+    581
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "34",
+   "title": "BUD-03 a): «Можна витратити»",
+   "status": "open_pr",
+   "prs": [],
+   "open_prs": [
+    573
+   ],
+   "issues": [
+    567
+   ]
+  },
+  {
+   "row": "35",
+   "title": "BUD-17 a): керування планом",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "36",
+   "title": "BUD-06 a): порівняння періодів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "37",
+   "title": "BUD-08 a): грошовий потік",
+   "status": "open_pr",
+   "prs": [],
+   "open_prs": [
+    580
+   ],
+   "issues": []
+  },
+  {
+   "row": "179",
+   "title": "BUD-02 / BUD-19: округлення до парного в обчисленнях",
+   "status": "partial",
+   "prs": [
+    574,
+    581
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "BUD-19 готово; wizard.ts ще ROUND_HALF_UP"
+  },
+  {
+   "row": "D0",
+   "title": "PRC-02: зачистка вимог «Імпорт»",
+   "status": "done",
+   "prs": [
+    457
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "38",
+   "title": "IMP-01 a): сховище файлів",
+   "status": "done",
+   "prs": [
+    496
+   ],
+   "open_prs": [],
+   "issues": [
+    505
+   ]
+  },
+  {
+   "row": "39",
+   "title": "IMP-01 b): партії імпорту",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [
+    569
+   ],
+   "issues": [
+    582
+   ],
+   "note": "частина 1 з 2 у #569"
+  },
+  {
+   "row": "40",
+   "title": "IMP-06 a): рецепт розбору",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "41",
+   "title": "IMP-06 b) / IMP-02 b): альтернативи, пояснення і ноги",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "42",
+   "title": "IMP-05: контрольні суми і розриви",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "43",
+   "title": "IMP-04 a): дублікати й ідемпотентність",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "44",
+   "title": "IMP-04 b) / IMP-16 a): відкат партії",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "45",
+   "title": "IMP-18: ідентичність рядка",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "46",
+   "title": "IMP-19: стелі і стани партії",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "47",
+   "title": "IMP-03 a): обміни валют",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "48",
+   "title": "IMP-03 b): внутрішні перекази",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "49",
+   "title": "IMP-07 a): шаблони",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "50",
+   "title": "IMP-07 b): повторний розбір",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "51",
+   "title": "IMP-17 a): розбіжність залишку",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "52",
+   "title": "IMP-14 a): файл помилок",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "53",
+   "title": "ARC-03: генератор транзакцій родини",
+   "status": "done",
+   "prs": [
+    502
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "54",
+   "title": "IMP-10 a): бібліотека шаблонів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "55",
+   "title": "IMP-10 b): шаблони банків родини",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "56",
+   "title": "DS-02 / CMP-71: бренд",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "CMP-71 є, DS-02 без тестів"
+  },
+  {
+   "row": "57",
+   "title": "CMP-33 / DS-12: іконки",
+   "status": "done",
+   "prs": [
+    162
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "58 / 63",
+   "title": "CMP-05: Switch + CMP-64: Chip",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "59 / 60",
+   "title": "CMP-12: Segmented + CMP-11: Tabs",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "61 / 62",
+   "title": "CMP-22: Skeleton + CMP-74: Progress",
+   "status": "done",
+   "prs": [
+    167,
+    173
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "62a",
+   "title": "CMP-74: приблизна загальна кількість",
+   "status": "done",
+   "prs": [
+    536
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "64",
+   "title": "CMP-14: Stepper",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "65",
+   "title": "CMP-61: Menu / Popover",
+   "status": "done",
+   "prs": [
+    536
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "66",
+   "title": "DS-03: тон голосу",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "67",
+   "title": "CHT-00: принципи графіків",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "68",
+   "title": "DS-15: вибір графіка",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "69",
+   "title": "DS-14: стани взаємодії і фокус",
+   "status": "done",
+   "prs": [
+    528,
+    534
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "70",
+   "title": "DS-09: відступи, радіуси, тіні, шари",
+   "status": "done",
+   "prs": [
+    528,
+    534
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "71",
+   "title": "DS-07: кольори статусів і палітра графіків",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "72",
+   "title": "DS-05: довгі тексти і великі числа",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "73",
+   "title": "DS-16 / DS-17: осі, підписи, легенди",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "74",
+   "title": "CMP-59: IconButton",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "75",
+   "title": "CMP-01: Button",
+   "status": "done",
+   "prs": [
+    355
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "76",
+   "title": "CMP-02: Field",
+   "status": "done",
+   "prs": [
+    358,
+    444
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "77",
+   "title": "CMP-04: Checkbox",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "78",
+   "title": "CMP-18: Badge",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "79 / 80",
+   "title": "CMP-07: Amount + CMP-08: Delta",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "81",
+   "title": "CMP-09: GoalProgress",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "82 / 83",
+   "title": "CMP-42: LineChart + CMP-47: BarChart",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "84",
+   "title": "CMP-03: Select",
+   "status": "done",
+   "prs": [
+    357
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "85",
+   "title": "CMP-10: PageHeader",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "86",
+   "title": "CMP-13: Pagination",
+   "status": "done",
+   "prs": [
+    378
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "87 / 88",
+   "title": "CMP-19: Banner + CMP-20: Toast",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "89",
+   "title": "CMP-21 a): Dialog — основа",
+   "status": "done",
+   "prs": [
+    354
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "90",
+   "title": "CMP-21 b): Dialog — форми і підтвердження",
+   "status": "done",
+   "prs": [
+    434
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "91 / 92",
+   "title": "CMP-23: EmptyState + CMP-24: ErrorState",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "93 / 94",
+   "title": "CMP-27: ListRow + CMP-28: TransactionRow",
+   "status": "done",
+   "prs": [
+    381
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "95",
+   "title": "CMP-53: Card",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "96",
+   "title": "CMP-55: BudgetRow",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "97 / 98",
+   "title": "CMP-62: SortMenu + CMP-72: PeriodPicker",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "99",
+   "title": "CMP-73: SelectionBar",
+   "status": "done",
+   "prs": [
+    486,
+    526
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "100",
+   "title": "DS-23: словник статусів «Планування»",
+   "status": "done",
+   "prs": [
+    512
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "101",
+   "title": "CHT-01: часовий ряд з кількома серіями",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "код є, тестів за пунктами вимог немає"
+  },
+  {
+   "row": "102",
+   "title": "CMP-26: Table",
+   "status": "done",
+   "prs": [
+    510
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "103",
+   "title": "CMP-32: FilterBar",
+   "status": "done",
+   "prs": [
+    479,
+    526
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "104",
+   "title": "DAT-05 b): стани екранів",
+   "status": "partial",
+   "prs": [
+    509
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "DAT-05 8/9 FR"
+  },
+  {
+   "row": "105",
+   "title": "CMP-60: Toolbar",
+   "status": "partial",
+   "prs": [
+    526
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "CMP-60 3/4 FR"
+  },
+  {
+   "row": "106",
+   "title": "GRID-00 a): сітка і оболонка",
+   "status": "partial",
+   "prs": [
+    525,
+    531,
+    543,
+    547
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "GRID-00 32/33 FR"
+  },
+  {
+   "row": "107",
+   "title": "GRID-00 b) / DS-01 a): загальні правила інтерфейсу",
+   "status": "partial",
+   "prs": [
+    525,
+    531,
+    543,
+    547
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "108",
+   "title": "DS-01 b): принципи UX",
+   "status": "partial",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "F0",
+   "title": "PRC-02: зачистка вимог «Екрани»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "109",
+   "title": "ACC-04 b) / GRID-06: вхід і сесії — UI",
+   "status": "done",
+   "prs": [
+    365
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "110",
+   "title": "ACC-05 b) / GRID-05: налаштування і профіль — UI",
+   "status": "done",
+   "prs": [
+    364
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "111",
+   "title": "ACC-08 b) / ACC-06 b): простір — UI",
+   "status": "done",
+   "prs": [
+    359
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "177",
+   "title": "ACC-08 d): «Часовий пояс» у «Налаштування → Простір» — UI",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "112",
+   "title": "GRID-02 / FIN-01 c): «Рахунки»",
+   "status": "done",
+   "prs": [
+    413,
+    460
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "171",
+   "title": "ACC-05 c): формат дат і чисел за локаллю браузера",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "113",
+   "title": "FIN-12 c): картка рахунку",
+   "status": "partial",
+   "prs": [
+    422
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "частина 1: S-053"
+  },
+  {
+   "row": "114",
+   "title": "FIN-12 d): закрити і оновити залишок",
+   "status": "done",
+   "prs": [
+    445
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "115",
+   "title": "FIN-03 c) / DAT-01: «Транзакції»",
+   "status": "done",
+   "prs": [
+    474,
+    479
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "116",
+   "title": "FIN-03 d): деталь і нова транзакція",
+   "status": "done",
+   "prs": [
+    436,
+    478
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "117",
+   "title": "FIN-03 e) / BUD-13 b): розділення і атрибути — UI",
+   "status": "done",
+   "prs": [
+    346,
+    484
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "118",
+   "title": "DAT-03 b): масові дії — UI",
+   "status": "done",
+   "prs": [
+    486
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "119",
+   "title": "BUD-01 c): «Категорії»",
+   "status": "done",
+   "prs": [
+    485
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "120",
+   "title": "BUD-14 c): правила категорій",
+   "status": "done",
+   "prs": [
+    511
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "121",
+   "title": "BUD-12 b): «До розбору»",
+   "status": "done",
+   "prs": [
+    495
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "122",
+   "title": "GRID-04: сітки «Планування»",
+   "status": "done",
+   "prs": [
+    507
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "123",
+   "title": "BUD-02 d): «Бюджет»",
+   "status": "done",
+   "prs": [
+    545
+   ],
+   "open_prs": [],
+   "issues": [
+    546
+   ]
+  },
+  {
+   "row": "124",
+   "title": "BUD-02 e): майстер бюджету",
+   "status": "partial",
+   "prs": [
+    560
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "кроки «Спосіб», «Період», «Ліміти»"
+  },
+  {
+   "row": "125",
+   "title": "BUD-02 f): налаштування бюджету",
+   "status": "done",
+   "prs": [
+    556
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "126",
+   "title": "BUD-03 b): картка «Можна витратити»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [],
+   "note": "після #573"
+  },
+  {
+   "row": "127",
+   "title": "BUD-17 b): вкладка «План»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "128",
+   "title": "BUD-05 c): «Цілі»",
+   "status": "done",
+   "prs": [
+    548,
+    550
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "129",
+   "title": "BUD-05 d): витратити з цілі",
+   "status": "done",
+   "prs": [
+    555
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "130",
+   "title": "BUD-07 c): «Регулярні платежі»",
+   "status": "done",
+   "prs": [
+    335,
+    549
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "131",
+   "title": "BUD-19 b): «Борги»",
+   "status": "done",
+   "prs": [
+    336,
+    552
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "132",
+   "title": "BUD-06 b): «Порівняння»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "133",
+   "title": "BUD-16 b): «Тренд»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "134",
+   "title": "BUD-08 b): «Грошовий потік»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "135",
+   "title": "UX-09: навігація і рівні меню",
+   "status": "partial",
+   "prs": [
+    542
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "UX-09 18/19 FR"
+  },
+  {
+   "row": "136",
+   "title": "IMP-08 a): майстер — рахунок і файли",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "137",
+   "title": "IMP-08 b): майстер — перевірка розпізнавання",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "138",
+   "title": "IMP-08 c) / IMP-17 b): майстер — результат",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "139",
+   "title": "IMP-03 c): «Пари»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "140",
+   "title": "IMP-14 b) / IMP-16 b): історія імпорту",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "141",
+   "title": "IMP-09 a): редактор правил розпізнавання",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "142",
+   "title": "IMP-09 b): редактор правил — частина 2",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "143",
+   "title": "IMP-07 c): «Шаблони»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "144",
+   "title": "BUD-11: ручний режим",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "145",
+   "title": "FLW-01 / FLW-02: онбординг і вхід",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "146",
+   "title": "FLW-17 / FLW-10: рахунки й імпорт",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "147",
+   "title": "FLW-19 / FLW-35 / FLW-41: транзакції, розбір, правила",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "148",
+   "title": "FLW-34 / FLW-37: перший бюджет і ціль",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "149",
+   "title": "FLW-38 / FLW-44: підсумок періоду і погашення боргів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "150",
+   "title": "JRN-05 / JRN-06: шляхи користувача",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "151",
+   "title": "ARC-07 / NFR-05 / NFR-06 / NFR-11: тести за критеріями",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "152",
+   "title": "NFR-15 a): тести збудованих засобів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "153",
+   "title": "PRC-01 / PRC-02 / CICD-02 / CICD-04 / NFR-19: тести інструментів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "154",
+   "title": "DS-04 / DS-06 / DS-08 / DS-13 / NFR-17: залишки",
+   "status": "done",
+   "prs": [
+    522,
+    526,
+    528,
+    536
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "172",
+   "title": "CICD-04: локальний режим API на 127.0.0.1 за замовчуванням",
+   "status": "done",
+   "prs": [
+    351,
+    370
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "173",
+   "title": "CICD-04: зберегти і відновити локальну базу",
+   "status": "done",
+   "prs": [
+    520
+   ],
+   "open_prs": [],
+   "issues": [
+    566
+   ]
+  },
+  {
+   "row": "174",
+   "title": "NFR-15 п. 22: аудит залежностей у CI",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "155",
+   "title": "ARC-06: живий адаптер KMS OCI Vault",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "156",
+   "title": "NFR-16 / NFR-03: робочий журнал видалень",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "157",
+   "title": "CICD-12 a): сховище секретів",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "158",
+   "title": "CICD-12 b): ротація секретів",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "159",
+   "title": "CICD-07 / NFR-15: замок правила зберігання",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "160",
+   "title": "NFR-16 a) / CICD-07: копіювання",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "161",
+   "title": "NFR-16 b) / CICD-07: перевірка відновлення",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "162",
+   "title": "CICD-07 c) / ARC-09: логи сервера",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "163",
+   "title": "CICD-03: образ, SBOM, підпис",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "164",
+   "title": "CICD-05 a): інструкція розгортання",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "165",
+   "title": "CICD-05 b): робочий процес розгортання",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "166",
+   "title": "CICD-08: доступ агентів",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "167",
+   "title": "NFR-01 / NFR-18: скан OWASP ZAP",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "168",
+   "title": "NFR-18: чек-лист перед запуском",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "169",
+   "title": "CICD-07 d): застосування «Старт»",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "170",
+   "title": "NFR-16 / NFR-03: репетиція відновлення",
+   "status": "moved_to_mvp",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "R",
+   "title": "Доробки після 8–10 злитих PR (повторюється, ≈ 25 разів за хвилю)",
+   "status": "partial",
+   "prs": [
+    429,
+    435,
+    456
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "R7, R8, R9; повторюється"
+  },
+  {
+   "row": "180",
+   "title": "ARC-01 / ADR-0002: A1, крок 1 — тест-дослід post()",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "181",
+   "title": "PRC-02: A1, крок 2 — зміна ARC-01 і FIN-04 (change-requirement)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "182",
+   "title": "ADR-0002 / ADR-0015 / ARC-01: A1, крок 3 — поправки ADR і функції платформи",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "183",
+   "title": "FIN-04 / ARC-01: A1, крок 4 — перенесення передач",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "184",
+   "title": "ARC-11 / ARC-01 / NFR-12: прогалини PoC",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "185",
+   "title": "PRC-02: ARC-10, П-24, ARC-01, NFR-04 (change-requirement)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "186",
+   "title": "ARC-10 / ARC-04: основа масштабу, п. 1–2",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "187",
+   "title": "ARC-10 / ARC-01 / ADR-0002: ADR про доступ до бази",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "188",
+   "title": "ARC-10 / ARC-11 / NFR-15: основа масштабу, п. 4–5",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "189",
+   "title": "NFR-04: один вимір швидкості",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "190",
+   "title": "NFR-15 / ARC-07 / DS-04 / CICD-04: знахідки коду 5–7 і версія Node",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "191",
+   "title": "PRC-02: правила процесу з рев'ю",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "192",
+   "title": "PRC-02: суперечності в тексті вимог (change-requirement)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "193",
+   "title": "PRC-02: адреса входу і відкриті питання власнику",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "194",
+   "title": "FIN-03 / FIN-12 / BUD-01 / NFR-12: крок «contract» для знятих обмежень",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "195",
+   "title": "JRN / FLW / CICD-04: незалежні сценарії і щотижневе користування",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "196",
+   "title": "PRC-02 / PRC-01: процес зміни вимог (10б)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "197",
+   "title": "BUD-19 a2): змінна ставка, валюта, розбиття платежу",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "198",
+   "title": "FIN-01 / FIN-12: одне блокування рахунку для закриття, «Оновити залишок» і записів",
+   "status": "partial",
+   "prs": [
+    490
+   ],
+   "open_prs": [],
+   "issues": [],
+   "note": "частина 1"
+  },
+  {
+   "row": "199",
+   "title": "ARC-04 / ARC-11: передачі в журнал і черга — застряглі задачі, сповіщення, схема",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "200",
+   "title": "NFR-12: стирання простору без пізніх записів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "201",
+   "title": "FIN-03 / BUD-01: дублі, приховування і розділення — баланс без подвійного обліку",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "202",
+   "title": "FIN-03 / ARC-07: перекази — комісія, кредитні рахунки, «Не пара», ручний курс; ідемпотентність грошових створень",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "203",
+   "title": "BUD-02 / BUD-01: бюджет — знаки, курси, об'єднання категорій, межі NUMERIC(38,18)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "204",
+   "title": "BUD-05: цілі — конверти, закриті рахунки, внески",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "205",
+   "title": "FIN-04 / VAL-04: курси в журналі і «приблизно»",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "206",
+   "title": "FIN-01: введення і показ сум рахунку",
+   "status": "done",
+   "prs": [
+    489
+   ],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "207",
+   "title": "FIN-12: об'єднання рахунків (FR 12)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "208",
+   "title": "FIN-12 / BUD-01: не затирати збережене користувачем",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "209",
+   "title": "BUD-01: гонки видалення й об'єднання категорій між модулями",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": []
+  },
+  {
+   "row": "210",
+   "title": "FIN-01 / FIN-03: очікування блокування рахунку не тримає спільне з'єднання",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    494
+   ]
+  },
+  {
+   "row": "211",
+   "title": "FIN-03 / FIN-12: id рахунків у нижньому регістрі, канонічний id в аудиті, тест без випадковості",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    501
+   ]
+  },
+  {
+   "row": "212",
+   "title": "BUD-14: теги правила не лишаються після відкоченої частини",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    504
+   ]
+  },
+  {
+   "row": "213",
+   "title": "IMP-01 / NFR-12: сховище файлів — стирання, сироти, термін посилання, блокування лімітів",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    505
+   ]
+  },
+  {
+   "row": "214",
+   "title": "IMP-01: партії імпорту — безпека перед data.import",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    582
+   ]
+  },
+  {
+   "row": "215",
+   "title": "BUD-02: цифри S-121 з сервера (перевитрата, необов'язкові ліміти, «Ще потрібно на обов'язкові», «Вільний залишок»)",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    546,
+    567
+   ]
+  },
+  {
+   "row": "216",
+   "title": "BUD-05: середні витрати для подушки з API, від'ємна початкова сума цілі",
+   "status": "open_pr",
+   "prs": [],
+   "open_prs": [
+    584
+   ],
+   "issues": [
+    553,
+    559
+   ]
+  },
+  {
+   "row": "217",
+   "title": "CICD-04: локальне відновлення бази — тести збою, порядок перейменування, ролі",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    566
+   ]
+  },
+  {
+   "row": "218",
+   "title": "CICD-01: кеш apt у e2e — перевірка пакетів, збереження, тест dpkg",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    579
+   ]
+  },
+  {
+   "row": "219",
+   "title": "BUD-05: «Цілі» збігається з дошкою PocPlanGoalCard",
+   "status": "not_started",
+   "prs": [],
+   "open_prs": [],
+   "issues": [
+    583
+   ]
+  }
+ ]
+}
