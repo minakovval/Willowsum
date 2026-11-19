@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Willowsum · хід PoC</title>
 <style>
-/* Layout: two answers on top (when it will be ready | what is in work now), the daily pace chart below, small facts last. */
+/* Layout (owner decision 2026-11-19): PoC requirement coverage by tests on top, what is in work now beside it, the pace
+   (merged PRs) below, small facts last. Coverage comes from coverage.json, which CI writes after every merge to main. */
 :root {
   --bg: #FBFBFA; --card: #FFFFFF; --inset: #F1F1EF; --ink: #1B2230; --muted: #566174; --line: #E5E5E2;
   --brand: #0B2545; --brand-2: #1D4E89; --accent: #E3A33B; --link: #1D4E89;
@@ -21,6 +22,7 @@
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font); }
 .wrap { max-width: 1080px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-right, 0px)) 40px max(16px, env(safe-area-inset-left, 0px)); display: grid; gap: 20px; }
 header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; }
@@ -32,7 +34,7 @@ button:hover { background: var(--inset); }
 button:focus-visible, a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
-.top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.top { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; }
 @media (max-width: 760px) { .top { grid-template-columns: minmax(0, 1fr); } }
 section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
 .big { font-size: 40px; font-weight: 650; line-height: 1.1; color: var(--brand); font-variant-numeric: tabular-nums; }
@@ -62,6 +64,19 @@ ul.prs .age { color: var(--muted); font-size: 13px; white-space: nowrap; font-va
 .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; background: var(--c); }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
 .fact b { display: block; font-size: 26px; font-weight: 650; color: var(--brand); font-variant-numeric: tabular-nums; }
+.parts { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.parts b { color: var(--ink); font-weight: 600; }
+.later { display: grid; gap: 10px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); }
+.later .row { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 12px; align-items: center; font-size: 13px; }
+.later .row .bar { height: 8px; margin: 0; }
+.later .row .bar > i { background: var(--process); }
+.later .row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.src { margin-top: 12px; }
+.src code { font-size: 12px; }
+.pace { display: flex; flex-wrap: wrap; gap: 8px 32px; margin: 0 0 16px; }
+.pace div { display: grid; }
+.pace b { font-size: 22px; font-weight: 650; color: var(--brand); font-variant-numeric: tabular-nums; }
+.pace span { color: var(--muted); font-size: 13px; }
 .alert { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 14px; font-size: 14px; }
 footer { color: var(--muted); font-size: 12px; }
 @media (prefers-reduced-motion: reduce) { .bar > i { transition: none; } }
@@ -77,16 +92,14 @@ footer { color: var(--muted); font-size: 12px; }
   <div id="alert" class="alert" hidden></div>
 
   <div class="top">
-    <section aria-labelledby="h-when">
-      <h2 id="h-when">Коли буде готово</h2>
-      <div class="big"><span id="pct">–</span><small> % плану</small></div>
-      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="barbox"><i id="bar" style="width:0"></i></div>
-      <p class="note" id="barnote">&nbsp;</p>
-      <dl>
-        <dt>Темп за останні 3 доби</dt><dd id="pace">–</dd>
-        <dt>Лишилося за оцінкою</dt><dd id="left">–</dd>
-        <dt>Прогноз за цим темпом</dt><dd id="eta">–</dd>
-      </dl>
+    <section aria-labelledby="h-cov">
+      <h2 id="h-cov">Вимоги PoC покриті тестами</h2>
+      <div class="big"><span id="pct">–</span><small id="pctunit"></small></div>
+      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-labelledby="h-cov" id="barbox"><i id="bar" style="width:0"></i></div>
+      <p class="note" id="barnote">Завантажую покриття…</p>
+      <p class="parts" id="parts"></p>
+      <div class="later" id="later" hidden></div>
+      <p class="note src" id="covsrc">&nbsp;</p>
     </section>
 
     <section aria-labelledby="h-now">
@@ -95,9 +108,15 @@ footer { color: var(--muted); font-size: 12px; }
     </section>
   </div>
 
-  <section aria-labelledby="h-days">
-    <h2 id="h-days">Злито PR за день, з початку проєкту</h2>
-    <div class="chart" id="chart"></div>
+  <section aria-labelledby="h-pace">
+    <h2 id="h-pace">Темп</h2>
+    <div class="pace">
+      <div><b id="done">–</b><span id="donenote">продуктових PR злито з 13 листопада (план хвилі 2)</span></div>
+      <div><b id="pace">–</b><span>PR на добу, останні 3 доби</span></div>
+    </div>
+    <p class="note" id="pacenote">Це кількість злитих PR, а не готовність: виправлення й зміни вимог теж рахуються.</p>
+    <h2 id="h-days" style="margin-top:18px">Злито PR за день, з початку проєкту</h2>
+    <div class="chart" id="chart" aria-labelledby="h-days"></div>
     <div class="legend"><span style="--c:var(--product)">продукт</span><span style="--c:var(--process)">процес і правила</span></div>
   </section>
 
@@ -109,7 +128,7 @@ footer { color: var(--muted); font-size: 12px; }
 
   <footer>
     Дані читаються прямо з публічного репозиторію <a href="https://github.com/minakovval/Willowsum">minakovval/Willowsum</a> раз на 10 хвилин, поки сторінка відкрита.
-    Відсоток і прогноз приблизні й стосуються плану хвилі 2, який діє з 13 листопада: вони спираються на оцінку кількості PR у цьому плані й на темп останніх днів. Графік і загальна кількість охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
+    Покриття — частка пунктів вимог PoC (FR, AC, EC), які названі хоча б одним тестом (<code>node tools/req-check/index.mjs --coverage</code>); CI рахує його після кожного злиття в main. Темп, графік і загальна кількість читаються з GitHub і охоплюють увесь проєкт. PR із назвою «PRC-…» рахуються як процес.
   </footer>
 </div>
 
@@ -119,16 +138,18 @@ footer { color: var(--muted); font-size: 12px; }
   var REPO = 'minakovval/Willowsum';
   var API = 'https://api.github.com/repos/' + REPO;
   var PLAN = 'https://raw.githubusercontent.com/' + REPO + '/main/docs/plans/poc-wave-2.md';
+  var COVERAGE = 'coverage.json';               // written next to this page by .github/workflows/progress-dashboard.yml
+  var LATER = ['PoC v2', 'MVP'];
   var START = '2026-10-01T00:00:00Z';          // before the first PR of the project
   var WAVE2 = '2026-11-13T00:00:00Z';          // the wave-2 plan and its PR estimate start on this day
   var PROCESS_ISSUES = [178, 179, 180, 465, 480];
-  var FALLBACK_TOTAL = 251;
   var EVERY_MS = 10 * 60 * 1000;
-  var KEY = 'willowsum-dash-v2';
+  var KEY = 'willowsum-dash-v3';
   var DAYS = 30;
 
   var $ = function (id) { return document.getElementById(id); };
   var state = load();
+  var coverage = null;      // null: not loaded yet; false: no data; else the checked coverage.json
   var timer = null;
 
   function load() {
@@ -193,6 +214,83 @@ footer { color: var(--muted); font-size: 12px; }
     }).catch(function () {});
   }
 
+  // coverage.json is used only when it has the expected shape; anything else is «немає даних», never a guessed number.
+  function count(x) { return x && Number.isInteger(x.covered) && Number.isInteger(x.total) && x.covered >= 0 && x.covered <= x.total; }
+  function checkCoverage(j) {
+    if (!j || j.schema !== 1 || !Array.isArray(j.releases) || isNaN(Date.parse(j.generatedAt))) return false;
+    var ok = j.releases.filter(function (r) { return r && typeof r.release === 'string' && count(r.FR) && count(r.AC) && count(r.EC) && count(r.items) && r.items.total > 0; });
+    if (!ok.some(function (r) { return r.release === 'PoC'; })) return false;
+    return { at: j.generatedAt, sha: /^[0-9a-f]{40}$/.test(j.sha || '') ? j.sha : null, releases: ok };
+  }
+  function loadCoverage() {
+    return fetch(COVERAGE, { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) throw new Error('coverage ' + r.status);
+      return r.json();
+    }).then(function (j) { coverage = checkCoverage(j); }).catch(function () { coverage = false; });
+  }
+  function pctOf(x) { return Math.floor(x.covered / x.total * 100); }
+
+  function renderCoverage() {
+    if (coverage === null) return;
+    var later = $('later');
+    later.textContent = '';
+    if (!coverage) {
+      text('pct', 'немає даних'); text('pctunit', '');
+      $('barbox').hidden = true;
+      text('barnote', 'Файл покриття coverage.json не знайдено або він пошкоджений. Його пише CI після злиття в main.');
+      text('parts', ''); later.hidden = true; text('covsrc', '');
+      return;
+    }
+    var by = {};
+    coverage.releases.forEach(function (r) { by[r.release] = r; });
+    var poc = by.PoC;
+    var p = pctOf(poc.items);
+    text('pct', p); text('pctunit', ' %');
+    $('barbox').hidden = false;
+    $('bar').style.width = p + '%';
+    $('barbox').setAttribute('aria-valuenow', p);
+    text('barnote', poc.items.covered + ' з ' + poc.items.total + ' пунктів вимог PoC названі тестами');
+    var parts = $('parts'); parts.textContent = '';
+    ['FR', 'AC', 'EC'].forEach(function (k) {
+      var span = document.createElement('span');
+      var b = document.createElement('b'); b.textContent = k;
+      span.appendChild(b);
+      span.appendChild(document.createTextNode(' ' + poc[k].covered + ' / ' + poc[k].total + ' (' + pctOf(poc[k]) + ' %)'));
+      parts.appendChild(span);
+    });
+    LATER.forEach(function (name) {
+      var r = by[name];
+      var row = document.createElement('div'); row.className = 'row';
+      var l = document.createElement('span'); l.textContent = name;
+      var bar = document.createElement('div'); bar.className = 'bar';
+      bar.setAttribute('role', 'progressbar'); bar.setAttribute('aria-valuemin', '0'); bar.setAttribute('aria-valuemax', '100');
+      bar.setAttribute('aria-label', 'Вимоги ' + name + ' покриті тестами');
+      var i = document.createElement('i');
+      var v = document.createElement('span');
+      if (r) {
+        var q = pctOf(r.items);
+        i.style.width = q + '%'; bar.setAttribute('aria-valuenow', q);
+        v.textContent = q + ' % · ' + r.items.covered + ' з ' + r.items.total;
+      } else {
+        i.style.width = '0'; bar.setAttribute('aria-valuetext', 'немає даних');
+        v.textContent = 'немає даних';
+      }
+      bar.appendChild(i); row.appendChild(l); row.appendChild(bar); row.appendChild(v); later.appendChild(row);
+    });
+    later.hidden = false;
+    var src = $('covsrc'); src.textContent = '';
+    var at = new Date(coverage.at);
+    src.appendChild(document.createTextNode('Пораховано ' + fmtDate(at) + ' о ' + fmtTime(at) + ' на main '));
+    if (coverage.sha) {
+      var a = document.createElement('a');
+      a.href = 'https://github.com/' + REPO + '/commit/' + coverage.sha;
+      var c = document.createElement('code'); c.textContent = coverage.sha.slice(0, 8);
+      a.appendChild(c); src.appendChild(a);
+    } else {
+      src.appendChild(document.createTextNode('(коміт невідомий)'));
+    }
+  }
+
   function isProcess(title) { return /^\s*PRC-/i.test(title); }
   function dayKey(d) { return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
   function fmtDate(d) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' }); }
@@ -206,28 +304,19 @@ footer { color: var(--muted); font-size: 12px; }
   function text(id, v) { $(id).textContent = v; }
 
   function render() {
+    renderCoverage();
     var prs = Object.keys(state.prs).map(function (n) { return state.prs[n]; });
     var product = prs.filter(function (p) { return !isProcess(p.t) && p.m >= WAVE2; });
     var productAll = prs.filter(function (p) { return !isProcess(p.t); }).length;
-    var total = state.total || FALLBACK_TOTAL;
     var done = product.length;
-    var pct = Math.min(100, Math.round(done / total * 100));
 
     if (prs.length) {
-      text('pct', pct);
-      $('bar').style.width = pct + '%';
-      $('barbox').setAttribute('aria-valuenow', pct);
-      text('barnote', 'План хвилі 2 (з 13 листопада): злито ' + done + ' продуктових PR з ≈ ' + total + ' за оцінкою');
-
+      text('done', done);
+      text('donenote', state.total ? 'продуктових PR злито з 13 листопада, оцінка плану хвилі 2 ≈ ' + state.total : 'продуктових PR злито з 13 листопада (план хвилі 2)');
       var since = Date.now() - 72 * 36e5;
       var recent = product.filter(function (p) { return new Date(p.m).getTime() >= since; }).length;
       var pace = recent / 3;
-      var left = Math.max(0, total - done);
-      text('pace', pace ? pace.toFixed(1).replace('.', ',') + ' PR на добу' : 'немає злитих PR');
-      text('left', '≈ ' + left + ' PR');
-      if (left === 0) text('eta', 'оцінку вичерпано');
-      else if (pace > 0) text('eta', '≈ ' + fmtDate(new Date(Date.now() + left / pace * 864e5)));
-      else text('eta', 'не порахувати');
+      text('pace', pace ? pace.toFixed(1).replace('.', ',') : '0');
 
       text('total', prs.length);
       var first = prs.reduce(function (a, p) { return p.m < a ? p.m : a; }, prs[0].m);
@@ -288,6 +377,7 @@ footer { color: var(--muted); font-size: 12px; }
 
   function refresh() {
     var al = $('alert');
+    loadCoverage().then(renderCoverage);   // independent of the GitHub API: shown even when GitHub limits requests
     return Promise.all([loadMerged(), loadOpen(), loadIssues(), loadPlan()]).then(function () {
       state.at = Date.now(); al.hidden = true; save(); render();
     }).catch(function (e) {
