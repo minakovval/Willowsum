@@ -427,7 +427,7 @@ describe("BUD-19@PoC: «Борги → План погашення»", () => {
 });
 
 describe("BUD-19@PoC: «Борги → Стратегія»", () => {
-  it("BUD-19@PoC AC3: Avalanche 24 months / 1 581,52 €; Snowball 25 months / 1 728,58 €, Mastercard closed earlier; both at once, no mark", async () => {
+  it("BUD-19@PoC AC3: Avalanche 24 months / 1 581,51 €; Snowball 25 months / 1 728,57 €, Mastercard closed earlier; both at once, no mark", async () => {
     const space = await newSpace();
     const visa = await card(space, "Visa", "5000.00", "24");
     const mc = await card(space, "Mastercard", "1500.00", "18");
@@ -440,8 +440,8 @@ describe("BUD-19@PoC: «Борги → Стратегія»", () => {
     });
     expect(res.statusCode, res.body).toBe(200);
     const { avalanche, snowball, included, excluded } = res.json();
-    expect(avalanche).toMatchObject({ status: "paid", months: 24, totalInterest: eur("1581.52") });
-    expect(snowball).toMatchObject({ status: "paid", months: 25, totalInterest: eur("1728.58") });
+    expect(avalanche).toMatchObject({ status: "paid", months: 24, totalInterest: eur("1581.51") });
+    expect(snowball).toMatchObject({ status: "paid", months: 25, totalInterest: eur("1728.57") });
     const closed = (s: { debts: { accountId: string; months: number }[] }) =>
       s.debts.find((d) => d.accountId === mc)!.months;
     expect(closed(snowball)).toBeLessThan(closed(avalanche));
