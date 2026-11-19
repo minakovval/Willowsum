@@ -52,6 +52,8 @@ let spaces: HouseholdSpaces;
 let audit: AuditLog;
 let app: ReturnType<typeof buildServer>;
 testTelemetryForFile();
+/** Release flags switched off for the space while a test runs (security review, #580). */
+const flagsOff = new Set<string>();
 
 interface Space {
   readonly accountId: string;
@@ -182,7 +184,7 @@ beforeAll(async () => {
       mountApi(a, {
         databases: db.databases,
         entitlements: "all-enabled",
-        flags: fakeFlags(),
+        flags: { ...fakeFlags(), isEnabled: async (_h: string, flag: string) => !flagsOff.has(flag) },
         authenticate: testAuthenticate,
         accounts: createAccountsServices({
           walletUsage: [],
@@ -326,6 +328,14 @@ describe("BUD-08@PoC: a month", () => {
     const after = await cashflow(space, "month", "2026-09");
     expect(after.unpairedTransfers).toBe(0);
     expect(after.months[0].expenses).toEqual(eur("60"));
+    // Both sides on budget accounts (security review, #580): neither counts — the inflow does not lower the spending.
+    const cash = await account(space, "cash");
+    await tx(space, current, "-700.00", "2026-08-10", null);
+    await tx(space, cash, "700.00", "2026-08-10", null);
+    const august = await cashflow(space, "month", "2026-08");
+    expect(august.months[0]).toMatchObject({ income: eur("0"), expenses: eur("0") });
+    expect(august.months[0].uncategorizedInflows.count).toBe(0);
+    expect(august.unpairedTransfers).toBe(2);
   });
 
   it("BUD-08@PoC FR 9: an uncategorized inflow lowers spending, is not income, and the hint counts it", async () => {
@@ -476,5 +486,15 @@ describe("BUD-08@PoC: access", () => {
       Object.keys((await call(owner, "GET", "/v1/nothing-here")).json()).sort(),
     );
     expect(scoped.json().code).toBe("NOT_FOUND");
+    // The release flag off for the space (it ships off): the route is not there, for the owner too (security review, #580).
+    flagsOff.add("budget.cashflow");
+    try {
+      const off = await call(owner, "GET", "/v1/cashflow?type=month&period=2026-09");
+      expect(off.statusCode).toBe(404);
+      expect(off.json().code).toBe("NOT_FOUND");
+      expect(off.body).not.toContain("6000");
+    } finally {
+      flagsOff.delete("budget.cashflow");
+    }
   });
 });

@@ -39,6 +39,10 @@ describe("BUD-08@PoC: period types and months", () => {
     for (const t of ["quarter", "ytd", "year"] as const) expect(viewOf(t)).toBe("monthly");
     expect(monthsOf("month", "2026-13", today)).toBeNull();
     expect(monthsOf("quarter", "2026-Q5", today)).toBeNull();
+    // A year before 1900 never reaches the database as a date (security review, #580).
+    expect(monthsOf("year", "1899", today)).toBeNull();
+    expect(monthsOf("month", "0000-01", today)).toBeNull();
+    expect(monthsOf("year", "1900", today)).toHaveLength(12);
     expect(monthsOf("month", "2026-12", today)).toBeNull(); // after the current month
     expect(monthsOf("custom" as never, "2026", today)).toBeNull();
   });
