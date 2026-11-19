@@ -27,7 +27,7 @@ export interface StoredRecipe {
 export const RECIPES_PER_SPACE = 200;
 export const RECIPE_NAME_MAX = 120;
 /** The sealed field of the account binding's value (household's space keys). */
-export const ACCOUNT_VALUE_FIELD = "import-recipes.account-value";
+export const ACCOUNT_VALUE_FIELD = "importRecipes.accountValue";
 
 export const RECIPE_ENTITY = "import-recipes.recipe" as const;
 export const HAND_OFF_ACTIONS = ["create", "delete"] as const;

@@ -189,6 +189,7 @@ export const getImportRecipeRoute = defineRoute({
   response: { status: 200, description: "The recipe", schema: detailSchema },
   handler: async ({ params }, ctx) => {
     owner(ctx);
+    importRecipesServices(ctx);
     const recipe = await guarded(() => routeTx(ctx)((tx) => viewRecipe(tx, params.recipeId)));
     return presentDetail(recipe);
   },

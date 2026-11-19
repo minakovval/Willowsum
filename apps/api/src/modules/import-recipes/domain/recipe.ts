@@ -272,7 +272,8 @@ const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[
 export const unsafeText = (text: string): boolean => CONTROL.test(text) || LONE_SURROGATE.test(text);
 
 /**
- * `INVALID_CHARACTER` for every text of the recipe — values, and the keys of `numbers.currencySymbols` — that
+ * `INVALID_CHARACTER` for every text of the recipe — values, and the keys of `numbers.currencySymbols` (the path of
+ * the record) — that
  * `unsafeText` refuses; the tab of `file.delimiter` is a value of its list, not text.
  */
 function characterErrors(recipe: Recipe): RecipeError[] {
@@ -287,7 +288,8 @@ function characterErrors(recipe: Recipe): RecipeError[] {
       for (let i = v.length - 1; i >= 0; i--) stack.push([v[i], [...path, i]]);
     } else if (v !== null && typeof v === "object") {
       for (const [k, child] of Object.entries(v).reverse()) {
-        if (unsafeText(k)) errors.push({ code: "INVALID_CHARACTER", path: fieldPath([...path, k]) });
+        // The parent's path: the error never echoes the control character back.
+        if (unsafeText(k)) errors.push({ code: "INVALID_CHARACTER", path: fieldPath(path) });
         stack.push([child, [...path, k]]);
       }
     }

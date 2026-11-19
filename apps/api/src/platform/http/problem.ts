@@ -484,6 +484,15 @@ export function problemBody(
           },
         }
       : {}),
+    ...(options.extensions?.recipeErrors !== undefined
+      ? {
+          recipeErrors: options.extensions.recipeErrors.map((e) => ({
+            code: e.code,
+            path: e.path,
+            ...(e.reason !== undefined ? { reason: e.reason } : {}),
+          })),
+        }
+      : {}),
   };
 }
 
