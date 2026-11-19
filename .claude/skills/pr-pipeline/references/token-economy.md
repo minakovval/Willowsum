@@ -26,7 +26,7 @@ session starts or finishes.
      90 %, the reviews in (c) go temporarily to Opus and the lead tells the owner.
      Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
      import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
-     Opus; parallelism as in AGENTS.md (7 branches, 10 agents). Fable draws on the Ultra subscription limit about
+     Opus; parallelism as in AGENTS.md (7 branches, 10 agents plus up to 8 additional Sonnet agents). Fable draws on the Ultra subscription limit about
      twice as fast per token, with longer turns: short briefs that state the goal; compare its rows in #180 by the
      per-model split;
    - **reviews**: a `review-pr` of a PR whose every file passes `isDocsOnly` (merge checklist)
