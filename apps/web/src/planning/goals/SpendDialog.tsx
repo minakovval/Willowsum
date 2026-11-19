@@ -4,12 +4,17 @@ import { Button, FormDialog, Icon, type FormDialogState } from "@willowsum/ui";
 import { outcome, useAuthApi, type Outcome } from "../../auth/api.ts";
 import type { AccountLabel } from "../../recurring/data.ts";
 import type { Goal, Money } from "./model.ts";
-import { chosenSum, leftAfter, loadSpendRows, SPEND_PAGE, spendBody, type SpendRow } from "./spend.ts";
+import {
+  chosenSum,
+  leftAfter,
+  loadSpendRows,
+  SPEND_PAGE,
+  spendBody,
+  type SpendRow,
+  type SpendRows,
+} from "./spend.ts";
 
-type Rows =
-  | { state: "loading" }
-  | { state: "error"; supportId?: string }
-  | { state: "ready"; rows: readonly SpendRow[] };
+type Rows = { state: "loading" } | { state: "error"; supportId?: string } | ({ state: "ready" } & SpendRows);
 
 const initials = (name: string) => Array.from(name.trim())[0]?.toUpperCase() ?? "";
 
@@ -58,12 +63,12 @@ export function SpendDialog({
   const rows: Rows = loaded?.key === want ? loaded.rows : { state: "loading" };
   useEffect(() => {
     let live = true;
-    void loadSpendRows(api, goal, search).then((o: Outcome<readonly SpendRow[]>) => {
+    void loadSpendRows(api, goal, search).then((o: Outcome<SpendRows>) => {
       if (!live) return;
       setLoaded({
         key: want,
         rows: o.ok
-          ? { state: "ready", rows: o.data }
+          ? { state: "ready", ...o.data }
           : { state: "error", ...(o.kind === "problem" && o.supportId ? { supportId: o.supportId } : {}) },
       });
       setShown(SPEND_PAGE);
@@ -132,7 +137,25 @@ export function SpendDialog({
   };
 
   const visible = rows.state === "ready" ? rows.rows.slice(0, shown) : [];
-  const rest = rows.state === "ready" ? Math.max(0, rows.rows.length - shown) : 0;
+  // «Ще N» counts every transaction the server has, not only the ones read so far (#559).
+  const rest = rows.state === "ready" ? Math.max(0, rows.count - Math.min(shown, rows.rows.length)) : 0;
+  const [more, setMore] = useState<"idle" | "loading" | "error">("idle");
+  /** «показати наступні 6»: 6 more rows; the next page of the API first when the rows read so far are not enough. */
+  const showMore = async () => {
+    if (rows.state !== "ready" || more === "loading") return;
+    const nextShown = shown + SPEND_PAGE;
+    if (nextShown > rows.rows.length && rows.next !== null) {
+      setMore("loading");
+      const o = await loadSpendRows(api, goal, search, rows);
+      if (!o.ok) {
+        setMore("error");
+        return;
+      }
+      setLoaded((old) => (old?.key === want ? { key: want, rows: { state: "ready", ...o.data } } : old));
+    }
+    setMore("idle");
+    setShown(nextShown);
+  };
   const chosenLine = (
     <span className="goal-spend-sum" aria-live="polite">
       <span>
@@ -221,10 +244,16 @@ export function SpendDialog({
                   <button
                     type="button"
                     className="goal-spend-more"
-                    onClick={() => setShown((n) => n + SPEND_PAGE)}
+                    aria-busy={more === "loading" || undefined}
+                    onClick={() => void showMore()}
                   >
                     {t(`planning.goals.spend.more.${plural(rest)}` as MessageKey, { count: String(rest) })}
                   </button>
+                  {more === "error" ? (
+                    <p role="alert" className="ws-muted">
+                      {t("planning.goals.spend.error.more")}
+                    </p>
+                  ) : null}
                 </li>
               ) : null}
             </ul>
