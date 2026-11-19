@@ -18,6 +18,12 @@ export function createBudgetPlanSources(ports: {
   readonly debts: DebtPlannedExpenses;
   readonly fx: Pick<FxReporting, "total">;
   readonly recurring?: RecurringMonth;
+  /**
+   * #613: whether «План» (release flag `budget.plan`) is on for the space. While it is off the regular incomes are not
+   * read: the month's income plan stays the budget's «План доходу» (BUD-02 FR 9, FR 14) on «Бюджет», in «Порівняння»
+   * and in a finished month's snapshot, as before «План». Left out — on.
+   */
+  readonly planEnabled?: (householdId: string) => Promise<boolean>;
 }): BudgetPlanSources {
   /** Each amount in `currency`; null in its place — no rate, or out of range. */
   async function convert(amounts: readonly Money[], currency: string): Promise<(Money | null)[]> {
@@ -54,6 +60,7 @@ export function createBudgetPlanSources(ports: {
     },
     async incomes(householdId, period, currency) {
       if (!ports.recurring) return [];
+      if (ports.planEnabled && !(await ports.planEnabled(householdId))) return [];
       // FR 1 «джерела доходу»: each income payment's charges in the month (BUD-02 FR 1, BUD-03 and BUD-07 rules:
       // «регулярні доходи формують очікуваний дохід»), one line per payment in the order of its first charge.
       const charges = (await ports.recurring.chargesIn(householdId, period)).filter(

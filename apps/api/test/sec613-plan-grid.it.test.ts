@@ -670,4 +670,27 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect(g.unallocated[1]).toEqual({ kind: "unallocated", amount: eur("1000") });
     expect((await period(space, "2026-12")).plannedSavings.amount).toBe("0");
   });
+
+  it("sec613 snapshot: a closed goal's cell is not in a snapshot written after the goal closed; a snapshot written before stays as it was", async () => {
+    const written = await newSpace();
+    const later = await newSpace();
+    const goals: string[] = [];
+    for (const space of [written, later]) {
+      await budgetWith(space, "1000", {});
+      const trip = await goal(space, "Відпустка", "3000.00");
+      goals.push(trip);
+      expect(
+        (await put(space, { period: "2026-12", kind: "goal", lineId: trip, amount: eur("200"), version: 0 }))
+          .statusCode,
+      ).toBe(200);
+    }
+    // The goal of `later` closes in December, before the month's snapshot exists.
+    expect((await call(later, "POST", `/v1/goals/${goals[1]}/close`)).statusCode).toBe(200);
+    now = at("2027-01-05");
+    // The first view of the finished month writes its snapshot.
+    expect((await period(written, "2026-12")).plannedSavings.amount).toBe("200");
+    expect((await period(later, "2026-12")).plannedSavings.amount).toBe("0");
+    expect((await call(written, "POST", `/v1/goals/${goals[0]}/close`)).statusCode).toBe(200);
+    expect((await period(written, "2026-12")).plannedSavings.amount).toBe("200");
+  });
 });

@@ -10,7 +10,7 @@
 - Спільні правила: П-10, П-11, П-17, П-18, П-24, П-25, П-26
 - Сценарії: UC-BUD-92
 - Модуль: budget
-- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`
+- Перевіряється: `apps/api/src/modules/budget/domain/bud17a-plan.test.ts`, `apps/api/test/bud17a-plan.it.test.ts`, `apps/api/test/sec613-plan-grid.it.test.ts`, `apps/api/test/sec613b-plan-incomes.it.test.ts`
 
 **Мета.** Як власник бюджету, я хочу бачити і змінювати місячні ліміти та план за категоріями на 12 місяців в одній сітці, щоб тримати план актуальним.
 

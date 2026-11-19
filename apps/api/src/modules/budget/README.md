@@ -139,9 +139,10 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   `obligations` — `BudgetObligations.month(householdId, period, currency, from?)` → `PeriodObligations` або null
   (`recurring`: `categoryId`, `amount`, `paid`; `debtMinimums`: `accountId`, `amount`, `paid` — щомісячний платіж
   кредиту, лише тут, не в `recurring`; `approximate`; суми у валюті бюджету за сьогоднішнім курсом).
-- `createBudgetPlanSources({ goals, debts, fx, recurring? })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals:
+- `createBudgetPlanSources({ goals, debts, fx, recurring?, planEnabled? })` → `BudgetPlanSources` (`src/main.ts`): `GoalPlans` (goals:
   активні цілі з потрібним внеском і датою), `DebtPlannedExpenses` (debt-payoff: додаткові платежі місяця),
-  `RecurringMonth` (recurring: очікувані регулярні доходи місяця за платежами; без нього — жодного), `FxReporting.total`
+  `RecurringMonth` (recurring: очікувані регулярні доходи місяця за платежами; без нього — жодного; `planEnabled` —
+  прапорець `budget.plan` простору: доки вимкнено, доходів не читають і план доходу місяця — «План доходу» BUD-02), `FxReporting.total`
   (fx-rates: інша валюта — за сьогоднішнім курсом; без курсу чи понад 15 цифр цілої частини — null).
 - `createBudgetObligations({ recurring, credit, liabilities, payments, fx })` → `BudgetObligations` (`src/main.ts`):
   `RecurringMonth` (recurring), `CreditAccounts` (accounts), `Liabilities.forAccount` (liabilities), `AccountPayments`

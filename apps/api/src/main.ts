@@ -439,6 +439,8 @@ const server = buildServer({
                 fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
                 // FR 1 «Надходження»: the month's expected regular incomes.
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
+                // #613: «План» off — «Бюджет» keeps the budget's own income plan.
+                planEnabled: (householdId) => flags.isEnabled(householdId, "budget.plan"),
               }),
               obligations: createBudgetObligations({
                 recurring: createRecurringMonth(databases.for("recurring"), recurring),
