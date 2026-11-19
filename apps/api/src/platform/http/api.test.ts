@@ -12,6 +12,7 @@ import { IDEMPOTENCY_REPLAYED_HEADER } from "./idempotency.ts";
 import { decodeCursor, PAGE_DEFAULT_LIMIT, PAGE_MAX_LIMIT, pageOf, pageQuery, toPage } from "./pagination.ts";
 import { ApiProblem, PROBLEM_CONTENT_TYPE, problemType } from "./problem.ts";
 import { defineRoute, type ProtectedContext } from "./route.ts";
+import { leakText } from "../../../test/leak-text.ts";
 
 const access = { permission: "things.write", feature: "things" };
 
@@ -122,8 +123,8 @@ describe("ARC-07 FR 4: errors are RFC 9457 problem details with a machine code",
         { in: "body", path: "", issue: "unrecognized_keys" },
       ]),
     );
-    expect(res.body).not.toContain("4111111111111111");
-    expect(res.body).not.toContain("jane@example.com");
+    expect(leakText(res.body)).not.toContain("4111111111111111");
+    expect(leakText(res.body)).not.toContain("jane@example.com");
   });
 
   it("path and query parameters are validated by the same schemas", async () => {
@@ -426,7 +427,7 @@ describe("ARC-07 review fixes (PR #80)", () => {
         { in: "body", path: "items.1.n", issue: "invalid_type" },
       ]),
     );
-    expect(res.body).not.toContain("jane");
+    expect(leakText(res.body)).not.toContain("jane");
   });
 
   it("the page bound is structural: a route may not declare its own cursor or limit", () => {

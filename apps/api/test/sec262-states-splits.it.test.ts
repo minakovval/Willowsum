@@ -216,6 +216,7 @@ import { Decimal } from "@willowsum/domain-kernel";
 import { applyHandOff, type TransactionHandOff } from "../src/modules/transactions/application/index.ts";
 import { transactionRows as lockedRows } from "../src/modules/transactions/adapters/queue/hand-off.ts";
 import { transactionAudit } from "../src/modules/transactions/adapters/http/services.ts";
+import { leakText } from "./leak-text.ts";
 
 const patch = (space: Space, id: string, body: unknown) =>
   call(space, "PATCH", `/v1/transactions/${id}`, body);
@@ -469,7 +470,7 @@ describe("SEC-262 money: the shares of a split sum exactly to the transaction", 
     ] as const) {
       const res = await send(a, b);
       expect(res.statusCode, `${a} ${b}: ${res.body}`).toBe(400);
-      expect(res.body).not.toContain(a.trim() === "" ? "^@" : `"${a}"`);
+      expect(leakText(res.body)).not.toContain(a.trim() === "" ? "^@" : `"${a}"`);
     }
     expect((await send("-0.1", "-0.2")).statusCode).toBe(200);
     expect((await send("-0.29", "-0.01")).statusCode).toBe(200);
@@ -536,7 +537,7 @@ describe("SEC-262 isolation: the parts, the hidden rows and the categories of a 
         0,
         "0",
       ]);
-      expect(res.body).not.toContain(c.home);
+      expect(leakText(res.body)).not.toContain(c.home);
     }
     for (const id of [t.id, h.id])
       expect((await call(b, "GET", `/v1/transactions/${id}`)).statusCode).toBe(404);
@@ -643,7 +644,7 @@ describe("SEC-262 isolation: the parts, the hidden rows and the categories of a 
       const unknown = await send(randomUUID());
       expect([theirs.statusCode, unknown.statusCode]).toEqual([400, 400]);
       expect(strip(theirs.body)).toEqual(strip(unknown.body));
-      expect(theirs.body).not.toContain(foreign.food);
+      expect(leakText(theirs.body)).not.toContain(foreign.food);
     }
     // The same on a transaction that does not exist: the category answer does not depend on the transaction.
     const ghost = await call(a, "POST", `/v1/transactions/${randomUUID()}/split`, {
@@ -686,9 +687,9 @@ describe("SEC-262 roles and scope: who reads and who changes", () => {
       ] as const) {
         const res = await call(space, method, url, payload, who);
         expect([403, 404], `${role} ${method} ${url}: ${res.statusCode}`).toContain(res.statusCode);
-        expect(res.body).not.toContain(t.id);
-        expect(res.body).not.toContain("count");
-        expect(res.body).not.toContain("10");
+        expect(leakText(res.body)).not.toContain(t.id);
+        expect(leakText(res.body)).not.toContain("count");
+        expect(leakText(res.body)).not.toContain("10");
       }
     }
     expect((await call(space, "GET", `/v1/transactions/${t.id}`)).json()).toMatchObject({
@@ -740,7 +741,7 @@ describe("SEC-262 roles and scope: who reads and who changes", () => {
       const res = await call(space, "GET", `/v1/transactions${query}`);
       if (res.statusCode !== 200) continue;
       const body = res.json();
-      expect(res.body, query).not.toContain(hidden.id);
+      expect(leakText(res.body), query).not.toContain(hidden.id);
       expect([body.count, body.summary.expense.total?.amount], query).toEqual([2, "-17"]);
       expect(body.items.map((i: { id: string }) => i.id).sort()).toEqual([shown.id, copy.id].sort());
     }

@@ -10,6 +10,7 @@ import { buildServer, SHUTTING_DOWN_RETRY_AFTER_S } from "../src/platform/proces
 import { jobTraceCarrier } from "../src/platform/telemetry/jobs.ts";
 import { testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { principalHeader, testApiOptions, testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * Reviews of PR #85 (NFR-10 FR 4–5, ARC-09 FR 3): requests Fastify answers before routing, a kill switch, a
@@ -119,8 +120,8 @@ describe("NFR-10 FR 4–5: errors Fastify raises before routing are traced probl
       // The same body as an unknown path (DAT-05 FR 7), apart from the support id.
       expect({ ...rest, supportId: "x" }).toEqual({ ...unknown.json(), supportId: "x" });
       expect(supportId).toMatch(/^[0-9a-f]{32}$/);
-      expect(res.body).not.toContain("olha");
-      expect(res.body).not.toContain("%c0");
+      expect(leakText(res.body)).not.toContain("olha");
+      expect(leakText(res.body)).not.toContain("%c0");
     }
     const spans = serverSpans();
     expect(spans).toHaveLength(4);

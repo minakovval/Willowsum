@@ -26,6 +26,7 @@ import {
   createTransactionRuleInputs,
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC FR 30, FR 31 (issue #438 — the server part of S-048 step 2): the category hints of «Нова
@@ -532,7 +533,7 @@ describe("FIN-03@PoC FR 30, FR 31: one space (П-5), its roles, the flag", () =>
       scoped: true,
     });
     expect(scoped.statusCode).toBe(404);
-    expect(scoped.body).not.toContain("Синт");
+    expect(leakText(scoped.body)).not.toContain("Синт");
     off.add(FLAG);
     expect((await call(space, "GET", query({}))).statusCode).toBe(404);
   });

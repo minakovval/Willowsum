@@ -13,6 +13,7 @@ import {
   createCategoryDirectory,
   type CategoryDirectory,
 } from "../src/modules/categories/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-01@PoC a) (wave 2 row 19), the server part of the module `categories`, through the real API on a real
@@ -528,7 +529,7 @@ describe("BUD-01@PoC «Права доступу»: the Owner works with categor
       const unknown = await call(b, method, url.replace(/[0-9a-f-]{36}/, randomUUID()), body);
       expect([foreign.statusCode, unknown.statusCode], `${method} ${url}`).toEqual([404, 404]);
       expect(strip(foreign.body)).toEqual(strip(unknown.body));
-      expect(foreign.body).not.toContain("таємниця");
+      expect(leakText(foreign.body)).not.toContain("таємниця");
     }
     // A category of space A as a merge target from A's own category is unknown in B too.
     const into = await call(b, "POST", `/v1/categories/${(await category(b, "Кешбек")).id}/merge`, {
@@ -541,7 +542,7 @@ describe("BUD-01@PoC «Права доступу»: the Owner works with categor
     });
     expect(groupInto.json().errors).toEqual([{ in: "body", path: "groupId", issue: "not_found" }]);
     const list = await call(b, "GET", "/v1/categories");
-    expect(list.body).not.toContain("таємниця");
+    expect(leakText(list.body)).not.toContain("таємниця");
     expect(flat(list.json().groups)).toHaveLength(51);
     expect(await category(a, "Синтетична таємниця")).toMatchObject({ id: secret.id });
   });
@@ -609,7 +610,7 @@ describe("BUD-01@PoC «Права доступу»: the Owner works with categor
       await call(space, "GET", `/v1/categories/${travel.id}`, undefined, scoped),
     ];
     expect(reads.map((r) => r.statusCode)).toEqual([404, 404]);
-    expect(reads[0]!.body).not.toContain("Подорожі");
+    expect(leakText(reads[0]!.body)).not.toContain("Подорожі");
     const writes = [
       await call(space, "POST", "/v1/categories", { groupId: travel.groupId, name: "К" }, scoped),
       await call(space, "PATCH", `/v1/categories/${travel.id}`, { hidden: true }, scoped),

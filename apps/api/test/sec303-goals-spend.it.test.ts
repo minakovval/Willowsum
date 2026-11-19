@@ -24,6 +24,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createTransactionLookup, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-05@PoC b) (wave 2 row 28), the server part: «Витратити» from a goal, «Скасувати витрату», the automatic cancel when
@@ -278,7 +279,7 @@ describe("security review #303: «Витратити» guards", () => {
     expect(res.json().errors).toEqual(
       [0, 1, 2].map((i) => ({ in: "body", path: `transactions.${i}`, issue: "not_found" })),
     );
-    expect(res.body).not.toContain("77");
+    expect(leakText(res.body)).not.toContain("77");
     expect(await n("goals.spends WHERE household_id = $1", space.householdId)).toBe(0);
     const again = await spend(space, g.id, [[theirs, current]]);
     expect(again.json().errors).toEqual([{ in: "body", path: "transactions.0", issue: "not_found" }]);

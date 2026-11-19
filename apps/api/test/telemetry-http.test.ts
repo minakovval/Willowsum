@@ -10,6 +10,7 @@ import { buildServer } from "../src/platform/process/server.ts";
 import { jobTraceCarrier, runJob, type JobTraceCarrier } from "../src/platform/telemetry/jobs.ts";
 import { exportedText, testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
 import { principalHeader, testApiOptions, testWiring } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * ARC-09 FR 2–3, NFR-10 FR 1, 2, 4, 5 through the real server (buildServer) and the API wiring of src/api.ts:
@@ -202,7 +203,7 @@ describe("ARC-09 FR 3 / NFR-10 FR 4: the trace id is the error code; client ids 
     expect(span!.parentSpanContext).toBeUndefined();
     expect(res.json().supportId).toBe(span!.spanContext().traceId);
     expect(res.json().supportId).not.toBe(clientTrace);
-    expect(res.body).not.toContain("client-chosen-id");
+    expect(leakText(res.body)).not.toContain("client-chosen-id");
     expect(res.headers["traceparent"]).toBeUndefined();
   });
 

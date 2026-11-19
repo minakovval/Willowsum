@@ -9,6 +9,7 @@ import { householdSpaces, setupRealModules, type RealModulesDatabase } from "../
 import { createAuditLog } from "../audit/index.ts";
 import type { PasswordHasher } from "./application/index.ts";
 import { argon2Hasher, createIdentityServices } from "./index.ts";
+import { leakText } from "../../../test/leak-text.ts";
 
 /**
  * ACC-01@PoC part b on a real PostgreSQL through the real API: password reset (FR 10, AC16, AC17), ending every
@@ -299,7 +300,7 @@ describe("ACC-01 AC16, FR 10: a reset request mails a single-use link valid 60 m
     const res = await completeReset(token, "elevenchars");
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("VALIDATION_FAILED");
-    expect(res.body).not.toContain("elevenchars");
+    expect(leakText(res.body)).not.toContain("elevenchars");
     expect((await checkReset(token)).statusCode).toBe(200);
     // 12 lower-case letters are enough (no composition rules).
     expect((await completeReset(token, "onlylowercas")).statusCode).toBe(200);

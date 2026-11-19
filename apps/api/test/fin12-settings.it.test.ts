@@ -12,6 +12,7 @@ import { createLedger, type Ledger } from "../src/modules/ledger/index.ts";
 import { createLiabilities, type Liabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices } from "../src/modules/accounts/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-12@PoC b) (wave 2 row 13 b): «Налаштування» → «Основне» through the real API on a real PostgreSQL — renaming an
@@ -426,7 +427,7 @@ describe("FIN-12@PoC FR 11: a duplicate is not created by hand", () => {
     expect(probe.json()).toEqual({
       duplicate: { accountId: imported.id, institution: "ПриватБанк", maskedNumber: "••1234" },
     });
-    expect(probe.body).not.toContain(IBAN);
+    expect(leakText(probe.body)).not.toContain(IBAN);
     const res = await call(space, "POST", "/v1/accounts", {
       kind: "current",
       name: "Мій ПриватБанк",

@@ -18,6 +18,7 @@ import { createCategoriesServices, createCategoryDirectory } from "../src/module
 import { createTransactionsServices, createTransferCandidates } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
 import { createTransferMatchingServices } from "../src/modules/transfer-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC FR 1, FR 28 (issue #437), through the real API on a real PostgreSQL: «Переказ між рахунками» of «Нова
@@ -526,7 +527,7 @@ describe("FIN-03@PoC «Права доступу»: a transfer is the space's ow
     ] as const) {
       const res = await transfer(mine.space, body(from, to));
       expect(res.statusCode).toBe(404);
-      expect(res.body).not.toContain(theirs.space.householdId);
+      expect(leakText(res.body)).not.toContain(theirs.space.householdId);
     }
     expect(await written(mine.space.householdId)).toEqual(NOTHING);
     expect(await written(theirs.space.householdId)).toEqual(NOTHING);

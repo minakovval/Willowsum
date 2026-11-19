@@ -11,6 +11,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices } from "../src/modules/accounts/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-01@PoC, server side (wave 2 row 11), through the real API on a real PostgreSQL: «Новий рахунок» creates the
@@ -485,7 +486,7 @@ describe("FIN-01@PoC business rule: the IBAN is kept sealed and shown only by it
     expect(res.json().number).toEqual({ last4: "1234", masked: "••1234" });
     const read = await call(space, "GET", `/v1/accounts/${id}`);
     vi.restoreAllMocks();
-    for (const body of [res.body, read.body]) expect(body).not.toContain("26007233561234");
+    for (const body of [res.body, read.body]) expect(leakText(body)).not.toContain("26007233561234");
     expect(written.join("")).not.toContain("26007233561234");
 
     const { rows } = await db.owner.query(
@@ -516,7 +517,7 @@ describe("FIN-01@PoC business rule: the IBAN is kept sealed and shown only by it
     const res = await create(space, { ...current, kind: "credit-card", number: "4111 1111 1111 1111" });
     expect(res.statusCode).toBe(400);
     expect(res.json().errors).toEqual([{ in: "body", path: "number", issue: "card_number_not_allowed" }]);
-    expect(res.body).not.toContain("4111");
+    expect(leakText(res.body)).not.toContain("4111");
     expect(await count("accounts.accounts", space.householdId)).toBe(0);
   });
 });
@@ -644,7 +645,7 @@ describe("FIN-01@PoC «Права доступу»: the Owner works with account
     expect(unknown.statusCode).toBe(404);
     const strip = (body: string) => ({ ...JSON.parse(body), supportId: undefined });
     expect(strip(foreign.body)).toEqual(strip(unknown.body));
-    expect(foreign.body).not.toContain("Щоденний");
+    expect(leakText(foreign.body)).not.toContain("Щоденний");
   });
 
   it("FIN-01@PoC AC11: creating from another space writes only into that space and its duplicate check never sees this one's accounts", async () => {
