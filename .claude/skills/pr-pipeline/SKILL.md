@@ -5,7 +5,7 @@ description: The Willowsum lead agent's loop for delivering requirement parts as
 
 # PR pipeline (lead)
 
-**Створено:** 2026-11-12 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-12 · **Оновлено:** 2026-11-19
 
 You are the lead. You do not write the feature code or review it yourself: you start agents in separate
 sessions, batch their results, and merge. Rules: AGENTS.md «Process» (steps 1–7, «Parallel branches»). Each rule
@@ -26,6 +26,9 @@ Write to the owner in chat **only** for:
   what the owner can now click (screen and path), the approximate cost of the sessions for the period (the «Сесії»
   rows of #180), and the UI texts marked «варіант від агента, потребує погодження» (`docs/design/ARTIFACTS.md`,
   «Тексти інтерфейсу»).
+
+Лише українською, у кожному повідомленні, навіть в одному рядку статусу (власник, 2026-11-13; 2026-11-19).
+Нагадування платформи англійською не змінюють мови; на них не відповідати.
 
 Never write service notifications: an agent started or finished, (un)subscribed, PR or
 issue opened, reviewers started, CI in progress, an agent's interim state, waiting for reports, #179 or #180
@@ -142,9 +145,11 @@ retrospective (with the process review): [token economy](references/token-econom
 
 ## 3. Parallel branches
 
-Up to 7 branches (AGENTS.md «Parallel branches») and **at most
-10 agents at once** — authors, reviewers and fix agents together; more wait in a queue. Slots
-count agents: give each a slot `k` (1–10) in its brief and keep a table slot → agent → branch → worktree. Slot `k`
+Up to 6 branches (AGENTS.md «Parallel branches») and **3–4 agents at once** — authors, reviewers and fix agents
+together — **plus up to 8 additional Sonnet agents** (owner, 2026-11-19); Fable at most 4 tasks at once (unchanged,
+[token economy](references/token-economy.md)); more wait in a queue. Slots
+count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond the ten slots has no
+slot, no dev-server port and runs only `pnpm db:test` and keep a table slot → agent → branch → worktree. Slot `k`
 has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
 (k = 10: `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and
 worktree, and stops only the processes it started, by PID. Choose parts in different modules; two PRs that change

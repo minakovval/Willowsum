@@ -1,6 +1,6 @@
 # Rules for AI agents working in this repository
 
-**Створено:** 2026-11-01 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-01 · **Оновлено:** 2026-11-19
 
 This is the single rule set for every agent (and human) changing this repository. It keeps the hard rules and
 the essentials; rarely needed parts are in `.claude/references/`, each linked below with «read when …». If a task conflicts with these rules, stop and ask the product owner.
@@ -119,10 +119,10 @@ no technical messages — `pr-pipeline`, «Мовчання в чаті».
 If the work does not fit one session, split it by acceptance criteria into several PRs, each green on its
 own, and list in the PR body which criteria are left.
 
-**Parallel branches:** up to 7 working branches at a time — `claude/adoring-cray-feh4dh`
+**Parallel branches:** up to 6 working branches at a time (owner, 2026-11-19) — `claude/adoring-cray-feh4dh`
 and `claude/adoring-cray-feh4dh-<task>` — each in its own worktree with its own PR, test database
 (`pnpm db:test`; integration tests as `pnpm db:test run -- pnpm test:integration`, roles are cluster-wide) and
-the same rules; a branch is deleted after its PR is merged. How many agents run at once (up to 10), their slots and ports, and UI rows in parallel: `pr-pipeline` §3.
+the same rules; a branch is deleted after its PR is merged. How many agents run at once (3–4, plus up to 8 additional Sonnet agents), their slots and ports, and UI rows in parallel: `pr-pipeline` §3.
 
 **Skills** (`.claude/skills/`): `implement-requirement`, `review-pr`, `security-review`, `fix-review-findings`,
 `pr-pipeline`, `browser-task`, `sync-branch`, `change-requirement`, `deploy`, `screen-from-canvas`, `plan-wave`,
