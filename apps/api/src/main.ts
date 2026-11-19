@@ -59,6 +59,7 @@ import {
   createDuplicateCandidates,
   createTransactionCategoryUsage,
   createTransactionHistory,
+  createGoalTransactions,
   createTransactionLookup,
   createTransactionRuleInputs,
   createTransactionRuleTags,
@@ -190,13 +191,15 @@ const spaces = createHouseholdSpaces(databases.for("household"), audit, kms);
 // configuration (required in staging and production); locally and in CI without them, the process's memory and a key
 // drawn at start (links then end with the process). Locally the bucket is made if missing (the `pnpm local:up` storage).
 const s3 = config.files.s3;
-if (s3 && !config.deployed && config.role === "api") await ensureBucket(s3);
+// The scheduler too: its daily cleanup removes unapplied import batches with their originals (IMP-01 FR 20).
+const filesRole = config.role === "api" || config.role === "scheduler";
+if (s3 && !config.deployed && filesRole) await ensureBucket(s3);
 const filesConfigured = s3 !== undefined && config.files.linkKey !== undefined;
 // A deployed process never keeps a space's files in memory: without the storage it serves none (fail closed).
-if (config.deployed && !filesConfigured && config.role === "api")
+if (config.deployed && !filesConfigured && filesRole)
   logEvent("files.storage_missing", "error", { "ws.module": "file-storage", "ws.role": config.role });
 const files =
-  config.role === "api" && (filesConfigured || !config.deployed)
+  filesRole && (filesConfigured || !config.deployed)
     ? createFileStorage({
         db: databases.for("file-storage"),
         audit,
@@ -444,6 +447,17 @@ const server = buildServer({
               accounts: createAccountDirectory(databases.for("accounts")),
               ledger: createLedger(databases.for("ledger")),
               transactions: createTransactionLookup(databases.for("transactions")),
+              // «Подушка безпеки» and the list of «Витратити»: expenses and candidates (transactions), rates (fx-rates).
+              reads: {
+                transactions: createGoalTransactions(databases.for("transactions")),
+                fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+                categorization: createTransactionCategories(databases.for("categorization")),
+                categories: createCategoryDirectory({
+                  db: databases.for("categories"),
+                  audit,
+                  newId: randomUUID,
+                }),
+              },
               audit,
               clock: systemClock,
               newId: randomUUID,
@@ -525,6 +539,9 @@ if (config.role === "scheduler") {
       spaces,
       // ARC-06 FR 3: the keys of spaces follow a master key rotation in the background.
       spaceKeys: createSpaceKeys(databases.for("household"), audit, kms),
+      // IMP-01 FR 20: unapplied import batches go with their originals 30 days after their last action. Locally
+      // without S3 the scheduler's storage is its own memory: the rows go, the API process's objects end with it.
+      ...(files ? { files } : {}),
       ...(alertMail ? { alertMail } : {}),
     }),
   );

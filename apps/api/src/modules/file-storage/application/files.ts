@@ -59,7 +59,8 @@ export interface FileInspection {
 
 export interface FilesAudit {
   stored(file: StoredFile, actorId: string): Promise<void>;
-  removed(file: StoredFile, actorId: string): Promise<void>;
+  /** `actorId` null: a system task (the daily cleanup of import batches, IMP-01 FR 20). */
+  removed(file: StoredFile, actorId: string | null): Promise<void>;
 }
 
 export interface FilesDeps {
@@ -212,7 +213,7 @@ export async function removeFile(
   deps: FilesDeps,
   householdId: string,
   fileId: string,
-  actorId: string,
+  actorId: string | null,
 ): Promise<void> {
   // The object goes only after the row and its audit entry are committed: a failed commit keeps both, never a row
   // whose object is gone.

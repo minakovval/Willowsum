@@ -7,7 +7,9 @@ import {
   addFiles,
   BatchNotFoundError,
   BatchStateErrorFor,
+  cancelBatch,
   createBatch,
+  deleteBatch,
   originalOf,
   viewBatch,
   type Batch,
@@ -21,9 +23,9 @@ import { batchesTx } from "../db/store.ts";
 import { handOffNow, importSessionsServices } from "./services.ts";
 
 /**
- * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create a
- * batch, upload files to it (multipart, read on the stream under one budget, each stored by file-storage), list and read
- * batches, open an original through a signed link of ≤ 15 minutes. The space is the session's
+ * Import batches (IMP-01@PoC FR 1, FR 3, FR 6, FR 7, FR 10, FR 12, FR 13, FR 21; IMP-19@PoC FR 5; wave 2 row 39): create
+ * a batch, upload files to it (multipart, read on the stream under one budget, each stored by file-storage), list and
+ * read batches, cancel or delete one, open an original through a signed link of ≤ 15 minutes. The space is the session's
  * (П-5): a batch, a file or a link of another space is «not found». A scoped member sees no batch (00-general «Область
  * доступу»: imports are the Owner's; PoC has one user). Behind the release flag `data.import` under the feature key of the
  * same name; no plan limit or quota — only the technical ceilings, the same for every plan (FR 13, FR 18; never 402).
@@ -216,6 +218,8 @@ export const uploadImportFilesRoute = defineRoute({
     schema: z.object({
       batch: batchSchema,
       files: z.array(fileSchema.extend({ rejection: rejectionSchema.nullable() })),
+      /** Files the batch had no place for (BATCH_TOO_MANY_FILES, #582 item 7): no row, so no id, position or time. */
+      refused: z.array(z.object({ fileName: z.string(), rejection: rejectionSchema })),
     }),
   },
   handler: async ({ params, upload }, ctx) => {
@@ -246,8 +250,60 @@ export const uploadImportFilesRoute = defineRoute({
     const all = await run((tx) => tx.files(batch.id));
     return {
       batch: presentBatch(batch, all),
-      files: files.map((o: FileOutcome) => ({ ...presentFile(o.file), rejection: present(o.rejection) })),
+      files: files.flatMap((o: FileOutcome) =>
+        o.file ? [{ ...presentFile(o.file), rejection: present(o.rejection) }] : [],
+      ),
+      refused: files.flatMap((o: FileOutcome) =>
+        !o.file && o.rejection ? [{ fileName: o.fileName, rejection: present(o.rejection)! }] : [],
+      ),
     };
+  },
+});
+
+export const cancelImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "POST",
+  path: "/v1/import/batches/{batchId}/cancel",
+  operationId: "cancelImportBatch",
+  summary:
+    "«Скасувати» (FR 12): the batch closes without writing anything; from any state before «застосовано»",
+  access: WRITE,
+  request: { params: batchParams },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: { status: 200, description: "The cancelled batch", schema: batchSchema },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { deps, audit } = importSessionsServices(ctx);
+    const { householdId, userId } = ctx.principal;
+    const run = routeTx(ctx);
+    const { result, handOffs } = await guarded(() =>
+      run((tx) => cancelBatch(deps, tx, userId, params.batchId)),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    return presentBatch(result, await run((tx) => tx.files(result.id)));
+  },
+});
+
+export const deleteImportBatchRoute = defineRoute({
+  module: MODULE,
+  method: "DELETE",
+  path: "/v1/import/batches/{batchId}",
+  operationId: "deleteImportBatch",
+  summary:
+    "«Видалити» (FR 12, EC4): a batch with its originals; an applied one is rolled back first (409), then it may be deleted",
+  access: WRITE,
+  request: { params: batchParams },
+  problems: ["BATCH_STATE_CONFLICT"],
+  response: { status: 200, description: "Deleted", schema: z.object({ deleted: z.literal(true) }) },
+  handler: async ({ params }, ctx) => {
+    owner(ctx);
+    const { deps, originals, audit } = importSessionsServices(ctx);
+    const { householdId, userId } = ctx.principal;
+    const { handOffs } = await guarded(() =>
+      deleteBatch(deps, routeTx(ctx), originals, householdId, userId, params.batchId),
+    );
+    await handOffNow(audit, householdId, handOffs);
+    return { deleted: true as const };
   },
 });
 
@@ -310,6 +366,8 @@ export const importSessionsRoutes = [
   listImportBatchesRoute,
   getImportBatchRoute,
   uploadImportFilesRoute,
+  cancelImportBatchRoute,
+  deleteImportBatchRoute,
   linkImportOriginalRoute,
   openImportOriginalRoute,
 ];

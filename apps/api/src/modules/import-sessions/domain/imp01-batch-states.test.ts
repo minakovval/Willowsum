@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { BATCH_STATES, BatchStateError, canMove, move, takesFiles, type BatchState } from "./index.ts";
+import {
+  BATCH_STATES,
+  BatchStateError,
+  canMove,
+  isUnapplied,
+  move,
+  staleBefore,
+  takesFiles,
+  UNAPPLIED_RETENTION_DAYS,
+  type BatchState,
+} from "./index.ts";
 
 /** IMP-01@PoC FR 10 and IMP-19@PoC FR 5: every step between two states, allowed or refused. */
 const ALLOWED: readonly (readonly [BatchState, BatchState])[] = [
@@ -50,5 +60,24 @@ describe("IMP-01@PoC FR 10: the states of a batch", () => {
 
   it("IMP-01@PoC FR 10: files are added only while the batch is «завантажено»", () => {
     expect(BATCH_STATES.filter(takesFiles)).toEqual(["uploaded"]);
+  });
+});
+
+describe("IMP-01@PoC FR 12, FR 20: what «Видалити» and the daily cleanup take", () => {
+  it("IMP-01@PoC FR 20: the daily cleanup takes only a batch never applied; applied and rolled-back ones stay", () => {
+    expect(BATCH_STATES.filter(isUnapplied)).toEqual([
+      "uploaded",
+      "processing",
+      "parsed",
+      "needs-review",
+      "failed",
+      "cancelled",
+    ]);
+  });
+
+  it("IMP-19@PoC FR 6: a batch is stale 30 days after its last action, by the task's clock", () => {
+    expect(UNAPPLIED_RETENTION_DAYS).toBe(30);
+    const now = new Date("2026-12-19T10:00:00Z");
+    expect(staleBefore(now).toISOString()).toBe("2026-11-19T10:00:00.000Z");
   });
 });

@@ -5,7 +5,7 @@ import type { Goal, Money } from "./model.ts";
 
 /**
  * BUD-05@PoC d) (wave 2, row 129): what S-139 «Витратити» reads — the outgoing transactions of the goal's account (any
- * account of the space for a goal of marks) from `GET /v1/transactions`, and what it sends — `POST
+ * account of the space for a goal of marks) from `GET /v1/goals/{goalId}/spendable`, and what it sends — `POST
  * /v1/goals/{goalId}/spends` with the chosen transactions and their accounts. The API decides what may be spent and
  * what the goal holds afterwards; the screen only sums the chosen amounts (one currency) for the line under the list.
  */
@@ -20,50 +20,59 @@ export interface SpendRow {
 
 /** FR 8: the list shows at most 6 rows; «показати наступні 6» adds 6 more. */
 export const SPEND_PAGE = 6;
-/** One answer of the list is read in full (the largest page the API gives); the rest is told in the log. */
-export const SPEND_FETCH = "100" as const;
+/** How many rows one answer of the API brings; the next page comes once the shown rows reach them (#559). */
+export const SPEND_FETCH = 48;
+
+/** What the list holds: the rows read so far, how many there are in all, and the cursor of the next page. */
+export interface SpendRows {
+  readonly rows: readonly SpendRow[];
+  readonly count: number;
+  readonly next: string | null;
+}
 
 /**
- * The outgoing, posted, visible, non-transfer transactions in the goal's currency, newest first, that are not spent
- * from a goal yet (`goal.spends` holds this goal's; the API refuses a transaction spent from another one).
- * `search` is the field above the list (counterparty and description).
+ * The transactions the goal may spend, from `GET /v1/goals/{goalId}/spendable` (#559): outgoing, posted, visible,
+ * non-transfer, in the goal's currency, on its part's account (any account for a goal of marks) and not spent from any
+ * goal yet — the server leaves them out, so «Ще N» counts every one. Newest first; `search` is the field above the
+ * list (counterparty and description); `after` continues a list already read.
  */
 export async function loadSpendRows(
   api: ApiClient,
   goal: Goal,
   search: string,
-): Promise<Outcome<readonly SpendRow[]>> {
-  const filter = ["type.eq:out", "transfer.eq:false", "hidden.eq:false", "status.eq:posted"];
-  if (goal.part.kind !== "marks" && goal.part.accountId !== null)
-    filter.push(`accountId.eq:${goal.part.accountId}`);
+  after?: SpendRows,
+): Promise<Outcome<SpendRows>> {
   const q = search.trim();
-  if (q !== "") filter.push(`search.has:${q}`);
   const list = await outcome(
-    api.GET("/v1/transactions", {
-      params: { query: { pageSize: SPEND_FETCH, sort: "-date", filter } },
+    api.GET("/v1/goals/{goalId}/spendable", {
+      params: {
+        path: { goalId: goal.id },
+        query: {
+          limit: SPEND_FETCH,
+          ...(q !== "" ? { search: q } : {}),
+          ...(after?.next ? { cursor: after.next } : {}),
+        },
+      },
     }),
   );
   if (!list.ok) return list;
-  const spent = new Set(goal.spends.map((s) => s.transactionId));
+  const known = new Set(after?.rows.map((r) => r.id));
   const rows = list.data.items
-    .filter(
-      (t) =>
-        t.type === "expense" &&
-        t.transfer === null &&
-        !spent.has(t.id) &&
-        t.amount.currency === goal.target.currency,
-    )
+    .filter((t) => !known.has(t.id))
     .map((t) => ({
       id: t.id,
       accountId: t.accountId,
       merchant: t.counterparty ?? t.description ?? "",
       date: t.date,
       amount: {
-        amount: new Decimal(t.amount.amount).abs().toFixed(currencyInfo(t.amount.currency).minorUnits),
+        amount: new Decimal(t.amount.amount).toFixed(currencyInfo(t.amount.currency).minorUnits),
         currency: t.amount.currency,
       },
     }));
-  return { ok: true, data: rows };
+  return {
+    ok: true,
+    data: { rows: [...(after?.rows ?? []), ...rows], count: list.data.count, next: list.data.nextCursor },
+  };
 }
 
 /** The sum of the chosen rows, one currency; `null` for none. */

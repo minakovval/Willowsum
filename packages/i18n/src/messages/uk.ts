@@ -853,6 +853,7 @@ export const uk = {
   "planning.goals.spend.noMatch": "Нічого не знайдено",
   "planning.goals.spend.loading": "Завантажуємо транзакції…",
   "planning.goals.spend.error.load": "Помилка: не вдалося завантажити транзакції",
+  "planning.goals.spend.error.more": "Не вдалося завантажити наступні транзакції — спробуйте ще раз",
   "planning.goals.spend.error.code": "Код: {code}",
   "planning.goals.spend.error.retry": "Спробувати ще раз",
   "planning.goals.spend.error.over": "Обрані транзакції більші за суму, що є в цілі",
@@ -877,6 +878,14 @@ export const uk = {
   "planning.goals.new.target.positive": "Введіть суму більшу за нуль",
   "planning.goals.new.months": "Місяців витрат",
   "planning.goals.new.months.error": "Введіть ціле число від 1 до 120",
+  "planning.goals.new.months.less": "Менше",
+  "planning.goals.new.months.more": "Більше",
+  "planning.goals.new.cushion.times": "= {months} × {average}",
+  "planning.goals.new.cushion.average":
+    "середні витрати — {average} / міс. за {months} міс., без одноразових",
+  "planning.goals.new.cushion.approx":
+    "середні витрати — приблизно {average} / міс. за {months} міс., без одноразових: частину сум перераховано за найближчим курсом або без курсу",
+  "planning.goals.new.cushion.none": "Ще немає витрат за повні місяці — введіть цільову суму",
   "planning.goals.new.date": "Дата",
   "planning.goals.new.date.hint": "без дати покажемо лише прогрес і темп",
   "planning.goals.new.date.past": "Дата не може бути в минулому",

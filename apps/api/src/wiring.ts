@@ -44,7 +44,9 @@ import {
   recurringSubscriptions,
 } from "./modules/recurring/index.ts";
 import { createDebtPayoffHandOffRecovery, createDebtPayoffWorkerQueue } from "./modules/debt-payoff/index.ts";
+import type { FileStorage } from "./modules/file-storage/index.ts";
 import {
+  createImportSessionsCleanup,
   createImportSessionsHandOffRecovery,
   createImportSessionsWorkerQueue,
 } from "./modules/import-sessions/index.ts";
@@ -174,14 +176,16 @@ export function readinessCheck(deps: {
 }
 
 /**
- * The scheduler role's daily tasks (ADR-0010), in the order they run. NFR-12@PoC: the only automatic deletion of
- * a person's data is identity's removal of unconfirmed accounts 30 days after their latest sign-up; no other task
- * here deletes the data of an account or a space (the queue's retention cleanup deletes only the queue's working
+ * The scheduler role's daily tasks (ADR-0010), in the order they run. NFR-12@PoC: the automatic deletions of a
+ * person's data are identity's removal of unconfirmed accounts 30 days after their latest sign-up and, with `files`,
+ * the removal of unapplied import batches with their originals 30 days after their last action (IMP-01 FR 20, IMP-19
+ * FR 6, which the requirement sets); no other task here deletes the data of an account or a space (the queue's retention cleanup deletes only the queue's working
  * copies — events already handed over and finished jobs — never the records they report). `now` is the clock of the tasks that judge rows by age (tests
  * pass their own; main.ts the wall clock). `alertMail` is the mail adapter and the product owner's address for the
  * integrity letter (FIN-04 FR 10); without it a discrepancy is an «error» event that no letter could go out.
  * `spaceKeys` adds the rewrap of the keys of spaces after a master key rotation (ARC-06 FR 3; ADR-0012); it changes
- * only the wrap of a key, never the data of a space (main.ts always passes it).
+ * only the wrap of a key, never the data of a space (main.ts always passes it). `files` (file-storage) adds the cleanup
+ * of import batches; main.ts passes it when the process has the storage.
  */
 export function schedulerDailyTasks(deps: {
   readonly databases: Pick<ModuleDatabases, "for">;
@@ -190,6 +194,7 @@ export function schedulerDailyTasks(deps: {
   readonly now?: () => number;
   readonly alertMail?: LedgerIntegrityAlerts["alertMail"];
   readonly spaceKeys?: Pick<SpaceKeys, "rewrapAll">;
+  readonly files?: Pick<FileStorage, "store" | "remove" | "link" | "open">;
 }): DailyTask[] {
   const now = deps.now ?? Date.now;
   const maintenance = createIdentityMaintenance({
@@ -347,6 +352,24 @@ export function schedulerDailyTasks(deps: {
         }),
     },
   ];
+  const files = deps.files;
+  if (files)
+    tasks.push({
+      name: "import-sessions.cleanup",
+      run: async () => {
+        const deleted = await createImportSessionsCleanup({
+          db: deps.databases.for("import-sessions"),
+          files,
+          audit: deps.audit,
+          households: () => deps.spaces.spaceIds(),
+          now,
+          newId: randomUUID,
+        }).run();
+        // A count only: never a space, a batch or a file.
+        if (deleted > 0)
+          logEvent("import_sessions.batches_cleaned", "info", { "ws.module": "import-sessions" });
+      },
+    });
   const spaceKeys = deps.spaceKeys;
   if (spaceKeys)
     tasks.push({
