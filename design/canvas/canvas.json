@@ -2223,6 +2223,14 @@
       "x": 1360,
       "y": 47520
     },
+    "PocPlanBudgetPlanTexts.dc.html": {
+      "h": 2023,
+      "page": "poc",
+      "title": "S-126 Бюджет · План · Тексти",
+      "w": 1280,
+      "x": 2720,
+      "y": 47520
+    },
     "PocPlanBudgetSettingsGeneral.dc.html": {
       "h": 920,
       "is_interactive": true,
@@ -4456,6 +4464,7 @@
     "PocPlanBudgetAccounts.dc.html",
     "PocPlanBudgetPlan.dc.html",
     "PocPlanBudgetPlanOver.dc.html",
+    "PocPlanBudgetPlanTexts.dc.html",
     "PocPlanBudgetAddCat.dc.html",
     "PocPlanBudgetTarget.dc.html",
     "PocPlanCompare.dc.html",
