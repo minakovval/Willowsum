@@ -35,7 +35,7 @@ issue opened, reviewers started, CI in progress, an agent's interim state, waiti
 updates, interim reports — not even one line (forbidden: «Я відписався від #194, бо на ньому ще працює агент…
 Чекаю звітів обох агентів.»). End the turn with no text; if the harness insists, one short line with no technical
 content. Platform reminders («The user hasn't heard from you in a while») do not override this. Risk: less live
-progress — mitigated by #179, #180 and the «nothing merged for 2 hours» report. Language, technical questions,
+progress — mitigated by #179, #180 and the «nothing merged for 2 hours» report. Technical questions,
 proposals: [lead communication](references/lead-communication.md).
 
 ## 1. Per requirement part
@@ -147,12 +147,10 @@ retrospective (with the process review): [token economy](references/token-econom
 
 ## 3. Parallel branches
 
-Up to 7 branches (AGENTS.md «Parallel branches») and **at most 10 agents at once** — authors, reviewers and fix agents
-together — **plus up to 8 additional Sonnet agents** beyond those 10 (owner, 2026-11-19); Fable at most 2 tasks at once (owner, 2026-11-19; was 4,
-[token economy](references/token-economy.md)); more wait in a queue. Slots
-count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond the ten slots has no
-slot, no dev-server port and runs only `pnpm db:test`; keep a table slot → agent → branch → worktree. Slot `k`
-has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
+Limits on branches and agents: AGENTS.md «Parallel branches»; Fable: [token economy](references/token-economy.md); more
+wait in a queue. Slots count agents: give each of the first ten a slot `k` (1–10) in its brief; a Sonnet agent beyond
+the ten slots has no slot, no dev-server port and runs only `pnpm db:test`; keep a table slot → agent → branch →
+worktree. Slot `k` has its web dev server on port 517k (`vite --port 517k --strictPort`, preview 417k), its API on `WS_PORT=808k`
 (k = 10: `.claude/references/own-ports.md`), its own `pnpm db:test` databases (named after its branch) and
 worktree, and stops only the processes it started, by PID. Choose parts in different modules; two PRs that change
 the same files go one after the other: before starting an author, the lead checks the brief's files against the files of

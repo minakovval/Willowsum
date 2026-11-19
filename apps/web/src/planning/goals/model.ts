@@ -110,12 +110,13 @@ export function afterContribution(goal: Goal, amount: string): { collected: Mone
 }
 
 /**
- * The icon of a goal template (boards PocPlanGoals, PocPlanGoalCard). The design-system set (DS-12) has no plane, bag or
- * laptop yet, so each template takes the closest glyph it has.
+ * The icon of a goal template (boards PocPlanGoals, PocPlanGoalCard, PocPlanGoalsEmpty; DS-12 glyphs added by the owner's
+ * decision of 2026-11-19, docs/decisions/log/2026-11-19-owner-ds12-goal-glyphs.md): plane, bag, shield, target.
+ * `shield` is the plain Lucide shield of the board; `insurance` (shield-check) is the «Страхування» section, another meaning.
  */
 export const TEMPLATE_ICON: Record<Goal["template"], IconName> = {
-  travel: "map",
-  purchase: "card",
-  emergency: "insurance",
+  travel: "plane",
+  purchase: "bag",
+  emergency: "shield",
   custom: "target",
 };

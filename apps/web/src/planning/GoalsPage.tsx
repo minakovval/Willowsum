@@ -14,7 +14,7 @@ import { GoalDialog } from "./goals/GoalDialog.tsx";
 import { GoalLinks } from "./goals/GoalLinks.tsx";
 import { GoalList } from "./goals/GoalList.tsx";
 import { TEMPLATES } from "./goals/newGoal.ts";
-import { collectedTotal, goalFromHash, loadGoals, type Goal } from "./goals/model.ts";
+import { collectedTotal, goalFromHash, loadGoals, TEMPLATE_ICON, type Goal } from "./goals/model.ts";
 
 const subscribe = (onChange: () => void) => {
   window.addEventListener("hashchange", onChange);
@@ -122,6 +122,9 @@ export function GoalsPage({ today = kyivToday() }: { today?: string }) {
                       className="goal-template"
                       onClick={() => setCreating({ template: x })}
                     >
+                      <span className="goal-row-icon" aria-hidden="true">
+                        <Icon name={TEMPLATE_ICON[x]} size={20} />
+                      </span>
                       <b>{t(`planning.goals.template.${x}` as MessageKey)}</b>
                       <span className="ws-muted">{t(`planning.goals.new.template.${x}` as MessageKey)}</span>
                     </button>

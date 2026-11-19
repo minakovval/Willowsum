@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
-import { CirclePercent, CreditCard, House } from "lucide";
+import { CirclePercent, CreditCard, House, Laptop, Plane, Shield, ShoppingBag } from "lucide";
 import { I18nProvider } from "@willowsum/i18n";
 import { AppShell } from "../shell/AppShell.tsx";
 import { iconSizes } from "../tokens/layout.ts";
@@ -260,5 +260,15 @@ describe("CMP-33@PoC / DS-12@PoC icon set", () => {
     // List parameters are sliders, never «…».
     expect(poc.has("options")).toBe(true);
     expect(poc.has("columns")).toBe(true);
+  });
+
+  it("DS-12@PoC FR 1, FR 4: the goal glyphs plane, bag, laptop and shield are Lucide's plane, shopping-bag, laptop and shield, in the PoC set", () => {
+    const poc = new Set<string>(Object.values(POC_ICON_GROUPS).flat());
+    const lucide = { plane: Plane, bag: ShoppingBag, laptop: Laptop, shield: Shield } as const;
+    for (const [name, node] of Object.entries(lucide)) {
+      expect(poc.has(name), name).toBe(true);
+      const html = render(<IconSvg name={name as keyof typeof lucide} px={24} />).container.innerHTML;
+      for (const d of dsOf(node)) expect(html, name).toContain(d);
+    }
   });
 });

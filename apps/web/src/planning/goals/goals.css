@@ -506,3 +506,8 @@
   justify-content: space-between;
   gap: var(--ws-space-1) var(--ws-space-3);
 }
+
+/* BUD-05@PoC FR 1, board PocPlanGoalsEmpty: the template tile starts with the glyph of its template. */
+.goal-template .goal-row-icon {
+  justify-self: start;
+}
