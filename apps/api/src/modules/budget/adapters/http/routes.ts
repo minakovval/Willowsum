@@ -366,11 +366,11 @@ const periodSchema = z.object({
       }),
       unpaidRecurring: moneySchema.nullable().meta({
         description:
-          "Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0",
+          "Every unpaid regular payment of the month and every unpaid monthly payment of a loan (BUD-03 FR 5). Null — a past month, or the month's obligations are not known (an amount without any rate or over 15 integer digits): show «—», never 0",
       }),
       mandatoryNeeded: moneySchema.nullable().meta({
         description:
-          "D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining",
+          "D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + their unpaid payments (only the mandatory categories' own; BUD-02 FR 19). Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining",
       }),
       free: moneySchema.nullable().meta({
         description:
@@ -381,7 +381,7 @@ const periodSchema = z.object({
     .meta({ description: "FR 19: the totals row. Null — a future month (plan only, no fact)" }),
   /**
    * FR 16, AC8: «Очікувані платежі» — the regular payments expected in the month by category (categoryId null — none)
-   * and their total; null — the regular payments are not connected yet.
+   * and their total; null — a past month, or the month's obligations are not known.
    */
   expectedPayments: z
     .object({
@@ -391,7 +391,7 @@ const periodSchema = z.object({
     .nullable()
     .meta({
       description:
-        "FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0",
+        "FR 16 «Очікувані платежі». Null — a past month, or the month's obligations are not known (an amount without any rate or over 15 integer digits): show «—», never an empty list or 0",
     }),
   /**
    * AC3: «приблизно» — `nearestRateCount` amounts converted at the nearest available rate («N транзакцій за найближчим
@@ -443,19 +443,18 @@ export const getPeriodRoute = defineRoute({
       );
     }
     const figures = periodFigures(plan, categories, counted?.amounts ?? null);
-    const obligations = deps.obligations
-      ? await deps.obligations.month(
-          householdId,
-          params.period,
-          budget.currency,
-          countsFrom(budget, params.period),
-        )
-      : null;
+    // FR 16: a past month is «план проти факту» — no «Очікувані платежі», no «Ще потрібно» (#567).
+    const obligations =
+      deps.obligations && mode !== "past"
+        ? await deps.obligations.month(
+            householdId,
+            params.period,
+            budget.currency,
+            countsFrom(budget, params.period),
+          )
+        : null;
     // FR 16: a past month is «план проти факту» — no «Ще потрібно» or «Вільний залишок» (D, E null).
-    const summary =
-      mode === "future"
-        ? null
-        : categoriesSummary(figures.lines, budget.currency, mode === "past" ? null : obligations);
+    const summary = mode === "future" ? null : categoriesSummary(figures.lines, budget.currency, obligations);
     const expected = obligations ? expectedPayments(obligations, budget.currency) : null;
     const order = new Map(categoryList.map((c, i) => [c.groupId, i]));
     const groups = new Map<string | null, z.input<typeof lineSchema>[]>();
@@ -591,7 +590,7 @@ const allocationSchema = z.object({
   incomePlan: moneySchema,
   /** The sum of the limits, as the income plan. */
   limits: moneySchema,
-  /** Null — the regular payments and debt minimums are not connected yet: no difference is shown without them. */
+  /** Null — the month's regular payments and loans' monthly payments are not known: no difference without them. */
   balance: z
     .object({
       /** «Регулярні платежі поза лімітами»: the month's payments whose category has no limit. */
@@ -610,7 +609,7 @@ const allocationSchema = z.object({
     .nullable()
     .meta({
       description:
-        "Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead",
+        "Null — the month's regular payments and loans' monthly payments are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead",
     }),
   /**
    * FR 15, AC7: the chosen amounts against N — `exact`: a deficit is covered in full («Створити бюджет» active);

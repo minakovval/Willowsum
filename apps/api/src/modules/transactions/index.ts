@@ -8,6 +8,7 @@ import type { PendingPostings, WalletUsage } from "../accounts/index.ts";
 import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
+  accountsPaidIn,
   budgetRows,
   categoriesInParts,
   categorizableFacts,
@@ -265,6 +266,27 @@ export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
       db.inHousehold(householdId, (q) => expensesByDay(q, householdId, from, to)),
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
+  };
+}
+
+/**
+ * BUD-03@PoC FR 5 as module budget reads it: which of these accounts (a loan's) got a payment in the dates (YYYY-MM-DD,
+ * both included) — a shown transaction with a positive amount, a side of a transfer too. Read only; bound to one space.
+ */
+export interface AccountPayments {
+  paidIn(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<ReadonlySet<string>>;
+}
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createAccountPayments(db: ModuleDatabase): AccountPayments {
+  return {
+    paidIn: (householdId, accountIds, from, to) =>
+      db.inHousehold(householdId, (q) => accountsPaidIn(q, householdId, accountIds, from, to)),
   };
 }
 

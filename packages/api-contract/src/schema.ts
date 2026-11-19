@@ -5384,7 +5384,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        /** @description Null — the regular payments and debt minimums are not connected yet (issue 567): no difference, no «не розподілено»; never show income − limits instead */
+                        /** @description Null — the month's regular payments and loans' monthly payments are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead */
                         balance: {
                             amount: {
                                 amount: string;
@@ -5534,7 +5534,7 @@ export interface operations {
                             unavailableCount: number;
                         };
                         currency: string;
-                        /** @description FR 16 «Очікувані платежі». Null — the regular payments are not connected yet (issue 567): show «—», never an empty list or 0 */
+                        /** @description FR 16 «Очікувані платежі». Null — a past month, or the month's obligations are not known (an amount without any rate or over 15 integer digits): show «—», never an empty list or 0 */
                         expectedPayments: {
                             categories: {
                                 amount: {
@@ -5614,7 +5614,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
-                            /** @description D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + unpaidRecurring. Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining */
+                            /** @description D «Ще потрібно на обов'язкові» = Σ over mandatory categories of max(0, limit − spent − their unpaid payments) + their unpaid payments (only the mandatory categories' own; BUD-02 FR 19). Null with unpaidRecurring: show «—», never 0 or mandatoryRemaining */
                             mandatoryNeeded: {
                                 amount: string;
                                 currency: string;
@@ -5639,7 +5639,7 @@ export interface operations {
                                 amount: string;
                                 currency: string;
                             };
-                            /** @description Every unpaid regular payment of the month. Null — not known (regular payments not connected yet, issue 567) or a past month: show «—», never 0 */
+                            /** @description Every unpaid regular payment of the month and every unpaid monthly payment of a loan (BUD-03 FR 5). Null — a past month, or the month's obligations are not known (an amount without any rate or over 15 integer digits): show «—», never 0 */
                             unpaidRecurring: {
                                 amount: string;
                                 currency: string;

@@ -10,8 +10,10 @@ import type { LimitLine } from "./budget.ts";
 /**
  * What the month owes outside the limits, in the budget's currency (port `BudgetObligations`): the regular payments
  * expected in the month — each with its category (null — none) and whether it is paid — and the minimum payments of the
- * debts. A «Кредит» account's monthly payment goes in `debtMinimums`, never in `recurring` too, so «Розподіл» does not
- * count it twice; whether D adds it (BUD-03 п. 5) is settled when the port is connected (#567).
+ * debts, each with whether the month's payment is made. A «Кредит» account's monthly payment goes in `debtMinimums`,
+ * never in `recurring` too (lead decision, #567): «Розподіл» counts it once as a minimum payment (FR 15), and
+ * «Можна витратити» adds it once while unpaid (BUD-03 п. 2, 5) — it is not in D (FR 19: only mandatory categories),
+ * «регулярні платежі поза лімітами» (FR 3) or «Очікувані платежі» (FR 16, by category). `approximate` — some amount at the nearest rate («приблизно»).
  */
 export interface PeriodObligations {
   readonly recurring: readonly {
@@ -19,7 +21,12 @@ export interface PeriodObligations {
     readonly amount: Money;
     readonly paid: boolean;
   }[];
-  readonly debtMinimums: readonly { readonly accountId: string; readonly amount: Money }[];
+  readonly debtMinimums: readonly {
+    readonly accountId: string;
+    readonly amount: Money;
+    readonly paid: boolean;
+  }[];
+  readonly approximate?: boolean;
 }
 
 /** FR 1: one budget — one currency; an amount of another currency is never added (no figure beats a wrong one). */
@@ -131,11 +138,16 @@ export interface CategoriesSummary {
   readonly optionalLimits: Money;
   /** Σ max(0, L − S) of the mandatory categories: their unspent limits alone, without the regular payments. */
   readonly mandatoryRemaining: Money;
-  /** Every unpaid regular payment of the month (BUD-03 п. 2, п. 5); null — the source is not known or the month is past. */
+  /** BUD-03 FR 14: Σ max(0, L − S − U_c) of the mandatory categories — the «Обов'язкові» row of «Можна витратити». */
+  readonly mandatoryRest: Money;
+  /**
+   * Every unpaid regular payment of the month and every unpaid monthly payment of a loan (BUD-03 п. 2, п. 5); null — the
+   * source is not known or the month is past.
+   */
   readonly unpaidRecurring: Money | null;
   /**
-   * D = Σ over mandatory categories of max(0, L − S − U_c) + every unpaid payment (BUD-03 п. 14), i.e. Σ max(0, L − S,
-   * U_c) + the unpaid payments outside them; null while `unpaidRecurring` is.
+   * D = Σ over mandatory categories of max(0, L − S − U_c) + U_c (BUD-02 FR 19), i.e. Σ max(0, L − S, U_c) — only the
+   * mandatory categories' own unpaid payments; null while `unpaidRecurring` is.
    */
   readonly mandatoryNeeded: Money | null;
   /** E = B − A − D; negative shows with «−». Null while D is. */
@@ -143,10 +155,10 @@ export interface CategoriesSummary {
 }
 
 /**
- * FR 19, AC9: the totals row over the categories table of a period with fact. D matches the rows of «Можна витратити»
- * (BUD-03@PoC п. 2, 5, 14): every unpaid regular payment of the month, plus each mandatory category's unspent rest
- * less its own unpaid payments (they are counted already), never below 0 — so a mandatory category needs the bigger of
- * its rest and its unpaid payments, and an overspent one still needs its unpaid payments. `obligations` null — the
+ * FR 19, AC9: the totals row over the categories table of a period with fact. D: each mandatory category's unspent
+ * rest less its own unpaid payments, never below 0, plus those payments — so a mandatory category needs the bigger of
+ * its rest and its unpaid payments, and an overspent one still needs its unpaid payments. `mandatoryRest` is the
+ * «Обов'язкові» row of «Можна витратити» (BUD-03 п. 14); its other unpaid payments are `unpaidRecurring`. `obligations` null — the
  * regular payments are not known (or the month is past): D and E are null, the rest is exact.
  */
 export function categoriesSummary(
@@ -157,6 +169,7 @@ export function categoriesSummary(
   assertCurrency(currency, [
     ...lines.flatMap((l) => [l.limit, ...(l.spent ? [l.spent] : []), ...(l.remaining ? [l.remaining] : [])]),
     ...(obligations?.recurring.map((r) => r.amount) ?? []),
+    ...(obligations?.debtMinimums.map((d) => d.amount) ?? []),
   ]);
   const zero = Money.zero(currency);
   const remaining = (l: LimitLine) => l.remaining ?? l.limit;
@@ -175,7 +188,11 @@ export function categoriesSummary(
     obligations === null
       ? null
       : sum(
-          unpaid.map((r) => r.amount),
+          [
+            ...unpaid.map((r) => r.amount),
+            // BUD-03 п. 5: a loan's monthly payment, once, while the month has no payment to the account.
+            ...obligations.debtMinimums.filter((d) => !d.paid).map((d) => d.amount),
+          ],
           currency,
         );
   // BUD-03 п. 14: max(0, L − S − U_c) — the category's own unpaid payments are in `unpaidRecurring` already.
@@ -194,7 +211,13 @@ export function categoriesSummary(
     lines.map((l) => l.spent ?? zero),
     currency,
   );
-  const mandatoryNeeded = unpaidRecurring === null ? null : mandatoryPart.plus(unpaidRecurring);
+  // BUD-02 FR 19: D = Σ over mandatory categories of max(0, L − S − U_c) + U_c — only the mandatory categories' own
+  // unpaid payments; a payment of an optional category, without a category or a loan's is not «на обов'язкові».
+  const mandatoryOwnUnpaid = sum(
+    mandatory.map((l) => unpaidIn.get(l.categoryId) ?? zero),
+    currency,
+  );
+  const mandatoryNeeded = unpaidRecurring === null ? null : mandatoryPart.plus(mandatoryOwnUnpaid);
   return {
     spent,
     limits,
@@ -213,6 +236,7 @@ export function categoriesSummary(
       currency,
     ),
     mandatoryRemaining,
+    mandatoryRest: mandatoryPart,
     unpaidRecurring,
     mandatoryNeeded,
     free: mandatoryNeeded === null ? null : limits.minus(spent).minus(mandatoryNeeded),
