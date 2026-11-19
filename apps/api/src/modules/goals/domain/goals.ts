@@ -330,3 +330,52 @@ export function averageMonthlyExpenses(
     months,
   };
 }
+
+/** A category as the cushion reads it (module categories): its kind, and where a merged one went. */
+export interface CushionCategory {
+  readonly id: string;
+  readonly kind: "expense" | "income" | "service";
+  readonly state: string;
+  readonly mergedInto: string | null;
+}
+
+/** A merged («retired») category counts in the one it went to; null — none in use (counted as uncategorised). */
+function resolveCategory(
+  categories: ReadonlyMap<string, CushionCategory>,
+  id: string | null,
+): CushionCategory | null {
+  let c = id === null ? undefined : categories.get(id);
+  for (let i = 0; c && c.state === "retired" && i < 8; i++)
+    c = c.mergedInto ? categories.get(c.mergedInto) : undefined;
+  return c && c.state !== "retired" ? c : null;
+}
+
+/**
+ * FR 10: whether an amount counts in spending as the budget counts it (BUD-02@PoC FR 12, edge cases; BUD-01@PoC FR 1):
+ * any amount of an expense category (an outflow adds, a refund takes away); an uncategorised outflow; never income or
+ * service categories («Переказ», «Коригування») and never an uncategorised inflow.
+ */
+export function countsAsSpending(
+  categories: ReadonlyMap<string, CushionCategory>,
+  categoryId: string | null,
+  amount: Money,
+): boolean {
+  const c = resolveCategory(categories, categoryId);
+  if (c === null) return amount.isNegative();
+  return c.kind === "expense";
+}
+
+/**
+ * FR 10: the expenses of the window (amounts already in one currency) — the outflows that count less the refunds that
+ * count ({@link countsAsSpending}); never below 0 (refunds beyond the window's spending).
+ */
+export function cushionSpending(
+  amounts: readonly { readonly categoryId: string | null; readonly amount: Money }[],
+  categories: ReadonlyMap<string, CushionCategory>,
+  currency: string,
+): Money {
+  let total = Money.zero(currency);
+  for (const a of amounts)
+    if (countsAsSpending(categories, a.categoryId, a.amount)) total = total.minus(a.amount);
+  return total.isNegative() ? Money.zero(currency) : total;
+}

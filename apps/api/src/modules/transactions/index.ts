@@ -37,8 +37,9 @@ import {
   type RuleInput,
 } from "./adapters/index.ts";
 import {
-  expensesByDay,
+  countedInWindow,
   spendCandidates,
+  type CountedTransaction,
   type SpendCandidate,
   type SpendCandidatesAfter,
 } from "./adapters/db/goal-reads.ts";
@@ -230,14 +231,10 @@ export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions
  */
 export interface GoalTransactions {
   /**
-   * FR 10 «Подушка безпеки»: the space's expenses from `from` to `to` (both included) by day and currency — outgoing
-   * amounts without their sign of shown transactions («Очікує» too), no merged duplicate and no side of a transfer.
+   * FR 10 «Подушка безпеки»: the space's transactions from `from` to `to` as the budget period counts them — shown,
+   * «Очікує» too, no merged duplicate, no side of a transfer, any account; signed, with split parts.
    */
-  expensesByDay(
-    householdId: string,
-    from: string,
-    to: string,
-  ): Promise<readonly { readonly date: string; readonly amount: Money }[]>;
+  countedInWindow(householdId: string, from: string, to: string): Promise<readonly CountedTransaction[]>;
   /**
    * FR 8 «Витратити» (#559): a page of the outgoing «Проведена» shown transactions in `currency` (no merged duplicate,
    * no side of a transfer) on `accountId` (null — any account of the space), not in `excluded`, matching `search`;
@@ -257,13 +254,13 @@ export interface GoalTransactions {
   ): Promise<{ readonly items: readonly SpendCandidate[]; readonly count: number }>;
 }
 
-export type { SpendCandidate, SpendCandidatesAfter };
+export type { CountedTransaction, SpendCandidate, SpendCandidatesAfter };
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
 export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
   return {
-    expensesByDay: (householdId, from, to) =>
-      db.inHousehold(householdId, (q) => expensesByDay(q, householdId, from, to)),
+    countedInWindow: (householdId, from, to) =>
+      db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to)),
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
   };

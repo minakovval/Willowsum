@@ -397,6 +397,12 @@ const server = buildServer({
               reads: {
                 transactions: createGoalTransactions(databases.for("transactions")),
                 fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+                categorization: createTransactionCategories(databases.for("categorization")),
+                categories: createCategoryDirectory({
+                  db: databases.for("categories"),
+                  audit,
+                  newId: randomUUID,
+                }),
               },
               audit,
               clock: systemClock,

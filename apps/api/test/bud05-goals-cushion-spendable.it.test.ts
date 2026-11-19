@@ -9,6 +9,11 @@ import { workerQueues } from "../src/wiring.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createAuditLog, type AuditLog } from "../src/modules/audit/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
+import { createCategoriesServices, createCategoryDirectory } from "../src/modules/categories/index.ts";
+import {
+  createCategorizationServices,
+  createTransactionCategories,
+} from "../src/modules/categorization/index.ts";
 import { createGoalsServices } from "../src/modules/goals/index.ts";
 import { createSpaceKeys, type HouseholdSpaces } from "../src/modules/household/index.ts";
 import { createLedger } from "../src/modules/ledger/index.ts";
@@ -19,6 +24,7 @@ import {
   createTransactionsServices,
 } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
+import { leakText } from "./leak-text.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
 
 /**
@@ -124,6 +130,32 @@ async function rate(date: string, currency: string, uah: string) {
   );
 }
 
+/** Sets the category of a transaction by its name in the space's tree (BUD-01). */
+async function categoryId(space: Space, name: string): Promise<string> {
+  const tree = await call(space, "GET", "/v1/categories");
+  expect(tree.statusCode, tree.body).toBe(200);
+  const id = (tree.json().groups as { categories: { id: string; name: string }[] }[])
+    .flatMap((g) => g.categories)
+    .find((c) => c.name === name)?.id;
+  expect(id, name).toBeDefined();
+  return id!;
+}
+
+async function categorise(space: Space, transactionId: string, name: string): Promise<void> {
+  const id = await categoryId(space, name);
+  const res = await app.inject({
+    method: "PUT",
+    url: `/v1/transactions/${transactionId}/category`,
+    headers: {
+      origin: WEB,
+      "content-type": "application/json",
+      ...principalHeader({ userId: space.accountId, householdId: space.householdId }),
+    },
+    payload: JSON.stringify({ categoryId: id }),
+  });
+  expect(res.statusCode, res.body).toBe(200);
+}
+
 const average = async (space: Space, query = "") => {
   const res = await call(space, "GET", `/v1/goals/emergency-average${query}`);
   expect(res.statusCode, res.body).toBe(200);
@@ -136,6 +168,7 @@ beforeAll(async () => {
   audit = createAuditLog(db.databases.for("audit"));
   const ledger = createLedger(db.databases.for("ledger"));
   const accounts = createAccountDirectory(db.databases.for("accounts"));
+  const directory = createCategoryDirectory({ db: db.databases.for("categories"), audit, newId: randomUUID });
   app = buildServer({
     readiness: async () => ({ ready: true }),
     api: (a) =>
@@ -168,6 +201,12 @@ beforeAll(async () => {
           clock,
           newId: randomUUID,
         }),
+        categories: createCategoriesServices({ audit, clock, newId: randomUUID, usage: [] }),
+        categorization: createCategorizationServices({
+          transactions: createTransactionLookup(db.databases.for("transactions")),
+          categories: directory,
+          audit,
+        }),
         goals: createGoalsServices({
           accounts,
           ledger,
@@ -175,6 +214,8 @@ beforeAll(async () => {
           reads: {
             transactions: createGoalTransactions(db.databases.for("transactions")),
             fx: createFxReporting({ db: db.databases.for("fx-rates"), now: clock.now }),
+            categorization: createTransactionCategories(db.databases.for("categorization")),
+            categories: directory,
           },
           audit,
           clock,
@@ -234,6 +275,37 @@ describe("BUD-05@PoC FR 10: the average monthly expenses of «Подушка б�
     });
     expect(res.statusCode, res.body).toBe(201);
     expect(res.json()).toMatchObject({ target: eur("12600"), emergencyMonths: 3 });
+  });
+
+  it("BUD-05@PoC FR 10: spending as the budget counts it — a refund lowers its category, service and income categories are not spending", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    // A 1 000 € purchase in «Одяг» refunded the same month: 0 € of spending (BUD-02@PoC, BUD-06@PoC edge cases).
+    const bought = await transaction(space, current, "-1000.00", "2026-09-03");
+    await categorise(space, bought, "Одяг");
+    const refund = await transaction(space, current, "1000.00", "2026-09-10");
+    await categorise(space, refund, "Одяг");
+    // «Переказ» (a card repayment without its pair) is a service category: no spending (BUD-01@PoC FR 1).
+    const repay = await transaction(space, current, "-700.00", "2026-09-12");
+    // The API refuses a service category for a person (categoryAllowed); the system sets it, so set it here directly.
+    await categorise(space, repay, "Одяг");
+    await db.owner.query(
+      `UPDATE categorization.transaction_categories SET category_id = $3
+        WHERE household_id = $1 AND transaction_id = $2`,
+      [space.householdId, repay, await categoryId(space, "Переказ")],
+    );
+    // An outflow of an income category lowers income, not spending; an uncategorised inflow is no refund.
+    const back = await transaction(space, current, "-50.00", "2026-09-14");
+    await categorise(space, back, "Зарплата");
+    await transaction(space, current, "300.00", "2026-09-20");
+    // What does count: 120 € uncategorised and 60 € «Одяг» less a 20 € refund of it.
+    await transaction(space, current, "-120.00", "2026-10-02");
+    const shirt = await transaction(space, current, "-60.00", "2026-10-05");
+    await categorise(space, shirt, "Одяг");
+    const partial = await transaction(space, current, "20.00", "2026-10-07");
+    await categorise(space, partial, "Одяг");
+    // 160 € over September–October (the first counted outflow is the purchase on 3 September).
+    expect(await average(space)).toMatchObject({ average: eur("80"), months: 2 });
   });
 
   it("BUD-05@PoC FR 10: a shorter history averages over its own months, half to even to cents", async () => {
@@ -372,7 +444,7 @@ describe("BUD-05@PoC FR 8: «Витратити» reads beyond 100 transactions,
 
     const list = await call(owner, "GET", `/v1/goals/${goalId}/spendable`);
     expect(list.json().items.map((t: { id: string }) => t.id)).toEqual([mine]);
-    expect(list.body).not.toContain(theirs);
+    expect(leakText(list.body)).not.toContain(theirs);
 
     // Another space asks for this goal: the same problem as a goal that does not exist.
     const foreign = await call(other, "GET", `/v1/goals/${goalId}/spendable`);
@@ -380,7 +452,7 @@ describe("BUD-05@PoC FR 8: «Витратити» reads beyond 100 transactions,
     expect(foreign.statusCode).toBe(404);
     expect(Object.keys(foreign.json()).sort()).toEqual(Object.keys(missing.json()).sort());
     expect(foreign.json().code).toBe(missing.json().code);
-    expect(foreign.body).not.toContain(mine);
+    expect(leakText(foreign.body)).not.toContain(mine);
 
     const bad = await call(owner, "GET", `/v1/goals/${goalId}/spendable?cursor=bm90LWEtY3Vyc29y`);
     expect(bad.statusCode).toBe(400);
@@ -415,5 +487,142 @@ describe("BUD-05@PoC FR 8: «Витратити» reads beyond 100 transactions,
       cursor = res.json().nextCursor;
     } while (cursor !== null);
     expect(seen.sort()).toEqual(ids.sort());
+  });
+});
+
+// ===== sec584 (security review of #584): append to apps/api/test/bud05-goals-cushion-spendable.it.test.ts =====
+const forged = (position: unknown) => Buffer.from(JSON.stringify(position), "utf8").toString("base64url");
+
+describe("BUD-05@PoC FR 8, FR 10: the goals' reads hold against forged input and other states (sec584)", () => {
+  it("BUD-05@PoC FR 10: a hidden expense is not counted in the average", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    await transaction(space, current, "-600.00", "2026-10-05");
+    const hidden = await transaction(space, current, "-5000.00", "2026-10-06");
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hidden]);
+    expect(await average(space)).toMatchObject({ average: eur("600"), months: 1 });
+  });
+
+  it("BUD-05@PoC FR 8: a goal of marks lists only its currency; «Очікує» and hidden transactions never come, in the list or in the count", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    const uah = await account(space, "current", "UAH", "900000.00");
+    const goal = await call(space, "POST", "/v1/goals", {
+      template: "purchase",
+      name: "Диван",
+      target: eur("900.00"),
+    });
+    const goalId = goal.json().id as string;
+    const mine = await transaction(space, current, "-120.00", "2026-10-12");
+    await transaction(space, uah, "-130.00", "2026-10-12", { currency: "UAH" });
+    const pending = await transaction(space, current, "-140.00", "2026-10-13");
+    const hidden = await transaction(space, current, "-150.00", "2026-10-14");
+    await db.owner.query(`UPDATE transactions.transactions SET status = 'pending' WHERE id = $1`, [pending]);
+    await db.owner.query(`UPDATE transactions.transactions SET hidden = true WHERE id = $1`, [hidden]);
+    const list = await call(space, "GET", `/v1/goals/${goalId}/spendable`);
+    expect(list.json().items.map((t: { id: string }) => t.id)).toEqual([mine]);
+    expect(list.json().count).toBe(1);
+  });
+
+  it("BUD-05@PoC FR 8: a side of a transfer between own accounts is not listed", async () => {
+    const space = await newSpace();
+    const current = await account(space);
+    const savings = await account(space, "savings");
+    const goal = await call(space, "POST", "/v1/goals", {
+      template: "purchase",
+      name: "Диван",
+      target: eur("900.00"),
+    });
+    const transfer = await call(space, "POST", "/v1/transactions/transfers", {
+      fromAccountId: current,
+      toAccountId: savings,
+      amount: eur("250.00"),
+      date: "2026-10-10",
+    });
+    expect(transfer.statusCode, transfer.body).toBe(201);
+    const list = await call(space, "GET", `/v1/goals/${goal.json().id}/spendable`);
+    expect(list.json()).toMatchObject({ items: [], count: 0 });
+  });
+
+  it("BUD-05@PoC FR 8: a transaction spent from a goal of another space is not taken out of this space's list; the page size is 1–100", async () => {
+    const owner = await newSpace();
+    const current = await account(owner);
+    const goal = await call(owner, "POST", "/v1/goals", {
+      template: "purchase",
+      name: "Диван",
+      target: eur("900.00"),
+    });
+    const goalId = goal.json().id as string;
+    const mine = await transaction(owner, current, "-120.00", "2026-10-12");
+    // Another space's spend row that names this space's transaction (only a broken write could make one).
+    const other = await newSpace();
+    const otherAccount = await account(other);
+    const otherGoal = await call(other, "POST", "/v1/goals", {
+      template: "purchase",
+      name: "Стіл",
+      target: eur("900.00"),
+    });
+    await db.owner.query(
+      `INSERT INTO goals.spends (household_id, id, goal_id, transaction_id, account_id, entry_id, amount, currency, spent_on)
+       VALUES ($1, $2, $3, $4, $5, $6, 120, 'EUR', '2026-10-12')`,
+      [other.householdId, randomUUID(), otherGoal.json().id, mine, otherAccount, randomUUID()],
+    );
+    const list = await call(owner, "GET", `/v1/goals/${goalId}/spendable`);
+    expect(list.json().items.map((t: { id: string }) => t.id)).toEqual([mine]);
+    for (const limit of ["0", "-1", "101", "1000000000", "abc", "1.5"])
+      expect(
+        (await call(owner, "GET", `/v1/goals/${goalId}/spendable?limit=${limit}`)).statusCode,
+        limit,
+      ).toBe(400);
+  });
+
+  // Defect (Blocking 2): `d` and `r` of the cursor reach `$6::date` / `$7::timestamptz` unchecked — SQLSTATE 22007/22008/22021, 500.
+  it("BUD-05@PoC FR 8: a forged cursor that is not a position of this list is 400, never 500", async () => {
+    const owner = await newSpace();
+    const goal = await call(owner, "POST", "/v1/goals", {
+      template: "purchase",
+      name: "Диван",
+      target: eur("900.00"),
+    });
+    const i = randomUUID();
+    const r = "2026-10-12 10:00:00.123456+00";
+    const positions = [
+      { d: "not-a-date", r, i },
+      { d: "0000-00-00", r, i },
+      { d: "2026-02-30", r, i },
+      { d: "-1", r, i },
+      { d: "2026-10-12", r: "garbage", i },
+      { d: "2026-10-12", r: "2026-13-45 99:99:99+00", i },
+      { d: "2026-10-12", r: "2026-10-12 10:00:00+99", i },
+      { d: "2026-10-12", r: "2026-10-12\u0000", i },
+    ];
+    const statuses: number[] = [];
+    for (const p of positions)
+      statuses.push(
+        (await call(owner, "GET", `/v1/goals/${goal.json().id}/spendable?cursor=${forged(p)}`)).statusCode,
+      );
+    expect(statuses).toEqual(positions.map(() => 400));
+    // The same for a NUL in the search text (SQLSTATE 22021).
+    expect((await call(owner, "GET", `/v1/goals/${goal.json().id}/spendable?search=%00`)).statusCode).toBe(
+      400,
+    );
+  });
+
+  // Defect (Blocking 1): the sums leave NUMERIC(38,18) inside `expensesByDay` (Money.of) or `fx.total` — AmountOutOfRangeError, 500.
+  it("BUD-05@PoC FR 10: expenses whose sum or conversion leaves the money range give no average, never 500", async () => {
+    const big = "-90000000000000000000.00"; // 20 integer digits: accepted by POST /v1/transactions
+    await rate("2026-09-01", "EUR", "50.00").catch(() => undefined);
+    const results: unknown[] = [];
+    for (const dates of [["2026-10-05"], ["2026-10-05", "2026-10-05"], ["2026-10-01", "2026-10-02"]]) {
+      const space = await newSpace();
+      const current = await account(space);
+      for (const date of dates) await transaction(space, current, big, date);
+      for (const query of ["", "?currency=UAH"]) {
+        if (dates.length === 1 && query === "") continue; // one amount in its own currency fits
+        const res = await call(space, "GET", `/v1/goals/emergency-average${query}`);
+        results.push([res.statusCode, res.statusCode === 200 ? res.json().average : res.json().code]);
+      }
+    }
+    expect(results).toEqual(results.map(() => [200, null]));
   });
 });

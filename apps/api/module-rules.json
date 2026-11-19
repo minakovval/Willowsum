@@ -89,7 +89,7 @@
     },
     "goals": {
       "layer": "process",
-      "dependsOn": ["accounts", "audit", "fx-rates", "ledger", "transactions"]
+      "dependsOn": ["accounts", "audit", "categories", "categorization", "fx-rates", "ledger", "transactions"]
     },
     "household": {
       "layer": "platform",

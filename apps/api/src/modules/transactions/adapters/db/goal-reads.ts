@@ -1,27 +1,63 @@
 import { Money } from "@willowsum/domain-kernel";
 import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 
+/** A transaction the cushion counts (BUD-05@PoC FR 10): signed, in its own currency, with its split parts. */
+export interface CountedTransaction {
+  readonly id: string;
+  readonly date: string;
+  /** Signed: an outflow is negative, a refund positive. */
+  readonly amount: Money;
+  /** Its parts in order (`month` — the first day of a share «На кілька місяців»); null — not split. */
+  readonly parts:
+    readonly { readonly categoryId: string; readonly month: string | null; readonly amount: Money }[] | null;
+}
+
 /**
- * BUD-05@PoC FR 10 (module goals, «Подушка безпеки»): the space's expenses from `from` to `to` (both included), summed
- * in SQL by day and currency — the outgoing amounts (without their sign) of shown transactions, «Очікує» too, merged
- * into none and no side of a transfer between own accounts. Exact NUMERIC as text, never a float.
+ * BUD-05@PoC FR 10 (module goals, «Подушка безпеки»): the space's transactions from `from` to `to` (both included) as
+ * the budget period counts them (BUD-02@PoC FR 12): shown, «Очікує» too, merged into none, no side of a transfer
+ * between own accounts, of every account; a split one with its parts (a share «На кілька місяців» in the window
+ * brings its transaction even when the transaction's own date is outside). Signed exact NUMERIC as text.
  */
-export async function expensesByDay(
+export async function countedInWindow(
   q: ModuleQueryRunner,
   householdId: string,
   from: string,
   to: string,
-): Promise<{ date: string; amount: Money }[]> {
-  const { rows } = await q.query<{ date: string; currency: string; total: string }>(
-    `SELECT to_char(occurred_on, 'YYYY-MM-DD') AS date, currency, (-sum(amount))::text AS total
-       FROM transactions
-      WHERE household_id = $1 AND occurred_on BETWEEN $2::date AND $3::date AND amount < 0
-        AND NOT hidden AND merged_into IS NULL AND transfer_id IS NULL
-      GROUP BY occurred_on, currency
-      ORDER BY occurred_on, currency`,
+): Promise<CountedTransaction[]> {
+  const { rows } = await q.query<{
+    id: string;
+    amount: string;
+    currency: string;
+    date: string;
+    split_mode: string | null;
+    parts: { categoryId: string; month: string | null; amount: string }[] | null;
+  }>(
+    `SELECT t.id, t.amount::text AS amount, t.currency, to_char(t.occurred_on, 'YYYY-MM-DD') AS date, t.split_mode,
+            (SELECT json_agg(json_build_object('categoryId', p.category_id, 'month', to_char(p.month, 'YYYY-MM-DD'),
+                                               'amount', p.amount::text) ORDER BY p.position)
+               FROM transaction_parts p WHERE p.household_id = t.household_id AND p.transaction_id = t.id) AS parts
+       FROM transactions t
+      WHERE t.household_id = $1 AND NOT t.hidden AND t.merged_into IS NULL AND t.transfer_id IS NULL
+        AND (t.occurred_on BETWEEN $2::date AND $3::date
+             OR (t.split_mode = 'months' AND EXISTS (SELECT 1 FROM transaction_parts p
+                   WHERE p.household_id = t.household_id AND p.transaction_id = t.id
+                     AND p.month BETWEEN $2::date AND $3::date)))
+      ORDER BY t.occurred_on, t.id`,
     [householdId, from, to],
   );
-  return rows.map((r) => ({ date: r.date, amount: Money.of(r.total, r.currency) }));
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    amount: Money.of(r.amount, r.currency),
+    parts:
+      r.split_mode === null || !r.parts
+        ? null
+        : r.parts.map((p) => ({
+            categoryId: p.categoryId,
+            month: p.month,
+            amount: Money.of(p.amount, r.currency),
+          })),
+  }));
 }
 
 export interface SpendCandidate {

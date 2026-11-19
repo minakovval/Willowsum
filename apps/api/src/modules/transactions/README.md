@@ -227,8 +227,9 @@ AC2, AC5–AC7, AC9, граничний випадок 2. Далі: постан
   дубль; `select(householdId, filter, excluded, limit)` — «Вибрати всі M за фільтром» на рушії списку «Транзакції»
   (`transactionsList.ids`; без фільтра `hidden` — лише показані; невідомий фільтр — `invalid`).
 - `createGoalTransactions(db)` → `GoalTransactions` для `goals` (BUD-05@PoC п. 8, 10; #553, #559), лише читання:
-  `expensesByDay(householdId, from, to)` — витрати простору за днями й валютами, сума в SQL (точний NUMERIC): вихідні
-  суми без знака показаних транзакцій, «Очікує» теж, без злитих дублів і сторін переказу; `spendCandidates(householdId,
+  `countedInWindow(householdId, from, to)` — транзакції простору, які рахує період бюджету, за вікно дат (як
+  `budgetRows`, без фільтра рахунків): показані, «Очікує» теж, без злитих дублів і сторін переказу; сума зі знаком, у
+  розділених — частини (категорія, сума, місяць); `spendCandidates(householdId,
   { accountId, currency, excluded, search, after, limit })` — вихідні «Проведена» показані транзакції у валюті, не
   сторони переказу й не злиті, на рахунку (null — будь-якому), крім `excluded`, з пошуком (`%`, `_` — буквально);
   найновіші спершу (дата, час запису, id) після `after`, не більше `limit`, і `count` — усього без `after`.

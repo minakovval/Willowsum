@@ -4,8 +4,10 @@ import { kyivToday } from "../../../../platform/lists/list-total.ts";
 import { logEvent } from "../../../../platform/telemetry/signals.ts";
 import { groupOf, type AccountDirectory } from "../../../accounts/index.ts";
 import type { AuditLog } from "../../../audit/index.ts";
-import { Money } from "@willowsum/domain-kernel";
+import { AmountOutOfRangeError, Money } from "@willowsum/domain-kernel";
 import type { Entry, Ledger } from "../../../ledger/index.ts";
+import type { CategoryDirectory } from "../../../categories/index.ts";
+import type { TransactionCategories } from "../../../categorization/index.ts";
 import type { FxReporting } from "../../../fx-rates/index.ts";
 import type { GoalTransactions, TransactionLookup } from "../../../transactions/index.ts";
 import {
@@ -17,6 +19,7 @@ import {
   type GoalsAudit,
   type GoalsDeps,
 } from "../../application/index.ts";
+import { countsAsSpending, cushionSpending } from "../../domain/index.ts";
 
 const BRAND = Symbol("willowsum-goals-services");
 
@@ -95,25 +98,81 @@ export function spendableTransactions(
   };
 }
 
+/** What the cushion and the list of «Витратити» read of other modules (their public interfaces only). */
+export interface CushionPorts {
+  readonly transactions: GoalTransactions;
+  readonly fx: Pick<FxReporting, "total">;
+  /** Module categorization: the category of a transaction that is not split. */
+  readonly categorization: TransactionCategories;
+  /** Module categories: the space's tree with kinds and merges. */
+  readonly categories: Pick<CategoryDirectory, "categories">;
+}
+
 /**
- * FR 10, FR 8 over the public interfaces of `transactions` (the expenses summed by day and currency in SQL; the page of
- * spendable transactions) and `fx-rates` (each day's sum at that day's official rate, the nearest earlier one marked;
- * VAL-04). A sum without a rate is left out and counted.
+ * FR 10, FR 8 over the public interfaces of `transactions` (the window's transactions as the budget counts them; the
+ * page of spendable transactions), `categorization` and `categories` (spending as the budget counts it: refunds lower
+ * their category, service and income categories are not spending) and `fx-rates` (each amount at its date's official
+ * rate, the nearest earlier one marked; VAL-04). An amount without a rate is left out and counted.
  */
-export function goalReads(transactions: GoalTransactions, fx: Pick<FxReporting, "total">): GoalReads {
+export function goalReads(ports: CushionPorts): GoalReads {
+  const { transactions, fx } = ports;
   return {
     async expenses(householdId, window, currency) {
-      const days = await transactions.expensesByDay(householdId, window.from, window.to);
-      const reported = await fx.total(
-        days.map((d) => ({ amount: d.amount, date: d.date })),
-        currency,
-      );
-      return {
-        total: reported.total,
-        firstDate: days[0]?.date ?? null,
-        nearestRateCount: reported.nearestRateCount,
-        unavailableCount: reported.unavailableCount,
-      };
+      try {
+        const rows = await transactions.countedInWindow(householdId, window.from, window.to);
+        const [own, tree] = await Promise.all([
+          ports.categorization.categoriesOf(
+            householdId,
+            rows.filter((r) => r.parts === null).map((r) => r.id),
+          ),
+          ports.categories.categories(householdId),
+        ]);
+        const categories = new Map(tree.map((c) => [c.id, c]));
+        // As the budget period counts them: a share «На кілька місяців» on its month's first day, a part of a split
+        // by categories and a whole transaction on its date; only what falls in the window.
+        const counted: { categoryId: string | null; amount: Money; date: string }[] = [];
+        for (const r of rows) {
+          if (r.parts === null)
+            counted.push({ categoryId: own.get(r.id) ?? null, amount: r.amount, date: r.date });
+          else
+            for (const p of r.parts)
+              counted.push({ categoryId: p.categoryId, amount: p.amount, date: p.month ?? r.date });
+        }
+        const inWindow = counted.filter(
+          (c) =>
+            c.date >= window.from &&
+            c.date <= window.to &&
+            countsAsSpending(categories, c.categoryId, c.amount),
+        );
+        const reported = await fx.total(
+          inWindow.map((c) => ({ amount: c.amount, date: c.date })),
+          currency,
+        );
+        const converted: { categoryId: string | null; amount: Money }[] = [];
+        reported.items.forEach((item, i) => {
+          if (item.kind !== "rate-unavailable")
+            converted.push({ categoryId: inWindow[i]!.categoryId, amount: item.value });
+        });
+        const firstDate =
+          inWindow
+            .filter((c) => c.amount.isNegative())
+            .map((c) => c.date)
+            .sort()[0] ?? null;
+        return {
+          total:
+            reported.total === null && inWindow.length > 0
+              ? null
+              : cushionSpending(converted, categories, currency),
+          firstDate,
+          nearestRateCount: reported.nearestRateCount,
+          unavailableCount: reported.unavailableCount,
+        };
+      } catch (error) {
+        // A sum, its conversion or the total leaves NUMERIC(38,18): there is no average to show (the form then asks
+        // for the target), never a 500 (security review of #584; the same class as #573).
+        if (!(error instanceof AmountOutOfRangeError)) throw error;
+        return { total: null, firstDate: null, nearestRateCount: 0, unavailableCount: 1 };
+      }
     },
     candidates: (householdId, query) => transactions.spendCandidates(householdId, query),
   };
@@ -148,7 +207,7 @@ export function createGoalsServices(options: {
    * Module transactions' reads for goals and module fx-rates' conversion: «Подушка безпеки» (FR 10) and the list of
    * «Витратити» (FR 8, #559); without them those two routes answer 500.
    */
-  readonly reads?: { readonly transactions: GoalTransactions; readonly fx: Pick<FxReporting, "total"> };
+  readonly reads?: CushionPorts;
 }): GoalsServices {
   return {
     [BRAND]: true,
@@ -160,7 +219,7 @@ export function createGoalsServices(options: {
       transactions: options.transactions
         ? spendableTransactions(options.transactions, options.accounts, options.ledger)
         : null,
-      reads: options.reads ? goalReads(options.reads.transactions, options.reads.fx) : null,
+      reads: options.reads ? goalReads(options.reads) : null,
     },
     audit: goalsAudit(options.audit),
   };

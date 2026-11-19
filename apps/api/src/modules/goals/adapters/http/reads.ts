@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isCurrencyCode } from "@willowsum/domain-kernel";
+import { isCalendarDate, isCurrencyCode } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { decodeCursor, pageOf, pageQuery, toPage } from "../../../../platform/http/pagination.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
@@ -76,7 +76,19 @@ export const cushionAverageRoute = defineRoute({
 });
 
 /** The position of the next page: the last row's date, time of recording and id. */
-const position = z.object({ d: z.string().max(10), r: z.string().max(40), i: z.uuid() }).strict();
+const RECORDED_AT_RE =
+  /^(\d{4}-\d{2}-\d{2}) ([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(\.\d{1,6})?([+-])(0\d|1[0-5])(:[0-5]\d){0,2}$/;
+/** `created_at::text` of PostgreSQL, a real day from year 0001: anything else would be a 500 at `$7::timestamptz`. */
+const recordedAt = z
+  .string()
+  .max(40)
+  .refine((v) => {
+    const m = RECORDED_AT_RE.exec(v);
+    return m !== null && isCalendarDate(m[1]!) && !v.startsWith("0000");
+  });
+const position = z
+  .object({ d: z.iso.date().refine((v) => !v.startsWith("0000")), r: recordedAt, i: z.uuid() })
+  .strict();
 
 export const spendableRoute = defineRoute({
   module: MODULE,
@@ -91,7 +103,12 @@ export const spendableRoute = defineRoute({
     params: z.object({ goalId: z.uuid() }),
     query: z.object({
       ...pageQuery.shape,
-      search: z.string().max(200).optional().meta({ description: "Counterparty or description contains it" }),
+      search: z
+        .string()
+        .max(200)
+        .refine((v) => !v.includes("\u0000"))
+        .optional()
+        .meta({ description: "Counterparty or description contains it" }),
     }),
   },
   response: {
