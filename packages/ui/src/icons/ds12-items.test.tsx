@@ -91,11 +91,24 @@ describe("DS-12@PoC no photos, uploads or illustrations", () => {
     for (const f of client.filter((x) => /\.(tsx?|json)$/.test(x))) {
       const text = readFileSync(f, "utf8");
       expect(text, rel(f)).not.toMatch(
-        /type=["']file["']|type:\s*["']file["']|new FormData|multipart\/form-data|<input[^>]*accept=/,
+        /type=["']file["']|type:\s*["']file["']|new FormData|<input[^>]*accept=/,
       );
+      // The contract names its one multipart route (checked below); the web app and the UI kit send none.
+      if (!/packages\/api-contract/.test(f)) expect(text, rel(f)).not.toMatch(/multipart\/form-data/);
     }
     const contract = readFileSync(join(root, "packages/api-contract/openapi.json"), "utf8");
-    expect(contract).not.toMatch(/multipart|image\/(png|jpeg)|"\/[a-z/{}-]*(upload|attachments?|photos?)/i);
+    expect(contract).not.toMatch(/image\/(png|jpeg)|"\/[a-z/{}-]*(upload|attachments?|photos?)/i);
+    // The one multipart route is the statement upload of an import batch (IMP-01@PoC FR 3): CSV, TSV, XLSX and XLS only,
+    // checked by content on the server (ARC-06 FR 4), so no photo can be stored through it.
+    const paths = (
+      JSON.parse(contract) as { paths: Record<string, Record<string, { requestBody?: unknown }>> }
+    ).paths;
+    const multipart = Object.entries(paths).flatMap(([path, ops]) =>
+      Object.entries(ops)
+        .filter(([, op]) => JSON.stringify(op.requestBody ?? {}).includes("multipart/form-data"))
+        .map(([method]) => `${method} ${path}`),
+    );
+    expect(multipart).toEqual(["post /v1/import/batches/{batchId}/files"]);
   });
 
   it("DS-12@PoC FR 12: no illustrations, mascots or stock photos — the only vector images are the brand mark files and the favicon", () => {

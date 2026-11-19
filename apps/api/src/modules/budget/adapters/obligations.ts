@@ -6,11 +6,10 @@ import type { RecurringMonth } from "../../recurring/index.ts";
 import type { AccountPayments } from "../../transactions/index.ts";
 import type { BudgetObligations } from "../application/index.ts";
 import { periodDays, type PeriodObligations } from "../domain/index.ts";
+import { BUDGET_MAX_INTEGER_DIGITS, overBudgetCap as tooBig } from "./money-range.ts";
 
 /** The most integer digits one amount of the port may have — as `parseBudgetAmount` takes a limit (#567). */
-export const OBLIGATION_MAX_INTEGER_DIGITS = 15;
-
-const tooBig = (m: Money) => m.amount.abs().truncated().toFixed().length > OBLIGATION_MAX_INTEGER_DIGITS;
+export const OBLIGATION_MAX_INTEGER_DIGITS = BUDGET_MAX_INTEGER_DIGITS;
 
 /**
  * The port `BudgetObligations` over modules recurring, accounts, liabilities and transactions (#567; BUD-02@PoC FR 3,

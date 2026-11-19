@@ -1,3 +1,4 @@
+import { AmountOutOfRangeError, Decimal } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import type { ProtectedContext } from "../../../../platform/http/route.ts";
 import { kyivToday } from "../../../../platform/lists/list-total.ts";
@@ -18,6 +19,13 @@ import {
   type BudgetReads,
 } from "../../application/index.ts";
 import { periodDays, periodOf, type CountedAmount } from "../../domain/index.ts";
+import { overBudgetCap } from "../money-range.ts";
+
+/**
+ * The most the absolute values of one read may add up to (#586): the figures sum them by category and in total, with
+ * the limits, inside the money type's 20 integer digits.
+ */
+const BUDGET_MAX_ABSOLUTE_SUM = new Decimal("1e18");
 
 const BRAND = Symbol("willowsum-budget-services");
 
@@ -66,16 +74,38 @@ export function budgetReads(options: {
             )
               counted.push({ categoryId: p.categoryId, amount: p.amount, date: r.date });
       }
-      const total = await options.fx.total(
-        counted.map((c) => ({ amount: c.amount, date: c.date })),
-        currency,
-      );
+      // #586: the cap before any conversion or sum — an amount over it is left out, as one without a rate.
+      const inRange = counted.filter((c) => !overBudgetCap(c.amount));
+      const allLeftOut = { amounts: [], nearestRateCount: 0, unavailableCount: counted.length };
+      let total: Awaited<ReturnType<typeof options.fx.total>>;
+      try {
+        total = await options.fx.total(
+          inRange.map((c) => ({ amount: c.amount, date: c.date })),
+          currency,
+        );
+      } catch (error) {
+        // The rates' reader adds the converted amounts up itself: past the money type, no figure, never a 500 (#573).
+        if (error instanceof AmountOutOfRangeError) return allLeftOut;
+        throw error;
+      }
       const amounts: CountedAmount[] = [];
+      let leftOut = counted.length - inRange.length + total.unavailableCount;
+      let nearest = total.nearestRateCount;
+      let absolute = new Decimal("0");
       total.items.forEach((item, i) => {
-        if (item.kind !== "rate-unavailable")
-          amounts.push({ categoryId: counted[i]!.categoryId, amount: item.value });
+        if (item.kind === "rate-unavailable") return;
+        if (overBudgetCap(item.value)) {
+          leftOut += 1;
+          // Every amount here has its date: «приблизно» is the nearest rate only.
+          if (item.kind === "converted" && item.conversion.approximate) nearest -= 1;
+          return;
+        }
+        absolute = absolute.plus(item.value.amount.abs());
+        amounts.push({ categoryId: inRange[i]!.categoryId, amount: item.value });
       });
-      return { amounts, nearestRateCount: total.nearestRateCount, unavailableCount: total.unavailableCount };
+      // The figures sum these by category and in total: past the bound, no figure beats a wrong one or a 500.
+      if (absolute.greaterThan(BUDGET_MAX_ABSOLUTE_SUM)) return allLeftOut;
+      return { amounts, nearestRateCount: nearest, unavailableCount: leftOut };
     },
   };
 }
