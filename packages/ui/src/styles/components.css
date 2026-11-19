@@ -3729,13 +3729,24 @@ button.ws-stepper-step[aria-disabled="true"] {
   display: inline-flex;
   align-items: center;
   gap: var(--ws-space-2);
+  flex: 0 1 auto;
+  min-inline-size: 0;
   max-inline-size: 100%;
   white-space: nowrap;
+}
+
+.ws-chart-legend-item > .ws-chart-swatch,
+.ws-chart-legend-item > .ws-chart-swatch-line,
+.ws-chart-legend-item > b,
+.ws-chart-legend-button > b,
+.ws-chart-legend-button > .ws-chart-swatch-line {
+  flex: none;
 }
 
 .ws-chart-legend-item > .ws-muted,
 .ws-chart-legend-button > span {
   min-inline-size: 0;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -3749,6 +3760,8 @@ button.ws-stepper-step[aria-disabled="true"] {
 
 .ws-chart-legend-button {
   display: flex;
+  min-inline-size: 0;
+  max-inline-size: 100%;
   align-items: center;
   gap: var(--ws-space-2);
   min-block-size: 36px;

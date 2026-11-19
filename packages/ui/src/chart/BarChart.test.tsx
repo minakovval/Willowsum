@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nProvider } from "@willowsum/i18n";
 import { BarChart, type BarChartProps } from "./BarChart.tsx";
@@ -228,5 +230,27 @@ describe("CHT-00@PoC chart texts", () => {
       </I18nProvider>,
     );
     expect(within(uk.container).getByText("Ще немає історії")).toBeTruthy();
+  });
+});
+
+describe("CHT-00@PoC legend and invalid input", () => {
+  it("CMP-47@PoC AC4: a legend name of 60+ characters keeps its full text as the title and accessible name, and the item can shrink so the ellipsis shows", () => {
+    const name = "Витрати на подорожі, відпустки й довгі поїздки до родичів за кордон";
+    const { container } = chart({ series: [{ id: "s", name, values: ["1", "2", "3", "4", "5", "6"] }] });
+    const item = container.querySelector(".ws-chart-legend-item")!;
+    const text = item.querySelector(".ws-muted")!;
+    expect(text.getAttribute("title")).toContain(name);
+    expect(text.textContent).toContain(name);
+    const css = readFileSync(resolve(process.cwd(), "src/styles/components.css"), "utf8");
+    const rule = (selector: string) =>
+      css.slice(css.indexOf(selector), css.indexOf("}", css.indexOf(selector)));
+    expect(rule(".ws-chart-legend-item {")).toMatch(/min-inline-size:\s*0/);
+    expect(rule(".ws-chart-legend-item > .ws-muted")).toMatch(/text-overflow:\s*ellipsis/);
+    expect(rule(".ws-chart-legend-item > .ws-muted")).toMatch(/min-inline-size:\s*0/);
+  });
+
+  it("CHT-00@PoC AC2: a value that is not a decimal string shows the chart's error state instead of throwing", () => {
+    chart({ series: [{ id: "s", name: "Витрати", values: ["1e3", "2", "3", "4", "5", "6"] }] });
+    expect(screen.getByRole("alert").textContent).toContain("Не вдалося побудувати графік");
   });
 });

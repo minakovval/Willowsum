@@ -248,4 +248,13 @@ describe("CMP-42@PoC LineChart", () => {
       ).length,
     ).toBeGreaterThanOrEqual(3);
   });
+
+  it("CMP-42@PoC AC1: a series name of 60+ characters is a title on its legend text, and a non-decimal value shows the error state", () => {
+    const name = "Рахунок із дуже довгою назвою, що не вміщується в легенду графіка";
+    const { container } = chart({ series: [make("a", name, 1000)] });
+    expect(container.querySelector(".ws-chart-legend-item .ws-muted")!.getAttribute("title")).toBe(name);
+    cleanup();
+    chart({ series: [{ id: "x", name: "X", points: [{ date: "2026-01-01", value: "abc" }] }] });
+    expect(screen.getByRole("alert").textContent).toContain("Не вдалося побудувати графік");
+  });
 });

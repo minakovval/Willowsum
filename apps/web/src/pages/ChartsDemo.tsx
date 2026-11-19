@@ -88,7 +88,7 @@ export function ChartsDemo() {
     "Подорожі й відпустки — дуже довга назва категорії без розривів ПодорожіІВідпусткиДужеДовгаНазва";
   const seven: LineSeries[] = Array.from({ length: 6 }, (_, i) => ({
     id: `s${i}`,
-    name: t("gallery.charts.account", { n: String(i + 1) }),
+    name: i === 0 ? t("gallery.charts.longName") : t("gallery.charts.account", { n: String(i + 1) }),
     points: balance(1000 + i * 600, 40 + i * 10),
   }));
   const case_ = (id: string, caption: string, body: React.ReactNode) => (
@@ -206,7 +206,7 @@ export function ChartsDemo() {
               { id: "c", label: long.slice(0, 24) },
             ]}
             series={[
-              { id: "spent", name: t("gallery.charts.spent"), values: ["1250000.00", "642.10", "88.40"] },
+              { id: "spent", name: t("gallery.charts.longName"), values: ["1250000.00", "642.10", "88.40"] },
             ]}
             currency="EUR"
             height={240}

@@ -5,7 +5,9 @@ import { formatCompactNumber } from "../amount/compact.ts";
 import { addDecimal, compareDecimal, niceScale, signOf, toNumber, type Scale } from "./math.ts";
 import {
   ChartShell,
+  InvalidChart,
   MarkerShapeSvg,
+  allDecimal,
   Swatch,
   TipTable,
   money,
@@ -135,7 +137,13 @@ interface Segment {
  * «series, category, value»; the tooltip opens on hover and on focus, closes with Esc, and only repeats what is
  * on the chart or in the legend. No appearance animation (CHT-00 «Бізнес-правила»).
  */
-export function BarChart({
+export function BarChart(props: BarChartProps) {
+  const values = [...props.series.flatMap((s) => s.values), ...(props.lines ?? []).flatMap((l) => l.values)];
+  if (!allDecimal(values)) return <InvalidChart height={props.height ?? 300} />;
+  return <BarChartView {...props} />;
+}
+
+function BarChartView({
   label,
   categories,
   series: given,
@@ -545,10 +553,13 @@ function LegendItem({
   currency: string;
 }) {
   const { locale } = useI18n();
+  const text = category ? `${name} · ${category}` : name;
   return (
     <li className="ws-chart-legend-item">
       {swatch}
-      <span className="ws-muted">{category ? `${name} · ${category}` : name}</span>
+      <span className="ws-muted" title={text}>
+        {text}
+      </span>
       {value !== null ? <b className="ws-tabular">{money(locale, value, currency)}</b> : null}
     </li>
   );

@@ -2541,4 +2541,6 @@ export const uk = {
   "gallery.charts.eventLoanDetail": "12 000,00 € · Автокредит",
   "gallery.charts.eventRepay": "Дострокове погашення",
   "gallery.charts.eventRepayDetail": "2 500,00 € · Автокредит",
+  "gallery.charts.longName":
+    "Витрати на подорожі, відпустки й довгі поїздки до родичів за кордон і ПодорожіДужеДовгаНазваБезПробілів",
 } as const satisfies Record<string, string>;

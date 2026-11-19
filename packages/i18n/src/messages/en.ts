@@ -2550,4 +2550,6 @@ export const en: Messages = {
   "gallery.charts.eventLoanDetail": "€12,000.00 · Car loan",
   "gallery.charts.eventRepay": "Early repayment",
   "gallery.charts.eventRepayDetail": "€2,500.00 · Car loan",
+  "gallery.charts.longName":
+    "Spending on trips, holidays and long journeys to relatives abroad and TripsVeryLongNameWithoutSpaces",
 };

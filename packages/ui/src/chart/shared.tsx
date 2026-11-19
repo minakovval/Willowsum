@@ -5,7 +5,7 @@ import type { ColorTokenName } from "../tokens/color.ts";
 import { EmptyState } from "../states/EmptyState.tsx";
 import { ErrorState } from "../states/ErrorState.tsx";
 import { Skeleton } from "../skeleton/Skeleton.tsx";
-import { compareDecimal, signOf, subDecimal } from "./math.ts";
+import { compareDecimal, isDecimal, signOf, subDecimal } from "./math.ts";
 
 /** A colour token of the design system; the chart components set no colours of their own (CHT-00 FR 2). */
 export type ChartTone = ColorTokenName;
@@ -296,4 +296,21 @@ export function placeTip(
   const left = anchorX + gap + tipWidth <= boxWidth ? anchorX + gap : Math.max(0, anchorX - gap - tipWidth);
   const top = Math.max(0, Math.min(anchorY, boxHeight - tipHeight));
   return { left, top };
+}
+
+/** CHT-00 FR 1: a value that is not a plain decimal string cannot be drawn; the chart shows its error state instead of throwing. */
+export const allDecimal = (values: readonly (string | null | undefined)[]): boolean =>
+  values.every((v) => v === null || v === undefined || isDecimal(v));
+
+export function InvalidChart({ height }: { height: number }) {
+  const { t } = useI18n();
+  const [marker = "", ...rest] = t("state.error.title").split(" ");
+  return (
+    <div className="ws-chart ws-chart-state" role="alert" data-chart="invalid" style={{ minHeight: height }}>
+      <p>
+        <span aria-hidden="true">{marker} </span>
+        {rest.join(" ")} · {t("chart.error.text")}
+      </p>
+    </div>
+  );
 }

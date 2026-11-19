@@ -13,7 +13,9 @@ import {
 import { formatCompactNumber } from "../amount/compact.ts";
 import {
   ChartShell,
+  InvalidChart,
   MarkerShapeSvg,
+  allDecimal,
   Swatch,
   TipTable,
   money,
@@ -155,7 +157,16 @@ function axisLabel(locale: Locale, step: TimeStep, end: string): string {
  * dotted line, a marker on every series and a table «на <дата> · Δ · %»; arrows move the step and Esc closes it.
  * One point is a dot and a value without a line. No animation.
  */
-export function LineChart({
+export function LineChart(props: LineChartProps) {
+  const values = [
+    ...props.series.flatMap((s) => s.points.map((p) => p.value)),
+    ...(props.target ? [props.target.value] : []),
+  ];
+  if (!allDecimal(values)) return <InvalidChart height={props.height ?? 300} />;
+  return <LineChartView {...props} />;
+}
+
+function LineChartView({
   label,
   series,
   currency,
@@ -332,7 +343,7 @@ export function LineChart({
           }}
         >
           <Swatch kind="line" tone={st.tone} marker={st.marker} />
-          <span>{s.name}</span>
+          <span title={s.name}>{s.name}</span>
           {lastValues[i] != null ? (
             <b className="ws-tabular">{money(locale, lastValues[i] ?? "0", currency)}</b>
           ) : null}
@@ -344,7 +355,9 @@ export function LineChart({
       {legendItems.map(({ s, st, i }) => (
         <li key={s.id} className="ws-chart-legend-item">
           <Swatch kind="line" tone={st.tone} dash={st.dash} marker={st.marker} />
-          <span className="ws-muted">{s.name}</span>
+          <span className="ws-muted" title={s.name}>
+            {s.name}
+          </span>
           {lastValues[i] != null ? (
             <b className="ws-tabular">{money(locale, lastValues[i] ?? "0", currency)}</b>
           ) : null}
