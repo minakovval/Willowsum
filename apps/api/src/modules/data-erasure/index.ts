@@ -11,6 +11,7 @@ import { createCategorizationErasure } from "../categorization/index.ts";
 import { createBudgetErasure } from "../budget/index.ts";
 import { createDebtPayoffErasure } from "../debt-payoff/index.ts";
 import { createGoalsErasure } from "../goals/index.ts";
+import { createImportRecipesErasure } from "../import-recipes/index.ts";
 import { createMerchantsErasure } from "../merchants/index.ts";
 import { createRecurringErasure } from "../recurring/index.ts";
 import { createAuditErasure, createAuditLog } from "../audit/index.ts";
@@ -50,7 +51,7 @@ export interface DataErasure {
 }
 
 export interface DataErasureOptions {
-  /** The module pools (identity, household, bulk-actions, transactions, categorization, merchants, recurring, categories, goals, budget, debt-payoff, accounts, liabilities, audit — the platform log). */
+  /** The module pools (identity, household, bulk-actions, transactions, categorization, merchants, recurring, categories, goals, budget, debt-payoff, import-recipes, accounts, liabilities, audit — the platform log). */
   readonly databases: Pick<ModuleDatabases, "for">;
   /** The erasure pools of audit and ledger (`withErasureDatabases`, platform/db/erasure-db.ts). */
   readonly erasureDatabases: Pick<ModuleDatabases, "for">;
@@ -80,6 +81,7 @@ export function createDataErasure(options: DataErasureOptions): DataErasure {
     goals: createGoalsErasure(options.databases.for("goals")),
     budget: createBudgetErasure(options.databases.for("budget")),
     debtPayoff: createDebtPayoffErasure(options.databases.for("debt-payoff")),
+    importRecipes: createImportRecipesErasure(options.databases.for("import-recipes")),
     merchants: createMerchantsErasure(options.databases.for("merchants")),
     recurring: createRecurringErasure(options.databases.for("recurring")),
     accounts: createAccountsErasure(options.databases.for("accounts")),

@@ -70,7 +70,8 @@ export type RecipeErrorCode =
   | "INCOMPLETE_RULE"
   | "UNSAFE_PATTERN"
   | "INVALID_PATTERN"
-  | "GROUP_OUT_OF_RANGE";
+  | "GROUP_OUT_OF_RANGE"
+  | "INVALID_CHARACTER";
 
 /** FR 14: the client shows the localised text of the code and highlights the field (`""` — the whole recipe). */
 export interface RecipeError {
@@ -262,6 +263,40 @@ function incomplete(recipe: Recipe): RecipeError[] {
   return missing;
 }
 
+/** U+0000 and every other C0 or C1 control, the line and paragraph separators (#607 item 5). */
+const CONTROL = /[\p{Cc}\u2028\u2029]/u;
+/** A lone surrogate: text PostgreSQL cannot store and no file holds. */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+/** Whether a label (or any text the user gives with a recipe) holds a control character or a lone surrogate. */
+export const unsafeText = (text: string): boolean => CONTROL.test(text) || LONE_SURROGATE.test(text);
+
+/**
+ * `INVALID_CHARACTER` for every text of the recipe — values, and the keys of `numbers.currencySymbols` (the path of
+ * the record) — that
+ * `unsafeText` refuses; the tab of `file.delimiter` is a value of its list, not text.
+ */
+function characterErrors(recipe: Recipe): RecipeError[] {
+  const errors: RecipeError[] = [];
+  const stack: [unknown, PropertyKey[]][] = [[recipe, []]];
+  while (stack.length > 0) {
+    const [v, path] = stack.pop()!;
+    if (typeof v === "string") {
+      if (unsafeText(v) && fieldPath(path) !== "file.delimiter")
+        errors.push({ code: "INVALID_CHARACTER", path: fieldPath(path) });
+    } else if (Array.isArray(v)) {
+      for (let i = v.length - 1; i >= 0; i--) stack.push([v[i], [...path, i]]);
+    } else if (v !== null && typeof v === "object") {
+      for (const [k, child] of Object.entries(v).reverse()) {
+        // The parent's path: the error never echoes the control character back.
+        if (unsafeText(k)) errors.push({ code: "INVALID_CHARACTER", path: fieldPath(path) });
+        stack.push([child, [...path, k]]);
+      }
+    }
+  }
+  return errors;
+}
+
 /** Every pattern of the recipe with its path, in the recipe's order. */
 export function recipePatterns(recipe: Recipe): { readonly path: string; readonly source: string }[] {
   const found: { path: string; source: string }[] = [];
@@ -306,13 +341,19 @@ export function checkRecipe(input: unknown): RecipeCheck {
   const parsed = recipeSchema.safeParse(value);
   if (!parsed.success) {
     const errors: RecipeError[] = [];
+    // A key with a control character is never echoed back (an unknown one, or one of `numbers.currencySymbols`):
+    // the path stops at its parent.
+    const shown = (path: readonly PropertyKey[]): string => {
+      const cut = path.findIndex((p) => typeof p === "string" && unsafeText(p));
+      return fieldPath(cut < 0 ? path : path.slice(0, cut));
+    };
     for (const issue of parsed.error.issues) {
       if (issue.code === "unrecognized_keys") {
         for (const key of issue.keys)
-          errors.push({ code: "UNKNOWN_FIELD", path: fieldPath([...issue.path, key]) });
+          errors.push({ code: "UNKNOWN_FIELD", path: shown([...issue.path, key]) });
       } else if (valueAt(value, issue.path) === undefined) {
-        errors.push({ code: "MISSING_FIELD", path: fieldPath(issue.path) });
-      } else errors.push({ code: "INVALID_VALUE", path: fieldPath(issue.path) });
+        errors.push({ code: "MISSING_FIELD", path: shown(issue.path) });
+      } else errors.push({ code: "INVALID_VALUE", path: shown(issue.path) });
     }
     return fail(...errors);
   }
@@ -326,6 +367,6 @@ export function checkRecipe(input: unknown): RecipeCheck {
       duplicates.push({ code: "DUPLICATE_COLUMN_RULE", path: `columns[${i}].column` });
     seen.add(rule.column);
   });
-  const errors = [...duplicates, ...incomplete(recipe)];
+  const errors = [...characterErrors(recipe), ...duplicates, ...incomplete(recipe)];
   return errors.length > 0 ? fail(...errors) : { ok: true, recipe };
 }
