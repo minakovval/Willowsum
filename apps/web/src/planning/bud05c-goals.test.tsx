@@ -166,6 +166,15 @@ describe("BUD-05@PoC c) S-136 «Цілі», S-137 card: the list and the card of
     expect(screen.queryByRole("list", { name: "Список цілей" })).toBeNull();
   });
 
+  it("BUD-05@PoC FR 1: in the empty state every template tile has its own glyph (PocPlanGoalsEmpty)", async () => {
+    open(api([]));
+    const tiles = await screen.findAllByRole("button", { name: /Подорож|Покупка|Подушка безпеки|Власна/ });
+    expect(tiles).toHaveLength(4);
+    const glyphs = tiles.map((t) => t.querySelector(".goal-row-icon svg")?.innerHTML);
+    for (const g of glyphs) expect(g).toBeTruthy();
+    expect(new Set(glyphs).size).toBe(4);
+  });
+
   it("BUD-05@PoC c) states: «Не вдалося завантажити цілі» with «Спробувати ще раз» that reads the goals again", async () => {
     let attempt = 0;
     const fake = api([], {
