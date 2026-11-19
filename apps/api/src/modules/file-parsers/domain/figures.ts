@@ -162,11 +162,11 @@ export function readFigures(
   for (let i = firstRow; i < rows.length; i++) {
     if (i === headerRow) continue;
     const row = rows[i]!;
-    // An operation's row (its date cell reads as a date) is never a figure's row.
-    const dateColumn = column("date");
-    if (i >= from && dateColumn > 0 && dateIn((row[dateColumn - 1] ?? "").trim()) !== null) continue;
-    const at = row.findIndex((cell) => labelOf(cell) !== null);
-    if (at < 0) continue;
+    // A figure's label is the first filled cell of its row; inside or after the table, a row with a date cell is an
+    // operation, never a figure (the columns are not known yet: the table is analysed without the figures' rows).
+    const at = row.findIndex((cell) => cell.trim() !== "");
+    if (at < 0 || labelOf(row[at]!) === null) continue;
+    if (i >= from && row.some((cell) => dateIn(cell.trim()) !== null)) continue;
     const { kind, rest } = labelOf(row[at]!)!;
     const after = [rest, ...row.slice(at + 1)].map((c) => c.trim()).filter((c) => c !== "");
     const firstAmount = after.map(amountIn).find((v) => v !== null) ?? null;

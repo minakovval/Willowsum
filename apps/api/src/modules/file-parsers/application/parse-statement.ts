@@ -49,9 +49,20 @@ export function parseStatement(
 ): StatementParse {
   const { rows, headerRow, ...reading } = readDelimitedFile(bytes, options);
   const firstRow = options.skipRows ?? 0;
-  const analysis = analyzeTable(rows, headerRow, firstRow);
+  // IMP-05 FR 1: the statement's own figures («Вхідний залишок», «Разом») are found first and left out of the table's
+  // analysis and of the events; their values are then read under the table's number format.
+  const labelled = readFigures(rows, headerRow, firstRow, analyzeTable(rows, headerRow, firstRow)).exclude;
+  const table = labelled.size === 0 ? rows : rows.map((r, i) => (labelled.has(i) ? [] : r));
+  const analysis = analyzeTable(table, headerRow, firstRow);
   const { figures, exclude } = readFigures(rows, headerRow, firstRow, analysis);
-  const events = readEvents(rows, headerRow, firstRow, analysis, statement, exclude);
+  const events = readEvents(
+    rows,
+    headerRow,
+    firstRow,
+    analysis,
+    statement,
+    new Set([...labelled, ...exclude]),
+  );
   const preamble = rows.slice(firstRow, headerRow ?? firstRow);
   const account = binding ? matchAccount(preamble, binding.by, binding.value) : null;
   const checks = reviewStatement({
