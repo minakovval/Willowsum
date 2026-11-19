@@ -20,7 +20,7 @@ Step 1 prints nothing (no previous review found) → the review is due; skip ste
 gives 40 or more **and** `<T>` is at least 24 hours ago. Not due → no review, no comment;
 write «огляд процесу: не настав (N PR, H год)» in «Lead state». Due → the review comes before new tasks, and its
 comment starts with `## Огляд процесу ведучого N`, so the next check finds it. More than 3 proposals → the 3 with
-the largest expected saving go to the owner, the rest are listed in #178 under «Чекає наступного огляду».
+the largest expected saving go to the owner, the rest are listed in #178 under «Черга змін процесу».
 
 ## Follow-ups (`pr-pipeline/SKILL.md`, step 9)
 
