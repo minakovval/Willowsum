@@ -3626,3 +3626,202 @@ button.ws-stepper-step[aria-disabled="true"] {
 .ws-popover--end {
   inset-inline-end: 0;
 }
+
+/*
+ * CHT-00@PoC, CMP-42 LineChart, CMP-47 BarChart: the chart fills the width of its container; colours come from the
+ * tokens through the `fill` and `stroke` of the marks. Axis labels 12/16 `ink-muted` with tabular digits, grid lines
+ * 1 px `line`, the zero line 1.5 px `ink-muted`, the cursor a dotted `border-control` line. No animation (CHT-00).
+ */
+.ws-chart {
+  inline-size: 100%;
+  min-inline-size: 0;
+  color: var(--ws-ink);
+  font-size: var(--ws-text-tooltip-size);
+  line-height: var(--ws-text-tooltip-line);
+}
+
+.ws-chart-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ws-space-3);
+}
+
+.ws-chart--wide .ws-chart-layout {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--ws-space-4);
+}
+
+.ws-chart-plot {
+  position: relative;
+  flex: none;
+}
+
+.ws-chart-svg {
+  display: block;
+  overflow: visible;
+}
+
+.ws-chart-grid {
+  stroke: var(--ws-line);
+  stroke-width: 1px;
+}
+
+.ws-chart-zero {
+  stroke: var(--ws-ink-muted);
+  stroke-width: 1.5px;
+}
+
+.ws-chart-cursor {
+  stroke: var(--ws-border-control);
+  stroke-width: 1px;
+  stroke-dasharray: 2 3;
+  pointer-events: none;
+}
+
+.ws-chart-axis {
+  fill: var(--ws-ink-muted);
+  font-size: 12px;
+}
+
+.ws-chart-value {
+  fill: var(--ws-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ws-chart-target {
+  fill: var(--ws-ink);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.ws-chart-event-label {
+  fill: var(--ws-ink-muted);
+  font-size: 12px;
+}
+
+.ws-chart-hit--click {
+  cursor: pointer;
+}
+
+.ws-chart-bar:focus-visible,
+.ws-chart-event:focus-visible,
+.ws-chart-svg:focus-visible {
+  outline: var(--ws-focus-ring-width) solid var(--ws-focus-ring-color);
+  outline-offset: var(--ws-focus-ring-offset);
+}
+
+.ws-chart-bar[role="button"] {
+  cursor: pointer;
+}
+
+.ws-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-2) calc(var(--ws-space-4) + var(--ws-space-1));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ws-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  white-space: nowrap;
+}
+
+.ws-chart--wide .ws-chart-legend--list {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  inline-size: 220px;
+  gap: var(--ws-space-1);
+}
+
+.ws-chart-legend-button {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: 36px;
+  padding: var(--ws-space-2);
+  border: 0;
+  border-radius: var(--ws-radius-sm);
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-chart-legend-button:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-chart-legend-button[aria-checked="true"] {
+  background: var(--ws-surface-300);
+  font-weight: 600;
+}
+
+.ws-chart-swatch {
+  flex: none;
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 2px;
+  background: var(--ws-chart-tone);
+}
+
+.ws-chart-swatch--hatched {
+  border: 1px solid var(--ws-chart-tone);
+  background: repeating-linear-gradient(45deg, var(--ws-chart-tone) 0 3px, var(--ws-surface-200) 3px 6px);
+}
+
+.ws-chart-swatch-line {
+  flex: none;
+}
+
+.ws-chart-tip {
+  position: absolute;
+  z-index: var(--ws-layer-local-3);
+  inline-size: 330px;
+  max-inline-size: 100%;
+  box-sizing: border-box;
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+  font-size: 12px;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+.ws-chart-tip-title {
+  padding-block-end: var(--ws-space-2);
+  font-size: var(--ws-text-tooltip-size);
+  font-weight: 600;
+}
+
+.ws-chart-tip-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  min-block-size: 22px;
+}
+
+.ws-chart-tip-name {
+  flex: 1;
+  min-inline-size: 0;
+  color: var(--ws-ink-muted);
+}
+
+.ws-chart-tip-change {
+  min-inline-size: 92px;
+  text-align: end;
+  white-space: nowrap;
+}
+
+.ws-chart-state {
+  display: grid;
+  align-items: center;
+}
