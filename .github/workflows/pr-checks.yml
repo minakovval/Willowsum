@@ -371,6 +371,7 @@ jobs:
     # (apps/web/e2e). Only these two browsers are installed, and they are cached by the Playwright version.
     runs-on: ubuntu-latest
     # 22 = a normal run (8 min measured, run 44471838826 attempt 2, of it 4 min install) + the install step's limit (14 min) with margin.
+    # A browser cache miss (only after a Playwright version change) adds up to 6 min of browser download; this limit still caps it.
     timeout-minutes: 22
     services:
       postgres:
@@ -416,26 +417,24 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
-      - name: Settings and cache of apt (stalled connections, retries, downloaded packages)
+      - name: Settings of apt (stalled connections, retries, dpkg lock)
+        # #579: the downloaded .deb files are not cached between runs. A cache restored them unverified (apt does not
+        # re-check a same-size file already in its archive directory), and it never saved anyway (`tar:
+        # apt-archives/partial: Permission denied`). A retry on the same runner still reuses what attempt 1 left in
+        # apt's own cache.
         run: |
-          mkdir -p "$HOME/apt-archives/partial"
-          chmod -R 777 "$HOME/apt-archives"
-          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\nDir::Cache::Archives "%s/apt-archives";\n' "$HOME" \
+          printf 'Acquire::Retries "3";\nAcquire::http::Timeout "20";\nAcquire::https::Timeout "20";\nDPkg::Lock::Timeout "60";\n' \
             | sudo tee /etc/apt/apt.conf.d/99ci-retries > /dev/null
-      - name: Cache the downloaded system packages (keyed by the Playwright version)
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/apt-archives
-          key: apt-archives-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
-      - name: Install Chromium and WebKit with their system libraries
+      - name: Install Chromium and WebKit (browsers only; system libraries in the next step)
         if: steps.browsers.outputs.cache-hit != 'true'
-        run: pnpm --filter @willowsum/web exec playwright install --with-deps --only-shell chromium webkit
-      - name: System libraries of the cached browsers
-        if: steps.browsers.outputs.cache-hit == 'true'
+        # #579: no `--with-deps` here, so the apt install of a cache miss goes through the bounded retry loop below too.
+        timeout-minutes: 6
+        run: pnpm --filter @willowsum/web exec playwright install --only-shell chromium webkit
+      - name: System libraries of the browsers
         # #568: `install-deps` downloads ~140 MB (~190 packages; WebKit pulls gstreamer and ffmpeg) from the runner's
         # apt mirror. On a slow mirror one run used the whole 15-minute job budget and the job timeout cancelled this
-        # step; a passing re-run still took 4 min 09 s, so one attempt gets 6 min. The downloaded packages are cached
-        # (previous step), so a repeat run downloads little. Playwright runs apt-get through `sudo`, so `timeout`
+        # step; a passing re-run still took 4 min 09 s, so one attempt gets 6 min. Runs on a browser cache hit and on a
+        # miss alike (#579). Playwright runs apt-get through `sudo`, so `timeout`
         # kills only the sudo side and the root apt-get survives (run 44487894650 head bca17c3: it held the dpkg
         # lock and failed attempt 2). Before the retry the leftovers are terminated by name, the lock is awaited,
         # and `dpkg --configure -a` repairs a half-done install. The install itself stays fail-closed.
