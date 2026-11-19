@@ -219,6 +219,14 @@ export const FLAGS = {
     description:
       "Тренд бюджету (BUD-16@PoC a): «План місяця» = сума лімітів місяця (завершений — зі знімка), витрати й дохід за місяцями, фільтр категорії; метод лише «Ліміти»; маршрут /v1/budget/trend",
   },
+  "budget.compare": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-19",
+    requires: "budget.period",
+    description:
+      "Порівняння періодів (BUD-06@PoC a): витрати й дохід за категоріями проти бази (попередній період на ту саму дату, минулий рік, середнє за 3 / 6 / 12 міс.) і плану зі знімка, три найбільші зміни, «Рік: план і факт»; маршрути /v1/budget/compare",
+  },
   "budget.cashflow": {
     kind: "release",
     owner: "product-owner",

@@ -27,9 +27,8 @@ session starts or finishes.
      `pipeline`, `schema` or `infrastructure`: Opus, `security-review`. Near 90 % of the Fable limit, the auth, encryption and permissions reviews of (b) go to Opus; the lead tells the owner.
      Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
      import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
-     Opus; parallelism as in AGENTS.md (7 branches, 10 agents plus up to 8 additional Sonnet agents). Fable draws on the Ultra subscription limit about
-     twice as fast per token, with longer turns: short briefs that state the goal; compare its rows in #180 by the
-     per-model split;
+     Opus. Fable draws on the Ultra subscription limit about twice as fast per token, with longer turns: short
+     briefs that state the goal; compare its rows in #180 by the per-model split;
    - **reviews**: a `review-pr` of a PR whose every file passes `isDocsOnly` (merge checklist)
      and none is a test or code may use a lighter model; every review and confirmation of a PR that changes code,
      tools or workflows stays on the main model, as does a `.claude/`- or AGENTS.md-only PR that touches a security

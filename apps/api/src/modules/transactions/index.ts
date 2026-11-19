@@ -9,6 +9,7 @@ import type { CategoryUsage } from "../categories/index.ts";
 import { ApiProblem } from "../../platform/http/problem.ts";
 import {
   accountsPaidIn,
+  budgetFirstDate,
   budgetRows,
   categoriesInParts,
   categorizableFacts,
@@ -215,6 +216,11 @@ export interface BudgetTransactions {
         | null;
     }[]
   >;
+  /**
+   * BUD-06@PoC FR 4, FR 5: the date of the first transaction these accounts have that `inPeriod` would count — where
+   * the space's history starts (an average counts whole months after it; «Минулий рік» needs data there); null — none.
+   */
+  firstDate(householdId: string, accountIds: readonly string[]): Promise<string | null>;
 }
 
 /** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
@@ -222,6 +228,8 @@ export function createBudgetTransactions(db: ModuleDatabase): BudgetTransactions
   return {
     inPeriod: (householdId, accountIds, from, to) =>
       db.inHousehold(householdId, (q) => budgetRows(q, householdId, accountIds, from, to)),
+    firstDate: (householdId, accountIds) =>
+      db.inHousehold(householdId, (q) => budgetFirstDate(q, householdId, accountIds)),
   };
 }
 

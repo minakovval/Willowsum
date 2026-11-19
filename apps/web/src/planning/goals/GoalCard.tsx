@@ -130,7 +130,7 @@ export function GoalCard({
     <Button
       label={t("planning.goals.menu.spend")}
       variant={goal.achieved ? "primary" : "secondary"}
-      icon="money"
+      icon="budget"
       onClick={() => setSpending(true)}
     />
   );

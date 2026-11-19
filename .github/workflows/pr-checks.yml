@@ -222,9 +222,9 @@ jobs:
           - part: integration 2/2
             shard: 2/2
     runs-on: ubuntu-latest
-    # 30 = about 2x the p90 (about 15 min) of the last 10 single api jobs on PR runs (8.7-15.2 min, 2026-11-14), which hit
-    # the old 15-minute limit; each part is now about half of that.
-    timeout-minutes: 30
+    # 45: 30 (about 2x the p90 of the last 10 single api jobs, 2026-11-14) cancelled `integration 2/2` of #608 twice on
+    # 2026-11-19 (run 44577617439) while tests still passed; shards took 24-29.5 min under evening load.
+    timeout-minutes: 45
     services:
       postgres:
         # Same pinned image as the local environment (infra/local/compose.yaml).
