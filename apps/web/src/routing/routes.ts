@@ -104,7 +104,8 @@ export type ChildId =
   | "newRecurring"
   | "budgetAccounts"
   | "budgetGeneral"
-  | "budgetNew";
+  | "budgetNew"
+  | "budgetTrend";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -152,6 +153,8 @@ export const CHILDREN: readonly ChildDef[] = [
   },
   // BUD-02@PoC e) (row 124): the wizard «Новий бюджет» (S-122 … S-124), from the empty state of «Бюджет».
   { id: "budgetNew", parent: BUDGET, path: `${BUDGET.path}/new`, title: "planning.budget.wizard.title" },
+  // BUD-16@PoC b) (row 133): the tab «Тренд» of «Бюджет» (S-133).
+  { id: "budgetTrend", parent: BUDGET, path: `${BUDGET.path}/trend`, title: "trend.title" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 

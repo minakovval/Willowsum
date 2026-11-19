@@ -1,0 +1,59 @@
+/* BUD-16@PoC b), S-133 «Тренд»: the filter row, the chart card and the table card; tokens only. */
+.trend {
+  display: grid;
+  gap: var(--ws-space-4);
+}
+
+.trend-head {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.trend-subtitle,
+.trend-note {
+  margin: 0;
+}
+
+.trend-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--ws-space-3);
+}
+
+.trend-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  align-content: start;
+  padding: var(--ws-space-5);
+}
+
+.trend-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.trend-card-head > div:first-child {
+  min-width: 0;
+  flex: 1 1 24rem;
+}
+
+.trend-title {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ws-ink-muted);
+}
+
+.trend-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-1);
+}
+
+.trend-filter .ws-select-box {
+  max-width: 24rem;
+}
