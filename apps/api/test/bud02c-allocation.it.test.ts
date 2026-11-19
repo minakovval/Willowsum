@@ -440,8 +440,8 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
       debtMinimums: [],
     });
     const view = await period(space, "2026-11");
-    // B 1050, A 1082.55, C 50.05 in 2; every unpaid payment 250 + 50 + 99 = 399; D = max(0, 17.50 − 99) + 399 = 399;
-    // E = 1050 − 1082.55 − 399 = −431.55.
+    // B 1050, A 1082.55, C 50.05 in 2; every unpaid payment 250 + 50 + 99 = 399; D = max(0, 17.50 − 99) + 99 = 99 — only
+    // the mandatory category's own unpaid payment (FR 19); E = 1050 − 1082.55 − 99 = −131.55.
     expect(view.summary).toEqual({
       spent: eur("1082.55"),
       limits: eur("1050"),
@@ -449,8 +449,8 @@ describe("BUD-02@PoC: the totals row and the future month (GET /v1/budget/period
       optionalLimits: eur("350"),
       mandatoryRemaining: eur("17.5"),
       unpaidRecurring: eur("399"),
-      mandatoryNeeded: eur("399"),
-      free: eur("-431.55"),
+      mandatoryNeeded: eur("99"),
+      free: eur("-131.55"),
     });
     expect(view.expectedPayments).toEqual({
       categories: [
@@ -637,10 +637,11 @@ describe("BUD-02@PoC: sizes and space isolation of «Розподіл» and the 
       mandatoryNeeded: null,
       free: null,
     });
-    // The current month keeps D and E.
+    // The current month keeps D and E (the payment without a category is not «на обов'язкові», FR 19).
     expect((await period(space, "2026-11")).summary).toMatchObject({
-      mandatoryNeeded: eur("540"),
-      free: eur("-40"),
+      unpaidRecurring: eur("40"),
+      mandatoryNeeded: eur("500"),
+      free: eur("0"),
     });
   });
 });

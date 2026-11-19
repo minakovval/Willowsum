@@ -1,4 +1,4 @@
-import type { Money } from "@willowsum/domain-kernel";
+import { AmountOutOfRangeError, type Money } from "@willowsum/domain-kernel";
 import type { CreditAccounts } from "../../accounts/index.ts";
 import type { FxReporting } from "../../fx-rates/index.ts";
 import type { Liabilities } from "../../liabilities/index.ts";
@@ -54,13 +54,20 @@ export function createBudgetObligations(ports: {
               days.from,
               days.to,
             );
-      const reported = await ports.fx.total(
-        [...charges.map((c) => c.expected), ...loans.map((l) => l.amount)].map((amount) => ({
-          amount,
-          date: null,
-        })),
-        currency,
-      );
+      // The cap before any sum or conversion: the rates' reader adds the amounts up itself (#567).
+      const amounts = [...charges.map((c) => c.expected), ...loans.map((l) => l.amount)];
+      if (amounts.some(tooBig)) return null;
+      let reported: Awaited<ReturnType<typeof ports.fx.total>>;
+      try {
+        reported = await ports.fx.total(
+          amounts.map((amount) => ({ amount, date: null })),
+          currency,
+        );
+      } catch (error) {
+        // Many capped amounts at a big rate can still leave the money type: no figure, never a 500.
+        if (error instanceof AmountOutOfRangeError) return null;
+        throw error;
+      }
       const values: Money[] = [];
       for (const item of reported.items) {
         if (item.kind === "rate-unavailable" || tooBig(item.value)) return null;

@@ -161,6 +161,17 @@ describe("BUD-03@PoC: the daily limit", () => {
     expect(s.daily.toDecimalString()).toBe("0.01");
   });
 
+  it("BUD-03@PoC EC2: the last day's limit is the rest in the currency's minor units — 90,005 € left gives 90,00 €", () => {
+    const s = spendable({
+      ...AC1,
+      today: "2026-11-30",
+      outsidePlan: eur("5409.995"),
+      obligations: { recurring: [], debtMinimums: [] },
+    });
+    expect(s.amount.toDecimalString()).toBe("90.005");
+    expect(s.daily.toDecimalString()).toBe("90");
+  });
+
   it("BUD-03@PoC FR 4: a negative sum without overspend shows with «−» and the daily limit is 0", () => {
     const s = spendable({ ...AC1, goalContributions: eur("1850") });
     expect(s.amount).toEqual(eur("-50"));

@@ -358,7 +358,7 @@ describe("#567: «Розподіл» with the live port (POST /v1/budget/allocat
 });
 
 describe("#567: «Категорії» and «Очікувані платежі» with the live port (GET /v1/budget/periods/{period})", () => {
-  it("BUD-02@PoC FR 19: D and E from the live port — the mandatory rest plus every unpaid regular payment and the loan's unpaid monthly payment; a payment to the loan in the month drops it (BUD-03 FR 5)", async () => {
+  it("BUD-02@PoC FR 19: D and E from the live port — only the mandatory categories (their rest and own unpaid payments); the loan's unpaid monthly payment is in the unpaid regular payments until the month has a payment to it (BUD-03 FR 5)", async () => {
     const space = await newSpace();
     const groceries = await category(space, "Продукти"); // mandatory by default
     const acc = await current(space);
@@ -375,16 +375,17 @@ describe("#567: «Категорії» and «Очікувані платежі»
       spent: eur("200"),
       limits: eur("500"),
       unpaidRecurring: eur("265.99"),
-      mandatoryNeeded: eur("565.99"),
-      free: eur("-265.99"),
+      // D: only the mandatory «Продукти»'s rest (FR 19) — the loan and the payment without a category stay out of it.
+      mandatoryNeeded: eur("300"),
+      free: eur("0"),
     });
     // The month's first payment to the loan account: its monthly payment is made.
     await transaction(space, credit, "250.00", "2026-11-10");
     s = (await period(space, "2026-11")).summary;
     expect(s).toMatchObject({
       unpaidRecurring: eur("15.99"),
-      mandatoryNeeded: eur("315.99"),
-      free: eur("-15.99"),
+      mandatoryNeeded: eur("300"),
+      free: eur("0"),
     });
   });
 
@@ -514,6 +515,28 @@ describe("#567: the port in another currency and another space", () => {
     const v = await preview(space, { incomePlan: eur("1000") });
     expect(v.balance).toBeNull();
     expect(v.choice).toBeNull();
+  });
+
+  it("#567 comment 7003240884: amounts over the cap from the real modules — two loans, two regular payments, one loan in a dearer currency — give no figure (null), never 500, on the period read and on «Розподіл»", async () => {
+    const big = "9".repeat(20);
+    const twoLoans = await newSpace();
+    await loan(twoLoans, eur(big));
+    await loan(twoLoans, eur(big));
+    const twoPayments = await newSpace();
+    await payment(twoPayments, { amount: eur(big), anchorDate: "2026-11-25" });
+    await payment(twoPayments, { amount: eur(big), anchorDate: "2026-11-26" });
+    const dearer = await newSpace();
+    await rate(TODAY, "GBP", "60");
+    await rate(TODAY, "EUR", "50");
+    await loan(dearer, { amount: big, currency: "GBP" });
+    for (const space of [twoLoans, twoPayments, dearer]) {
+      const v = await preview(space, { incomePlan: eur("1000") });
+      expect([v.balance, v.choice]).toEqual([null, null]);
+      await createBudget(space, {});
+      const p = await period(space, "2026-11");
+      expect(p.expectedPayments).toBeNull();
+      expect(p.summary).toMatchObject({ unpaidRecurring: null, mandatoryNeeded: null, free: null });
+    }
   });
 
   it("#567 space isolation: the port answers only from the space it is asked for — another space's payments, loans and loan payments are never counted", async () => {

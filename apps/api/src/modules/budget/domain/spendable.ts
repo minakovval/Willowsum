@@ -55,7 +55,7 @@ export interface Spendable {
   readonly amount: Money;
   /** FR 4: days to the end of the period, today included. */
   readonly daysLeft: number;
-  /** FR 4: amount ÷ days left, down to the minor unit; the last day — the amount; overspent or ≤ 0 — 0. */
+  /** FR 4: amount ÷ days left, down to the minor unit (the last day — the rest, in minor units); overspent or ≤ 0 — 0. */
   readonly daily: Money;
   /**
    * FR 10, AC4: «Перевитрата N €» — N = spent − the budget of the period (the sum of the limits; without limits, the
@@ -93,8 +93,8 @@ export function spendable(input: SpendableInput): Spendable {
     throw new RangeError("today is not in the period");
   const summary = categoriesSummary(input.lines, currency, input.obligations);
   const regularPayments = summary.unpaidRecurring!;
-  // D = the mandatory rest + every unpaid payment (allocation.ts): the rest alone is D less the payments.
-  const mandatory = summary.mandatoryNeeded!.minus(regularPayments);
+  // FR 14: the mandatory rest less each category's own unpaid payments (they are in `regularPayments` already).
+  const mandatory = summary.mandatoryRest;
   const spent = summary.spent.plus(input.outsidePlan);
   const expected = input.incomeActual.plus(input.incomeExpected);
   const pending = input.incomePlan.compare(expected) > 0;
@@ -113,9 +113,8 @@ export function spendable(input: SpendableInput): Spendable {
   const daily =
     overspend !== null || amount.isNegative() || amount.isZero()
       ? zero
-      : days === 1
-        ? amount
-        : Money.of(amount.amount.div(days).toDecimalPlaces(minor, Decimal.ROUND_DOWN), currency);
+      : // The last day (days = 1) too: the rest, in the currency's minor units (FR 4).
+        Money.of(amount.amount.div(days).toDecimalPlaces(minor, Decimal.ROUND_DOWN), currency);
   return {
     income: { plan: input.incomePlan, actual: input.incomeActual, expected, value: income, pending },
     spent,

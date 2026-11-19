@@ -75,7 +75,7 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
     `mandatory`), `outsidePlan` (`categories` — `categoryId`, null — «Без категорії»; `total`), `totals`,
     `approximate` (`nearestRateCount`, `unavailableCount`), `summary` (рядок підсумку, п. 19; null — майбутній місяць:
 `spent` A, `limits` B, `overspend` `{amount, count}` — лише від'ємні залишки, `optionalLimits`, `mandatoryRemaining`,
-`unpaidRecurring`, `mandatoryNeeded` D, `free` E = B − A − D; три останні null без `BudgetObligations`),
+`unpaidRecurring` (з несплаченими платежами кредитів), `mandatoryNeeded` D (лише обов'язкові категорії: залишок і їхні несплачені платежі), `free` E = B − A − D; три останні null без `BudgetObligations` або для минулого місяця),
 `expectedPayments` (`categories` — `categoryId`, `amount`; `total`; null без `BudgetObligations`). До першого періоду —
 404 `BUDGET_PERIOD_BEFORE_START`.
 - `createBudgetServices({ categories, accounts, transactions, categorization, fx, audit, clock, newId, obligations? })` →
