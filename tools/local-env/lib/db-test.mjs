@@ -1,5 +1,5 @@
 // `pnpm db:test` (owner decision 2026-11-12): a throwaway test database for each agent, so agents working in
-// parallel (AGENTS.md «Parallel branches») do not share one database.
+// parallel (up to 3 branches) do not share one database.
 //
 // Pure parts (names, URLs, where the server is) are here and unit-tested; index.mjs runs psql.
 //
