@@ -127,6 +127,7 @@ export const SENSITIVE_PATHS = {
     'apps/api/scripts/**',
     '!apps/api/scripts/**/*.test.ts', // a test of a gate script is not itself a gate
     'apps/api/provider-sdks.json',
+    'apps/web/e2e/playwright.config.ts', // the e2e gate's browsers, retries and servers (#597)
     '**/eslint.config.*', // ESLint 10 takes the nearest config of each linted file: a nested one replaces the root rules
     '**/vitest*.config.*',
     // Claude Code settings: hooks run commands in every agent session.
@@ -143,7 +144,9 @@ export const SENSITIVE_PATHS = {
  * body records the owner's decision it implements. They get the label `owner-decision` (not `sensitive`).
  * `docs/plans/**` is left out: plans are the lead's working notes, not rules or requirements.
  */
-export const OWNER_DECISION_PATHS = ['AGENTS.md', 'CLAUDE.md', '.claude/**', 'docs/requirements/**'];
+// Compared without letter case and in any folder (a nested rule file is loaded by Claude Code too, #597), as the
+// reviewer-patch helper does.
+export const OWNER_DECISION_PATHS = ['**/agents.md', '**/claude.md', '**/claude.local.md', '**/.claude/**', 'docs/requirements/**'];
 export const OWNER_DECISION_LABEL = 'owner-decision';
 
 /** Compile a glob list; entries starting with `!` exclude what the others match. */
@@ -154,7 +157,8 @@ function matcher(globs) {
 }
 
 const COMPILED = Object.entries(SENSITIVE_PATHS).map(([category, globs]) => [category, matcher(globs)]);
-const OWNER_DECISION = matcher(OWNER_DECISION_PATHS);
+const ownerDecisionPath = matcher(OWNER_DECISION_PATHS);
+const OWNER_DECISION = (name) => ownerDecisionPath(String(name).toLowerCase());
 
 /** Both names of every changed file (a rename is classified by where it came from and where it went). */
 export const changedPaths = (files) => files.flatMap((f) => [f.filename, f.previous_filename].filter(Boolean));
