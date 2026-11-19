@@ -29,6 +29,8 @@
     "local:status": "node tools/local-env/index.mjs status",
     "local:smoke": "node tools/local-env/index.mjs smoke",
     "local:dev": "node tools/local-env/index.mjs dev",
+    "local:backup": "node tools/local-env/index.mjs backup",
+    "local:restore": "node tools/local-env/index.mjs restore",
     "db:test": "node tools/local-env/index.mjs db-test",
     "prepare": "git config core.hooksPath .githooks || true"
   },
