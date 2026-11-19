@@ -1,6 +1,6 @@
 # Merge checklist (step 6, full text)
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-16
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19
 
 Read when you are about to merge. The merge conditions and approvals themselves: AGENTS.md step 7 and
 [merge rules](../../../references/merge-rules.md) (including «Merge on Ready, follow up separately»).
@@ -66,6 +66,9 @@ Read when you are about to merge. The merge conditions and approvals themselves:
    rounds»). A branch that updates from `main` with no conflicts and no regenerated files the lead updates itself (as
    #255, #256), otherwise an agent; when a fix round is due anyway, the fix agent syncs (SKILL.md step 4); a
    `sensitive` PR's confirmation round goes to one agent for both verdicts (SKILL.md step 5).
+   **The lead confirms only a sync with an unchanged diff.** An author's fix after «Changes requested» is confirmed
+   only by a reviewer agent (`review-pr` «6. Confirmation rounds»), no exceptions; a lead's `Verdict: Ready` on a head
+   that holds such a fix does not count.
    **The lead confirms a sync itself**, with no agent, posting a PR **review** (not a comment, so the daily check
    of `main`, ADR-0008, finds a verdict on the merged head): `Reviewed head: <new>`, both SHAs, the command below and
    its output `unchanged`, and `Verdict: Ready` on its own last line. It applies to (any other output, a changed

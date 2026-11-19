@@ -122,7 +122,7 @@ Docker стирає її без вороття, тому час від часу 
 
 ## Test database per agent (`pnpm db:test`)
 
-Owner decision 2026-11-12: each agent (up to 3 branches work in parallel) gets its own throwaway database.
+Owner decision 2026-11-12: each agent (branches work in parallel, AGENTS.md «Parallel branches») gets its own throwaway database.
 
 | Command | What it does |
 | --- | --- |

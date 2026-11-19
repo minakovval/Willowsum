@@ -1,6 +1,6 @@
 # Process limits: how to check and apply them
 
-**Створено:** 2026-11-16 · **Оновлено:** 2026-11-17
+**Створено:** 2026-11-16 · **Оновлено:** 2026-11-19
 
 Read when a lead segment starts, when a PR adds text to the lead's rules, or when a
 review finds a security defect that will not be fixed in the same PR. The rules themselves are in the files named
@@ -43,8 +43,8 @@ entry to the log first.
 
 ## Security detail of an unfixed defect (`pr-pipeline/SKILL.md`, step 7)
 
-**Applies from MVP**: until then the detail goes into the issue or PR as usual and the steps
-below are not followed; from the start of MVP planning they are in force.
+**Applies from the day the owner imports real bank statements**: until then the detail goes into the issue or PR as
+usual and the steps below are not followed. The lead tells the owner one day before the import is ready.
 
 Applies to a finding that stays open in `main` after the merge (a «Follow-ups» item), when its probe, test or
 description would let a reader reproduce the bypass, leak or loss. A finding fixed in the same PR is not covered.
