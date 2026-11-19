@@ -32,7 +32,7 @@ const MERCHANTS = [
   "E",
 ];
 
-async function answer(page: Page) {
+async function answer(page: Page, goalName = "Відпустка в Італії") {
   await page.route("**/v1/goals", (route) =>
     route.fulfill(
       json({
@@ -47,7 +47,7 @@ async function answer(page: Page) {
             emergencyMonths: null,
             forecastDate: null,
             id: GOAL,
-            name: "Відпустка в Італії",
+            name: goalName,
             overdue: false,
             overTarget: null,
             pace: null,
@@ -143,4 +143,67 @@ test("BUD-05@PoC FR 8: «Витратити з цілі» at 1280 × 880 — six
   expect(m.scroll).toBeLessThanOrEqual(m.client);
   expect(m.lineBottom).toBeLessThanOrEqual(m.barTop);
   expect(m.bottom).toBeLessThanOrEqual(880);
+});
+
+const LONG_NAME =
+  "Відпустка всією родиною в Італії наступного літа з поїздками до Риму, Флоренції, Венеції та на узбережжя";
+
+test("BUD-05@PoC FR 1, CMP-61@PoC AC11: a goal card with a long name keeps its title block wide and the «⋯» at the end of the header", async ({
+  page,
+}) => {
+  await answer(page, LONG_NAME);
+  await page.goto("/#/planning/goals");
+  const card = page.getByRole("region", { name: LONG_NAME });
+  await expect(card).toBeVisible();
+  const m = await card.evaluate((c) => {
+    const rect = (sel: string) => c.querySelector<HTMLElement>(sel)!.getBoundingClientRect();
+    const head = rect(".goal-card-head");
+    const title = rect(".goal-card-title");
+    const more = rect(".goal-card-head button[aria-label='Ще дії']");
+    const h2 = c.querySelector<HTMLElement>(".goal-card-title h2")!;
+    return {
+      head: head.width,
+      title: title.width,
+      moreRight: more.right,
+      headRight: head.right,
+      h2Height: h2.getBoundingClientRect().height,
+      lineHeight: Number.parseInt(getComputedStyle(h2).lineHeight, 10),
+    };
+  });
+  await page.screenshot({ path: process.env["WS_SHOT"] ?? "test-results/goals-1280.png" });
+  expect(m.title).toBeGreaterThan(m.head * 0.5);
+  expect(m.moreRight).toBeGreaterThan(m.headRight - 24);
+  // A heading of a few lines, not one character per line.
+  expect(m.h2Height).toBeLessThan(m.lineHeight * 6);
+});
+
+test("BUD-05@PoC FR 1: a goal name of one long word wraps — no horizontal scroll, the list stays left of the card, the «⋯» menu items on one line", async ({
+  page,
+}) => {
+  const word = "Надзвичайнодовгаоднословеснаназвацілібезжоднихпробілівдлятест";
+  await answer(page, word);
+  await page.goto("/#/planning/goals");
+  const card = page.getByRole("region", { name: word });
+  await expect(card).toBeVisible();
+  await card.getByRole("button", { name: "Ще дії" }).click();
+  const m = await page.evaluate(() => ({
+    overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    rowRight: document.querySelector(".goal-row")!.getBoundingClientRect().right,
+    cardLeft: document.querySelector(".goal-card")!.getBoundingClientRect().left,
+    items: [...document.querySelectorAll(".ws-menu-item")].map((i) => i.getBoundingClientRect().height),
+  }));
+  expect(m.overflow).toBe(0);
+  expect(m.rowRight).toBeLessThanOrEqual(m.cardLeft);
+  expect(m.items.length).toBeGreaterThan(1);
+  for (const h of m.items) expect(h).toBeLessThanOrEqual(48);
+});
+
+test("CMP-61@PoC AC11: the «⋯» of MoreActions in the gallery is only as wide as its button", async ({
+  page,
+}) => {
+  await page.goto("/#/gallery/tokens");
+  const root = page.locator('figure[data-case="many"] .ws-menu-root');
+  await root.scrollIntoViewIfNeeded();
+  const w = (await root.boundingBox())!.width;
+  expect(w).toBeLessThan(64);
 });

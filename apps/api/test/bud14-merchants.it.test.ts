@@ -22,6 +22,7 @@ import {
   createMerchantsWorkerQueue,
 } from "../src/modules/merchants/index.ts";
 import { createTransactionsServices, createTransactionTexts } from "../src/modules/transactions/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * BUD-14@PoC a) (wave 2 row 22): the merchants of a space through the real API on a real PostgreSQL — the merchant of a
@@ -551,7 +552,7 @@ describe("BUD-14@PoC «Права доступу»: the space's own merchants on
 
     const read = await call(stranger, "GET", `/v1/transactions/${t}/merchant`);
     expect(read.statusCode).toBe(404);
-    expect(read.body).not.toContain("Synth Books");
+    expect(leakText(read.body)).not.toContain("Synth Books");
     expect((await call(stranger, "PATCH", `/v1/merchants/${mine.id}`, { name: "Чуже" })).statusCode).toBe(
       404,
     );

@@ -6,6 +6,7 @@ import { createHouseholdServices, type HouseholdSpaces } from "../src/modules/ho
 import { buildServer } from "../src/platform/process/server.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * ACC-08@PoC FR 2 for a scoped member (#200), through the real API on a real PostgreSQL: `GET /v1/space` needs only
@@ -73,7 +74,7 @@ describe("ACC-08@PoC FR 2: a scoped member reads the name of its own space", () 
       const res = await getSpace(own, role);
       expect(res.statusCode).toBe(200);
       expect(res.json()).toEqual({ name: "Родина Обмежена", dataRegion: "eu", reportingCurrency: "EUR" });
-      expect(res.body).not.toContain("Сторонній");
+      expect(leakText(res.body)).not.toContain("Сторонній");
       const theirs = await getSpace(other, role);
       expect(theirs.json()).toEqual({ name: "Родина Сторонній", dataRegion: "eu", reportingCurrency: "EUR" });
     },
@@ -85,7 +86,7 @@ describe("ACC-08@PoC FR 2: a scoped member reads the name of its own space", () 
       const own = await newSpace("Остап Неможливий");
       const res = await getSpace(own, role);
       expect(res.statusCode).toBe(403);
-      expect(res.body).not.toContain("Неможливий");
+      expect(leakText(res.body)).not.toContain("Неможливий");
     },
   );
 });

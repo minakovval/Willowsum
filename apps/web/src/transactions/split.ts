@@ -48,7 +48,8 @@ export function monthShares(
  */
 export function roundParts(values: readonly Decimal[], total: Decimal, currency: string): Decimal[] {
   const minor = minorUnits(currency);
-  const rounded = values.map((v) => v.toDecimalPlaces(minor, Decimal.ROUND_HALF_UP));
+  // Calculation, not display: the parts are the saved amounts, so half to even (decision log 2026-11-16-money-today-and-rounding; half-up is for display only).
+  const rounded = values.map((v) => v.toDecimalPlaces(minor, Decimal.ROUND_HALF_EVEN));
   const exact = values.reduce((s, v) => s.plus(v), new Decimal("0"));
   const unit = new Decimal("1").div(new Decimal("10").pow(minor));
   if (rounded.length === 0 || exact.minus(total).abs().gte(unit.div(2))) return rounded;

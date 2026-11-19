@@ -13,6 +13,7 @@ import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxRates, createFxReporting, officialDatedRates } from "../src/modules/fx-rates/index.ts";
 import { createAccountDirectory, createAccountsServices } from "../src/modules/accounts/index.ts";
 import { createTransactionsServices } from "../src/modules/transactions/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC a) (wave 2 row 15), through the real API on a real PostgreSQL: a transaction entered by hand is one
@@ -259,7 +260,7 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
     ]) {
       const res = await call(b, "GET", `/v1/transactions?${encodeURI(q).replaceAll("'", "%27")}`);
       expect(res.statusCode, q).toBe(400);
-      expect(res.body).not.toContain(a.householdId);
+      expect(leakText(res.body)).not.toContain(a.householdId);
     }
   });
 
@@ -287,7 +288,7 @@ describe("PR #235 security: isolation, whitelists, idempotency, erasure", () => 
       { "idempotency-key": key },
     );
     expect(same.statusCode).toBe(400);
-    expect(same.body).not.toContain(first.json().id);
+    expect(leakText(same.body)).not.toContain(first.json().id);
     const own = await call(
       b,
       "POST",

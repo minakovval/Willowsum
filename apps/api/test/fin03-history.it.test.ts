@@ -19,6 +19,7 @@ import { createCategoriesServices, createCategoryDirectory } from "../src/module
 import { createCategorizationServices } from "../src/modules/categorization/index.ts";
 import { createTransactionLookup, createTransactionsServices } from "../src/modules/transactions/index.ts";
 import { createDuplicateCheck } from "../src/modules/duplicate-matching/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-03@PoC FR 27 (issue #439), through the real API on a real PostgreSQL: «Історія змін» of the details S-047 —
@@ -260,7 +261,7 @@ describe("FIN-03@PoC FR 27: «Історія змін» of a transaction", () =>
   it("FIN-03@PoC FR 20: the history leaks no free text, no account id and no space id", async () => {
     const space = await newSpace();
     const { id } = await edited(space);
-    const body = (await history(space, id)).body;
+    const body = leakText((await history(space, id)).body);
     for (const text of [SHOP, SHOP2, NOTE, "Синтетичний опис покупки", space.accountId, space.householdId])
       expect(body).not.toContain(text);
     expect(body).not.toMatch(/dedupe|householdId|actorId|entityType/);
@@ -282,7 +283,7 @@ describe("FIN-03@PoC FR 27: «Історія змін» of a transaction", () =>
     const read = await history(space, id);
     const items = read.json().items as HistoryEntry[];
     expect(items.map((e) => e.actor)).toEqual(["you", "member"]);
-    expect(read.body).not.toContain(member);
+    expect(leakText(read.body)).not.toContain(member);
   });
 });
 
@@ -295,8 +296,8 @@ describe("FIN-03@PoC AC12: another space's history is not readable", () => {
 
     const res = await history(stranger, id);
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("changes");
-    expect(res.body).not.toContain("occurredAt");
+    expect(leakText(res.body)).not.toContain("changes");
+    expect(leakText(res.body)).not.toContain("occurredAt");
     // The session's space wins over anything the caller could send: a request naming the owner's account but carrying
     // another space is still that other space's.
     const forged = await history(stranger, id, { userId: owner.accountId });
@@ -322,7 +323,7 @@ describe("FIN-03@PoC AC12: another space's history is not readable", () => {
     const { id } = await edited(space);
     const res = await history(space, id, { userId: randomUUID(), role: "editor", scoped: true });
     expect(res.statusCode).toBe(404);
-    expect(res.body).not.toContain("changes");
+    expect(leakText(res.body)).not.toContain("changes");
   });
 });
 
@@ -398,7 +399,7 @@ describe("FIN-03@PoC FR 27: behind its release flag", () => {
     });
     const res = await history(space, id);
     expect(res.statusCode, res.body).toBe(200);
-    expect(res.body).not.toContain(NOTE);
+    expect(leakText(res.body)).not.toContain(NOTE);
     const last = (res.json().items as HistoryEntry[]).at(-1)!;
     expect(last.changes).toEqual([{ field: "note", before: null, after: AUDIT_MASK, masked: true }]);
   });

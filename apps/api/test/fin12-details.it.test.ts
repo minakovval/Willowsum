@@ -11,6 +11,7 @@ import { createLedger } from "../src/modules/ledger/index.ts";
 import { createLiabilities } from "../src/modules/liabilities/index.ts";
 import { createFxReporting } from "../src/modules/fx-rates/index.ts";
 import { createAccountsServices, NUMBER_FIELD, type NumberSeal } from "../src/modules/accounts/index.ts";
+import { leakText } from "./leak-text.ts";
 
 /**
  * FIN-12@PoC b) «Реквізити» (wave 2 row 14): the details of an account through the real API on a real PostgreSQL — the
@@ -174,7 +175,7 @@ describe("FIN-12@PoC FR 4, NFR-01@PoC FR 6: the number in «Реквізити»
       }),
     );
     expect(read.json().number).toEqual({ last4: "1234", masked: "••1234" });
-    for (const body of [res.body, read.body, list.body]) expect(body).not.toContain(IBAN_TAIL);
+    for (const body of [res.body, read.body, list.body]) expect(leakText(body)).not.toContain(IBAN_TAIL);
     expect(written.join("")).not.toContain(IBAN_TAIL);
 
     // Sealed with the space's key (ARC-06 FR 2): only the key opens it, and no row holds it in the clear.
@@ -232,7 +233,7 @@ describe("FIN-12@PoC FR 4, NFR-01@PoC FR 6: the number in «Реквізити»
     const res = await details(space, id, { number: "4111 1111 1111 1111" });
     expect(res.statusCode).toBe(400);
     expect(res.json().errors).toEqual([{ in: "body", path: "number", issue: "card_number_not_allowed" }]);
-    expect(res.body).not.toContain("4111");
+    expect(leakText(res.body)).not.toContain("4111");
     expect(await storedNumber(space, id)).toMatchObject({ number_last4: null, number_sealed: null });
     expect(await dump(space.householdId)).not.toContain("4111111111111111");
   });
@@ -374,7 +375,7 @@ describe("FIN-12@PoC FR 11: a change of «Реквізити» does not make a d
     const res = await details(space, second, { number: IBAN });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual(expect.objectContaining({ code: "ACCOUNT_DUPLICATE" }));
-    expect(res.body).not.toContain(IBAN_TAIL);
+    expect(leakText(res.body)).not.toContain(IBAN_TAIL);
     expect(await storedNumber(space, second)).toMatchObject({ number_last4: null, number_sealed: null });
     expect(await updates(space.householdId, second)).toEqual([]);
 

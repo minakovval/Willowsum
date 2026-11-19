@@ -241,6 +241,7 @@ import { localErasureLog } from "../src/platform/adapters/erasure-log/index.ts";
 import { personWithSpace, rowCount, withTestErasureDatabases } from "./erasure-helpers.ts";
 import { createCategoryBulkActions } from "../src/modules/categorization/index.ts";
 import type { ModuleDatabase } from "../src/platform/db/module-db.ts";
+import { leakText } from "./leak-text.ts";
 
 /** Marks a transaction as a transfer side or a merged duplicate past the FKs (the facts read only these columns). */
 async function forceFacts(householdId: string, id: string, set: "transfer_id" | "merged_into") {
@@ -295,7 +296,7 @@ describe("security review #293: refusals of a change (BUD-01 FR 6, FR 7; FIN-03 
     const res = await setCategory(space, t, foreign.id);
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("VALIDATION_FAILED");
-    expect(res.body).not.toContain(other.householdId);
+    expect(leakText(res.body)).not.toContain(other.householdId);
     expect(await rows(space.householdId)).toEqual([]);
   });
 });
