@@ -38,5 +38,29 @@ export { amountMark, headerCurrency, ISO_NUMERIC, recognizeCurrency } from "./cu
 export type { CurrencyHints, CurrencyRecognition } from "./currency.ts";
 export { EVENT_LIMITS, readEvents } from "./events.ts";
 export type { EventFlag, EventLeg, StatementEvent, StatementEvents, StatementOptions } from "./events.ts";
-export { ACCOUNT_BINDINGS, matchAccount } from "./account.ts";
+export { ACCOUNT_BINDINGS, hasCardMask, maskedMismatch, maskLast4, matchAccount } from "./account.ts";
+export { readFigures } from "./figures.ts";
+export type { DeclaredFigures } from "./figures.ts";
+export { CHECK_KINDS, checkControls, historyGap } from "./checks.ts";
+export type {
+  CheckKind,
+  CheckStatus,
+  ControlCheck,
+  HistoryGap,
+  HistoryStatus,
+  StatementBounds,
+} from "./checks.ts";
+export { SIGN_BASES, SIGN_CONFIDENCE, reviewSigns } from "./signs.ts";
+export type { RowSign, SignBasis, SignReview } from "./signs.ts";
+export { clarifications, readingFits } from "./clarify.ts";
+export type { AmountClarification, AmountReading, Clarification, DateOrderClarification } from "./clarify.ts";
+export { accountEvidence, FLAG_SEVERITY, reviewStatement } from "./review.ts";
+export type {
+  AccountEvidence,
+  BatchFlag,
+  BatchFlagCode,
+  MismatchReason,
+  Severity,
+  StatementChecks,
+} from "./review.ts";
 export type { AccountBindingKind, AccountMatch } from "./account.ts";

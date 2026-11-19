@@ -1,6 +1,11 @@
 import {
   analyzeTable,
+  hasCardMask,
+  maskedMismatch,
   matchAccount,
+  readFigures,
+  reviewStatement,
+  type StatementChecks,
   type AccountBindingKind,
   type AccountMatch,
   readEvents,
@@ -23,6 +28,11 @@ export interface StatementParse {
   readonly events: StatementEvents;
   /** The binding to the recipe's account (IMP-06 FR 1): its outcome only, never the value; null without one. */
   readonly account: AccountMatch | null;
+  /**
+   * IMP-05@PoC FR 1–9: the control checks, the bounds for the history gap, the other-account evidence (masked to the
+   * last 4 characters), the signs, the clarifications and the batch's flags.
+   */
+  readonly checks: StatementChecks;
 }
 
 /** The recipe's account value, opened in the worker (wave 2 row 41 part 3). Never leaves the worker. */
@@ -40,9 +50,20 @@ export function parseStatement(
   const { rows, headerRow, ...reading } = readDelimitedFile(bytes, options);
   const firstRow = options.skipRows ?? 0;
   const analysis = analyzeTable(rows, headerRow, firstRow);
-  const events = readEvents(rows, headerRow, firstRow, analysis, statement);
-  const account = binding
-    ? matchAccount(rows.slice(firstRow, headerRow ?? firstRow), binding.by, binding.value)
-    : null;
-  return { reading, analysis, events, account };
+  const { figures, exclude } = readFigures(rows, headerRow, firstRow, analysis);
+  const events = readEvents(rows, headerRow, firstRow, analysis, statement, exclude);
+  const preamble = rows.slice(firstRow, headerRow ?? firstRow);
+  const account = binding ? matchAccount(preamble, binding.by, binding.value) : null;
+  const checks = reviewStatement({
+    rows,
+    firstRow,
+    analysis,
+    events,
+    figures,
+    ...(statement.account ? { account: statement.account } : {}),
+    match: account,
+    masked: binding ? maskedMismatch(preamble, binding.by, binding.value) : null,
+    cardInFile: hasCardMask(preamble),
+  });
+  return { reading, analysis, events, account, checks };
 }

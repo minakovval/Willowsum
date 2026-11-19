@@ -33,7 +33,37 @@ export {
   TABLE_LIMITS,
   TableLimitError,
 } from "./domain/index.ts";
-export { ACCOUNT_BINDINGS, EVENT_LIMITS } from "./domain/index.ts";
+export {
+  ACCOUNT_BINDINGS,
+  CHECK_KINDS,
+  EVENT_LIMITS,
+  FLAG_SEVERITY,
+  historyGap,
+  readingFits,
+  SIGN_BASES,
+} from "./domain/index.ts";
+export type {
+  AccountEvidence,
+  AmountClarification,
+  AmountReading,
+  BatchFlag,
+  BatchFlagCode,
+  CheckKind,
+  CheckStatus,
+  Clarification,
+  ControlCheck,
+  DateOrderClarification,
+  DeclaredFigures,
+  HistoryGap,
+  HistoryStatus,
+  MismatchReason,
+  RowSign,
+  Severity,
+  SignBasis,
+  SignReview,
+  StatementBounds,
+  StatementChecks,
+} from "./domain/index.ts";
 export type {
   AccountBindingKind,
   AccountMatch,
