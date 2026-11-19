@@ -212,6 +212,13 @@ export const FLAGS = {
     description:
       "Бюджет періоду (BUD-02@PoC a): один бюджет простору, ліміти, «Поза планом», рахунки бюджету, знімок завершеного періоду; маршрути /v1/budget",
   },
+  "budget.trend": {
+    kind: "release",
+    owner: "product-owner",
+    reviewBy: "2027-02-19",
+    description:
+      "Тренд бюджету (BUD-16@PoC a): «План місяця» = сума лімітів місяця (завершений — зі знімка), витрати й дохід за місяцями, фільтр категорії; метод лише «Ліміти»; маршрут /v1/budget/trend",
+  },
   "budget.cashflow": {
     kind: "release",
     owner: "product-owner",
