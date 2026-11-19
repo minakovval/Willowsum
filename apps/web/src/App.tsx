@@ -26,6 +26,8 @@ import { SpaceSettingsPage } from "./space/SpaceSettingsPage.tsx";
 import { TransactionDetailPage } from "./transactions/TransactionDetailPage.tsx";
 import { TransactionHistoryPage } from "./transactions/TransactionHistoryPage.tsx";
 import { BudgetPage } from "./planning/BudgetPage.tsx";
+import { BudgetWizardPage } from "./planning/budget/WizardPage.tsx";
+import { BudgetSettingsPage } from "./planning/budget/SettingsPage.tsx";
 import { GoalsPage } from "./planning/GoalsPage.tsx";
 import { TransactionsPage } from "./transactions/TransactionsPage.tsx";
 import {
@@ -108,6 +110,11 @@ function appPage(route: Exclude<Route, { kind: "gallery" }>) {
       if (route.child.id === "account") return <AccountCardPage />;
       // FIN-01@PoC c2): S-052 «Новий рахунок» over S-050 «Рахунки».
       if (route.child.id === "newAccount") return <AccountsPage creating />;
+      // BUD-02@PoC f): S-128 «Рахунки бюджету» and S-288 «Загальне».
+      if (route.child.id === "budgetAccounts" || route.child.id === "budgetGeneral")
+        return <BudgetSettingsPage tab={route.child.id === "budgetAccounts" ? "accounts" : "general"} />;
+      // BUD-02@PoC e): the wizard «Новий бюджет» in focus mode.
+      if (route.child.id === "budgetNew") return <BudgetWizardPage />;
       if (route.child.id === "newRecurring") return <NewRecurringPaymentPage child={route.child} />;
       // FIN-03@PoC d): S-047 «Деталь транзакції».
       if (route.child.id === "transaction") return <TransactionDetailPage />;

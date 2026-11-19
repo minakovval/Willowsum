@@ -251,6 +251,18 @@ describe("CMP-13@PoC list state", () => {
     rerender(<Screen />);
   });
 
+  it("UX-09@PoC FR 9, AC 4: on the 3rd page with a filter and a scroll, opening a record and «Назад» restores the same page, filter and position", () => {
+    const { container } = render(<Screen />);
+    act(() => screen.getByRole("button", { name: "змінити" }).click());
+    Object.defineProperty(window, "scrollY", { value: 960, configurable: true });
+    act(() => void window.dispatchEvent(new Event("scroll")));
+    act(() => screen.getByRole("button", { name: "відкрити запис" }).click());
+    act(() => screen.getByRole("button", { name: "назад" }).click());
+    const [page, filter] = container.querySelector("[data-state]")!.textContent!.split("|");
+    expect([page, filter]).toEqual(["3", "кафе"]);
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 960);
+  });
+
   it("CMP-13@PoC AC2: a list that loads its rows gets its scroll position back once they are there (`ready`), and again on the next frame after the router scrolled to the top", () => {
     function Loading({ ready }: { ready: boolean }) {
       useRestoredListState("loading-list", { page: 1 }, { ready });

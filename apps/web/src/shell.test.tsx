@@ -257,7 +257,7 @@ describe("UX-09@PoC navigation", () => {
     expect(h1()).toBe("Імпорт");
   });
 
-  it("UX-09 AC11 / CMP-69 AC5: the collapse button beside the mark makes a 64 px icon rail that survives a reload", () => {
+  it("UX-09 AC11 / CMP-69 AC5, GRID-00@PoC FR 10: the collapse button beside the mark makes a 64 px icon rail that survives a reload", () => {
     installMatchMedia({ width: 1440 });
     const { container, unmount } = render(<App />);
     const shell = () => container.querySelector(".ws-shell")!;
@@ -395,7 +395,7 @@ describe("GRID-00@PoC shell", () => {
     expect(nav().className).toContain("ws-nav-sidebar");
   });
 
-  it("GRID-00 AC8: the first focusable element is «Перейти до вмісту»; after navigation the focus moves to main", () => {
+  it("GRID-00 AC8, DS-14@PoC AC5, UX-09@PoC FR 13: the first focusable element is «Перейти до вмісту»; after navigation the focus moves to main", () => {
     render(<App />);
     const focusables = document.querySelectorAll<HTMLElement>("a[href], button");
     expect(focusables[0]!.textContent).toBe("Перейти до вмісту");
@@ -404,5 +404,29 @@ describe("GRID-00@PoC shell", () => {
     follow(navLink("Цілі"));
     expect(document.activeElement).toBe(screen.getByRole("main"));
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+  it("GRID-00@PoC FR 13: every page starts with its title as exactly one first-level heading", () => {
+    const pages: [string, string][] = [
+      ["#/planning/budget", "Бюджет"],
+      ["#/planning/goals", "Цілі"],
+      ["#/planning/recurring", "Регулярні платежі"],
+      ["#/planning/debts", "Борги"],
+      ["#/money/transactions", "Транзакції"],
+      ["#/money/accounts", "Рахунки"],
+      ["#/settings", "Налаштування"],
+    ];
+    for (const [hash, title] of pages) {
+      window.location.hash = hash;
+      const { unmount } = render(<App />);
+      const h1 = screen.getAllByRole("heading", { level: 1 });
+      expect(
+        h1.map((h) => h.textContent),
+        hash,
+      ).toEqual([title]);
+      // The heading is inside the main area and is the first heading there: the page starts with it.
+      const main = screen.getByRole("main");
+      expect(main.querySelector("h1,h2,h3,h4"), hash).toBe(h1[0]);
+      unmount();
+    }
   });
 });

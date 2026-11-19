@@ -64,10 +64,13 @@ const tokenRef = (names: readonly string[]) => new RegExp(`var\\(--ws-(${names.j
 const ACCENT = tokenRef(["accent", "mark-small"]);
 
 /**
- * DS-06 AC4: where the accent may be used — the small leaf of the mark. The goal icon adds its
- * selector here when its component is built (the goal progress bar, ring and line use `goal-*`).
+ * DS-06 AC4, GRID-04@PoC FR 7: where the accent may be used — the small leaf of the mark and the goal icon
+ * (`.goal-icon` of «Цілі», BUD-05 c); the goal progress bar, ring and line use `goal-*`).
  */
-export const ACCENT_SELECTORS: readonly RegExp[] = [/(^|[\s,>+~])\.ws-mark-small(?![\w-])/];
+export const ACCENT_SELECTORS: readonly RegExp[] = [
+  /(^|[\s,>+~])\.ws-mark-small(?![\w-])/,
+  /(^|[\s,>+~])\.goal-icon(?![\w-])/,
+];
 
 /** DS-06 item 3: the accent is a fill only. */
 const FILL_PROPERTIES = new Set(["background", "background-color", "fill"]);

@@ -1,0 +1,358 @@
+/* BUD-02@PoC d), S-121 / S-289: the period navigation, the income card and the card «Категорії». Tokens only. */
+.bud-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-period {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+}
+
+.bud-period-label {
+  min-inline-size: calc(var(--ws-space-8) * 3);
+  text-align: center;
+  font-weight: 600;
+}
+
+.bud-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  align-content: start;
+  padding: var(--ws-space-5);
+}
+
+.bud-card-title {
+  margin: 0;
+}
+
+.bud-banner {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-300);
+}
+
+.bud-banner p {
+  margin: 0;
+}
+
+.bud-figures {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.bud-figures > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-figures dt {
+  color: var(--ws-ink-muted);
+}
+
+.bud-figures dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-cat-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3) var(--ws-space-6);
+  margin: 0;
+}
+
+.bud-summary > div {
+  display: grid;
+}
+
+.bud-summary dt {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-subline-size);
+}
+
+.bud-summary dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.bud-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.bud-table th,
+.bud-table td {
+  padding: var(--ws-space-3) var(--ws-space-2);
+  border-block-end: 1px solid var(--ws-line);
+  text-align: end;
+  vertical-align: top;
+  font-variant-numeric: tabular-nums;
+}
+
+.bud-table th:first-child,
+.bud-table td:first-child {
+  text-align: start;
+}
+
+.bud-table thead th {
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-subline-size);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.bud-sort {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.bud-sort:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+.bud-group th {
+  padding-block-start: var(--ws-space-5);
+  text-align: start;
+  color: var(--ws-ink);
+  font-size: var(--ws-text-body-size);
+  text-transform: none;
+}
+
+.bud-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ws-space-2);
+  font-weight: 600;
+}
+
+.bud-sub {
+  display: block;
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-subline-size);
+}
+
+.bud-total th,
+.bud-total td {
+  font-weight: 600;
+}
+
+.bud-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+}
+
+.bud-note {
+  margin: 0;
+  color: var(--ws-ink-muted);
+}
+
+/* BUD-02@PoC f), S-128 / S-288: «Налаштування бюджету». Tokens only. */
+.bud-settings-title {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-settings-actions {
+  display: inline-flex;
+  gap: var(--ws-space-2);
+}
+
+.bud-caps {
+  margin: 0;
+  font-size: var(--ws-text-label-size);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ws-ink-muted);
+}
+
+.bud-accounts-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.bud-accounts-table th,
+.bud-accounts-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  text-align: start;
+  border-block-end: 1px solid var(--ws-line);
+}
+
+.bud-group-row th {
+  background: var(--ws-surface-100);
+}
+
+.bud-accounts-table .bud-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The board: the switch column is narrow, at the right edge, after the right-aligned balance. */
+.bud-accounts-table thead th:last-child,
+.bud-accounts-table td:last-child {
+  inline-size: 1%;
+  white-space: nowrap;
+  text-align: end;
+}
+
+.bud-account-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.bud-account-stack {
+  display: grid;
+}
+
+.bud-danger {
+  border-color: var(--ws-loss);
+}
+
+.bud-danger-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-4);
+  justify-content: space-between;
+}
+
+.bud-danger-text {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-danger-text .bud-card-title {
+  color: var(--ws-loss);
+}
+
+.bud-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--ws-space-6);
+  height: var(--ws-space-6);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+  font-size: var(--ws-text-body-sm-size);
+  font-weight: 600;
+}
+
+/* BUD-02@PoC e) (row 124): the wizard «Новий бюджет» S-122 … S-124 (PocPlanBudgetWiz1 … Wiz3). Tokens only. */
+.bud-wiz {
+  display: grid;
+  gap: var(--ws-space-5);
+  max-inline-size: calc(var(--ws-space-8) * 12);
+  margin-inline: auto;
+  /* The stepper overlapped the focus title by 7 px at 1280 px. */
+  padding-block-start: var(--ws-space-4);
+}
+
+.bud-wiz-options {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.bud-wiz-option {
+  display: flex;
+  gap: var(--ws-space-3);
+  align-items: flex-start;
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-100);
+  cursor: pointer;
+}
+
+.bud-wiz-option > span {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+.bud-wiz-option[data-checked="true"] {
+  border: 2px solid var(--ws-brand);
+}
+
+.bud-wiz-option[data-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.bud-wiz-option input {
+  /* A long description must not squeeze the radio (1280 px review: 13 × 24 px). */
+  flex: none;
+  inline-size: var(--ws-space-5);
+  block-size: var(--ws-space-5);
+  margin: 0;
+}
+
+.bud-wiz-actions {
+  display: flex;
+  gap: var(--ws-space-3);
+  align-items: center;
+  padding-block-start: var(--ws-space-4);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.bud-wiz-grow {
+  flex: 1;
+}
+
+.bud-wiz-error {
+  color: var(--ws-loss);
+}
+
+.bud-wiz-income {
+  max-inline-size: calc(var(--ws-space-8) * 5);
+}
+
+.bud-wiz-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.bud-wiz-table th,
+.bud-wiz-table td {
+  padding: var(--ws-space-2) var(--ws-space-3);
+  text-align: start;
+  border-block-end: 1px solid var(--ws-line);
+}
+
+/* Amounts right-aligned, as on PocPlanBudgetWiz3 (the rule above outranks `.bud-num`). */
+.bud-wiz-table .bud-num {
+  text-align: end;
+}
+
+.bud-wiz-cta {
+  display: flex;
+  gap: var(--ws-space-3);
+  justify-content: center;
+}

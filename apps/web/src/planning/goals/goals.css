@@ -1,0 +1,324 @@
+/* BUD-05@PoC c), S-136 / S-137: the list of goals, the card, the bar of the goal scale, the popover form. Tokens only. */
+.goal-list {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-row {
+  display: grid;
+  gap: var(--ws-space-1);
+  padding: var(--ws-space-3) var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-200);
+  color: inherit;
+  text-decoration: none;
+}
+
+.goal-row[aria-current="true"] {
+  border-color: var(--ws-brand);
+}
+
+.goal-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ws-space-2);
+}
+
+.goal-row-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.goal-bar {
+  display: block;
+  overflow: hidden;
+  block-size: calc(var(--ws-space-1) + var(--ws-space-1) / 2);
+  border-radius: var(--ws-radius-pill);
+  background-color: var(--ws-surface-300);
+}
+
+.goal-bar-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--ws-radius-pill);
+}
+
+/* GRID-04@PoC FR 7: amber is only for the goal icon — an amber disc (a fill, never text or a border). */
+.goal-icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border-radius: var(--ws-radius-pill);
+  background: var(--ws-accent);
+  color: var(--ws-on-accent);
+}
+
+.goal-achieved {
+  color: var(--ws-gain);
+  font-weight: 600;
+}
+
+.goal-card {
+  display: grid;
+  gap: var(--ws-space-3);
+  align-content: start;
+  padding: var(--ws-space-5);
+}
+
+.goal-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+}
+
+.goal-card-title {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.goal-card-title > * {
+  margin: 0;
+}
+
+.goal-card-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ws-space-3);
+}
+
+.goal-facts {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+}
+
+.goal-facts > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ws-space-3);
+}
+
+.goal-facts dt {
+  min-inline-size: calc(var(--ws-space-8) * 2);
+}
+
+.goal-facts dd {
+  margin: 0;
+}
+
+.goal-links {
+  display: grid;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-5);
+}
+
+.goal-links h3 {
+  margin: 0;
+}
+
+.goal-history {
+  display: grid;
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-history li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--ws-space-3);
+}
+
+.goal-contribute {
+  display: grid;
+  gap: var(--ws-space-3);
+}
+
+.goal-contribute-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ws-space-2);
+}
+
+/* S-138: the templates of the empty state and the note under a part on a separate account. */
+.goal-templates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ws-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  inline-size: min(100%, 32rem);
+}
+
+.goal-template {
+  display: grid;
+  gap: var(--ws-space-1);
+  inline-size: 100%;
+  padding: var(--ws-space-3);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  background: var(--ws-surface-200);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.goal-template:hover {
+  border-color: var(--ws-brand);
+}
+
+.goal-form-note {
+  margin: 0;
+}
+
+/* BUD-05@PoC d), S-139 «Витратити»: the list of outgoing transactions with checkboxes (no scrolling, 6 rows). Tokens only. */
+.goal-spend-collected,
+.goal-spend-caption {
+  margin: 0;
+}
+
+.goal-spend-caption {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+.goal-spend-find {
+  display: grid;
+  gap: var(--ws-space-1);
+}
+
+/* 40 px as the board and the DS field box (`.ws-field-box`); the caption 13/16 under it, as the board. */
+.goal-spend-search {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-2);
+  block-size: calc(var(--ws-touch-target) - var(--ws-space-1));
+  padding-inline: var(--ws-space-3);
+  border: 1px solid var(--ws-border-control);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  color: var(--ws-ink-muted);
+}
+
+.goal-spend-search input {
+  flex: 1;
+  min-inline-size: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+}
+
+.goal-spend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-lg);
+  overflow: hidden;
+}
+
+.goal-spend-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  min-block-size: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border-block-end: 1px solid var(--ws-line);
+  cursor: pointer;
+}
+
+.goal-spend-row[data-checked] {
+  background: var(--ws-surface-100);
+}
+
+.goal-spend-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--ws-space-6);
+  block-size: var(--ws-space-6);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  font-weight: 600;
+}
+
+.goal-spend-what {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.goal-spend-amount {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.goal-spend-list > li:last-child > .goal-spend-row {
+  border-block-end: 0;
+}
+
+.goal-spend-what .ws-muted {
+  font-size: var(--ws-text-label-size);
+  line-height: var(--ws-text-label-line);
+}
+
+/* «Ще N транзакцій»: the last row of the list (board PocPlanGoalSpend), not a button of its own. */
+.goal-spend-more {
+  inline-size: 100%;
+  min-block-size: var(--ws-touch-target);
+  padding: var(--ws-space-2) var(--ws-space-3);
+  border: 0;
+  border-block-start: 1px solid var(--ws-line);
+  background: transparent;
+  color: var(--ws-link);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.goal-spend-note {
+  display: flex;
+  gap: var(--ws-space-2);
+  padding: var(--ws-space-3);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-100);
+}
+
+.goal-spend-close {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ws-space-3);
+}
+
+.goal-spend-close-hint {
+  display: block;
+}
+
+.goal-spend-error {
+  display: grid;
+  gap: var(--ws-space-2);
+  justify-items: start;
+}
+
+.goal-spend-sum[aria-live] {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--ws-space-1) var(--ws-space-3);
+}

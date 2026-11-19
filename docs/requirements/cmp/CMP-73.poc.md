@@ -10,7 +10,7 @@
 - Спільні правила: П-13, П-16, П-24, П-25, П-26, DS-06, DS-14
 - Сценарії: —
 - Модуль: —
-- Перевіряється: packages/ui/src/toolbar/SelectionBar.test.tsx, packages/ui/src/toolbar/SelectionBar.css.test.ts, apps/web/src/transactions/dat03-bulk.test.tsx, apps/web/src/gallery.test.tsx
+- Перевіряється: packages/ui/src/toolbar/SelectionBar.test.tsx, packages/ui/src/toolbar/SelectionBar.css.test.ts, apps/web/src/transactions/dat03-bulk.test.tsx, apps/web/src/gallery.test.tsx, apps/api/test/fin03-transactions.it.test.ts
 
 **Мета.** Як користувач списку, я хочу після вибору кількох записів бачити, скільки їх вибрано і на яку суму, і виконувати над ними одну дію з одного меню, щоб не змінювати записи по одному.
 

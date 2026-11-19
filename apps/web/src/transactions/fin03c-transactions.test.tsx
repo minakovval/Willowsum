@@ -1,4 +1,8 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { cssDeclarations } from "@willowsum/ui/tokens";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import {
   fakeApi,
@@ -213,7 +217,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
-  it("FIN-03@PoC AC13: columns «Контрагент, Категорія, Рахунок, Дата і час, Сума», newest first by «Дата і час» (highlighted with its arrow), the other sortable columns with the grey double arrow, no grouping by days and no sort menu", async () => {
+  it("FIN-03@PoC AC13, DS-04@PoC FR 8: columns «Контрагент, Категорія, Рахунок, Дата і час, Сума», newest first by «Дата і час» (highlighted with its arrow), the other sortable columns with the grey double arrow, no grouping by days and no sort menu", async () => {
     const { lastQuery } = open();
     await loaded();
     const head = table().querySelector(".ws-tx-head")!;
@@ -425,13 +429,20 @@ describe("FIN-03@PoC c): the table of «Транзакції» (S-046)", () => {
     expect(table().querySelector(".ws-tx-head")).toBeTruthy();
   });
 
-  it("DAT-01@PoC FR 8, FR 10: the columns are fixed by the list — no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
+  it("DAT-01@PoC FR 8, FR 10, GRID-02@PoC FR 11, AC6: the columns are fixed by the list — its own set, no «Колонки» button and no column choice; «Параметри» is not shown while it has no item (CMP-60@PoC «Стани»)", async () => {
     open();
     await loaded();
+    const head = table().querySelector(".ws-tx-head")!;
+    expect(
+      [...head.children]
+        .filter((c) => !c.matches(".ws-row-check"))
+        .map((c) => c.textContent?.replace(/,.*$/, "")),
+    ).toEqual(["Контрагент", "Категорія", "Рахунок", "Дата і час", "Сума"]);
     expect(screen.queryByRole("button", { name: "Колонки" })).toBeNull();
     expect(within(toolbar()).queryByRole("button", { name: "Параметри" })).toBeNull();
     expect(screen.queryByText(/Колонк/)).toBeNull();
     expect(screen.queryByText("Показати оригінальні валюти")).toBeNull();
+    expect(screen.queryByText(/Створити звіт/)).toBeNull();
   });
 });
 
@@ -595,5 +606,128 @@ describe("FIN-03@PoC c): the totals and the states of the list", () => {
     );
     act(() => within(error).getByRole("button", { name: "Спробувати ще раз" }).click());
     await loaded();
+  });
+});
+
+describe("GRID-02@PoC the table of «Транзакції» on narrow containers", () => {
+  it("GRID-02@PoC FR 7, AC2: the table is the container of its rows, and below 520 px of that container a row is a card — the header leaves the layout, the row wraps, nothing scrolls sideways", async () => {
+    open();
+    await loaded();
+    expect(table().classList.contains("ws-tx-table")).toBe(true);
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const ui = readFileSync(join(dir, "../../../../packages/ui/src/styles/components.css"), "utf8").replace(
+      /\s+/g,
+      " ",
+    );
+    expect(ui).toContain(".ws-tx-table { container-type: inline-size;");
+    const narrow = ui.slice(ui.indexOf("@container (max-width: 519px) { .ws-tx-table .ws-tx-head {"));
+    expect(narrow).toContain(
+      ".ws-tx-table .ws-tx-row-table.ws-tx-row-table { display: flex; flex-wrap: wrap;",
+    );
+    // The threshold is the container's, not a window media query; the wide form still has its fixed columns.
+    expect(ui).not.toMatch(/@media \(max-width: \d+px\) \{ \.ws-tx-/);
+    expect(table().style.overflowX).toBe("");
+    expect(readFileSync(join(dir, "transactions.css"), "utf8").match(/\.tx-table \{[^}]*\}/)![0]).toContain(
+      "overflow: hidden",
+    );
+  });
+});
+
+describe("GRID-02@PoC the sort button of «Транзакції» in the card form", () => {
+  const sortButton = () => within(toolbar()).getByRole("button", { name: "Сортування" });
+
+  it("GRID-02@PoC AC 7: the toolbar has a «Сортування» menu button whose options are the sortable headers; the card form's container query is what shows it (CSS, not JS), and the table form has no such button", async () => {
+    open();
+    await loaded();
+    const button = sortButton();
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    act(() => button.click());
+    const menu = screen.getByRole("menu", { name: "Сортування" });
+    expect(
+      within(menu)
+        .getAllByRole("menuitemcheckbox")
+        .map((i) => i.textContent),
+    ).toEqual(headButtons().map((b) => b.title));
+    cleanup();
+    // The button hides in the table form and shows below 520 px of the container, in the same query as the cards.
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const css = readFileSync(join(dir, "transactions.css"), "utf8").replace(/\s+/g, " ");
+    expect(css).toMatch(/\.tx-list \{[^}]*container-type: inline-size/);
+    expect(css).toContain(".tx-sort { display: none; }");
+    // 521 px of .tx-list = 519 px inside the table's 1 px border, where the rows turn into cards (checked in Chromium).
+    expect(css).toContain("@container (max-width: 521px) { .tx-sort { display: contents; } }");
+    expect(css).not.toMatch(/@media[^{]*\{[^}]*\.tx-sort/);
+  });
+
+  it("GRID-02@PoC AC 7: a menu option sorts like the header — the first pick ascending, the same again descending; the menu closes and the focus returns to the button", async () => {
+    const { lastQuery } = open();
+    await loaded();
+    act(() => sortButton().click());
+    act(() => screen.getByRole("menuitemcheckbox", { name: "Сортувати за: контрагент" }).click());
+    await waitFor(() => expect(lastQuery().get("sort")).toBe("counterparty"));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(sortButton());
+    expect(headButton("Контрагент").dataset.sort).toBe("asc");
+    act(() => sortButton().click());
+    const active = screen.getByRole("menuitemcheckbox", { name: "Сортувати за: контрагент" });
+    expect(active.getAttribute("aria-checked")).toBe("true");
+    act(() => active.click());
+    await waitFor(() => expect(lastQuery().get("sort")).toBe("-counterparty"));
+  });
+
+  it("GRID-02@PoC AC 7: the menu opens from the keyboard, the arrow moves between the options, Esc closes it and the focus returns to the button", async () => {
+    open();
+    await loaded();
+    const button = sortButton();
+    button.focus();
+    // jsdom has no default action for Enter on a button; a browser turns it into this click (checked in Chromium).
+    fireEvent.keyDown(button, { key: "Enter" });
+    act(() => button.click());
+    const items = within(screen.getByRole("menu", { name: "Сортування" })).getAllByRole("menuitemcheckbox");
+    expect(document.activeElement).toBe(items[0]);
+    fireEvent.keyDown(items[0]!, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(items[1]!, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+});
+
+describe("GRID-02@PoC the «Гроші» section: root, menu and tabs", () => {
+  const navPages = () =>
+    [...document.querySelectorAll(".ws-nav-page")].map((e) => e.querySelector(".ws-nav-label")!.textContent);
+
+  it("GRID-02@PoC FR 12, FR 13, AC5, AC8: the section opens «Транзакції»; with 0 in the queue and 2 pair proposals the menu has «Транзакції» (no counter) and «Рахунки», the tabs «Транзакції», «До розбору» and «Пари · 2»", async () => {
+    const h = handlers(ALL, {
+      "GET /v1/transfer-proposals": { status: 200, body: { items: [], count: 2, more: false } },
+    });
+    const api = fakeApi(h);
+    renderAt("#/money", api.client);
+    // Entering the section for the first time in the session opens its root.
+    expect(window.location.hash).toBe("#/money/transactions");
+    await loaded();
+    expect(navPages()).toEqual(["Транзакції", "Рахунки"]);
+    expect(document.querySelector(".ws-nav-page .ws-nav-badge")).toBeNull();
+    const tabs = within(screen.getByRole("tablist", { name: "Розділи транзакцій" })).getAllByRole("tab");
+    await waitFor(() =>
+      expect(tabs.map((t) => t.textContent)).toEqual(["Транзакції", "До розбору", "Пари · 2"]),
+    );
+  });
+
+  it("GRID-02@PoC FR 12, FR 13, AC5: with 5 in the queue the counter «5» is beside «Транзакції» and in the tab; the badge is plain muted text, never amber", async () => {
+    const h = handlers(ALL, { "GET /v1/transaction-review": { status: 200, body: { count: 5 } } });
+    open(h);
+    await loaded();
+    const link = await screen.findByRole("link", { name: /^Транзакції,\s5\sдо\sрозбору$/ });
+    expect(link.querySelector(".ws-nav-badge")!.textContent).toBe("5");
+    expect(screen.getByRole("tab", { name: "До розбору · 5" })).toBeTruthy();
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const shell = cssDeclarations(
+      readFileSync(join(dir, "../../../../packages/ui/src/styles/shell.css"), "utf8"),
+    );
+    const badge = shell.filter((d) => d.selector === ".ws-nav-badge" && d.atRules.length === 0);
+    expect(badge.find((d) => d.property === "color")?.value).toBe("var(--ws-ink-muted)");
+    expect(badge.some((d) => d.value.includes("accent"))).toBe(false);
+    expect(badge.some((d) => d.property === "background" || d.property === "border")).toBe(false);
   });
 });

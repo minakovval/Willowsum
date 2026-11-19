@@ -144,6 +144,15 @@ export const componentTypeScale = {
     tabularNumbers: true,
     usage: "Chart axis and scale labels",
   },
+  subline: {
+    family: "sans",
+    size: 12,
+    lineHeight: 16,
+    weight: 400,
+    tracking: 0,
+    usage:
+      "Sub-line under a card or widget title: a counter, «оновлено о …», a period, a date (DS-08@PoC FR 4)",
+  },
   tooltip: { family: "sans", size: 13, lineHeight: 18, weight: 400, tracking: 0, usage: "Tooltip text" },
   badge: {
     family: "sans",

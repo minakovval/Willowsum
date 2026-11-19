@@ -33,7 +33,7 @@
 - [MVP] Спільні правила: П-5, П-6, П-13, П-16, DS-06, DS-10, DS-14, DS-18
 - Сценарії: —
 - Модуль: —
-- [лише PoC] Перевіряється: packages/ui/src/filter/FilterBar.test.tsx, packages/ui/src/filter/FilterBar.css.test.ts, apps/web/src/transactions/fin03c-filters.test.tsx, apps/web/src/gallery.test.tsx
+- [лише PoC] Перевіряється: packages/ui/src/filter/FilterBar.test.tsx, packages/ui/src/filter/FilterBar.css.test.ts, apps/web/src/transactions/fin03c-filters.test.tsx, apps/web/src/gallery.test.tsx, apps/api/test/fin03-transactions.it.test.ts
 - [PoC v2–MVP] Перевіряється: —
 
 [лише PoC] **Мета.** Як користувач великого списку, я хочу задавати фільтри в одній панелі випадними списками, бачити активні фільтри чипами і бачити кількість і загальну суму відібраних записів, щоб швидко знаходити потрібне.

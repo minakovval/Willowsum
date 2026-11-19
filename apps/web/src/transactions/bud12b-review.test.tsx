@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { formatDate } from "@willowsum/i18n";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
@@ -451,6 +454,35 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
     expect(all[all.length - 1]!.textContent).toContain("Нова категорія");
   });
 
+  it("GRID-02@PoC FR 4: header | progress | the queue 4 + the card 8; the progress «K з N · лишилось M» is always shown, the switch «Мерчанти / По одній» stands above the queue", async () => {
+    const { api } = space({ queue: twelve(), groups: groupsOfTwelve() });
+    open(api);
+    const queue = await screen.findByRole("region", { name: "Черга" });
+    const review = document.querySelector(".review")!;
+    const [head, groups] = [...review.children];
+    // The head of the queue (progress and switch), then the grid of the queue and the card.
+    expect(head!.classList.contains("review-head")).toBe(true);
+    expect(groups!.classList.contains("review-groups")).toBe(true);
+    expect(head!.querySelector(".ws-progress")).not.toBeNull();
+    expect(head!.querySelector(".review-mode")).not.toBeNull();
+    expect(progress()).toBe("0 з 12 · лишилось 12");
+    expect(queue.closest(".review-groups")).toBe(groups);
+    expect(queue.className).toContain("review-group-list");
+    // One card in the grid after the queue.
+    expect(groups!.querySelector(".review-group")).not.toBeNull();
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "transactions.css"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(css).toContain(
+      "@media (min-width: 1024px) { .review-groups { grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr)); } .review-groups > .review-group-list { grid-column: span 4; } .review-groups > .review-group { grid-column: span 8; }",
+    );
+    // «По одній»: the progress stays.
+    act(() => screen.getByRole("radio", { name: "По одній" }).click());
+    await screen.findByRole("region", { name: "Starbucks" });
+    expect(progress()).toBe("0 з 12 · лишилось 12");
+  });
+
   it("BUD-12@PoC FR 14: «Мерчанти» by default when a merchant has more than one transaction; the switch «Мерчанти / По одній» is a radio group", async () => {
     const { api } = space({ queue: twelve(), groups: groupsOfTwelve() });
     open(api);
@@ -609,6 +641,66 @@ describe("BUD-12@PoC b): «До розбору» (S-058)", () => {
       { action: "transactions.set-category", ids: shell, params: { categoryId: FUEL } },
       { action: "transactions.confirm-category", ids: shell, params: {} },
     ]);
+  });
+
+  it("BUD-12@PoC FR 14: «Запам'ятати» creates the rule for the category its label shows, also when the pencil confirms the group with another one", async () => {
+    const shell = [1, 2, 3, 4].map((n) => txId(700 + n));
+    const { api } = space({
+      queue: [],
+      extra: 5,
+      groups: [
+        group("g-shell", "Shell", 4, "-208.40", { suggestedCategoryId: FOOD }),
+        group("g-x", "Uber", 1, "-1.00"),
+      ],
+      over: {
+        "GET /v1/transaction-review/merchant-groups/g-shell/transactions": {
+          status: 200,
+          body: { items: shell, nextCursor: null },
+        },
+        "POST /v1/category-rules": { status: 201, body: { id: RULE } },
+        "POST /v1/bulk-actions": (call) => {
+          const body = call.body as { action: string };
+          return {
+            status: 201,
+            body: {
+              id: "a1",
+              action: body.action,
+              background: false,
+              status: "completed",
+              count: 4,
+              processed: 4,
+              changed: 4,
+              skipped: { unavailable: 0, unchanged: 0, conflict: 0, invalid: 0 },
+              skippedRecords: [],
+              undo: { available: true, until: "2026-11-18T12:00:00Z", restored: 0, notRestored: 0 },
+              createdAt: "2026-11-17T12:00:00Z",
+              endedAt: "2026-11-17T12:00:00Z",
+            },
+          };
+        },
+      },
+    });
+    open(api);
+    await screen.findByRole("heading", { name: nm("Shell · 4 транзакції") });
+    act(() =>
+      screen.getByRole("checkbox", { name: "Запам’ятати: Shell → Продукти для нових транзакцій" }).click(),
+    );
+    act(() => screen.getByRole("button", { name: "Змінити категорію" }).click());
+    const dialog = await screen.findByRole("dialog", { name: "Змінити категорію" });
+    act(() =>
+      within(dialog)
+        .getByRole("button", { name: /^Категорія/ })
+        .click(),
+    );
+    fireEvent.change(within(dialog).getByRole("combobox", { name: "Знайти категорію" }), {
+      target: { value: "Паль" },
+    });
+    await act(async () => within(dialog).getAllByRole("option", { name: "Пальне" })[0]!.click());
+    await waitFor(() => expect(posts(api, "/v1/category-rules")).toHaveLength(1));
+    expect(posts(api, "/v1/category-rules")[0]!.body).toEqual({
+      conditions: [{ field: "merchant", operator: "equals", value: "Shell" }],
+      categoryId: FOOD,
+    });
   });
 
   it("BUD-12@PoC FR 14: a group with different categories gets its suggestion on all of them before it is confirmed", async () => {

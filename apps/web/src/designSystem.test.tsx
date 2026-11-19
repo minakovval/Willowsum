@@ -109,7 +109,7 @@ describe("DS-08@PoC heading structure", () => {
     vi.restoreAllMocks();
   });
 
-  it.each(ROUTES)("DS-08@PoC AC3: %s has exactly one h1 and skips no heading level", async (path) => {
+  it.each(ROUTES)("DS-08@PoC AC3, FR 6: %s has exactly one h1 and skips no heading level", async (path) => {
     renderAt(`#${path}`, fakeApi({}).client);
     await waitFor(() => expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1));
     const levels = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6, [role='heading']")).map(

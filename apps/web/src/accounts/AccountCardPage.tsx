@@ -366,7 +366,7 @@ function InfoCard({ account: a }: { account: AccountDetail }) {
 
 /**
  * «Транзакції» (8 columns, GRID-02@PoC FR 17): the newest transactions of the account as rows of the transactions list
- * (CMP-28), «N з M», and «Усі N транзакцій рахунку» under them.
+ * (CMP-28; a compact list, not the full table, owner 2026-11-18), «N з M», and «Усі N транзакцій рахунку» under them.
  */
 function TransactionsCard({ accountId }: { accountId: string }) {
   const { t, locale } = useI18n();

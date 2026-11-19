@@ -40,6 +40,9 @@ import {
   reopenCard,
   runBulk,
   setCategory,
+  undoableReports,
+  undoBulk,
+  type BulkReport,
   type Categories,
   type ReviewCard,
   type ReviewGroup,
@@ -234,9 +237,34 @@ export function ReviewQueue() {
         <GroupsView
           groups={groups}
           categories={categories}
-          onConfirmed={async (n) => {
+          onConfirmed={async (n, reports) => {
             confirmed(n);
-            show(t("review.toast.group", { transactions: plural(t, locale, "bulk.tx", n) }));
+            // FR 6, AC12: «Відмінити» only while the API says `undo.available`, and not after its `undo.until`.
+            const undoable = undoableReports(reports);
+            show(
+              t("review.toast.group", { transactions: plural(t, locale, "bulk.tx", n) }),
+              undoable
+                ? () => {
+                    void (async () => {
+                      if (Date.now() >= undoable.until)
+                        return show(t("bulk.error.title"), undefined, "error");
+                      const back = await undoBulk(api, undoable.ids);
+                      if (back.restored > 0) confirmed(-back.restored);
+                      await reloadGroups();
+                      // The first undo passed and a later one failed: the group is back, its category is not.
+                      if (back.failure && back.undone > 0)
+                        show(
+                          back.notRestored > 0
+                            ? t("review.undo.partialCount", { notRestored: back.notRestored })
+                            : t("review.undo.partial"),
+                          undefined,
+                          "error",
+                        );
+                      else if (back.failure) show(failureText(t, back.failure), undefined, "error");
+                    })();
+                  }
+                : undefined,
+            );
             await reloadGroups();
           }}
           reloadCategories={reloadCategories}
@@ -377,7 +405,7 @@ function GroupsView({
 }: {
   groups: ReviewGroups;
   categories: Categories;
-  onConfirmed: (count: number) => Promise<void>;
+  onConfirmed: (count: number, reports: BulkReport[]) => Promise<void>;
   reloadCategories: () => Promise<void>;
 }) {
   const { t, locale } = useI18n();
@@ -451,7 +479,7 @@ function GroupDetail({
   name: string;
   truncated: boolean;
   categories: Categories;
-  onConfirmed: (count: number) => Promise<void>;
+  onConfirmed: (count: number, reports: BulkReport[]) => Promise<void>;
   reloadCategories: () => Promise<void>;
 }) {
   const { t, locale } = useI18n();
@@ -475,20 +503,24 @@ function GroupDetail({
       setError(failureText(t, o));
     };
     if (!ids.ok) return fail(ids);
-    if (remember && group.merchant && target) {
-      const rule = await rememberRule(api, group.merchant.name, target);
+    // The rule is for the category the label «Запам'ятати: <мерчант> → <категорія>» shows (the group's suggestion), never
+    // for the pencil's pick the user was not shown next to the checkbox (#498 item 1).
+    if (remember && group.merchant && suggested) {
+      const rule = await rememberRule(api, group.merchant.name, suggested);
       if (!rule.ok) return fail(rule);
     }
     // A category chosen with the pencil, or a group with different categories: the category goes to all of them first
     // (lead decision 2026-11-17 in #491: the client sets the suggestion on the whole group before it confirms it).
+    let setReports: BulkReport[] = [];
     if (target && (override !== undefined || group.mixedCategories)) {
       const set = await runBulk(api, "transactions.set-category", ids.data, { categoryId: target });
       if (!set.ok) return fail(set);
+      setReports = set.data;
     }
     const confirmedAll = await runBulk(api, "transactions.confirm-category", ids.data, {});
     if (!confirmedAll.ok) return fail(confirmedAll);
     const changed = confirmedAll.data.reduce((n, r) => n + r.changed, 0);
-    await onConfirmed(changed);
+    await onConfirmed(changed, [...setReports, ...confirmedAll.data]);
   };
 
   const transactions = plural(t, locale, "review.count", group.count);
@@ -577,7 +609,7 @@ function CardsView({
 }: {
   categories: Categories;
   onConfirmed: (n: number) => void;
-  show: (text: string, undo?: () => void) => void;
+  show: (text: string, undo?: () => void, tone?: ToastTone) => void;
   reloadCategories: () => Promise<void>;
   reloadCount: () => void;
 }) {
@@ -677,7 +709,7 @@ function CardsView({
       show(t(previous !== undefined ? "review.toast.changed" : "review.toast.confirmed"), () => {
         void (async () => {
           const back = await reopenCard(api, after);
-          if (!back.ok) return show(failureText(t, back), undefined);
+          if (!back.ok) return show(failureText(t, back), undefined, "error");
           if (previous !== undefined) await setCategory(api, card.item.id, previous);
           backOnTop({ ...was, item: back.data as TransactionItem });
           onConfirmed(-1);

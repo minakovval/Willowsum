@@ -223,6 +223,43 @@ export async function runBulk(
   return { ok: true, data: reports };
 }
 
+/** FR 6: the reports of a group's bulk actions that «Відмінити» can still undo — null when any of them cannot. */
+export function undoableReports(reports: readonly BulkReport[]): { ids: string[]; until: number } | null {
+  if (reports.length === 0 || reports.some((r) => !r.undo.available)) return null;
+  const until = Math.min(
+    ...reports.map((r) => (r.undo.until === null ? Infinity : Date.parse(r.undo.until))),
+  );
+  return { ids: reports.map((r) => r.id), until };
+}
+
+/**
+ * FR 6, FR 14: «Відмінити» of a confirmed group — `POST /v1/bulk-actions/{id}/undo` for every action of it, the last
+ * one first, so the transactions get their previous statuses and categories back. The first refusal ends the undo
+ * (the deadline of the API passed: `BULK_UNDO_UNAVAILABLE`); `restored` counts what came back before it.
+ */
+export async function undoBulk(
+  api: ApiClient,
+  ids: readonly string[],
+): Promise<{
+  restored: number;
+  /** How many actions were undone before the refusal, and the sum of their `undo.notRestored`. */
+  undone: number;
+  notRestored: number;
+  failure: Exclude<Outcome<unknown>, { ok: true }> | null;
+}> {
+  let restored = 0;
+  let undone = 0;
+  let notRestored = 0;
+  for (const actionId of [...ids].reverse()) {
+    const o = await outcome(api.POST("/v1/bulk-actions/{actionId}/undo", { params: { path: { actionId } } }));
+    if (!o.ok) return { restored, undone, notRestored, failure: o };
+    undone += 1;
+    notRestored += o.data.undo.notRestored;
+    if (o.data.action === "transactions.confirm-category") restored += o.data.undo.restored;
+  }
+  return { restored, undone, notRestored, failure: null };
+}
+
 /** FR 14 «Запам'ятати: <мерчант> → <категорія>»: a rule for new transactions of the merchant. */
 export const rememberRule = (api: ApiClient, merchant: string, categoryId: string) =>
   outcome(

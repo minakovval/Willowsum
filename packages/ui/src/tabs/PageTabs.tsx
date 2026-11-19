@@ -53,6 +53,9 @@ export function PageTabs({
     window.location.assign(tabs[next]!.href);
   };
 
+  // UX-09@PoC EC 1: a page with one sub-page has no tabs.
+  if (tabs.length < 2) return <>{children}</>;
+
   return (
     <>
       <div ref={list} className="ws-page-tabs" role="tablist" aria-label={label}>

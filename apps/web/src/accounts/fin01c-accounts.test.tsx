@@ -430,6 +430,33 @@ describe("FIN-01@PoC c) S-050 «Рахунки»", () => {
     for (const r of subs) expect(toggle.getAttribute("aria-controls")).toContain(r.id);
   });
 
+  it("GRID-00@PoC FR 31: optional detail takes the least room — a multi-currency account is one line, its sub-accounts stay out of the page until the user opens them, and closing them takes them away again", async () => {
+    renderAt("#/money/accounts", api([multi]).client);
+    await screen.findByText("Мультивалютний");
+    const row = rowOf("Мультивалютний");
+    const toggle = within(row).getByRole("button", { name: "Показати субрахунки" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(0);
+    fireEvent.click(toggle);
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(2);
+    fireEvent.click(within(row).getByRole("button", { name: "Сховати субрахунки" }));
+    expect(document.querySelectorAll(".accounts-subrow")).toHaveLength(0);
+  });
+
+  it("GRID-00@PoC FR 32: the list's settings icon «Параметри» stands in the toolbar right above the list it configures, not in the page header or the shell menu", async () => {
+    renderAt("#/money/accounts", api([current]).client);
+    await screen.findByText("Щоденний");
+    const options = screen.getByRole("button", { name: "Параметри" });
+    const toolbar = options.closest(".accounts-toolbar")!;
+    expect(toolbar).toBeTruthy();
+    expect(toolbar.parentElement!.classList.contains("accounts-grid")).toBe(true);
+    expect(options.closest(".accounts-head")).toBeNull();
+    expect(options.closest("nav, header")).toBeNull();
+    // The list it configures comes right after the toolbar in the same grid, with nothing in between.
+    expect(toolbar.parentElement!.contains(rowOf("Щоденний"))).toBe(true);
+    expect(toolbar.nextElementSibling).toBe(rowOf("Щоденний").closest(".accounts-group"));
+  });
+
   it("FIN-01@PoC AC4: the list shows the multi-currency account 1 000 EUR + 4 300 UAH as one row in EUR; opening it shows 1 000 EUR and 4 300 UAH", async () => {
     renderAt("#/money/accounts", api([multi]).client);
     await screen.findByText("Мультивалютний");
@@ -651,6 +678,30 @@ describe("GRID-02@PoC «Рахунки» page grid", () => {
     ).toEqual(["Гроші разом", "Джерела даних", "Готівкові", "Кредитні"]);
   });
 
+  it("GRID-02@PoC FR 7: the accounts table is a stack of cards below 520 px of its container — every cell carries its column heading, the wrapper is the container", async () => {
+    renderAt("#/money/accounts", api([current, card]).client);
+    await screen.findByText("Кредитна");
+    const table = document.querySelector<HTMLTableElement>(".accounts-table")!;
+    expect(table.parentElement!.classList.contains("ws-table-wrap")).toBe(true);
+    const heads = [...table.querySelectorAll("thead th:not(:has(.ws-visually-hidden))")].map((th) =>
+      plain(th.textContent),
+    );
+    const labels = [...table.querySelectorAll("tbody tr")[0]!.querySelectorAll("td")].map((td) =>
+      td.getAttribute("data-label"),
+    );
+    // The card's captions are the column headings, not separate strings.
+    for (const head of heads.filter((h) => !h.startsWith("Баланс"))) expect(labels).toContain(head);
+    expect(labels.filter((l) => l !== null && l !== "")).toHaveLength(5);
+    // The threshold is the container's 520 px (519 and below), not a window media query.
+    const ui = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "../../../../packages/ui/src/styles/components.css"),
+      "utf8",
+    ).replace(/\s+/g, " ");
+    expect(ui).toContain(".ws-table-wrap { container-type: inline-size;");
+    expect(ui).toContain("@container (max-width: 519px) { .ws-table thead {");
+    expect(ui).toContain("content: attr(data-label);");
+  });
+
   it("GRID-02@PoC FR 5: «Рахунки» has no «Підключення» tab and no tabs at all", async () => {
     renderAt("#/money/accounts", api([current]).client);
     await screen.findByText("Щоденний");
@@ -667,9 +718,13 @@ describe("GRID-02@PoC «Рахунки» page grid", () => {
     expect(head.querySelector(".ws-button-primary")?.textContent).toBe("Додати рахунок");
   });
 
-  it("GRID-02@PoC FR 10: the list's columns are fixed — no «Колонки» button and no «Змінити порядок»", async () => {
+  it("GRID-02@PoC FR 10, AC6: the list's columns are fixed — its own set, no «Колонки» button and no «Змінити порядок»", async () => {
     renderAt("#/money/accounts", api([current]).client);
     await screen.findByText("Щоденний");
+    const heads = [...document.querySelectorAll(".accounts-table")]
+      .flatMap((t) => [...t.querySelectorAll("thead th:not(:has(.ws-visually-hidden))")])
+      .map((th) => plain(th.textContent));
+    expect(heads).toEqual(["Рахунок", "Тип", "Валюта", "Джерело", "Баланс, EUR"]);
     expect(screen.queryByRole("button", { name: /Колонки/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
     expect(screen.getAllByRole("menuitemcheckbox").map((i) => plain(i.textContent))).toEqual([

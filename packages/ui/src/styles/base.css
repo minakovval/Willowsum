@@ -116,6 +116,21 @@ li .ws-link {
   text-transform: uppercase;
 }
 
+/*
+ * DS-08@PoC item 4: the sub-line under the title of a card or widget (a counter, «оновлено о …», a period, a date):
+ * 12 / 16 px, 400, `ink-muted`, always a line of its own under the title, never in the title line.
+ */
+.ws-subline {
+  display: block;
+  margin: 0;
+  color: var(--ws-ink-muted);
+  font-family: var(--ws-text-subline-family);
+  font-size: var(--ws-text-subline-size);
+  line-height: var(--ws-text-subline-line);
+  font-weight: var(--ws-text-subline-weight);
+  letter-spacing: var(--ws-text-subline-tracking);
+}
+
 /* DS-08 item 8: running text keeps 45–75 characters per line. */
 .ws-prose {
   max-width: 70ch;

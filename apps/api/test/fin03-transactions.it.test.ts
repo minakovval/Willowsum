@@ -732,6 +732,60 @@ describe("FIN-03@PoC «Права доступу»: the Owner works with transac
   });
 });
 
+describe("CMP-32@PoC AC3, CMP-73@PoC AC7: the count and the sum of a filter are the user's space only", () => {
+  it("CMP-32@PoC AC3, CMP-73@PoC AC7: another space has records that match the same filter — the count and the sum of the list (the panel and «вибрати всі за фільтром») do not include them", async () => {
+    const space = await newSpace();
+    const neighbour = await newSpace();
+    const mine = await createAccount(space, { name: "Щоденний", amount: "1000.00" });
+    const theirs = await createAccount(neighbour, { name: "Щоденний", amount: "1000.00" });
+    await add(space, tx(mine, "-10.00", { date: "2026-10-03", counterparty: "Сільпо" }));
+    await add(space, tx(mine, "-5.50", { date: "2026-10-04", counterparty: "Сільпо" }));
+    await add(neighbour, tx(theirs, "-700.00", { date: "2026-10-03", counterparty: "Сільпо" }));
+    await add(neighbour, tx(theirs, "-300.00", { date: "2026-10-05", counterparty: "Сільпо" }));
+    await add(neighbour, tx(theirs, "900.00", { date: "2026-10-06", counterparty: "Сільпо" }));
+
+    const filter = `filter=date.gte:2026-10-01&filter=date.lte:2026-10-31&filter=search.has:${encodeURIComponent("Сільпо")}`;
+    const list = (await call(space, "GET", `/v1/transactions?${filter}`)).json();
+    expect(list.count).toBe(2);
+    expect(list.items).toHaveLength(2);
+    expect(list.summary.income.total).toMatchObject({ amount: "0" });
+    expect(list.summary.expense.total).toEqual({ amount: "-15.5", currency: "EUR" });
+    expect(list.summary.difference.total).toEqual({ amount: "-15.5", currency: "EUR" });
+    // The neighbour's own list is its own: the filter does not mix the two.
+    const other = (await call(neighbour, "GET", `/v1/transactions?${filter}`)).json();
+    expect(other.count).toBe(3);
+    expect(other.summary.difference.total).toEqual({ amount: "-100", currency: "EUR" });
+  });
+});
+
+describe("CMP-32@PoC AC1: a filter over 10 000 records answers with its count and sum in about a second", () => {
+  it("CMP-32@PoC AC1: 10 000 records, a filter by account and period — the count and the sum of the filter come in one answer within 1 s (a fixed budget, not a stopwatch of the machine)", async () => {
+    const space = await newSpace();
+    const a = await createAccount(space, { name: "Щоденний", amount: "1000.00" });
+    await db.owner.query(
+      `INSERT INTO transactions.transactions
+         (household_id, id, account_id, subaccount_id, amount, currency, occurred_on, counterparty)
+       SELECT $1, gen_random_uuid(), $2, gen_random_uuid(), -(1 + n % 50), 'EUR',
+              DATE '2025-01-01' + (n % 600), 'Сільпо ' || n
+         FROM generate_series(1, 10000) n`,
+      [space.householdId, a],
+    );
+    const query = `/v1/transactions?filter=accountId.eq:${a}&filter=date.gte:2025-03-01&filter=date.lte:2025-12-31`;
+    await call(space, "GET", query); // warm-up: the first query plans and loads the rate tables
+    const started = performance.now();
+    const res = await call(space, "GET", query);
+    const took = performance.now() - started;
+    expect(res.statusCode).toBe(200);
+    const list = res.json();
+    // Days 59 … 364 of `n % 600` (2025-03-01 … 2025-12-31): 16 full cycles × 306 + 306 of the last 400 = 5202
+    // records; their amounts −(1 + n % 50) add up to −131 325.
+    expect(list.count).toBe(5202);
+    expect(list.summary.expense.total).toEqual({ amount: "-131325", currency: "EUR" });
+    expect(list.summary.income.total.amount).toBe("0");
+    expect(took).toBeLessThan(1000);
+  });
+});
+
 describe("NFR-12@PoC FR 3: a space's transactions are erased with it", () => {
   it("NFR-12@PoC FR 3: the erasure deletes every transaction, stored create response and hand-off job of the space; the neighbour keeps its own", async () => {
     const a = await newSpace();

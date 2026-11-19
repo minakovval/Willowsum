@@ -40,12 +40,14 @@ export { AppShell, FocusShell, MAIN_ID, NAV_COLLAPSED_STORAGE_KEY, NAV_ID } from
 export type { NavPage, NavSection } from "./shell/AppShell.tsx";
 export { MenuButton } from "./shell/MenuButton.tsx";
 export type { MenuItem } from "./shell/MenuButton.tsx";
+export { MoreActions, RowActions } from "./shell/MoreActions.tsx";
 export { useMediaQuery } from "./useMediaQuery.ts";
 export { keepNumbersTogether } from "@willowsum/i18n";
 export { FitAmount } from "./amount/FitAmount.tsx";
 export { Delta } from "./amount/Delta.tsx";
 export { formatCompactAmount, formatCompactNumber } from "./amount/compact.ts";
 export { chooseFit } from "./amount/fit.ts";
+export { formatPeriodMonth, formatPeriodRange } from "./period/period.ts";
 export { placeTooltip, Tooltip, TruncatedText, useTooltip } from "./tooltip/Tooltip.tsx";
 export type { TooltipTriggerProps } from "./tooltip/Tooltip.tsx";
 export { EmptyState } from "./states/EmptyState.tsx";
@@ -59,6 +61,8 @@ export type { PartialDataBannerProps } from "./states/PartialDataBanner.tsx";
 export type { StateAction } from "./states/StateAction.tsx";
 export { Skeleton } from "./skeleton/Skeleton.tsx";
 export type { SkeletonProps, SkeletonVariant } from "./skeleton/Skeleton.tsx";
+export { Popover } from "./popover/Popover.tsx";
+export type { PopoverProps } from "./popover/Popover.tsx";
 export { Progress } from "./progress/Progress.tsx";
 export type { ProgressProps, ProgressState } from "./progress/Progress.tsx";
 export { PageTabs } from "./tabs/PageTabs.tsx";
@@ -137,6 +141,8 @@ export type {
   FilterChipItem,
   FilterRowProps,
 } from "./filter/FilterBar.tsx";
+export { CardFilter, CardFilterChips } from "./filter/CardFilter.tsx";
+export type { CardFilterOption, CardFilterProps, CardFilterSection } from "./filter/CardFilter.tsx";
 export { Toast } from "./toast/Toast.tsx";
 export type { ToastProps, ToastTone } from "./toast/Toast.tsx";
 export { NO_MARKER, STATUS_DICTIONARY, STATUS_FAMILIES, statusEntry } from "./status/dictionary.ts";

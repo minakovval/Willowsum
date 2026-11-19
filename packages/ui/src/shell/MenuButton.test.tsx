@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { FilterBar } from "../filter/FilterBar.tsx";
 import { MenuButton } from "./MenuButton.tsx";
 
 /** The menu button's action items (FIN-01@PoC FR 22: «Параметри» → «Показати закриті» on «Рахунки»). */
@@ -133,5 +134,204 @@ describe("MenuButton separators and note", () => {
     const note = document.getElementById(menu.getAttribute("aria-describedby")!)!;
     expect(note.textContent).toBe("Категорію з транзакціями не можна видалити");
     expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+  });
+});
+
+const ITEMS = [
+  { id: "a", label: "Перший", icon: "edit", onSelect: () => {} },
+  { id: "b", label: "Другий", icon: "eye", onSelect: () => {} },
+  { id: "c", label: "Третій", icon: "lock", onSelect: () => {} },
+] as const;
+
+function Menu() {
+  return (
+    <>
+      <button type="button">Раніше</button>
+      <MenuButton
+        menuLabel="Параметри"
+        ariaLabel="Параметри"
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={ITEMS}
+      >
+        ⚙
+      </MenuButton>
+    </>
+  );
+}
+
+describe("CMP-61@PoC Menu keyboard", () => {
+  it("CMP-61@PoC AC1: «Параметри» is a native button — Enter and Space press it — and pressing it opens `role=menu` with the focus on the first item", () => {
+    render(<Menu />);
+    const button = screen.getByRole("button", { name: "Параметри" });
+    // A native `<button type="button">` turns Enter and Space into a click in the browser; jsdom does not, so the click stands in for the key.
+    expect(button.tagName).toBe("BUTTON");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(screen.queryByRole("menu")).toBeNull();
+    button.focus();
+    fireEvent.click(button);
+    const menu = screen.getByRole("menu", { name: "Параметри" });
+    expect(menu.querySelectorAll('[role="menuitem"]')).toHaveLength(3);
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Перший" }));
+  });
+
+  it("CMP-61@PoC AC2: ↓ on the last item moves the focus to the first, ↑ on the first to the last", () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    const [first, second, third] = screen.getAllByRole("menuitem");
+    const menu = screen.getByRole("menu");
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(second);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(third);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(first);
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(third);
+  });
+
+  it("CMP-61@PoC AC3: Esc closes the menu and the focus goes back to the button, not to the item or the page", () => {
+    render(<Menu />);
+    const button = screen.getByRole("button", { name: "Параметри" });
+    fireEvent.click(button);
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Другий" }));
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(button);
+  });
+});
+
+describe("CMP-61@PoC Menu items", () => {
+  it("CMP-61@PoC AC6: every item has a 16 px icon to the left of its text", () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    for (const item of screen.getAllByRole("menuitem")) {
+      const icon = item.querySelector("svg")!;
+      expect(icon.getAttribute("width"), item.textContent ?? "").toBe("16");
+      expect(icon.getAttribute("height")).toBe("16");
+      const wrap = item.firstElementChild!;
+      expect(wrap.className).toBe("ws-icon");
+      expect(wrap.getAttribute("data-size")).toBe("16");
+      expect(wrap.contains(icon)).toBe(true);
+      expect(wrap.nextElementSibling!.className).toBe("ws-menu-label");
+    }
+  });
+
+  it("CMP-61@PoC AC9: a «…» button is read and shown as «Ще дії», says it opens a menu and whether it is open", () => {
+    render(
+      <MenuButton
+        menuLabel="Ще дії"
+        ariaLabel="Ще дії"
+        title="Ще дії"
+        placement="down"
+        align="end"
+        className="ws-icon-button"
+        items={ITEMS}
+      >
+        …
+      </MenuButton>,
+    );
+    const button = screen.getByRole("button", { name: "Ще дії" });
+    expect(button.getAttribute("title")).toBe("Ще дії");
+    expect(button.getAttribute("aria-haspopup")).toBe("menu");
+    expect(button.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(button);
+    expect(button.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("menu", { name: "Ще дії" })).toBeTruthy();
+  });
+});
+
+describe("CMP-61@PoC Menu placement", () => {
+  /** The button is `top`…`top + 40`; the menu, once open, is `menuHeight` tall. */
+  const layout = (top: number, menuHeight: number, innerHeight: number) => {
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(innerHeight);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      const h = this.getAttribute("role") === "menu" ? menuHeight : 40;
+      const t = this.getAttribute("role") === "menu" ? 0 : top;
+      return {
+        top: t,
+        bottom: t + h,
+        left: 0,
+        right: 40,
+        width: 40,
+        height: h,
+        x: 0,
+        y: t,
+        toJSON: () => ({}),
+      };
+    });
+  };
+  const open = () => {
+    render(<Menu />);
+    fireEvent.click(screen.getByRole("button", { name: "Параметри" }));
+    return screen.getByRole("menu");
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    cleanup();
+  });
+
+  it("CMP-61@PoC AC5: the menu is measured when it opens — near the bottom edge it opens above the button, with room below it stays below", () => {
+    layout(760, 283, 800);
+    const up = open();
+    expect(up.className).toContain("ws-menu-up");
+    expect(up.className).not.toContain("ws-menu-down");
+    expect(up.style.maxBlockSize).toBe("");
+    expect(shellCss).toMatch(/\.ws-menu-up \{[^}]*inset-block-end: calc\(100% \+ var\(--ws-space-1\)\)/);
+    cleanup();
+
+    layout(100, 283, 800);
+    expect(open().className).toContain("ws-menu-down");
+  });
+
+  it("CMP-61@PoC AC5: the measured height decides, not a guess — a menu of 283 px fits below a button at 400 px but not below one at 540 px", () => {
+    layout(400, 283, 800);
+    expect(open().className).toContain("ws-menu-down");
+    cleanup();
+    layout(540, 283, 800);
+    expect(open().className).toContain("ws-menu-up");
+  });
+
+  it("CMP-61@PoC AC5: when neither side holds the menu it opens on the larger side with a max-height and scrolls", () => {
+    layout(100, 500, 300);
+    const menu = open();
+    expect(menu.className).toContain("ws-menu-down");
+    expect(menu.style.maxBlockSize).toBe("148px");
+    expect(shellCss).toMatch(/\.ws-menu \{[^}]*overflow-y: auto/);
+  });
+});
+
+const components = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), "../styles/components.css"),
+  "utf8",
+);
+
+describe("CMP-61@PoC Popover of the filters", () => {
+  it("CMP-61@PoC AC7: the filter panel opens under its button, lined up with the button's edge, and a drop-down in it opens under its own row", () => {
+    render(
+      <FilterBar count={2} chips={[]} onRemove={() => {}} onApply={() => {}} onReset={() => {}}>
+        <span>rows</span>
+      </FilterBar>,
+    );
+    const button = screen.getByRole("button", { name: /^Фільтри/ });
+    fireEvent.click(button);
+    const panel = screen.getByRole("dialog");
+    // The bar is the positioning box and the button its first child: the panel's start edge is the button's.
+    expect(panel.parentElement).toBe(button.parentElement);
+    expect(button.parentElement!.firstElementChild).toBe(button);
+    expect(components).toMatch(/\.ws-filter-bar\s*\{[^}]*position:\s*relative/);
+    const panelRule = /\n\.ws-filter-panel\s*\{([^}]*)\}/.exec(components)![1]!;
+    expect(panelRule).toMatch(/position:\s*absolute/);
+    expect(panelRule).toMatch(/inset-inline-start:\s*0/);
+    expect(panelRule).toMatch(/inset-block-start:\s*calc\(100% \+ var\(--ws-space-2\)\)/);
+    // A drop-down panel hangs under the control of its row, the full width of that control.
+    const dropdown = /\n\.ws-dropdown-panel\s*\{([^}]*)\}/.exec(components)![1]!;
+    expect(dropdown).toMatch(/inset-inline:\s*0/);
+    expect(dropdown).toMatch(/inset-block-start:\s*calc\(100% \+ var\(--ws-space-1\)\)/);
+    expect(/\n\.ws-filter-row__control\s*\{([^}]*)\}/.exec(components)![1]).toMatch(/position:\s*relative/);
   });
 });

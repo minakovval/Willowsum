@@ -101,7 +101,10 @@ export type ChildId =
   | "debtsPlan"
   | "debtsStrategy"
   | "debtsProgress"
-  | "newRecurring";
+  | "newRecurring"
+  | "budgetAccounts"
+  | "budgetGeneral"
+  | "budgetNew";
 export interface ChildDef {
   id: ChildId;
   parent: PageDef;
@@ -134,6 +137,21 @@ export const CHILDREN: readonly ChildDef[] = [
   { id: "debtsProgress", parent: DEBTS, path: `${DEBTS.path}/progress`, title: "debts.tab.progress" },
   // BUD-07@PoC FR 6: «Додати вручну» on S-141.
   { id: "newRecurring", parent: RECURRING, path: `${RECURRING.path}/new`, title: "page.newRecurring" },
+  // BUD-02@PoC f) FR 17: «Налаштування бюджету» (S-128 «Рахунки бюджету», S-288 «Загальне»), the gear of «Бюджет».
+  {
+    id: "budgetAccounts",
+    parent: BUDGET,
+    path: `${BUDGET.path}/settings/accounts`,
+    title: "planning.budget.settings.title",
+  },
+  {
+    id: "budgetGeneral",
+    parent: BUDGET,
+    path: `${BUDGET.path}/settings/general`,
+    title: "planning.budget.settings.title",
+  },
+  // BUD-02@PoC e) (row 124): the wizard «Новий бюджет» (S-122 … S-124), from the empty state of «Бюджет».
+  { id: "budgetNew", parent: BUDGET, path: `${BUDGET.path}/new`, title: "planning.budget.wizard.title" },
 ];
 export const childPath = (id: ChildId): string => CHILDREN.find((c) => c.id === id)!.path;
 
@@ -230,9 +248,17 @@ export const AUTH_PATHS: Readonly<Record<string, AuthScreen>> = {
 
 export const sectionOf = (p: PageDef): SectionDef => SECTIONS.find((s) => s.id === p.sectionId)!;
 
+const LEGACY_PATHS: Readonly<Record<string, string>> = {
+  "/planning/budget/accounts": "/planning/budget/settings/accounts",
+  "/planning/budget/general": "/planning/budget/settings/general",
+};
+
 /** The path a route is shown at: `/` and the bare section paths open their root page. */
 export function canonicalPath(path: string): string {
   if (path === "/") return START_PATH;
+  // BUD-02@PoC f) FR 17: the first addresses of «Налаштування бюджету» (before the screen map's) still open the page.
+  const old = LEGACY_PATHS[path];
+  if (old) return old;
   const section = SECTIONS.find((s) => s.path === path);
   return section ? rootOf(section).path : path;
 }

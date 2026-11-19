@@ -507,7 +507,7 @@ describe("BUD-19@PoC access and concurrency", () => {
     ] as const) {
       const res = await call(stranger, method, url, body);
       expect(res.statusCode, url).toBe(404);
-      expect(res.body).not.toContain("5000");
+      expect(leakText(res.body)).not.toContain("5000");
     }
     expect(await debts(stranger)).toEqual([]);
     expect(
@@ -640,7 +640,25 @@ describe("BUD-19@PoC security review: two saves at once", () => {
  */
 const stripSupport = (body: string) => body.replace(/"supportId":"[0-9a-f]+"/, '"supportId":"-"');
 
+/**
+ * The parsed body without the random `supportId` (hex, which may hold any digits by chance: #557), as text, for a
+ * «does not contain» leak check. A real leak (an amount, a name, an id in any other field) is still in it.
+ */
+const leakText = (body: string): string => {
+  const parsed = JSON.parse(body) as Record<string, unknown>;
+  delete parsed.supportId;
+  return JSON.stringify(parsed);
+};
+
 describe("BUD-19@PoC security review: the space's boundary and the scope", () => {
+  it("BUD-19@PoC «Права доступу»: the leak check ignores a random supportId (#557) and still fails on a real leak", () => {
+    const chance = '{"code":"NOT_FOUND","supportId":"b0aa96e35cf687db5000e7f6ea3e05b9"}';
+    expect(leakText(chance)).not.toContain("5000");
+    const leak =
+      '{"code":"NOT_FOUND","detail":"Visa 5000.00","supportId":"b0aa96e35cf687db5000e7f6ea3e05b9"}';
+    expect(leakText(leak)).toContain("5000");
+  });
+
   it("BUD-19@PoC AC7: another space's DELETE of a debt that has a plan — 404, the plan and its audit untouched", async () => {
     const owner = await newSpace();
     const stranger = await newSpace();
@@ -686,7 +704,7 @@ describe("BUD-19@PoC security review: the space's boundary and the scope", () =>
       const as = { role, scoped: true };
       const scenario = await call(space, "POST", `/v1/debts/${visa}/scenario`, {}, as);
       expect(scenario.statusCode, role).toBe(404);
-      expect(scenario.body).not.toContain("5000");
+      expect(leakText(scenario.body)).not.toContain("5000");
       const strategy = await call(space, "POST", "/v1/debts/strategy", { total: eur("500.00") }, as);
       expect(strategy.statusCode, role).toBe(404);
       expect(strategy.body).not.toContain(visa);

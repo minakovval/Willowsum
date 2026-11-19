@@ -272,33 +272,72 @@ export function Tooltip({ text, children }: { text: string; children: ReactEleme
  * CMP-25@PoC: text cut off on one line with an ellipsis (a card or goal name, a table cell, a long field value).
  * Only when it is actually cut off does it take the focus and get a tooltip with the full text; text that fits
  * has neither. The full text always stays in the DOM, so screen readers read all of it.
+ *
+ * `maxLines={2}` is the name ladder of GRID-00 FR 18 / DS-05 (cards, goals, accounts): one line; then one line at
+ * 85 % (`data-fit="smaller"`); then two lines (`data-fit="two"`, a word-less name breaks by characters); only a
+ * name still too long for two lines gets the ellipsis, the focus and the tooltip.
  */
-export function TruncatedText({ text, className }: { text: string; className?: string | undefined }) {
+export function TruncatedText({
+  text,
+  className,
+  maxLines = 1,
+}: {
+  text: string;
+  className?: string | undefined;
+  maxLines?: 1 | 2 | undefined;
+}) {
   const el = useRef<HTMLSpanElement | null>(null);
   const [truncated, setTruncated] = useState(false);
+  const [fit, setFit] = useState<NameFit>("one");
 
   useLayoutEffect(() => {
     const node = el.current;
     if (!node) return;
-    const measure = () => setTruncated(node.scrollWidth > node.clientWidth + 0.5);
+    const measure = () => {
+      if (maxLines === 1) {
+        setTruncated(node.scrollWidth > node.clientWidth + 0.5);
+        return;
+      }
+      // Try the steps of the ladder in order on the element itself; the first that shows everything wins.
+      let chosen: NameFit = NAME_LADDER[NAME_LADDER.length - 1]!;
+      for (const step of NAME_LADDER) {
+        node.dataset.fit = step;
+        const cut =
+          step === "two"
+            ? node.scrollHeight > node.clientHeight + 0.5
+            : node.scrollWidth > node.clientWidth + 0.5;
+        if (!cut) {
+          chosen = step;
+          break;
+        }
+      }
+      node.dataset.fit = chosen;
+      setFit(chosen);
+      const last = chosen === "two";
+      setTruncated(last && node.scrollHeight > node.clientHeight + 0.5);
+    };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver(measure);
     ro.observe(node);
     return () => ro.disconnect();
-  }, [text]);
+  }, [text, maxLines]);
 
   const { triggerProps, tooltip } = useTooltip(text, truncated);
   const ref = (node: HTMLSpanElement | null) => {
     el.current = node;
     triggerProps?.ref(node);
   };
+  const classes = ["ws-truncate", maxLines === 2 ? "ws-truncate--name" : "", className ?? ""]
+    .filter(Boolean)
+    .join(" ");
   return (
     <>
       <span
         {...triggerProps}
         ref={ref}
-        className={className ? `ws-truncate ${className}` : "ws-truncate"}
+        className={classes}
+        data-fit={maxLines === 2 ? fit : undefined}
         tabIndex={truncated ? 0 : undefined}
       >
         {text}
@@ -307,3 +346,6 @@ export function TruncatedText({ text, className }: { text: string; className?: s
     </>
   );
 }
+
+type NameFit = "one" | "smaller" | "two";
+const NAME_LADDER: readonly NameFit[] = ["one", "smaller", "two"];

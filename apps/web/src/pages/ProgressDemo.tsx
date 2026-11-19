@@ -88,6 +88,19 @@ export function ProgressDemo() {
         </ul>
       </figure>
 
+      <figure className="gallery-progress__case" data-case="estimate">
+        <figcaption className="ws-text-label ws-muted">{t("gallery.progress.estimate")}</figcaption>
+        <div className="ws-card">
+          <Progress
+            label={t("gallery.progress.account2")}
+            value={612}
+            max={900}
+            estimated
+            unit={t("gallery.progress.transactions")}
+          />
+        </div>
+      </figure>
+
       <figure className="gallery-progress__case" data-case="live">
         <figcaption className="ws-text-label ws-muted">{t("gallery.progress.live")}</figcaption>
         <div className="ws-card gallery-progress__live">

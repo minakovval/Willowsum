@@ -2,6 +2,21 @@
 .tx-list {
   display: grid;
   margin-block-start: var(--ws-space-4);
+  /* GRID-02@PoC AC7: the toolbar answers to the same container width as the card form of the rows below it. */
+  container-type: inline-size;
+}
+
+/* GRID-02@PoC FR 9, AC7: the sort button is only for the card form (below 520 px of the container); the table has the headers. */
+.tx-sort {
+  display: none;
+}
+
+/* The rows are cards below 520 px of the table's own box; the table (.ws-card) has a 1 px border on each side, so
+   that is 521 px of .tx-list. */
+@container (max-width: 521px) {
+  .tx-sort {
+    display: contents;
+  }
 }
 
 .tx-totals {
@@ -159,9 +174,25 @@
 
 .review-groups {
   display: grid;
-  grid-template-columns: minmax(0, calc(var(--ws-space-8) * 6)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
-  gap: var(--ws-space-4);
+  /* The columns of the 4 + 8 grid (FR 4) stand on the page gutter, as on the canvas (24 px at Expanded). */
+  gap: var(--ws-space-4) var(--ws-gutter);
+}
+
+/* GRID-02@PoC FR 4: header | progress | the queue 4 + the card 8 of the 12 columns (Expanded). */
+@media (min-width: 1024px) {
+  .review-groups {
+    grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));
+  }
+
+  .review-groups > .review-group-list {
+    grid-column: span 4;
+  }
+
+  .review-groups > .review-group {
+    grid-column: span 8;
+  }
 }
 
 .review-group-list {

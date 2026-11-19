@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -112,6 +112,22 @@ describe("GRID-05@PoC S-186 «Налаштування»", () => {
     });
     expect(item.getAttribute("href")).toBe("#/settings");
     expect(within(main).queryByRole("link", { name: "Ще" })).toBeNull();
+  });
+
+  it("GRID-05@PoC FR 3: the pages of «Налаштування» name no plan and no plan limit — they are not set in the page code", async () => {
+    const dir = dirname(fileURLToPath(import.meta.url));
+    const source = readdirSync(dir)
+      .filter((f) => /\.tsx?$/.test(f) && !/\.test\./.test(f))
+      .map((f) => readFileSync(join(dir, f), "utf8"))
+      .join("\n");
+    // The plan names of 00-general «Плани» and the keys of the plan matrix come from the plan service, never from here.
+    expect(source).not.toMatch(
+      /["'`](Free|Plus|Family|Trial)["'`]|plan-catalog|FEATURE_KEYS|planLimits|PLAN_LIMITS/,
+    );
+    const api = fakeApi({ "GET /v1/profile": ok(PROFILE) });
+    renderAt("#/settings", api.client);
+    await screen.findByText(PROFILE.email);
+    expect(document.body.textContent).not.toMatch(/\b(Free|Plus|Family|Trial)\b/);
   });
 
   it("ACC-05@PoC AC2: no «Мова і формати» section and no language choice on «Налаштування»", async () => {
@@ -313,6 +329,27 @@ describe("ACC-05@PoC FR 5 password change with step-up (S-032)", () => {
     expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(dialog().textContent).not.toMatch(/спроб|attempt|\d+ з/);
     expect(callsTo(calls, "/v1/profile/password")).toEqual([]);
+  });
+
+  it("CMP-21@PoC AC26: a wrong password in step-up shows «Пароль неправильний» under «Поточний пароль» with no hints; focus stays in the field and the message is announced", async () => {
+    await openProfile({
+      "POST /v1/session/step-up": problem(403, "STEP_UP_PASSWORD_INVALID"),
+    });
+    await startPasswordChange();
+    confirmWith("wrong-password");
+    await within(dialog()).findByText("Пароль неправильний");
+    const field = within(dialog()).getByLabelText(/^Поточний пароль/);
+    expect(document.activeElement).toBe(field);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    const wrap = field.closest(".auth-field")!;
+    // No live region: the error is read when the focus lands on the field, through `aria-describedby`.
+    const described = field
+      .getAttribute("aria-describedby")!
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+    expect(described.replace(/\s+/g, " ").trim()).toBe("Помилка. Пароль неправильний");
+    expect(wrap.textContent).not.toMatch(/спроб|залиш|attempt|\d+ з/);
   });
 
   it("NFR-01@PoC AC6: at the lockout the dialog says «Вхід тимчасово заблоковано. Спробуйте через N хв» and offers only «Закрити»", async () => {

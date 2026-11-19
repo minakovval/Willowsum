@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ListToolbar } from "../toolbar/ListToolbar.tsx";
+import { ListButton } from "../select/ListButton.tsx";
 import { FilterBar, FilterChecks, FilterRow, type FilterChipItem } from "./FilterBar.tsx";
 
 const ACCOUNTS = [
@@ -249,5 +250,43 @@ describe("CMP-32@PoC FilterBar", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Сума:/ }));
     expect(screen.getByRole("button", { name: /^Сума:/ }).getAttribute("aria-haspopup")).toBe("dialog");
     expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "від" }));
+  });
+});
+
+describe("CMP-32@PoC a page with a single filter", () => {
+  it("CMP-32@PoC AC9: the one filter of a page (the category of a trend) is the list «Категорія: Усі ˅» — no «Фільтри · N» button, no filter panel — and a choice applies at once", () => {
+    const onChange = vi.fn();
+    function Trend() {
+      const [category, setCategory] = useState("all");
+      return (
+        <ListToolbar label="Керування списком">
+          <ListButton
+            label="Категорія"
+            options={[
+              { value: "all", label: "Усі" },
+              { value: "food", label: "Продукти" },
+            ]}
+            value={category}
+            onChange={(v) => {
+              setCategory(v);
+              onChange(v);
+            }}
+          />
+        </ListToolbar>
+      );
+    }
+    render(<Trend />);
+    const select = screen.getByRole("button", { name: "Категорія: Усі" });
+    expect(select.getAttribute("aria-haspopup")).toBe("listbox");
+    expect(screen.queryByRole("button", { name: /^Фільтри/ })).toBeNull();
+    fireEvent.click(select);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(
+      within(screen.getByRole("listbox", { name: "Категорія" })).getByRole("option", { name: "Продукти" }),
+    );
+    expect(onChange).toHaveBeenCalledWith("food");
+    expect(screen.getByRole("button", { name: "Категорія: Продукти" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Фільтри/ })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

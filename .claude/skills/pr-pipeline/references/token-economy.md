@@ -55,6 +55,8 @@ Mandatory. The tables live in the **body** of #180, never in comments: read the 
 `gh api -X PATCH repos/{owner}/{repo}/issues/180 -F body=@<file>` (`-F`, not `-f`: `-f` sends the literal
 `@<file>` and erases the tables) and check that the old rows and the new one are there. Keep a running tally in
 the scratchpad (`tokens.tsv`: PR, role, log path, `duration_ms`, `subagent_tokens`) so a compaction loses nothing.
+The `--note` of the PR row also gives the model per role in short form, e.g. `a:S r:O` (a author, r reviewer, s
+security, f fix; S Sonnet, O Opus, F Fable): the next process review measures the cost of Opus reviews on test-only PRs.
 
 Numbers (#178): `subagent_tokens` in a completion notice is the agent's final context, not its spend (kept for
 comparison); the spend is the `usage` of every model call in its log `tasks/<agentId>.output`, each `message.id`

@@ -301,6 +301,12 @@
   vertical-align: baseline;
 }
 
+/* GRID-00@PoC FR 19, AC6: an abbreviated amount (the only state in which it takes focus) has a dashed underline. */
+.ws-amount-fit[tabindex] > .ws-amount {
+  text-decoration: underline dashed;
+  text-underline-offset: var(--ws-space-1);
+}
+
 .ws-amount-fit__probe {
   position: absolute;
   inset-block-start: 0;
@@ -775,7 +781,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--ws-layer-tooltip);
+  z-index: var(--ws-layer-top);
   box-sizing: border-box;
   inline-size: max-content;
   max-inline-size: min(calc(var(--ws-space-8) * 5), calc(100vw - 2 * var(--ws-space-2)));
@@ -827,6 +833,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/*
+ * GRID-00@PoC FR 18 / DS-05: the name ladder, set by `TruncatedText maxLines={2}` through `data-fit`: one line,
+ * one line at 85 %, two lines at 85 % (a name without spaces breaks by characters), then the ellipsis.
+ */
+.ws-truncate--name[data-fit="smaller"],
+.ws-truncate--name[data-fit="two"] {
+  font-size: 85%;
+}
+
+.ws-truncate--name[data-fit="two"] {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /*
@@ -1129,6 +1153,7 @@
   background: var(--ws-surface-200);
   color: var(--ws-ink);
   cursor: text;
+  transition: border-color var(--ws-duration-interaction) var(--ws-easing-out);
 }
 
 .ws-field-box[data-size="search"] {
@@ -2560,6 +2585,73 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink);
 }
 
+/*
+ * GRID-02@PoC FR 7, AC2: the transactions table is the container of its rows; below 520 px of the container (not of
+ * the window) a row is a card — the merchant and the amount, then the category, the account and the date. The header
+ * leaves the layout (its sort buttons stay reachable by Tab); nothing scrolls sideways.
+ */
+.ws-tx-table {
+  container-type: inline-size;
+  min-inline-size: 0;
+}
+
+@container (max-width: 519px) {
+  .ws-tx-table .ws-tx-head {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .ws-tx-table .ws-tx-head:focus-within {
+    position: static;
+    inline-size: auto;
+    block-size: auto;
+    overflow: visible;
+    clip-path: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table.ws-tx-row-table {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ws-space-2) var(--ws-space-3);
+  }
+
+  .ws-tx-table .ws-tx-row-table.ws-tx-row-table::after {
+    content: "";
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-row-check {
+    order: 0;
+    flex: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-who {
+    order: 1;
+    flex: 1 1 0;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-row-money {
+    order: 2;
+    inline-size: auto;
+    flex: none;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-cell {
+    order: 3;
+  }
+
+  .ws-tx-table .ws-tx-row-table .ws-tx-when {
+    order: 4;
+    margin-inline-start: auto;
+    text-align: end;
+  }
+}
+
 /* CMP-02@PoC «Тип «дата»»: the calendar icon on the left of the 40 px frame, the grey «· сьогодні». */
 .ws-date .ws-select-control {
   padding-inline-start: var(--ws-space-3);
@@ -3039,6 +3131,78 @@ button.ws-stepper-step[aria-disabled="true"] {
   padding-block-start: var(--ws-space-3);
 }
 
+/* CMP-32@PoC «у картці»: the menu under «Фільтри · N» — sections of check items with a count on the right. */
+.ws-card-filter-menu {
+  padding-block: var(--ws-space-2);
+  padding-inline: var(--ws-space-2);
+}
+
+.ws-card-filter-heading {
+  margin: 0;
+  padding: var(--ws-space-2) var(--ws-space-3) var(--ws-space-1);
+  color: var(--ws-ink-muted);
+  font-size: var(--ws-text-subline-size);
+  line-height: var(--ws-text-subline-line);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ws-card-filter-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-space-3);
+  inline-size: 100%;
+  min-block-size: calc(var(--ws-touch-target) - var(--ws-space-2));
+  padding: 0 var(--ws-space-3);
+  border: 0;
+  border-radius: var(--ws-radius-md);
+  background: transparent;
+  color: var(--ws-ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-card-filter-item:hover {
+  background: var(--ws-surface-300);
+}
+
+.ws-card-filter-item:focus-visible,
+.ws-card-filter-reset:focus-visible {
+  outline: 3px solid var(--ws-focus);
+  outline-offset: 2px;
+}
+
+.ws-card-filter-label {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.ws-card-filter-count {
+  color: var(--ws-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ws-card-filter-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-space-3);
+  margin-block-start: var(--ws-space-2);
+  padding: var(--ws-space-3) var(--ws-space-3) var(--ws-space-1);
+  border-block-start: 1px solid var(--ws-line);
+}
+
+.ws-card-filter-reset {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ws-link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 /* A check box of a value among several (16 px, radius 4; checked — `brand` with a white check). */
 .ws-check-box {
   display: grid;
@@ -3429,4 +3593,36 @@ button.ws-stepper-step[aria-disabled="true"] {
   color: var(--ws-ink-muted);
   font-size: var(--ws-text-label-size);
   line-height: var(--ws-text-label-line);
+}
+
+/* CMP-61@PoC FR 8: the popover of a button — a dialog with no backdrop, under its button. */
+.ws-popover-host {
+  position: relative;
+  display: inline-block;
+}
+
+.ws-popover {
+  position: absolute;
+  inset-block-start: calc(100% + var(--ws-space-1));
+  z-index: var(--ws-layer-tooltip);
+  min-inline-size: calc(var(--ws-space-8) * 5);
+  padding: var(--ws-space-4);
+  border: 1px solid var(--ws-line);
+  border-radius: var(--ws-radius-md);
+  background: var(--ws-surface-200);
+  box-shadow: var(--ws-shadow-popover);
+}
+
+/* No room below the button: above it (set by `Popover` after measuring). */
+.ws-popover[data-placement="above"] {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + var(--ws-space-1));
+}
+
+.ws-popover--start {
+  inset-inline-start: 0;
+}
+
+.ws-popover--end {
+  inset-inline-end: 0;
 }

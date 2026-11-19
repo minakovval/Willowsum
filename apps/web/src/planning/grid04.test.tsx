@@ -1,9 +1,15 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import { installMatchMedia } from "@willowsum/ui/test-utils";
 import { fakeApi, renderAt, resetAuthState } from "../auth/testing.tsx";
+
+/** Without a budget: `GET /v1/budget` answers `null` (BUD-02 d), the empty state of #541). */
+const noBudget = () => fakeApi({ "GET /v1/budget": { status: 200, body: { budget: null } } }).client;
+
+/** Without goals: `GET /v1/goals` answers an empty list (BUD-05 c), the empty state of #541). */
+const noGoals = () => fakeApi({ "GET /v1/goals": { status: 200, body: { goals: [] } } }).client;
 
 /**
  * GRID-04@PoC: the page grids of «Планування». The measured layout at 1280 px (AC1) is in e2e/layout.spec.ts; here
@@ -38,25 +44,25 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     ]);
   });
 
-  it("GRID-04@PoC FR 1: the three blocks are empty slots of one height — they stretch in one row", () => {
-    renderAt("#/planning/budget", fakeApi({}).client);
+  it("GRID-04@PoC FR 1: the three blocks are empty slots of one height — they stretch in one row", async () => {
+    renderAt("#/planning/budget", noBudget());
     const slots = document.querySelectorAll("[data-plan-page='budget'] > [data-empty='true']");
     expect([...slots].map((e) => e.getAttribute("data-plan-region"))).toEqual([
       "spendable",
       "income",
       "recurring",
     ]);
-    // The page is not blank until its screen comes: the shell's empty state stays.
-    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
+    // The page is not blank until its screen comes: its own empty state shows (EC1).
+    expect(await screen.findByRole("heading", { level: 2, name: "Бюджету ще немає" })).toBeTruthy();
     expect(css).toContain("align-items: stretch;");
     expect(css).toContain("grid-template-columns: repeat(var(--ws-columns), minmax(0, 1fr));");
     expect(css).toContain("gap: var(--ws-gutter);");
   });
 
-  it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", () => {
-    renderAt("#/planning/goals", fakeApi({}).client);
+  it("GRID-04@PoC FR 3, AC1: «Цілі» — the list on 4 columns, the detail with the projection and the links on 8", async () => {
+    renderAt("#/planning/goals", noGoals());
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Цілі");
-    expect(screen.getByRole("heading", { level: 2, name: "Тут поки нічого немає" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
     expect(regions("goals")).toEqual([
       ["list", "4"],
       ["detail", "8"],
@@ -80,6 +86,20 @@ describe("GRID-04@PoC page grids of «Планування»", () => {
     renderAt("#/planning/budget", fakeApi({}).client);
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b|\d+px(?!\))/);
+  });
+
+  it("GRID-04@PoC EC1: without a budget the page shows the empty state with an explanation, in the categories region", async () => {
+    renderAt("#/planning/budget", noBudget());
+    const region = document.querySelector<HTMLElement>("[data-plan-region='categories']")!;
+    expect(await within(region).findByRole("heading", { level: 2, name: "Бюджету ще немає" })).toBeTruthy();
+    expect(region.textContent).toContain("Бюджет показує, скільки можна витратити до кінця місяця");
+  });
+
+  it("GRID-04@PoC EC2: without goals the list region shows «Додайте першу ціль» with an explanation", async () => {
+    renderAt("#/planning/goals", noGoals());
+    const region = document.querySelector<HTMLElement>("[data-plan-region='list']")!;
+    expect(await within(region).findByRole("heading", { level: 2, name: "Додайте першу ціль" })).toBeTruthy();
+    expect(region.textContent).toContain("Відкладайте на подорож, покупку чи подушку безпеки");
   });
 
   it("GRID-04@PoC FR 4: there is no page «Чи можу я дозволити» in this release", () => {

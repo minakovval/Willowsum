@@ -2198,7 +2198,7 @@
       "y": 40360
     },
     "PocPlanBudgetTexts.dc.html": {
-      "h": 3120,
+      "h": 7800,
       "page": "poc",
       "title": "S-121 Бюджет · Тексти (словник статусів DS-23)",
       "w": 2640,
@@ -2345,7 +2345,7 @@
       "page": "poc",
       "title": "S-144 План погашення",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 82860
     },
     "PocPlanDebtProgress.dc.html": {
@@ -2380,6 +2380,14 @@
       "is_interactive": true,
       "page": "poc",
       "title": "S-143 Борги · порожньо",
+      "w": 1280,
+      "x": 2720,
+      "y": 81730
+    },
+    "PocPlanDebtsTexts.dc.html": {
+      "h": 6040,
+      "page": "poc",
+      "title": "S-143 Борги · Тексти",
       "w": 1280,
       "x": 1360,
       "y": 81730
@@ -2552,8 +2560,16 @@
       "page": "poc",
       "title": "S-136 Цілі · порожньо",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 62910
+    },
+    "PocPlanGoalsTexts.dc.html": {
+      "h": 4560,
+      "page": "poc",
+      "title": "S-136 Цілі · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 60290
     },
     "PocPlanPeriod.dc.html": {
       "h": 1900,
@@ -2588,7 +2604,7 @@
       "page": "poc",
       "title": "S-141 Регулярні платежі · порожньо",
       "w": 1280,
-      "x": 2720,
+      "x": 4080,
       "y": 75550
     },
     "PocPlanRecurringOverdue.dc.html": {
@@ -2597,7 +2613,7 @@
       "page": "poc",
       "title": "S-141 Регулярні платежі · прострочено",
       "w": 1280,
-      "x": 1360,
+      "x": 2720,
       "y": 75550
     },
     "PocPlanRecurringPayment.dc.html": {
@@ -2608,6 +2624,14 @@
       "w": 1280,
       "x": 0,
       "y": 78000
+    },
+    "PocPlanRecurringTexts.dc.html": {
+      "h": 2480,
+      "page": "poc",
+      "title": "S-141 Регулярні платежі · Тексти",
+      "w": 1280,
+      "x": 1360,
+      "y": 75550
     },
     "PocPlanTrend.dc.html": {
       "h": 1360,
@@ -4441,6 +4465,7 @@
     "PocPlanGoalCardAuto.dc.html",
     "PocPlanGoalsArchive.dc.html",
     "PocPlanGoalsEmpty.dc.html",
+    "PocPlanGoalsTexts.dc.html",
     "PocPlanGoalNew.dc.html",
     "PocPlanGoalNewForm.dc.html",
     "PocPlanGoalNewFormStep2.dc.html",
@@ -4452,6 +4477,7 @@
     "PocPlanGoalSpend.dc.html",
     "PocPlanGoalSpendStep2.dc.html",
     "PocPlanRecurring.dc.html",
+    "PocPlanRecurringTexts.dc.html",
     "PocPlanRecurringOverdue.dc.html",
     "PocPlanRecurringPayment.dc.html",
     "PocPlanRecurringCancel.dc.html",
@@ -4462,6 +4488,7 @@
     "PocPlanAffordShort.dc.html",
     "PocPlanAffordInstalment.dc.html",
     "PocPlanDebts.dc.html",
+    "PocPlanDebtsTexts.dc.html",
     "PocPlanDebtsEmpty.dc.html",
     "PocPlanDebtPlan.dc.html",
     "PocPlanDebtPlanGrows.dc.html",
