@@ -448,6 +448,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/cashflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Income, spending, net flow and savings rate of a month or of each month of a period (BUD-08 FR 1, FR 3, FR 11) */
+        get: operations["getCashflow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/categories": {
         parameters: {
             query?: never;
@@ -6781,6 +6798,159 @@ export interface operations {
             };
         };
     };
+    getCashflow: {
+        parameters: {
+            query: {
+                /** @description month — YYYY-MM; quarter — YYYY-Qn; ytd and year — YYYY */
+                period: string;
+                /** @description The period type; «Власний» is not offered (FR 1) */
+                type: "month" | "quarter" | "ytd" | "year";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The period's cash flow */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        approximate: {
+                            nearestRateCount: number;
+                            unavailableCount: number;
+                        };
+                        currency: string;
+                        empty: boolean;
+                        months: {
+                            expenses: {
+                                amount: string;
+                                currency: string;
+                            };
+                            income: {
+                                amount: string;
+                                currency: string;
+                            };
+                            month: string;
+                            netFlow: {
+                                amount: string;
+                                currency: string;
+                            };
+                            savingsRate: string | null;
+                            uncategorizedInflows: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                count: number;
+                            };
+                        }[];
+                        period: string;
+                        totals: {
+                            averageMonthlyRate: string | null;
+                            expenses: {
+                                amount: string;
+                                currency: string;
+                            };
+                            highest: string | null;
+                            income: {
+                                amount: string;
+                                currency: string;
+                            };
+                            lowest: string | null;
+                            netFlow: {
+                                amount: string;
+                                currency: string;
+                            };
+                            savingsRate: string | null;
+                        };
+                        /** @enum {string} */
+                        type: "month" | "quarter" | "ytd" | "year";
+                        unpairedTransfers: number;
+                        /** @enum {string} */
+                        view: "month" | "monthly";
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     listCategories: {
         parameters: {
             query?: never;
@@ -12622,7 +12792,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "data.import" | "debts.payoff")[];
+                        features: ("accounts.manual" | "household.core" | "household.space-settings" | "identity.sign-in" | "identity.profile" | "transactions.manual" | "transactions.states" | "transactions.transfers" | "transactions.duplicates" | "transactions.attributes" | "transactions.review" | "transactions.history" | "categories.tree" | "data.bulk_actions" | "transactions.merchants" | "merchants.review-groups" | "categorization.rules" | "categorization.suggestions" | "recurring.payments" | "goals.savings" | "budget.period" | "budget.cashflow" | "data.import" | "debts.payoff")[];
                     };
                 };
             };

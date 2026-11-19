@@ -19,6 +19,7 @@ import {
   createBudgetObligations,
   createBudgetServices,
 } from "./modules/budget/index.ts";
+import { createCashflowServices } from "./modules/cashflow/index.ts";
 import { createAuditLog } from "./modules/audit/index.ts";
 import { createCategoriesServices, createCategoryDirectory } from "./modules/categories/index.ts";
 import {
@@ -67,7 +68,10 @@ import {
   createTransactionsServices,
   createTransferCandidates,
 } from "./modules/transactions/index.ts";
-import { createTransferMatchingServices } from "./modules/transfer-matching/index.ts";
+import {
+  createTransferMatchingServices,
+  createTransferProposalSides,
+} from "./modules/transfer-matching/index.ts";
 import { createDuplicateCheck, createDuplicateMatchingServices } from "./modules/duplicate-matching/index.ts";
 import { systemClock } from "./platform/adapters/index.ts";
 import { captchaVerifier } from "./platform/adapters/captcha/index.ts";
@@ -404,6 +408,27 @@ const server = buildServer({
                 payments: createAccountPayments(databases.for("transactions")),
                 fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
               }),
+            }),
+            // BUD-08 a: «Грошовий потік» over the category tree, the accounts, the period's transactions with their
+            // categories, the proposed transfers (left out) and the NBU rate of each date (fx-rates).
+            cashflow: createCashflowServices({
+              categories: createCategoryDirectory({
+                db: databases.for("categories"),
+                audit,
+                newId: randomUUID,
+              }),
+              accounts: createAccountList(databases.for("accounts")),
+              transactions: createBudgetTransactions(databases.for("transactions")),
+              categorization: createTransactionCategories(databases.for("categorization")),
+              transfers: createTransferProposalSides({
+                candidates: createTransferCandidates(databases.for("transactions")),
+                rates: (requests) =>
+                  createFxRates({ db: databases.for("fx-rates"), now: () => systemClock.now() }).rates(
+                    requests,
+                  ),
+              }),
+              fx: createFxReporting({ db: databases.for("fx-rates"), now: () => systemClock.now() }),
+              clock: systemClock,
             }),
             // BUD-14 a: the merchant of a transaction from its description, renamed and merged for the space.
             merchants: createMerchantsServices({
