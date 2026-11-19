@@ -11,6 +11,7 @@ import type { CategoriesServices } from "./modules/categories/index.ts";
 import type { DebtPayoffServices } from "./modules/debt-payoff/index.ts";
 import type { GoalsServices } from "./modules/goals/index.ts";
 import type { BudgetServices } from "./modules/budget/index.ts";
+import type { CashflowServices } from "./modules/cashflow/index.ts";
 import type { CategorizationServices } from "./modules/categorization/index.ts";
 import type { MerchantsServices } from "./modules/merchants/index.ts";
 import type { RecurringServices } from "./modules/recurring/index.ts";
@@ -69,6 +70,8 @@ export interface ApiWiring {
   readonly goals?: GoalsServices;
   /** The budget module's ports (BUD-02: categories, accounts, transactions, categorization, rates, audit log, clock). */
   readonly budget?: BudgetServices;
+  /** The cashflow module's ports (BUD-08: categories, accounts, transactions, categorization, transfer proposals, rates). */
+  readonly cashflow?: CashflowServices;
   /** The debt-payoff module's ports (BUD-19: the credit accounts, liabilities, the journal, audit log, clock). */
   readonly debtPayoff?: DebtPayoffServices;
   /**
@@ -149,7 +152,9 @@ export function apiOptions(wiring: ApiWiring): ApiOptions {
                                 ? wiring.recurring
                                 : module === "budget"
                                   ? wiring.budget
-                                  : undefined,
+                                  : module === "cashflow"
+                                    ? wiring.cashflow
+                                    : undefined,
     secureCookies: wiring.deployed ?? false,
     checkPermission: (principal, permission) => checkPermission(principal, permission),
     checkFeature: (principal, feature) => entitlements.isEnabled(principal.householdId, feature),
