@@ -295,6 +295,23 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/v1/budget/allocation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The wizard's «Розподіл»: the bar of the limits step and the surplus or deficit of the plan not saved yet (FR 3, FR 15; AC6, AC7) */
+        post: operations["previewBudgetAllocation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/budget/periods/{period}": {
         parameters: {
             query?: never;
@@ -5286,6 +5303,176 @@ export interface operations {
             };
         };
     };
+    previewBudgetAllocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    chosen?: {
+                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        amount: string;
+                        /** @description The budget's currency (the space's reporting currency) */
+                        currency: string;
+                    }[];
+                    /** @description A calendar month, YYYY-MM */
+                    firstPeriod: string;
+                    incomePlan?: {
+                        /** @description A plain non-negative decimal, at most the currency's minor units */
+                        amount: string;
+                        /** @description The budget's currency (the space's reporting currency) */
+                        currency: string;
+                    };
+                    limits?: {
+                        amount: {
+                            /** @description A plain non-negative decimal, at most the currency's minor units */
+                            amount: string;
+                            /** @description The budget's currency (the space's reporting currency) */
+                            currency: string;
+                        };
+                        /** Format: uuid */
+                        categoryId: string;
+                    }[];
+                    proportional?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The figures; nothing is saved and nothing is moved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        balance: {
+                            amount: {
+                                amount: string;
+                                currency: string;
+                            };
+                            debtMinimums: {
+                                amount: string;
+                                currency: string;
+                            };
+                            difference: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** @enum {string} */
+                            kind: "surplus" | "deficit" | "balanced";
+                            recurringOutsideLimits: {
+                                amount: string;
+                                currency: string;
+                            };
+                            unallocated: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | null;
+                        choice: {
+                            chosen: {
+                                amount: string;
+                                currency: string;
+                            };
+                            rest: {
+                                amount: string;
+                                currency: string;
+                            };
+                            /** @enum {string} */
+                            status: "short" | "exact" | "over";
+                        } | null;
+                        incomePlan: {
+                            amount: string;
+                            currency: string;
+                        };
+                        limits: {
+                            amount: string;
+                            currency: string;
+                        };
+                        period: string;
+                    };
+                };
+            };
+            /** @description The request is not valid (VALIDATION_FAILED, MALFORMED_REQUEST, INVALID_CURSOR) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not signed in (UNAUTHENTICATED) */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The plan of the space does not include this (PLAN_LIMIT_REACHED) */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The role or scope does not allow this (FORBIDDEN), or the request comes from a page of another site (ORIGIN_NOT_ALLOWED) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Not found (NOT_FOUND): the record does not exist for the caller, or the function is off for the space */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Too many requests from this client in the current minute (RATE_LIMITED; 600 per minute for this route) */
+            429: {
+                headers: {
+                    /** @description Seconds until the current one-minute window ends */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The function is temporarily unavailable (MODULE_UNAVAILABLE): its module is switched off; retry later */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Any other error, as problem details */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
     getBudgetPeriod: {
         parameters: {
             query?: never;
@@ -5310,6 +5497,19 @@ export interface operations {
                             unavailableCount: number;
                         };
                         currency: string;
+                        expectedPayments: {
+                            categories: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                categoryId: string | null;
+                            }[];
+                            total: {
+                                amount: string;
+                                currency: string;
+                            };
+                        } | null;
                         groups: {
                             categories: {
                                 /** Format: uuid */
@@ -5364,6 +5564,43 @@ export interface operations {
                             daysInPeriod: number;
                             from: string;
                             to: string;
+                        } | null;
+                        summary: {
+                            free: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            limits: {
+                                amount: string;
+                                currency: string;
+                            };
+                            mandatoryNeeded: {
+                                amount: string;
+                                currency: string;
+                            } | null;
+                            mandatoryRemaining: {
+                                amount: string;
+                                currency: string;
+                            };
+                            optionalLimits: {
+                                amount: string;
+                                currency: string;
+                            };
+                            overspend: {
+                                amount: {
+                                    amount: string;
+                                    currency: string;
+                                };
+                                count: number;
+                            };
+                            spent: {
+                                amount: string;
+                                currency: string;
+                            };
+                            unpaidRecurring: {
+                                amount: string;
+                                currency: string;
+                            } | null;
                         } | null;
                         totals: {
                             limits: {
