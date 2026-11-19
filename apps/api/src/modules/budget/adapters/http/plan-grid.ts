@@ -36,17 +36,21 @@ const gridSchema = z.object({
     z.object({ period: z.string(), mode: z.enum(["current", "future"]), inBudget: z.boolean() }),
   ),
   /**
-   * «Надходження»: a row per regular income expected in a month of the grid (module recurring's payment); `paymentId`
-   * null — «План доходу» (the budget's income plan), only while some month has no regular income. `expected` — the
-   * line counts in that month (only such a cell can be changed).
+   * «Надходження» (owner decision 2026-11-19, Q3): `plan` — «План доходу», the month's income plan as typed (a cell
+   * with `lineId` null; default — the budget's income plan), not summed; a row per regular income expected in a month
+   * of the grid (module recurring's payment; `expected` — the line counts in that month, only such a cell can be
+   * changed); `other` — «Інші надходження» = «План доходу» − the regular incomes while they are less (null — none, no
+   * negative row); `totals` — the month's income plan, the larger of the two.
    */
   income: z.object({
+    plan: z.array(cellSchema),
     rows: z.array(
       z.object({
-        paymentId: z.uuid().nullable(),
+        paymentId: z.uuid(),
         cells: z.array(cellSchema.extend({ expected: z.boolean() })),
       }),
     ),
+    other: totalsSchema,
     totals: totalsSchema,
   }),
   /** «Витрати»: the active expense categories by group in the tree's order; a cell — the month's limit. */
@@ -120,10 +124,12 @@ export const getPlanGridRoute = defineRoute({
       currency: budget.currency,
       months: [...grid.months],
       income: {
+        plan: grid.income.plan.map(cell),
         rows: grid.income.rows.map((r) => ({
           paymentId: r.paymentId,
           cells: r.cells.map((c) => ({ ...cell(c), expected: c.expected })),
         })),
+        other: totals(grid.income.other),
         totals: totals(grid.income.totals),
       },
       expenses: {

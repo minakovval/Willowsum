@@ -10053,7 +10053,7 @@
             "name": "period",
             "in": "query",
             "required": false,
-            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
+            "description": "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date",
             "schema": {
               "type": "string",
               "maxLength": 7
@@ -10123,10 +10123,12 @@
                         "from",
                         "to"
                       ],
-                      "additionalProperties": false
+                      "additionalProperties": false,
+                      "description": "What the table counts: the period, up to today while it lasts; ytd of a past year — 1 January to the same date of that year"
                     },
                     "inProgress": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "description": "Today is in the period: the window and the base are cut at the same date. False for a past year's ytd, although its window and base are cut at the same date too (`full` applies)"
                     },
                     "finished": {
                       "type": "boolean"
@@ -13829,22 +13831,60 @@
                     "income": {
                       "type": "object",
                       "properties": {
+                        "plan": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "amount": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "amount": {
+                                        "type": "string"
+                                      },
+                                      "currency": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "amount",
+                                      "currency"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "own": {
+                                "type": "boolean"
+                              },
+                              "version": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "amount",
+                              "own",
+                              "version"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
                         "rows": {
                           "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
                               "paymentId": {
-                                "anyOf": [
-                                  {
-                                    "type": "string",
-                                    "format": "uuid",
-                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
-                                  },
-                                  {
-                                    "type": "null"
-                                  }
-                                ]
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
                               },
                               "cells": {
                                 "type": "array",
@@ -13903,6 +13943,32 @@
                             "additionalProperties": false
                           }
                         },
+                        "other": {
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "amount": {
+                                    "type": "string"
+                                  },
+                                  "currency": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "amount",
+                                  "currency"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
                         "totals": {
                           "type": "array",
                           "items": {
@@ -13931,7 +13997,9 @@
                         }
                       },
                       "required": [
+                        "plan",
                         "rows",
+                        "other",
                         "totals"
                       ],
                       "additionalProperties": false

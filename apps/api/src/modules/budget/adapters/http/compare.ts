@@ -93,9 +93,14 @@ const approximateSchema = z.object({
 const compareSchema = z.object({
   currency: z.string(),
   type: z.enum(COMPARE_TYPES),
-  /** What the table counts: the period, up to today while it lasts. */
-  window: windowSchema,
-  inProgress: z.boolean(),
+  window: windowSchema.meta({
+    description:
+      "What the table counts: the period, up to today while it lasts; ytd of a past year — 1 January to the same date of that year",
+  }),
+  inProgress: z.boolean().meta({
+    description:
+      "Today is in the period: the window and the base are cut at the same date. False for a past year's ytd, although its window and base are cut at the same date too (`full` applies)",
+  }),
   /** FR 6: a finished period — «Найбільші зміни» opens «Підсумок <місяць>». */
   finished: z.boolean(),
   /** FR 11: the calendar year «Рік: план і факт» opens on. */
@@ -224,7 +229,8 @@ export const getCompareRoute = defineRoute({
     query: z.object({
       type: z.enum(COMPARE_TYPES),
       period: z.string().max(7).optional().meta({
-        description: "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — this year (YYYY, default)",
+        description:
+          "month — YYYY-MM; quarter — YYYY-Qn; year — YYYY; ytd — YYYY, this year by default; a past year — 1 January to the same date",
       }),
       base: z.enum(COMPARE_BASES).optional().meta({
         description:
@@ -266,7 +272,9 @@ export const getCompareRoute = defineRoute({
     let baseRead: Awaited<ReturnType<typeof read>> | null = null;
     if (base.available && base.included !== null && averages) {
       const months = new Set(base.included);
-      baseRead = { ...averages, amounts: averages.amounts.filter((a) => months.has(a.period)) };
+      // The counts of approximate amounts are the read's: reuse the widest read only for its own dates.
+      const source = base.window!.from === widest!.from ? averages : await read(base.window!);
+      baseRead = { ...source, amounts: source.amounts.filter((a) => months.has(a.period)) };
     } else if (base.available && base.window) baseRead = await read(base.window);
     // «План» — BUD-16's rule: the sum of the month's limits, a finished month — its snapshot's.
     const plans = await ctx.inHousehold((q) =>
@@ -278,7 +286,12 @@ export const getCompareRoute = defineRoute({
     for (const p of selection.months) {
       const since = countsFrom(budget, p);
       if (since === undefined) planFact.push(...current.amounts.filter((a) => a.period === p));
-      else planFact.push(...(await deps.reads.amounts(householdId, accountIds, p, currency, since)).amounts);
+      else
+        // The same last day as the row's «now»: a window that ends inside the first period does not count the days after.
+        planFact.push(
+          ...(await deps.reads.amounts(householdId, accountIds, p, currency, since, selection.window.to))
+            .amounts,
+        );
     }
     const table = compareTable({
       currency,

@@ -694,6 +694,55 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
     expect(year.statusCode, year.body).toBe(200);
   });
 
+  it("BUD-06@PoC FR 4 (#609 item 1): «Сер. за 3 міс.» counts only its own months in approximate", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    const acc = await account(space);
+    for (const m of ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10"])
+      await spend(space, acc, "-1.00", `2026-${m}-02`, "Продукти");
+    await spend(space, acc, "-" + "9".repeat(18), "2026-03-03", "Продукти");
+    await spend(space, acc, "-5.00", "2026-11-05", "Продукти");
+    const v = await compare(space, "type=month&period=2026-11&base=avg3");
+    expect(v.base).toMatchObject({ months: 3, window: { from: "2026-08-01", to: "2026-10-31" } });
+    expect(v.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
+    // «Сер. за 6 міс.» does not reach March either; «Сер. за 12 міс.» does.
+    const six = await compare(space, "type=month&period=2026-11&base=avg6");
+    expect(six.base).toMatchObject({ months: 6, window: { from: "2026-05-01", to: "2026-10-31" } });
+    expect(six.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
+    const twelve = await compare(space, "type=month&period=2026-11&base=avg12");
+    expect(twelve.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 1 });
+  });
+
+  it("BUD-06@PoC AC10 (server part): a past year's «З початку року» — 1 January to the same date of that year, against the year before on that date", async () => {
+    now = at("2026-11-19");
+    const space = await newSpace();
+    await createBudget(space, { firstPeriod: "2026-11" });
+    const acc = await account(space);
+    await spend(space, acc, "-10.00", "2024-03-03", "Продукти");
+    await spend(space, acc, "-99.00", "2024-11-20", "Продукти");
+    await spend(space, acc, "-30.00", "2025-11-19", "Продукти");
+    await spend(space, acc, "-77.00", "2025-11-20", "Продукти");
+    const view = await compare(space, "type=ytd&period=2025");
+    expect(view).toMatchObject({
+      type: "ytd",
+      window: { from: "2025-01-01", to: "2025-11-19" },
+      inProgress: false,
+      year: "2025",
+      base: { base: "last-year", available: true, window: { from: "2024-01-01", to: "2024-11-19" } },
+    });
+    expect(rowOf(view.expenses.categories, await category(space, "Продукти"))).toMatchObject({
+      current: eur("30"),
+      base: eur("10"),
+    });
+    // 2023 has no data before it: its base is unavailable, the period itself is served.
+    const older = await compare(space, "type=ytd&period=2024");
+    expect(older.window).toEqual({ from: "2024-01-01", to: "2024-11-19" });
+    expect(older.base).toMatchObject({ available: false, window: null });
+    const res = await call(space, "GET", "/v1/budget/compare?type=ytd&period=2027");
+    expect(res.statusCode).toBe(400);
+    expect(res.json().errors).toEqual([expect.objectContaining({ path: "period", issue: "future" })]);
+  });
+
   it("BUD-06@PoC FR 1: the period, the base and the dates are checked — 400 with the field and the issue", async () => {
     const space = await newSpace();
     await createBudget(space);
@@ -766,5 +815,162 @@ describe("BUD-06@PoC: «Порівняння» (server part)", () => {
       overall: expect.objectContaining({ current: eur("0"), base: null }),
       categories: [],
     });
+  });
+});
+
+describe("BUD-06@PoC (security review of #625): the edges of a past year's «З початку року»", () => {
+  const total = (v: Compare) => ({
+    current: value(v.expenses.overall.current),
+    base: value(v.expenses.overall.base),
+    n: v.expenses.overall.transactions,
+  });
+
+  it("BUD-06@PoC AC10 (server part): a past year's «З початку року» counts 1 January and the same date, nothing a day outside — in the period and in its base", async () => {
+    now = at("2026-11-19");
+    const space = await newSpace();
+    await createBudget(space, { firstPeriod: "2026-11" });
+    const acc = await account(space);
+    // The base year 2024: its first day, the same date, the day after, its last day; the day before it.
+    await spend(space, acc, "-1000.00", "2023-12-31", "Продукти");
+    await spend(space, acc, "-1.00", "2024-01-01", "Продукти");
+    await spend(space, acc, "-2.00", "2024-11-19", "Продукти");
+    await spend(space, acc, "-4.00", "2024-11-20", "Продукти");
+    await spend(space, acc, "-8.00", "2024-12-31", "Продукти");
+    // The year 2025: the same four days.
+    await spend(space, acc, "-16.00", "2025-01-01", "Продукти");
+    await spend(space, acc, "-32.00", "2025-11-19", "Продукти");
+    await spend(space, acc, "-64.00", "2025-11-20", "Продукти");
+    await spend(space, acc, "-128.00", "2025-12-31", "Продукти");
+    // This year: its first day and today.
+    await spend(space, acc, "-256.00", "2026-01-01", "Продукти");
+    await spend(space, acc, "-512.00", "2026-11-19", "Продукти");
+
+    const past = await compare(space, "type=ytd&period=2025");
+    expect(past.base.window).toEqual({ from: "2024-01-01", to: "2024-11-19" });
+    expect(total(past)).toEqual({ current: "48.00", base: "3.00", n: { current: 2, base: 2 } });
+    const full = await compare(space, "type=ytd&period=2025&full=true");
+    expect(full.window).toEqual({ from: "2025-01-01", to: "2025-11-19" });
+    expect(full.base.window).toEqual({ from: "2024-01-01", to: "2024-12-31" });
+    expect(total(full)).toEqual({ current: "48.00", base: "15.00", n: { current: 2, base: 4 } });
+    // The years do not overlap: this year's «З початку року» has neither 31 December nor the cut days of 2025.
+    const nowYear = await compare(space, "type=ytd");
+    expect(total(nowYear)).toEqual({ current: "768.00", base: "48.00", n: { current: 2, base: 2 } });
+    // «Рік» of the same year is the whole of it: the past «З початку року» is its part, never more.
+    const year = await compare(space, "type=year&period=2025");
+    expect(total(year)).toEqual({ current: "240.00", base: "15.00", n: { current: 4, base: 4 } });
+    // 2024 against 2023 on the same date: 31 December 2023 is after it.
+    const older = await compare(space, "type=ytd&period=2024");
+    expect(total(older)).toEqual({ current: "3.00", base: null, n: { current: 2, base: null } });
+    // The history starts on 31 December 2023, after the base's dates: no base, and nothing of that day in it.
+    expect(older.base).toMatchObject({ available: false, window: null });
+  });
+
+  it("BUD-06@PoC EC1: on 29 February 2028 a past year's «З початку року» counts up to 28 February of a common year and 29 February of a leap one", async () => {
+    now = at("2028-02-29");
+    const space = await newSpace();
+    await createBudget(space, { firstPeriod: "2028-02" });
+    const acc = await account(space);
+    await spend(space, acc, "-1.00", "2026-02-28", "Продукти");
+    await spend(space, acc, "-2.00", "2026-03-01", "Продукти");
+    await spend(space, acc, "-4.00", "2027-02-28", "Продукти");
+    await spend(space, acc, "-8.00", "2027-03-01", "Продукти");
+    await spend(space, acc, "-16.00", "2024-02-29", "Продукти");
+    await spend(space, acc, "-32.00", "2024-03-01", "Продукти");
+    await spend(space, acc, "-64.00", "2028-02-29", "Продукти");
+    const past = await compare(space, "type=ytd&period=2027");
+    expect(past.window).toEqual({ from: "2027-01-01", to: "2027-02-28" });
+    expect(past.base.window).toEqual({ from: "2026-01-01", to: "2026-02-28" });
+    expect(total(past)).toEqual({ current: "4.00", base: "1.00", n: { current: 1, base: 1 } });
+    const leap = await compare(space, "type=ytd&period=2024");
+    expect(leap.window).toEqual({ from: "2024-01-01", to: "2024-02-29" });
+    expect(total(leap).current).toBe("16.00");
+    const thisYear = await compare(space, "type=ytd");
+    expect(thisYear.base.window).toEqual({ from: "2027-01-01", to: "2027-02-28" });
+    expect(total(thisYear)).toEqual({ current: "64.00", base: "4.00", n: { current: 1, base: 1 } });
+  });
+
+  it("BUD-06@PoC FR 4 (#609 item 1): the own read of «Сер. за 3 міс.» is the space's — another space's amounts and its «Курс недоступний» count are not in it", async () => {
+    const mine = await newSpace();
+    const other = await newSpace();
+    await createBudget(mine);
+    await createBudget(other);
+    const acc = await account(mine);
+    const theirs = await account(other);
+    for (const m of ["01", "08", "09", "10"]) {
+      await spend(mine, acc, "-3.00", `2026-${m}-02`, "Продукти");
+      await spend(other, theirs, "-7000.00", `2026-${m}-02`, "Продукти");
+    }
+    await spend(other, theirs, "-" + "9".repeat(18), "2026-09-03", "Продукти");
+    const v = await compare(mine, "type=month&period=2026-11&base=avg3");
+    expect(v.base).toMatchObject({ months: 3, window: { from: "2026-08-01", to: "2026-10-31" } });
+    expect(value(v.expenses.overall.base)).toBe("3.00");
+    expect(v.expenses.overall.transactions.base).toBe(1);
+    expect(v.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 0 });
+    // The other space sees its own, with its own count.
+    const o = await compare(other, "type=month&period=2026-11&base=avg3");
+    expect(o.approximate).toEqual({ nearestRateCount: 0, unavailableCount: 1 });
+    // A scoped member of the space gets 404 for a past year's «З початку року» too, with no figures.
+    const scoped = await call(mine, "GET", "/v1/budget/compare?type=ytd&period=2025", undefined, {
+      role: "viewer",
+      scoped: true,
+    });
+    expect(scoped.statusCode).toBe(404);
+    expect(scoped.body).not.toMatch(/amount|window/);
+  });
+
+  it("BUD-06@PoC FR 1: the period of «З початку року» is a year from 1900 that has begun — anything else is 400, never 500 or a wide read", async () => {
+    const space = await newSpace();
+    await createBudget(space);
+    for (const [period, issue] of [
+      ["1899", "invalid"],
+      ["0000", "invalid"],
+      ["9999", "future"],
+      ["2027", "future"],
+      ["2025-01", "invalid"],
+      ["2025-Q1", "invalid"],
+      ["+2025", "invalid"],
+      ["20 25", "invalid"],
+      ["२०२५", "invalid"],
+      ["", "invalid"],
+    ] as const) {
+      const res = await call(
+        space,
+        "GET",
+        `/v1/budget/compare?type=ytd&period=${encodeURIComponent(period)}`,
+      );
+      expect(res.statusCode, `${period}: ${res.body}`).toBe(400);
+      expect(res.json().errors, period).toEqual([expect.objectContaining({ path: "period", issue })]);
+    }
+    const long = await call(space, "GET", "/v1/budget/compare?type=ytd&period=20250000");
+    expect(long.statusCode).toBe(400);
+    // The oldest year allowed is served, with no base before the history.
+    const oldest = await compare(space, "type=ytd&period=1900");
+    expect(oldest.window).toEqual({ from: "1900-01-01", to: "1900-11-12" });
+    expect(oldest.base).toMatchObject({ available: false, window: null });
+  });
+
+  // B1 of the security review of #625 (fixed): the plan fact of a proportional first period stops on the window's last day.
+  it("BUD-06@PoC AC10 (server part): a past year's «З початку року» that ends inside a proportional first period — «± до плану» counts the same days as the row, not the days after the same date", async () => {
+    now = at("2025-11-10");
+    const space = await newSpace();
+    const groceries = await category(space, "Продукти");
+    await createBudget(space, {
+      firstPeriod: "2025-11",
+      proportional: true,
+      limits: [{ categoryId: groceries, amount: eur("300.00") }],
+    });
+    now = at("2026-11-19");
+    const acc = await account(space);
+    await spend(space, acc, "-10.00", "2025-11-12", "Продукти");
+    await spend(space, acc, "-500.00", "2025-11-25", "Продукти");
+    const v = await compare(space, "type=ytd&period=2025");
+    expect(v.window).toEqual({ from: "2025-01-01", to: "2025-11-19" });
+    for (const r of [rowOf(v.expenses.categories, groceries)!, v.expenses.overall]) {
+      expect(value(r.current)).toBe("10.00");
+      expect(value(r.plan)).toBe("210.00");
+      // 10 − 210: the 500 of 25 November is after the window, in no figure of the row.
+      expect(value(r.planDifference!.amount)).toBe("-200.00");
+      expect(r.planDifference!.direction).toBe("down");
+    }
   });
 });

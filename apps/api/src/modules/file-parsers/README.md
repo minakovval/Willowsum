@@ -1,6 +1,6 @@
 # Модуль file-parsers
 
-**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-06 b: альтернативи й пояснення рішень рушія, ізольований воркер розбору, хвиля 2, рядок 41, частина 1)
+**Створено:** 2026-11-13 · **Оновлено:** 2026-11-19 (IMP-02 b: події з основною ногою і ногою комісії в розборі виписки, хвиля 2, рядок 41, частина 2)
 
 Картка модуля (ARC-01). Робота з модулем починається з неї; оновлюйте її в тому ж PR, що й інтерфейс.
 
@@ -23,7 +23,15 @@
 текст — на клієнті); пояснення таблиці (рядок заголовка, рядки до нього, рядки даних) і валюти (колонка, код у заголовку).
 Читання файлу до рядків і шаблони рецепта виконуються лише в ізольованому воркері розбору (#607 п. 3): публічний інтерфейс
 не експортує `readDelimitedFile` і `compilePattern`, лише `checkPattern` (перевірка без виконання) і
-`isolatedStatementParser`. Події з ногами в розборі виписки (IMP-02 b) — частина 2 рядка 41.
+`isolatedStatementParser`.
+
+Частина 3 (IMP-02@PoC b, рядок 41, частина 2): рядки виписки як події — основна нога (сума зі знаком у валюті рядка,
+гаманець рахунку) і окрема нога комісії (стягнута комісія, додатна; як подія `legs` журналу), початкова сума й валюта,
+курс банку, дата валютування, опис банку як надруковано (до 2 000 символів). Валюта: коди ISO, числові коди, символи;
+неоднозначний символ («$», «kr», «¥») вирішує символ рецепта або країна IBAN (з параметрів або з шапки файлу — назовні лише
+дві літери); локальні назви й нечинні коди — «невідома валюта»; рушій суми не конвертує. Позначки: валюта не належить
+однавалютному рахунку, точність перевищує валюту, розбіжність або перевернутий курс (0,5 % або одна мінімальна одиниця).
+Прив'язка до рахунку з розпечатуванням `importRecipes.accountValue` і маршрут розбору — наступна частина.
 
 ## Вимоги
 
@@ -34,13 +42,15 @@
 `index.ts`:
 
 - `fileParsersModule`.
-- `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?)` → `StatementParse`: у свіжому воркері
+- `isolatedStatementParser(options?)` → `StatementParser.parse(bytes, readOptions?, statement?)` → `StatementParse`: у свіжому воркері
   (`platform/process/isolated.ts`, 512 МіБ, 60 с — `PARSE_LIMITS`, як у file-storage) читання файлу (`reading`: кодування
   з альтернативами й причиною `bom` / `content` / `recipe`, роздільник, `unclosedQuote`, `replacementChars`, `format` з
-  `fingerprint` «fp1:…») і `analysis` (`StatementAnalysis`: `table`, `columns[].role`, `dates`, `numbers`, `sign` —
+  `fingerprint` «fp1:…»), `events` (`StatementEvents`: `events[]` — `StatementEvent` з `legs`, `fee`, `original`, `rate`,
+  `valueDate`, `description`, `currencyMark`, `flags` (`EventFlag`); `currencies` — гаманці партії; `country`) і `analysis` (`StatementAnalysis`: `table`, `columns[].role`, `dates`, `numbers`, `sign` —
   кожне `Decision` з `chosen`, `alternatives`, `evidence`, `flags`; `currency`). Рядки й колонки аналізу — з 1. Відмова —
   `StatementParseError` (`FILE_TOO_LARGE`, `TABLE_LIMIT` з `ceiling`, `PARSE_MEMORY`, `PARSE_TIMEOUT`, `CORRUPTED`).
-  `ReadOptions` — файлові правила рецепта (рядки з 0); `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
+  `ReadOptions` — файлові правила рецепта (рядки з 0); `StatementOptions` — рахунок (`currencies`, `multiCurrency`),
+  символи валют рецепта, країна IBAN; `EVENT_LIMITS`. Результат містить клітинки файлу: не логувати й не аудитувати; `READ_LIMITS`, `TABLE_LIMITS`, `ANALYSIS_LIMITS`, `ROLES`,
   `DATE_ORDERS`.
 - `fingerprintOf(signature)`, `compareSignatures(expected, actual)` → `match` / `changed` (зі схожістю) / `unknown`,
   `signatureSimilarity`; тип `FormatSignature`.
@@ -70,4 +80,6 @@
 
 `domain/imp06-safe-pattern.test.ts`, `domain/imp06-encoding.test.ts`, `domain/imp06-table.test.ts`,
 `domain/imp06-format.test.ts`, `application/imp06-read-file.test.ts`, `domain/imp06-alternatives.test.ts`,
-`adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері).
+`adapters/isolation/imp06-parse-worker.test.ts`, `sec607-parse-worker-only.test.ts` (читання й збіг — лише у воркері),
+`application/imp02-events.test.ts`, `adapters/isolation/imp02-parse-events.test.ts`, `domain/imp06-followups.test.ts`,
+`domain/sec619-header-bound.test.ts`.
