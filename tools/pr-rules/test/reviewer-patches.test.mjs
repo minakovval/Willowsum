@@ -68,6 +68,10 @@ test('reviewer patches: a security test without `.it` is closed like one with it
 test('reviewer patches: security tests by content are closed by name (owner, item 3а)', () => {
   for (const p of [
     'apps/api/test/guard.it.test.ts',
+    'apps/api/test/bypass.it.test.ts',
+    'apps/api/test/no-network.test.ts',
+    'apps/api/test/no-network-loaded.test.ts',
+    'apps/api/test/adr0013-append-only.it.test.ts',
     'apps/api/test/guard-coverage.it.test.ts',
     'apps/api/test/guard-gates.it.test.ts',
     'apps/api/test/leak-check-guard.test.ts',
@@ -81,12 +85,28 @@ test('reviewer patches: security tests by content are closed by name (owner, ite
   // Each listed name is a real tracked file, so the list does not go stale unnoticed.
   const root = new URL('../../../', import.meta.url);
   const files = execFileSync('git', ['ls-files', '-z'], { cwd: root, maxBuffer: 1 << 28 }).toString().split('\0');
-  for (const n of ['guard.it.test.ts', 'guard-coverage.it.test.ts', 'guard-gates.it.test.ts', 'leak-check-guard.test.ts', 'leak-text.test.ts', 'redaction.test.ts']) {
+  for (const n of ['bypass.it.test.ts', 'no-network.test.ts', 'no-network-loaded.test.ts', 'adr0013-append-only.it.test.ts', 'guard.it.test.ts', 'guard-coverage.it.test.ts', 'guard-gates.it.test.ts', 'leak-check-guard.test.ts', 'leak-text.test.ts', 'redaction.test.ts']) {
     assert.ok(files.some((f) => f.endsWith('/' + n)), n);
   }
   // A similar name is not listed: the rule is by name, not by prefix.
   assert.equal(forbiddenPathReason('apps/api/test/guardian-list.test.ts'), null);
   assert.equal(forbiddenPathReason('apps/api/test/leak-report.test.ts'), null);
+});
+
+test('reviewer patches: a bare `sec` part also names a security test', () => {
+  for (const p of ['apps/web/src/transactions/calc.sec.test.ts', 'apps/api/test/bud14-rules-sec.it.test.ts', 'apps/api/test/pr235-sec.it.test.ts']) {
+    assert.equal(forbiddenPathReason(p), 'security test', p);
+  }
+  assert.equal(forbiddenPathReason('apps/api/test/second-page.test.ts'), null);
+});
+
+test('reviewer patches: a retitled test pairs only within its file; a moved non-literal title is a removal', () => {
+  const two = [
+    '--- a/a.test.ts', '+++ b/a.test.ts', '@@ -1,1 +1,0 @@', "-  it('denies', () => denied(app));",
+    '--- a/helpers.ts', '+++ b/helpers.ts', '@@ -1,0 +1,1 @@', "+  it('x', () => denied(app));",
+  ].join('\n');
+  assert.equal(reviewerPatchViolations([{ filename: 'a.test.ts' }, { filename: 'helpers.ts' }], two).length, 1);
+  assert.equal(check('-  it(name, () => {', '+  it(name, () => {').length, 1);
 });
 
 test('reviewer patches: e2e tests stay open whatever their name (owner, item 1а)', () => {

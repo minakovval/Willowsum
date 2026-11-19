@@ -20,11 +20,11 @@ session starts or finishes.
      is mandatory on any model**;
    - **Fable** only for:
      (a) the design of A1 and the amendments to ADR-0002 and ADR-0015; (b) the **first** security review of a PR
-     labelled `sensitive:money`, `sensitive:permissions`, `sensitive:auth` or `sensitive:encryption` (crypto)
-     (owner, 2026-11-19, replaces the earlier (b), (c)); (c) a confirmation that adds a guard, endpoint or query
-     (a full review, `security-review` §7); (d) wave planning (`plan-wave`). At most **2** Fable tasks at once.
-     Round 2, confirmations, syncs and PRs with only `sensitive:pipeline`, `schema` or `infrastructure` go to
-     Opus with `security-review`. Near 90 % of the Fable limit, (b) goes to Opus and the lead tells the owner.
+     labelled `sensitive:money`, `permissions`, `auth` or `encryption` (crypto) (owner, 2026-11-19); a money PR that
+     only reads (like #338) goes to Opus with mutation testing, in doubt Fable; (c) a confirmation that adds a guard,
+     endpoint or query, or a PR that gains one of those four labels in a later round (full review, `security-review` §7);
+     (d) wave planning (`plan-wave`). At most **2** Fable tasks. Other confirmations and PRs with only
+     `pipeline`, `schema` or `infrastructure`: Opus, `security-review`. Near 90 % of the Fable limit, the auth, encryption and permissions reviews of (b) go to Opus; the lead tells the owner.
      Everything else — flaky-test root causes, other architecture rows, implementing vault encryption, statement
      import, requirement sweeps, follow-ups, docs, sync confirmations — is on the main model; the lead stays on
      Opus; parallelism as in AGENTS.md (7 branches, 10 agents plus up to 8 additional Sonnet agents). Fable draws on the Ultra subscription limit about
