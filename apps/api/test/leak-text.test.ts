@@ -11,9 +11,10 @@ describe("leakText: the body of a leak check without its random fields (#563)", 
     expect(leakText(body)).toContain("NOT_FOUND");
   });
 
-  it("drops requestId and traceId at any depth", () => {
-    const body = JSON.stringify({ errors: [{ traceId: SUPPORT_ID }], nested: { requestId: SUPPORT_ID } });
-    expect(leakText(body)).not.toContain("5000");
+  it("keeps a supportId that is not the random hex id, and every other field, byte for byte", () => {
+    expect(leakText(JSON.stringify({ supportId: "Visa 5000.00" }))).toContain("5000");
+    expect(leakText(JSON.stringify({ requestId: SUPPORT_ID, traceId: SUPPORT_ID }))).toContain("5000");
+    expect(leakText('{"code":"X","balance":12345678901234567890}')).toContain("12345678901234567890");
   });
 
   it("still holds a real leak in any other field, at any depth", () => {
