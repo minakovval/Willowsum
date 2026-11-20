@@ -865,3 +865,59 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect((await period(written, "2026-12")).plannedSavings.amount).toBe("200");
   });
 });
+
+describe("#665: with `budget.plan` off the wizard's «≈ M» ignores «Розподіл»'s typed rows, as the card does", () => {
+  const wizard = async (space: Space, body: Record<string, unknown>) => {
+    const res = await call(space, "POST", "/v1/budget/allocation", body);
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().spendable as { amount: { amount: string; currency: string } | null };
+  };
+  const card = async (space: Space) => {
+    const res = await call(space, "GET", "/v1/budget/periods/2026-11/spendable");
+    expect(res.statusCode, res.body).toBe(200);
+    return res.json().figures as { amount: unknown; plannedExpenses: unknown };
+  };
+
+  it("BUD-17@PoC business rules (owner decision 2026-11-20, batch 2, item 2): «План» off — the wizard's «≈ M» (BUD-02@PoC FR 3) counts no typed debt or goal row of «Розподіл», so it equals «Можна витратити» (BUD-03@PoC FR 6) after saving: 6 000 − 100; on — both count the cell: 6 000 − 250,25", async () => {
+    const space = await newSpace();
+    const trip = await goal(space, "Відпустка", "3000.00");
+    const loanId = randomUUID();
+    extras.set(space.householdId, [{ accountId: loanId, amount: Money.of("100", "EUR") }]);
+    try {
+      const plain = { firstPeriod: "2026-11", incomePlan: eur("6000") };
+      const typed = {
+        ...plain,
+        allocation: [
+          { kind: "debt", accountId: loanId, amount: eur("250.25") },
+          { kind: "goal", goalId: trip, amount: eur("321.09") },
+        ],
+      };
+      planOffFor.add(space.householdId);
+      const without = (await wizard(space, plain)).amount;
+      expect(without).not.toBeNull();
+      const off = (await wizard(space, typed)).amount;
+      // Off: the typed rows change nothing — the plan's extra payment 100 € and the goal's required contribution count.
+      expect(off).toEqual(without);
+      const res = await call(space, "POST", "/v1/budget", typed);
+      expect(res.statusCode, res.body).toBe(201);
+      const offCard = await card(space);
+      expect(offCard.amount).toEqual(off);
+      expect(offCard.plannedExpenses).toEqual({
+        items: [{ accountId: loanId, amount: eur("100") }],
+        total: eur("100"),
+      });
+      // On: the same rows act in both, exact.
+      planOffFor.clear();
+      const on = (await wizard(space, typed)).amount;
+      const onCard = await card(space);
+      expect(onCard.plannedExpenses).toEqual({
+        items: [{ accountId: loanId, amount: eur("250.25") }],
+        total: eur("250.25"),
+      });
+      expect(onCard.amount).toEqual(on);
+      expect(on).not.toEqual(off);
+    } finally {
+      extras.delete(space.householdId);
+    }
+  });
+});
