@@ -3,7 +3,8 @@ import {
   allocationBalance,
   allocationChoice,
   checkAllocation,
-  defaultContribution,
+  goalContributions,
+  plannedContributions,
   firstPeriodChoices,
   isPeriod,
   parseBudgetAmount,
@@ -58,7 +59,7 @@ export interface AllocationPlan {
   readonly choice: AllocationChoice | null;
   /** FR 15: the cells the first period stores (from `allocation`); empty without it. */
   readonly cells: readonly AllocationCell[];
-  /** The goals and debts the rows may name, as read; null — not read (no `allocation`). */
+  /** The goals and debts the rows may name, as read; null — not read (the month's obligations not known). */
   readonly lines: AllocationLines | null;
 }
 
@@ -139,11 +140,20 @@ export async function planAllocation(
     deps.obligations === null
       ? null
       : await deps.obligations.month(householdId, period, currency, share?.from);
+  const lines =
+    obligations === null ? null : await allocationLines(deps, householdId, period, currency, obligations);
+  // Q5 а: the goals' planned contributions are subtracted as «План» subtracts them; a goal without a rate — no figure.
+  const goalContributions = lines === null ? null : plannedContributions(lines.goals, period, currency);
   const balance =
-    obligations === null
+    obligations === null || goalContributions === null
       ? null
-      : allocationBalance({ incomePlan: plan.incomePlan, limits: plan.limits, obligations });
-  const base = { period, from: share?.from ?? null, plan, limits: limitsTotal, obligations, balance };
+      : allocationBalance({
+          incomePlan: plan.incomePlan,
+          limits: plan.limits,
+          obligations,
+          goalContributions,
+        });
+  const base = { period, from: share?.from ?? null, plan, limits: limitsTotal, obligations, balance, lines };
   if (input.allocation === undefined)
     return {
       kind: "ok",
@@ -151,22 +161,20 @@ export async function planAllocation(
         ...base,
         choice: balance === null || input.chosen === undefined ? null : allocationChoice(balance, chosen),
         cells: [],
-        lines: null,
       },
     };
   // FR 15: no difference — nothing can be checked against N, so nothing is saved as allocated.
-  if (balance === null || obligations === null)
+  if (balance === null || lines === null)
     return { kind: "invalid", issues: [{ field: "allocation", issue: "balance_unknown" }] };
-  const lines = await allocationLines(deps, householdId, period, currency, obligations);
   const rows = checkAllocation(balance, period, input.allocation, lines, (field, m) =>
     parseBudgetAmount(field, m, currency),
   );
   if (rows.kind === "invalid") return rows;
-  return { kind: "ok", value: { ...base, choice: rows.value.choice, cells: rows.value.cells, lines } };
+  return { kind: "ok", value: { ...base, choice: rows.value.choice, cells: rows.value.cells } };
 }
 
 /** What «Можна витратити в <місяць> ≈ M» needs that is not known; the figure is null while any is. */
-export const SPENDABLE_MISSING = ["obligations", "rates", "goal-contributions", "regular-incomes"] as const;
+export const SPENDABLE_MISSING = ["obligations", "rates"] as const;
 export type SpendableMissing = (typeof SPENDABLE_MISSING)[number];
 
 export interface WizardSpendable {
@@ -179,10 +187,10 @@ export interface WizardSpendable {
 /**
  * FR 3, AC6: «Можна витратити в <місяць> ≈ M» of the plan not saved yet — BUD-03 FR 2 (`spendable`) for the first
  * period as it would start: the current month as of today (its income and spending so far, on `accountIds` — the
- * accounts the budget would take), or the next month as of its 1st (nothing spent or contributed yet). The goals'
- * planned contributions are «Розподіл»'s cells, else the required ones (BUD-03 FR 6); the planned expenses are the
- * payoff plans' extra payments, a debt's cell in its place. What merged sources cannot give yet makes it null:
- * this month's goal contributions already made and the regular incomes already received (BUD-03@PoC c, #641).
+ * accounts the budget would take, what is contributed to goals this month, the regular incomes still expected), or the
+ * next month as of its 1st (nothing spent, contributed or received yet). The goals' planned contributions are
+ * «Розподіл»'s cells, else the required ones (BUD-03 FR 6, `goalContributions`); the planned expenses are the payoff
+ * plans' extra payments, a debt's cell in its place. Null with what is missing — never a partial figure.
  */
 export async function wizardSpendable(
   deps: Pick<BudgetDeps, "today" | "reads" | "planSources">,
@@ -194,51 +202,47 @@ export async function wizardSpendable(
   const today = deps.today();
   const currency = a.plan.incomePlan.currency;
   const zero = Money.zero(currency);
-  const missing = new Set<SpendableMissing>();
   const current = a.period === periodOf(today);
   const sources = deps.planSources;
-  const [goals, extra, incomes, counted] = await Promise.all([
+  const [goals, extra, counted] = await Promise.all([
     a.lines?.goals ?? (sources ? sources.goals(householdId, currency) : []),
     sources ? sources.extraPayments(householdId, a.period, currency) : [],
-    sources ? sources.incomes(householdId, a.period, currency) : [],
     current
       ? deps.reads.amounts(householdId, accountIds, a.period, currency, a.from ?? undefined)
       : { amounts: [], nearestRateCount: 0, unavailableCount: 0 },
   ]);
+  // BUD-03 FR 6: less what is contributed this month (null — no rate: no figure) — nothing yet in a month to come;
+  // a test's port without `contributed` — nothing.
+  const contributions = goalContributions(
+    a.period,
+    goals.map((g) => ({ ...g, contributed: !current || g.contributed === undefined ? zero : g.contributed })),
+    a.cells.map((c) => ({ ...c, period: a.period })),
+    currency,
+  );
+  const incomeExpected = a.obligations?.incomeExpected;
+  const missing = new Set<SpendableMissing>();
   if (a.obligations === null) missing.add("obligations");
-  if (counted.unavailableCount > 0 || extra === null) missing.add("rates");
-  const cell = (kind: AllocationCell["kind"], lineId: string | null) =>
-    a.cells.find((c) => c.kind === kind && c.lineId === lineId)?.amount;
-  let planned = zero;
-  for (const g of goals) {
-    const own = cell("goal", g.goalId) ?? defaultContribution(g, a.period);
-    // A goal with a date but no rate: its contribution is not known.
-    if (own === null && g.required === null && g.lastPeriod !== null && g.lastPeriod >= a.period)
-      missing.add("rates");
-    if (own) planned = planned.plus(own);
-  }
-  // BUD-03 FR 6: less what is contributed this month — not known yet for the current month (#641).
-  if (current && !planned.isZero()) missing.add("goal-contributions");
-  const expenses = new Map((extra ?? []).map((e) => [e.accountId, e.amount]));
-  for (const c of a.cells) if (c.kind === "debt" && c.lineId !== null) expenses.set(c.lineId, c.amount);
-  // BUD-03 FR 3: the regular incomes still expected — in the current month the received ones are not known yet.
-  if (incomes.some((i) => i.amount === null)) missing.add("rates");
-  if (current && incomes.length > 0) missing.add("regular-incomes");
-  if (missing.size > 0 || a.obligations === null)
+  if (counted.unavailableCount > 0 || extra === null || contributions === null || incomeExpected === null)
+    missing.add("rates");
+  if (missing.size > 0 || a.obligations === null || contributions === null || extra === null)
     return { period: a.period, amount: null, missing: SPENDABLE_MISSING.filter((m) => missing.has(m)) };
+  const expenses = new Map(extra.map((e) => [e.accountId, e.amount]));
+  for (const c of a.cells) if (c.kind === "debt" && c.lineId !== null) expenses.set(c.lineId, c.amount);
   const figures = periodFigures(a.plan, categories, counted.amounts);
   const result = spendable({
     today: current ? today : periodDays(a.period).from,
     period: a.period,
     incomePlan: a.plan.incomePlan,
     incomeActual: figures.totals.incomeActual ?? zero,
-    incomeExpected: incomes.reduce((t, i) => t.plus(i.amount!), zero),
+    // BUD-03 FR 3: the regular incomes still expected (all of a month to come); a test's port without — none.
+    incomeExpected: incomeExpected ?? zero,
     lines: figures.lines,
     outsidePlan: figures.totals.outsidePlan ?? zero,
     obligations: a.obligations,
-    goalContributions: planned,
+    // As «Можна витратити» (#641): what is contributed this month and what is still planned.
+    goalContributions: contributions.total.plus(contributions.contributed),
     plannedExpenses: [...expenses.values()].reduce((t, x) => t.plus(x), zero),
-    plannedSavings: planned.plus(cell("savings", null) ?? zero),
+    plannedSavings: contributions.plannedSavings,
   });
   return { period: a.period, amount: result.amount, missing: [] };
 }

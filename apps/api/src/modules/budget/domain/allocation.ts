@@ -71,7 +71,13 @@ export interface AllocationBalance {
   /** FR 3, AC6: the bar of the limits step — «План доходу A − ліміти B − регулярні платежі поза лімітами C = не розподілено N». */
   readonly unallocated: Money;
   readonly debtMinimums: Money;
-  /** FR 15: plan of income − limits − regular payments outside limits − minimum debt payments. */
+  /**
+   * FR 15 (owner decision 2026-11-20, Q5 а): the goals' planned contributions of the month, as «План» plans them (BUD-17
+   * FR 1: the required contribution up to the month of the goal's date) — «Розподіл» subtracts them too, so its figures
+   * and the grid's «Не розподілено» match.
+   */
+  readonly goalContributions: Money;
+  /** FR 15: plan of income − limits − regular payments outside limits − minimum debt payments − goal contributions. */
   readonly difference: Money;
   /** FR 15: «профіцит N» (> 0), «дефіцит N» (< 0) or nothing to allocate (0). */
   readonly kind: "surplus" | "deficit" | "balanced";
@@ -84,10 +90,14 @@ export function allocationBalance(input: {
   readonly incomePlan: Money;
   readonly limits: readonly { readonly categoryId: string; readonly amount: Money }[];
   readonly obligations: PeriodObligations;
+  /** Q5 а: the goals' planned contributions of the month (`plannedContributions`); none — 0. */
+  readonly goalContributions?: Money;
 }): AllocationBalance {
   const currency = input.incomePlan.currency;
   const o = input.obligations;
+  const goals = input.goalContributions ?? Money.zero(currency);
   assertCurrency(currency, [
+    goals,
     ...input.limits.map((l) => l.amount),
     ...o.recurring.map((r) => r.amount),
     ...o.debtMinimums.map((d) => d.amount),
@@ -102,13 +112,14 @@ export function allocationBalance(input: {
     o.debtMinimums.map((d) => d.amount),
     currency,
   );
-  const difference = unallocated.minus(debtMinimums);
+  const difference = unallocated.minus(debtMinimums).minus(goals);
   return {
     incomePlan: input.incomePlan,
     limits,
     recurringOutsideLimits: recurring,
     unallocated,
     debtMinimums,
+    goalContributions: goals,
     difference,
     kind: difference.isZero() ? "balanced" : difference.isNegative() ? "deficit" : "surplus",
     amount: difference.isNegative() ? difference.negated() : difference,
@@ -116,7 +127,10 @@ export function allocationBalance(input: {
 }
 
 export interface AllocationChoice {
-  /** The sum of the amounts chosen on the step: surplus rows, or the options that cover the deficit. */
+  /**
+   * The sum of the amounts chosen on the step: surplus rows, or the options that cover the deficit. A typed `goal` row
+   * counts as its change against the goal's planned contribution (Q5 а), so it is below 0 when goals get less.
+   */
   readonly chosen: Money;
   /** N − chosen: a surplus's «Не розподілено» when kept («Лишити нерозподіленим»); a deficit's part not yet covered. */
   readonly rest: Money;
@@ -288,11 +302,12 @@ export function expectedPayments(
  * the first period), `debt` (the extra payment above the minimum for one debt, a planned expense), `savings`
  * («Заощадження без цілі»); what is not chosen stays «Не розподілено» («Лишити нерозподіленим» — no row). A deficit —
  * `from-goal` («З цілі …»: the goal's contribution of the month is lowered by the amount). «Зменшити ліміти» is lower
- * `limits`, never a row. «Із заощаджень» and «У борг» have no line of «План» to be written to (owner question) and are
- * not rows yet.
+ * `limits`, never a row. `from-savings` («Із заощаджень») and `to-debt` («У борг») are refused as `not_saved`: in PoC
+ * they are not saved (owner decision 2026-11-20, Q3 а).
  */
 export const ALLOCATION_ROW_KINDS = ["goal", "debt", "savings", "from-goal"] as const;
-export type AllocationRowKind = (typeof ALLOCATION_ROW_KINDS)[number];
+export const UNSAVED_ROW_KINDS = ["from-savings", "to-debt"] as const;
+export type AllocationRowKind = (typeof ALLOCATION_ROW_KINDS)[number] | (typeof UNSAVED_ROW_KINDS)[number];
 
 /** The most rows one «Розподіл» saves. */
 export const ALLOCATION_ROWS_MAX = 100;
@@ -313,6 +328,10 @@ export interface AllocationLines {
     /** Null — no required contribution (no date, past it) or no rate. */
     readonly required: Money | null;
     readonly lastPeriod: string | null;
+    /** The goal's own currency; the wizard shows only the goals in the budget's currency (Q4 а). */
+    readonly currency?: string | undefined;
+    /** BUD-03@PoC FR 6: contributed this calendar month; null — no rate; left out — nothing («Можна витратити»). */
+    readonly contributed?: Money | null | undefined;
   }[];
   readonly debtAccountIds: ReadonlySet<string>;
 }
@@ -336,13 +355,34 @@ export function defaultContribution(goal: AllocationLines["goals"][number], peri
     : null;
 }
 
+/**
+ * Q5 а: Σ the goals' default contributions of `period` (BUD-17 FR 1); null — a goal with a date ahead has no figure
+ * (no rate), as the grid's section then has no total.
+ */
+export function plannedContributions(
+  goals: AllocationLines["goals"],
+  period: string,
+  currency: string,
+): Money | null {
+  let total = Money.zero(currency);
+  for (const g of goals) {
+    if (g.required === null && g.lastPeriod !== null && g.lastPeriod >= period) return null;
+    const d = defaultContribution(g, period);
+    if (d) total = total.plus(d);
+  }
+  return total;
+}
+
 const SURPLUS_KINDS: ReadonlySet<AllocationRowKind> = new Set(["goal", "debt", "savings"]);
+const UNSAVED: ReadonlySet<AllocationRowKind> = new Set(UNSAVED_ROW_KINDS);
 
 /**
  * FR 15, AC6, AC7: the rows of «Розподіл» checked against the balance with the rules of the calculation
  * (`allocationChoice`): each row of the balance's kind, on a goal or debt of the space, once, ≥ 0 exactly in the
- * budget's currency; the sum never over N (`over`); a deficit covered exactly (`short` refused). Returns the cells the
- * first period stores, or the issues (`allocation.<i>.…`, `allocation`).
+ * budget's currency; the sum never over N (`over`); a deficit covered exactly (`short` refused). The balance already
+ * holds the goals' default contributions (Q5 а), so a `goal` row counts as its change against that default, and a goal
+ * the wizard shows (budget currency, a contribution planned) left without a row is saved as 0 € (Q4 а). So the grid's
+ * «Не розподілено» after the save is the rest. Returns the cells the first period stores, or the issues.
  */
 export function checkAllocation(
   balance: AllocationBalance,
@@ -361,8 +401,13 @@ export function checkAllocation(
   const amounts: Money[] = [];
   const seen = new Set<string>();
   const goals = new Map(lines.goals.map((g) => [g.goalId, g]));
+  const currency = balance.amount.currency;
+  const planned = (g: AllocationLines["goals"][number]) =>
+    defaultContribution(g, period) ?? Money.zero(currency);
   rows.forEach((row, i) => {
     const field = `allocation.${i}`;
+    // Q3 а: «Із заощаджень» and «У борг» are not saved in PoC — the screen says so.
+    if (UNSAVED.has(row.kind)) return issues.push({ field: `${field}.kind`, issue: "not_saved" });
     const fits =
       balance.kind === "surplus"
         ? SURPLUS_KINDS.has(row.kind)
@@ -385,15 +430,29 @@ export function checkAllocation(
     if (!(amount instanceof Money)) return issues.push(amount);
     if (row.kind === "from-goal") {
       // «З цілі …» — the month's contribution lowered: never below 0, and only a goal with one planned.
-      const planned = defaultContribution(goal!, period);
-      if (planned === null) return issues.push({ field: `${field}.goalId`, issue: "no_contribution" });
-      if (amount.compare(planned) > 0)
-        return issues.push({ field: `${field}.amount`, issue: "over_contribution" });
-      cells.push({ kind: "goal", lineId, amount: planned.minus(amount) });
-    } else cells.push({ kind: row.kind, lineId, amount });
-    amounts.push(amount);
+      const d = defaultContribution(goal!, period);
+      if (d === null) return issues.push({ field: `${field}.goalId`, issue: "no_contribution" });
+      if (amount.compare(d) > 0) return issues.push({ field: `${field}.amount`, issue: "over_contribution" });
+      cells.push({ kind: "goal", lineId, amount: d.minus(amount) });
+      amounts.push(amount);
+    } else if (row.kind === "goal") {
+      cells.push({ kind: "goal", lineId, amount });
+      amounts.push(amount.minus(planned(goal!)));
+    } else {
+      cells.push({ kind: row.kind as "debt" | "savings", lineId, amount });
+      amounts.push(amount);
+    }
   });
   if (issues.length > 0) return { kind: "invalid", issues };
+  // Q4 а: a goal the wizard shows and left empty on a surplus is 0 € this month, not its required contribution.
+  if (balance.kind === "surplus")
+    for (const g of lines.goals) {
+      const d = planned(g);
+      if (seen.has(`goal:${g.goalId}`) || d.isZero() || (g.currency !== undefined && g.currency !== currency))
+        continue;
+      cells.push({ kind: "goal", lineId: g.goalId, amount: Money.zero(currency) });
+      amounts.push(d.negated());
+    }
   const choice = allocationChoice(balance, amounts);
   if (choice.status === "over") return { kind: "invalid", issues: [{ field: "allocation", issue: "over" }] };
   if (balance.kind === "deficit" && choice.status !== "exact")

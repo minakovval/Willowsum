@@ -60,6 +60,7 @@ export function createBudgetPlanSources(ports: {
         goalId: g.goalId,
         required: byGoal.get(g.goalId) ?? null,
         contributed: contributed[i] ?? null,
+        currency: g.contributedThisMonth.currency,
         // No date or past it (BUD-05 FR 5: no required contribution) — nothing is planned for the goal.
         lastPeriod: g.requiredMonthly === null || g.targetDate === null ? null : periodOf(g.targetDate),
       }));

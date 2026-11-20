@@ -174,6 +174,8 @@ export interface BudgetPlanSources {
       lastPeriod: Period | null;
       /** BUD-03@PoC FR 6: contributed this calendar month; null — no rate; left out (a test's port) — nothing. */
       contributed?: Money | null;
+      /** The goal's own currency (BUD-02 FR 15, Q4 а: the wizard shows the goals in the budget's currency). */
+      currency?: string;
     }[]
   >;
   /**

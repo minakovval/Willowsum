@@ -293,6 +293,8 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
         recurringOutsideLimits: eur("0"),
         unallocated: eur("2740"),
         debtMinimums: eur("0"),
+        // Q5 а: the goals' planned contributions (no goal here).
+        goalContributions: eur("0"),
         difference: eur("2740"),
         kind: "surplus",
         amount: eur("2740"),
@@ -345,6 +347,7 @@ describe("BUD-02@PoC: «Розподіл» (POST /v1/budget/allocation)", () => 
       recurringOutsideLimits: eur("15.99"),
       unallocated: eur("84.01"),
       debtMinimums: eur("120.01"),
+      goalContributions: eur("0"),
       difference: eur("-36"),
       kind: "deficit",
       amount: eur("36"),

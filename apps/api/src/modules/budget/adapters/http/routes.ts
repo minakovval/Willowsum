@@ -162,20 +162,30 @@ async function stored(ctx: ProtectedContext): Promise<StoredBudget> {
 const limitInput = z.object({ categoryId: z.uuid(), amount: moneyInput }).strict();
 
 /**
- * FR 15: a typed row of «Розподіл». A surplus: `goal` (the goal's contribution of the first period), `debt` (the extra
- * payment above the minimum for one debt), `savings` («Заощадження без цілі»); the rest stays «Не розподілено»
- * («Лишити нерозподіленим» — no row). A deficit: `from-goal` («З цілі …»: the month's contribution lowered by the
- * amount). «Зменшити ліміти» is lower `limits`; «Із заощаджень» and «У борг» are not rows yet.
+ * FR 15: a typed row of «Розподіл». A surplus: `goal` (the goal's contribution of the first period; a goal the wizard
+ * shows left without a row is saved as 0 €, owner decision 2026-11-20, Q4 а), `debt` (the extra payment above the
+ * minimum for one debt), `savings` («Заощадження без цілі»); the rest stays «Не розподілено» («Лишити
+ * нерозподіленим» — no row). A deficit: `from-goal` («З цілі …»: the month's contribution lowered by the amount).
+ * «Зменшити ліміти» is lower `limits`. `from-savings` («Із заощаджень») and `to-debt` («У борг») are always refused
+ * `not_saved`: not saved in PoC (owner decision 2026-11-20, Q3 а).
  */
 const allocationRow = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("goal"), goalId: z.uuid(), amount: moneyInput }).strict(),
   z.object({ kind: z.literal("from-goal"), goalId: z.uuid(), amount: moneyInput }).strict(),
   z.object({ kind: z.literal("debt"), accountId: z.uuid(), amount: moneyInput }).strict(),
   z.object({ kind: z.literal("savings"), amount: moneyInput }).strict(),
+  z
+    .object({ kind: z.literal("from-savings"), accountId: z.uuid().optional(), amount: moneyInput })
+    .strict()
+    .meta({ description: "«Із заощаджень»: not saved in PoC — always 400 `allocation.<i>.kind: not_saved`" }),
+  z
+    .object({ kind: z.literal("to-debt"), accountId: z.uuid().optional(), amount: moneyInput })
+    .strict()
+    .meta({ description: "«У борг»: not saved in PoC — always 400 `allocation.<i>.kind: not_saved`" }),
 ]);
 const allocationInput = z.array(allocationRow).max(ALLOCATION_ROWS_MAX).meta({
   description:
-    "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. Saved as the first period's cells of «План»; nothing is moved",
+    "The rows of «Розподіл» (FR 15), checked as POST /v1/budget/allocation checks them: each of the balance's kind, a goal or debt of the space once, the sum never over N, a deficit covered exactly. N already holds the goals' planned contributions, so a `goal` row counts as its change against the goal's planned contribution, and a goal with a planned contribution in the budget's currency left without a row is saved as 0 €. «Із заощаджень» (`from-savings`) and «У борг» (`to-debt`) are not saved in PoC: 400 `not_saved`. Saved as the first period's cells of «План»; nothing is moved",
 });
 
 export const getBudgetRoute = defineRoute({
@@ -643,7 +653,9 @@ const allocationSchema = z.object({
       unallocated: moneySchema,
       /** «Мінімальні платежі за боргами». */
       debtMinimums: moneySchema,
-      /** FR 15: unallocated − debt minimums; negative — a deficit. */
+      /** FR 15 (Q5 а): the goals' planned contributions of the month, as «План» subtracts them. */
+      goalContributions: moneySchema,
+      /** FR 15: unallocated − debt minimums − goal contributions; negative — a deficit. */
       difference: moneySchema,
       /** «профіцит N» / «Звідки візьмуться N?» / nothing to allocate. */
       kind: z.enum(["surplus", "deficit", "balanced"]),
@@ -653,7 +665,7 @@ const allocationSchema = z.object({
     .nullable()
     .meta({
       description:
-        "Null — the month's regular payments and loans' monthly payments are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead",
+        "Null — the month's regular payments and loans' monthly payments, or a goal's planned contribution, are not known (an amount without any rate or over 15 integer digits): no difference, no «не розподілено»; never show income − limits instead",
     }),
   /**
    * FR 15, AC7: the chosen amounts against N — `exact`: a deficit is covered in full («Створити бюджет» active);
@@ -676,7 +688,7 @@ const allocationSchema = z.object({
     amount: moneySchema.nullable(),
     missing: z.array(z.enum(SPENDABLE_MISSING)).meta({
       description:
-        "Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate), `goal-contributions` (this month's contributions made, current month), `regular-incomes` (the regular incomes received, current month). Never show a figure without them",
+        "Why `amount` is null: `obligations` (the month's payments unknown), `rates` (an amount without a rate: a transaction, a goal's contribution, a regular income, a payoff plan's payment). Never show a figure without them",
     }),
   }),
 });
@@ -701,7 +713,7 @@ export const previewAllocationRoute = defineRoute({
         limits: z.array(limitInput).max(LIMITS_MAX).optional(),
         chosen: z.array(moneyInput).max(CHOSEN_MAX).optional().meta({
           description:
-            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Not with `allocation`",
+            "The amounts chosen on the step: goals, extra debt payments, «Заощадження без цілі», or the deficit options «З цілі», «Із заощаджень», «У борг». «Зменшити ліміти» is sent as lower `limits` only (it changes N), never also here. Each amount counts in full (N already holds the goals' planned contributions: `allocation` counts a goal's change against it). Not with `allocation`",
         }),
         /** FR 15: the typed rows, as POST /v1/budget saves them (400 on what it would refuse). */
         allocation: allocationInput.optional(),
@@ -734,6 +746,7 @@ export const previewAllocationRoute = defineRoute({
         recurringOutsideLimits: money(b.recurringOutsideLimits),
         unallocated: money(b.unallocated),
         debtMinimums: money(b.debtMinimums),
+        goalContributions: money(b.goalContributions),
         difference: money(b.difference),
         kind: b.kind,
         amount: money(b.amount),

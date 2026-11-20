@@ -74,22 +74,26 @@ FLW-38@PoC, JRN-05@PoC, JRN-06@PoC.
   - `POST /v1/budget/allocation` (`previewBudgetAllocation`) — лише розрахунок, нічого не зберігає: тіло як у
     `createBudget` (`firstPeriod`, `proportional`, `incomePlan`, `limits`) і `chosen` (до 100 сум, обраних на кроці) →
     `period`, `incomePlan` і `limits` (сума; пропорційний — × частку днів), `balance` (`recurringOutsideLimits`,
-    `unallocated` — смуга кроку лімітів, `debtMinimums`, `difference`, `kind` — `surplus` / `deficit` / `balanced`,
+    `unallocated` — смуга кроку лімітів, `debtMinimums`, `goalContributions` — заплановані внески в цілі місяця, як їх
+    віднімає «План» (рішення власника 2026-11-20, Q5 а), `difference` = `unallocated` − `debtMinimums` −
+    `goalContributions` (null і без курсу внеску цілі з датою), `kind` — `surplus` / `deficit` / `balanced`,
     `amount` = |difference|; null без `BudgetObligations`), `choice` (`chosen`, `rest` = N − chosen, `status` —
     `short` / `exact` / `over`; дефіцит покрито лише при `exact`; null без `chosen`/`allocation` або `balance`), `spendable`
     («Можна витратити в <місяць> ≈ M», п. 3, AC6: `period`, `amount` — BUD-03 п. 2 для першого періоду; поточний місяць
     — на сьогодні з фактом рахунків, що ввійшли б у бюджет, наступний — на 1-ше; внески в цілі — клітинки «Розподілу»,
-    інакше потрібні; заплановані витрати — додаткові платежі планів, клітинка боргу замість них; `amount` null і
-    `missing` — `obligations`, `rates`, `goal-contributions`, `regular-incomes` (внески й отримані доходи поточного
-    місяця — після BUD-03@PoC c)). Помилки — як у `createBudget` (`chosen.<i>`: `invalid`, `….currency: currency`;
+    інакше потрібні; поточний місяць — мінус уже внесене в цілі й плюс регулярні доходи, що ще очікуються, як
+    «Можна витратити» (#641); заплановані витрати — додаткові платежі планів, клітинка боргу замість них; `amount`
+    null і `missing` — `obligations`, `rates`). Помилки — як у `createBudget` (`chosen.<i>`: `invalid`, `….currency: currency`;
     `chosen: with_allocation`); `allocation` — ті самі правила, що в `createBudget`.
   - `POST /v1/budget` (`createBudget`, `Idempotency-Key`) — `firstPeriod` (поточний або наступний місяць; першого числа —
     лише поточний; інакше 400 `firstPeriod: invalid`), `proportional` (true — поточний місяць від сьогодні, не першого
     числа; інакше 400 `proportional: invalid`), `incomePlan` (типово 0), `limits` (до 300). Ліміт — активна категорія витрат простору (400
     `limits.<i>.categoryId`: `not_found`, `not_expense`, `hidden`, `duplicate`), ≥ 0 у валюті бюджету (`limits.<i>.amount`:
     `invalid`, `….currency: currency`). `allocation` (до 100 рядків «Розподілу», п. 15): профіцит — `goal` (`goalId`,
-    внесок першого періоду), `debt` (`accountId`, додатковий платіж понад мінімум — запланована витрата), `savings`
-    («Заощадження без цілі»), решта — «Не розподілено»; дефіцит — `from-goal` (внесок місяця − сума). Перевірка — як у
+    внесок першого періоду; рахується як зміна проти запланованого внеску, бо N його вже віднімає — Q5 а; ціль у валюті
+    бюджету із запланованим внеском без рядка пишеться як 0 € — Q4 а), `debt` (`accountId`, додатковий платіж понад мінімум — запланована витрата), `savings`
+    («Заощадження без цілі»), решта — «Не розподілено»; дефіцит — `from-goal` (внесок місяця − сума); `from-savings` («Із заощаджень») і `to-debt` («У борг») у PoC не
+    зберігаються — 400 `allocation.<i>.kind: not_saved` (Q3 а). Перевірка — як у
     розрахунку, до транзакції: 400 `allocation`: `balance_unknown`, `over`, `short` (дефіцит не покрито рівно);
     `allocation.<i>.kind`: `invalid` (не той вид), `duplicate`; `….goalId`/`….accountId`: `not_found` (ціль чи борг
     іншого простору — так само), `duplicate`, `no_contribution`; `….amount`: `invalid`, `over_contribution`,

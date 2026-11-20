@@ -65,7 +65,13 @@ const m = (amount: string) => Money.of(amount, "EUR");
 
 const goals = new Map<
   string,
-  { goalId: string; requiredMonthly: Money | null; targetDate: string | null }[]
+  {
+    goalId: string;
+    requiredMonthly: Money | null;
+    targetDate: string | null;
+    /** BUD-03@PoC FR 6 (#641): contributed this month; left out — 0. */
+    contributedThisMonth?: Money;
+  }[]
 >();
 const minimums = new Map<string, { accountId: string; amount: Money; paid: boolean }[]>();
 const recurring = new Map<string, { categoryId: string | null; amount: Money; paid: boolean }[]>();
@@ -131,7 +137,8 @@ async function surplusSpace() {
   goals.set(space.householdId, [{ goalId, requiredMonthly: m("300"), targetDate: "2027-03-31" }]);
   minimums.set(space.householdId, [{ accountId: debtId, amount: m("100"), paid: false }]);
   const cafes = await category(space, "Кафе і ресторани");
-  // AC6: income 5 600, limits 2 860, no regular payments outside limits; minus the 100 minimum — a surplus of 2 640.
+  // AC6: income 5 600, limits 2 860, no regular payments outside limits; minus the 100 minimum and the goal's planned
+  // 300 (FR 15, owner decision 2026-11-20, Q5 а) — a surplus of 2 340.
   const plan = {
     firstPeriod: "2026-12",
     incomePlan: eur("5600.00"),
@@ -140,7 +147,10 @@ async function surplusSpace() {
   return { space, goalId, debtId, cafes, plan };
 }
 
-/** A space whose plan is a deficit of 200 (AC7: income 3 000, limits 3 200) with the goal of 300 €/month. */
+/**
+ * A space whose plan is a deficit of 200 (AC7: income 3 000, limits 3 200) with the goal of 300 €/month. Since Q5 а the
+ * difference subtracts the goal's planned 300 as well, so the income is 3 300 to keep AC7's 200.
+ */
 async function deficitSpace() {
   const space = await newSpace();
   const goalId = randomUUID();
@@ -148,7 +158,7 @@ async function deficitSpace() {
   const cafes = await category(space, "Кафе і ресторани");
   const plan = {
     firstPeriod: "2026-12",
-    incomePlan: eur("3000"),
+    incomePlan: eur("3300"),
     limits: [{ categoryId: cafes, amount: eur("3200") }],
   };
   return { space, goalId, plan };
@@ -243,7 +253,8 @@ beforeAll(async () => {
               active: async (householdId) =>
                 (goals.get(householdId) ?? []).map((g) => ({
                   ...g,
-                  contributedThisMonth: Money.of("0", g.requiredMonthly?.currency ?? "EUR"),
+                  contributedThisMonth:
+                    g.contributedThisMonth ?? Money.of("0", g.requiredMonthly?.currency ?? "EUR"),
                 })),
             },
             debts: { inMonth: async (householdId) => extras.get(householdId) ?? [] },
@@ -310,7 +321,8 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
     expect(g.goals.rows[0]!.cells[dec]).toMatchObject({ amount: eur("300"), own: true });
     expect(g.goals.savings[dec]).toMatchObject({ amount: eur("1000.5"), own: true });
     expect(g.debts.rows[0]!.cells[dec]).toEqual({ minimum: eur("100"), extra: eur("200") });
-    // «Не розподілено» of the grid = the rest of «Розподіл»: 2 640 − 1 500.50.
+    // «Не розподілено» of the grid = the rest of «Розподіл»: 2 340 − (0 + 200 + 1 000.50); the goal row 300 is its
+    // planned contribution, so it counts 0 (Q5 а).
     expect(g.unallocated[dec]).toEqual({ kind: "unallocated", amount: eur("1139.5") });
     // Only the first period: January keeps the defaults (the required contribution, no extra payment).
     expect(g.goals.rows[0]!.cells[jan]).toMatchObject({ amount: eur("300"), own: false });
@@ -338,6 +350,8 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
     const dec = g.months.findIndex((x) => x.period === "2026-12");
     expect(g.goals.rows[0]!.cells[dec]).toMatchObject({ amount: eur("100"), own: true });
     expect(g.goals.rows[0]!.cells[dec + 1]).toMatchObject({ amount: eur("300"), own: false });
+    // Q5 а: covered exactly — the grid shows no deficit.
+    expect(g.unallocated[dec]).toEqual({ kind: "unallocated", amount: eur("0") });
     expect(await cells(space.householdId)).toBe(1);
   });
 
@@ -366,6 +380,7 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
   it("BUD-02@PoC FR 15: a surplus refuses rows over N, deficit rows, duplicates, inexact amounts and another currency — the same issues as the calculation", async () => {
     const { space, goalId, debtId, plan } = await surplusSpace();
     const cases: [unknown[], string[]][] = [
+      // The goal left empty frees its 300 (Q4 а): N 2 340 + 300.
       [[{ kind: "savings", amount: eur("2640.01") }], ["allocation: over"]],
       [[{ kind: "from-goal", goalId, amount: eur("1") }], ["allocation.0.kind: invalid"]],
       [
@@ -391,7 +406,7 @@ describe("BUD-02@PoC: «Розподіл» is saved with the budget (POST /v1/bu
     }
     // The whole surplus is allowed — status `exact`; less is allowed too, the rest «Лишити нерозподіленим».
     const calc = await preview(space, { ...plan, allocation: [{ kind: "savings", amount: eur("2640") }] });
-    expect(calc.json().choice).toEqual({ chosen: eur("2640"), rest: eur("0"), status: "exact" });
+    expect(calc.json().choice).toEqual({ chosen: eur("2340"), rest: eur("0"), status: "exact" });
     expect(await budgets(space.householdId)).toBe(0);
   });
 
@@ -461,8 +476,10 @@ describe("BUD-02@PoC: «Можна витратити в <місяць> ≈ M» 
     expect(bare.statusCode, bare.body).toBe(200);
     expect(bare.json().balance).toMatchObject({
       unallocated: eur("2740"),
+      goalContributions: eur("300"),
+      difference: eur("2340"),
       kind: "surplus",
-      amount: eur("2640"),
+      amount: eur("2340"),
     });
     expect(bare.json().spendable).toEqual({ period: "2026-12", amount: eur("5200"), missing: [] });
     const allocated = await preview(space, {
@@ -476,19 +493,29 @@ describe("BUD-02@PoC: «Можна витратити в <місяць> ≈ M» 
     // 5 600 − 100 (minimum) − 100 (goal) − 200 (extra payment, a planned expense); «Заощадження без цілі» is not a
     // contribution to a goal (BUD-03 FR 2).
     expect(allocated.json().spendable).toEqual({ period: "2026-12", amount: eur("5200"), missing: [] });
-    expect(allocated.json().choice).toEqual({ chosen: eur("800"), rest: eur("1840"), status: "short" });
+    // The goal row 100 counts as −200 against its planned 300 (Q5 а): 2 340 − (−200 + 200 + 500).
+    expect(allocated.json().choice).toEqual({ chosen: eur("500"), rest: eur("1840"), status: "short" });
     expect(await budgets(space.householdId)).toBe(0);
   });
 
-  it("BUD-02@PoC AC6: the current month with a goal — this month's contributions are not known yet, so no figure, never a partial one", async () => {
-    const { space, plan } = await surplusSpace();
+  it("BUD-02@PoC AC6: the current month with a goal — this month's contributions count as on «Можна витратити» (#641); one without a rate — no figure", async () => {
+    const { space, goalId, plan } = await surplusSpace();
     const res = await preview(space, { ...plan, firstPeriod: "2026-11" });
     expect(res.statusCode, res.body).toBe(200);
-    expect(res.json().spendable).toEqual({
-      period: "2026-11",
-      amount: null,
-      missing: ["goal-contributions"],
-    });
+    // 5 600 − the minimum 100 − the goal's 300 (nothing contributed yet).
+    expect(res.json().spendable).toEqual({ period: "2026-11", amount: eur("5200"), missing: [] });
+    // 400 already contributed this month: Σ max(planned 300, contributed 400) — 5 100.
+    goals.set(space.householdId, [
+      { goalId, requiredMonthly: m("300"), targetDate: "2027-03-31", contributedThisMonth: m("400") },
+    ]);
+    const more = await preview(space, { ...plan, firstPeriod: "2026-11" });
+    expect(more.json().spendable).toEqual({ period: "2026-11", amount: eur("5100"), missing: [] });
+    // A goal of another currency whose contribution has no rate: no figure, never a partial one.
+    goals.set(space.householdId, [
+      { goalId, requiredMonthly: null, targetDate: null, contributedThisMonth: Money.of("10", "USD") },
+    ]);
+    const noRate = await preview(space, { ...plan, firstPeriod: "2026-11" });
+    expect(noRate.json().spendable).toEqual({ period: "2026-11", amount: null, missing: ["rates"] });
     // Without goals: income 5 600 − nothing spent yet − the minimum 100.
     goals.delete(space.householdId);
     const plain = await preview(space, { ...plan, firstPeriod: "2026-11" });
@@ -500,5 +527,52 @@ describe("BUD-02@PoC: «Можна витратити в <місяць> ≈ M» 
     extras.set(space.householdId, [{ accountId: debtId, amount: Money.of("50", "USD") }]);
     const res = await preview(space, plan);
     expect(res.json().spendable).toEqual({ period: "2026-12", amount: null, missing: ["rates"] });
+  });
+});
+
+describe("BUD-02@PoC FR 15 (owner decision 2026-11-20, Q3 а, Q4 а, Q5 а): «Розподіл» and the grid of «План» agree", () => {
+  it("BUD-02@PoC FR 15: after saving «Розподіл» the grid's «Не розподілено» of the first period is the step's rest — a surplus with a goal left empty", async () => {
+    const { space, goalId, plan } = await surplusSpace();
+    const allocation = [{ kind: "savings", amount: eur("1000") }];
+    const step = await preview(space, { ...plan, allocation });
+    expect(step.statusCode, step.body).toBe(200);
+    // 2 340 − (1 000 − the goal's 300 left empty) = 1 640.
+    expect(step.json().choice).toEqual({ chosen: eur("700"), rest: eur("1640"), status: "short" });
+    const res = await create(space, { ...plan, allocation });
+    expect(res.statusCode, res.body).toBe(201);
+    const g = await grid(space);
+    const dec = g.months.findIndex((x) => x.period === "2026-12");
+    expect(g.unallocated[dec]).toEqual({ kind: "unallocated", amount: step.json().choice.rest });
+    // Q4 а: the goal the wizard shows, left empty, is an explicit 0 € for December; January keeps its 300.
+    const row = g.goals.rows.find((r) => r.goalId === goalId)!;
+    expect(row.cells[dec]).toMatchObject({ amount: eur("0"), own: true });
+    expect(row.cells[dec + 1]).toMatchObject({ amount: eur("300"), own: false });
+    expect(await cells(space.householdId)).toBe(2);
+  });
+
+  it("BUD-02@PoC FR 15: after saving «Розподіл» the grid's «Не розподілено» is the step's rest — a deficit covered exactly shows no deficit", async () => {
+    const { space, goalId, plan } = await deficitSpace();
+    const allocation = [{ kind: "from-goal", goalId, amount: eur("200") }];
+    const step = await preview(space, { ...plan, allocation });
+    expect(step.json().balance).toMatchObject({ kind: "deficit", amount: eur("200") });
+    expect(step.json().choice).toEqual({ chosen: eur("200"), rest: eur("0"), status: "exact" });
+    expect((await create(space, { ...plan, allocation })).statusCode).toBe(201);
+    const g = await grid(space);
+    const dec = g.months.findIndex((x) => x.period === "2026-12");
+    expect(g.unallocated[dec]).toEqual({ kind: "unallocated", amount: eur("0") });
+  });
+
+  it("BUD-02@PoC FR 15 (Q3 а): «Із заощаджень» and «У борг» are not saved in PoC — both routes refuse them as `not_saved`, nothing saved", async () => {
+    const { space, plan } = await deficitSpace();
+    for (const kind of ["from-savings", "to-debt"])
+      for (const send of [create, preview] as const) {
+        const res = await send(space, {
+          ...plan,
+          allocation: [{ kind, accountId: randomUUID(), amount: eur("200") }],
+        });
+        expect(res.statusCode).toBe(400);
+        expect(paths(res)).toEqual(["allocation.0.kind: not_saved"]);
+      }
+    expect(await budgets(space.householdId)).toBe(0);
   });
 });
