@@ -1,16 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { formatNumber, useI18n } from "@willowsum/i18n";
+import { formatNumber, useI18n, type MessageKey } from "@willowsum/i18n";
 import { AmountField, Button, Skeleton } from "@willowsum/ui";
 import { useAuthApi } from "../../auth/api.ts";
 import { GoalDialog } from "../goals/GoalDialog.tsx";
 import {
   loadDistribution,
   previewAllocation,
+  PLAN,
+  SRC,
   type Allocation,
+  type AllocationRows,
   type Distribution,
   type PlanArgs,
 } from "./distribution.ts";
 import { createBody, type Money } from "./wizard.ts";
+
+export { PLAN, SRC };
 
 /** What the server said about the plan not saved yet; `pending` while a newer request is on its way. */
 export interface AllocationState {
@@ -22,9 +27,9 @@ export interface AllocationState {
 
 /**
  * The server's calculation for the plan on screen (BUD-02@PoC FR 3, FR 15, AC6, AC7): runs again on every change of the
- * limits, the income plan or the chosen amounts; an answer to an older request is dropped.
+ * limits, the income plan or the typed rows; an answer to an older request is dropped.
  */
-export function useAllocation(args: PlanArgs | null, chosen: readonly string[]): AllocationState {
+export function useAllocation(args: PlanArgs | null, rows: AllocationRows): AllocationState {
   const api = useAuthApi();
   // The last answer and the request (its key) it answers; `pending` is derived: the key of the screen moved on.
   const [done, setDone] = useState<{ key: string; allocation: Allocation | null; failed: boolean }>({
@@ -33,12 +38,12 @@ export function useAllocation(args: PlanArgs | null, chosen: readonly string[]):
     failed: false,
   });
   const [attempt, setAttempt] = useState(0);
-  const key = args ? `${attempt}${JSON.stringify([createBody(args), chosen])}` : "";
+  const key = args ? `${attempt}${JSON.stringify(createBody({ ...args, rows }))}` : "";
   const latest = useRef(key);
   useEffect(() => {
     latest.current = key;
     if (!args) return;
-    void previewAllocation(api, args, chosen).then((o) => {
+    void previewAllocation(api, args, rows).then((o) => {
       if (latest.current !== key) return;
       setDone((s) => ({ key, allocation: o.ok ? o.data : s.allocation, failed: !o.ok }));
     });
@@ -54,19 +59,57 @@ export function useAllocation(args: PlanArgs | null, chosen: readonly string[]):
 }
 
 /**
+ * BUD-03@PoC FR 2 (BUD-02@PoC FR 3, AC6): «Можна витратити в <місяць> ≈ M» as the server calculated it for the plan on
+ * screen. Without a figure (`amount` null) the reason is said and no amount is shown: never a partial one.
+ */
+export function SpendableLine({
+  spendable,
+  hint,
+  money,
+}: {
+  spendable: Spendable;
+  hint: string;
+  money: (m: Money) => string;
+}) {
+  const { t } = useI18n();
+  const month = t(`planning.budget.month.${spendable.period.slice(5, 7)}.loc` as MessageKey);
+  const missing = spendable.missing[0];
+  return (
+    <span className="bud-wiz-spend">
+      <strong>
+        {spendable.amount
+          ? t("planning.budget.wizard.spendable", { month, amount: money(spendable.amount) })
+          : t("planning.budget.wizard.spendable.unknown", { month })}
+      </strong>
+      <span className="ws-muted">
+        {spendable.amount
+          ? hint
+          : t(
+              missing === "rates"
+                ? "planning.budget.wizard.spendable.rates"
+                : "planning.budget.wizard.spendable.obligations",
+            )}
+      </span>
+    </span>
+  );
+}
+type Spendable = Allocation["spendable"];
+
+/**
  * AC6: the bottom strip of the limits step. Nothing while the server cannot tell (`balance: null`), has not answered,
  * has a newer calculation on its way or failed: a figure that does not match the limits on screen is never shown. The
- * live region is always mounted and filled, so a screen reader announces the change.
+ * live region is always mounted and filled, so a screen reader announces the change. «Можна витратити» is under the
+ * difference (FR 3) and shown whenever the answer is current, also when the difference is unknown.
  */
 export function LimitsStrip({ state, money }: { state: AllocationState; money: (m: Money) => string }) {
   const { t } = useI18n();
   const a = state.allocation;
   const b = a?.balance;
-  const show = a && b && !state.pending && !state.failed;
+  const current = a !== null && !state.pending && !state.failed;
   return (
-    <div className="bud-wiz-strip" role="status" data-empty={!show}>
-      {show ? (
-        <>
+    <div className="bud-wiz-strip" role="status" data-empty={!current}>
+      {current && b ? (
+        <span className="bud-wiz-strip-diff">
           <strong>{t("planning.budget.wizard.strip.unallocated", { amount: money(b.unallocated) })}</strong>
           <span className="ws-muted">
             {t("planning.budget.wizard.strip.formula", {
@@ -75,17 +118,20 @@ export function LimitsStrip({ state, money }: { state: AllocationState; money: (
               recurring: money(b.recurringOutsideLimits),
             })}
           </span>
-        </>
+        </span>
+      ) : null}
+      {current ? (
+        <SpendableLine
+          spendable={a.spendable}
+          hint={t("planning.budget.wizard.spendable.hint.limits")}
+          money={money}
+        />
       ) : null}
     </div>
   );
 }
 
 type Row = { readonly key: string; readonly title: string; readonly hint: string | null };
-
-/** Keys of the chosen amounts: `plan:` rows of a surplus, `src:` rows of a deficit. */
-export const PLAN = "plan:";
-export const SRC = "src:";
 
 export function DistributionStep({
   currency,
@@ -303,22 +349,6 @@ export function DistributionStep({
             hint: t("planning.budget.wizard.dist.fromGoal.hint"),
           }),
         ),
-        ...d.savings.map((s) =>
-          field({
-            key: `${SRC}save:${s.id}`,
-            title: t("planning.budget.wizard.dist.fromSavings", { account: accountName(s) }),
-            hint: s.amount ? money(s.amount) : null,
-          }),
-        ),
-        ...d.cards.map((c) =>
-          field({
-            key: `${SRC}card:${c.id}`,
-            title: t("planning.budget.wizard.dist.toDebt", { account: accountName(c) }),
-            hint: c.amount
-              ? t("planning.budget.wizard.dist.toDebt.hint", { available: money(c.amount) })
-              : null,
-          }),
-        ),
         <div className="bud-wiz-row" key="cut">
           <span>
             <strong>{t("planning.budget.wizard.dist.cutLimits")}</strong>
@@ -347,8 +377,6 @@ export function DistributionStep({
     </section>
   );
 }
-
-const accountName = (s: { name: string; mask: string | null }) => (s.mask ? `${s.name} ${s.mask}` : s.name);
 
 /** The lists of the rows, read when the step opens; `reload` after a new goal. */
 export function useDistribution(currency: string, enabled: boolean) {

@@ -119,6 +119,7 @@ const ALLOCATION = {
     amount: eur("2740.00"),
   },
   choice: null,
+  spendable: { period: "2026-11", amount: eur("2902.34"), missing: [] },
 };
 
 function mount(over: Record<string, Reply> = {}) {

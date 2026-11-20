@@ -9,7 +9,16 @@ import { BUDGET } from "../../routing/routes.ts";
 import { useDocumentTitle } from "../../useDocumentTitle.ts";
 import "./budget.css";
 import { monthOf, shiftMonth } from "./model.ts";
-import { DistributionStep, LimitsStrip, PLAN, SRC, useAllocation, useDistribution } from "./Distribution.tsx";
+import {
+  DistributionStep,
+  LimitsStrip,
+  PLAN,
+  SRC,
+  SpendableLine,
+  useAllocation,
+  useDistribution,
+} from "./Distribution.tsx";
+import { allocationRows } from "./distribution.ts";
 import { createBody, createBudget, loadWizard, newKey, type Start, type WizardData } from "./wizard.ts";
 
 type Method = "spending" | "zero";
@@ -98,10 +107,10 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
   const args = step >= 2 && start !== null ? { start, currency, income, limits } : null;
   const prefix = (kind: string | undefined) => (kind === "surplus" ? PLAN : kind === "deficit" ? SRC : null);
   const [kind, setKind] = useState<string | undefined>(undefined);
-  const chosenList = [...chosen]
-    .filter(([k, v]) => prefix(kind) !== null && k.startsWith(prefix(kind)!) && v !== null && /[1-9]/.test(v))
-    .map(([, v]) => v!);
-  const alloc = useAllocation(args, chosenList);
+  // The typed rows of «Розподіл» go to the calculation and to the create request only while that step is open and only
+  // for the kind of difference the server reports now; the limits step is calculated without them (FR 3).
+  const rows = step === 3 ? allocationRows(chosen, kind, currency) : [];
+  const alloc = useAllocation(args, rows);
   const allocKind = alloc.allocation?.balance?.kind;
   // Rows of the other kind are gone: their amounts do not count and their unparsed texts no longer block.
   const dropRows = (keep: string | null) =>
@@ -166,7 +175,7 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
     if (busy || start === null || problems.size > 0) return;
     setBusy(true);
     setFailed(false);
-    const body = createBody({ start, currency, income, limits });
+    const body = createBody({ start, currency, income, limits, rows });
     const text = JSON.stringify(body);
     // The same request keeps its key on a retry (ARC-07 FR 4).
     if (key.current?.body !== text) key.current = { body: text, key: newKey() };
@@ -259,6 +268,15 @@ function Wizard({ data, onClose }: { data: Ready; onClose: () => void }) {
         />
       )}
       {step === 2 ? <LimitsStrip state={alloc} money={money} /> : null}
+      {step === 3 && alloc.allocation !== null && !alloc.pending && !alloc.failed ? (
+        <div className="bud-wiz-strip" role="status">
+          <SpendableLine
+            spendable={alloc.allocation.spendable}
+            hint={t("planning.budget.wizard.spendable.hint.distribute")}
+            money={money}
+          />
+        </div>
+      ) : null}
       {failed ? (
         <p role="alert" className="bud-wiz-error">
           {t("planning.budget.wizard.error.create")}
