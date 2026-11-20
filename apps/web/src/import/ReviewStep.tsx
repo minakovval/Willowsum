@@ -269,7 +269,10 @@ export function ReviewStep({ batchId }: { batchId: string }) {
             label={t("importReview.apply")}
             variant="primary"
             href={hrefFor(importPath(batchId, "result"))}
-            onClick={() => armApply(batchId)}
+            onClick={(e) => {
+              // A modified or middle click opens the result in another tab or window: that is not a click here.
+              if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) armApply(batchId);
+            }}
           />
         ) : (
           <Button label={t("importReview.apply")} variant="primary" disabled disabledReason={blocked} />

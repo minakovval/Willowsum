@@ -225,7 +225,7 @@ describe("IMP-08@PoC c) follow-ups of #677 (security probes, issue #678)", () =>
     expect(posts(calls, "/apply")).toHaveLength(1);
   });
 
-  it("P8 IMP-08@PoC c): «Спробувати ще раз» after a failed apply does not start a second apply while one is in flight", async () => {
+  it("P8 IMP-08@PoC c): «Спробувати ще раз» after a failed apply applies again (a new click), once", async () => {
     let n = 0;
     let release: (r: Reply) => void = () => undefined;
     const gate = new Promise<Reply>((r) => (release = r));
@@ -271,5 +271,56 @@ describe("IMP-08@PoC c) follow-ups of #677 (security probes, issue #678)", () =>
     await screen.findByRole("heading", { name: "Партію відкочено" });
     const link = within(screen.getByRole("list", { name: "Залишені змінені транзакції" })).getByRole("link");
     expect(link.getAttribute("href")).toContain(K);
+  });
+
+  it("IMP-08@PoC c): Q1 an intent armed while an apply is in flight (second click on the review link) is not left armed for a later visit by address", async () => {
+    takeApplyIntent(BATCH);
+    armApply(BATCH);
+    let release: (r: Reply) => void = () => undefined;
+    const gate = new Promise<Reply>((r) => (release = r));
+    let n = 0;
+    const { client, calls } = api({
+      [`POST /v1/import/batches/${BATCH}/apply`]: () => (++n === 1 ? gate : { status: 200, body: applied() }),
+    });
+    const a = renderAt(at, client);
+    await screen.findByRole("heading", { name: "Застосовуємо партію…" });
+    a.unmount();
+    armApply(BATCH); // back to the review step, «Застосувати» clicked again; the result step joins the run in flight
+    const b = renderAt(at, client);
+    release(problem(500, "INTERNAL"));
+    await screen.findByRole("alert");
+    b.unmount();
+    // later, the same tab opens the result step by address (no click in this visit)
+    renderAt(at, client);
+    await screen.findByRole("heading", { name: /Застосувати партію\?|Імпорт завершено/ });
+    expect(posts(calls, "/apply")).toHaveLength(1);
+  });
+  it("IMP-08@PoC c): Q3 «Спробувати ще раз» after a failed read of the batch only reads: a reviewed batch then asks «Застосувати партію?», no apply", async () => {
+    takeApplyIntent(BATCH);
+    let n = 0;
+    const { client, calls } = api({
+      [`GET /v1/import/batches/${BATCH}`]: () =>
+        ++n === 1 ? problem(500, "INTERNAL") : { status: 200, body: detail("needs-review") },
+    });
+    renderAt(at, client);
+    fireEvent.click(await screen.findByRole("button", { name: /Спробувати ще раз/ }));
+    await screen.findByRole("heading", { name: "Застосувати партію?" });
+    expect(posts(calls, "/apply")).toHaveLength(0);
+  });
+
+  it("IMP-08@PoC c): Q4 a double click on «Застосувати» of the step sends one apply", async () => {
+    takeApplyIntent(BATCH);
+    let release: (r: Reply) => void = () => undefined;
+    const gate = new Promise<Reply>((r) => (release = r));
+    const { client, calls } = api({ [`POST /v1/import/batches/${BATCH}/apply`]: () => gate });
+    renderAt(at, client, { strict: true });
+    await screen.findByRole("heading", { name: "Застосувати партію?" });
+    const b = screen.getByRole("button", { name: "Застосувати" });
+    fireEvent.click(b);
+    fireEvent.click(b);
+    await screen.findByRole("heading", { name: "Застосовуємо партію…" });
+    release({ status: 200, body: applied() });
+    await screen.findByRole("heading", { name: "Імпорт завершено" });
+    expect(posts(calls, "/apply")).toHaveLength(1);
   });
 });

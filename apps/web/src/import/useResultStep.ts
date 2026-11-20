@@ -122,9 +122,10 @@ export function useResultStep(batchId: string) {
   useEffect(() => {
     // One run per batch, whatever the round: a new round joins the run in flight instead of starting a second apply.
     const key = batchId;
+    // The intent is spent by every visit, also one that joins a run in flight, so none is left for a later visit by address.
+    const intent = takeApplyIntent(batchId);
     let p = running.get(key);
     if (!p) {
-      const intent = takeApplyIntent(batchId);
       p = run(api, batchId, intent, (v) => {
         if (alive.current) setView(v);
       }).finally(() => running.delete(key));
