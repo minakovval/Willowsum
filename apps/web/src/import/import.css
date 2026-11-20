@@ -1,5 +1,5 @@
 /*
- * IMP-08@PoC a) (wave 2, row 136): S-170 «Імпорт · файли» — canvas PocMoneyImport1, PocMoneyImportMismatch. Tokens only
+ * IMP-08@PoC a) (wave 2, row 136): S-170 «Імпорт · файли» — canvas PocMoneyImport1. Tokens only
  * (DS-06, DS-09). The page never scrolls sideways: long names and one long word wrap inside their column.
  */
 .imp {

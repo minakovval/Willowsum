@@ -9,8 +9,8 @@ import { resetNavigationSession } from "../routing/session.ts";
 import { POLLING } from "./useImportStep.ts";
 
 /**
- * IMP-08@PoC a) (wave 2, row 136) — the step «Рахунок і файли» of the import wizard, S-170 (canvas PocMoneyImport1 and
- * PocMoneyImportMismatch), on `POST /v1/import/batches`, `…/files`, `…/parse`, `GET …/parse`, `…/readiness` and
+ * IMP-08@PoC a) (wave 2, row 136) — the step «Рахунок і файли» of the import wizard, S-170 (canvas PocMoneyImport1 and its
+ * «Тексти» board PocMoneyImport1Texts), on `POST /v1/import/batches`, `…/files`, `…/parse`, `GET …/parse`, `…/readiness` and
  * `GET /v1/accounts` (IMP-01@PoC FR 1–3, FR 6, FR 13–15). Synthetic accounts and files only; the file contents are
  * never read by the screen.
  */
