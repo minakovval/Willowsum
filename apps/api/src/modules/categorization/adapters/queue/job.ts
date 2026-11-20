@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { HouseholdQueryRunner } from "../../../../platform/db/module-db.ts";
 import { defineJob, enqueueJob } from "../../../../platform/queue/index.ts";
 import { categoryMerged } from "../../../categories/index.ts";
-import { transactionCreated } from "../../../transactions/index.ts";
+import { transactionCreated, transactionImportMerged } from "../../../transactions/index.ts";
 import { handOffKey, type AuditHandOff, type CategoryHandOff } from "../../application/index.ts";
 import { CATEGORY_SOURCES } from "../../domain/index.ts";
 
@@ -45,6 +45,15 @@ export async function enqueueHandOff(q: HouseholdQueryRunner, handOff: CategoryH
 export const TRANSACTION_CREATED_JOB = defineJob({
   name: "categorization.transaction-created",
   schema: transactionCreated.schema,
+});
+
+/**
+ * IMP-04 FR 5 (#658): «Злито з імпортом» of module transactions (`transactions.import-merged` v1), one job per event:
+ * the bank's row takes the category of the manual one merged into it (`carryImportMerged`).
+ */
+export const IMPORT_MERGED_JOB = defineJob({
+  name: "categorization.import-merged",
+  schema: transactionImportMerged.schema,
 });
 
 /**

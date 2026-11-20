@@ -4,7 +4,9 @@ import type { ModuleQueryRunner } from "../../../../platform/db/module-db.ts";
 /**
  * What module duplicate-matching reads to plan an import batch (IMP-04@PoC FR 1–6; wave 2 row 43): the transactions of
  * one account dated in [from, to], hidden ones too (a hidden imported one is still in the balance), never a merged
- * duplicate (it is the same operation as the one it is merged into). One page in the order of (date, id) after a cursor,
+ * manual duplicate (it is the same operation as the one it is merged into — a manual one merged into the bank's row on
+ * apply, IMP-04 FR 5, too); a merged imported one is read (`merged`): a replaced pending one (IMP-04 FR 6) is still the
+ * key match of the same row in a later statement. One page in the order of (date, id) after a cursor,
  * on the index `transactions_by_account`. Read only; the rule of duplicate-matching decides.
  */
 export interface ImportCandidate {
@@ -26,6 +28,8 @@ export interface ImportCandidate {
   readonly transfer: boolean;
   /** Another transaction is merged into it («ще ні з чим не зіставлена» is false). */
   readonly matched: boolean;
+  /** Merged into another transaction (an imported one: a replaced pending one). */
+  readonly merged: boolean;
 }
 
 export interface ImportCandidatesQuery {
@@ -51,18 +55,19 @@ interface Row {
   hidden: boolean;
   transfer: boolean;
   matched: boolean;
+  merged: boolean;
 }
 
 /** The statement of one page (exported for the test of its plan on the index). */
 export const IMPORT_CANDIDATES_SQL = `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, t.occurred_on::text AS occurred_on,
           COALESCE(t.bank_description, t.description) AS description, t.balance_after::text AS balance_after,
           t.status, t.source, t.import_batch_id, t.hidden,
-          t.transfer_id IS NOT NULL AS transfer,
+          t.transfer_id IS NOT NULL AS transfer, t.merged_into IS NOT NULL AS merged,
           EXISTS (SELECT 1 FROM transactions m
                    WHERE m.household_id = t.household_id AND m.merged_into = t.id) AS matched
      FROM transactions t
     WHERE t.household_id = $1 AND t.account_id = $2 AND t.occurred_on BETWEEN $3::date AND $4::date
-      AND t.merged_into IS NULL
+      AND (t.merged_into IS NULL OR t.source = 'imported')
       AND ($5::date IS NULL OR (t.occurred_on, t.id) > ($5::date, $6::uuid))
     ORDER BY t.occurred_on, t.id
     LIMIT $7`;
@@ -96,5 +101,6 @@ export async function importCandidates(
     hidden: r.hidden,
     transfer: r.transfer,
     matched: r.matched,
+    merged: r.merged,
   }));
 }

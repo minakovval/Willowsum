@@ -12,3 +12,17 @@ export const transactionCreated = defineEvent({
 });
 
 export type TransactionCreated = z.infer<typeof transactionCreated.schema>;
+
+/**
+ * «Злито з імпортом» (IMP-04@PoC FR 5; #658): an import batch's row merged with a manual transaction — the bank's
+ * transaction (`transactionId`) stays, the manual one (`duplicateId`) is merged into it. Written to the outbox in the
+ * transaction of the apply's write. Module categorization carries the manual one's category to the bank's transaction
+ * (FR 5: «ручна транзакція зберігає категорію»). Identifiers only.
+ */
+export const transactionImportMerged = defineEvent({
+  name: "transactions.import-merged",
+  version: 1,
+  schema: z.strictObject({ transactionId: z.uuid(), duplicateId: z.uuid(), actorAccountId: z.uuid() }),
+});
+
+export type TransactionImportMerged = z.infer<typeof transactionImportMerged.schema>;
