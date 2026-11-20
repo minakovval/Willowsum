@@ -43,6 +43,8 @@ export interface PlanRequest {
   readonly rows: readonly IncomingRow[];
   /** FR 3: the applied batch whose file has the same content (import-sessions `sameFileApplied`); null — none. */
   readonly sameFileAppliedIn: string | null;
+  /** FR 4 (#655): the account is a credit card — a balance also matches by its size (`PlanInput.creditCard`). */
+  readonly creditCard?: boolean;
 }
 
 export async function planImport(

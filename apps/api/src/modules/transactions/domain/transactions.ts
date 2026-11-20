@@ -110,6 +110,8 @@ export function typeOf(amount: Money): TransactionType {
 /** A subaccount (one currency) of a money account, as the accounts module answers it. */
 export interface PostingAccount {
   readonly accountId: string;
+  /** Accounts' kind (`ACCOUNT_KINDS`), when the directory gives it. */
+  readonly kind?: string;
   readonly status: "active" | "closed";
   readonly subaccounts: readonly {
     readonly subaccountId: string;

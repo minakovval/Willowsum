@@ -163,6 +163,7 @@ export { Table } from "./table/Table.tsx";
 export type { TableColumn, TableProps, TableRow, TableSortDirection } from "./table/Table.tsx";
 export { BarChart } from "./chart/BarChart.tsx";
 export type { BarCategory, BarChartProps, BarSeries, ChartLine } from "./chart/BarChart.tsx";
+export { PERCENT as CHART_PERCENT } from "./chart/shared.tsx";
 export { LineChart } from "./chart/LineChart.tsx";
 export type { ChartEvent, LineChartProps, LinePoint, LineSeries } from "./chart/LineChart.tsx";
 export type { ChartErrorProps, ChartStateProps, ChartTone, MarkerShape } from "./chart/shared.tsx";

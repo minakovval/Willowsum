@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { formatCompactAmount } from "../amount/compact.ts";
-import { currencySymbolOf, formatMoney, useI18n, type Locale } from "@willowsum/i18n";
+import { currencySymbolOf, formatMoney, formatPercent, useI18n, type Locale } from "@willowsum/i18n";
 import type { ColorTokenName } from "../tokens/color.ts";
 import { EmptyState } from "../states/EmptyState.tsx";
 import { ErrorState } from "../states/ErrorState.tsx";
@@ -86,9 +86,15 @@ export function ChartShell({
   return <>{children}</>;
 }
 
-/** The full value, «3 144,46 €». */
+/**
+ * The "currency" of a chart whose values are per cent (a rate, not an amount): every value, change and axis label
+ * is then shown as «25,0 %» with one digit (BUD-08@PoC FR 3).
+ */
+export const PERCENT = "%";
+
+/** The full value, «3 144,46 €», or «25,0 %» for a percent chart. */
 export const money = (locale: Locale, value: string, currency: string): string =>
-  formatMoney(locale, value, currency);
+  currency === PERCENT ? formatPercent(locale, value, { digits: 1 }) : formatMoney(locale, value, currency);
 
 /** DS-15, DS-16 FR 2: the abbreviated form from 1 000 (with the full one in the tooltip), the full form below. */
 export function shortMoney(
@@ -96,6 +102,7 @@ export function shortMoney(
   value: string,
   currency: string,
 ): { text: string; abbreviated: boolean } {
+  if (currency === PERCENT) return { text: money(locale, value, currency), abbreviated: false };
   const symbol = currencySymbolOf(locale, currency);
   const compact = formatCompactAmount({ value, currency: symbol, locale });
   return compact === null
@@ -108,12 +115,14 @@ export function Swatch({
   kind,
   tone,
   hatched = false,
+  dotted = false,
   dash,
   marker = "circle",
 }: {
   kind: "bar" | "line";
   tone: ChartTone;
   hatched?: boolean;
+  dotted?: boolean;
   dash?: readonly [number, number] | undefined;
   marker?: MarkerShape;
 }) {
@@ -121,7 +130,7 @@ export function Swatch({
   if (kind === "bar")
     return (
       <span
-        className={`ws-chart-swatch${hatched ? " ws-chart-swatch--hatched" : ""}`}
+        className={`ws-chart-swatch${hatched ? " ws-chart-swatch--hatched" : ""}${dotted ? " ws-chart-swatch--dotted" : ""}`}
         style={{ ["--ws-chart-tone" as string]: color }}
         aria-hidden="true"
       />
@@ -173,6 +182,7 @@ export interface TipRow {
   name: string;
   tone: ChartTone;
   hatched?: boolean;
+  dotted?: boolean;
   dash?: readonly [number, number] | undefined;
   marker?: MarkerShape | undefined;
   value: string | null;
@@ -256,6 +266,7 @@ export function TipTable({
             kind={row.kind}
             tone={row.tone}
             hatched={row.hatched ?? false}
+            dotted={row.dotted ?? false}
             dash={row.dash}
             marker={row.marker ?? "circle"}
           />
