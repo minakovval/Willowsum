@@ -52,33 +52,35 @@ interface Row {
   matched: boolean;
 }
 
+/** The statement of one page (exported for the test of its plan on the index). */
+export const IMPORT_CANDIDATES_SQL = `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, t.occurred_on::text AS occurred_on,
+          t.description, t.balance_after::text AS balance_after, t.status, t.source, t.import_batch_id, t.hidden,
+          t.transfer_id IS NOT NULL AS transfer,
+          EXISTS (SELECT 1 FROM transactions m
+                   WHERE m.household_id = t.household_id AND m.merged_into = t.id) AS matched
+     FROM transactions t
+    WHERE t.household_id = $1 AND t.account_id = $2 AND t.occurred_on BETWEEN $3::date AND $4::date
+      AND t.merged_into IS NULL
+      AND ($5::date IS NULL OR (t.occurred_on, t.id) > ($5::date, $6::uuid))
+    ORDER BY t.occurred_on, t.id
+    LIMIT $7`;
+
+export const importCandidatesParams = (householdId: string, query: ImportCandidatesQuery): unknown[] => [
+  householdId,
+  query.accountId,
+  query.from,
+  query.to,
+  query.after?.date ?? null,
+  query.after?.id ?? null,
+  query.limit,
+];
+
 export async function importCandidates(
   q: ModuleQueryRunner,
   householdId: string,
   query: ImportCandidatesQuery,
 ): Promise<readonly ImportCandidate[]> {
-  const { rows } = await q.query<Row>(
-    `SELECT t.id, t.account_id, t.amount::text AS amount, t.currency, t.occurred_on::text AS occurred_on,
-            t.description, t.balance_after::text AS balance_after, t.status, t.source, t.import_batch_id, t.hidden,
-            t.transfer_id IS NOT NULL AS transfer,
-            EXISTS (SELECT 1 FROM transactions m
-                     WHERE m.household_id = t.household_id AND m.merged_into = t.id) AS matched
-       FROM transactions t
-      WHERE t.household_id = $1 AND t.account_id = $2 AND t.occurred_on BETWEEN $3::date AND $4::date
-        AND t.merged_into IS NULL
-        AND ($5::date IS NULL OR (t.occurred_on, t.id) > ($5::date, $6::uuid))
-      ORDER BY t.occurred_on, t.id
-      LIMIT $7`,
-    [
-      householdId,
-      query.accountId,
-      query.from,
-      query.to,
-      query.after?.date ?? null,
-      query.after?.id ?? null,
-      query.limit,
-    ],
-  );
+  const { rows } = await q.query<Row>(IMPORT_CANDIDATES_SQL, importCandidatesParams(householdId, query));
   return rows.map((r) => ({
     transactionId: r.id,
     accountId: r.account_id,

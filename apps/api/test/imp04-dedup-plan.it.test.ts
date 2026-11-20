@@ -20,6 +20,10 @@ import {
   createImportSessionsApplications,
   createImportSessionsServices,
 } from "../src/modules/import-sessions/index.ts";
+import {
+  IMPORT_CANDIDATES_SQL,
+  importCandidatesParams,
+} from "../src/modules/transactions/adapters/db/import-candidates.ts";
 import { createImportCandidates } from "../src/modules/transactions/index.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
@@ -227,16 +231,22 @@ describe("IMP-04@PoC FR 1, FR 4: the plan on an account with thousands of transa
     const account = randomUUID();
     await seedImported(space.householdId, account, randomUUID(), 3_000);
     await db.owner.query(`ANALYZE transactions.transactions`);
-    const { rows } = await db.owner.query<{ "QUERY PLAN": unknown }>(
-      `EXPLAIN (FORMAT JSON)
-       SELECT t.id FROM transactions.transactions t
-        WHERE t.household_id = $1 AND t.account_id = $2 AND t.occurred_on BETWEEN DATE '2025-06-01' AND DATE '2025-06-21'
-          AND t.merged_into IS NULL
-        ORDER BY t.occurred_on, t.id LIMIT 1000`,
-      [space.householdId, account],
-    );
+    // The real statement of a page with a cursor, as the module's role runs it (row policies on).
+    const rows = await db.databases.for("transactions").inHousehold(space.householdId, async (q) => {
+      const { rows: explained } = await q.query<{ "QUERY PLAN": unknown }>(
+        `EXPLAIN (FORMAT JSON) ${IMPORT_CANDIDATES_SQL}`,
+        importCandidatesParams(space.householdId, {
+          accountId: account,
+          from: "2025-06-01",
+          to: "2025-06-21",
+          limit: 1_000,
+          after: { date: "2025-06-03", id: "00000000-0000-4000-8000-000000000000" },
+        }),
+      );
+      return explained;
+    });
     const plan = JSON.stringify(rows[0]!["QUERY PLAN"]);
-    expect(plan).toMatch(/transactions_by_account|transactions_duplicate_search/u);
+    expect(plan).toMatch(/"Index Name":"transactions_by_account"/u);
     expect(plan).not.toMatch(/"Seq Scan"/u);
   });
 

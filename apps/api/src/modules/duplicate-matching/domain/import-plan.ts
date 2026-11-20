@@ -1,5 +1,5 @@
 import { Decimal, type Money } from "@willowsum/domain-kernel";
-import { decideIncoming, type ExistingTransaction } from "./matching.ts";
+import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./matching.ts";
 
 /**
  * The plan of an import batch against the account's transactions (IMP-04@PoC FR 1–6; wave 2 row 43), pure: what each
@@ -14,12 +14,14 @@ import { decideIncoming, type ExistingTransaction } from "./matching.ts";
  *    existing «в обробці» (pending) one is a key match only for a pending row: a posted row replaces it (FR 6).
  * 3. FR 2 — rows with the same key in the file (the balance left out) are all kept; the second and later get «повтор у
  *    файлі» and their occurrence number (`occurrence`, from 1 in file order, the duplicates of step 2 counted).
- * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency, amounts at
- *    most 0.25 apart, dates at most 10 days apart; the closest amount, then the closest date, then the earlier one.
+ * 4. FR 6 — a posted row replaces a pending one of a previous import on the account: the same currency and sign,
+ *    amounts at most 0.25 apart, the posted date on the pending date or up to 10 days after it; the closest amount,
+ *    then the closest date, then the earlier one.
  * 5. FR 5 — the rule `decideIncoming` against the shown transactions of the account (not merged, not a side of a
  *    transfer, imported ones of other batches): a single manual one not matched yet — merged; any other match
  *    («Можливий дубль», also a pair of imported ones from different batches) — the row is imported to «До розбору»
- *    with the mark, nothing merged or hidden. A manual one merged by a row is matched for the rows after it.
+ *    with the mark, nothing merged or hidden. When several rows would merge with one manual transaction, the row with
+ *    the closest date merges and the others are «Можливий дубль» of it; a tie in the date — none merges, all are.
  */
 
 export const REPLACE_WINDOW_DAYS = 10;
@@ -145,16 +147,6 @@ export function planWindow(
   };
 }
 
-/** A key match of FR 1: a pending transaction is one only for a pending row (FR 6 otherwise). */
-const keyEligible = (row: IncomingRow, t: KnownTransaction) =>
-  t.status === "posted" || row.status === "pending";
-
-const balanceFits = (row: IncomingRow, t: KnownTransaction) =>
-  row.balance === null || t.balanceAfter === null || row.balance.equals(t.balanceAfter);
-
-const balanceExact = (row: IncomingRow, t: KnownTransaction) =>
-  row.balance !== null && t.balanceAfter !== null && row.balance.equals(t.balanceAfter);
-
 const byDateThenId = (a: KnownTransaction, b: KnownTransaction) =>
   a.date < b.date ? -1 : a.date > b.date ? 1 : a.transactionId < b.transactionId ? -1 : 1;
 
@@ -178,32 +170,78 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
   }
 
   const existing = input.existing.filter((t) => t.accountId === input.accountId).sort(byDateThenId);
+  // Indexes, so that the plan is linear in rows + transactions (a file has up to 20 000 rows, the window 50 000).
+  const push = <K>(map: Map<K, KnownTransaction[]>, k: K, t: KnownTransaction) => {
+    const list = map.get(k);
+    if (list) list.push(t);
+    else map.set(k, [t]);
+  };
+  const used = new Set<string>();
+  // FR 1: by key, status and balance («*» — any balance), each in the order of (date, id), read from its head.
+  const ANY = "*";
+  const NONE = "-";
+  const listKey = (key: string, status: string, balance: string) => JSON.stringify([key, status, balance]);
   const byKey = new Map<string, KnownTransaction[]>();
+  const heads = new Map<string, number>();
   for (const t of existing) {
     const k = duplicateKey(input.accountId, t);
-    byKey.set(k, [...(byKey.get(k) ?? []), t]);
+    push(byKey, listKey(k, t.status, ANY), t);
+    push(byKey, listKey(k, t.status, t.balanceAfter ? amountText(t.balanceAfter) : NONE), t);
   }
+  /** The first transaction of a list not taken yet. */
+  const head = (k: string): KnownTransaction | undefined => {
+    const list = byKey.get(k);
+    if (!list) return undefined;
+    let i = heads.get(k) ?? 0;
+    while (i < list.length && used.has(list[i]!.transactionId)) i++;
+    heads.set(k, i);
+    return list[i];
+  };
 
-  // FR 1, FR 4: each existing transaction is the duplicate of at most one row; an exact balance match first.
-  const used = new Set<string>();
+  // FR 1, FR 4: each existing transaction is the duplicate of at most one row; an exact balance match first. A
+  // pending transaction is a key match only for a pending row (FR 6 otherwise).
   const duplicateOf = new Map<number, string>();
   for (const exact of [true, false])
     for (const r of ordered) {
       if (duplicateOf.has(r.row)) continue;
-      const match = (byKey.get(keyOf(r)) ?? []).find(
-        (t) =>
-          !used.has(t.transactionId) &&
-          keyEligible(r, t) &&
-          (exact ? balanceExact(r, t) : balanceFits(r, t) && !balanceExact(r, t)),
-      );
+      if (exact && r.balance === null) continue;
+      const balance = exact ? amountText(r.balance!) : r.balance === null ? ANY : NONE;
+      const match = (r.status === "pending" ? ["posted", "pending"] : ["posted"])
+        .map((status) => head(listKey(keyOf(r), status, balance)))
+        .filter((t): t is KnownTransaction => t !== undefined)
+        .sort(byDateThenId)[0];
       if (!match) continue;
       used.add(match.transactionId);
       duplicateOf.set(r.row, match.transactionId);
     }
 
+  // FR 6: the pending ones of previous imports by day; FR 5: the shown ones by amount and day.
+  const pendingByDay = new Map<number, KnownTransaction[]>();
+  const shownByAmountDay = new Map<string, KnownTransaction[]>();
+  const amountDay = (amount: Money, day: number) => `${amountText(amount)}|${day}`;
+  for (const t of existing) {
+    if (t.status === "pending" && t.source === "imported" && t.importBatchId !== input.batchId)
+      push(pendingByDay, dayNumber(t.date), t);
+    if (!t.hidden && !t.transfer && (t.source === "manual" || t.importBatchId !== input.batchId))
+      push(shownByAmountDay, amountDay(t.amount, dayNumber(t.date)), t);
+  }
+  const around = <K>(
+    map: Map<K, KnownTransaction[]>,
+    days: number,
+    keyOfDay: (day: number) => K,
+    date: string,
+  ) => {
+    const found: KnownTransaction[] = [];
+    for (let d = dayNumber(date) - days; d <= dayNumber(date) + days; d++)
+      for (const t of map.get(keyOfDay(d)) ?? []) if (!used.has(t.transactionId)) found.push(t);
+    return found;
+  };
+
   const tolerance = new Decimal(REPLACE_TOLERANCE);
   const matched = new Set(existing.filter((t) => t.matched).map((t) => t.transactionId));
   const outcomes: RowOutcome[] = [];
+  // FR 5: the rows that would merge with each manual transaction (their outcome's index and the gap in days).
+  const mergeRows = new Map<string, { index: number; days: number }[]>();
   for (const r of ordered) {
     const common = { row: r.row, occurrence: occ(r) };
     const of = duplicateOf.get(r.row);
@@ -214,16 +252,15 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
 
     // FR 6: a posted row in place of a pending one of a previous import.
     if (r.status === "posted") {
-      const pending = existing
+      const pending = around(pendingByDay, REPLACE_WINDOW_DAYS, (d) => d, r.date)
         .filter(
           (t) =>
-            !used.has(t.transactionId) &&
-            t.status === "pending" &&
-            t.source === "imported" &&
-            t.importBatchId !== input.batchId &&
             t.amount.currency === r.amount.currency &&
-            t.amount.amount.minus(r.amount.amount).abs().lte(tolerance) &&
-            Math.abs(dayNumber(t.date) - dayNumber(r.date)) <= REPLACE_WINDOW_DAYS,
+            // Posted on the pending date or up to 10 days after it, never before.
+            dayNumber(t.date) <= dayNumber(r.date) &&
+            // The same direction: a debit never replaces a credit, whatever the tolerance.
+            t.amount.amount.isNegative() === r.amount.amount.isNegative() &&
+            t.amount.amount.minus(r.amount.amount).abs().lte(tolerance),
         )
         .map((t) => ({
           t,
@@ -240,29 +277,32 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     }
 
     // FR 5: the rule of the manual merge and «Можливий дубль».
-    const candidates: ExistingTransaction[] = existing
-      .filter(
-        (t) =>
-          !used.has(t.transactionId) &&
-          !t.hidden &&
-          !t.transfer &&
-          (t.source === "manual" || t.importBatchId !== input.batchId),
-      )
-      .map((t) => ({
-        transactionId: t.transactionId,
-        accountId: t.accountId,
-        amount: t.amount,
-        date: t.date,
-        source: t.source,
-        matched: matched.has(t.transactionId),
-      }));
+    const candidates: ExistingTransaction[] = around(
+      shownByAmountDay,
+      MATCH_WINDOW_DAYS,
+      (d) => amountDay(r.amount, d),
+      r.date,
+    ).map((t) => ({
+      transactionId: t.transactionId,
+      accountId: t.accountId,
+      amount: t.amount,
+      date: t.date,
+      source: t.source,
+      matched: matched.has(t.transactionId),
+    }));
     const decision = decideIncoming(
       { transactionId: `row:${r.row}`, accountId: input.accountId, amount: r.amount, date: r.date },
       candidates,
     );
     if (decision.kind === "merge") {
-      matched.add(decision.with.transactionId);
       outcomes.push({ ...common, kind: "merge", with: decision.with.transactionId });
+      const rows = mergeRows.get(decision.with.transactionId);
+      const entry = {
+        index: outcomes.length - 1,
+        days: Math.abs(dayNumber(decision.with.date) - dayNumber(r.date)),
+      };
+      if (rows) rows.push(entry);
+      else mergeRows.set(decision.with.transactionId, [entry]);
     } else if (decision.kind === "possible-duplicate") {
       outcomes.push({
         ...common,
@@ -270,6 +310,17 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
         candidates: decision.candidates.map((c) => c.transactionId),
       });
     } else outcomes.push({ ...common, kind: common.occurrence > 1 ? "repeat" : "import" });
+  }
+  // FR 5: one merge per manual transaction — the closest date; a tie in it leaves every row «Можливий дубль».
+  for (const [transactionId, rows] of mergeRows) {
+    if (rows.length < 2) continue;
+    const closest = rows.reduce((m, e) => Math.min(m, e.days), Infinity);
+    const winners = rows.filter((e) => e.days === closest);
+    for (const e of rows)
+      if (winners.length > 1 || e !== winners[0]) {
+        const { row, occurrence } = outcomes[e.index]!;
+        outcomes[e.index] = { row, occurrence, kind: "possible-duplicate", candidates: [transactionId] };
+      }
   }
   return outcomes;
 }

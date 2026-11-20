@@ -268,6 +268,19 @@ describe("IMP-04@PoC FR 5: a manual transaction and «Можливий дубл�
     expect(kinds(plan(rows, [manual]))).toEqual(["merge", "possible-duplicate"]);
   });
 
+  it("IMP-04@PoC FR 5: two rows for one manual transaction — the closer date merges, whatever the file order; a tie merges none", () => {
+    const manual = tx({ amount: EUR("-42.00"), date: "2026-04-10", source: "manual", importBatchId: null });
+    const far = row({ amount: EUR("-42.00"), date: "2026-04-12", description: "A" });
+    const near = row({ amount: EUR("-42.00"), date: "2026-04-10", description: "B" });
+    expect(plan([far, near], [manual])).toMatchObject([
+      { kind: "possible-duplicate", candidates: [manual.transactionId] },
+      { kind: "merge", with: manual.transactionId },
+    ]);
+    const before = row({ amount: EUR("-42.00"), date: "2026-04-09", description: "C" });
+    const after = row({ amount: EUR("-42.00"), date: "2026-04-11", description: "D" });
+    expect(kinds(plan([before, after], [manual]))).toEqual(["possible-duplicate", "possible-duplicate"]);
+  });
+
   it("IMP-04@PoC FR 5: a manual one matched already, outside ± 3 days, hidden or a side of a transfer — no merge", () => {
     const r = () => row({ amount: EUR("-42.00"), date: "2026-04-11" });
     const manual = (over: Partial<KnownTransaction>) =>
@@ -324,6 +337,22 @@ describe("IMP-04@PoC FR 6: «замінено»", () => {
       "replace",
     );
     expect(plan([r("-30.00")], [pending({ importBatchId: BATCH })])[0]!.kind).not.toBe("replace");
+  });
+
+  it("IMP-04@PoC FR 6: the posted date is on the pending date or up to 10 days after it, never before", () => {
+    expect(plan([row({ amount: EUR("-30.00"), date: "2026-05-01" })], [pending()])[0]!.kind).toBe("replace");
+    expect(plan([row({ amount: EUR("-30.00"), date: "2026-04-30" })], [pending()])[0]!.kind).not.toBe(
+      "replace",
+    );
+    expect(plan([row({ amount: EUR("-30.00"), date: "2026-04-22" })], [pending()])[0]!.kind).not.toBe(
+      "replace",
+    );
+  });
+
+  it("IMP-04@PoC FR 6: a posted refund never replaces a pending charge (another sign is not the corresponding row)", () => {
+    const hold = pending({ amount: EUR("-0.10"), date: "2026-05-03" });
+    const refund = row({ amount: EUR("0.10"), date: "2026-05-04", description: "REFUND" });
+    expect(plan([refund], [hold])[0]!.kind).not.toBe("replace");
   });
 
   it("IMP-04@PoC FR 6: each pending one is replaced once, by the closest amount", () => {

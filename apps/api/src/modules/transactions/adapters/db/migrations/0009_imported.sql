@@ -1,3 +1,4 @@
+-- ws:contract 0001_transactions.sql the check on source only widens ('manual' still passes) and the new check holds for every row the previous code writes (import_batch_id is new and null there)
 -- IMP-04@PoC a) (wave 2 row 43): what an imported transaction keeps for duplicates and idempotency (FR 1, FR 5, FR 6).
 --
 -- `source` takes «imported» (a row of a statement file); `import_batch_id` is the batch of module import-sessions that
