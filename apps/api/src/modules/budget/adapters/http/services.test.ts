@@ -60,10 +60,35 @@ describe("#586: the cap on «Витрачено»", () => {
     expect(await read()).toEqual({ amounts: [], nearestRateCount: 0, unavailableCount: 1001 });
   });
 
-  it("BUD-02@PoC FR 12: the rates' reader leaving the money type in its own sum gives no figure, never a 500", async () => {
-    const { read } = reads([eur("-1"), eur("-2")], async () => {
-      throw new AmountOutOfRangeError();
+  it("BUD-02@PoC FR 12: the rates' reader leaving the money type in its own sum leaves out only the amount that leaves it alone, never a 500 (#594)", async () => {
+    const { read } = reads([eur("-1"), eur("-9" + "0".repeat(14)), eur("-2")], async (xs) => {
+      if (xs.length > 1 || xs[0]!.amount.amount.abs().greaterThan(100)) throw new AmountOutOfRangeError();
+      return {
+        currency: "EUR",
+        total: null,
+        approximate: false,
+        nearestRateCount: 0,
+        staleRateCount: 0,
+        unavailableCount: 0,
+        restricted: false,
+        items: xs.map((x) => ({ kind: "reporting-currency" as const, original: x.amount, value: x.amount })),
+      };
     });
-    expect(await read()).toEqual({ amounts: [], nearestRateCount: 0, unavailableCount: 2 });
+    const r = await read();
+    expect(r.amounts.map((a) => a.amount.toDecimalString())).toEqual(["-1", "-2"]);
+    expect(r.unavailableCount).toBe(1);
+  });
+
+  it("BUD-02@PoC FR 12: above 1 000 amounts the one-by-one fallback is not tried — one rates call at most for the sum, all left out (#594)", async () => {
+    let calls = 0;
+    const { read } = reads(
+      Array.from({ length: 1001 }, () => eur("-1")),
+      async () => {
+        calls += 1;
+        throw new AmountOutOfRangeError();
+      },
+    );
+    expect(await read()).toEqual({ amounts: [], nearestRateCount: 0, unavailableCount: 1001 });
+    expect(calls).toBe(1);
   });
 });
