@@ -239,6 +239,7 @@ beforeAll(async () => {
         categorization: createCategorizationServices({ transactions: lookup, categories: directory, audit }),
         goals: goalsServices,
         budget: createBudgetServices({
+          planEnabled: (householdId) => fakeFlags().isEnabled(householdId, "budget.plan"),
           categories: directory,
           accounts: createAccountList(db.databases.for("accounts")),
           transactions: createBudgetTransactions(db.databases.for("transactions")),
