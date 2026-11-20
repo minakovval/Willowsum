@@ -12,6 +12,7 @@ import {
   shareFrom,
   startChoices,
   withCells,
+  type AllocationCell,
   type BudgetCategory,
   type BudgetIssue,
   type CountedAmount,
@@ -179,6 +180,8 @@ export interface BudgetPlanSources {
       lastPeriod: Period | null;
       /** BUD-03@PoC FR 6: contributed this calendar month; null — no rate; left out (a test's port) — nothing. */
       contributed?: Money | null;
+      /** The goal's own currency (BUD-02 FR 15, Q4 а: the wizard shows the goals in the budget's currency). */
+      currency?: string;
     }[]
   >;
   /**
@@ -431,6 +434,8 @@ export async function createBudget(
     readonly limits?: readonly LimitInput[] | undefined;
   },
   categories: ReadonlyMap<string, BudgetCategory>,
+  /** FR 15: the cells «Розподіл» plans for the first period, checked against its balance (`planAllocation`). */
+  allocation: readonly AllocationCell[] = [],
 ): Promise<Handed<Result<StoredBudget>>> {
   const currency = deps.reportingCurrency;
   const issues: BudgetIssue[] = [];
@@ -484,6 +489,12 @@ export async function createBudget(
         ),
       );
     }
+  // FR 15: «Розподіл» writes only the plan — the first period's cells of «План», in this transaction with the budget.
+  for (const c of allocation) {
+    const cell = { period: budget.firstPeriod, kind: c.kind, lineId: c.lineId };
+    await tx.setPlanCell(caller.householdId, budget.id, { ...cell, amount: c.amount }, currency);
+    handOffs.push(cellHandOff(deps, caller, budget, cell, null, c.amount));
+  }
   for (const h of handOffs) await tx.enqueueHandOff(h);
   return { result: { kind: "ok", value: budget }, handOffs };
 }
