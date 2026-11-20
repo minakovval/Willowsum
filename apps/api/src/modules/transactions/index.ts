@@ -49,6 +49,12 @@ import {
   type SpendCandidate,
   type SpendCandidatesAfter,
 } from "./adapters/db/goal-reads.ts";
+import {
+  operationsOnAccounts,
+  transfersInPeriod,
+  type AccountOperation,
+  type MovementSide,
+} from "./adapters/db/cashflow-reads.ts";
 import { transactionCreated } from "./events.ts";
 import {
   applyHandOff,
@@ -378,6 +384,38 @@ export function createGoalTransactions(db: ModuleDatabase): GoalTransactions {
       db.inHousehold(householdId, (q) => countedInWindow(q, householdId, from, to)),
     spendCandidates: (householdId, query) =>
       db.inHousehold(householdId, (q) => spendCandidates(q, householdId, query)),
+  };
+}
+
+/**
+ * The transactions module as module cashflow reads it (BUD-08@PoC FR 5–7): the money that moves between own accounts —
+ * into goals, investments and loans. Read only; every call is bound to one space.
+ */
+export interface CashflowMovements {
+  /** FR 5, FR 6: the marked transfers between own accounts whose shown outflow is dated from `from` to `to`. */
+  transfers(
+    householdId: string,
+    from: string,
+    to: string,
+  ): Promise<readonly { readonly outflow: MovementSide; readonly inflow: MovementSide }[]>;
+  /** FR 7: the shown transactions of `accountIds` (a loan's) in the dates, sides of a transfer too; oldest first. */
+  operations(
+    householdId: string,
+    accountIds: readonly string[],
+    from: string,
+    to: string,
+  ): Promise<readonly AccountOperation[]>;
+}
+
+export type { AccountOperation, MovementSide };
+
+/** `db` is the transactions module's own database (`ModuleDatabases.for("transactions")`). */
+export function createCashflowMovements(db: ModuleDatabase): CashflowMovements {
+  return {
+    transfers: (householdId, from, to) =>
+      db.inHousehold(householdId, (q) => transfersInPeriod(q, householdId, from, to)),
+    operations: (householdId, accountIds, from, to) =>
+      db.inHousehold(householdId, (q) => operationsOnAccounts(q, householdId, accountIds, from, to)),
   };
 }
 
