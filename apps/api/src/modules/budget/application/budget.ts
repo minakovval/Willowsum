@@ -158,9 +158,9 @@ export interface BudgetDeps {
   /**
    * BUD-17 business rules (owner decision 2026-11-20, batch 2, item 2): whether «План» (release flag `budget.plan`) is
    * on for the space. While it is off the months' own values typed on «План» act nowhere (`planCellsInEffect`); they
-   * stay stored. Left out (a test's server) — on.
+   * stay stored. Required, so that the wiring in main.ts cannot be left out silently (#652 security review).
    */
-  readonly planEnabled?: ((householdId: string) => Promise<boolean>) | undefined;
+  readonly planEnabled: (householdId: string) => Promise<boolean>;
 }
 
 /**
@@ -343,7 +343,7 @@ export async function planCellsInEffect(
   budgetId: string,
   from?: Period,
 ): Promise<PlanCell[]> {
-  if (deps.planEnabled && !(await deps.planEnabled(householdId))) return [];
+  if (!(await deps.planEnabled(householdId))) return [];
   return tx.planCells(householdId, budgetId, from);
 }
 

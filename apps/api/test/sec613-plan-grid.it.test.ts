@@ -73,9 +73,12 @@ const extras = new Map<string, { accountId: string; amount: Money }[]>();
 const debtCalls: string[] = [];
 /** The flags switched off for the next requests. */
 let off: string[] = [];
+/** The spaces `budget.plan` is switched off for (the other spaces keep it), for the next requests. */
+const planOffFor = new Set<string>();
 const FLAGS_UNDER_TEST = {
   ...fakeFlags(),
-  isEnabled: async (_h: string, flag: string) => !off.includes(flag),
+  isEnabled: async (h: string, flag: string) =>
+    !off.includes(flag) && !(flag === "budget.plan" && planOffFor.has(h)),
 };
 void goals;
 
@@ -268,6 +271,7 @@ afterAll(async () => {
 afterEach(() => {
   now = at(TODAY);
   off = [];
+  planOffFor.clear();
 });
 
 const NIL = "00000000-0000-0000-0000-000000000000";
@@ -563,6 +567,58 @@ describe("sec613: «Бюджет → План» — isolation, guards, bounds", 
     expect(await n("budget.plan_cells WHERE household_id = $1 AND amount = 650.37", space.householdId)).toBe(
       1,
     );
+  });
+
+  it("sec652: `budget.plan` is read for the caller's space — off for one space leaves another space's typed values acting, and the other way round", async () => {
+    const [a, b] = [await newSpace(), await newSpace()];
+    const cat: Record<string, string> = {};
+    for (const s of [a, b]) {
+      await budgetWith(s, "1000.00", { Продукти: "700.00" });
+      cat[s.householdId] = await category(s, "Продукти");
+    }
+    const typed = new Map([
+      [a, "650.37"],
+      [b, "611.19"],
+    ]);
+    for (const [s, amount] of typed) {
+      const res = await put(s, {
+        period: "2026-11",
+        kind: "limit",
+        lineId: cat[s.householdId],
+        amount: eur(amount),
+        version: 0,
+      });
+      expect(res.statusCode, res.body).toBe(200);
+    }
+    const views = async (s: Space) => {
+      const out: string[] = [];
+      for (const url of [
+        "/v1/budget/periods/2026-11",
+        "/v1/budget/periods/2026-11/spendable",
+        "/v1/budget/trend?from=2026-11&to=2027-01",
+        "/v1/budget/compare?type=month&period=2026-11",
+      ]) {
+        const res = await call(s, "GET", url);
+        expect(res.statusCode, `${url}: ${res.body}`).toBe(200);
+        out.push(res.body);
+      }
+      return out.join("\n");
+    };
+    for (const [offSpace, onSpace] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      planOffFor.clear();
+      planOffFor.add(offSpace.householdId);
+      // Off for this space: the budget's own limit, the route is closed, the typed amount is nowhere in the views.
+      expect(await limitOf(offSpace, "2026-11", cat[offSpace.householdId]!)).toBe("700");
+      expect((await call(offSpace, "GET", "/v1/budget/plan-grid")).statusCode).toBe(404);
+      expect(leakText(await views(offSpace))).not.toContain(typed.get(offSpace)!);
+      // The other space keeps its own typed value and never carries the first one's.
+      expect(await limitOf(onSpace, "2026-11", cat[onSpace.householdId]!)).toBe(typed.get(onSpace)!);
+      expect((await call(onSpace, "GET", "/v1/budget/plan-grid")).statusCode).toBe(200);
+      expect(leakText(await views(onSpace))).not.toContain(typed.get(offSpace)!);
+    }
   });
 
   it("sec613 bounds: a malformed or out-of-range PUT body is 400 (413 over the body limit), never 500, and writes nothing", async () => {

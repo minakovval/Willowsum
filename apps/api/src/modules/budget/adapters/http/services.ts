@@ -205,9 +205,9 @@ export function createBudgetServices(options: {
   readonly planSources?: BudgetPlanSources;
   /**
    * BUD-17 (owner decision 2026-11-20, batch 2, item 2): whether «План» (`budget.plan`) is on for the space; while it is
-   * off the months' own values act nowhere. Left out — on.
+   * off the months' own values act nowhere. Required: a server without it does not build (#652 security review).
    */
-  readonly planEnabled?: (householdId: string) => Promise<boolean>;
+  readonly planEnabled: (householdId: string) => Promise<boolean>;
 }): BudgetServices {
   return {
     [BRAND]: true,
