@@ -6,6 +6,7 @@ import {
   outcomeCounts,
   planBatch,
   planWindow,
+  PlanTooLargeError,
   type IncomingRow,
   type KnownTransaction,
   type RowOutcome,
@@ -291,6 +292,14 @@ describe("IMP-04@PoC FR 5: a manual transaction and «Можливий дубл�
     expect(plan([r()], [manual({ transfer: true })])[0]!.kind).toBe("import");
   });
 
+  it("IMP-04@PoC FR 5: a manual one 3 days before or after the row merges (the window on both sides)", () => {
+    const r = () => row({ amount: EUR("-42.00"), date: "2026-04-11" });
+    const manual = (date: string) =>
+      tx({ amount: EUR("-42.00"), date, source: "manual", importBatchId: null });
+    expect(plan([r()], [manual("2026-04-08")])[0]!.kind).toBe("merge");
+    expect(plan([r()], [manual("2026-04-14")])[0]!.kind).toBe("merge");
+  });
+
   it("IMP-04@PoC AC11: an imported −25,00 EUR «CARD PAYMENT 4411» of 2026-05-10 from another batch and a row −25,00 of 2026-05-12 «SHOP ONLINE» — «Можливий дубль», nothing merged or hidden", () => {
     const earlier = tx({ amount: EUR("-25.00"), date: "2026-05-10", description: "CARD PAYMENT 4411" });
     const out = plan(
@@ -310,6 +319,16 @@ describe("IMP-04@PoC FR 6: «замінено»", () => {
     const p = pending();
     const out = plan([row({ amount: EUR("-30.10"), date: "2026-05-04", description: "SHOP" })], [p]);
     expect(out[0]).toMatchObject({ kind: "replace", replaces: p.transactionId });
+  });
+
+  it("IMP-04@PoC FR 1: a pending row whose key has a pending and a posted transaction is the duplicate of the earlier one", () => {
+    const first = pending({ date: "2026-05-04", description: "SHOP" });
+    const second = tx({ amount: EUR("-30.00"), date: "2026-05-04", description: "SHOP" });
+    const out = plan(
+      [row({ amount: EUR("-30.00"), date: "2026-05-04", description: "SHOP", status: "pending" })],
+      [second, first],
+    );
+    expect(out[0]).toMatchObject({ kind: "duplicate", of: first.transactionId });
   });
 
   it("IMP-04@PoC EC3: pending → posted with the same key is a replacement, not a duplicate", () => {
@@ -394,4 +413,32 @@ describe("IMP-04@PoC a): the window and the counts", () => {
       replace: 0,
     });
   });
+});
+
+describe("IMP-04@PoC a): the work of one plan is bounded", () => {
+  const day = (i: number) =>
+    new Date(Date.UTC(2026, 0, 1) + (i % 60) * 86_400_000).toISOString().slice(0, 10);
+
+  it("IMP-04@PoC a): 20 000 posted rows against 12 500 pending ones of one amount in the window — refused within 3 s", () => {
+    const existing = Array.from({ length: 12_500 }, (_, i) =>
+      tx({ amount: EUR("-3.20"), date: day(i), status: "pending", description: `e ${i}` }),
+    );
+    const rows = Array.from({ length: 20_000 }, (_, i) =>
+      row({ amount: EUR("-3.20"), date: day(i), description: `r ${i}` }),
+    );
+    const started = performance.now();
+    expect(() => plan(rows, existing)).toThrow(PlanTooLargeError);
+    expect(performance.now() - started).toBeLessThan(3_000);
+  }, 120_000);
+
+  it("IMP-04@PoC a): 20 000 rows against 50 000 posted transactions of spread amounts — planned, not refused", () => {
+    const amount = (i: number) => EUR(`-${(i % 997) + 1}.${String(i % 100).padStart(2, "0")}`);
+    const existing = Array.from({ length: 50_000 }, (_, i) =>
+      tx({ amount: amount(i), date: day(i), description: `e ${i}` }),
+    );
+    const rows = Array.from({ length: 20_000 }, (_, i) =>
+      row({ amount: amount(i * 7), date: day(i), description: `r ${i}` }),
+    );
+    expect(plan(rows, existing)).toHaveLength(20_000);
+  }, 120_000);
 });

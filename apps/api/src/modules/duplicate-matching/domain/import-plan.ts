@@ -27,6 +27,20 @@ import { decideIncoming, MATCH_WINDOW_DAYS, type ExistingTransaction } from "./m
 export const REPLACE_WINDOW_DAYS = 10;
 /** FR 6: in units of the account's currency. */
 export const REPLACE_TOLERANCE = "0.25";
+/**
+ * The most transactions the FR 5 and FR 6 steps of one plan may look at (every row counts each transaction of its
+ * window). Dense windows (thousands of pending ones or of one amount within days) make the plan rows × transactions;
+ * past this bound the plan is refused, nothing planned, so one file never blocks the process for long.
+ */
+export const PLAN_WORK_MAX = 500_000;
+
+/** The account's window is too large for one plan; nothing planned (the file is split into several). */
+export class PlanTooLargeError extends Error {
+  constructor() {
+    super("The account has too many transactions in the window of the batch");
+    this.name = "PlanTooLargeError";
+  }
+}
 
 /** A row of a statement file as the parse gives it, for one account. */
 export interface IncomingRow {
@@ -225,15 +239,21 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     if (!t.hidden && !t.transfer && (t.source === "manual" || t.importBatchId !== input.batchId))
       push(shownByAmountDay, amountDay(t.amount, dayNumber(t.date)), t);
   }
+  let work = 0;
   const around = <K>(
     map: Map<K, KnownTransaction[]>,
-    days: number,
+    before: number,
+    after: number,
     keyOfDay: (day: number) => K,
     date: string,
   ) => {
     const found: KnownTransaction[] = [];
-    for (let d = dayNumber(date) - days; d <= dayNumber(date) + days; d++)
-      for (const t of map.get(keyOfDay(d)) ?? []) if (!used.has(t.transactionId)) found.push(t);
+    for (let d = dayNumber(date) - before; d <= dayNumber(date) + after; d++) {
+      const list = map.get(keyOfDay(d)) ?? [];
+      work += list.length;
+      if (work > PLAN_WORK_MAX) throw new PlanTooLargeError();
+      for (const t of list) if (!used.has(t.transactionId)) found.push(t);
+    }
     return found;
   };
 
@@ -252,7 +272,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
 
     // FR 6: a posted row in place of a pending one of a previous import.
     if (r.status === "posted") {
-      const pending = around(pendingByDay, REPLACE_WINDOW_DAYS, (d) => d, r.date)
+      const pending = around(pendingByDay, REPLACE_WINDOW_DAYS, 0, (d) => d, r.date)
         .filter(
           (t) =>
             t.amount.currency === r.amount.currency &&
@@ -279,6 +299,7 @@ export function planBatch(input: PlanInput): readonly RowOutcome[] {
     // FR 5: the rule of the manual merge and «Можливий дубль».
     const candidates: ExistingTransaction[] = around(
       shownByAmountDay,
+      MATCH_WINDOW_DAYS,
       MATCH_WINDOW_DAYS,
       (d) => amountDay(r.amount, d),
       r.date,

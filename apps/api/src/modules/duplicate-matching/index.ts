@@ -28,6 +28,7 @@ export {
   outcomeCounts,
   planBatch,
   planWindow,
+  PLAN_WORK_MAX,
   REPLACE_TOLERANCE,
   REPLACE_WINDOW_DAYS,
   ROW_OUTCOMES,

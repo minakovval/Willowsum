@@ -1,4 +1,5 @@
 import {
+  PlanTooLargeError,
   planBatch,
   planWindow,
   type IncomingRow,
@@ -18,12 +19,7 @@ export const PLAN_PAGE = 1_000;
 /** The most transactions of the account one plan reads in its window; more — `PlanTooLargeError`, nothing planned. */
 export const PLAN_EXISTING_MAX = 50_000;
 
-export class PlanTooLargeError extends Error {
-  constructor() {
-    super("The account has too many transactions in the window of the batch");
-    this.name = "PlanTooLargeError";
-  }
-}
+export { PlanTooLargeError } from "../domain/index.ts";
 
 export interface PlanDeps {
   /** The transactions module's public `ImportCandidates`. */
