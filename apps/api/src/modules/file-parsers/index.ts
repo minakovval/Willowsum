@@ -11,7 +11,12 @@ export const fileParsersModule = defineModule({
   consumes: [],
 });
 
-export { isolatedStatementParser, PARSE_LIMITS, StatementParseError } from "./adapters/index.ts";
+export {
+  isolatedStatementParser,
+  PARSE_ENGINE_VERSION,
+  PARSE_LIMITS,
+  StatementParseError,
+} from "./adapters/index.ts";
 export type {
   SealedAccountBinding,
   StatementParser,

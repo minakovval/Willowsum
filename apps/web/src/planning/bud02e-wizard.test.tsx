@@ -9,7 +9,7 @@ import { BudgetWizardPage } from "./budget/WizardPage.tsx";
  * BUD-02@PoC e) (wave 2, row 124): the wizard S-122 «Спосіб», S-123 «Період», S-124 «Ліміти». The page alone, on the
  * budget API (`GET /v1/budget/wizard`, `GET /v1/budget`, `GET /v1/categories`, `GET /v1/space`, `POST /v1/budget`).
  * Boards: PocPlanBudgetWiz1, Wiz1NoHist, Wiz2, Wiz3, PocPlanBudgetTexts. The figures are synthetic and the server's:
- * the screen computes none of them. «Розподіл» (S-287, AC6, AC7) and the bottom strip wait for wave 2 row 31.
+ * the screen computes none of them. The creation is on S-287 «Розподіл»; its own tests are in bud02g-distribution.test.tsx.
  */
 const id = (n: number) => `c0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const eur = (amount: string) => ({ amount, currency: "EUR" });
@@ -106,6 +106,21 @@ const wizard = (over: { available?: boolean; months?: number; mid?: boolean } = 
   },
 });
 
+const ALLOCATION = {
+  period: "2026-11",
+  incomePlan: eur("5600.00"),
+  limits: eur("2860.00"),
+  balance: {
+    recurringOutsideLimits: eur("0.00"),
+    unallocated: eur("2740.00"),
+    debtMinimums: eur("0.00"),
+    difference: eur("2740.00"),
+    kind: "surplus",
+    amount: eur("2740.00"),
+  },
+  choice: null,
+};
+
 function mount(over: Record<string, Reply> = {}) {
   const api = fakeApi({
     "GET /v1/budget": { status: 200, body: { budget: null } },
@@ -113,6 +128,10 @@ function mount(over: Record<string, Reply> = {}) {
     "GET /v1/categories": { status: 200, body: TREE },
     "GET /v1/space": { status: 200, body: { name: "Дім", dataRegion: "eu", reportingCurrency: "EUR" } },
     "POST /v1/budget": { status: 201, body: { id: "b1" } },
+    "POST /v1/budget/allocation": { status: 200, body: ALLOCATION },
+    "GET /v1/goals": { status: 200, body: { goals: [] } },
+    "GET /v1/debts": { status: 200, body: { debts: [] } },
+    "GET /v1/accounts": { status: 200, body: { items: [], nextCursor: null } },
     ...over,
   });
   render(
@@ -132,6 +151,13 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+const create = async () => {
+  next();
+  await screen.findByRole("heading", { name: "Розподіл профіциту" });
+  const button = screen.getByRole("button", { name: "Створити бюджет" });
+  await waitFor(() => expect(button.getAttribute("aria-disabled")).not.toBe("true"));
+  fireEvent.click(button);
+};
 const next = () => fireEvent.click(screen.getByRole("button", { name: /Далі/ }));
 const postBody = (api: ReturnType<typeof mount>) =>
   api.calls.find((c) => c.method === "POST" && c.path === "/v1/budget")?.body as {
@@ -218,21 +244,21 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     const limit = screen.getByRole("textbox", { name: "Ліміт: Продукти" });
     fireEvent.change(limit, { target: { value: "abc" } });
     fireEvent.blur(limit);
-    const create = screen.getByRole("button", { name: /Створити бюджет/ });
-    expect(create.getAttribute("aria-disabled") === "true" || (create as HTMLButtonElement).disabled).toBe(
+    const forward = screen.getByRole("button", { name: /Далі/ });
+    expect(forward.getAttribute("aria-disabled") === "true" || (forward as HTMLButtonElement).disabled).toBe(
       true,
     );
     expect(plain(document.body.textContent)).toContain(
       "Щоб продовжити, виправте: План доходу на місяць, Продукти",
     );
-    fireEvent.click(create);
-    expect(api.calls.some((c) => c.method === "POST")).toBe(false);
+    fireEvent.click(forward);
+    expect(api.calls.some((c) => c.method === "POST" && c.path === "/v1/budget")).toBe(false);
     // Corrected: the button works again and the corrected amounts go as typed.
     fireEvent.change(income, { target: { value: "5000" } });
     fireEvent.blur(income);
     fireEvent.change(limit, { target: { value: "300" } });
     fireEvent.blur(limit);
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
     expect(postBody(api).incomePlan?.amount).toBe("5000.00");
     expect(postBody(api).limits[0]!.amount.amount).toBe("300.00");
@@ -243,7 +269,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     const income = screen.getByRole("textbox", { name: /План доходу на місяць/ });
     fireEvent.change(income, { target: { value: "" } });
     fireEvent.blur(income);
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
     expect(postBody(api).incomePlan).toBeUndefined();
   });
@@ -269,7 +295,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Назад" }));
     next();
     expect(plain(document.body.textContent)).not.toContain("Щоб продовжити, виправте");
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
   });
 
@@ -292,7 +318,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     const field = screen.getByRole("textbox", { name: "Ліміт: Транспорт" });
     fireEvent.change(field, { target: { value: "170" } });
     fireEvent.blur(field);
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
     const body = postBody(api);
     expect(body.firstPeriod).toBe("2026-11");
@@ -314,7 +340,7 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     await screen.findByRole("heading", { name: "Ліміти категорій" });
     expect((screen.getByRole("textbox", { name: "Ліміт: Продукти" }) as HTMLInputElement).value).toBe("");
     expect(screen.queryByText("Середнє 3 міс.")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await waitFor(() => expect(postBody(api)).toBeTruthy());
     const body = postBody(api);
     expect(body.limits).toEqual([]);
@@ -329,12 +355,13 @@ describe("BUD-02@PoC e) S-124 «Ліміти» and the creation", () => {
     fireEvent.click((await screen.findAllByRole("radio"))[0]!);
     next();
     await screen.findByRole("heading", { name: "Ліміти категорій" });
-    fireEvent.click(screen.getByRole("button", { name: "Створити бюджет" }));
+    await create();
     await screen.findByText("Не вдалося створити бюджет. Спробуйте ще раз");
+    fireEvent.click(screen.getByRole("button", { name: "Назад" }));
     expect((screen.getByRole("textbox", { name: "Ліміт: Продукти" }) as HTMLInputElement).value).toBe(
       "410,00",
     );
-    expect(api.calls.filter((c) => c.method === "POST").length).toBe(1);
+    expect(api.calls.filter((c) => c.method === "POST" && c.path === "/v1/budget").length).toBe(1);
   });
 
   it("BUD-02 e) error state: a failed load shows «Не вдалося завантажити бюджет» with a retry", async () => {

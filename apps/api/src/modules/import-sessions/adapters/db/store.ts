@@ -3,12 +3,13 @@ import type {
   Batch,
   BatchFile,
   Decided,
+  FileParse,
   FileReview,
-  ReviewBatchesTx,
+  ParseBatchesTx,
   SpaceTx,
 } from "../../application/index.ts";
 import type { BatchState } from "../../domain/index.ts";
-import { enqueueHandOff } from "../queue/job.ts";
+import { enqueueHandOff, enqueueParse, PARSE_FILE_JOB } from "../queue/job.ts";
 
 interface BatchRow {
   household_id: string;
@@ -89,8 +90,47 @@ const review = (r: ReviewRow): FileReview => ({
   recordedAt: r.recorded_at,
 });
 
+interface ParseRow {
+  batch_file_id: string;
+  batch_id: string;
+  parse_id: string;
+  recipe_id: string | null;
+  used_recipe_id: string | null;
+  recipe_format: FileParse["recipeFormat"];
+  account_id: string | null;
+  state: FileParse["state"];
+  refusal_code: string | null;
+  engine_version: string;
+  rows_sealed: Buffer | null;
+  row_count: number | null;
+  requested_by: string;
+  requested_at: Date;
+  parsed_at: Date | null;
+}
+
+const PARSE =
+  "batch_file_id, batch_id, parse_id, recipe_id, used_recipe_id, recipe_format, account_id, state, refusal_code, engine_version, rows_sealed, row_count, requested_by, requested_at, parsed_at";
+
+const fileParse = (r: ParseRow): FileParse => ({
+  batchFileId: r.batch_file_id,
+  batchId: r.batch_id,
+  parseId: r.parse_id,
+  recipeId: r.recipe_id,
+  usedRecipeId: r.used_recipe_id,
+  recipeFormat: r.recipe_format,
+  accountId: r.account_id,
+  state: r.state,
+  refusalCode: r.refusal_code,
+  engineVersion: r.engine_version,
+  rowsSealed: r.rows_sealed,
+  rowCount: r.row_count,
+  requestedBy: r.requested_by,
+  requestedAt: r.requested_at,
+  parsedAt: r.parsed_at,
+});
+
 /** The batches of the transaction's space; every statement names the space too (row policies hold it anyway). */
-export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
+export function batchesTx(q: HouseholdQueryRunner): ParseBatchesTx {
   const h = q.householdId;
   const one = async (sql: string, values: unknown[]) => {
     const { rows } = await q.query<BatchRow>(sql, values);
@@ -270,6 +310,76 @@ export function batchesTx(q: HouseholdQueryRunner): ReviewBatchesTx {
            decision = EXCLUDED.decision, decided_by = EXCLUDED.decided_by, decided_at = EXCLUDED.decided_at`,
         [h, batchId, d.slot, d.fileId, JSON.stringify(d.decision), d.decidedBy, d.decidedAt],
       );
+    },
+    async failedParses(batchId) {
+      const { rows } = await q.query<{ batch_file_id: string }>(
+        `SELECT batch_file_id FROM file_parses WHERE household_id = $1 AND batch_id = $2 AND state = 'failed'`,
+        [h, batchId],
+      );
+      return rows.map((r) => r.batch_file_id);
+    },
+    async upsertParse(p) {
+      await q.query(
+        `INSERT INTO file_parses (household_id, ${PARSE})
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (household_id, batch_file_id) DO UPDATE SET parse_id = EXCLUDED.parse_id,
+           recipe_id = EXCLUDED.recipe_id, used_recipe_id = EXCLUDED.used_recipe_id,
+           recipe_format = EXCLUDED.recipe_format, account_id = EXCLUDED.account_id, state = EXCLUDED.state,
+           refusal_code = EXCLUDED.refusal_code, engine_version = EXCLUDED.engine_version,
+           rows_sealed = EXCLUDED.rows_sealed, row_count = EXCLUDED.row_count, requested_by = EXCLUDED.requested_by,
+           requested_at = EXCLUDED.requested_at, parsed_at = EXCLUDED.parsed_at`,
+        [
+          h,
+          p.batchFileId,
+          p.batchId,
+          p.parseId,
+          p.recipeId,
+          p.usedRecipeId,
+          p.recipeFormat,
+          p.accountId,
+          p.state,
+          p.refusalCode,
+          p.engineVersion,
+          p.rowsSealed,
+          p.rowCount,
+          p.requestedBy,
+          p.requestedAt,
+          p.parsedAt,
+        ],
+      );
+    },
+    async parses(batchId) {
+      const { rows } = await q.query<ParseRow>(
+        `SELECT ${PARSE} FROM file_parses WHERE household_id = $1 AND batch_id = $2 ORDER BY batch_file_id`,
+        [h, batchId],
+      );
+      return rows.map(fileParse);
+    },
+    async lockParse(batchFileId) {
+      const { rows } = await q.query<ParseRow>(
+        `SELECT ${PARSE} FROM file_parses WHERE household_id = $1 AND batch_file_id = $2 FOR UPDATE`,
+        [h, batchFileId],
+      );
+      return rows[0] ? fileParse(rows[0]) : null;
+    },
+    enqueueParse: (job) => enqueueParse(q, job),
+    async parsesInLastHour() {
+      // One «Розібрати» of the space at a time from here to its commit: two batches at once would both read the
+      // count before either queued its jobs and pass the ceiling together (security review of #639).
+      await q.query(
+        `SELECT pg_advisory_xact_lock(hashtextextended('import-sessions.parse-rate:' || $1, 0))`,
+        [h],
+      );
+      const { rows } = await q.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM jobs WHERE household_id = $1 AND name = $2
+           AND created_at > now() - interval '1 hour'`,
+        [h, PARSE_FILE_JOB.name],
+      );
+      return rows[0]!.n;
+    },
+    async dropReview(batchId) {
+      await q.query(`DELETE FROM decisions WHERE household_id = $1 AND batch_id = $2`, [h, batchId]);
+      await q.query(`DELETE FROM file_checks WHERE household_id = $1 AND batch_id = $2`, [h, batchId]);
     },
     async dropDecisions(batchId, fileId) {
       await q.query(

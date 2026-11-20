@@ -208,6 +208,18 @@ export async function openLink(deps: FilesDeps, householdId: string, token: stri
   };
 }
 
+/**
+ * A file's original bytes for a step of the server in the same space (IMP-01 FR 5: the parse step reads the statement
+ * it parses), never an answer to a client — those go through signed links only. Another space's file, an unknown one
+ * or one whose object is gone is FileNotFoundError.
+ */
+export async function readFile(deps: FilesDeps, householdId: string, fileId: string): Promise<Buffer> {
+  const file = await findFile(deps, householdId, fileId);
+  const sealed = await deps.objects.get(file.objectKey);
+  if (!sealed) throw new FileNotFoundError();
+  return deps.crypto.openBytes(householdId, purpose(file.id), sealed);
+}
+
 /** Removes a file and its object (the batch it belongs to is deleted, IMP-01 FR 12, FR 20). */
 export async function removeFile(
   deps: FilesDeps,

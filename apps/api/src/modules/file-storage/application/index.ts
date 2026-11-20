@@ -7,6 +7,7 @@ export {
   findFile,
   linkFile,
   openLink,
+  readFile,
   removeFile,
   spaceUsage,
   storeFile,

@@ -98,6 +98,26 @@ export const synthetic = [
         };
     },
   }),
+  // The parse step: the batch's file whose parse was refused (a code only; parsed rows are sealed, none here).
+  defineSyntheticTable({
+    table: "import_sessions.file_parses",
+    perHousehold: 1,
+    *rows({ household, count }) {
+      for (let i = 0; i < count; i++)
+        yield {
+          household_id: household.id,
+          batch_file_id: key(household.id, "file", i),
+          batch_id: key(household.id, "batch", 0),
+          parse_id: key(household.id, "parse", i),
+          state: "failed",
+          refusal_code: "TOO_MANY_ROWS",
+          engine_version: "1",
+          requested_by: key(household.id, "account", 0),
+          requested_at: "2026-10-15T10:00:00Z",
+          parsed_at: "2026-10-15T10:00:00Z",
+        };
+    },
+  }),
   // IMP-04 a: the stored result of applying a batch (counts only).
   defineSyntheticTable({
     table: "import_sessions.batch_applications",
