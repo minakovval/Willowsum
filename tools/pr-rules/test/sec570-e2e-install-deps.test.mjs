@@ -31,7 +31,7 @@ test('sec570: the install-deps retry loop is fail-closed', () => {
   assert.equal(lines.at(-1), 'exit 1');
   // The only success exit is the branch taken when the bounded install command itself succeeded.
   assert.equal(run.match(/exit 0/g)?.length, 1);
-  assert.match(run, /^ {2}if timeout -k \d+s \d+m pnpm [^;|&\n]*playwright install-deps chromium webkit; then\n {4}exit 0\n {2}fi$/m);
+  assert.match(run, /^ {2}if timeout -k \d+s \d+m pnpm [^;|&\n]*playwright install-deps chromium; then\n {4}exit 0\n {2}fi$/m);
   assert.match(run, /^for attempt in 1 2; do$/m);
 });
 
@@ -43,7 +43,7 @@ test('sec579: the failure guard kills a forced dpkg install hidden behind a tole
     '  sudo dpkg -i x.deb || true\n',
     '  sudo pkill -TERM -x apt-get; exit 0 || true\n',
     '  sudo pkill -f apt || true\n',
-    '  pnpm --filter @willowsum/web exec playwright install-deps chromium webkit || true\n',
+    '  pnpm --filter @willowsum/web exec playwright install-deps chromium || true\n',
   ]) {
     assert.equal(swallowsFailure(run.replace(cleanup, cleanup + mutant)), true, mutant);
   }
@@ -54,10 +54,10 @@ test('sec579: no apt package cache, and every apt install of the e2e job is the 
   assert.doesNotMatch(steps, /apt-archives|Dir::Cache|chmod/);
   assert.doesNotMatch(steps, /--with-deps/);
   assert.equal(steps.match(/playwright install-deps|playwright install [^\n]*--with-deps|\bapt(-get)?\b[^\n]*\binstall\b|\bdpkg\b[^\n]*\s-i\b/g)?.length, 1);
-  const miss = /- name: Install Chromium and WebKit[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
+  const miss = /- name: Install Chromium[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
   const missLimit = Number(/^ {8}timeout-minutes: (\d+)$/m.exec(miss)?.[1]);
   assert.ok(missLimit > 0 && missLimit <= 6, `browser download limit ${missLimit}`);
-  assert.match(code(miss), /^ {8}run: pnpm --filter @willowsum\/web exec playwright install --only-shell chromium webkit$/m);
+  assert.match(code(miss), /^ {8}run: pnpm --filter @willowsum\/web exec playwright install --only-shell chromium$/m);
 });
 
 test('sec570: no workflow expression in the script and no apt trust or source change', () => {
@@ -94,7 +94,7 @@ test('sec590: every privileged or package-manager line of the e2e job is one of 
 test('sec590: the install is bounded at every level and the limits fit into each other', () => {
   const job = Number(/^ {4}timeout-minutes: (\d+)$/m.exec(block)?.[1]);
   const libs = Number(/^ {8}timeout-minutes: (\d+)$/m.exec(step)?.[1]);
-  const miss = /- name: Install Chromium and WebKit[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
+  const miss = /- name: Install Chromium[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
   const browsers = Number(/^ {8}timeout-minutes: (\d+)$/m.exec(miss)?.[1]);
   const [, kill, attempt] = /^ {2}if timeout -k (\d+)s (\d+)m pnpm /m.exec(run) ?? [];
   assert.ok(job > 0 && job <= 30, `job ${job}`);
@@ -104,7 +104,7 @@ test('sec590: the install is bounded at every level and the limits fit into each
 
 test('sec590: the browser cache has one exact key and the browsers come from the default host', () => {
   const cache = /- name: Cache the browsers[^\n]*\n((?: {8,}.*\n)*)/.exec(block)?.[1] ?? '';
-  assert.match(cache, /^ {10}key: playwright-\$\{\{ runner\.os \}\}-\$\{\{ steps\.playwright\.outputs\.version \}\}-chromium-webkit$/m);
+  assert.match(cache, /^ {10}key: playwright-\$\{\{ runner\.os \}\}-\$\{\{ steps\.playwright\.outputs\.version \}\}-chromium$/m);
   assert.doesNotMatch(cache, /restore-keys|enableCrossOsArchive|fail-on-cache-miss/);
   assert.doesNotMatch(code(block), /PLAYWRIGHT_\w*(HOST|SKIP)|HTTPS?_PROXY|NODE_TLS_REJECT_UNAUTHORIZED|NODE_EXTRA_CA_CERTS|NODE_OPTIONS/);
 });
