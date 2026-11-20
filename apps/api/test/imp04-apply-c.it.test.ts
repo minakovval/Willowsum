@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { Decimal } from "@willowsum/domain-kernel";
+import { Decimal, Money } from "@willowsum/domain-kernel";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { mountApi } from "../src/api.ts";
 import { localKeyManagement } from "../src/platform/adapters/kms/index.ts";
@@ -24,6 +24,10 @@ import { transactionsTx } from "../src/modules/transactions/adapters/index.ts";
 import { transactionAudit } from "../src/modules/transactions/adapters/http/services.ts";
 import { fakeFlags, principalHeader, testAuthenticate } from "./http.ts";
 import { householdSpaces, setupRealModules, type RealModulesDatabase } from "./real-modules.ts";
+import { schedulerDailyTasks, workerQueues } from "../src/wiring.ts";
+import { testTelemetryForFile } from "../src/platform/telemetry/testing.ts";
+
+const telemetry = testTelemetryForFile();
 
 /**
  * The apply of an import batch, part c (IMP-04@PoC FR 5, FR 6, AC4, AC6, AC10; #654 item 6) on a real PostgreSQL
@@ -632,3 +636,122 @@ describe("IMP-04@PoC AC10: the apply's audit entry", () => {
     );
   });
 });
+
+describe("ARC-04@PoC FR 2–4: the category of a merge on import — the request's run fails, its job dies, the daily recovery carries it (#658, #249)", () => {
+  it("ARC-04@PoC FR 4: the port `merged` fails — the write stands (WARN deferred), the bank's row has no category; the job of `transactions.import-merged` in state dead goes back with the daily recovery and carries the category once", async () => {
+    const space = await newSpace();
+    const manualId = await manual(space, "-42.00", "2026-04-10", "Обід");
+    const categoryId = randomUUID();
+    await db.owner.query(
+      `INSERT INTO categorization.transaction_categories (household_id, transaction_id, category_id, source)
+       VALUES ($1, $2, $3, 'manual')`,
+      [space.householdId, manualId, categoryId],
+    );
+    const failing = createImportedTransactions(db.databases.for("transactions"), {
+      accounts,
+      ledger: createLedger(db.databases.for("ledger")),
+      audit,
+      newId: randomUUID,
+      now: clock.now,
+      merged: async () => {
+        throw new Error("injected");
+      },
+    });
+    const fileId = randomUUID();
+    await failing.write(
+      space.householdId,
+      {
+        batchId: randomUUID(),
+        attemptId: randomUUID(),
+        actorId: space.accountId,
+        accountIds: [space.eur],
+        fileIds: [fileId],
+      },
+      async (context) => {
+        await context.create([
+          {
+            fileId,
+            row: 1,
+            accountId: space.eur,
+            amount: Money.of("-42.00", "EUR"),
+            date: "2026-04-11",
+            description: "CAFE CENTRAL",
+            counterparty: null,
+            balanceAfter: null,
+            mergeInto: manualId,
+          },
+        ]);
+        return { merge: 1 };
+      },
+    );
+    expect(
+      telemetry.memory
+        .logRecords()
+        .filter((r) => r.body === "transactions.import_merge_deferred")
+        .map((r) => r.severityText),
+    ).toEqual(["WARN"]);
+    const bank = (await rows(space.householdId)).find((r) => r.source === "imported")!;
+    expect(bank).toMatchObject({ hidden: false, merged_into: null });
+    const categoryOf = async (id: string) =>
+      (
+        await db.owner.query<{ category_id: string; source: string; version: number }>(
+          `SELECT category_id, source, version FROM categorization.transaction_categories
+            WHERE household_id = $1 AND transaction_id = $2`,
+          [space.householdId, id],
+        )
+      ).rows[0] ?? null;
+    expect(await categoryOf(bank.id)).toBeNull();
+
+    // The event becomes a categorization job (the module's jobs not taken meanwhile); the job gives up (dead).
+    const relay = createWorker({
+      ...workerQueues(db.databases),
+      households: async () => [space.householdId],
+      moduleAvailable: async (module) => module !== "categorization",
+    });
+    await relay.tick();
+    await relay.idle();
+    await relay.stop();
+    const { rowCount } = await db.owner.query(
+      `UPDATE categorization.jobs SET state = 'dead', attempts = 8
+        WHERE household_id = $1 AND name = 'categorization.import-merged' AND state = 'queued'`,
+      [space.householdId],
+    );
+    expect(rowCount).toBe(1);
+    await drain(space.householdId);
+    expect(await categoryOf(bank.id)).toBeNull();
+
+    const tasks = schedulerDailyTasks({
+      databases: db.databases,
+      audit,
+      spaces: { spaceIds: async () => [space.householdId], membershipOf: spaces.membershipOf },
+      now: clock.now,
+    });
+    await tasks.find((task) => task.name === "categorization.recovery")!.run();
+    await drain(space.householdId);
+    const carried = await categoryOf(bank.id);
+    expect(carried).toMatchObject({ category_id: categoryId, source: "manual" });
+    // Run once more (a second recovery or a duplicate event): nothing changes.
+    await carry(space.householdId, {
+      transactionId: bank.id,
+      duplicateId: manualId,
+      actorAccountId: space.accountId,
+    });
+    expect(await categoryOf(bank.id)).toEqual(carried);
+  });
+});
+
+async function drain(householdId: string): Promise<void> {
+  for (let pass = 0; pass < 10; pass++) {
+    const worker = createWorker({ ...workerQueues(db.databases), households: async () => [householdId] });
+    try {
+      if ((await worker.tick()) === 0) return;
+      await worker.idle();
+    } finally {
+      await worker.stop();
+    }
+  }
+}
+const carry = (
+  householdId: string,
+  merge: { transactionId: string; duplicateId: string; actorAccountId: string },
+) => createImportCategoryCarry(db.databases.for("categorization"))(householdId, merge);

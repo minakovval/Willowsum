@@ -210,9 +210,13 @@ export async function carryImportMerged(
   if (!from || from.source === "none" || from.categoryId === null) return null;
   const kept = await tx.lock(householdId, merge.transactionId);
   const current: TransactionCategory = kept ?? UNCATEGORIZED;
+  // «Без категорії» past the row's first version is a user's (or an undo's) choice: a late run never undoes it.
+  const untouched = kept === null || (kept.source === "none" && kept.version === 1);
   const takes =
-    current.source === "none" ||
-    (current.source !== "manual" && rankOf(from.source) <= rankOf(current.source));
+    untouched ||
+    (current.source !== "none" &&
+      current.source !== "manual" &&
+      rankOf(from.source) <= rankOf(current.source));
   if (!takes) return null;
   const outcome = await writeCategory(tx, householdId, merge.transactionId, {
     categoryId: from.categoryId,
