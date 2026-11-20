@@ -503,7 +503,14 @@ export async function applyBatch(
             const accountId = p.file.review.accountId;
             const planned = await ports.plan(
               { candidates: context.candidates },
-              { batchId, accountId, rows: p.rows, sameFileAppliedIn: p.file.sameFileAppliedIn },
+              {
+                batchId,
+                accountId,
+                rows: p.rows,
+                sameFileAppliedIn: p.file.sameFileAppliedIn,
+                // FR 4 (#655): a card's balance also matches by its size (either basis); any other account by value.
+                creditCard: context.creditCard(accountId),
+              },
             );
             if (planned.some((o) => o.kind === "replace")) throw new ApplyUnsupported("replace");
             const byRow = new Map(p.rows.map((r) => [r.row, r]));
@@ -562,30 +569,39 @@ export async function applyBatch(
  * #654: the daily recovery of applies stuck «in progress» (their request ended after step A, nobody retried) in one
  * space, at most `STUCK_PER_RUN` of them started over `STUCK_AFTER_MS` ago: each is settled with module transactions —
  * written (a crash after B) — finished with the write's counts and its audit entry by the person who applied it; not
- * written — given up, the batch back in its state (no write of that attempt can follow). Returns how many were settled.
+ * written — given up, the batch back in its state (no write of that attempt can follow). Returns how many were settled
+ * and how many could not be (module transactions did not answer, or the finish failed: left «in progress» for the next
+ * run; #655 — counted, never silent).
  */
 export async function recoverStuckApplications(
   deps: Deps,
   ports: Pick<ApplyPorts, "run" | "settle">,
-): Promise<Handed<number>> {
+): Promise<Handed<{ readonly settled: number; readonly failed: number }>> {
   const before = new Date(deps.now().getTime() - STUCK_AFTER_MS);
   const stuck = await ports.run((tx) => tx.stuckApplications(before, STUCK_PER_RUN));
   const handOffs: BatchHandOff[] = [];
   let settled = 0;
+  let failed = 0;
   for (const a of stuck) {
     const accountIds = (await ports.run((tx) => tx.reviews(a.batchId))).flatMap((r) =>
       r.accountId === null ? [] : [r.accountId],
     );
     const counts = await giveUp(deps, ports, a.batchId, a.attemptId, accountIds);
-    if (counts === undefined) continue;
+    if (counts === undefined) {
+      failed += 1;
+      continue;
+    }
     if (counts) {
       const done = await finish(deps, ports.run, a.batchId, a.attemptId, counts, a.appliedBy).catch(
         () => null,
       );
-      if (!done) continue;
+      if (!done) {
+        failed += 1;
+        continue;
+      }
       handOffs.push(...done.handOffs);
     }
     settled += 1;
   }
-  return { result: settled, handOffs };
+  return { result: { settled, failed }, handOffs };
 }

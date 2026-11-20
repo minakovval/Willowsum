@@ -113,6 +113,8 @@ export interface ImportPlanContext {
       },
     ): Promise<readonly ImportCandidateRow[]>;
   };
+  /** FR 4 (#655): the batch's account is a credit card (accounts' kind «credit-card», as read in step 3). */
+  creditCard(accountId: string): boolean;
   /** Writes these rows now (each once by its key); the next file's plan sees them. */
   create(rows: readonly ImportedRowInput[]): Promise<void>;
 }
@@ -298,7 +300,11 @@ export async function writeImport(
       handOffs.push(h);
     }
   };
-  const counts = await plan({ candidates: tx.candidates, create });
+  const counts = await plan({
+    candidates: tx.candidates,
+    create,
+    creditCard: (accountId) => accounts.get(accountId.toLowerCase())?.kind === "credit-card",
+  });
   // Step 5: the money lock only now; the accounts as they are under it.
   await tx.lockAccounts(householdId, accountIds);
   const locked = await readAccounts();

@@ -47,7 +47,9 @@ const plan = (
   rows: readonly IncomingRow[],
   existing: readonly KnownTransaction[] = [],
   sameFile: string | null = null,
-) => planBatch({ batchId: BATCH, accountId: ACCOUNT, rows, existing, sameFileAppliedIn: sameFile });
+  creditCard = false,
+) =>
+  planBatch({ batchId: BATCH, accountId: ACCOUNT, rows, existing, sameFileAppliedIn: sameFile, creditCard });
 
 /** The rows the apply step creates a transaction for. */
 const CREATES = new Set(["import", "repeat", "possible-duplicate", "replace"]);
@@ -137,7 +139,7 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
     ]);
   });
 
-  it("IMP-04@PoC FR 4: a card's overlapping statements stored in the debt basis and as printed — the shared rows are duplicates (#654)", () => {
+  it("IMP-04@PoC FR 4: a credit card's overlapping statements stored in the debt basis and as printed — the shared rows are duplicates (#654)", () => {
     // The first statement, applied with the debt basis confirmed (IMP-05 FR 6): its balances stored negative.
     const debt = [
       tx({ amount: EUR("-40.00"), date: "2026-05-04", description: "SHOP", balanceAfter: EUR("-140.00") }),
@@ -149,7 +151,7 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
       row({ amount: EUR("-10.00"), date: "2026-05-05", description: "CAFE", balance: EUR("150.00") }),
       row({ amount: EUR("-5.00"), date: "2026-05-06", description: "BUS", balance: EUR("155.00") }),
     ];
-    const out = plan(printed, debt);
+    const out = plan(printed, debt, null, true);
     expect(kinds(out)).toEqual(["duplicate", "duplicate", "import"]);
     expect(created(out)).toBe(1);
     // Another size of the balance is still another operation.
@@ -159,7 +161,57 @@ describe("IMP-04@PoC FR 1: the duplicate key and max(0, n − k)", () => {
       description: "SHOP",
       balance: EUR("141.00"),
     });
-    expect(plan([other], [debt[0]!])[0]!.kind).not.toBe("duplicate");
+    expect(plan([other], [debt[0]!], null, true)[0]!.kind).not.toBe("duplicate");
+  });
+
+  it("IMP-04@PoC FR 1: on an account that is not a credit card a balance matches by value only — a stored +10.00 is no duplicate of a row with −10.00 (#655)", () => {
+    const stored = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    // The new file starts in the middle of the day: only the later coffee, after it −10.00.
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    expect(plan([later], [stored])[0]!.kind).not.toBe("duplicate");
+    expect(created(plan([later], [stored]))).toBe(1);
+    // The same rows on a credit card: either basis of its balance, so a duplicate.
+    expect(plan([later], [stored], null, true)[0]).toMatchObject({
+      kind: "duplicate",
+      of: stored.transactionId,
+    });
+  });
+
+  it("IMP-04@PoC FR 1: a balance that crosses zero — the row with the same balance is the duplicate, the other one is imported", () => {
+    // An overdraft account: two coffees of a day, after the first +10.00, after the second −10.00 (rent in between).
+    const first = tx({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balanceAfter: EUR("10.00"),
+    });
+    // The next statement newest first: the −10.00 row comes before the +10.00 one.
+    const later = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("-10.00"),
+    });
+    const same = row({
+      amount: EUR("-3.20"),
+      date: "2026-05-04",
+      description: "COFFEE",
+      balance: EUR("10.00"),
+    });
+    const out = plan([later, same], [first]);
+    expect(out.find((o) => o.row === same.row)).toMatchObject({ kind: "duplicate", of: first.transactionId });
+    expect(out.find((o) => o.row === later.row)!.kind).not.toBe("duplicate");
+    expect(created(out)).toBe(1);
   });
 
   it("IMP-04@PoC FR 1: the normalized description — NFKC, lower case, one space, trimmed", () => {

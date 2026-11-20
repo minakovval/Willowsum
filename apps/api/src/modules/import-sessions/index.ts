@@ -189,7 +189,9 @@ export function createImportSessionsApplyRecovery(options: {
             run: (work) => options.db.inHousehold(householdId, (q) => work(applyTx(q))),
             settle: (input) => options.transactions.settle(householdId, input),
           });
-          settled += result;
+          settled += result.settled;
+          // An apply that could not be settled stays «in progress» for the next run: the task fails (a count only).
+          if (result.failed > 0) failed += 1;
           // The entries right away; a failure leaves them to the worker (the jobs are queued, ARC-04 FR 2).
           for (const h of handOffs) await applyHandOff(audit, householdId, h).catch(() => undefined);
         } catch {

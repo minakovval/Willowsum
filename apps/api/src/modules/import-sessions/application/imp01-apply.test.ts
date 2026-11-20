@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StatementEvent } from "../../file-parsers/index.ts";
 import { checkedResult, ApplicationResultError } from "./applications.ts";
-import { fileRows } from "./apply.ts";
+import { fileRows, recoverStuckApplications, type ApplyBatchesTx } from "./apply.ts";
 import type { FilePlan, FileReview } from "./review.ts";
 
 /** IMP-01@PoC FR 11 (#637 item 1): what the apply writes of one file's rows under its plan — pure. Synthetic rows. */
@@ -129,5 +129,38 @@ describe("IMP-04@PoC FR 7: the stored result is counts only (#654)", () => {
       ),
     ])
       expect(() => checkedResult({ counts })).toThrow(ApplicationResultError);
+  });
+});
+
+describe("IMP-04@PoC FR 7: the daily recovery never fails silently (#655)", () => {
+  it("IMP-04@PoC FR 7: a stuck apply module transactions cannot settle is counted as failed and left «in progress»", async () => {
+    const stuck = {
+      batchId: "b",
+      result: { counts: {} },
+      appliedBy: "u",
+      appliedAt: new Date("2026-11-20T09:00:00Z"),
+      inProgress: true,
+      fromState: "parsed" as const,
+      attemptId: "a",
+    };
+    let dropped = false;
+    const tx = {
+      stuckApplications: async () => [stuck],
+      reviews: async () => [],
+      dropApplication: async () => {
+        dropped = true;
+      },
+    } as unknown as ApplyBatchesTx;
+    const out = await recoverStuckApplications(
+      { newId: () => "id", now: () => new Date("2026-11-20T10:00:00Z") },
+      {
+        run: (work) => work(tx),
+        settle: async () => {
+          throw new Error("lock wait");
+        },
+      },
+    );
+    expect(out.result).toEqual({ settled: 0, failed: 1 });
+    expect(dropped).toBe(false);
   });
 });
