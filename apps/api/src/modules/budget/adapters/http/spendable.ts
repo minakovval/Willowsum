@@ -2,7 +2,14 @@ import { z } from "zod";
 import { Money } from "@willowsum/domain-kernel";
 import { ApiProblem } from "../../../../platform/http/problem.ts";
 import { defineRoute } from "../../../../platform/http/route.ts";
-import { byId, countsFrom, isIncluded, periodPlan, planCellsInEffect } from "../../application/index.ts";
+import {
+  byId,
+  countsFrom,
+  isIncluded,
+  periodPlan,
+  planCellsInEffect,
+  spendableAmounts,
+} from "../../application/index.ts";
 import {
   daysLeft,
   goalContributions,
@@ -11,6 +18,7 @@ import {
   mandatoryNeeds,
   periodFigures,
   periodOf,
+  plannedDebtExpenses,
   spendable,
 } from "../../domain/index.ts";
 import { budgetTx } from "../db/store.ts";
@@ -31,8 +39,6 @@ const FEATURE = "budget.spendable";
 
 const moneySchema = z.object({ amount: z.string(), currency: z.string() });
 const money = (m: Money) => m.toJSON();
-const total = <T extends { amount: Money }>(items: readonly T[], zero: Money) =>
-  items.reduce((t, i) => t.plus(i.amount), zero);
 
 const SOURCES = ["obligations", "incomes", "goals", "plannedExpenses"] as const;
 
@@ -184,9 +190,7 @@ export const getSpendableRoute = defineRoute({
       .map((a) => a.accountId);
     const [counted, obligations, goals, extra, incomes] = await Promise.all([
       // EC5: «Витратити з цілі» — those transactions no longer lower the sum (BUD-05@PoC FR 8).
-      deps.reads.amounts(householdId, accountIds, period, budget.currency, from, undefined, {
-        withoutGoalSpends: true,
-      }),
+      spendableAmounts(deps, householdId, accountIds, period, budget.currency, from),
       deps.obligations ? deps.obligations.month(householdId, period, budget.currency, from) : null,
       deps.planSources ? deps.planSources.goals(householdId, budget.currency) : [],
       deps.planSources ? deps.planSources.extraPayments(householdId, period, budget.currency) : [],
@@ -200,6 +204,18 @@ export const getSpendableRoute = defineRoute({
       cells,
       budget.currency,
     );
+    // FR 6 (#661): a month's `debt` cell of «План» in place of the debt's payoff-plan extra payment, as the grid and
+    // the wizard count it — only for a debt the month owes.
+    const expenses =
+      extra && obligations
+        ? plannedDebtExpenses(
+            period,
+            extra,
+            new Set([...obligations.debtMinimums.map((d) => d.accountId), ...extra.map((e) => e.accountId)]),
+            cells,
+            budget.currency,
+          )
+        : null;
     const unavailable: (typeof SOURCES)[number][] = [];
     if (!obligations) unavailable.push("obligations");
     else if (obligations.incomeExpected === null) unavailable.push("incomes");
@@ -219,12 +235,12 @@ export const getSpendableRoute = defineRoute({
           const g = goals.find((x) => x.goalId === r.goalId);
           return g?.contributedApproximate === true || (r.fromRequired && g?.requiredApproximate === true);
         }) ?? false,
-      plannedExpenses: extra?.some((e) => e.approximate === true) ?? false,
+      plannedExpenses: expenses?.approximate ?? extra?.some((e) => e.approximate === true) ?? false,
     };
     const base = { period, currency: budget.currency, daysLeft: daysLeft(today, period) };
     // EC4: a transaction without any rate (or out of range) — no sum, never a partial one shown as complete; the
     // client reads it from `approximate.unavailableCount` (#651: `unavailable` keeps its published values).
-    if (unavailable.length > 0 || counted.unavailableCount > 0 || !obligations || !contributions || !extra)
+    if (unavailable.length > 0 || counted.unavailableCount > 0 || !obligations || !contributions || !expenses)
       return { ...base, figures: null, unavailable, approximate };
     const zero = Money.zero(budget.currency);
     const stillExpected = obligations.incomeExpected ?? zero;
@@ -240,7 +256,7 @@ export const getSpendableRoute = defineRoute({
       // Business rules (#641): a contribution is no spending but lowers the sum — what came in this month and what
       // is still planned (Σ max(planned, contributed)).
       goalContributions: contributions.total.plus(contributions.contributed),
-      plannedExpenses: total(extra, zero),
+      plannedExpenses: expenses.total,
       // FR 10: «заплановані заощадження» — the goals' planned contributions and «Заощадження без цілі» of «План».
       plannedSavings: contributions.plannedSavings,
     });
@@ -293,7 +309,7 @@ export const getSpendableRoute = defineRoute({
           total: money(s.goalContributions),
         },
         plannedExpenses: {
-          items: extra.map((e) => ({ accountId: e.accountId, amount: money(e.amount) })),
+          items: expenses.items.map((e) => ({ accountId: e.accountId, amount: money(e.amount) })),
           total: money(s.plannedExpenses),
         },
         mandatory: {
